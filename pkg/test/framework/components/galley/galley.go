@@ -46,6 +46,9 @@ type Instance interface {
 	// ClearConfig clears all applied config so far.
 	ClearConfig() error
 
+	// GetConfigDir returns the current configuration directory.
+	GetConfigDir() string
+
 	// SetMeshConfig applies the given mesh config.
 	SetMeshConfig(meshCfg string) error
 

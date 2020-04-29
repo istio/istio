@@ -118,6 +118,10 @@ type kubeComponent struct {
 
 var _ Instance = &kubeComponent{}
 
+func (c *kubeComponent) GetConfigDir() string {
+	return ""
+}
+
 // ID implements resource.Instance
 func (c *kubeComponent) ID() resource.ID {
 	return c.id
