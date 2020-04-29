@@ -52,6 +52,12 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
 {{- end }}
       serviceAccountName: istio-ingressgateway-service-account
 {{- if .Values.global.priorityClassName }}
