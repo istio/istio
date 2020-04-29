@@ -78,9 +78,14 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			return resp
 		}
 
+		// TODO: what is the proper way to handle errors ?
+		// Normally once istio is 'ready' List can't return errors on a valid config -
+		// even if k8s is disconnected, we still cache all previous results.
+		// This needs further consideration - I don't think XDS or MCP transports
+		// have a clear recommendation.
 		cfg, err := push.IstioConfigStore.List(rgvk, "")
 		if err != nil {
-			log.Warnf("ADS: Unknown watched resources %s %v", w.TypeUrl, err)
+			log.Warnf("ADS: Error reading resource %s %v", w.TypeUrl, err)
 			return resp
 		}
 		for _, c := range cfg {
