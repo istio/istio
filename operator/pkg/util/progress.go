@@ -24,6 +24,14 @@ import (
 	"github.com/cheggaaa/pb/v3"
 )
 
+type InstallState int
+
+const (
+	StateInstalling InstallState = iota
+	StatePruning
+	StateComplete
+)
+
 // ProgressLog records the progress of an installation
 // This aims to provide information about the install of multiple components in parallel, while working
 // around the limitations of the pb library, which will only support single lines. To do this, we aggregate
@@ -33,6 +41,7 @@ type ProgressLog struct {
 	bar        *pb.ProgressBar
 	template   string
 	mu         sync.Mutex
+	state      InstallState
 }
 
 func NewProgressLog() *ProgressLog {
@@ -41,6 +50,8 @@ func NewProgressLog() *ProgressLog {
 		bar:        createBar(),
 	}
 }
+
+const inProgress = `{{ yellow (cycle . "-" "-" "-" " ") }} `
 
 // createStatus will return a string to report the current status.
 // ex: - Processing resources for components. Waiting for foo, bar
@@ -57,7 +68,7 @@ func (p *ProgressLog) createStatus(maxWidth int) string {
 	if len(wait) > 0 {
 		msg += fmt.Sprintf(` Waiting for %s`, strings.Join(wait, ", "))
 	}
-	prefix := `{{ yellow (cycle . "-" "-" "-" " ") }} `
+	prefix := inProgress
 	if !p.bar.GetBool(pb.Terminal) {
 		// If we aren't a terminal, no need to spam extra lines
 		prefix = `{{ yellow "-" }} `
@@ -115,6 +126,20 @@ func (p *ProgressLog) reportProgress(component string) func() {
 			return
 		}
 		p.SetMessage(p.createStatus(p.bar.Width()), false)
+	}
+}
+
+func (p *ProgressLog) SetState(state InstallState) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.state = state
+	switch p.state {
+	case StatePruning:
+		p.bar.SetTemplateString(inProgress + `Pruning removed resources`)
+		p.bar.Write()
+	case StateComplete:
+		p.bar.SetTemplateString(`{{ green "✔" }} Installation complete`)
+		p.bar.Write()
 	}
 }
 
