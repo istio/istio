@@ -156,8 +156,6 @@
       concurrency: {{ .Values.global.proxy.concurrency | default 2 }}
       #
       tracing:
-        tlsSettings: 
-{{ toYaml .Values.global.tracer.tlsSettings | trim | indent 10 }}
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
         lightstep:
           # Address of the LightStep Satellite pool

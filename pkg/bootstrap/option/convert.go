@@ -58,10 +58,7 @@ func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_
 
 func tlsConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata) convertFunc {
 	return func(*instance) (interface{}, error) {
-		tlsContext, error := tlsContextConvert(tls, sniName, metadata)
-		if error != nil {
-			return "", error
-		}
+		tlsContext := tlsContextConvert(tls, sniName, metadata)
 		if tlsContext == nil {
 			return "", nil
 		}
@@ -72,10 +69,7 @@ func tlsConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata
 func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata, isH2 bool) convertFunc {
 
 	return func(*instance) (interface{}, error) {
-		tlsContext, error := tlsContextConvert(tls, sniName, metadata)
-		if error != nil {
-			return "", error
-		}
+		tlsContext := tlsContextConvert(tls, sniName, metadata)
 		if tlsContext == nil {
 			return "", nil
 		}
@@ -91,7 +85,7 @@ func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName stri
 	}
 }
 
-func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata) (*auth.UpstreamTLSContext, error) {
+func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata) *auth.UpstreamTLSContext {
 	caCertificates := tls.CaCertificates
 	if caCertificates == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
 		caCertificates = constants.DefaultCertChain
@@ -132,7 +126,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		if clientCertificate == "" || privateKey == "" {
 			// TODO(nmittler): Should this be an error?
 			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty", sniName)
-			return nil, nil
+			return nil
 		}
 
 		tlsContext = &auth.UpstreamTLSContext{
@@ -161,9 +155,9 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		}
 	default:
 		// No TLS.
-		return nil, nil
+		return nil
 	}
-	return tlsContext, nil
+	return tlsContext
 }
 
 func nodeMetadataConverter(metadata *model.NodeMetadata, rawMeta map[string]interface{}) convertFunc {

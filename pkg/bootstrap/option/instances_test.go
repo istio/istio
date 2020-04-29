@@ -699,7 +699,8 @@ func TestOptions(t *testing.T) {
 				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
 				CaCertificates: "/etc/tracing/ca.pem",
 			}, &model.NodeMetadata{}, false),
-			expected: "{\"name\":\"tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\",\"common_tls_context\":{\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/tracing/ca.pem\"}}}}}",
+			expected: "{\"name\":\"tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\"," +
+				"\"common_tls_context\":{\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/tracing/ca.pem\"}}}}}",
 		},
 	}
 
