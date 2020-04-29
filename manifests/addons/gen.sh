@@ -23,6 +23,24 @@ ADDONS="${WD}/../../samples/addons"
 DASHBOARDS="${WD}/../charts/istio-telemetry/grafana/dashboards"
 mkdir -p "${ADDONS}"
 
+KIALI_SRC=$(mktemp -d)
+KIALI_VERSION=1.17.0
+pushd "${KIALI_SRC}"
+curl -s -L https://github.com/kiali/kiali-operator/archive/v${KIALI_VERSION}.tar.gz | tar xz
+OPERATOR_ROLE_CREATE="- create" OPERATOR_ROLE_DELETE="- delete" OPERATOR_ROLE_PATCH="- patch" ./kiali-operator-${KIALI_VERSION}/deploy/merge-operator-yaml.sh \
+  -f "${ADDONS}/kiali.yaml" --operator-image-version v${KIALI_VERSION} --operator-namespace istio-system
+cat <<EOF > "${ADDONS}/kiali.yaml"
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: kiali
+  namespace: istio-system
+spec:
+  strategy:
+    auth: anonymous
+EOF
+popd
+
 helm3 template prometheus stable/prometheus \
   --namespace istio-system \
   --version 11.0.2 \
@@ -53,3 +71,4 @@ kubectl create configmap istio-services-grafana-dashboards \
 
 # Zipkin does not have a helm chart, but the deployment is trivial
 cp "${WD}/zipkin.yaml" "${ADDONS}/zipkin.yaml"
+cp "${WD}/jaeger.yaml" "${ADDONS}/jaeger.yaml"
