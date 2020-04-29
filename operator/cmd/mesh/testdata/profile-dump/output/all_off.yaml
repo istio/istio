@@ -105,18 +105,6 @@ spec:
           - name: https
             port: 443
             targetPort: 8443
-          - name: kiali
-            port: 15029
-            targetPort: 15029
-          - name: prometheus
-            port: 15030
-            targetPort: 15030
-          - name: grafana
-            port: 15031
-            targetPort: 15031
-          - name: tracing
-            port: 15032
-            targetPort: 15032
           - name: tls
             port: 15443
             targetPort: 15443
@@ -220,6 +208,7 @@ spec:
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
+        env: {}
         name: istio-egressgateway
         secretVolumes:
         - mountPath: /etc/istio/egressgateway-certs
@@ -229,11 +218,13 @@ spec:
           name: egressgateway-ca-certs
           secretName: istio-egressgateway-ca-certs
         type: ClusterIP
+        zvpn: {}
       istio-ingressgateway:
         applicationPorts: ""
         autoscaleEnabled: true
         debug: info
         domain: ""
+        env: {}
         meshExpansionPorts:
         - name: tcp-pilot-grpc-tls
           port: 15011
@@ -256,6 +247,7 @@ spec:
           name: ingressgateway-ca-certs
           secretName: istio-ingressgateway-ca-certs
         type: LoadBalancer
+        zvpn: {}
     global:
       arch:
         amd64: 2
@@ -348,8 +340,6 @@ spec:
         lightstep:
           accessToken: ""
           address: ""
-          cacertPath: ""
-          secure: true
         stackdriver:
           debug: false
           maxNumberOfAnnotations: 200
@@ -405,6 +395,8 @@ spec:
       contextPath: /kiali
       createDemoSecret: false
       dashboard:
+        auth:
+          strategy: login
         grafanaInClusterURL: http://grafana:3000
         jaegerInClusterURL: http://tracing/jaeger
         passphraseKey: passphrase
@@ -419,8 +411,11 @@ spec:
         cert_file: /kiali-cert/cert-chain.pem
         enabled: false
         private_key_file: /kiali-cert/key.pem
+      service:
+        annotations: {}
       tag: v1.15
-    meshConfig: {}
+    meshConfig:
+      enablePrometheusMerge: false
     mixer:
       adapters:
         kubernetesenv:
@@ -511,6 +506,7 @@ spec:
         enabled: false
       v2:
         enabled: true
+        metadataExchange: {}
         prometheus:
           enabled: true
         stackdriver:

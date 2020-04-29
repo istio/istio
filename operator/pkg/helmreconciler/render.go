@@ -175,19 +175,20 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 }
 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
-func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDependencies bool) (object.K8sObjects, error) {
+func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDependencies bool) (object.K8sObjects, int, error) {
 	var processedObjects object.K8sObjects
+	var deployedObjects int
 	for _, m := range manifests {
 		var errs util.Errors
 		crHash, err := h.getCRHash(m.Name)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		scope.Infof("Processing resources from manifest: %s for CR %s", m.Name, crHash)
 		allObjects, err := object.ParseK8sObjectsFromYAMLManifest(m.Content)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		objectCachesMu.Lock()
@@ -210,7 +211,6 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDe
 
 		// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR crHash and no
 		// other controller is allowed to work on at the same time.
-		var deployedObjects int
 		var changedObjects object.K8sObjects
 		var changedObjectKeys []string
 		allObjectsMap := make(map[string]bool)
@@ -246,7 +246,7 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDe
 			for _, obj := range objList {
 				obju := obj.UnstructuredObject()
 				if err := h.applyLabelsAndAnnotations(obju, m.Name); err != nil {
-					return nil, err
+					return nil, 0, err
 				}
 				if err := h.ProcessObject(m.Name, obj.UnstructuredObject()); err != nil {
 					scope.Error(err.Error())
@@ -275,7 +275,7 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDe
 		if len(changedObjectKeys) > 0 {
 			if len(errs) != 0 {
 				plog.ReportError(util.ToString(errs.Dedup(), "\n"))
-				return processedObjects, errs.ToError()
+				return processedObjects, 0, errs.ToError()
 			}
 
 			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
@@ -286,7 +286,7 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDe
 				if err != nil {
 					werr := fmt.Errorf("failed to wait for resource: %v", err)
 					plog.ReportError(werr.Error())
-					return processedObjects, werr
+					return processedObjects, 0, werr
 				}
 				plog.ReportFinished()
 			} else {
@@ -294,7 +294,7 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDe
 			}
 		}
 	}
-	return processedObjects, nil
+	return processedObjects, deployedObjects, nil
 }
 
 // ProcessObject creates or updates an object in the API server depending on whether it already exists.
@@ -348,9 +348,6 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 				return err
 			}
 			updateErr := h.client.Update(context.TODO(), receiver)
-			if updateErr != nil {
-				scope.Warnf("update %v: %v", receiver.GetName(), updateErr)
-			}
 			return updateErr
 		}
 		return nil
@@ -479,4 +476,22 @@ func (mm ChartManifestsMap) Consolidated() map[string]string {
 		out[cname] = allM
 	}
 	return out
+}
+
+// removeFromObjectCache removes object with objHash in componentName from the object cache.
+func (h *HelmReconciler) removeFromObjectCache(componentName, objHash string) {
+	crHash, err := h.getCRHash(componentName)
+	if err != nil {
+		scope.Error(err.Error())
+	}
+	objectCachesMu.Lock()
+	objectCache := objectCaches[crHash]
+	objectCachesMu.Unlock()
+
+	if objectCache != nil {
+		objectCache.mu.Lock()
+		delete(objectCache.cache, objHash)
+		objectCache.mu.Unlock()
+		scope.Infof("Removed object %s from cache.", objHash)
+	}
 }

@@ -38,6 +38,9 @@ type Controller interface {
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
+
+	// HasSynced returns true after initial cache synchronization is complete
+	HasSynced() bool
 }
 
 // Event represents a registry update event
