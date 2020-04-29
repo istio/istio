@@ -25,9 +25,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/api/label"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"

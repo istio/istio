@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/api/label"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"

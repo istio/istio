@@ -21,14 +21,14 @@ import (
 	"sync"
 	"time"
 
-	"helm.sh/helm/v3/pkg/releaseutil"
-	"istio.io/api/label"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"istio.io/api/label"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/pkg/version"
@@ -39,8 +39,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/pkg/version"
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts.

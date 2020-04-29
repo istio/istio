@@ -28,7 +28,6 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"istio.io/api/label"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -36,6 +35,8 @@ import (
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
+
+	"istio.io/api/label"
 
 	"istio.io/pkg/version"
 
