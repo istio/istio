@@ -265,10 +265,15 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
 		return nil, fmt.Errorf("error initializing monitor: %v", err)
 	}
-	args.Config.ControllerOptions.CAROOT = ""
+	// TODO(irisdingbj):add integration test after centralIstiod finished
+	args.Config.ControllerOptions.FetchCaRoot = nil
 	if features.CentralIstioD {
 		if s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
-			args.Config.ControllerOptions.CAROOT = string(s.ca.GetCAKeyCertBundle().GetRootCertPem())
+			args.Config.ControllerOptions.FetchCaRoot = func() map[string]string {
+				return map[string]string{
+					constants.CACertNamespaceConfigMapDataName: string(s.ca.GetCAKeyCertBundle().GetRootCertPem()),
+				}
+			}
 		}
 	}
 	if err := s.initClusterRegistries(args); err != nil {

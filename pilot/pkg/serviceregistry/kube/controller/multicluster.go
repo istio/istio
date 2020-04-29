@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 
 	"k8s.io/client-go/kubernetes"
@@ -39,7 +38,6 @@ type kubeController struct {
 type Multicluster struct {
 	WatchedNamespace  string
 	DomainSuffix      string
-	caroot            string
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
 	XDSUpdater        model.XDSUpdater
@@ -48,6 +46,9 @@ type Multicluster struct {
 	m                     sync.Mutex // protects remoteKubeControllers
 	remoteKubeControllers map[string]*kubeController
 	networksWatcher       mesh.NetworksWatcher
+
+	// fetchCaRoot maps the certificate name to the certificate
+	fetchCaRoot func() map[string]string
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -70,7 +71,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		remoteKubeControllers: remoteKubeController,
 		networksWatcher:       networksWatcher,
 		metrics:               opts.Metrics,
-		caroot:                opts.CAROOT,
+		fetchCaRoot:           opts.FetchCaRoot,
 	}
 
 	err := secretcontroller.StartSecretController(
@@ -114,12 +115,8 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 		ResyncPeriod: m.ResyncPeriod,
 		DomainSuffix: m.DomainSuffix,
 	}
-	if m.caroot != "" {
-		nc := NewNamespaceController(func() map[string]string {
-			return map[string]string{
-				constants.CACertNamespaceConfigMapDataName: m.caroot,
-			}
-		}, opts, clientset)
+	if m.fetchCaRoot != nil {
+		nc := NewNamespaceController(m.fetchCaRoot, opts, clientset)
 		go nc.Run(stopCh)
 	}
 	return nil
