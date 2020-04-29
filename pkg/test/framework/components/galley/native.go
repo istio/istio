@@ -195,6 +195,26 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 	})
 }
 
+// ApplyConfigDir implements Galley.DeleteConfigDir.
+func (c *nativeComponent) DeleteConfigDir(ns namespace.Instance, sourceDir string) (err error) {
+	defer appsignals.Notify("galley.native.DeleteConfigDir", syscall.SIGUSR1)
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		contents, readerr := ioutil.ReadFile(path)
+		if readerr != nil {
+			return readerr
+		}
+
+		return c.DeleteConfig(ns, string(contents))
+	})
+}
+
 // SetMeshConfig implements Instance
 func (c *nativeComponent) SetMeshConfig(meshCfg string) error {
 	if err := ioutil.WriteFile(c.meshConfigFile, []byte(meshCfg), os.ModePerm); err != nil {
