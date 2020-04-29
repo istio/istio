@@ -267,7 +267,7 @@ function install_metallb() {
   kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
   kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
 
- if [ -z "${METALLB_IPS[@]}" ]; then
+ if [ -z "${METALLB_IPS[*]}" ]; then
     # Take IPs from the end of the docker bridge network subnet to use for MetalLB IPs
     DOCKER_BRIDGE_SUBNET="$(docker inspect bridge | jq .[0].IPAM.Config[0].Subnet -r)"
     METALLB_IPS=()
