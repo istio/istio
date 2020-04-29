@@ -364,7 +364,7 @@ func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag strin
 		return 0, 0, err
 	}
 
-	cp, err := controlplane.NewIstioOperator(iop.Spec, t)
+	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t)
 	if err != nil {
 		return 0, 0, err
 	}
