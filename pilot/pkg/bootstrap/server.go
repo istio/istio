@@ -199,11 +199,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		Namespace:   args.Namespace,
 	}
 
-	s.EnvoyXdsServer.Generators["api"] = &apigen.ApiGenerator{}
-	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
+	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
 	epGen := &envoyv2.EdsGenerator{s.EnvoyXdsServer}
-	s.EnvoyXdsServer.Generators["grpc/" + envoyv2.EndpointType] = epGen
-	s.EnvoyXdsServer.Generators["api/" + envoyv2.EndpointType] = epGen
+	s.EnvoyXdsServer.Generators["api/"+envoyv2.EndpointType] = epGen
+	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
+	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
 
 	if features.JwtPolicy.Get() != jwt.JWTPolicyThirdPartyJWT {
 		log.Infoa("JWT policy is ", features.JwtPolicy.Get())

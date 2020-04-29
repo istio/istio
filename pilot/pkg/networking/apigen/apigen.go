@@ -28,30 +28,32 @@ import (
 	"istio.io/pkg/log"
 )
 
-// ApiGenerator supports generation of high-level API resources, similar with the MCP
+// APIGenerator supports generation of high-level API resources, similar with the MCP
 // protocol. This is a replacement for MCP, using XDS (and in future UDPA) as a transport.
-// Based on lessons from MCP, the protocol allows 'chunking' and 'incremental' updates by
+// Based on lessons from MCP, the protocol allows incremental updates by
 // default, using the same mechanism that EDS is using, i.e. sending only changed resources
-// in a push.
-type ApiGenerator struct {
+// in a push. Incremental deletes are sent as a resource with empty body.
+//
+// Example: networking.istio.io/v1alpha3/VirtualService
+//
+// TODO: we can also add a special marker in the header)
+type APIGenerator struct {
 }
 
 // TODO: take 'updates' into account, don't send pushes for resources that haven't changed
 // TODO: support WorkloadEntry - to generate endpoints (equivalent with EDS)
+// TODO: based on lessons from MCP, we want to send 'chunked' responses, like apiserver does.
+// A first attempt added a 'sync' record at the end. Based on feedback and common use, a
+// different approach can be used - for large responses, we can mark the last one as 'hasMore'
+// by adding a field to the envelope.
 
 // Generate implements the generate method for high level APIs, like Istio config types.
 // This provides similar functionality with MCP and :8080/debug/configz.
 //
-// Names are based on the current resource naming in istiod.
-// IMPORTANT: based on lessons from MCP, the response has as last element a 'sync' resource.
-// Currently a 'sync' just an empty one.
-// This will allow avoiding extremely large packet sizes, and chunking. Not yet reflected in
-// the XDS implementation, but useful to get into the initial protocol. The behavior is specific
-// to this type of resources - and not prohibited by the ADS protocol, EDS has a similar behavior.
-func (g *ApiGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+// Names are based on the current resource naming in istiod stores.
+func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	resp := []*golangany.Any{}
 
-	// Example: networking.istio.io/v1alpha3/VirtualService
 	// Note: this is the style used by MCP and its config. Pilot is using 'Group/Version/Kind' as the
 	// key, which is similar.
 	//
@@ -76,9 +78,14 @@ func (g *ApiGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			return resp
 		}
 
+		// TODO: what is the proper way to handle errors ?
+		// Normally once istio is 'ready' List can't return errors on a valid config -
+		// even if k8s is disconnected, we still cache all previous results.
+		// This needs further consideration - I don't think XDS or MCP transports
+		// have a clear recommendation.
 		cfg, err := push.IstioConfigStore.List(rgvk, "")
 		if err != nil {
-			log.Warnf("ADS: Unknown watched resources %s %v", w.TypeUrl, err)
+			log.Warnf("ADS: Error reading resource %s %v", w.TypeUrl, err)
 			return resp
 		}
 		for _, c := range cfg {
@@ -126,8 +133,6 @@ func (g *ApiGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			}
 		}
 	}
-
-	resp = append(resp, &golangany.Any{})
 
 	return resp
 }

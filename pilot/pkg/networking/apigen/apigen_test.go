@@ -19,7 +19,6 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -33,17 +32,8 @@ import (
 )
 
 var (
-	istiodDNSAddr = "127.0.0.1:14053"
-	agentDNSAddr  = "127.0.0.1:14054"
-
 	grpcAddr         = "127.0.0.1:14056"
 	grpcUpstreamAddr = grpcAddr
-	// Address the tests are connecting to - normally the mock in-process server
-	// Can be changed to point to a real server, so tests validate a real deployment.
-	//	grpcUpstreamAddr = "127.0.0.1:15010"
-
-	// Address of the Istiod gRPC service, used in tests.
-	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14056"
 )
 
 // Creates an in-process discovery server, using the same code as Istiod, but
@@ -67,7 +57,7 @@ func initDS() *xds.Server {
 // to represent the names. The protocol is based on GRPC resolution of XDS resources.
 func TestAPIGen(t *testing.T) {
 	ds := initDS()
-	ds.DiscoveryServer.Generators["api"] = &apigen.ApiGenerator{}
+	ds.DiscoveryServer.Generators["api"] = &apigen.APIGenerator{}
 	epGen := &envoyv2.EdsGenerator{ds.DiscoveryServer}
 	ds.DiscoveryServer.Generators["api/"+envoyv2.EndpointType] = epGen
 
@@ -99,21 +89,7 @@ func TestAPIGen(t *testing.T) {
 
 		adscConn.WatchConfig()
 
-		data, err := adscConn.WaitVersion(10*time.Second, adsc.ListenerType, "")
-		if err != nil {
-			t.Fatal("Failed to receive lds", err)
-		}
-
-		for _, rs := range data.Resources {
-			l := &xdsapi.Listener{}
-			err = proto.Unmarshal(rs.Value, l)
-			if err != nil {
-				t.Fatal("Unmarshall error ", err)
-			}
-
-			t.Log("LDS: ", l)
-		}
-		data, err = adscConn.WaitVersion(10*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
+		_, err = adscConn.WaitVersion(10*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
 		if err != nil {
 			t.Fatal("Failed to receive lds", err)
 		}
@@ -127,37 +103,5 @@ func TestAPIGen(t *testing.T) {
 			t.Log(se)
 		}
 
-	})
-
-	t.Run("adsc-gen1", func(t *testing.T) {
-		adscConn, err := adsc.Dial(grpcUpstreamAddr, "", &adsc.Config{
-			IP:   "1.2.3.5",
-			Meta: model.NodeMetadata{}.ToStruct(),
-		})
-		if err != nil {
-			t.Fatal("Error connecting ", err)
-		}
-
-		adscConn.Send(&xdsapi.DiscoveryRequest{
-			TypeUrl: adsc.ClusterType,
-		})
-
-		got, err := adscConn.Wait(10*time.Second, "cds")
-		if err != nil {
-			t.Fatal("Failed to receive lds", err)
-		}
-		if len(got) == 0 {
-			t.Fatal("No LDS response")
-		}
-		data := adscConn.Received[adsc.ClusterType]
-		for _, rs := range data.Resources {
-			l := &xdsapi.Cluster{}
-			err = proto.Unmarshal(rs.Value, l)
-			if err != nil {
-				t.Fatal("Unmarshall error ", err)
-			}
-
-			t.Log("CDS: ", l)
-		}
 	})
 }
