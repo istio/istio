@@ -264,12 +264,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
 		return nil, fmt.Errorf("error initializing monitor: %v", err)
 	}
-	args.Config.ControllerOptions.FetchcaRoot = func() map[string]string {
-		return nil
-	}
+	args.Config.ControllerOptions.FetchCaRoot = nil
 	if features.CentralIstioD {
 		if s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
-			args.Config.ControllerOptions.FetchcaRoot = func() map[string]string {
+			args.Config.ControllerOptions.FetchCaRoot = func() map[string]string {
 				return map[string]string{
 					constants.CACertNamespaceConfigMapDataName: string(s.ca.GetCAKeyCertBundle().GetRootCertPem()),
 				}

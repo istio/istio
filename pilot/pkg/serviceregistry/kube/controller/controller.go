@@ -113,8 +113,8 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
-	// FetchcaRoot defines the function to get caRoot
-	FetchcaRoot func() map[string]string
+	// FetchCaRoot defines the function to get caRoot
+	FetchCaRoot func() map[string]string
 
 	// Metrics for capturing node-based metrics.
 	Metrics model.Metrics
