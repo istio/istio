@@ -296,8 +296,9 @@ data:
 
 function cidr_to_ips() {
     if command -v python3; then
-      SCRIPT="from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$1').hosts()]"
-      echo $SCRIPT | python3 -
+      python3 - <<EOF
+from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$1').hosts()]
+EOF
     elif command -v nmap; then
       nmap -sL "$1" | awk '/Nmap scan report/{print $NF}'
     fi
