@@ -106,6 +106,11 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 	if opts.ProgressLog == nil {
 		opts.ProgressLog = util.NewProgressLog()
 	}
+	if iop == nil {
+		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).
+		iop = &valuesv1alpha1.IstioOperator{}
+		iop.Spec = &v1alpha1.IstioOperatorSpec{}
+	}
 	var cs *kubernetes.Clientset
 	var err error
 	if restConfig != nil {
