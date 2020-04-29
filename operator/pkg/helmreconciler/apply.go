@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"helm.sh/helm/v3/pkg/releaseutil"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -37,16 +36,17 @@ import (
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
 // waitUnitReady waits until all resources in the manifest are in a ready state.
-func (h *HelmReconciler) ApplyManifest(manifest releaseutil.Manifest, waitUntilReady bool) (object.K8sObjects, int, error) {
+func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, waitUntilReady bool) (object.K8sObjects, int, error) {
 	var processedObjects object.K8sObjects
 	var deployedObjects int
 	var errs util.Errors
-	crHash, err := h.getCRHash(manifest.Name)
+	cname := string(manifest.Name)
+	crHash, err := h.getCRHash(cname)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	scope.Infof("Processing resources from manifest: %s for CR %s", manifest.Name, crHash)
+	scope.Infof("Processing resources from manifest: %s for CR %s", cname, crHash)
 	allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 	if err != nil {
 		return nil, 0, err
@@ -79,10 +79,10 @@ func (h *HelmReconciler) ApplyManifest(manifest releaseutil.Manifest, waitUntilR
 
 	var plog *util.ManifestLog
 	if len(changedObjectKeys) > 0 {
-		plog = h.opts.ProgressLog.NewComponent(manifest.Name)
+		plog = h.opts.ProgressLog.NewComponent(cname)
 		scope.Infof("The following objects differ between generated manifest and cache: \n - %s", strings.Join(changedObjectKeys, "\n - "))
 	} else {
-		scope.Infof("Generated manifest objects are the same as cached for component %s.", manifest.Name)
+		scope.Infof("Generated manifest objects are the same as cached for component %s.", cname)
 	}
 
 	// Objects are applied in groups: namespaces, CRDs, everything else, with wait for ready in between.
@@ -94,10 +94,10 @@ func (h *HelmReconciler) ApplyManifest(manifest releaseutil.Manifest, waitUntilR
 		objList.Sort(object.DefaultObjectOrder())
 		for _, obj := range objList {
 			obju := obj.UnstructuredObject()
-			if err := h.applyLabelsAndAnnotations(obju, manifest.Name); err != nil {
+			if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
 				return nil, 0, err
 			}
-			if err := h.ApplyObject(manifest.Name, obj.UnstructuredObject()); err != nil {
+			if err := h.ApplyObject(cname, obj.UnstructuredObject()); err != nil {
 				scope.Error(err.Error())
 				errs = util.AppendErr(errs, err)
 				continue
