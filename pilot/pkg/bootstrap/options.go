@@ -83,6 +83,8 @@ type PilotArgs struct {
 	KeepaliveOptions   *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
+	// Optional TLS configuration
+	TLSOptions TLSOptions
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -118,15 +120,20 @@ type MCPOptions struct {
 	InitialConnWindowSize int
 }
 
-var (
-	PodNamespaceVar   = env.RegisterStringVar("POD_NAMESPACE", "istio-system", "")
-	podNameVar        = env.RegisterStringVar("POD_NAME", "", "")
-	serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
+// Optional TLS parameters for the server.
+type TLSOptions struct {
+	CaCertFile string
+	CertFile   string
+	KeyFile    string
+}
 
-	// RevisionVar is the value of the Istio control plane revision, e.g. "canary",
-	// and is the value used by the "istio.io/rev" label.
-	RevisionVar = env.RegisterStringVar("REVISION", "", "")
-)
+var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "istio-system", "")
+var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
+var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
+
+// RevisionVar is the value of the Istio control plane revision, e.g. "canary",
+// and is the value used by the "istio.io/rev" label.
+var RevisionVar = env.RegisterStringVar("REVISION", "", "")
 
 // NewPilotArgs constructs pilotArgs with default values.
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {

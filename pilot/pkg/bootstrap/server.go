@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"path"
@@ -219,7 +220,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// CA signing certificate must be created first.
-	if s.EnableCA() {
+	if args.TLSOptions.CaCertFile == "" && s.EnableCA() {
 		var err error
 		var corev1 v1.CoreV1Interface
 		if s.kubeClient != nil {
@@ -274,7 +275,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
 	}
 	if dns.DNSAddr.Get() != "" {
-		if err := s.initDNSTLSListener(dns.DNSAddr.Get()); err != nil {
+		if err := s.initDNSTLSListener(dns.DNSAddr.Get(), args.TLSOptions); err != nil {
 			log.Warna("error initializing DNS-over-TLS listener ", err)
 		}
 
@@ -540,14 +541,14 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 }
 
 // initialize DNS server listener - uses the same certs as gRPC
-func (s *Server) initDNSTLSListener(dns string) error {
+func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 	if dns == "" {
 		return nil
 	}
 	certDir := dnsCertDir
 
-	key := path.Join(certDir, constants.KeyFilename)
-	cert := path.Join(certDir, constants.CertChainFilename)
+	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
+	cert := model.GetOrDefault(tlsOptions.CertFile, path.Join(certDir, constants.CertChainFilename))
 
 	certP, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
@@ -555,7 +556,16 @@ func (s *Server) initDNSTLSListener(dns string) error {
 	}
 
 	cp := x509.NewCertPool()
-	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	var rootCertBytes []byte
+	if tlsOptions.CaCertFile != "" {
+		rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile)
+		if err != nil {
+			return err
+		}
+	} else {
+		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	}
+
 	cp.AppendCertsFromPEM(rootCertBytes)
 
 	// TODO: check if client certs can be used with coredns or others.
@@ -579,11 +589,11 @@ func (s *Server) initDNSTLSListener(dns string) error {
 }
 
 // initialize secureGRPCServer - using DNS certs
-func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Options) error {
+func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Options, tlsOptions TLSOptions) error {
 	certDir := dnsCertDir
 
-	key := path.Join(certDir, constants.KeyFilename)
-	cert := path.Join(certDir, constants.CertChainFilename)
+	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
+	cert := model.GetOrDefault(tlsOptions.CertFile, path.Join(certDir, constants.CertChainFilename))
 
 	certP, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
@@ -591,7 +601,16 @@ func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Opt
 	}
 
 	cp := x509.NewCertPool()
-	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	var rootCertBytes []byte
+	if tlsOptions.CaCertFile != "" {
+		rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile)
+		if err != nil {
+			return err
+		}
+	} else {
+		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	}
+
 	cp.AppendCertsFromPEM(rootCertBytes)
 
 	cfg := &tls.Config{
@@ -791,7 +810,7 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 		// Feature disabled
 		return nil
 	}
-	if s.ca == nil {
+	if args.TLSOptions.CaCertFile == "" && s.ca == nil {
 		// Running locally without configured certs - no TLS mode
 		return nil
 	}
@@ -813,7 +832,7 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 	}
 
 	// run secure grpc server for Istiod - using DNS-based certs from K8S
-	err = s.initSecureGrpcServer(port, args.KeepaliveOptions)
+	err = s.initSecureGrpcServer(port, args.KeepaliveOptions, args.TLSOptions)
 	if err != nil {
 		return err
 	}

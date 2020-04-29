@@ -40,6 +40,43 @@ var (
 	baseTimestamp            = time.Date(2020, 2, 2, 2, 2, 2, 0, time.UTC)
 )
 
+func TestSdsCertificateConfigFromResourceName(t *testing.T) {
+	cases := []struct {
+		name     string
+		resource string
+		output   SdsCertificateConfig
+	}{
+		{
+			"cert",
+			"file-cert:cert~key",
+			SdsCertificateConfig{"cert", "key", ""},
+		},
+		{
+			"root cert",
+			"file-root:root",
+			SdsCertificateConfig{"", "", "root"},
+		},
+		{
+			"invalid prefix",
+			"file:root",
+			SdsCertificateConfig{"", "", ""},
+		},
+		{
+			"invalid contents",
+			"file-root:root~extra",
+			SdsCertificateConfig{"", "", ""},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _ := SdsCertificateConfigFromResourceName(tt.resource)
+			if got != tt.output {
+				t.Fatalf("got %v, expected %v", got, tt.output)
+			}
+		})
+	}
+}
+
 func TestGetPoliciesForWorkload(t *testing.T) {
 	policies := getTestAuthenticationPolicies(createTestConfigs(true /* with mesh peer authn */), t)
 
