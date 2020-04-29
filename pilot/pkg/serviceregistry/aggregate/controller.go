@@ -343,6 +343,16 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	log.Info("Registry Aggregator terminated")
 }
 
+// HasSynced returns true when all registries have synced
+func (c *Controller) HasSynced() bool {
+	for _, r := range c.GetRegistries() {
+		if !r.HasSynced() {
+			return false
+		}
+	}
+	return true
+}
+
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	for _, r := range c.GetRegistries() {

@@ -118,7 +118,7 @@ type Server struct {
 	httpsServer      *http.Server // webhooks HTTPS Server.
 	httpsReadyClient *http.Client
 	grpcServer       *grpc.Server
-	secureGrpcServer *grpc.Server   //
+	secureGrpcServer *grpc.Server
 	mux              *http.ServeMux // debug
 	httpsMux         *http.ServeMux // webhooks
 	kubeRegistry     *kubecontroller.Controller
@@ -702,13 +702,9 @@ func (s *Server) addTerminatingStartFunc(fn startFunc) {
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
-	// TODO: remove dependency on k8s lib
-	// TODO: set a limit, panic otherwise (to not hide the error)
 	if !cache.WaitForCacheSync(stop, func() bool {
-		if s.kubeRegistry != nil {
-			if !s.kubeRegistry.HasSynced() {
-				return false
-			}
+		if !s.ServiceController().HasSynced() {
+			return false
 		}
 		if !s.configController.HasSynced() {
 			return false
