@@ -26,16 +26,16 @@ import (
 	"istio.io/istio/operator/pkg/util"
 )
 
-// IstioOperator is an installation of an Istio control plane.
-type IstioOperator struct {
+// IstioControlPlane is an installation of an Istio control plane.
+type IstioControlPlane struct {
 	// components is a slice of components that are part of the feature.
 	components []component.IstioComponent
 	started    bool
 }
 
-// NewIstioOperator creates a new IstioOperator and returns a pointer to it.
-func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *translate.Translator) (*IstioOperator, error) {
-	out := &IstioOperator{}
+// NewIstioControlPlane creates a new IstioControlPlane and returns a pointer to it.
+func NewIstioControlPlane(installSpec *v1alpha1.IstioOperatorSpec, translator *translate.Translator) (*IstioControlPlane, error) {
+	out := &IstioControlPlane{}
 	opts := &component.Options{
 		InstallSpec: installSpec,
 		Translator:  translator,
@@ -94,7 +94,7 @@ func defaultIfEmpty(val, dflt string) string {
 }
 
 // Run starts the Istio control plane.
-func (i *IstioOperator) Run() error {
+func (i *IstioControlPlane) Run() error {
 	for _, c := range i.components {
 		if err := c.Run(); err != nil {
 			return err
@@ -104,7 +104,26 @@ func (i *IstioOperator) Run() error {
 	return nil
 }
 
-func (i *IstioOperator) ComponentsEqual(components []component.IstioComponent) bool {
+// RenderManifest returns a manifest rendered against
+func (i *IstioControlPlane) RenderManifest() (manifests name.ManifestMap, errsOut util.Errors) {
+	if !i.started {
+		return nil, util.NewErrs(fmt.Errorf("istioControlPlane must be Run before calling RenderManifest"))
+	}
+
+	manifests = make(name.ManifestMap)
+	for _, c := range i.components {
+		ms, err := c.RenderManifest()
+		errsOut = util.AppendErr(errsOut, err)
+		manifests[c.ComponentName()] = append(manifests[c.ComponentName()], ms)
+	}
+	if len(errsOut) > 0 {
+		return nil, errsOut
+	}
+	return
+}
+
+// componentsEqual reports whether the given components are equal to those in i.
+func (i *IstioControlPlane) componentsEqual(components []component.IstioComponent) bool {
 	if i.components == nil && components == nil {
 		return true
 	}
@@ -126,22 +145,4 @@ func (i *IstioOperator) ComponentsEqual(components []component.IstioComponent) b
 		}
 	}
 	return true
-}
-
-// RenderManifest returns a manifest rendered against
-func (i *IstioOperator) RenderManifest() (manifests name.ManifestMap, errsOut util.Errors) {
-	if !i.started {
-		return nil, util.NewErrs(fmt.Errorf("istioControlPlane must be Run before calling RenderManifest"))
-	}
-
-	manifests = make(name.ManifestMap)
-	for _, c := range i.components {
-		ms, err := c.RenderManifest()
-		errsOut = util.AppendErr(errsOut, err)
-		manifests[c.ComponentName()] = append(manifests[c.ComponentName()], ms)
-	}
-	if len(errsOut) > 0 {
-		return nil, errsOut
-	}
-	return
 }

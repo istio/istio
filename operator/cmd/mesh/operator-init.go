@@ -24,16 +24,15 @@ import (
 )
 
 type operatorInitArgs struct {
-	// common is shared operator args
-	common operatorCommonArgs
-
 	// inFilenames is the path to the input IstioOperator CR.
 	inFilename string
-
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
 	context string
+
+	// common is shared operator args
+	common operatorCommonArgs
 }
 
 func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
@@ -84,7 +83,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 
 	l.LogAndPrintf("Using operator Deployment image: %s/operator:%s", oiArgs.common.hub, oiArgs.common.tag)
 
-	vals, mstr, err := renderOperatorManifest(args, &oiArgs.common, l)
+	vals, mstr, err := renderOperatorManifest(args, &oiArgs.common)
 	if err != nil {
 		l.LogAndFatal(err)
 	}
@@ -92,7 +91,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	installerScope.Debugf("Installing operator charts with the following values:\n%s", vals)
 	installerScope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
 
-	opts := &Options{
+	opts := &applyOptions{
 		DryRun:     args.dryRun,
 		Kubeconfig: oiArgs.kubeConfigPath,
 		Context:    oiArgs.context,
@@ -109,7 +108,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	}
 
 	if customResource != "" {
-		if err := CreateNamespace(clientset, istioNamespace); err != nil {
+		if err := createNamespace(clientset, istioNamespace); err != nil {
 			l.LogAndFatal(err)
 
 		}
