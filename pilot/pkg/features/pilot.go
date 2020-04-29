@@ -82,11 +82,6 @@ var (
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	)
 
-	// BaseDir is the base directory for locating configs.
-	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
-	// be used, "/"
-	BaseDir = "BASE"
-
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	//
 	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
