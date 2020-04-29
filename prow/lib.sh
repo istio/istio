@@ -22,10 +22,6 @@ export CLUSTER3_NAME=${CLUSTER3_NAME:-"cluster3"}
 export CLUSTER_NAMES=("${CLUSTER1_NAME}" "${CLUSTER2_NAME}" "${CLUSTER3_NAME}")
 export CLUSTER_POD_SUBNETS=(10.10.0.0/16 10.20.0.0/16 10.30.0.0/16)
 
-# Take IPs from the end of the docker bridge network subnet to use for Metal LB IPs
-export DOCKER_BRIDGE_SUBNET=$(docker inspect bridge | jq .[0].IPAM.Config[0].Subnet -r)
-export METALLB_IPS=($(nmap -sL $DOCKER_BRIDGE_SUBNET | awk '/Nmap scan report/{print $NF}' | tail -n 100))
-
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
     gcloud auth configure-docker -q
@@ -240,7 +236,7 @@ EOF
           connect_kind_clusters "${CLUSTERI_NAME}" "${CLUSTERI_KUBECONFIG}" "${CLUSTERJ_NAME}" "${CLUSTERJ_KUBECONFIG}"
         fi
       done
-      install_metallb $CLUSTERI_KUBECONFIG
+      install_metallb "$CLUSTERI_KUBECONFIG"
     done
   else
     # Connect clusters 1 and 2, but leave cluster 3 on a separate network.
@@ -268,11 +264,22 @@ function connect_kind_clusters() {
 
 function install_metallb() {
   KUBECONFIG="${1}"
-  kubectl apply --kubeconfig=$KUBECONFIG -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
-  kubectl apply --kubeconfig=$KUBECONFIG -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
-  # allocate 10 IPs form METALLB_IPS array to this clusters MetalLB IP Pool
+  kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
+  kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
+
+ if [ -z "${METALLB_IPS[@]}" ]; then
+    # Take IPs from the end of the docker bridge network subnet to use for MetalLB IPs
+    DOCKER_BRIDGE_SUBNET="$(docker inspect bridge | jq .[0].IPAM.Config[0].Subnet -r)"
+    METALLB_IPS=()
+    while read -r ip; do
+      METALLB_IPS+=("$ip")
+    done < <(nmap -sL "$DOCKER_BRIDGE_SUBNET" | awk '/Nmap scan report/{print $NF}' | tail -n 100)
+  fi
+
+  # Give this cluster of those IPs
   RANGE="${METALLB_IPS[0]}-${METALLB_IPS[9]}"
-  export METALLB_IPS=(${METALLB_IPS[@]:10})
+  METALLB_IPS=("${METALLB_IPS[@]:10}")
+
   echo 'apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -284,7 +291,7 @@ data:
     - name: default
       protocol: layer2
       addresses:
-      - '$RANGE | kubectl apply --kubeconfig=$KUBECONFIG -f -
+      - '"$RANGE" | kubectl apply --kubeconfig="$KUBECONFIG" -f -
 }
 
 function cni_run_daemon_kind() {
