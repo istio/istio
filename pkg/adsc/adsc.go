@@ -396,7 +396,6 @@ func (a *ADSC) handleRecv() {
 						}
 					}
 				}
-<<<<<<< HEAD
 			}
 		}
 		// last resource of this type. IstioStore doesn't yet have a way to indicate this
@@ -412,8 +411,6 @@ func (a *ADSC) handleRecv() {
 			})
 			if err != nil {
 				continue
-=======
->>>>>>> f3568e409609edf388ee4879d3426048338e9a07
 			}
 			log.Infoa("Sync for ", gvk, len(msg.Resources))
 		}
@@ -421,12 +418,10 @@ func (a *ADSC) handleRecv() {
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
 		// This scheme also allows us to chunk large responses !
 
-<<<<<<< HEAD
 		a.Received[msg.TypeUrl] = msg
 
 		// TODO: add hook to inject nacks
-=======
->>>>>>> f3568e409609edf388ee4879d3426048338e9a07
+
 		a.mutex.Lock()
 		a.Received[msg.TypeUrl] = msg
 		// TODO: add hook to inject nacks
@@ -449,46 +444,7 @@ func (a *ADSC) handleRecv() {
 		case a.XDSUpdates <- msg:
 		default:
 		}
-<<<<<<< HEAD
-
 	}
-}
-
-func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
-	if m == nil || m.Metadata == nil {
-		return &model.Config{}, nil
-	}
-	c := &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			ResourceVersion: m.Metadata.Version,
-			Labels:          m.Metadata.Labels,
-			Annotations:     m.Metadata.Annotations,
-		},
-	}
-	nsn := strings.Split(m.Metadata.Name, "/")
-	if len(nsn) != 2 {
-		return nil, fmt.Errorf("invalid name %s", m.Metadata.Name)
-	}
-	c.Namespace = nsn[0]
-	c.Name = nsn[1]
-	var err error
-	c.CreationTimestamp, err = types.TimestampFromProto(m.Metadata.CreateTime)
-	if err != nil {
-		return nil, err
-=======
->>>>>>> f3568e409609edf388ee4879d3426048338e9a07
-	}
-
-	pb, err := types.EmptyAny(m.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = types.UnmarshalAny(m.Body, pb)
-	if err != nil {
-		return nil, err
-	}
-	c.Spec = pb
-	return c, nil
 }
 
 func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
@@ -851,12 +807,12 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	for {
 		select {
 		case t := <-a.Updates:
-			if t == nil {
+			if t == "" {
 				return got, fmt.Errorf("closed")
 			}
-			toDelete := t.TypeUrl
+			toDelete := t
 			// legacy names, still used in tests.
-			switch t.TypeUrl {
+			switch t {
 			case ListenerType:
 				delete(want, "lds")
 			case ClusterType:
@@ -867,7 +823,7 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 				delete(want, "rds")
 			}
 			delete(want, toDelete)
-			got = append(got, t.TypeUrl)
+			got = append(got, t)
 			if len(want) == 0 {
 				return got, nil
 			}
@@ -880,13 +836,9 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 // WaitVersion waits for a new or updated for a typeURL.
 func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*xdsapi.DiscoveryResponse, error) {
 	t := time.NewTimer(to)
-<<<<<<< HEAD
-	ex := a.Received[typeURL]
-=======
 	a.mutex.Lock()
 	ex := a.Received[typeURL]
 	a.mutex.Unlock()
->>>>>>> f3568e409609edf388ee4879d3426048338e9a07
 	if ex != nil {
 		if lastVersion == "" {
 			return ex, nil
@@ -898,11 +850,7 @@ func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*xdsa
 
 	for {
 		select {
-<<<<<<< HEAD
-		case t := <-a.Updates:
-=======
 		case t := <-a.XDSUpdates:
->>>>>>> f3568e409609edf388ee4879d3426048338e9a07
 			if t == nil {
 				return nil, fmt.Errorf("closed")
 			}
@@ -932,27 +880,7 @@ func (a *ADSC) Watch() {
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
 		TypeUrl:       ClusterType,
-<<<<<<< HEAD
 	})
-}
-
-// WatchConfig will use the new experimental API watching, similar with MCP.
-func (a *ADSC) WatchConfig() {
-	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node:          a.node(),
-		TypeUrl:       collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
-=======
->>>>>>> f3568e409609edf388ee4879d3426048338e9a07
-	})
-
-	for _, sch := range collections.Pilot.All() {
-		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
-			ResponseNonce: time.Now().String(),
-			Node:          a.node(),
-			TypeUrl:       sch.Resource().GroupVersionKind().String(),
-		})
-	}
 }
 
 // WatchConfig will use the new experimental API watching, similar with MCP.
