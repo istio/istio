@@ -62,7 +62,7 @@ func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
 	cmd.PersistentFlags().StringVar(&diffArgs.ignoreResources, "ignore", "",
 		"Ignore all listed items during comparison, using the same list format as selectResources.")
 	cmd.PersistentFlags().StringVar(&diffArgs.renameResources, "rename", "",
-		"Renamed resources before comparison.\n"+
+		"Rename resources before comparison.\n"+
 			"The format of each renaming pair is A->B, all renaming pairs are comma separated.\n"+
 			"e.g. Service:*:istiod->Service:*:istio-control - rename istiod service into istio-control")
 }

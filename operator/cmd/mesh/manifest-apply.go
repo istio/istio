@@ -155,11 +155,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	return nil
 }
 
-// ApplyManifest generates manifests from the given input files and --set flag overlays and applies them to the
+// ApplyManifests generates manifests from the given input files and --set flag overlays and applies them to the
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
-//  verbose full manifests are output
 //  wait    block until Services and Deployments are ready, or timeout after waitTimeout
 func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
 	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l clog.Logger) error {

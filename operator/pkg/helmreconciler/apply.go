@@ -55,8 +55,8 @@ func (h *HelmReconciler) ApplyManifest(manifest releaseutil.Manifest, waitUntilR
 	objectCache := cache.GetCache(crHash)
 
 	// Ensure that for a given CR crHash only one control loop uses the per-crHash cache at any time.
-	objectCache.mu.Lock()
-	defer objectCache.mu.Unlock()
+	objectCache.Mu.Lock()
+	defer objectCache.Mu.Unlock()
 
 	// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR crHash and no
 	// other controller is allowed to work on at the same time.
@@ -68,7 +68,7 @@ func (h *HelmReconciler) ApplyManifest(manifest releaseutil.Manifest, waitUntilR
 	for _, obj := range allObjects {
 		oh := obj.Hash()
 		allObjectsMap[oh] = true
-		if co, ok := objectCache.cache[oh]; ok && obj.Equal(co) {
+		if co, ok := objectCache.Cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
 			deployedObjects++
 			continue
@@ -105,20 +105,20 @@ func (h *HelmReconciler) ApplyManifest(manifest releaseutil.Manifest, waitUntilR
 			plog.ReportProgress()
 			processedObjects = append(processedObjects, obj)
 			// Update the cache with the latest object.
-			objectCache.cache[obj.Hash()] = obj
+			objectCache.Cache[obj.Hash()] = obj
 		}
 	}
 
 	// Prune anything not in the manifest out of the cache.
 	var removeKeys []string
-	for k := range objectCache.cache {
+	for k := range objectCache.Cache {
 		if !allObjectsMap[k] {
 			removeKeys = append(removeKeys, k)
 		}
 	}
 	for _, k := range removeKeys {
 		scope.Infof("Pruning object %s from cache.", k)
-		delete(objectCache.cache, k)
+		delete(objectCache.Cache, k)
 	}
 
 	if len(changedObjectKeys) > 0 {
