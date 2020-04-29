@@ -41,6 +41,9 @@ import (
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -49,8 +52,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -102,7 +103,7 @@ func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
-// applyOptions stores the configurable attributes of a Controller.
+// Options stores the configurable attributes of a Controller.
 type Options struct {
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
 	WatchedNamespace string

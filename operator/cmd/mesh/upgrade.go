@@ -37,8 +37,6 @@ import (
 )
 
 const (
-	// The maximum duration the command will wait until the apply deployment reaches a ready state
-	upgradeWaitSecWhenApply = 300 * time.Second
 	// The duration that the command will wait between each check of the upgraded version.
 	upgradeWaitSecCheckVerPerLoop = 10 * time.Second
 	// The maximum number of attempts that the command will check for the upgrade completion,

@@ -59,7 +59,7 @@ func verifyInstallIOPrevision(enableVerbose bool, istioNamespaceFlag string,
 
 	iop, err := operatorFromCluster(istioNamespaceFlag, opts.Revision, restClientGetter)
 	if err != nil {
-		return fmt.Errorf("could not load IstioControlPlane from cluster: %v.  Use --filename", err)
+		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
 	}
 	crdCount, istioDeploymentCount, err := verifyPostInstallIstioOperator(enableVerbose,
 		istioNamespaceFlag,
@@ -171,12 +171,12 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 					return errors.New(msg)
 				}
 			}
-		case "IstioControlPlane":
-			// It is not a problem if the cluster does not include the IstioControlPlane
+		case "IstioOperator":
+			// It is not a problem if the cluster does not include the IstioOperator
 			// we are checking.  Instead, verify the cluster has the things the
-			// IstioControlPlane specifies it should have.
+			// IstioOperator specifies it should have.
 
-			// IstioControlPlane isn't part of pkg/config/schema/collections,
+			// IstioOperator isn't part of pkg/config/schema/collections,
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to unmarshal.
 
@@ -358,13 +358,13 @@ func findResourceInSpec(kind string) string {
 
 // nolint: lll
 func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag string, iop *v1alpha1.IstioOperator, filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) (int, int, error) {
-	// Generate the manifest this IstioControlPlane will make
+	// Generate the manifest this IstioOperator will make
 	t, err := translate.NewTranslator(version.OperatorBinaryVersion.MinorVersion)
 	if err != nil {
 		return 0, 0, err
 	}
 
-	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t)
+	cp, err := controlplane.NewIstioOperator(iop.Spec, t)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -404,7 +404,7 @@ func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag strin
 	return generatedCrds, generatedDeployments, nil
 }
 
-// Find an IstioControlPlane matching revision in the cluster.  The IstioOperators
+// Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
 func operatorFromCluster(istioNamespaceFlag string, revision string, restClientGetter genericclioptions.RESTClientGetter) (*v1alpha1.IstioOperator, error) {
 	restConfig, err := restClientGetter.ToRESTConfig()
@@ -440,7 +440,7 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 	return nil, fmt.Errorf("control plane revision %q not found", revision)
 }
 
-// Find all IstioControlPlane in the cluster.
+// Find all IstioOperator in the cluster.
 func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator, error) {
 	ul, err := client.
 		Resource(istioOperatorGVR).
