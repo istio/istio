@@ -17,9 +17,12 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
+	"helm.sh/helm/v3/pkg/releaseutil"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -32,44 +35,9 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/version"
 )
-
-type componentNameToListMap map[name.ComponentName][]name.ComponentName
-type componentTree map[name.ComponentName]interface{}
-
-const (
-	// Time to wait for internal dependencies before proceeding to installing the next component.
-	internalDepTimeout = 10 * time.Minute
-)
-
-var (
-	componentDependencies = componentNameToListMap{
-		name.PilotComponentName: {
-			name.PolicyComponentName,
-			name.TelemetryComponentName,
-			name.CNIComponentName,
-			name.IngressComponentName,
-			name.EgressComponentName,
-			name.AddonComponentName,
-		},
-		name.IstioBaseComponentName: {
-			name.PilotComponentName,
-		},
-	}
-
-	installTree      = make(componentTree)
-	dependencyWaitCh = make(map[name.ComponentName]chan struct{})
-)
-
-func init() {
-	buildInstallTree()
-	for _, parent := range componentDependencies {
-		for _, child := range parent {
-			dependencyWaitCh[child] = make(chan struct{}, 1)
-		}
-	}
-
-}
 
 // HelmReconciler reconciles resources rendered by a set of helm charts.
 type HelmReconciler struct {
@@ -88,8 +56,12 @@ type Options struct {
 	DryRun bool
 	// Log is a console logger for user visible CLI output.
 	Log clog.Logger
-	// Wait determines if we will wait for resources to be fully applied.
-	Wait        bool
+	// Wait determines if we will wait for resources to be fully applied. Only applies to components that have no
+	// dependencies.
+	Wait bool
+	// WaitTimeout controls the amount of time to wait for resources in a component to become ready before giving up.
+	WaitTimeout time.Duration
+	// ProgressLog tracks the installation progress for all components.
 	ProgressLog *util.ProgressLog
 }
 
@@ -140,7 +112,7 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 
 // processRecursive processes the given manifests in an order of dependencies defined in h. Dependencies are a tree,
 // where a child must wait for the parent to complete before starting.
-func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1.InstallStatus {
+func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.InstallStatus {
 	componentStatus := make(map[string]*v1alpha1.InstallStatus_VersionStatus)
 
 	// mu protects the shared InstallStatus componentStatus across goroutines
@@ -148,14 +120,13 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 	// wg waits for all manifest processing goroutines to finish
 	var wg sync.WaitGroup
 
-	for c, m := range manifests {
-		c, m := c, m
+	for c, ms := range manifests {
+		c, ms := c, ms
 		wg.Add(1)
 		go func() {
 			var processedObjs object.K8sObjects
 			defer wg.Done()
-			cn := name.ComponentName(c)
-			if s := dependencyWaitCh[cn]; s != nil {
+			if s := DependencyWaitCh[c]; s != nil {
 				scope.Infof("%s is waiting on dependency...", c)
 				<-s
 				scope.Infof("Dependency for %s has completed, proceeding.", c)
@@ -169,8 +140,12 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 
 			status := v1alpha1.InstallStatus_NONE
 			var err error
-			if len(m) != 0 {
-				if processedObjs, err = h.ProcessManifest(m, len(componentDependencies[cn]) > 0); err != nil {
+			if len(ms) != 0 {
+				m := releaseutil.Manifest{
+					Name:    string(c),
+					Content: name.MergeManifestSlices(ms),
+				}
+				if processedObjs, _, err = h.ApplyManifest(m, len(ComponentDependencies[c]) > 0); err != nil {
 					status = v1alpha1.InstallStatus_ERROR
 				} else if len(processedObjs) != 0 {
 					status = v1alpha1.InstallStatus_HEALTHY
@@ -182,9 +157,9 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			mu.Unlock()
 
 			// Signal all the components that depend on us.
-			for _, ch := range componentDependencies[cn] {
+			for _, ch := range ComponentDependencies[c] {
 				scope.Infof("Unblocking dependency %s.", ch)
-				dependencyWaitCh[ch] <- struct{}{}
+				DependencyWaitCh[ch] <- struct{}{}
 			}
 		}()
 	}
@@ -214,7 +189,7 @@ func (h *HelmReconciler) SetStatusBegin() error {
 		Name:      h.iop.Name,
 		Namespace: h.iop.Namespace,
 	}
-	if err := h.GetClient().Get(context.TODO(), namespacedName, isop); err != nil {
+	if err := h.getClient().Get(context.TODO(), namespacedName, isop); err != nil {
 		if runtime.IsNotRegisteredError(err) {
 			// CRD not yet installed in cluster, nothing to update.
 			return nil
@@ -232,7 +207,7 @@ func (h *HelmReconciler) SetStatusBegin() error {
 		}
 		isop.Status.Status = v1alpha1.InstallStatus_RECONCILING
 	}
-	return h.GetClient().Status().Update(context.TODO(), isop)
+	return h.getClient().Status().Update(context.TODO(), isop)
 }
 
 // SetStatusComplete updates the status field on the IstioOperator instance based on the resulting err parameter.
@@ -242,27 +217,28 @@ func (h *HelmReconciler) SetStatusComplete(status *v1alpha1.InstallStatus) error
 		Name:      h.iop.Name,
 		Namespace: h.iop.Namespace,
 	}
-	if err := h.GetClient().Get(context.TODO(), namespacedName, iop); err != nil {
+	if err := h.getClient().Get(context.TODO(), namespacedName, iop); err != nil {
 		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
 	}
 	iop.Status = status
-	return h.GetClient().Status().Update(context.TODO(), iop)
+	return h.getClient().Status().Update(context.TODO(), iop)
 }
 
 // setStatus sets the status for the component with the given name, which is a key in the given map.
 // If the status is InstallStatus_NONE, the component name is deleted from the map.
 // Otherwise, if the map key/value is missing, one is created.
-func setStatus(s map[string]*v1alpha1.InstallStatus_VersionStatus, componentName string, status v1alpha1.InstallStatus_Status, err error) {
+func setStatus(s map[string]*v1alpha1.InstallStatus_VersionStatus, componentName name.ComponentName, status v1alpha1.InstallStatus_Status, err error) {
+	cn := string(componentName)
 	if status == v1alpha1.InstallStatus_NONE {
-		delete(s, componentName)
+		delete(s, cn)
 		return
 	}
-	if _, ok := s[componentName]; !ok {
-		s[componentName] = &v1alpha1.InstallStatus_VersionStatus{}
+	if _, ok := s[cn]; !ok {
+		s[cn] = &v1alpha1.InstallStatus_VersionStatus{}
 	}
-	s[componentName].Status = status
+	s[cn].Status = status
 	if err != nil {
-		s[componentName].Error = err.Error()
+		s[cn].Error = err.Error()
 	}
 }
 
@@ -289,33 +265,88 @@ func overallStatus(componentStatus map[string]*v1alpha1.InstallStatus_VersionSta
 	return ret
 }
 
-// allObjectHashes returns a map with object hashes of all the objects contained in cmm as the keys.
-func allObjectHashes(m string) map[string]bool {
-	ret := make(map[string]bool)
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(m)
+// getOwnerLabels returns a map of labels for the given component name, revision and owning CR resource name.
+func (h *HelmReconciler) getOwnerLabels(componentName string) (map[string]string, error) {
+	crName, err := h.getCRName()
 	if err != nil {
-		scope.Error(err.Error())
+		return nil, err
 	}
-	for _, o := range objs {
-		ret[o.Hash()] = true
+	labels := make(map[string]string)
+	revision := ""
+	if h.iop != nil {
+		revision = h.iop.Spec.Revision
 	}
 
-	return ret
+	// Only pilot component uses revisions
+	if componentName == string(name.PilotComponentName) {
+		if revision == "" {
+			revision = "default"
+		}
+		labels[model.RevisionLabel] = revision
+	}
+
+	labels[operatorLabelStr] = operatorReconcileStr
+	labels[owningResourceKey] = crName
+	labels[istioComponentLabelStr] = componentName
+	labels[istioVersionLabelStr] = version.Info.Version
+
+	return labels, nil
 }
 
-// GetClient returns the kubernetes client associated with this HelmReconciler
-func (h *HelmReconciler) GetClient() client.Client {
+// applyLabelsAndAnnotations applies owner labels and annotations to the object.
+func (h *HelmReconciler) applyLabelsAndAnnotations(obj runtime.Object, componentName string) error {
+	labels, err := h.getOwnerLabels(componentName)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range labels {
+		err := util.SetLabel(obj, k, v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// getCRName returns the name of the CR associated with h.
+func (h *HelmReconciler) getCRName() (string, error) {
+	if h.iop == nil {
+		return "", nil
+	}
+	objAccessor, err := meta.Accessor(h.iop)
+	if err != nil {
+		return "", err
+	}
+	return objAccessor.GetName(), nil
+}
+
+// getCRHash returns the cluster unique hash of the CR associated with h.
+func (h *HelmReconciler) getCRHash(componentName string) (string, error) {
+	crName, err := h.getCRName()
+	if err != nil {
+		return "", err
+	}
+	crNamespace, err := h.getCRNamespace()
+	if err != nil {
+		return "", err
+	}
+	return strings.Join([]string{crName, crNamespace, componentName}, "-"), nil
+}
+
+// getCRNamespace returns the namespace of the CR associated with h.
+func (h *HelmReconciler) getCRNamespace() (string, error) {
+	if h.iop == nil {
+		return "", nil
+	}
+	objAccessor, err := meta.Accessor(h.iop)
+	if err != nil {
+		return "", err
+	}
+	return objAccessor.GetName(), nil
+}
+
+// getClient returns the kubernetes client associated with this HelmReconciler
+func (h *HelmReconciler) getClient() client.Client {
 	return h.client
-}
-
-func buildInstallTree() {
-	// Starting with root, recursively insert each first level child into each node.
-	insertChildrenRecursive(name.IstioBaseComponentName, installTree, componentDependencies)
-}
-
-func insertChildrenRecursive(componentName name.ComponentName, tree componentTree, children componentNameToListMap) {
-	tree[componentName] = make(componentTree)
-	for _, child := range children[componentName] {
-		insertChildrenRecursive(child, tree[componentName].(componentTree), children)
-	}
 }

@@ -83,7 +83,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	if err := reconciler.DeleteComponent(string(name.IstioOperatorComponentName)); err != nil {
 		l.LogAndFatal(err)
 	}
-	if err := DeleteNamespace(clientset, orArgs.operatorNamespace); err != nil {
+	if err := deleteNamespace(clientset, orArgs.operatorNamespace); err != nil {
 		l.LogAndFatal(err)
 	}
 	l.LogAndPrint("Deleted namespace " + orArgs.operatorNamespace)
