@@ -267,13 +267,13 @@ function install_metallb() {
   kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
   kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
 
- if [ -z "${METALLB_IPS[*]}" ]; then
+  if [ -z "${METALLB_IPS[*]}" ]; then
     # Take IPs from the end of the docker bridge network subnet to use for MetalLB IPs
     DOCKER_BRIDGE_SUBNET="$(docker inspect bridge | jq .[0].IPAM.Config[0].Subnet -r)"
     METALLB_IPS=()
     while read -r ip; do
       METALLB_IPS+=("$ip")
-    done < <(nmap -sL "$DOCKER_BRIDGE_SUBNET" | awk '/Nmap scan report/{print $NF}' | tail -n 100)
+    done < <(cidr_to_ips "$DOCKER_BRIDGE_SUBNET" | tail -n 100)
   fi
 
   # Give this cluster of those IPs
@@ -292,6 +292,15 @@ data:
       protocol: layer2
       addresses:
       - '"$RANGE" | kubectl apply --kubeconfig="$KUBECONFIG" -f -
+}
+
+function cidr_to_ips() {
+    if command -v python3; then
+      SCRIPT="from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$1').hosts()]"
+      echo $SCRIPT | python3 -
+    elif command -v nmap; then
+      nmap -sL "$1" | awk '/Nmap scan report/{print $NF}'
+    fi
 }
 
 function cni_run_daemon_kind() {
