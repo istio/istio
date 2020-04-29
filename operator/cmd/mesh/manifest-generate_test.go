@@ -554,7 +554,7 @@ func TestLDFlags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, iops, err := GenerateConfig(nil, ysf, true, nil, l)
+	_, iops, err := GenerateConfig(nil, ysf, true, nil, l, false)
 	if err != nil {
 		t.Fatal(err)
 	}
