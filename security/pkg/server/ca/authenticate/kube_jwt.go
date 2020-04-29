@@ -98,8 +98,10 @@ func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interf
 	}
 
 	// secondly try other remote clusters
-	if res := a.remoteKubeClientGetter(clusterID); res != nil {
-		return res
+	if a.remoteKubeClientGetter != nil {
+		if res := a.remoteKubeClientGetter(clusterID); res != nil {
+			return res
+		}
 	}
 
 	// failover to local cluster

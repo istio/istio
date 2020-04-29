@@ -170,9 +170,9 @@ func (m *Multicluster) updateHandler(svc *model.Service) {
 
 func (m *Multicluster) GetRemoteKubeClient(clusterID string) kubernetes.Interface {
 	m.m.Lock()
+	defer m.m.Unlock()
 	if c := m.remoteKubeControllers[clusterID]; c != nil {
 		return c.client
 	}
-	m.m.Unlock()
 	return nil
 }
