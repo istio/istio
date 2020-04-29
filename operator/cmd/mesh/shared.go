@@ -17,6 +17,7 @@
 package mesh
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,12 +26,18 @@ import (
 	"time"
 
 	"helm.sh/helm/v3/pkg/releaseutil"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -38,6 +45,9 @@ import (
 )
 
 var (
+	// installerScope is the scope for all commands in the mesh package.
+	installerScope = log.RegisterScope("installer", "installer", 0)
+
 	// Path to the operator install base dir in the snapshot. This symbol is required here because it's referenced
 	// in "operator dump" e2e command tests and there's no other way to inject a path into the snapshot into the command.
 	snapshotInstallPackageDir string
@@ -110,6 +120,7 @@ func confirm(msg string, writer io.Writer) bool {
 	return false
 }
 
+// K8sConfig creates a rest.Config, Clientset and controller runtime Client from the given kubeconfig path and context.
 func K8sConfig(kubeConfigPath string, context string) (*rest.Config, *kubernetes.Clientset, client.Client, error) {
 	restConfig, clientset, err := InitK8SRestClient(kubeConfigPath, context)
 	if err != nil {
@@ -126,8 +137,64 @@ func K8sConfig(kubeConfigPath string, context string) (*rest.Config, *kubernetes
 	return restConfig, clientset, client, nil
 }
 
-// Options contains the startup options for applying the manifest.
-type Options struct {
+// InitK8SRestClient creates a rest.Config qne Clientset from the given kubeconfig path and context.
+func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, error) {
+	restConfig, err := defaultRestConfig(kubeconfig, kubeContext)
+	if err != nil {
+		return nil, nil, err
+	}
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return restConfig, clientset, nil
+}
+
+func defaultRestConfig(kubeconfig, kubeContext string) (*rest.Config, error) {
+	config, err := BuildClientConfig(kubeconfig, kubeContext)
+	if err != nil {
+		return nil, err
+	}
+	config.APIPath = "/api"
+	config.GroupVersion = &v1.SchemeGroupVersion
+	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
+	return config, nil
+}
+
+// BuildClientConfig is a helper function that builds client config from a kubeconfig filepath.
+// It overrides the current context with the one provided (empty to use default).
+//
+// This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
+// difference that it loads default configs if not running in-cluster.
+func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
+	if kubeconfig != "" {
+		info, err := os.Stat(kubeconfig)
+		if err != nil || info.Size() == 0 {
+			// If the specified kubeconfig doesn't exists / empty file / any other error
+			// from file stat, fall back to default
+			kubeconfig = ""
+		}
+	}
+
+	//Config loading rules:
+	// 1. kubeconfig if it not empty string
+	// 2. In cluster config if running in-cluster
+	// 3. Config(s) in KUBECONFIG environment variable
+	// 4. Use $HOME/.kube/config
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
+	loadingRules.ExplicitPath = kubeconfig
+	configOverrides := &clientcmd.ConfigOverrides{
+		ClusterDefaults: clientcmd.ClusterDefaults,
+		CurrentContext:  context,
+	}
+
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
+}
+
+// applyOptions contains the startup options for applying the manifest.
+type applyOptions struct {
 	// Path to the kubeconfig file.
 	Kubeconfig string
 	// ComponentName of the kubeconfig context to use.
@@ -140,22 +207,23 @@ type Options struct {
 	WaitTimeout time.Duration
 }
 
-func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) error {
+func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *applyOptions, l clog.Logger) error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
-	helmreconciler.FlushObjectCaches()
+	cache.FlushObjectCaches()
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
 	if err != nil {
 		l.LogAndError(err)
 		return err
 	}
-	ms := []releaseutil.Manifest{{
+	ms := releaseutil.Manifest{
 		Name:    componentName,
 		Content: manifestStr,
-	}}
-	_, err = reconciler.ProcessManifest(ms, true)
+	}
+	_, _, err = reconciler.ApplyManifest(ms, true)
 	return err
 }
 
+// getCRAndNamespaceFromFile returns the CR name and istio namespace from a file containing an IstioOperator CR.
 func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource string, istioNamespace string, err error) {
 	if filePath == "" {
 		return "", "", nil
@@ -173,4 +241,29 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 	customResource = string(b)
 	istioNamespace = v1alpha1.Namespace(mergedIOPS)
 	return
+}
+
+// createNamespace creates a namespace using the given k8s interface.
+func createNamespace(cs kubernetes.Interface, namespace string) error {
+	if namespace == "" {
+		// Setup default namespace
+		namespace = "istio-system"
+	}
+
+	ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{
+		Name: namespace,
+		Labels: map[string]string{
+			"istio-injection": "disabled",
+		},
+	}}
+	_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, v12.CreateOptions{})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
+	}
+	return nil
+}
+
+// deleteNamespace deletes namespace using the given k8s client.
+func deleteNamespace(cs kubernetes.Interface, namespace string) error {
+	return cs.CoreV1().Namespaces().Delete(context.TODO(), namespace, v12.DeleteOptions{})
 }

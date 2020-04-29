@@ -45,6 +45,14 @@ func (pv *PathValue) String() string {
 	return fmt.Sprintf("%s:%v", pv.path, pv.value)
 }
 
+// objectSet is a set of objects maintained both as a slice (for ordering) and map (for speed).
+type objectSet struct {
+	objSlice object.K8sObjects
+	objMap   map[string]*object.K8sObject
+	keySlice []string
+}
+
+// parseObjectSetFromManifest parses an objectSet from the given manifest.
 func parseObjectSetFromManifest(t test.Failer, manifest string) *objectSet {
 	ret := &objectSet{}
 	var err error
@@ -56,13 +64,6 @@ func parseObjectSetFromManifest(t test.Failer, manifest string) *objectSet {
 		ret.append(o)
 	}
 	return ret
-}
-
-// objectSet is a set of objects maintained both as a slice (for ordering) and map (for speed).
-type objectSet struct {
-	objSlice object.K8sObjects
-	objMap   map[string]*object.K8sObject
-	keySlice []string
 }
 
 // append appends an object to o.
@@ -324,6 +325,7 @@ func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) 
 	return got.Node
 }
 
+// objectHashesOrdered returns a slice of the hashes of objs, retaining the original ordering.
 func objectHashesOrdered(objs object.K8sObjects) []string {
 	var out []string
 	for _, o := range objs {
