@@ -150,7 +150,7 @@ func init() {
 		"Controller resync interval")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", "cluster.local",
 		"DNS domain suffix")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.ClusterID, "clusterID", features.ClusterName.Get(),
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.ClusterID, "clusterID", features.ClusterName,
 		"The ID of the cluster that this Istiod instance resides")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.TrustDomain, "trust-domain", "",
 		"The domain serves to identify the system with spiffe")

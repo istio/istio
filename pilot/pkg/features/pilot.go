@@ -309,7 +309,7 @@ var (
 	).Get()
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
-		"Defines the cluster and service registry that this Istiod instance is belongs to")
+		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
 	EnableIncrementalMCP = env.RegisterBoolVar(
 		"PILOT_ENABLE_INCREMENTAL_MCP",
