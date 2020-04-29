@@ -13,5 +13,4 @@ spec:
   selector:
     matchLabels:
 {{ $gateway.labels | toYaml | trim | indent 6 }}
-      release: {{ .Release.Name }}
 {{- end }}
