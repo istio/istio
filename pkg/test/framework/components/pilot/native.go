@@ -41,10 +41,6 @@ var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
 var _ Native = &nativeComponent{}
 
-var (
-	pilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
-)
-
 // Native is the interface for an native pilot server.
 type Native interface {
 	Instance
