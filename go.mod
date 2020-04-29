@@ -156,9 +156,9 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
 	helm.sh/helm/v3 v3.2.0
-	istio.io/api v0.0.0-20200423191407-d5c7faf17732
-	istio.io/gogo-genproto v0.0.0-20200326154102-997c228eecef
-	istio.io/pkg v0.0.0-20200327214633-ce134a9bd104
+	istio.io/api v0.0.0-20200428194011-6b75cd3a8452
+	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
+	istio.io/pkg v0.0.0-20200427191155-bf8aca030541
 	k8s.io/api v0.18.1
 	k8s.io/apiextensions-apiserver v0.18.0
 	k8s.io/apimachinery v0.18.1

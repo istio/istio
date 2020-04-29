@@ -289,6 +289,9 @@
       ,
       {
         "name": "zipkin",
+        {{ if .tracing_tls }}
+        "transport_socket": {{ .tracing_tls }},
+        {{ end }}
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
@@ -311,21 +314,10 @@
       ,
       {
         "name": "lightstep",
-        "http2_protocol_options": {},
-        {{ if .lightstepSecure }}
-        "tls_context": {
-          "common_tls_context": {
-            "alpn_protocols": [
-              "h2"
-            ],
-            "validation_context": {
-              "trusted_ca": {
-                "filename": "{{ .lightstepCacertPath }}"
-              }
-            }
-          }
-        },
+        {{ if .tracing_tls }}
+        "transport_socket": {{ .tracing_tls }},
         {{ end }}
+        "http2_protocol_options": {},
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
@@ -348,6 +340,9 @@
       ,
       {
         "name": "datadog_agent",
+        {{ if .tracing_tls }}
+        "transport_socket": {{ .tracing_tls }},
+        {{ end }}
         "connect_timeout": "1s",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
