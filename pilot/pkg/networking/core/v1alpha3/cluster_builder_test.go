@@ -283,7 +283,6 @@ func TestApplyEdsConfig(t *testing.T) {
 					ConfigSourceSpecifier: &corev3.ConfigSource_Ads{
 						Ads: &corev3.AggregatedConfigSource{},
 					},
-					ResourceApiVersion:  corev3.ApiVersion_V3,
 					InitialFetchTimeout: features.InitialFetchTimeout,
 				},
 			},
