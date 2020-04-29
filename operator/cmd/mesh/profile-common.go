@@ -67,7 +67,7 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 	var err error
 	var fy, profile string
 	if useClusterIfAvailable {
-		fy, profile, _ = overlayedOperatorFromCluster("istio-system", setOverlayYAML, force, kubeConfig, l)
+		fy, _ = overlayedOperatorFromCluster("istio-system", setOverlayYAML, kubeConfig)
 	}
 
 	if fy != "" {
@@ -347,8 +347,8 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 	return iop.Spec.InstallPackagePath, nil
 }
 
-// overlayedOperatorFromCluster returns YAML of an IOP, profile name, err
-func overlayedOperatorFromCluster(istioNamespace string, setOverlayYAML string, force bool, kubeConfig *rest.Config, l clog.Logger) (string, string, error) {
+// overlayedOperatorFromCluster returns YAML of an IOP, err
+func overlayedOperatorFromCluster(istioNamespace string, setOverlayYAML string, kubeConfig *rest.Config) (string, error) {
 	// Did the user specify a particular `--set revision=`?
 	revision, err := tpath.GetConfigSubtree(setOverlayYAML, "spec.revision")
 	if err == nil {
@@ -360,10 +360,10 @@ func overlayedOperatorFromCluster(istioNamespace string, setOverlayYAML string, 
 
 	iop, err := operatorFromCluster(istioNamespace, revision, kubeConfig)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
-	return util.ToYAML(iop), "", nil
+	return util.ToYAML(iop), nil
 }
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
