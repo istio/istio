@@ -4,7 +4,7 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_lightstep","customConfigFile":"envoy_bootstrap_v2.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"lightstep":{"accessToken":"abcdefg1234567","address":"lightstep-satellite:8080"}}},"SDS":"true","TRUSTJWT":"true"}
+    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_tls","customConfigFile":"envoy_bootstrap_v2.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"tlsSettings":{"caCertificates":"/etc/zipkin/ca.pem","mode":"SIMPLE"},"zipkin":{"address":"localhost:6000"}}},"SDS":"true","TRUSTJWT":"true"}
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -357,20 +357,22 @@
       
       ,
       {
-        "name": "lightstep",
-        "http2_protocol_options": {},
+        "name": "zipkin",
+        
+        "transport_socket": {"name":"tls","typed_config":{"@type":"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext","common_tls_context":{"validation_context":{"trusted_ca":{"filename":"/etc/zipkin/ca.pem"}}}}},
+        
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
-          "cluster_name": "lightstep",
+          "cluster_name": "zipkin",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {
                 "address":{
-                  "socket_address": {"address": "lightstep-satellite", "port_value": 8080}
+                  "socket_address": {"address": "localhost", "port_value": 6000}
                 }
               }
             }]
@@ -445,11 +447,14 @@
   ,
   "tracing": {
     "http": {
-      "name": "envoy.lightstep",
+      "name": "envoy.zipkin",
       "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.trace.v2.LightstepConfig",
-        "collector_cluster": "lightstep",
-        "access_token_file": "/test-path/lightstep_access_token.txt"
+        "@type": "type.googleapis.com/envoy.config.trace.v2.ZipkinConfig",
+        "collector_cluster": "zipkin",
+        "collector_endpoint": "/api/v2/spans",
+        "collector_endpoint_version": "HTTP_JSON",
+        "trace_id_128bit": true,
+        "shared_span_context": false
       }
     }
   }
