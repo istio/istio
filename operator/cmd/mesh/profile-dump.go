@@ -132,7 +132,7 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		}
 	}
 
-	y, _, err := GenerateConfig(pdArgs.inFilenames, setFlagYAML, true, nil, l)
+	y, _, err := GenerateConfig(pdArgs.inFilenames, setFlagYAML, true, nil, l, false)
 	if err != nil {
 		return err
 	}
