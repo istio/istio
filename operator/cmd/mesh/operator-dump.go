@@ -55,6 +55,7 @@ func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Comman
 		}}
 }
 
+// operatorDump dumps the manifest used to install the operator.
 func operatorDump(args *rootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
 	_, mstr, err := renderOperatorManifest(args, &odArgs.common)
 	if err != nil {

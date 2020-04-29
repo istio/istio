@@ -24,6 +24,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
@@ -154,7 +155,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	return nil
 }
 
-// ApplyManifests generates manifests from the given input files and --set flag overlays and applies them to the
+// ApplyManifest generates manifests from the given input files and --set flag overlays and applies them to the
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
@@ -185,12 +186,12 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return err
 	}
 
-	if err := CreateNamespace(clientset, iop.Namespace); err != nil {
+	if err := createNamespace(clientset, iop.Namespace); err != nil {
 		return err
 	}
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
-	helmreconciler.FlushObjectCaches()
+	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, WaitTimeout: waitTimeout, ProgressLog: util.NewProgressLog()}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
@@ -215,7 +216,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-	if err := reconciler.ProcessObject("", obj.UnstructuredObject()); err != nil {
+	if err := reconciler.ApplyObject("", obj.UnstructuredObject()); err != nil {
 		return err
 	}
 

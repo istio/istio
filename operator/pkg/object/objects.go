@@ -523,3 +523,17 @@ func ParseK8SYAMLToIstioOperator(yml string) (*v1alpha1.IstioOperator, *schema.G
 	v1alpha1.SetNamespace(iop.Spec, o.Namespace)
 	return iop, &gvk, nil
 }
+
+// AllObjectHashes returns a map with object hashes of all the objects contained in cmm as the keys.
+func AllObjectHashes(m string) map[string]bool {
+	ret := make(map[string]bool)
+	objs, err := ParseK8sObjectsFromYAMLManifest(m)
+	if err != nil {
+		log.Error(err.Error())
+	}
+	for _, o := range objs {
+		ret[o.Hash()] = true
+	}
+
+	return ret
+}

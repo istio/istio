@@ -16,6 +16,7 @@ package istiocontrolplane
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -35,10 +36,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	version2 "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (
@@ -75,44 +83,34 @@ var (
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
 		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
 	}
-)
 
-// Add creates a new IstioOperator Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig()}
-}
-
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	log.Info("Adding controller for IstioOperator")
-	// Create a new controller
-	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
+	ownedResourcePredicates = predicate.Funcs{
+		CreateFunc: func(_ event.CreateEvent) bool {
+			// no action
+			return false
+		},
+		GenericFunc: func(_ event.GenericEvent) bool {
+			// no action
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			object, err := meta.Accessor(e.Object)
+			log.Debugf("got delete event for %s.%s", object.GetName(), object.GetNamespace())
+			if err != nil {
+				return false
+			}
+			if object.GetLabels()[helmreconciler.OwnerNameKey] != "" {
+				return true
+			}
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// no action
+			return false
+		},
 	}
 
-	// Watch for changes to primary resource IstioOperator
-	err = c.Watch(&source.Kind{Type: &iopv1alpha1.IstioOperator{}}, &handler.EnqueueRequestForObject{}, getPredicateForIstioOperator())
-	if err != nil {
-		return err
-	}
-	//watch for changes to Istio resources
-	err = watchIstioResources(c)
-	if err != nil {
-		return err
-	}
-	log.Info("Controller added")
-	return nil
-}
-
-func getPredicateForIstioOperator() predicate.Funcs {
-	return predicate.Funcs{
+	operatorPredicates = predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return true
 		},
@@ -138,9 +136,7 @@ func getPredicateForIstioOperator() predicate.Funcs {
 			return false
 		},
 	}
-}
-
-var _ reconcile.Reconciler = &ReconcileIstioOperator{}
+)
 
 // ReconcileIstioOperator reconciles a IstioOperator object
 type ReconcileIstioOperator struct {
@@ -241,7 +237,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	var err error
 	iopMerged := &iopv1alpha1.IstioOperator{}
 	*iopMerged = *iop
-	iopMerged.Spec, err = helmreconciler.MergeIOPSWithProfile(iopMerged)
+	iopMerged.Spec, err = mergeIOPSWithProfile(iopMerged)
 
 	if err != nil {
 		log.Errorf("failed to generate IstioOperator spec, %v", err)
@@ -282,30 +278,88 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	return reconcile.Result{}, err
 }
 
-var ownedResourcePredicates = predicate.Funcs{
-	CreateFunc: func(_ event.CreateEvent) bool {
-		// no action
-		return false
-	},
-	GenericFunc: func(_ event.GenericEvent) bool {
-		// no action
-		return false
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		object, err := meta.Accessor(e.Object)
-		log.Debugf("got delete event for %s.%s", object.GetName(), object.GetNamespace())
+// mergeIOPSWithProfile overlays the values in iop on top of the defaults for the profile given by iop.profile and
+// returns the merged result.
+func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperatorSpec, error) {
+	profileYAML, err := helm.GetProfileYAML(iop.Spec.InstallPackagePath, iop.Spec.Profile)
+	if err != nil {
+		return nil, err
+	}
+
+	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
+	// override from variables that are set during release build time.
+	hub := version.DockerInfo.Hub
+	tag := version.DockerInfo.Tag
+	if hub != "" && hub != "unknown" && tag != "" && tag != "unknown" {
+		buildHubTagOverlayYAML, err := helm.GenerateHubTagOverlay(hub, tag)
 		if err != nil {
-			return false
+			return nil, err
 		}
-		if object.GetLabels()[helmreconciler.OwnerNameKey] != "" {
-			return true
+		profileYAML, err = util.OverlayYAML(profileYAML, buildHubTagOverlayYAML)
+		if err != nil {
+			return nil, err
 		}
-		return false
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		// no action
-		return false
-	},
+	}
+
+	overlayYAML, err := util.MarshalWithJSONPB(iop)
+	if err != nil {
+		return nil, err
+	}
+	mvs := version2.OperatorBinaryVersion.MinorVersion
+	t, err := translate.NewReverseTranslator(mvs)
+	if err != nil {
+		return nil, fmt.Errorf("error creating values.yaml translator: %s", err)
+	}
+	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
+	if err != nil {
+		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
+	}
+
+	mergedYAML, err := util.OverlayYAML(profileYAML, overlayYAML)
+	if err != nil {
+		return nil, err
+	}
+
+	mergedYAML, err = translate.OverlayValuesEnablement(mergedYAML, overlayYAML, "")
+	if err != nil {
+		return nil, err
+	}
+
+	mergedYAMLSpec, err := tpath.GetSpecSubtree(mergedYAML)
+	if err != nil {
+		return nil, err
+	}
+
+	return istio.UnmarshalAndValidateIOPS(mergedYAMLSpec)
+}
+
+// Add creates a new IstioOperator Controller and adds it to the Manager. The Manager will set fields on the Controller
+// and Start it when the Manager is Started.
+func Add(mgr manager.Manager) error {
+	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig()})
+}
+
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
+func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	log.Info("Adding controller for IstioOperator")
+	// Create a new controller
+	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to primary resource IstioOperator
+	err = c.Watch(&source.Kind{Type: &iopv1alpha1.IstioOperator{}}, &handler.EnqueueRequestForObject{}, operatorPredicates)
+	if err != nil {
+		return err
+	}
+	//watch for changes to Istio resources
+	err = watchIstioResources(c)
+	if err != nil {
+		return err
+	}
+	log.Info("Controller added")
+	return nil
 }
 
 // Watch changes for Istio resources managed by the operator

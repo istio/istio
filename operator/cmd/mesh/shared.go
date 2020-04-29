@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -192,8 +193,8 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
 }
 
-// Options contains the startup options for applying the manifest.
-type Options struct {
+// applyOptions contains the startup options for applying the manifest.
+type applyOptions struct {
 	// Path to the kubeconfig file.
 	Kubeconfig string
 	// ComponentName of the kubeconfig context to use.
@@ -206,19 +207,19 @@ type Options struct {
 	WaitTimeout time.Duration
 }
 
-func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) error {
+func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *applyOptions, l clog.Logger) error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
-	helmreconciler.FlushObjectCaches()
+	cache.FlushObjectCaches()
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
 	if err != nil {
 		l.LogAndError(err)
 		return err
 	}
-	ms := []releaseutil.Manifest{{
+	ms := releaseutil.Manifest{
 		Name:    componentName,
 		Content: manifestStr,
-	}}
-	_, _, err = reconciler.ProcessManifest(ms, true)
+	}
+	_, _, err = reconciler.ApplyManifest(ms, true)
 	return err
 }
 
@@ -242,8 +243,8 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 	return
 }
 
-// CreateNamespace creates a namespace using the given k8s interface.
-func CreateNamespace(cs kubernetes.Interface, namespace string) error {
+// createNamespace creates a namespace using the given k8s interface.
+func createNamespace(cs kubernetes.Interface, namespace string) error {
 	if namespace == "" {
 		// Setup default namespace
 		namespace = "istio-system"
@@ -260,4 +261,9 @@ func CreateNamespace(cs kubernetes.Interface, namespace string) error {
 		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
 	}
 	return nil
+}
+
+// deleteNamespace deletes namespace using the given k8s client.
+func deleteNamespace(cs kubernetes.Interface, namespace string) error {
+	return cs.CoreV1().Namespaces().Delete(context.TODO(), namespace, v12.DeleteOptions{})
 }
