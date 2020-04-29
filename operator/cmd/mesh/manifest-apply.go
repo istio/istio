@@ -139,7 +139,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	// Warn users if they use `manifest apply` without any config args.
 	if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
-		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
+		if !confirm("This will install or upgrade Istio upon the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
 			cmd.Print("Cancelled.\n")
 			os.Exit(1)
 		}
@@ -171,7 +171,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-	_, iops, err := GenerateConfig(inFilenames, ysf, force, restConfig, l)
+	_, iops, err := GenerateConfig(inFilenames, ysf, force, restConfig, l, true)
 	if err != nil {
 		return err
 	}

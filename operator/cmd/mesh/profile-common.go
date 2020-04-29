@@ -15,14 +15,20 @@
 package mesh
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
@@ -34,6 +40,14 @@ import (
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/operator/version"
 	pkgversion "istio.io/pkg/version"
+)
+
+var (
+	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
+		Group:    iopv1alpha1.SchemeGroupVersion.Group,
+		Version:  iopv1alpha1.SchemeGroupVersion.Version,
+		Resource: "istiooperators",
+	}
 )
 
 // GenerateConfig creates an IstioOperatorSpec from the following sources, overlaid sequentially:
@@ -48,11 +62,21 @@ import (
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kubeConfig *rest.Config,
-	l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+	l clog.Logger, useClusterIfAvailable bool) (string, *v1alpha1.IstioOperatorSpec, error) {
 
-	fy, profile, err := readYamlProfle(inFilenames, setOverlayYAML, force, l)
-	if err != nil {
-		return "", nil, err
+	var err error
+	var fy, profile string
+	if useClusterIfAvailable {
+		fy, profile, _ = overlayedOperatorFromCluster("istio-system", setOverlayYAML, force, kubeConfig, l)
+	}
+
+	if fy != "" {
+		l.Print("Using Istio configuration loaded from cluster.\n")
+	} else {
+		fy, profile, err = readYamlProfile(inFilenames, setOverlayYAML, force, l)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	iopsString, iops, err := genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
@@ -70,7 +94,7 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 	return iopsString, iops, nil
 }
 
-func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l clog.Logger) (string, string, error) {
+func readYamlProfile(inFilenames []string, setOverlayYAML string, force bool, l clog.Logger) (string, string, error) {
 
 	profile := name.DefaultProfileName
 	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
@@ -321,4 +345,55 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 		return "", nil
 	}
 	return iop.Spec.InstallPackagePath, nil
+}
+
+// overlayedOperatorFromCluster returns YAML of an IOP, profile name, err
+func overlayedOperatorFromCluster(istioNamespace string, setOverlayYAML string, force bool, kubeConfig *rest.Config, l clog.Logger) (string, string, error) {
+	// Did the user specify a particular `--set revision=`?
+	revision, err := tpath.GetConfigSubtree(setOverlayYAML, "spec.revision")
+	if err == nil {
+		revision = strings.TrimSpace(revision)
+		if revision == "{}" {
+			revision = ""
+		}
+	}
+
+	iop, err := operatorFromCluster(istioNamespace, revision, kubeConfig)
+	if err != nil {
+		return "", "", err
+	}
+
+	return util.ToYAML(iop), "", nil
+}
+
+// Find an IstioOperator matching revision in the cluster.  The IstioOperators
+// don't have a label for their revision, so we parse them and check .Spec.Revision
+func operatorFromCluster(istioNamespaceFlag string, revision string, restConfig *rest.Config) (*iopv1alpha1.IstioOperator, error) {
+	client, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	ul, err := client.
+		Resource(istioOperatorGVR).
+		Namespace(istioNamespaceFlag).
+		List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, un := range ul.Items {
+		un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
+		by, err := json.Marshal(un.Object)
+		if err != nil {
+			return nil, err
+		}
+
+		iop, err := operator_istio.UnmarshalIstioOperator(string(by))
+		if err != nil {
+			return nil, err
+		}
+		if revision == "" || iop.Spec.Revision == revision {
+			return iop, nil
+		}
+	}
+	return nil, fmt.Errorf("control plane revision %q not found", revision)
 }

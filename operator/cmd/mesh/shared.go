@@ -229,7 +229,7 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 		return "", "", nil
 	}
 
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, "", false, nil, l)
+	_, mergedIOPS, err := GenerateConfig([]string{filePath}, "", false, nil, l, false)
 	if err != nil {
 		return "", "", err
 	}

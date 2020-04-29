@@ -140,8 +140,13 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return err
 	}
+
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, ysf, args.force, nil, l)
+	config, err := defaultRestConfig(args.kubeConfigPath, args.context)
+	if err != nil {
+		return fmt.Errorf("failed to connect Kubernetes API server, error: %w", err)
+	}
+	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, ysf, args.force, config, l, true)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
@@ -255,7 +260,7 @@ func checkUpgradeIOPS(curIOPS, tarIOPS, ignoreIOPS string, l clog.Logger) {
 	if diff == "" {
 		l.LogAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
 	} else {
-		l.LogAndPrintf("Upgrade check: Warning!!! The following IOPS will be changed as part of upgrade. "+
+		l.LogAndPrintf("Upgrade check: Warning!!! The following Istio settings will be changed as part of upgrade. "+
 			"Please double check they are correct:\n%s", diff)
 	}
 }
