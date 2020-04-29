@@ -84,6 +84,12 @@ func (i *operatorComponent) Close() (err error) {
 			if e := cluster.DeleteContents("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
 				err = multierror.Append(err, e)
 			}
+			if e := cluster.DeleteNamespace(i.settings.SystemNamespace); e != nil {
+				err = multierror.Append(e, fmt.Errorf("failed listing secrets for namespace %s on cluster %s: %v", i.settings.SystemNamespace, cluster.Name(), e))
+			}
+			if e := cluster.WaitForNamespaceDeletion(i.settings.SystemNamespace); e != nil {
+				err = multierror.Append(err, e)
+			}
 		}
 	}
 	return
