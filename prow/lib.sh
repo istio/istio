@@ -295,12 +295,13 @@ data:
 }
 
 function cidr_to_ips() {
+    CIDR="$1"
     if command -v python3; then
       python3 - <<EOF
-from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$1').hosts()]
+from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$CIDR').hosts()]
 EOF
     elif command -v nmap; then
-      nmap -sL "$1" | awk '/Nmap scan report/{print $NF}'
+      nmap -sL "$CIDR" | awk '/Nmap scan report/{print $NF}'
     fi
 }
 
