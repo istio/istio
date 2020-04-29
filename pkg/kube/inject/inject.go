@@ -93,7 +93,7 @@ var (
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
 		annotation.SidecarTrafficKubevirtInterfaces.Name:          alwaysValidFunc,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
-		ProxyConfigAnnotation:                                     validateProxyConfig,
+		annotation.ProxyConfig.Name:                               validateProxyConfig,
 	}
 )
 
@@ -439,9 +439,6 @@ func flippedContains(needle, haystack string) bool {
 	return strings.Contains(haystack, needle)
 }
 
-// ProxyConfigAnnotation determines the mesh config overrides for a workloadTODO move this to API
-var ProxyConfigAnnotation = "istio.io/proxyConfig"
-
 // InjectionData renders sidecarTemplate with valuesConfig.
 func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
 	metadata *metav1.ObjectMeta, meshConfig *meshconfig.MeshConfig) (
@@ -465,7 +462,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
 	}
 
-	if pca, f := metadata.GetAnnotations()[ProxyConfigAnnotation]; f {
+	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		var merr error
 		meshConfig, merr = mesh.ApplyProxyConfig(pca, *meshConfig)
 		if merr != nil {
