@@ -1103,9 +1103,6 @@ func ValidateLightstepCollector(ls *meshconfig.Tracing_Lightstep) error {
 	if ls.GetAccessToken() == "" {
 		errs = multierror.Append(errs, errors.New("access token is required"))
 	}
-	if ls.GetSecure() && (ls.GetCacertPath() == "") {
-		errs = multierror.Append(errs, errors.New("cacertPath is required"))
-	}
 	return errs
 }
 
@@ -1244,6 +1241,12 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if tracer := config.GetTracing().GetDatadog(); tracer != nil {
 		if err := ValidateDatadogCollector(tracer); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid datadog config:"))
+		}
+	}
+
+	if tracer := config.GetTracing().GetTlsSettings(); tracer != nil {
+		if err := validateTLS(tracer); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid tracing TLS config:"))
 		}
 	}
 

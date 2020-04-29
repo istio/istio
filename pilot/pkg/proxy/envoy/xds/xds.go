@@ -142,7 +142,6 @@ func (s *Server) WaitConfigSync(max time.Duration) bool {
 }
 
 func (s *Server) StartGRPC(addr string) error {
-
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
@@ -150,7 +149,11 @@ func (s *Server) StartGRPC(addr string) error {
 	gs := grpc.NewServer()
 	s.DiscoveryServer.Register(gs)
 	s.GRPCListener = lis
-	go gs.Serve(lis)
-
+	go func() {
+		err = gs.Serve(lis)
+		if err != nil {
+			log.Infoa("Serve done ", err)
+		}
+	}()
 	return nil
 }

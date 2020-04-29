@@ -28,6 +28,7 @@ import (
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -74,6 +75,8 @@ type upgradeArgs struct {
 	skipConfirmation bool
 	// force means directly applying the upgrade without eligibility checks.
 	force bool
+	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	charts string
 }
 
 // addUpgradeFlags adds upgrade related flags into cobra command
@@ -96,6 +99,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks
@@ -110,7 +114,7 @@ func UpgradeCmd() *cobra.Command {
 			"traffic may be disrupted during upgrade. Please ensure PodDisruptionBudgets " +
 			"are defined to maintain service continuity.",
 		RunE: func(cmd *cobra.Command, args []string) (e error) {
-			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr())
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), installerScope)
 			initLogsOrExit(rootArgs)
 			err := upgrade(rootArgs, macArgs, l)
 			if err != nil {
@@ -131,7 +135,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	ysf, err := yamlFromSetFlags(args.set, args.force, l)
+	ysf, err := yamlFromSetFlags(applyInstallFlagAlias(args.set, args.charts), args.force, l)
 	if err != nil {
 		return err
 	}
@@ -190,13 +194,16 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if currentVersion != "" {
 		currentSets = append(currentSets, "installPackagePath="+installURLFromVersion(currentVersion))
 	}
-	if targetIOPS.Profile != "" {
+	profile := targetIOPS.Profile
+	if profile == "" {
+		profile = name.DefaultProfileName
+	} else {
 		currentSets = append(currentSets, "profile="+targetIOPS.Profile)
 	}
 	if ysf, err = yamlFromSetFlags(currentSets, args.force, l); err != nil {
 		return err
 	}
-	currentProfileIOPSYaml, _, err := GenerateConfig(nil, ysf, args.force, nil, l)
+	currentProfileIOPSYaml, _, err := genIOPSFromProfile(profile, "", ysf, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
@@ -206,7 +213,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(nil, args.inFilenames, args.force, rootArgs.dryRun,
+	err = ApplyManifests(applyInstallFlagAlias(args.set, args.charts), args.inFilenames, args.force, rootArgs.dryRun,
 		rootArgs.verbose, args.kubeConfigPath, args.context, args.wait, upgradeWaitSecWhenApply, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)

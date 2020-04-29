@@ -283,8 +283,6 @@ spec:
         lightstep:
           address: ""                # example: lightstep-satellite:443
           accessToken: ""            # example: abcdefg1234567
-          secure: true               # example: true|false
-          cacertPath: ""             # example: /etc/lightstep/cacert.pem
         zipkin:
           address: ""
         datadog:
@@ -596,7 +594,7 @@ spec:
         jaegerURL:
         jaegerInClusterURL: http://tracing/jaeger
         auth:
-          strategy: ""
+          strategy: login
       prometheusNamespace:
       createDemoSecret: false
       security:

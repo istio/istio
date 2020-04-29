@@ -201,12 +201,12 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 				rc := &xdsapi.RouteConfiguration{
 					Name: n,
 					VirtualHosts: []*envoy_api_v2_route.VirtualHost{
-						&envoy_api_v2_route.VirtualHost{
+						{
 							Name:    hn,
 							Domains: []string{hn, n},
 
 							Routes: []*envoy_api_v2_route.Route{
-								&envoy_api_v2_route.Route{
+								{
 									Match: &envoy_api_v2_route.RouteMatch{
 										PathSpecifier: &envoy_api_v2_route.RouteMatch_Prefix{Prefix: ""},
 									},

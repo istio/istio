@@ -233,6 +233,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 			// This should be only set for the first request. The node id may not be set - for example malicious clients.
 			if con.node == nil {
+				if discReq.Node == nil {
+					return errors.New("missing node ID")
+				}
 				if err := s.initConnection(discReq.Node, con); err != nil {
 					return err
 				}
@@ -833,8 +836,6 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 				conn.RouteNonceSent = res.Nonce
 			case EndpointType, v3.EndpointType:
 				conn.EndpointNonceSent = res.Nonce
-			default:
-				adsLog.Warnf("sent unknown XDS type: %v", res.TypeUrl)
 			}
 		}
 		if res.TypeUrl == RouteType || res.TypeUrl == v3.RouteType {

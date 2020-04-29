@@ -36,6 +36,7 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -470,15 +471,6 @@ func (s *Service) External() bool {
 	return s.MeshExternal
 }
 
-// Key generates a unique string referencing service instances for a given port and labels.
-// The separator character must be exclusive to the regular expressions allowed in the
-// service declaration.
-// Deprecated
-func (s *Service) Key(port *Port, l labels.Instance) string {
-	// TODO: check port is non nil and membership of port in service
-	return ServiceKey(s.Hostname, PortList{port}, labels.Collection{l})
-}
-
 // ServiceKey generates a service key for a collection of ports and labels
 // Deprecated
 //
@@ -532,31 +524,6 @@ func ServiceKey(hostname host.Name, servicePorts PortList, labelsList labels.Col
 		}
 	}
 	return buffer.String()
-}
-
-// ParseServiceKey is the inverse of the Service.String() method
-// Deprecated
-func ParseServiceKey(s string) (hostname host.Name, ports PortList, lc labels.Collection) {
-	parts := strings.Split(s, "|")
-	hostname = host.Name(parts[0])
-
-	var names []string
-	if len(parts) > 1 {
-		names = strings.Split(parts[1], ",")
-	} else {
-		names = []string{""}
-	}
-
-	for _, name := range names {
-		ports = append(ports, &Port{Name: name})
-	}
-
-	if len(parts) > 2 && len(parts[2]) > 0 {
-		for _, tag := range strings.Split(parts[2], ";") {
-			lc = append(lc, labels.Parse(tag))
-		}
-	}
-	return
 }
 
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
@@ -630,6 +597,32 @@ func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 		}
 	}
 	return DisabledTLSModeLabel
+}
+
+// GetServiceAccounts returns aggregated list of service accounts of Service plus its instances.
+func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) []string {
+	sa := sets.Set{}
+
+	instances := make([]*ServiceInstance, 0)
+	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
+	// the service is deployed on, and the service accounts of the pods.
+	for _, port := range ports {
+		svcInstances, err := discovery.InstancesByPort(svc, port, labels.Collection{})
+		if err != nil {
+			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
+			return nil
+		}
+		instances = append(instances, svcInstances...)
+	}
+
+	for _, si := range instances {
+		if si.Endpoint.ServiceAccount != "" {
+			sa.Insert(si.Endpoint.ServiceAccount)
+		}
+	}
+	sa.Insert(svc.ServiceAccounts...)
+
+	return sa.UnsortedList()
 }
 
 // DeepCopy creates a clone of Service.

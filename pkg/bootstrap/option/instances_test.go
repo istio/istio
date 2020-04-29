@@ -259,18 +259,6 @@ func TestOptions(t *testing.T) {
 			expected: "fake",
 		},
 		{
-			testName: "lightstep secure",
-			key:      "lightstepSecure",
-			option:   option.LightstepSecure(true),
-			expected: true,
-		},
-		{
-			testName: "lightstep CA cert path",
-			key:      "lightstepCacertPath",
-			option:   option.LightstepCACertPath("fake"),
-			expected: "fake",
-		},
-		{
 			testName: "stackdriver enabled",
 			key:      "stackdriver",
 			option:   option.StackDriverEnabled(true),
@@ -697,6 +685,22 @@ func TestOptions(t *testing.T) {
 			key:      "gcp_project_id",
 			option:   option.GCPProjectID("project"),
 			expected: "project",
+		},
+		{
+			testName: "tracing tls nil",
+			key:      "tracing_tls",
+			option:   option.TracingTLS(nil, &model.NodeMetadata{}, false),
+			expected: nil,
+		},
+		{
+			testName: "tracing tls",
+			key:      "tracing_tls",
+			option: option.TracingTLS(&networkingAPI.ClientTLSSettings{
+				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
+				CaCertificates: "/etc/tracing/ca.pem",
+			}, &model.NodeMetadata{}, false),
+			expected: "{\"name\":\"tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\"," +
+				"\"common_tls_context\":{\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/tracing/ca.pem\"}}}}}",
 		},
 	}
 

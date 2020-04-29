@@ -100,6 +100,11 @@ func (h *HelmReconciler) Prune(manifests ChartManifestsMap) error {
 	return errs.ToError()
 }
 
+// Delete removes all resources associated with componentName.
+func (h *HelmReconciler) DeleteComponent(componentName string) error {
+	return h.PruneUnlistedResources(map[string]bool{}, componentName)
+}
+
 func (h *HelmReconciler) PruneUnlistedResources(excluded map[string]bool, componentName string) error {
 	var errs util.Errors
 	for _, gvk := range append(namespacedResources, nonNamespacedResources...) {
@@ -128,6 +133,7 @@ func (h *HelmReconciler) PruneUnlistedResources(excluded map[string]bool, compon
 			if err != nil {
 				errs = util.AppendErr(errs, err)
 			}
+			h.removeFromObjectCache(componentName, oh)
 			h.opts.Log.LogAndPrintf("Pruned object %s.", oh)
 		}
 	}

@@ -181,11 +181,11 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesEx
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV6(
-		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
+		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
-		constants.REDIRECT, "--to-port", iptConfigurator.cfg.InboundCapturePort)
+		constants.REDIRECT, "--to-ports", iptConfigurator.cfg.InboundCapturePort)
 
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 	// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
@@ -344,12 +344,12 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV4(
-		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
+		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 
 	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
-		"--to-port", iptConfigurator.cfg.InboundCapturePort)
+		"--to-ports", iptConfigurator.cfg.InboundCapturePort)
 
 	iptConfigurator.handleInboundPortsInclude()
 
@@ -425,7 +425,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		// TODO: also capture TCP 53
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
 			"-p", "udp", "--dport", "53",
-			"-j", "REDIRECT", "--to-port", "15013")
+			"-j", "REDIRECT", "--to-ports", "15013")
 	}
 
 	iptConfigurator.executeCommands()

@@ -39,9 +39,6 @@ import (
 )
 
 var (
-	istiodDNSAddr = "127.0.0.1:14053"
-	agentDNSAddr  = "127.0.0.1:14054"
-
 	grpcAddr = "127.0.0.1:14056"
 
 	// Address of the Istiod gRPC service, used in tests.
@@ -56,8 +53,6 @@ func TestGRPC(t *testing.T) {
 
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
-	//sd.AddEndpoint("fortio1.fortio.svc.cluster.local",
-	//	"http-main", 8081, "127.0.0.1", 15019)
 
 	sd.AddHTTPService("istiod.istio-system.svc.cluster.local", "10.10.10.2", 14056)
 	sd.SetEndpoints("istiod.istio-system.svc.cluster.local", "", []*model.IstioEndpoint{
@@ -135,11 +130,8 @@ func TestGRPC(t *testing.T) {
 
 	t.Run("gRPC-cdslb", func(t *testing.T) {
 		rb := balancer.Get("eds_experimental")
-		//ch := make(chan resolver.State)
 		b := rb.Build(&testLBClientConn{}, balancer.BuildOptions{})
-
 		defer b.Close()
-
 	})
 
 	t.Run("gRPC-dial", func(t *testing.T) {
@@ -175,7 +167,6 @@ type testClientConn struct {
 }
 
 func (t *testClientConn) UpdateState(s resolver.State) {
-	log.Println("UPDATE STATE ", s)
 	t.ch <- s
 }
 

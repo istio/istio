@@ -213,3 +213,61 @@ spec:
         subset: v1
         port:
           number: 80 # Should not generate an error since we specify a valid port, as required in this case
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  # This VirtualService is in 'istio-system' and uses a FQDN destination
+  name: cross-namespace
+  namespace: istio-system
+spec:
+  hosts: [reviews]
+  http:
+    - route:
+        - destination:
+            # Should not generate error because the this host exists, just not in our namespace
+            host: reviews.default.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: details
+  namespace: default
+  annotations:
+    networking.istio.io/exportTo: banana
+  labels:
+    app: details
+    service: details
+spec:
+  ports:
+  - port: 9080
+    name: http
+  selector:
+    app: details
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  # This VirtualService is in 'istio-system' and uses a FQDN destination, but this ns doesn't see that Service
+  name: cross-namespace-details
+  namespace: istio-system
+spec:
+  hosts: [details]
+  http:
+    - route:
+        - destination:
+            # Should generate error, because details is only exported to "banana" ns
+            host: details.default.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  # This is cross-namespace, but not a problem, details has explicit networking.istio.io/exportTo=banana
+  name: banana-details
+  namespace: banana
+spec:
+  hosts: [details]
+  http:
+    - route:
+        - destination:
+            host: details.default.svc.cluster.local
