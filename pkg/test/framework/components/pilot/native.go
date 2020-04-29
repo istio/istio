@@ -76,10 +76,6 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	instance.id = ctx.TrackResource(instance)
 
-	// Override the default pilot cert dir.
-	// TODO(nmittler): We should eventually replace this hack.
-	bootstrap.PilotCertDir = pilotCertDir
-
 	// Dynamically assign all ports.
 	options := bootstrap.DiscoveryServiceOptions{
 		HTTPAddr:       ":0",
