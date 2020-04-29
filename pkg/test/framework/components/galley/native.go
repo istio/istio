@@ -15,24 +15,22 @@
 package galley
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"syscall"
-	"time"
+
+	"istio.io/pkg/appsignals"
 
 	"istio.io/istio/galley/pkg/server"
-	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
-	"istio.io/pkg/appsignals"
 )
 
 var (
@@ -95,6 +93,9 @@ func (c *nativeComponent) ID() resource.ID {
 
 // Address of the Galley MCP Server.
 func (c *nativeComponent) Address() string {
+	if c.client == nil {
+		return ""
+	}
 	return c.client.address
 }
 
@@ -197,6 +198,26 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 	})
 }
 
+// ApplyConfigDir implements Galley.DeleteConfigDir.
+func (c *nativeComponent) DeleteConfigDir(ns namespace.Instance, sourceDir string) (err error) {
+	defer appsignals.Notify("galley.native.DeleteConfigDir", syscall.SIGUSR1)
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		contents, readerr := ioutil.ReadFile(path)
+		if readerr != nil {
+			return readerr
+		}
+
+		return c.DeleteConfig(ns, string(contents))
+	})
+}
+
 // SetMeshConfig implements Instance
 func (c *nativeComponent) SetMeshConfig(meshCfg string) error {
 	if err := ioutil.WriteFile(c.meshConfigFile, []byte(meshCfg), os.ModePerm); err != nil {
@@ -216,7 +237,7 @@ func (c *nativeComponent) SetMeshConfigOrFail(t test.Failer, meshCfg string) {
 
 // WaitForSnapshot implements Galley.WaitForSnapshot.
 func (c *nativeComponent) WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error {
-	return c.client.waitForSnapshot(collection, validator)
+	return nil
 }
 
 // WaitForSnapshotOrFail implements Galley.WaitForSnapshotOrFail.
@@ -225,6 +246,10 @@ func (c *nativeComponent) WaitForSnapshotOrFail(t test.Failer, collection string
 	if err := c.WaitForSnapshot(collection, validator); err != nil {
 		t.Fatalf("WaitForSnapshotOrFail: %v", err)
 	}
+}
+
+func (c *nativeComponent) GetConfigDir() string {
+	return c.configDir
 }
 
 func (c *nativeComponent) reset() error {
@@ -261,55 +286,6 @@ func (c *nativeComponent) reset() error {
 	if err = c.applyAttributeManifest(); err != nil {
 		return err
 	}
-	return c.restart()
-}
-
-func (c *nativeComponent) restart() error {
-	a := settings.DefaultArgs()
-	a.Insecure = true
-	a.EnableServer = true
-	a.DisableResourceReadyCheck = true
-	a.ConfigPath = c.configDir
-	a.MeshConfigFile = c.meshConfigFile
-	// To prevent ctrlZ port collision between galley/pilot&mixer
-	a.IntrospectionOptions.Port = 0
-	a.MonitoringPort = 0
-	a.ExcludedResourceKinds = nil
-	a.EnableServiceDiscovery = true
-	a.EnableValidationServer = false
-	a.EnableValidationController = false
-	a.ValidationWebhookControllerArgs.UnregisterValidationWebhook = false
-	a.Readiness.Path = "/tmp/readinessProbe"
-	a.Liveness.Path = "/tmp/livenessProbe"
-
-	// Bind to an arbitrary port.
-	a.APIAddress = "tcp://0.0.0.0:0"
-
-	if c.cfg.SinkAddress != "" {
-		a.SinkAddress = c.cfg.SinkAddress
-		a.SinkAuthMode = "NONE"
-	}
-
-	s := server.New(a)
-	if err := s.Start(); err != nil {
-		scopes.Framework.Errorf("Error starting Galley: %v", err)
-		return err
-	}
-
-	c.server = s
-
-	// TODO: This is due to Galley start-up being racy. We should go back to the "Start" based model where
-	// return from s.Start() guarantees that all the setup is complete.
-	time.Sleep(time.Second)
-
-	c.client = &client{
-		address: fmt.Sprintf("tcp://%s", s.Address().String()),
-	}
-
-	if err := c.client.waitForStartup(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
