@@ -40,9 +40,9 @@ func init() {
 }
 
 func initDNS() error {
-	key := path.Join(env.IstioSrc, "tests/testdata/certs/istio-dns/key.pem")
-	cert := path.Join(env.IstioSrc, "tests/testdata/certs/istio-dns/cert-chain.pem")
-	root := path.Join(env.IstioSrc, "tests/testdata/certs/istio-dns/root-cert.pem")
+	key := path.Join(env.IstioSrc, "tests/testdata/certs/pilot/key.pem")
+	cert := path.Join(env.IstioSrc, "tests/testdata/certs/pilot/cert-chain.pem")
+	root := path.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem")
 
 	certP, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
