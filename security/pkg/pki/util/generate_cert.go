@@ -90,10 +90,6 @@ type CertOptions struct {
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
 func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
-	if options.IsEC && options.RSAKeySize > 0 {
-		return nil, nil, fmt.Errorf("cert generation fails due to both RSA key generation and EC generation are specified")
-	}
-
 	// Generate the appropriate private&public key pair based on options.
 	// The public key will be bound to the certificate generated below. The
 	// private key will be used to sign this certificate in the self-signed

@@ -15,6 +15,7 @@
 package util
 
 import (
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -23,165 +24,128 @@ import (
 	"testing"
 )
 
-func TestGenCSR_RSA(t *testing.T) {
+func TestGenCSR(t *testing.T) {
 	// Options to generate a CSR.
-	csrOptions := CertOptions{
-		Host:       "test_ca.com",
-		Org:        "MyOrg",
-		RSAKeySize: 512,
+	cases := []struct {
+		csrOptions CertOptions
+	}{
+		{
+			csrOptions: CertOptions{
+				Host:       "test_ca.com",
+				Org:        "MyOrg",
+				RSAKeySize: 512,
+			},
+		},
+		{
+			csrOptions: CertOptions{
+				Host: "test_ca.com",
+				Org:  "MyOrg",
+				IsEC: true,
+			},
+		},
 	}
 
-	csrPem, _, err := GenCSR(csrOptions)
+	for _, tc := range cases {
+		csrPem, _, err := GenCSR(tc.csrOptions)
 
-	if err != nil {
-		t.Errorf("failed to gen CSR")
-	}
+		if err != nil {
+			t.Errorf("failed to gen CSR")
+		}
 
-	pemBlock, _ := pem.Decode(csrPem)
-	if pemBlock == nil {
-		t.Fatalf("failed to decode csr")
-	}
-	csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
-	if err != nil {
-		t.Fatalf("failed to parse csr")
-	}
-	if err = csr.CheckSignature(); err != nil {
-		t.Errorf("csr signature is invalid")
-	}
-	if csr.Subject.Organization[0] != "MyOrg" {
-		t.Errorf("csr subject does not match")
-	}
-	if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
-		t.Errorf("csr host does not match")
-	}
-}
-
-func TestGenCSR_BothECRSA(t *testing.T) {
-	// Options to generate a CSR.
-	csrOptions := CertOptions{
-		Host:       "test_ca.com",
-		Org:        "MyOrg",
-		RSAKeySize: 512,
-		IsEC:       true,
-	}
-
-	_, _, err := GenCSR(csrOptions)
-
-	if err == nil {
-		t.Errorf("failed to gen CSR")
-	}
-}
-
-func TestGenCSR_EC(t *testing.T) {
-	// Options to generate a CSR.
-	csrOptions := CertOptions{
-		Host: "test_ca.com",
-		Org:  "MyOrg",
-		IsEC: true,
-	}
-
-	csrPem, _, err := GenCSR(csrOptions)
-
-	if err != nil {
-		t.Errorf("failed to gen CSR")
-	}
-
-	pemBlock, _ := pem.Decode(csrPem)
-	if pemBlock == nil {
-		t.Fatalf("failed to decode csr")
-	}
-	csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
-	if err != nil {
-		t.Fatalf("failed to parse csr")
-	}
-	if err = csr.CheckSignature(); err != nil {
-		t.Errorf("csr signature is invalid")
-	}
-	if csr.Subject.Organization[0] != "MyOrg" {
-		t.Errorf("csr subject does not match")
-	}
-	if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
-		t.Errorf("csr host does not match")
-	}
-}
-
-func TestGenCSR_ECPKCS(t *testing.T) {
-	// Options to generate a CSR.
-	csrOptions := CertOptions{
-		Host:     "test_ca.com",
-		Org:      "MyOrg",
-		IsEC:     true,
-		PKCS8Key: true,
-	}
-
-	csrPem, _, err := GenCSR(csrOptions)
-
-	if err != nil {
-		t.Errorf("failed to gen CSR")
-	}
-
-	pemBlock, _ := pem.Decode(csrPem)
-	if pemBlock == nil {
-		t.Fatalf("failed to decode csr")
-	}
-	csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
-	if err != nil {
-		t.Fatalf("failed to parse csr")
-	}
-	if err = csr.CheckSignature(); err != nil {
-		t.Errorf("csr signature is invalid")
-	}
-	if csr.Subject.Organization[0] != "MyOrg" {
-		t.Errorf("csr subject does not match")
-	}
-	if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
-		t.Errorf("csr host does not match")
+		pemBlock, _ := pem.Decode(csrPem)
+		if pemBlock == nil {
+			t.Fatalf("failed to decode csr")
+		}
+		csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
+		if err != nil {
+			t.Fatalf("failed to parse csr")
+		}
+		if err = csr.CheckSignature(); err != nil {
+			t.Errorf("csr signature is invalid")
+		}
+		if csr.Subject.Organization[0] != "MyOrg" {
+			t.Errorf("csr subject does not match")
+		}
+		if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
+			t.Errorf("csr host does not match")
+		}
+		if tc.csrOptions.IsEC {
+			if reflect.TypeOf(csr.PublicKey) != reflect.TypeOf(&ecdsa.PublicKey{}) {
+				t.Errorf("decoded PKCS#8 returned unexpected key type: %T", csr.PublicKey)
+			}
+		} else {
+			if reflect.TypeOf(csr.PublicKey) != reflect.TypeOf(&rsa.PublicKey{}) {
+				t.Errorf("decoded PKCS#8 returned unexpected key type: %T", csr.PublicKey)
+			}
+		}
 	}
 }
 
 func TestGenCSRPKCS8Key(t *testing.T) {
 	// Options to generate a CSR.
-	csrOptions := CertOptions{
-		Host:       "test_ca.com",
-		Org:        "MyOrg",
-		RSAKeySize: 512,
-		PKCS8Key:   true,
+	cases := []struct {
+		csrOptions CertOptions
+	}{
+		{
+			csrOptions: CertOptions{
+				Host:       "test_ca.com",
+				Org:        "MyOrg",
+				RSAKeySize: 512,
+				PKCS8Key:   true,
+			},
+		},
+		{
+			csrOptions: CertOptions{
+				Host:     "test_ca.com",
+				Org:      "MyOrg",
+				IsEC:     true,
+				PKCS8Key: true,
+			},
+		},
 	}
 
-	csrPem, keyPem, err := GenCSR(csrOptions)
+	for _, tc := range cases {
+		csrPem, keyPem, err := GenCSR(tc.csrOptions)
 
-	if err != nil {
-		t.Errorf("failed to gen CSR")
-	}
+		if err != nil {
+			t.Errorf("failed to gen CSR")
+		}
 
-	pemBlock, _ := pem.Decode(csrPem)
-	if pemBlock == nil {
-		t.Fatalf("failed to decode csr")
-	}
-	csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
-	if err != nil {
-		t.Fatalf("failed to parse csr")
-	}
-	if err = csr.CheckSignature(); err != nil {
-		t.Errorf("csr signature is invalid")
-	}
-	if csr.Subject.Organization[0] != "MyOrg" {
-		t.Errorf("csr subject does not match")
-	}
-	if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
-		t.Errorf("csr host does not match")
-	}
+		pemBlock, _ := pem.Decode(csrPem)
+		if pemBlock == nil {
+			t.Fatalf("failed to decode csr")
+		}
+		csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
+		if err != nil {
+			t.Fatalf("failed to parse csr")
+		}
+		if err = csr.CheckSignature(); err != nil {
+			t.Errorf("csr signature is invalid")
+		}
+		if csr.Subject.Organization[0] != "MyOrg" {
+			t.Errorf("csr subject does not match")
+		}
+		if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
+			t.Errorf("csr host does not match")
+		}
 
-	keyPemBlock, _ := pem.Decode(keyPem)
-	if keyPemBlock == nil {
-		t.Fatalf("failed to decode private key PEM")
-	}
-	key, err := x509.ParsePKCS8PrivateKey(keyPemBlock.Bytes)
-	if err != nil {
-		t.Errorf("failed to parse PKCS#8 private key")
-	}
-	if reflect.TypeOf(key) != reflect.TypeOf(&rsa.PrivateKey{}) {
-		t.Errorf("decoded PKCS#8 returned unexpected key type: %T", key)
+		keyPemBlock, _ := pem.Decode(keyPem)
+		if keyPemBlock == nil {
+			t.Fatalf("failed to decode private key PEM")
+		}
+		key, err := x509.ParsePKCS8PrivateKey(keyPemBlock.Bytes)
+		if err != nil {
+			t.Errorf("failed to parse PKCS#8 private key")
+		}
+		if tc.csrOptions.IsEC {
+			if reflect.TypeOf(key) != reflect.TypeOf(&ecdsa.PrivateKey{}) {
+				t.Errorf("decoded PKCS#8 returned unexpected key type: %T", key)
+			}
+		} else {
+			if reflect.TypeOf(key) != reflect.TypeOf(&rsa.PrivateKey{}) {
+				t.Errorf("decoded PKCS#8 returned unexpected key type: %T", key)
+			}
+		}
 	}
 }
 

@@ -16,8 +16,6 @@ package ca
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -331,13 +329,15 @@ func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert
 // GenKeyCert() generates a certificate signed by the CA and
 // returns the certificate chain and the private key.
 func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte, []byte, error) {
-	opts := util.CertOptions{}
+	opts := util.CertOptions{
+		RSAKeySize: caKeySize,
+	}
 
-	_, privKey, _, _ := ca.keyCertBundle.GetAll()
-	switch (*privKey).(type) {
-	case *rsa.PrivateKey:
-		opts.RSAKeySize = 2048
-	case *ecdsa.PrivateKey:
+	// use the type of private key the CA uses to generate a CSR of that type (e.g. CA cert using RSA will
+	// cause CSRs using RSA to be generated)
+	// TODO the user can specify algorithm to generate for CSRs independent of CA certificate
+	_, signingKey, _, _ := ca.keyCertBundle.GetAll()
+	if util.IsECPrivateKey(signingKey) {
 		opts.IsEC = true
 	}
 

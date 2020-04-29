@@ -15,8 +15,6 @@
 package probe
 
 import (
-	"crypto/ecdsa"
-	"crypto/rsa"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -89,17 +87,14 @@ func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
 func (c *LivenessCheckController) checkGrpcServer() error {
 	// generates certificate and private key for test
 	opts := util.CertOptions{
-		Host: LivenessProbeClientIdentity,
+		Host:       LivenessProbeClientIdentity,
+		RSAKeySize: c.rsaKeySize,
 	}
 
-	_, priv, _, _ := c.ca.GetCAKeyCertBundle().GetAll()
-	switch (*priv).(type) {
-	case *ecdsa.PrivateKey:
+	_, signingKey, _, _ := c.ca.GetCAKeyCertBundle().GetAll()
+	// TODO the user can specify algorithm to generate for CSRs independent of CA certificate
+	if util.IsECPrivateKey(signingKey) {
 		opts.IsEC = true
-	case *rsa.PrivateKey:
-		opts.RSAKeySize = c.rsaKeySize
-	default:
-		return fmt.Errorf("unexpected private key algorithm in certificate")
 	}
 
 	csrPEM, privPEM, err := util.GenCSR(opts)
@@ -159,17 +154,14 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	}
 
 	opts = util.CertOptions{
-		Host: LivenessProbeClientIdentity,
-		Org:  c.serviceIdentityOrg,
+		Host:       LivenessProbeClientIdentity,
+		Org:        c.serviceIdentityOrg,
+		RSAKeySize: c.rsaKeySize,
 	}
 
-	switch (*priv).(type) {
-	case *ecdsa.PrivateKey:
+	// TODO the user can specify algorithm to generate for CSRs independent of CA certificate
+	if util.IsECPrivateKey(priv) {
 		opts.IsEC = true
-	case *rsa.PrivateKey:
-		opts.RSAKeySize = c.rsaKeySize
-	default:
-		return fmt.Errorf("unexpected private key algorithm in certificate")
 	}
 
 	csr, privKeyBytes, err := util.GenCSR(opts)

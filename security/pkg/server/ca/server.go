@@ -324,6 +324,7 @@ func (s *Server) getServerCertificate() (*tls.Certificate, error) {
 		}
 	}
 
+	// TODO the user can specify algorithm to generate for CSRs independent of CA certificate
 	csrPEM, privPEM, err := util.GenCSR(opts)
 	if err != nil {
 		return nil, err

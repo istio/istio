@@ -16,6 +16,7 @@ package util
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -97,4 +98,14 @@ func GetRSAKeySize(privKey crypto.PrivateKey) (int, error) {
 	}
 	pkey := privKey.(*rsa.PrivateKey)
 	return pkey.N.BitLen(), nil
+}
+
+// IsECPrivateKey is a predicate returning true if the private key is EC based
+func IsECPrivateKey(privKey *crypto.PrivateKey) bool {
+	switch (*privKey).(type) {
+	case *ecdsa.PrivateKey:
+		return true
+	default:
+		return false
+	}
 }

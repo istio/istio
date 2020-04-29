@@ -26,7 +26,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -36,10 +35,6 @@ import (
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
 func GenCSR(options CertOptions) ([]byte, []byte, error) {
-	if options.IsEC && options.RSAKeySize > 0 {
-		return nil, nil, errors.New("cannot generate both an RSA and EC CSR")
-	}
-
 	var priv interface{}
 	var err error
 	if options.IsEC {
