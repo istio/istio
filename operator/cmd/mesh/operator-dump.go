@@ -40,7 +40,7 @@ func addOperatorDumpFlags(cmd *cobra.Command, args *operatorDumpArgs) {
 		"The namespace the operator controller is installed into")
 	cmd.PersistentFlags().StringVar(&args.common.istioNamespace, "istioNamespace", "istio-system",
 		"The namespace Istio is installed into")
-	cmd.PersistentFlags().StringVarP(&args.common.charts, "charts", "d", "", chartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.common.charts, "charts", "d", "", ChartsFlagHelpStr)
 }
 
 func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Command {

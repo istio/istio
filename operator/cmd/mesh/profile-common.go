@@ -49,6 +49,7 @@ import (
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kubeConfig *rest.Config,
 	l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+
 	fy, profile, err := readYamlProfle(inFilenames, setOverlayYAML, force, l)
 	if err != nil {
 		return "", nil, err
@@ -70,6 +71,7 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 }
 
 func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l clog.Logger) (string, string, error) {
+
 	profile := name.DefaultProfileName
 	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
 	fy, fp, err := parseYAMLFiles(inFilenames, force, l)

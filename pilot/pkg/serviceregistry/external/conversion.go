@@ -132,7 +132,7 @@ func convertServices(cfg model.Config) []*model.Service {
 }
 
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
-	endpoint *networking.WorkloadEntry, tlsMode string) *model.ServiceInstance {
+	endpoint *networking.WorkloadEntry) *model.ServiceInstance {
 	var instancePort uint32
 	addr := endpoint.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
@@ -145,6 +145,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 		}
 	}
 
+	tlsMode := getTLSModeFromWorkloadEntry(endpoint)
 	sa := ""
 	if endpoint.ServiceAccount != "" {
 		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, endpoint.ServiceAccount)
@@ -174,17 +175,7 @@ func convertWorkloadInstances(wle *networking.WorkloadEntry, services []*model.S
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
-
-			// * Use security.istio.io/tlsMode if its present
-			// * If not, set TLS mode if ServiceAccount is specified
-			tlsMode := model.DisabledTLSModeLabel
-			if val, exists := wle.Labels[model.TLSModeLabelName]; exists {
-				tlsMode = val
-			} else if wle.ServiceAccount != "" {
-				tlsMode = model.IstioMutualTLSModeLabel
-			}
-			ep := convertEndpoint(service, port, wle, tlsMode)
-			out = append(out, ep)
+			out = append(out, convertEndpoint(service, port, wle))
 		}
 	}
 	return out
@@ -217,13 +208,25 @@ func convertInstances(cfg model.Config, services []*model.Service) []*model.Serv
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
-					tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
-					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, tlsMode))
+					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint))
 				}
 			}
 		}
 	}
 	return out
+}
+
+func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
+	// * Use security.istio.io/tlsMode if its present
+	// * If not, set TLS mode if ServiceAccount is specified
+	tlsMode := model.DisabledTLSModeLabel
+	if val, exists := wle.Labels[model.TLSModeLabelName]; exists {
+		tlsMode = val
+	} else if wle.ServiceAccount != "" {
+		tlsMode = model.IstioMutualTLSModeLabel
+	}
+
+	return tlsMode
 }
 
 // The foreign service instance has pointer to the foreign service and its service port.

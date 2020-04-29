@@ -75,6 +75,8 @@ type upgradeArgs struct {
 	skipConfirmation bool
 	// force means directly applying the upgrade without eligibility checks.
 	force bool
+	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	charts string
 }
 
 // addUpgradeFlags adds upgrade related flags into cobra command
@@ -98,6 +100,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks
@@ -133,7 +136,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	ysf, err := yamlFromSetFlags(args.set, args.force, l)
+	ysf, err := yamlFromSetFlags(applyInstallFlagAlias(args.set, args.charts), args.force, l)
 	if err != nil {
 		return err
 	}
@@ -211,7 +214,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(nil, args.inFilenames, args.force, rootArgs.dryRun,
+	err = ApplyManifests(applyInstallFlagAlias(args.set, args.charts), args.inFilenames, args.force, rootArgs.dryRun,
 		args.kubeConfigPath, args.context, args.wait, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
