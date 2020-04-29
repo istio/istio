@@ -79,7 +79,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		store := memory.Make(collections.Pilot)
 		configController := memory.NewController(store)
 
-		err := s.makeFileMonitor(args.Config.FileDir, configController)
+		err := s.makeFileMonitor(args.Config.FileDir, args.Config.ControllerOptions.DomainSuffix, configController)
 		if err != nil {
 			return err
 		}
@@ -183,7 +183,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.Config))
 				configController := memory.NewController(store)
 
-				err := s.makeFileMonitor(srcAddress.Path, configController)
+				err := s.makeFileMonitor(srcAddress.Path, args.Config.ControllerOptions.DomainSuffix, configController)
 				if err != nil {
 					return err
 				}
@@ -404,8 +404,8 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	return controller.NewController(configClient, args.Config.ControllerOptions), nil
 }
 
-func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot)
+func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {
+	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot, domainSuffix)
 	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, fileSnapshot.ReadConfigFiles, fileDir)
 
 	// Defer starting the file monitor until after the service is created.
