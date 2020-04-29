@@ -202,12 +202,6 @@ spec:
           defaultMode: 420
           name: istio-ca-root-cert
         {{- end }}
-        {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
-      - name: lightstep-certs
-        secret:
-          optional: true
-          secretName: lightstep.cacert
-        {{- end }}
 {{- end }}
 
       affinity:

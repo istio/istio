@@ -58,79 +58,106 @@ func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_
 
 func tlsConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata) convertFunc {
 	return func(*instance) (interface{}, error) {
-		caCertificates := tls.CaCertificates
-		if caCertificates == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-			caCertificates = constants.DefaultCertChain
-		}
-		var certValidationContext *auth.CertificateValidationContext
-		var trustedCa *auth.DataSource
-		if len(caCertificates) != 0 {
-			trustedCa = &auth.DataSource{
-				Filename: model.GetOrDefault(metadata.TLSClientRootCert, caCertificates),
-			}
-		}
-		if trustedCa != nil || len(tls.SubjectAltNames) > 0 {
-			certValidationContext = &auth.CertificateValidationContext{
-				TrustedCa:            trustedCa,
-				VerifySubjectAltName: tls.SubjectAltNames,
-			}
-		}
-
-		var tlsContext *auth.UpstreamTLSContext
-		switch tls.Mode {
-		case networkingAPI.ClientTLSSettings_SIMPLE:
-			tlsContext = &auth.UpstreamTLSContext{
-				CommonTLSContext: &auth.CommonTLSContext{
-					ValidationContext: certValidationContext,
-				},
-				Sni: tls.Sni,
-			}
-			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
-		case networkingAPI.ClientTLSSettings_MUTUAL, networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
-			clientCertificate := tls.ClientCertificate
-			if tls.ClientCertificate == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-				clientCertificate = constants.DefaultRootCert
-			}
-			privateKey := tls.PrivateKey
-			if tls.PrivateKey == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-				privateKey = constants.DefaultKey
-			}
-			if clientCertificate == "" || privateKey == "" {
-				// TODO(nmittler): Should this be an error?
-				log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty", sniName)
-				return "", nil
-			}
-
-			tlsContext = &auth.UpstreamTLSContext{
-				CommonTLSContext: &auth.CommonTLSContext{},
-				Sni:              tls.Sni,
-			}
-
-			tlsContext.CommonTLSContext.ValidationContext = certValidationContext
-			tlsContext.CommonTLSContext.TLSCertificates = []*auth.TLSCertificate{
-				{
-					CertificateChain: &auth.DataSource{
-						Filename: model.GetOrDefault(metadata.TLSClientCertChain, clientCertificate),
-					},
-					PrivateKey: &auth.DataSource{
-						Filename: model.GetOrDefault(metadata.TLSClientKey, privateKey),
-					},
-				},
-			}
-			if len(tls.Sni) == 0 && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-				tlsContext.Sni = sniName
-			}
-			if tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-				tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNInMeshH2
-			} else {
-				tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
-			}
-		default:
-			// No TLS.
+		tlsContext := tlsContextConvert(tls, sniName, metadata)
+		if tlsContext == nil {
 			return "", nil
 		}
 		return convertToJSON(tlsContext), nil
 	}
+}
+
+func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata, isH2 bool) convertFunc {
+
+	return func(*instance) (interface{}, error) {
+		tlsContext := tlsContextConvert(tls, sniName, metadata)
+		if tlsContext == nil {
+			return "", nil
+		}
+		if !isH2 {
+			tlsContext.CommonTLSContext.AlpnProtocols = nil
+		}
+		tlsContext.Type = "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext"
+		transportSocket := &auth.TransportSocket{
+			Name:        "tls",
+			TypedConfig: tlsContext,
+		}
+		return convertToJSON(transportSocket), nil
+	}
+}
+
+func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata) *auth.UpstreamTLSContext {
+	caCertificates := tls.CaCertificates
+	if caCertificates == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
+		caCertificates = constants.DefaultCertChain
+	}
+	var certValidationContext *auth.CertificateValidationContext
+	var trustedCa *auth.DataSource
+	if len(caCertificates) != 0 {
+		trustedCa = &auth.DataSource{
+			Filename: model.GetOrDefault(metadata.TLSClientRootCert, caCertificates),
+		}
+	}
+	if trustedCa != nil || len(tls.SubjectAltNames) > 0 {
+		certValidationContext = &auth.CertificateValidationContext{
+			TrustedCa:            trustedCa,
+			VerifySubjectAltName: tls.SubjectAltNames,
+		}
+	}
+
+	var tlsContext *auth.UpstreamTLSContext
+	switch tls.Mode {
+	case networkingAPI.ClientTLSSettings_SIMPLE:
+		tlsContext = &auth.UpstreamTLSContext{
+			CommonTLSContext: &auth.CommonTLSContext{
+				ValidationContext: certValidationContext,
+			},
+			Sni: tls.Sni,
+		}
+		tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
+	case networkingAPI.ClientTLSSettings_MUTUAL, networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
+		clientCertificate := tls.ClientCertificate
+		if tls.ClientCertificate == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
+			clientCertificate = constants.DefaultRootCert
+		}
+		privateKey := tls.PrivateKey
+		if tls.PrivateKey == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
+			privateKey = constants.DefaultKey
+		}
+		if clientCertificate == "" || privateKey == "" {
+			// TODO(nmittler): Should this be an error?
+			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty", sniName)
+			return nil
+		}
+
+		tlsContext = &auth.UpstreamTLSContext{
+			CommonTLSContext: &auth.CommonTLSContext{},
+			Sni:              tls.Sni,
+		}
+
+		tlsContext.CommonTLSContext.ValidationContext = certValidationContext
+		tlsContext.CommonTLSContext.TLSCertificates = []*auth.TLSCertificate{
+			{
+				CertificateChain: &auth.DataSource{
+					Filename: model.GetOrDefault(metadata.TLSClientCertChain, clientCertificate),
+				},
+				PrivateKey: &auth.DataSource{
+					Filename: model.GetOrDefault(metadata.TLSClientKey, privateKey),
+				},
+			},
+		}
+		if len(tls.Sni) == 0 && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
+			tlsContext.Sni = sniName
+		}
+		if tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
+			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNInMeshH2
+		} else {
+			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
+		}
+	default:
+		// No TLS.
+		return nil
+	}
+	return tlsContext
 }
 
 func nodeMetadataConverter(metadata *model.NodeMetadata, rawMeta map[string]interface{}) convertFunc {

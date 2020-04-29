@@ -35,6 +35,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -570,8 +571,6 @@ spec:
         lightstep:
           address: ""                # example: lightstep-satellite:443
           accessToken: ""            # example: abcdefg1234567
-          secure: true               # example: true|false
-          cacertPath: ""             # example: /etc/lightstep/cacert.pem
         zipkin:
           address: ""
         datadog:
@@ -2503,7 +2502,7 @@ var _bindata = map[string]func() (*asset, error){
 	"translateConfig/translateConfig-1.5.yaml":                      translateconfigTranslateconfig15Yaml,
 	"translateConfig/translateConfig-1.6.yaml":                      translateconfigTranslateconfig16Yaml,
 	"translateConfig/translateConfig-1.7.yaml":                      translateconfigTranslateconfig17Yaml,
-	"versions.yaml":                                                 versionsYaml,
+	"versions.yaml": versionsYaml,
 }
 
 // AssetDir returns the file names below a certain
