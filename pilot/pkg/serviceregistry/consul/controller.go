@@ -219,6 +219,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	c.monitor.Start(stop)
 }
 
+// HasSynced always returns true for consul
+func (c *Controller) HasSynced() bool {
+	return true
+}
+
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.monitor.AppendServiceHandler(func(instances []*api.CatalogService, event model.Event) error {
