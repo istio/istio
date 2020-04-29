@@ -93,6 +93,9 @@ func (c *nativeComponent) ID() resource.ID {
 
 // Address of the Galley MCP Server.
 func (c *nativeComponent) Address() string {
+	if c.client == nil {
+		return ""
+	}
 	return c.client.address
 }
 
