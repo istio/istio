@@ -25,7 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"helm.sh/helm/v3/pkg/releaseutil"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
@@ -207,7 +207,7 @@ type applyOptions struct {
 	WaitTimeout time.Duration
 }
 
-func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *applyOptions, l clog.Logger) error {
+func applyManifest(restConfig *rest.Config, client client.Client, manifestStr string, componentName name.ComponentName, opts *applyOptions, l clog.Logger) error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
@@ -215,7 +215,7 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, c
 		l.LogAndError(err)
 		return err
 	}
-	ms := releaseutil.Manifest{
+	ms := name.Manifest{
 		Name:    componentName,
 		Content: manifestStr,
 	}

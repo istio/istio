@@ -204,7 +204,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return fmt.Errorf("errors occurred during operation")
 	}
 
-	l.LogAndPrint(color.New(color.FgGreen).Sprint("✔") + installationCompleteStr)
+	l.LogAndPrint(color.New(color.FgGreen).Sprint("✔ ") + installationCompleteStr)
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))

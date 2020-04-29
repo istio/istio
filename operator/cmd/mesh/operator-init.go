@@ -103,7 +103,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
-	if err := applyManifest(restConfig, client, mstr, string(name.IstioOperatorComponentName), opts, l); err != nil {
+	if err := applyManifest(restConfig, client, mstr, name.IstioOperatorComponentName, opts, l); err != nil {
 		l.LogAndFatal(err)
 	}
 
@@ -112,7 +112,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 			l.LogAndFatal(err)
 
 		}
-		if err := applyManifest(restConfig, client, customResource, string(name.IstioOperatorComponentName), opts, l); err != nil {
+		if err := applyManifest(restConfig, client, customResource, name.IstioOperatorComponentName, opts, l); err != nil {
 			l.LogAndFatal(err)
 		}
 	}
