@@ -26,11 +26,6 @@ import (
 )
 
 var (
-	// CertDir is the default location for mTLS certificates used by pilot.
-	// Defaults to /etc/certs, matching k8s template. Can be used if you run pilot
-	// as a regular user on a VM or test environment.
-	CertDir = env.RegisterStringVar("PILOT_CERT_DIR", "", "").Get()
-
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,
