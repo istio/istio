@@ -30,7 +30,7 @@ import (
 const (
 	// The default audience for SDS trustworthy JWT. This is to make sure that the CSR requests
 	// contain the JWTs intended for Citadel.
-	defaultAudience = "istio-ca"
+	DefaultAudience = "istio-ca"
 )
 
 // ValidateK8sJwt validates a k8s JWT at API server.
@@ -45,7 +45,7 @@ func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken, jwtPolicy stri
 		},
 	}
 	if jwtPolicy == jwt.JWTPolicyThirdPartyJWT {
-		tokenReview.Spec.Audiences = []string{defaultAudience}
+		tokenReview.Spec.Audiences = []string{DefaultAudience}
 	} else if jwtPolicy != jwt.JWTPolicyFirstPartyJWT {
 		return nil, fmt.Errorf("invalid JWT policy: %v", jwtPolicy)
 	}
