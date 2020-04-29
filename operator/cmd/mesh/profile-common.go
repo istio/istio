@@ -66,8 +66,11 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 
 	var err error
 	var fy, profile string
-	if useClusterIfAvailable {
-		fy, _ = overlayedOperatorFromCluster("istio-system", setOverlayYAML, kubeConfig)
+	if useClusterIfAvailable && len(inFilenames) == 0 {
+		fy, err = overlayedIOPFromCluster("istio-system", setOverlayYAML, kubeConfig)
+		if err != nil {
+			l.Print("No previous install; using built-in profile\n")
+		}
 	}
 
 	if fy != "" {
@@ -348,7 +351,7 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 }
 
 // overlayedOperatorFromCluster returns YAML of an IOP, err
-func overlayedOperatorFromCluster(istioNamespace string, setOverlayYAML string, kubeConfig *rest.Config) (string, error) {
+func overlayedIOPFromCluster(istioNamespace string, setOverlayYAML string, kubeConfig *rest.Config) (string, error) {
 	// Did the user specify a particular `--set revision=`?
 	revision, err := tpath.GetConfigSubtree(setOverlayYAML, "spec.revision")
 	if err == nil {
@@ -358,7 +361,7 @@ func overlayedOperatorFromCluster(istioNamespace string, setOverlayYAML string, 
 		}
 	}
 
-	iop, err := operatorFromCluster(istioNamespace, revision, kubeConfig)
+	iop, err := iopFromCluster(istioNamespace, revision, kubeConfig)
 	if err != nil {
 		return "", err
 	}
@@ -368,7 +371,7 @@ func overlayedOperatorFromCluster(istioNamespace string, setOverlayYAML string, 
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
-func operatorFromCluster(istioNamespaceFlag string, revision string, restConfig *rest.Config) (*iopv1alpha1.IstioOperator, error) {
+func iopFromCluster(istioNamespaceFlag string, revision string, restConfig *rest.Config) (*iopv1alpha1.IstioOperator, error) {
 	client, err := dynamic.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
@@ -379,6 +382,9 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restConfig 
 		List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
+	}
+	if len(ul.Items) == 0 {
+		return nil, fmt.Errorf("no IstioOperator found on cluster")
 	}
 	for _, un := range ul.Items {
 		un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
@@ -391,9 +397,9 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restConfig 
 		if err != nil {
 			return nil, err
 		}
-		if revision == "" || iop.Spec.Revision == revision {
+		if iop.Spec.Revision == revision {
 			return iop, nil
 		}
 	}
-	return nil, fmt.Errorf("control plane revision %q not found", revision)
+	return nil, fmt.Errorf("control plane revision %q not found (checked %d)", revision, len(ul.Items))
 }

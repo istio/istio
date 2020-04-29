@@ -142,7 +142,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 
 	// Generate IOPS parseObjectSetFromManifest
-	config, err := defaultRestConfig(args.kubeConfigPath, args.context)
+	config, _, _, err := K8sConfig(args.kubeConfigPath, args.context)
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %w", err)
 	}
