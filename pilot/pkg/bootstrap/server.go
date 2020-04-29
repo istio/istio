@@ -264,6 +264,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
 		return nil, fmt.Errorf("error initializing monitor: %v", err)
 	}
+        // TODO(irisdingbj):add integration test after centralIstiod finished
 	args.Config.ControllerOptions.FetchCaRoot = nil
 	if features.CentralIstioD {
 		if s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
