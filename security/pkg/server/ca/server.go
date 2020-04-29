@@ -136,7 +136,7 @@ func extractRootCertExpiryTimestamp(keyCertBundle util.KeyCertBundle) float64 {
 	}
 	end := cert.NotAfter
 	if end.Before(time.Now()) {
-		serverCaLog.Errorf("Expired Citadel Root found, x509.NotAfter %v, please transit your root", end)
+		serverCaLog.Errorf("Expired root cert found, x509.NotAfter %v, please transit your root cert", end)
 	}
 	return float64(end.Unix())
 }
@@ -152,7 +152,7 @@ func extractCertChainExpiryTimestamp(keyCertBundle util.KeyCertBundle) float64 {
 
 	end := cert.NotAfter
 	if end.Before(time.Now()) {
-		serverCaLog.Errorf("Expired Citadel cert chain found, x509.NotAfter %v, please transit your cert chain", end)
+		serverCaLog.Errorf("Expired cert chain found, x509.NotAfter %v, please transit your cert chain", end)
 	}
 	return float64(end.Unix())
 }

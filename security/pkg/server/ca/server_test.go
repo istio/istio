@@ -144,7 +144,7 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 	for _, tc := range testCases {
 		sec := extractRootCertExpiryTimestamp(ca.GetCAKeyCertBundle()) - float64(time.Now().Unix())
 		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
-			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
+			t.Errorf("[%v] failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
 		}
 		if tc.sleep != 0 {
 			time.Sleep(time.Duration(tc.sleep) * time.Second)
@@ -222,7 +222,7 @@ func TestExtractCertChainExpiryTimestamp(t *testing.T) {
 	for _, tc := range testCases {
 		sec := extractCertChainExpiryTimestamp(ca.GetCAKeyCertBundle()) - float64(time.Now().Unix())
 		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
-			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
+			t.Errorf("[%v] failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
 		}
 		if tc.sleep != 0 {
 			time.Sleep(time.Duration(tc.sleep) * time.Second)
