@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/label"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -164,7 +165,7 @@ func createNamespaceLabels(cfg *Config) map[string]string {
 	l := make(map[string]string)
 	if cfg.Inject {
 		if cfg.Revision != "" {
-			l[model.RevisionLabel] = cfg.Revision
+			l[label.IstioRev] = cfg.Revision
 		} else {
 			l["istio-injection"] = "enabled"
 		}

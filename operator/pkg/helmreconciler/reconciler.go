@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"helm.sh/helm/v3/pkg/releaseutil"
+	"istio.io/api/label"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,6 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/version"
+
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -302,7 +306,7 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 		if revision == "" {
 			revision = "default"
 		}
-		labels[model.RevisionLabel] = revision
+		labels[label.IstioRev] = revision
 	}
 
 	labels[istioComponentLabelStr] = componentName

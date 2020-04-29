@@ -17,6 +17,7 @@ package injection
 import (
 	"strings"
 
+	"istio.io/api/label"
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
@@ -24,7 +25,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -42,7 +42,7 @@ var _ analysis.Analyzer = &Analyzer{}
 const (
 	InjectionLabelName         = "istio-injection"
 	InjectionLabelEnableValue  = "enabled"
-	RevisionInjectionLabelName = model.RevisionLabel
+	RevisionInjectionLabelName = label.IstioRev
 
 	istioProxyName = "istio-proxy"
 )
@@ -68,7 +68,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
 		pod := r.Message.(*v1.Pod)
 		if isControlPlane(pod) {
-			revision, ok := r.Metadata.Labels[model.RevisionLabel]
+			revision, ok := r.Metadata.Labels[label.IstioRev]
 			if ok {
 				controlPlaneRevisions[revision] = true
 			}

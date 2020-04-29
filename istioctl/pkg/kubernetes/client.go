@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/label"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -36,10 +37,10 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
 
-	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/version"
+
+	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -213,9 +214,9 @@ func (client *Client) GetIstioPods(namespace string, params map[string]string) (
 	if client.Revision != "" {
 		labelSelector, ok := params["labelSelector"]
 		if ok {
-			params["labelSelector"] = fmt.Sprintf("%s,%s=%s", labelSelector, model.RevisionLabel, client.Revision)
+			params["labelSelector"] = fmt.Sprintf("%s,%s=%s", labelSelector, label.IstioRev, client.Revision)
 		} else {
-			params["labelSelector"] = fmt.Sprintf("%s=%s", model.RevisionLabel, client.Revision)
+			params["labelSelector"] = fmt.Sprintf("%s=%s", label.IstioRev, client.Revision)
 		}
 	}
 

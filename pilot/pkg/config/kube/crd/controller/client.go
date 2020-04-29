@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/label"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -396,7 +397,7 @@ func (cl *Client) List(kind resource.GroupVersionKind, namespace string) ([]mode
 }
 
 func (cl *Client) objectInRevision(o *model.Config) bool {
-	configEnv, f := o.Labels[model.RevisionLabel]
+	configEnv, f := o.Labels[label.IstioRev]
 	if !f {
 		// This is a global object, and always included
 		return true

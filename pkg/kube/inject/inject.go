@@ -35,6 +35,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/label"
 
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
@@ -790,7 +791,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	}
 	// This function, IntoObject(), is only used on the 'istioctl kube-kubeinject' path, which
 	// doesn't use Pilot bootstrap variables.
-	metadata.Labels[model.RevisionLabel] = revision
+	metadata.Labels[label.IstioRev] = revision
 	if status != "" && metadata.Labels[model.TLSModeLabelName] == "" {
 		metadata.Labels[model.TLSModeLabelName] = model.IstioMutualTLSModeLabel
 	}
