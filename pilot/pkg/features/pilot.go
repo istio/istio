@@ -26,11 +26,6 @@ import (
 )
 
 var (
-	// CertDir is the default location for mTLS certificates used by pilot.
-	// Defaults to /etc/certs, matching k8s template. Can be used if you run pilot
-	// as a regular user on a VM or test environment.
-	CertDir = env.RegisterStringVar("PILOT_CERT_DIR", "", "").Get()
-
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,
@@ -86,11 +81,6 @@ var (
 		"If enabled, Pilot will include EDS pushes in the push debouncing, configured by PILOT_DEBOUNCE_AFTER and PILOT_DEBOUNCE_MAX."+
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	)
-
-	// BaseDir is the base directory for locating configs.
-	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
-	// be used, "/"
-	BaseDir = "BASE"
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	//
