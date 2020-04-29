@@ -47,7 +47,7 @@ type Multicluster struct {
 	remoteKubeControllers map[string]*kubeController
 	networksWatcher       mesh.NetworksWatcher
 
-	// fetchCaRoot maps the certName to cert
+	// fetchCaRoot maps the certificate name to the certificate
 	fetchCaRoot func() map[string]string
 }
 
