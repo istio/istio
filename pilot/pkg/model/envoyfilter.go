@@ -75,7 +75,8 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 		}
 		var err error
 		cpw.Value, err = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
-		// there won't be an error here because validation catches mismatched types
+		// There generally won't be an error here because validation catches mismatched types
+		// Should only happen in tests or without validation
 		if err != nil {
 			log.Errorf("failed to build envoy filter value: %v", err)
 		}

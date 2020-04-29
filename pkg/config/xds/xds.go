@@ -75,5 +75,6 @@ func GogoStructToMessage(pbst *types.Struct, out proto.Message) error {
 		return err
 	}
 
-	return jsonpb.Unmarshal(buf, out)
+	// Ignore unknown fields as they may be sending versions of the proto we are not internally using
+	return (&jsonpb.Unmarshaler{AllowUnknownFields: true}).Unmarshal(buf, out)
 }

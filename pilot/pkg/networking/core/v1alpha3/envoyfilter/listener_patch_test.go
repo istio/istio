@@ -334,11 +334,11 @@ func TestApplyListenerPatches(t *testing.T) {
 				},
 			},
 			Patch: &networking.EnvoyFilter_Patch{
-				Operation: networking.EnvoyFilter_Patch_MERGE, // envoy.extensions.filters.http.router.v3.Router",
+				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
 {"name": "envoy.fault",
 "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.filter.http.fault.v2.HTTPFault",
+        "@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault",
         "downstreamNodes": ["foo"]
 }
 }`),
@@ -415,6 +415,8 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 		// Ensure we can mix v3 patches with v2 internal
+		// Note that alwaysSetRequestIdInResponse is only present in v3 protos. It will be silently ignored
+		// as we are working in v2 protos internally
 		{
 			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
 			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
@@ -436,7 +438,8 @@ func TestApplyListenerPatches(t *testing.T) {
 {"name": "envoy.http_connection_manager", 
  "typed_config": {
         "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
-         "mergeSlashes": true
+         "mergeSlashes": true,
+         "alwaysSetRequestIdInResponse": true
  }
 }`),
 			},
