@@ -37,8 +37,6 @@ import (
 )
 
 const (
-	// The maximum duration the command will wait until the apply deployment reaches a ready state
-	upgradeWaitSecWhenApply = 300 * time.Second
 	// The duration that the command will wait between each check of the upgraded version.
 	upgradeWaitSecCheckVerPerLoop = 10 * time.Second
 	// The maximum number of attempts that the command will check for the upgrade completion,
@@ -68,6 +66,8 @@ type upgradeArgs struct {
 	context string
 	// wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
+	// readinessTimeout is maximum time to wait for all Istio resources to be ready.
+	readinessTimeout time.Duration
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
 	set []string
@@ -93,12 +93,13 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 		"If skip-confirmation is set, skips the prompting confirmation for value changes in this upgrade")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
 		"Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
-			"of a Deployment are in a ready state before the command exits. "+
-			"It will wait for a maximum duration of "+(upgradeWaitSecCheckVerPerLoop*
-			upgradeWaitCheckVerMaxAttempts).String())
+			"of a Deployment are in a ready state before the command exits. ")
+	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
+		"Maximum time to wait for Istio resources in each component to be ready."+
+			" The --wait flag must be set for this flag to apply")
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks")
-	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
+	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
 }
 
@@ -214,7 +215,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
 	err = ApplyManifests(applyInstallFlagAlias(args.set, args.charts), args.inFilenames, args.force, rootArgs.dryRun,
-		rootArgs.verbose, args.kubeConfigPath, args.context, args.wait, upgradeWaitSecWhenApply, l)
+		args.kubeConfigPath, args.context, args.wait, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}

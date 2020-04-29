@@ -24,6 +24,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
@@ -45,10 +46,11 @@ type manifestApplyArgs struct {
 	kubeConfigPath string
 	// context is the cluster context in the kube config
 	context string
-	// readinessTimeout is maximum time to wait for all Istio resources to be ready.
-	readinessTimeout time.Duration
 	// wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
+	// readinessTimeout is maximum time to wait for all Istio resources to be ready. wait must be true for this setting
+	// to take effect.
+	readinessTimeout time.Duration
 	// skipConfirmation determines whether the user is prompted for confirmation.
 	// If set to true, the user is not prompted and a Yes response is assumed in all cases.
 	skipConfirmation bool
@@ -63,15 +65,17 @@ type manifestApplyArgs struct {
 
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
+	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
+	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use.")
+	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
+		"Wait until all Pods, Services, and minimum number of Pods "+
+			"of a Deployment are in a ready state before the exiting.")
+	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
+		"Maximum time to wait for Istio resources in each component to be ready."+
+			" The --wait flag must be set for this flag to apply.")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
-	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for all Istio resources to be ready."+
-		" The --wait flag must be set for this flag to apply")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
-		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
-	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
+	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
 }
 
@@ -143,7 +147,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := ApplyManifests(applyInstallFlagAlias(maArgs.set, maArgs.charts), maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
+	if err := ApplyManifests(applyInstallFlagAlias(maArgs.set, maArgs.charts), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
 		maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
@@ -155,9 +159,8 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
-//  verbose full manifests are output
 //  wait    block until Services and Deployments are ready, or timeout after waitTimeout
-func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool, verbose bool,
+func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
 	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l clog.Logger) error {
 
 	ysf, err := yamlFromSetFlags(setOverlay, force, l)
@@ -182,13 +185,13 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return err
 	}
 
-	if err := CreateNamespace(clientset, iop.Namespace); err != nil {
+	if err := createNamespace(clientset, iop.Namespace); err != nil {
 		return err
 	}
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
-	helmreconciler.FlushObjectCaches()
-	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, ProgressLog: util.NewProgressLog()}
+	cache.FlushObjectCaches()
+	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, WaitTimeout: waitTimeout, ProgressLog: util.NewProgressLog()}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return err
@@ -201,8 +204,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return fmt.Errorf("errors occurred during operation")
 	}
 
-	check := color.New(color.FgGreen).Sprint("✔")
-	l.LogAndPrint(check + installationCompleteStr)
+	l.LogAndPrint(color.New(color.FgGreen).Sprint("✔") + installationCompleteStr)
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
@@ -213,7 +215,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-	if err := reconciler.ProcessObject("", obj.UnstructuredObject()); err != nil {
+	if err := reconciler.ApplyObject("", obj.UnstructuredObject()); err != nil {
 		return err
 	}
 

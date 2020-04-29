@@ -128,6 +128,26 @@ func init() {
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName][]string
 
+// Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
+// manifest.
+func (mm ManifestMap) Consolidated() map[string]string {
+	out := make(map[string]string)
+	for cname, ms := range mm {
+		allM := ""
+		for _, m := range ms {
+			allM += m + helm.YAMLSeparator
+		}
+		out[string(cname)] = allM
+	}
+	return out
+}
+
+// MergeManifestSlices merges a slice of manifests into a single manifest string.
+func MergeManifestSlices(manifests []string) string {
+	return strings.Join(manifests, helm.YAMLSeparator)
+}
+
+// String implements the Stringer interface.
 func (mm ManifestMap) String() string {
 	out := ""
 	for _, ms := range mm {
