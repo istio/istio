@@ -27,6 +27,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
 	pilotmodel "istio.io/istio/pilot/pkg/model"
@@ -187,6 +188,12 @@ type SecretCache struct {
 	existingCertChainFile string
 	existingKeyFile       string
 	existingRootCertFile  string
+
+	//certWatcher watches the certificates for changes and triggers a notification to proxy.
+	certWatcher filewatcher.FileWatcher
+	// unique certs being watched with file watcher.
+	certs     map[string]struct{}
+	certMutex *sync.Mutex
 }
 
 // NewSecretCache creates a new secret cache.
@@ -202,6 +209,9 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
 		existingCertChainFile: defaultCertChainFilePath,
 		existingKeyFile:       defaultKeyFilePath,
 		existingRootCertFile:  DefaultRootCertFilePath,
+		certWatcher:           filewatcher.NewWatcher(),
+		certs:                 make(map[string]struct{}),
+		certMutex:             &sync.Mutex{},
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)
@@ -246,23 +256,22 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 
 	// When there are existing root certificates, or private key and certificate under
 	// a well known path, they are used in the SDS response.
-	// In the current implementation, the file update events are not handled and if
-	// the files are updated, a user may restart Envoy to pick up the updated files.
-	// TODO (lei-tang): if updating files are supported, add a file watcher for
-	// the files under the well known path.
 	sdsFromFile := false
 	var err error
 	var ns *model.SecretItem
 
 	switch {
-	// SDS root certificate
+	// Default root certificate.
 	case connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile):
 		sdsFromFile = true
 		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey)
-	// Based on the resource name, we need to read this secret from a file encoded in the resource name
+		sc.addFileWatcher(sc.existingRootCertFile, connKey)
+	// Based on the resource name, we need to read this secret from a file encoded in the resource name.
 	case connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile):
 		sdsFromFile = true
 		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
+		// It is sufficient if we add one of cert or key file for watching.
+		sc.addFileWatcher(sc.existingCertChainFile, connKey)
 	default:
 		// Check if the resource name refers to a file mounted certificate.
 		// Currently Used in destination rules and server certs (via metadata).
@@ -271,9 +280,12 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		case ok && cfg.IsRootCertificate() && sc.rootCertificateExist(cfg.CaCertificatePath):
 			sdsFromFile = true
 			ns, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey)
+			sc.addFileWatcher(cfg.CaCertificatePath, connKey)
 		case ok && cfg.IsKeyCertificate() && sc.keyCertificateExist(cfg.CertificatePath, cfg.PrivateKeyPath):
 			sdsFromFile = true
 			ns, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey)
+			// It is sufficient if we add one of cert or key file for watching.
+			sc.addFileWatcher(cfg.CertificatePath, connKey)
 		}
 	}
 
@@ -283,7 +295,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 				logPrefix, err)
 			return nil, err
 		}
-		// TODO(JimmyCYJ): need a file watcher to detect file updates and push new secret to clients.
 		cacheLog.Infoa("GenerateSecret from file ", resourceName)
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
@@ -340,6 +351,43 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	sc.secrets.Store(connKey, *ns)
 	cacheLog.Debugf("%s successfully generate secret for proxy", logPrefix)
 	return ns, nil
+}
+
+func (sc *SecretCache) addFileWatcher(file string, key ConnKey) {
+	// Check if this file is being already watched, if so ignore it. FileWatcher has the functionality of
+	// checking for duplicates before start watching - but this check is needed here to avoid processing
+	// duplicate events for the same file.
+	sc.certMutex.Lock()
+	_, exists := sc.certs[file]
+	if !exists {
+		sc.certs[file] = struct{}{}
+	}
+	sc.certMutex.Unlock()
+	// File is not being watched, start watching now and trigger key push.
+	if !exists {
+		cacheLog.Debugf("adding watcher for file %s", file)
+		sc.certWatcher.Add(file)
+		go func() {
+			var timerC <-chan time.Time
+			for {
+				select {
+				case <-timerC:
+					timerC = nil
+					if val, ok := sc.secrets.Load(key); ok {
+						// Trigger the callback that pushes the secrets to proxy.
+						secret := val.(model.SecretItem)
+						cacheLog.Debugf("file changed %s, triggering push to proxy", file)
+						sc.callbackWithTimeout(key, &secret)
+					}
+				case <-sc.certWatcher.Events(file):
+					// Use a timer to debounce watch updates
+					if timerC == nil {
+						timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+					}
+				}
+			}
+		}()
+	}
 }
 
 // SecretExist checks if secret already existed.
@@ -685,8 +733,7 @@ func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
 	return true
 }
 
-// Generate a root certificate item from the existing root certificate file
-// under a well known path.
+// Generate a root certificate item from the passed in rootCertPath
 func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*model.SecretItem, error) {
 	rootCert, err := ioutil.ReadFile(rootCertPath)
 	if err != nil {
@@ -712,8 +759,7 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 	}, nil
 }
 
-// Generate a key and certificate item from the existing key certificate files
-// under a well known path.
+// Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, token string, connKey ConnKey) (*model.SecretItem, error) {
 	certChain, err := ioutil.ReadFile(certChainPath)
 	if err != nil {
@@ -749,7 +795,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		return sc.generateGatewaySecret(token, connKey, t)
 	}
 
-	fmt.Printf("generateSecret called.\n")
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	// call authentication provider specific plugins to exchange token if necessary.
 	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()

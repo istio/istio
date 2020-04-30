@@ -162,9 +162,9 @@ func ApplyToCommonTLSContext(tlsContext *auth.CommonTlsContext, metadata *model.
 		// which does not support rotation, we will serve them over SDS by reading the files.
 		// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
 		res := model.SdsCertificateConfig{
-			CertificatePath:   metadata.TLSClientCertChain,
-			PrivateKeyPath:    metadata.TLSClientKey,
-			CaCertificatePath: metadata.TLSClientRootCert,
+			CertificatePath:   metadata.TLSServerCertChain,
+			PrivateKeyPath:    metadata.TLSServerKey,
+			CaCertificatePath: metadata.TLSServerRootCert,
 		}
 
 		// configure server listners with SDS.
