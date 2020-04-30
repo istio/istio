@@ -18,10 +18,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"time"
+
+	"istio.io/istio/pkg/test/util/retry"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -233,8 +237,12 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 			if err != nil {
 				return fmt.Errorf("failed getting control plane cluster for cluster %d: %v", cluster.Index(), err)
 			}
-			remoteIstiodAddress, err := getIstiodAddress(cfg, controlPlaneCluster.(kube.Cluster))
-			if err != nil {
+			var remoteIstiodAddress net.TCPAddr
+			if err := retry.UntilSuccess(func() error {
+				var err error
+				remoteIstiodAddress, err = getIstiodAddress(cfg, controlPlaneCluster.(kube.Cluster))
+				return err
+			}, retry.Timeout(1*time.Minute)); err != nil {
 				return fmt.Errorf("failed getting the istiod address for cluster %d: %v", controlPlaneCluster.Index(), err)
 			}
 			installSettings = append(installSettings, "--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
