@@ -5,7 +5,7 @@ enabled: false # Note that if using the demo or demo-auth yaml when installing v
 replicaCount: 1
 hub: quay.io/kiali
 image: kiali
-tag: v1.9
+tag: v1.15
 contextPath: /kiali # The root context path to access the Kiali UI.
 nodeSelector: {}
 tolerations: []
