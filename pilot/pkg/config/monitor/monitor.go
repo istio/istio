@@ -37,7 +37,7 @@ type Monitor struct {
 	getSnapshotFunc func() ([]*model.Config, error)
 	// channel to trigger updates on
 	// generally set to a file watch, but used in tests as well
-	updateCh        chan struct{}
+	updateCh chan struct{}
 }
 
 // NewMonitor creates a Monitor and will delegate to a passed in controller.
