@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"path"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -803,22 +802,9 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 		return fmt.Errorf("invalid port(%s) in ISTIOD_ADDR(%s): %v", port, istiodAddr, err)
 	}
 
-	parts := strings.Split(host, ".")
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid hostname %s, should contain at least service name and namespace", hostname)
-	}
-
-	// append custom hostname if there is any
-	hosts := []string{host}
-	customHost := features.IstiodServiceCustomHost.Get()
-	if customHost != "" {
-		hosts = append(hosts, customHost)
-		log.Infof("Adding custom hostname %s", customHost)
-	}
-
 	// Create DNS certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	err = s.initDNSCerts(hosts, args.Namespace)
+	err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
 	if err != nil {
 		return err
 	}
