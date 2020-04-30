@@ -21,7 +21,6 @@ set -o pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 MD5FILE="${SCRIPT_DIR}/nomodify.md5"
 
-cd ..
 # Space separated list of files that should not be modified in the repo.
 NOMODIFY_LIST="operator/pkg/vfs/assets.gen.go"
 
