@@ -66,8 +66,8 @@ func TestValidateSetFlags(t *testing.T) {
 			args: []string{
 				"values.global.imagePullPolicy=Occasionally",
 			},
-			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
-				"Occasionally", "values.global.imagePullPolicy", strings.Join(imagePullPolicy, ", ")),
+			want: fmt.Errorf(genericErr, "Occasionally", "values.global.imagePullPolicy",
+				strings.Join(imagePullPolicy, ", ")),
 		},
 		{
 			name: "Test supported values",
@@ -88,8 +88,8 @@ func TestValidateSetFlags(t *testing.T) {
 			args: []string{
 				"values.pilot.traceSampling=100.5",
 			},
-			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is between %.1f to %.1f",
-				"100.5", "values.pilot.traceSampling", traceSamplingMin, traceSamplingMax),
+			want: fmt.Errorf(traceSamplingErr, "100.5", "values.pilot.traceSampling",
+				traceSamplingMin, traceSamplingMax),
 		},
 		{
 			name: "Test valid namespace",
@@ -103,7 +103,7 @@ func TestValidateSetFlags(t *testing.T) {
 			args: []string{
 				"namespace=foo.bar",
 			},
-			want: fmt.Errorf("\n Unsupported format: %q for flag %q", "foo.bar", "namespace"),
+			want: fmt.Errorf(invalidFormatErr, "foo.bar", "namespace"),
 		},
 		{
 			name: "Test valid revision",
@@ -117,7 +117,7 @@ func TestValidateSetFlags(t *testing.T) {
 			args: []string{
 				"revision=v1.2.3",
 			},
-			want: fmt.Errorf("\n Unsupported format: %q for flag %q", "v1.2.3", "revision"),
+			want: fmt.Errorf(invalidFormatErr, "v1.2.3", "revision"),
 		},
 		{
 			name: "Test valid reportBatchMaxEntries",
@@ -153,7 +153,7 @@ func TestValidateSetFlags(t *testing.T) {
 			args: []string{
 				"values.meshConfig.outboundClusterStatName=%SERVICE_FQDN%_%SERVICE_POT%",
 			},
-			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+			want: fmt.Errorf(genericErr,
 				"%SERVICE_FQDN%_%SERVICE_POT%", "values.meshConfig.outboundClusterStatName",
 				strings.Join(outboundClusterStatName, ", ")),
 		},
@@ -169,7 +169,7 @@ func TestValidateSetFlags(t *testing.T) {
 			args: []string{
 				"values.meshConfig.h2UpgradePolicy=DONOTUPGRADE",
 			},
-			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+			want: fmt.Errorf(genericErr,
 				"DONOTUPGRADE", "values.meshConfig.h2UpgradePolicy",
 				strings.Join(h2UpgradePolicy, ", ")),
 		},
@@ -185,7 +185,7 @@ func TestValidateSetFlags(t *testing.T) {
 			args: []string{
 				"values.global.proxy.accessLogEncoding=JSONP",
 			},
-			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+			want: fmt.Errorf(genericErr,
 				"JSONP", "values.global.proxy.accessLogEncoding",
 				strings.Join(accessLogEncoding, ", ")),
 		},
@@ -201,7 +201,7 @@ func TestValidateSetFlags(t *testing.T) {
 			args: []string{
 				"values.pilot.ingress.ingressControllerMode=JSON",
 			},
-			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+			want: fmt.Errorf(genericErr,
 				"JSON", "values.pilot.ingress.ingressControllerMode",
 				strings.Join(ingressControllerMode, ", ")),
 		},
@@ -234,7 +234,7 @@ func TestValidateDuration(t *testing.T) {
 			name:     "Test invalid convertDuration",
 			flagName: "values.global.proxy.dnsRefreshRate",
 			duration: "sam",
-			want:     fmt.Errorf("invalid duration format %q", "sam"),
+			want:     fmt.Errorf(invalidDurationErr, "sam"),
 		},
 		{
 			name:     "Test valid protocolDetectionTimeout",
@@ -360,8 +360,7 @@ func TestValidatePort(t *testing.T) {
 		{
 			name:      "Test invalid port with string value",
 			flagValue: "test",
-			want: fmt.Errorf("\n Unsupported value: %q, port number must be in the range 1..65535",
-				"test"),
+			want:      fmt.Errorf(invalidPortErr, "test"),
 		},
 		{
 			name:      "Test invalid port",

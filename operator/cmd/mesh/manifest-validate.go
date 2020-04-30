@@ -39,7 +39,12 @@ const (
 	traceSamplingMin float64 = 0.0
 	traceSamplingMax float64 = 100.0
 
-	resourceErr string = `\n Unsupported value: %q for flag %q, use valid format eg: 1G, 100m`
+	genericErr         string = "\n Unsupported value: %q, supported values for: %q is %q"
+	resourceErr        string = "\n Unsupported value: %q for flag %q, use valid format eg: 1G, 100m"
+	traceSamplingErr   string = "\n Unsupported value: %q, supported values for: %q is between %.1f to %.1f"
+	invalidPortErr     string = "\n Unsupported value: %q, port number must be in the range 1..65535"
+	invalidDurationErr string = "invalid duration format %q"
+	invalidFormatErr   string = "\n Unsupported format: %q for flag %q"
 )
 
 var (
@@ -269,8 +274,7 @@ func verifyValues(flagName, flagValue string) error {
 	switch val := val.(type) {
 	case []string:
 		if !containString(val, flagValue) {
-			return fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
-				flagValue, flagName, strings.Join(val, ", "))
+			return fmt.Errorf(genericErr, flagValue, flagName, strings.Join(val, ", "))
 		}
 	case []bool:
 		_, err := strconv.ParseBool(flagValue)
@@ -302,12 +306,12 @@ func verifyValues(flagName, flagValue string) error {
 	}
 	if valPtr == reflect.ValueOf(validate.CheckNamespaceName).Pointer() {
 		if !validate.CheckNamespaceName(flagValue, false) {
-			return fmt.Errorf("\n Unsupported format: %q for flag %q", flagValue, flagName)
+			return fmt.Errorf(invalidFormatErr, flagValue, flagName)
 		}
 	}
 	if valPtr == reflect.ValueOf(validate.CheckRevision).Pointer() {
 		if !validate.CheckRevision(flagValue, false) {
-			return fmt.Errorf("\n Unsupported format: %q for flag %q", flagValue, flagName)
+			return fmt.Errorf(invalidFormatErr, flagValue, flagName)
 		}
 	}
 	if valPtr == reflect.ValueOf(validateDuration).Pointer() {
@@ -324,8 +328,8 @@ func verifyValues(flagName, flagValue string) error {
 	}
 	if valPtr == reflect.ValueOf(validateClusterStatName).Pointer() {
 		if !validateClusterStatName(flagName, flagValue) {
-			return fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
-				flagValue, flagName, strings.Join(outboundClusterStatName, ", "))
+			return fmt.Errorf(genericErr, flagValue, flagName,
+				strings.Join(outboundClusterStatName, ", "))
 		}
 	}
 	if valPtr == reflect.ValueOf(validation.ValidateProxyAddress).Pointer() {
@@ -395,13 +399,12 @@ func containString(s []string, searchterm string) bool {
 
 // isValidTraceSampling validates pilot sampling rate
 func isValidTraceSampling(flagName, flagValue string) error {
-	var errMsg = "\n Unsupported value: %q, supported values for: %q is between %.1f to %.1f"
 	n, err := strconv.ParseFloat(flagValue, 64)
 	if err != nil {
-		return fmt.Errorf(errMsg, flagValue, flagName, traceSamplingMin, traceSamplingMax)
+		return fmt.Errorf(traceSamplingErr, flagValue, flagName, traceSamplingMin, traceSamplingMax)
 	}
 	if n < traceSamplingMin || n > traceSamplingMax {
-		return fmt.Errorf(errMsg, flagValue, flagName, traceSamplingMin, traceSamplingMax)
+		return fmt.Errorf(traceSamplingErr, flagValue, flagName, traceSamplingMin, traceSamplingMax)
 	}
 	return nil
 }
@@ -430,7 +433,7 @@ func validateDuration(flagName, duration string) (err error) {
 func convertDuration(duration string) (*types.Duration, error) {
 	dur, err := time.ParseDuration(duration)
 	if err != nil {
-		return nil, fmt.Errorf("invalid duration format %q", duration)
+		return nil, fmt.Errorf(invalidDurationErr, duration)
 	}
 	return types.DurationProto(dur), nil
 }
@@ -459,8 +462,7 @@ func validateClusterStatName(flagName, flagValue string) bool {
 func validatePort(flagValue string) error {
 	port, err := strconv.Atoi(flagValue)
 	if err != nil {
-		return fmt.Errorf("\n Unsupported value: %q, port number must be in the range 1..65535",
-			flagValue)
+		return fmt.Errorf(invalidPortErr, flagValue)
 	}
 	if err := validation.ValidatePort(port); err != nil {
 		return err
