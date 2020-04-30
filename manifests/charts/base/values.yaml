@@ -10,3 +10,5 @@ global:
 
   istiod:
     enableAnalysis: false
+
+enableCRDTemplates: false
