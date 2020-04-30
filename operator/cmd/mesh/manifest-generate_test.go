@@ -27,6 +27,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/pkg/version"
+
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
@@ -36,7 +38,6 @@ import (
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/version"
 )
 
 const (
