@@ -6,6 +6,13 @@ spec:
   hub: gcr.io/istio-testing
   tag: latest
 
+  # You may override parts of meshconfig by uncommenting the following lines.
+  meshConfig:
+    enablePrometheusMerge: false
+    # Opt-out of global http2 upgrades.
+    # Destination rule is used to opt-in.
+    # h2_upgrade_policy: DO_NOT_UPGRADE
+
   # Traffic management feature
   components:
     base:
@@ -36,7 +43,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Policy feature
+    # Policy feature
     policy:
       enabled: false
       k8s:
@@ -63,7 +70,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-   # Telemetry feature
+    # Telemetry feature
     telemetry:
       enabled: false
       k8s:
@@ -100,7 +107,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Security feature
+    # Security feature
     citadel:
       enabled: false
       k8s:
@@ -109,7 +116,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Istio Gateway feature
+    # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
       enabled: true
@@ -219,12 +226,6 @@ spec:
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/charts/global.yaml
   values:
-    # You may override parts of meshconfig by uncommenting the following lines.
-    meshConfig:
-      enablePrometheusMerge: false
-      # Opt-out of global http2 upgrades.
-      # Destination rule is used to opt-in.
-      # h2_upgrade_policy: DO_NOT_UPGRADE
     global:
       istioNamespace: istio-system
       istiod:
@@ -594,7 +595,7 @@ spec:
         jaegerURL:
         jaegerInClusterURL: http://tracing/jaeger
         auth:
-          strategy: ""
+          strategy: login
       prometheusNamespace:
       createDemoSecret: false
       security:
