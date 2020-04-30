@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package progress
 
 import (
 	"fmt"
@@ -22,6 +22,8 @@ import (
 	"sync"
 
 	"github.com/cheggaaa/pb/v3"
+
+	"istio.io/istio/operator/pkg/name"
 )
 
 type InstallState int
@@ -59,12 +61,12 @@ func (p *ProgressLog) createStatus(maxWidth int) string {
 	comps := []string{}
 	wait := []string{}
 	for c, l := range p.components {
-		comps = append(comps, c)
+		comps = append(comps, name.UserFacingComponentName(name.ComponentName(c)))
 		wait = append(wait, l.waiting...)
 	}
 	sort.Strings(comps)
 	sort.Strings(wait)
-	msg := fmt.Sprintf(`Processing resources for components %s.`, strings.Join(comps, ", "))
+	msg := fmt.Sprintf(`Processing resources for %s.`, strings.Join(comps, ", "))
 	if len(wait) > 0 {
 		msg += fmt.Sprintf(` Waiting for %s`, strings.Join(wait, ", "))
 	}
@@ -108,15 +110,16 @@ func createBar() *pb.ProgressBar {
 // on a new line, and create a new bar. For example, this becomes "x succeeded", "waiting for y, z".
 func (p *ProgressLog) reportProgress(component string) func() {
 	return func() {
+		cliName := name.UserFacingComponentName(name.ComponentName(component))
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		cmp := p.components[component]
 		// The component has completed
 		if cmp.finished || cmp.err != "" {
 			if cmp.finished {
-				p.SetMessage(fmt.Sprintf(`{{ green "✔" }} Component %s installed`, component), true)
+				p.SetMessage(fmt.Sprintf(`{{ green "✔" }} %s installed`, cliName), true)
 			} else {
-				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} Component %s encountered an error: %s`, component, cmp.err), true)
+				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} %s encountered an error: %s`, cliName, cmp.err), true)
 			}
 			// Close the bar out, outputting a new line
 			delete(p.components, component)

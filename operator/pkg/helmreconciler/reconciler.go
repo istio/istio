@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/version"
 )
@@ -61,12 +62,12 @@ type Options struct {
 	// WaitTimeout controls the amount of time to wait for resources in a component to become ready before giving up.
 	WaitTimeout time.Duration
 	// ProgressLog tracks the installation progress for all components.
-	ProgressLog *util.ProgressLog
+	ProgressLog *progress.ProgressLog
 }
 
 var defaultOptions = &Options{
 	Log:         clog.NewDefaultLogger(),
-	ProgressLog: util.NewProgressLog(),
+	ProgressLog: progress.NewProgressLog(),
 }
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
@@ -75,7 +76,7 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		opts = defaultOptions
 	}
 	if opts.ProgressLog == nil {
-		opts.ProgressLog = util.NewProgressLog()
+		opts.ProgressLog = progress.NewProgressLog()
 	}
 	if iop == nil {
 		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).
@@ -108,7 +109,7 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 
 	status := h.processRecursive(manifestMap)
 
-	h.opts.ProgressLog.SetState(util.StatePruning)
+	h.opts.ProgressLog.SetState(progress.StatePruning)
 	pruneErr := h.Prune(manifestMap)
 	return status, pruneErr
 }

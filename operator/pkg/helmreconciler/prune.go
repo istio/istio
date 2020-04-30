@@ -141,7 +141,6 @@ func (h *HelmReconciler) pruneUnlistedResources(excluded map[string]bool, coreLa
 		if excluded[oh] {
 			continue
 		}
-		h.opts.Log.LogAndPrintf("howardjohn: object %v not excluded: %v", o.GetName(), excluded)
 		if h.opts.DryRun {
 			h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
 			continue
@@ -152,7 +151,7 @@ func (h *HelmReconciler) pruneUnlistedResources(excluded map[string]bool, coreLa
 			errs = util.AppendErr(errs, err)
 		}
 		h.removeFromObjectCache(componentName, oh)
-		h.opts.Log.LogAndPrintf("Pruned object %s.", oh)
+		h.opts.Log.LogAndPrintf("Removed %s.", oh)
 	}
 
 	return errs.ToError()
