@@ -330,6 +330,8 @@ spec:
         enabled: true
       enableHelmTest: false
       mountMtlsCerts: false
+    base:
+      enableCRDTemplates: false
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
