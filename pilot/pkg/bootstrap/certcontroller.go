@@ -112,19 +112,29 @@ func (s *Server) initCertController(args *PilotArgs) error {
 //
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
-func (s *Server) initDNSCerts(hostname, namespace string) error {
+func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
+	// Name in the Istiod cert - support the old service names as well.
+	// validate hostname contains namespace
 	parts := strings.Split(hostname, ".")
 	if len(parts) < 2 {
 		return fmt.Errorf("invalid hostname %s, should contain at least service name and namespace", hostname)
 	}
-	// Names in the Istiod cert - support the old service names as well.
-	// The first is the recommended one, also used by Apiserver for webhooks.
+
+	// append custom hostname if there is any
 	names := []string{hostname}
+	if customHost != "" && customHost != hostname {
+		log.Infof("Adding custom hostname %s", customHost)
+		names = append(names, customHost)
+	}
+
+	// The first is the recommended one, also used by Apiserver for webhooks.
+	// add a few known hostnames
 	for _, altName := range []string{"istiod", "istiod-remote", "istio-pilot"} {
 		name := fmt.Sprintf("%v.%v.svc", altName, namespace)
-		if name == hostname {
-			continue // avoid dups
+		if name == hostname || name == customHost {
+			continue
 		}
+
 		names = append(names, name)
 	}
 
