@@ -1,4 +1,4 @@
-# We don't need any special RBAC
+# Avoid creating a bunch of RBAC rules for features we are not enabling
 rbac:
   create: false
   pspEnabled: false
@@ -7,7 +7,7 @@ rbac:
 testFramework:
   enabled: false
 
-# For istioctl dashboard
+# For istioctl dashboard, we will look for this label
 podLabels:
   app: grafana
 
@@ -21,9 +21,11 @@ env:
   GF_AUTH_ANONYMOUS_ENABLED: "true"
   GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
 
+# Expose on port 3000 to match the Istio docs
 service:
   port: 3000
 
+# Set up out dashboards
 dashboardProviders:
   dashboardproviders.yaml:
     apiVersion: 1
@@ -47,6 +49,7 @@ dashboardsConfigMaps:
   istio: "istio-grafana-dashboards"
   istio-services: "istio-services-grafana-dashboards"
 
+# Configure the prometheus data source. We expect prometheus:9090 in the same namespace
 datasources:
   datasources.yaml:
     apiVersion: 1
@@ -60,4 +63,3 @@ datasources:
         jsonData:
           timeInterval: 5s
         editable: true
-# TODO add data source and dashboards
