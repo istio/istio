@@ -21,4 +21,4 @@ set -o pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 MD5FILE="${SCRIPT_DIR}/nomodify.md5"
 
-md5sum -c  "${MD5FILE}"|| echo "Files above should not be modified in the repo. Please remove the change from your PR or run update_no_modify.sh if you are sure."
+md5sum -c  "${MD5FILE}"|| { echo "Files above should not be modified in the repo. Please remove the change from your PR or run update_no_modify.sh if you are sure."; exit 1; }
