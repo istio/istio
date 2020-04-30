@@ -5350,7 +5350,7 @@ data:
     disableMixerHttpReports: true
     disablePolicyChecks: true
     enableAutoMtls: false
-    enablePrometheusMerge: false
+    enablePrometheusMerge: true
     ingressClass: istio
     ingressControllerMode: STRICT
     ingressService: istio-ingressgateway
@@ -5385,6 +5385,8 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod

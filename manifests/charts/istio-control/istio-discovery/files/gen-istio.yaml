@@ -62,7 +62,7 @@ data:
     disablePolicyChecks: true
     enableAutoMtls: true
     enableEnvoyAccessLogService: false
-    enablePrometheusMerge: false
+    enablePrometheusMerge: true
     enableTracing: true
     ingressClass: istio
     ingressControllerMode: STRICT
@@ -802,6 +802,8 @@ spec:
         istio.io/rev: default
         istio: pilot
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istiod-service-account
