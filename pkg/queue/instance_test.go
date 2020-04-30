@@ -107,7 +107,7 @@ func TestResourceFree(t *testing.T) {
 	})
 
 	select {
-	case <-time.After(20 * time.Millisecond):
+	case <-time.After(200 * time.Millisecond):
 		t.Error("close stop, method exit timeout.")
 	case <-signal:
 		t.Log("queue return.")
