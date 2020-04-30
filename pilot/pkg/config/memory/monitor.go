@@ -16,6 +16,7 @@ package memory
 
 import (
 	"go.uber.org/atomic"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
