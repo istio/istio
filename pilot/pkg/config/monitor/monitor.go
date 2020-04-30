@@ -35,6 +35,9 @@ type Monitor struct {
 	store           model.ConfigStore
 	configs         []*model.Config
 	getSnapshotFunc func() ([]*model.Config, error)
+	// channel to trigger updates on
+	// generally set to a file watch, but used in tests as well
+	updateCh        chan struct{}
 }
 
 // NewMonitor creates a Monitor and will delegate to a passed in controller.
@@ -92,7 +95,8 @@ func (m *Monitor) Start(stop <-chan struct{}) {
 	m.checkAndUpdate()
 
 	c := make(chan struct{}, 1)
-	if err := fileTrigger(m.root, c, stop); err != nil {
+	m.updateCh = c
+	if err := fileTrigger(m.root, m.updateCh, stop); err != nil {
 		log.Errorf("Unable to setup FileTrigger for %s: %v", m.root, err)
 	}
 	// Run the close loop asynchronously.

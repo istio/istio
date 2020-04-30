@@ -12,22 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor_test
+package monitor
 
 import (
 	"errors"
-	"syscall"
 	"testing"
 	"time"
-
-	"istio.io/pkg/appsignals"
 
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -106,14 +102,14 @@ func TestMonitorForChange(t *testing.T) {
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor("", store, someConfigFunc, "")
+	mon := NewMonitor("", store, someConfigFunc, "")
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)
 
 	go func() {
 		for i := 0; i < 10; i++ {
-			appsignals.Notify("test", syscall.SIGUSR1)
+			mon.updateCh <- struct{}{}
 			time.Sleep(time.Millisecond * 100)
 		}
 	}()
@@ -180,14 +176,14 @@ func TestMonitorForError(t *testing.T) {
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor("", store, someConfigFunc, "")
+	mon := NewMonitor("", store, someConfigFunc, "")
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)
 
 	go func() {
 		for i := 0; i < 10; i++ {
-			appsignals.Notify("test", syscall.SIGUSR1)
+			mon.updateCh <- struct{}{}
 			time.Sleep(time.Millisecond * 10)
 		}
 	}()
