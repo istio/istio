@@ -79,7 +79,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		store := memory.Make(collections.Pilot)
 		configController := memory.NewController(store)
 
-		err := s.makeFileMonitor(args.Config.FileDir, configController)
+		err := s.makeFileMonitor(args.Config.FileDir, args.Config.ControllerOptions.DomainSuffix, configController)
 		if err != nil {
 			return err
 		}
@@ -161,7 +161,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 
 	var clients []*sink.Client
 	var conns []*grpc.ClientConn
-	var configStores []model.ConfigStoreCache
 
 	mcpOptions := &mcp.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
@@ -184,11 +183,11 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.Config))
 				configController := memory.NewController(store)
 
-				err := s.makeFileMonitor(srcAddress.Path, configController)
+				err := s.makeFileMonitor(srcAddress.Path, args.Config.ControllerOptions.DomainSuffix, configController)
 				if err != nil {
 					return err
 				}
-				configStores = append(configStores, configController)
+				s.ConfigStores = append(s.ConfigStores, configController)
 				continue
 			}
 		}
@@ -199,7 +198,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 			return err
 		}
 		conns = append(conns, conn)
-		s.mcpController(mcpOptions, conn, reporter, &clients, &configStores)
+		mcpController, mcpClient := s.mcpController(mcpOptions, conn, reporter)
+		clients = append(clients, mcpClient)
+		s.ConfigStores = append(s.ConfigStores, mcpController)
 	}
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -232,8 +233,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 
 		return nil
 	})
-
-	s.ConfigStores = append(s.ConfigStores, configStores...)
 	return nil
 }
 
@@ -357,9 +356,7 @@ func (s *Server) initStatusController(args *PilotArgs) {
 func (s *Server) mcpController(
 	opts *mcp.Options,
 	conn *grpc.ClientConn,
-	reporter monitoring.Reporter,
-	clients *[]*sink.Client,
-	configStores *[]model.ConfigStoreCache) {
+	reporter monitoring.Reporter) (model.ConfigStoreCache, *sink.Client) {
 	clientNodeID := ""
 	all := collections.Pilot.All()
 	cols := make([]sink.CollectionOptions, 0, len(all))
@@ -378,8 +375,7 @@ func (s *Server) mcpController(
 	cl := mcpapi.NewResourceSourceClient(conn)
 	mcpClient := sink.NewClient(cl, sinkOptions)
 	configz.Register(mcpClient)
-	*clients = append(*clients, mcpClient)
-	*configStores = append(*configStores, mcpController)
+	return mcpController, mcpClient
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
@@ -408,8 +404,8 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	return controller.NewController(configClient, args.Config.ControllerOptions), nil
 }
 
-func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot)
+func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {
+	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot, domainSuffix)
 	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, fileSnapshot.ReadConfigFiles, fileDir)
 
 	// Defer starting the file monitor until after the service is created.

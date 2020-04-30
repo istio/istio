@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/spiffe"
 )
 
 func convertPort(port *networking.Port) *model.Port {
@@ -88,6 +89,7 @@ func convertServices(cfg model.Config) []*model.Service {
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
 						},
+						ServiceAccounts: serviceEntry.SubjectAltNames,
 					})
 				} else if net.ParseIP(address) != nil {
 					out = append(out, &model.Service{
@@ -103,6 +105,7 @@ func convertServices(cfg model.Config) []*model.Service {
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
 						},
+						ServiceAccounts: serviceEntry.SubjectAltNames,
 					})
 				}
 			}
@@ -120,6 +123,7 @@ func convertServices(cfg model.Config) []*model.Service {
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
 				},
+				ServiceAccounts: serviceEntry.SubjectAltNames,
 			})
 		}
 	}
@@ -128,7 +132,7 @@ func convertServices(cfg model.Config) []*model.Service {
 }
 
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
-	endpoint *networking.WorkloadEntry, tlsMode string) *model.ServiceInstance {
+	endpoint *networking.WorkloadEntry) *model.ServiceInstance {
 	var instancePort uint32
 	addr := endpoint.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
@@ -141,6 +145,11 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 		}
 	}
 
+	tlsMode := getTLSModeFromWorkloadEntry(endpoint)
+	sa := ""
+	if endpoint.ServiceAccount != "" {
+		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, endpoint.ServiceAccount)
+	}
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         addr,
@@ -150,9 +159,10 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Locality: model.Locality{
 				Label: endpoint.Locality,
 			},
-			LbWeight: endpoint.Weight,
-			Labels:   endpoint.Labels,
-			TLSMode:  tlsMode,
+			LbWeight:       endpoint.Weight,
+			Labels:         endpoint.Labels,
+			TLSMode:        tlsMode,
+			ServiceAccount: sa,
 		},
 		Service:     service,
 		ServicePort: convertPort(servicePort),
@@ -165,17 +175,7 @@ func convertWorkloadInstances(wle *networking.WorkloadEntry, services []*model.S
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
-
-			// * Use security.istio.io/tlsMode if its present
-			// * If not, set TLS mode if ServiceAccount is specified
-			tlsMode := model.DisabledTLSModeLabel
-			if val, exists := wle.Labels[model.TLSModeLabelName]; exists {
-				tlsMode = val
-			} else if wle.ServiceAccount != "" {
-				tlsMode = model.IstioMutualTLSModeLabel
-			}
-			ep := convertEndpoint(service, port, wle, tlsMode)
-			out = append(out, ep)
+			out = append(out, convertEndpoint(service, port, wle))
 		}
 	}
 	return out
@@ -208,10 +208,41 @@ func convertInstances(cfg model.Config, services []*model.Service) []*model.Serv
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
-					tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
-					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, tlsMode))
+					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint))
 				}
 			}
+		}
+	}
+	return out
+}
+
+func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
+	// * Use security.istio.io/tlsMode if its present
+	// * If not, set TLS mode if ServiceAccount is specified
+	tlsMode := model.DisabledTLSModeLabel
+	if val, exists := wle.Labels[model.TLSModeLabelName]; exists {
+		tlsMode = val
+	} else if wle.ServiceAccount != "" {
+		tlsMode = model.IstioMutualTLSModeLabel
+	}
+
+	return tlsMode
+}
+
+// The foreign service instance has pointer to the foreign service and its service port.
+// We need to create our own but we can retain the endpoint already created.
+func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serviceEntryServices []*model.Service,
+	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
+	for _, service := range serviceEntryServices {
+		for _, serviceEntryPort := range serviceEntry.Ports {
+			ep := *foreignInstance.Endpoint
+			ep.ServicePortName = serviceEntryPort.Name
+			out = append(out, &model.ServiceInstance{
+				Endpoint:    &ep,
+				Service:     service,
+				ServicePort: convertPort(serviceEntryPort),
+			})
 		}
 	}
 	return out

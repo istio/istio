@@ -236,6 +236,7 @@ EOF
           connect_kind_clusters "${CLUSTERI_NAME}" "${CLUSTERI_KUBECONFIG}" "${CLUSTERJ_NAME}" "${CLUSTERJ_KUBECONFIG}"
         fi
       done
+      install_metallb "$CLUSTERI_KUBECONFIG"
     done
   else
     # Connect clusters 1 and 2, but leave cluster 3 on a separate network.
@@ -259,6 +260,49 @@ function connect_kind_clusters() {
   C2_POD_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
   docker exec "${C1_NODE}" ip route add "${C2_POD_CIDR}" via "${C2_DOCKER_IP}"
   docker exec "${C2_NODE}" ip route add "${C1_POD_CIDR}" via "${C1_DOCKER_IP}"
+}
+
+function install_metallb() {
+  KUBECONFIG="${1}"
+  kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
+  kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
+
+  if [ -z "${METALLB_IPS[*]}" ]; then
+    # Take IPs from the end of the docker bridge network subnet to use for MetalLB IPs
+    DOCKER_BRIDGE_SUBNET="$(docker inspect bridge | jq .[0].IPAM.Config[0].Subnet -r)"
+    METALLB_IPS=()
+    while read -r ip; do
+      METALLB_IPS+=("$ip")
+    done < <(cidr_to_ips "$DOCKER_BRIDGE_SUBNET" | tail -n 100)
+  fi
+
+  # Give this cluster of those IPs
+  RANGE="${METALLB_IPS[0]}-${METALLB_IPS[9]}"
+  METALLB_IPS=("${METALLB_IPS[@]:10}")
+
+  echo 'apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      - '"$RANGE" | kubectl apply --kubeconfig="$KUBECONFIG" -f -
+}
+
+function cidr_to_ips() {
+    CIDR="$1"
+    if command -v python3; then
+      python3 - <<EOF
+from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$CIDR').hosts()]
+EOF
+    elif command -v nmap; then
+      nmap -sL "$CIDR" | awk '/Nmap scan report/{print $NF}'
+    fi
 }
 
 function cni_run_daemon_kind() {

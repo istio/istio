@@ -26,6 +26,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -37,6 +38,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -635,4 +637,10 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	}
 
 	return true
+}
+
+// meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
+// due to the UNDEFINED in the meshconfig ForwardClientCertDetails
+func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
+	return http_conn.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }

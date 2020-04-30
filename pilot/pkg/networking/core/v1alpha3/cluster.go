@@ -1008,7 +1008,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		}
 
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
-		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" || tls.Mode == networking.ClientTLSSettings_MUTUAL {
+		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -1024,6 +1024,23 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 							Filename: model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
 						},
 					},
+				},
+			}
+		} else if tls.Mode == networking.ClientTLSSettings_MUTUAL {
+			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+			// which does not support rotation, we will serve them over SDS by reading the files.
+			res := model.SdsCertificateConfig{
+				CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
+				PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
+				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+			}
+			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), opts.push.Mesh.SdsUdsPath))
+
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
 				},
 			}
 		} else {

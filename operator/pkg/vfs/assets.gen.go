@@ -14,13 +14,16 @@
 // profiles/remote.yaml
 // translateConfig/names-1.5.yaml
 // translateConfig/names-1.6.yaml
+// translateConfig/names-1.7.yaml
 // translateConfig/reverseTranslateConfig-1.4.yaml
 // translateConfig/reverseTranslateConfig-1.5.yaml
 // translateConfig/reverseTranslateConfig-1.6.yaml
+// translateConfig/reverseTranslateConfig-1.7.yaml
 // translateConfig/translateConfig-1.3.yaml
 // translateConfig/translateConfig-1.4.yaml
 // translateConfig/translateConfig-1.5.yaml
 // translateConfig/translateConfig-1.6.yaml
+// translateConfig/translateConfig-1.7.yaml
 // versions.yaml
 package vfs
 
@@ -32,6 +35,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -124,11 +128,6 @@ spec:
 
       controlPlaneSecurityEnabled: true
 
-    # Multicluster with gateways requires a root CA
-    # Cluster local CAs are bootstrapped with the root CA.
-    security:
-      selfSigned: false
-
     gateways:
       istio-egressgateway:
         env:
@@ -154,35 +153,35 @@ func examplesMulticlusterValuesIstioMulticlusterGatewaysYaml() (*asset, error) {
 var _examplesMulticlusterValuesIstioMulticlusterPrimaryYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
+  # https://istio.io/docs/setup/install/multicluster/shared/#main-cluster
   values:
-    gateways:
-      istio-ingressgateway:
-        env:
-          ISTIO_META_NETWORK: "network1"
     global:
-      mtls:
-        enabled: true
-      controlPlaneSecurityEnabled: true
-      proxy:
-        accessLogFile: "/dev/stdout"
+      multiCluster:
+        # unique cluster name, must be a DNS label name
+        clusterName: main0
       network: network1
+
+      # Mesh network configuration. This is optional and may be omitted if
+      # all clusters are on the same network.
+      meshNetworks:
+        network1:
+          endpoints:
+          # Always use Kubernetes as the registry name for the main cluster in the mesh network configuration
+          - fromRegistry: Kubernetes
+          gateways:
+          - registry_service_name: istio-ingressgateway.istio-system.svc.cluster.local
+            port: 443
+
+        network2:
+          endpoints:
+          - fromRegistry: remote0
+          gateways:
+          - registry_service_name: istio-ingressgateway.istio-system.svc.cluster.local
+            port: 443
+
+      # Use the existing istio-ingressgateway.
       meshExpansion:
         enabled: true
-    pilot:
-      meshNetworks:
-        networks:
-          network1:
-            endpoints:
-            - fromRegistry: Kubernetes
-            gateways:
-            - address: 0.0.0.0
-              port: 443
-          network2:
-            endpoints:
-            - fromRegistry: n2-k8s-config
-            gateways:
-            - address: 0.0.0.0
-              port: 443
 `)
 
 func examplesMulticlusterValuesIstioMulticlusterPrimaryYamlBytes() ([]byte, error) {
@@ -240,11 +239,6 @@ spec:
 
       controlPlaneSecurityEnabled: true
 
-    # Multicluster with gateways requires a root CA
-    # Cluster local CAs are bootstrapped with the root CA.
-    security:
-      selfSigned: false
-
     # Provides dns resolution for service entries of form
     # name.namespace.global
     istiocoredns:
@@ -275,11 +269,6 @@ spec:
         enabled: true
 
       controlPlaneSecurityEnabled: true
-
-    # Multicluster with gateways requires a root CA
-    # Cluster local CAs are bootstrapped with the root CA.
-    security:
-      selfSigned: false
 `)
 
 func examplesVmValuesIstioMeshexpansionYamlBytes() ([]byte, error) {
@@ -335,7 +324,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Policy feature
+    # Policy feature
     policy:
       enabled: false
       k8s:
@@ -362,7 +351,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-   # Telemetry feature
+    # Telemetry feature
     telemetry:
       enabled: false
       k8s:
@@ -399,7 +388,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Security feature
+    # Security feature
     citadel:
       enabled: false
       k8s:
@@ -408,7 +397,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Istio Gateway feature
+    # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
       enabled: true
@@ -427,18 +416,6 @@ spec:
             - port: 443
               targetPort: 8443
               name: https
-            - port: 15029
-              targetPort: 15029
-              name: kiali
-            - port: 15030
-              targetPort: 15030
-              name: prometheus
-            - port: 15031
-              targetPort: 15031
-              name: grafana
-            - port: 15032
-              targetPort: 15032
-              name: tracing
             - port: 15443
               targetPort: 15443
               name: tls
@@ -531,7 +508,8 @@ spec:
   # Please keep this in sync with manifests/charts/global.yaml
   values:
     # You may override parts of meshconfig by uncommenting the following lines.
-    meshConfig: {}
+    meshConfig:
+      enablePrometheusMerge: false
       # Opt-out of global http2 upgrades.
       # Destination rule is used to opt-in.
       # h2_upgrade_policy: DO_NOT_UPGRADE
@@ -593,8 +571,6 @@ spec:
         lightstep:
           address: ""                # example: lightstep-satellite:443
           accessToken: ""            # example: abcdefg1234567
-          secure: true               # example: true|false
-          cacertPath: ""             # example: /etc/lightstep/cacert.pem
         zipkin:
           address: ""
         datadog:
@@ -672,6 +648,7 @@ spec:
         enabled: false
       v2:
         enabled: true
+        metadataExchange: {}
         prometheus:
           enabled: true
         stackdriver:
@@ -727,6 +704,8 @@ spec:
 
     gateways:
       istio-egressgateway:
+        zvpn: {}
+        env: {}
         autoscaleEnabled: true
         type: ClusterIP
         name: istio-egressgateway
@@ -745,6 +724,8 @@ spec:
         domain: ""
         type: LoadBalancer
         name: istio-ingressgateway
+        zvpn: {}
+        env: {}
         meshExpansionPorts:
           - port: 15011
             targetPort: 15011
@@ -900,12 +881,16 @@ spec:
         grafanaInClusterURL: http://grafana:3000
         jaegerURL:
         jaegerInClusterURL: http://tracing/jaeger
+        auth:
+          strategy: login
       prometheusNamespace:
       createDemoSecret: false
       security:
         enabled: false
         cert_file: /kiali-cert/cert-chain.pem
         private_key_file: /kiali-cert/key.pem
+      service:
+        annotations: {}
 
     # TODO: derive from operator API
     version: ""
@@ -930,6 +915,9 @@ func profilesDefaultYaml() (*asset, error) {
 var _profilesDemoYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
+  meshConfig:
+    accessLogFile: /dev/stdout
+    disablePolicyChecks: false
   components:
     egressGateways:
     - name: istio-egressgateway
@@ -963,18 +951,6 @@ spec:
             - port: 443
               targetPort: 8443
               name: https
-            - port: 15029
-              targetPort: 15029
-              name: kiali
-            - port: 15030
-              targetPort: 15030
-              name: prometheus
-            - port: 15031
-              targetPort: 15031
-              name: grafana
-            - port: 15032
-              targetPort: 15032
-              name: tracing
             - port: 31400
               targetPort: 31400
               name: tcp
@@ -1032,9 +1008,7 @@ spec:
 
   values:
     global:
-      disablePolicyChecks: false
       proxy:
-        accessLogFile: /dev/stdout
         resources:
           requests:
             cpu: 10m
@@ -1245,6 +1219,27 @@ func translateconfigNames16Yaml() (*asset, error) {
 	return a, nil
 }
 
+var _translateconfigNames17Yaml = []byte(`DeprecatedComponentNames:
+  - "Injector"
+  - "CertManager"
+  - "NodeAgent"
+  - "SidecarInjector"`)
+
+func translateconfigNames17YamlBytes() ([]byte, error) {
+	return _translateconfigNames17Yaml, nil
+}
+
+func translateconfigNames17Yaml() (*asset, error) {
+	bytes, err := translateconfigNames17YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/names-1.7.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _translateconfigReversetranslateconfig14Yaml = []byte(`kubernetesPatternMapping:
   "{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env"
   "{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec"
@@ -1334,6 +1329,37 @@ func translateconfigReversetranslateconfig16Yaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "translateConfig/reverseTranslateConfig-1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _translateconfigReversetranslateconfig17Yaml = []byte(`kubernetesPatternMapping:
+  "{{.ValueComponentName}}.env":                   "Components.{{.ComponentName}}.K8s.Env"
+  "{{.ValueComponentName}}.autoscaleEnabled":      "Components.{{.ComponentName}}.K8s.HpaSpec"
+  "{{.ValueComponentName}}.imagePullPolicy":       "Components.{{.ComponentName}}.K8s.ImagePullPolicy"
+  "{{.ValueComponentName}}.nodeSelector":          "Components.{{.ComponentName}}.K8s.NodeSelector"
+  "{{.ValueComponentName}}.tolerations":           "Components.{{.ComponentName}}.K8s.Tolerations"
+  "{{.ValueComponentName}}.podDisruptionBudget":   "Components.{{.ComponentName}}.K8s.PodDisruptionBudget"
+  "{{.ValueComponentName}}.podAnnotations":        "Components.{{.ComponentName}}.K8s.PodAnnotations"
+  "{{.ValueComponentName}}.priorityClassName":     "Components.{{.ComponentName}}.K8s.PriorityClassName"
+  "{{.ValueComponentName}}.readinessProbe":        "Components.{{.ComponentName}}.K8s.ReadinessProbe"
+  "{{.ValueComponentName}}.replicaCount":          "Components.{{.ComponentName}}.K8s.ReplicaCount"
+  "{{.ValueComponentName}}.resources":             "Components.{{.ComponentName}}.K8s.Resources"
+  "{{.ValueComponentName}}.rollingMaxSurge":       "Components.{{.ComponentName}}.K8s.Strategy"
+  "{{.ValueComponentName}}.rollingMaxUnavailable": "Components.{{.ComponentName}}.K8s.Strategy"
+  "{{.ValueComponentName}}.serviceAnnotations":    "Components.{{.ComponentName}}.K8s.ServiceAnnotations"`)
+
+func translateconfigReversetranslateconfig17YamlBytes() ([]byte, error) {
+	return _translateconfigReversetranslateconfig17Yaml, nil
+}
+
+func translateconfigReversetranslateconfig17Yaml() (*asset, error) {
+	bytes, err := translateconfigReversetranslateconfig17YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/reverseTranslateConfig-1.7.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2153,6 +2179,176 @@ func translateconfigTranslateconfig16Yaml() (*asset, error) {
 	return a, nil
 }
 
+var _translateconfigTranslateconfig17Yaml = []byte(`apiMapping:
+  Hub:
+    outPath: "global.hub"
+  Tag:
+    outPath: "global.tag"
+  K8SDefaults:
+    outPath: "global.resources"
+  Revision:
+    outPath: "revision"
+  MeshConfig:
+    outPath: "meshConfig"
+kubernetesMapping:
+  "Components.{{.ComponentName}}.K8S.Affinity":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
+  "Components.{{.ComponentName}}.K8S.Env":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env"
+  "Components.{{.ComponentName}}.K8S.HpaSpec":
+    outPath: "[HorizontalPodAutoscaler:{{.ResourceName}}].spec"
+  "Components.{{.ComponentName}}.K8S.ImagePullPolicy":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy"
+  "Components.{{.ComponentName}}.K8S.NodeSelector":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector"
+  "Components.{{.ComponentName}}.K8S.PodDisruptionBudget":
+    outPath: "[PodDisruptionBudget:{{.ResourceName}}].spec"
+  "Components.{{.ComponentName}}.K8S.PodAnnotations":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations"
+  "Components.{{.ComponentName}}.K8S.PriorityClassName":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName."
+  "Components.{{.ComponentName}}.K8S.ReadinessProbe":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe"
+  "Components.{{.ComponentName}}.K8S.ReplicaCount":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.replicas"
+  "Components.{{.ComponentName}}.K8S.Resources":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources"
+  "Components.{{.ComponentName}}.K8S.Strategy":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.strategy"
+  "Components.{{.ComponentName}}.K8S.Tolerations":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"
+  "Components.{{.ComponentName}}.K8S.ServiceAnnotations":
+    outPath: "[Service:{{.ResourceName}}].metadata.annotations"
+  "Components.{{.ComponentName}}.K8S.Service":
+    outPath: "[Service:{{.ResourceName}}].spec"
+globalNamespaces:
+  Pilot:      "istioNamespace"
+  Galley:     "configNamespace"
+  Telemetry:  "telemetryNamespace"
+  Policy:     "policyNamespace"
+  Prometheus: "prometheusNamespace"
+  Citadel:    "securityNamespace"
+
+componentMaps:
+  Base:
+    ToHelmValuesTreeRoot: "global"
+    HelmSubdir:           "base"
+    SkipReverseTranslate: true
+  Pilot:
+    ResourceType:         "Deployment"
+    ResourceName:         "istiod"
+    ContainerName:        "discovery"
+    HelmSubdir:           "istio-control/istio-discovery"
+    ToHelmValuesTreeRoot: "pilot"
+  Galley:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-galley"
+    ContainerName:        "galley"
+    HelmSubdir:           "istio-control/istio-config"
+    ToHelmValuesTreeRoot: "galley"
+  SidecarInjector:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-sidecar-injector"
+    ContainerName:        "sidecar-injector-webhook"
+    HelmSubdir:           "istio-control/istio-autoinject"
+    ToHelmValuesTreeRoot: "sidecarInjectorWebhook"
+    SkipReverseTranslate: true
+  Policy:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-policy"
+    ContainerName:        "mixer"
+    HelmSubdir:           "istio-policy"
+    ToHelmValuesTreeRoot: "mixer.policy"
+  Telemetry:
+    ResourceType:        "Deployment"
+    ResourceName:         "istio-telemetry"
+    ContainerName:        "mixer"
+    HelmSubdir:           "istio-telemetry/mixer-telemetry"
+    ToHelmValuesTreeRoot: "mixer.telemetry"
+  Citadel:
+    ResourceType:        "Deployment"
+    ResourceName:         "istio-citadel"
+    ContainerName:        "citadel"
+    HelmSubdir:           "security/citadel"
+    ToHelmValuesTreeRoot: "security"
+  NodeAgent:
+    ResourceType:         "DaemonSet"
+    ResourceName:         "istio-nodeagent"
+    ContainerName:        "nodeagent"
+    HelmSubdir:           "security/nodeagent"
+    ToHelmValuesTreeRoot: "nodeagent"
+    SkipReverseTranslate: true
+  IngressGateways:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-ingressgateway"
+    ContainerName:        "istio-proxy"
+    HelmSubdir:           "gateways/istio-ingress"
+    ToHelmValuesTreeRoot: "gateways.istio-ingressgateway"
+  EgressGateways:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-egressgateway"
+    ContainerName:        "istio-proxy"
+    HelmSubdir:           "gateways/istio-egress"
+    ToHelmValuesTreeRoot: "gateways.istio-egressgateway"
+  Cni:
+    ResourceType:         "DaemonSet"
+    ResourceName:         "istio-cni-node"
+    ContainerName:        "install-cni"
+    HelmSubdir:           "istio-cni"
+    ToHelmValuesTreeRoot: "cni"
+  Istiocoredns:
+    ResourceType:         "Deployment"
+    ResourceName:         "istiocoredns"
+    ContainerName:        "coredns"
+    HelmSubdir:           "istiocoredns"
+    ToHelmValuesTreeRoot: "istiocoredns"
+  Tracing:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-tracing"
+    ContainerName:        "jaeger"
+    HelmSubdir:           "istio-telemetry/tracing"
+    ToHelmValuesTreeRoot: "tracing.jaeger"
+  PrometheusOperator:
+    ResourceType:         "Deployment"
+    ResourceName:         "prometheus"
+    ContainerName:        "prometheus"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
+    ToHelmValuesTreeRoot: "prometheus"
+    SkipReverseTranslate: true
+  Kiali:
+    ResourceType:         "Deployment"
+    ResourceName:         "kiali"
+    ContainerName:        "kiali"
+    HelmSubdir:           "istio-telemetry/kiali"
+    ToHelmValuesTreeRoot: "kiali"
+  Grafana:
+    ResourceType:        "Deployment"
+    ResourceName:         "grafana"
+    ContainerName:        "grafana"
+    HelmSubdir:           "istio-telemetry/grafana"
+    ToHelmValuesTreeRoot: "grafana"
+  Prometheus:
+    ResourceType:         "Deployment"
+    ResourceName:         "prometheus"
+    ContainerName:        "prometheus"
+    HelmSubdir:           "istio-telemetry/prometheus"
+    ToHelmValuesTreeRoot: "prometheus"`)
+
+func translateconfigTranslateconfig17YamlBytes() ([]byte, error) {
+	return _translateconfigTranslateconfig17Yaml, nil
+}
+
+func translateconfigTranslateconfig17Yaml() (*asset, error) {
+	bytes, err := translateconfigTranslateconfig17YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/translateConfig-1.7.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   supportedIstioVersions: 1.3.0
   recommendedIstioVersions: 1.3.0
@@ -2207,6 +2403,12 @@ var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   recommendedIstioVersions: 1.6.0
   k8sClientVersionRange: ">=1.14"
   k8sServerVersionRange: ">=1.14"
+- operatorVersion: 1.7.0
+  operatorVersionRange: ">=1.7.0,<1.8.0"
+  supportedIstioVersions: ">=1.6.0, <1.8"
+  recommendedIstioVersions: 1.7.0
+  k8sClientVersionRange: ">=1.15"
+  k8sServerVersionRange: ">=1.15"
 `)
 
 func versionsYamlBytes() ([]byte, error) {
@@ -2290,14 +2492,17 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/remote.yaml":                                          profilesRemoteYaml,
 	"translateConfig/names-1.5.yaml":                                translateconfigNames15Yaml,
 	"translateConfig/names-1.6.yaml":                                translateconfigNames16Yaml,
+	"translateConfig/names-1.7.yaml":                                translateconfigNames17Yaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":               translateconfigReversetranslateconfig14Yaml,
 	"translateConfig/reverseTranslateConfig-1.5.yaml":               translateconfigReversetranslateconfig15Yaml,
 	"translateConfig/reverseTranslateConfig-1.6.yaml":               translateconfigReversetranslateconfig16Yaml,
+	"translateConfig/reverseTranslateConfig-1.7.yaml":               translateconfigReversetranslateconfig17Yaml,
 	"translateConfig/translateConfig-1.3.yaml":                      translateconfigTranslateconfig13Yaml,
 	"translateConfig/translateConfig-1.4.yaml":                      translateconfigTranslateconfig14Yaml,
 	"translateConfig/translateConfig-1.5.yaml":                      translateconfigTranslateconfig15Yaml,
 	"translateConfig/translateConfig-1.6.yaml":                      translateconfigTranslateconfig16Yaml,
-	"versions.yaml":                                                 versionsYaml,
+	"translateConfig/translateConfig-1.7.yaml":                      translateconfigTranslateconfig17Yaml,
+	"versions.yaml": versionsYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -2368,13 +2573,16 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"names-1.5.yaml":                  &bintree{translateconfigNames15Yaml, map[string]*bintree{}},
 		"names-1.6.yaml":                  &bintree{translateconfigNames16Yaml, map[string]*bintree{}},
+		"names-1.7.yaml":                  &bintree{translateconfigNames17Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.5.yaml": &bintree{translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.6.yaml": &bintree{translateconfigReversetranslateconfig16Yaml, map[string]*bintree{}},
+		"reverseTranslateConfig-1.7.yaml": &bintree{translateconfigReversetranslateconfig17Yaml, map[string]*bintree{}},
 		"translateConfig-1.3.yaml":        &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
 		"translateConfig-1.4.yaml":        &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
 		"translateConfig-1.5.yaml":        &bintree{translateconfigTranslateconfig15Yaml, map[string]*bintree{}},
 		"translateConfig-1.6.yaml":        &bintree{translateconfigTranslateconfig16Yaml, map[string]*bintree{}},
+		"translateConfig-1.7.yaml":        &bintree{translateconfigTranslateconfig17Yaml, map[string]*bintree{}},
 	}},
 	"versions.yaml": &bintree{versionsYaml, map[string]*bintree{}},
 }}

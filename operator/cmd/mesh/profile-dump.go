@@ -33,6 +33,8 @@ type profileDumpArgs struct {
 	configPath string
 	// outputFormat controls the format of profile dumps
 	outputFormat string
+	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	charts string
 }
 
 const (
@@ -53,6 +55,7 @@ func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 		"The path the root of the configuration subtree to dump e.g. components.pilot. By default, dump whole tree")
 	cmd.PersistentFlags().StringVarP(&args.outputFormat, "output", "o", yamlOutput,
 		"Output format: one of json|yaml")
+	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
 }
 
 func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command {
@@ -67,7 +70,7 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			return profileDump(args, rootArgs, pdArgs, l)
 		}}
 
@@ -118,7 +121,10 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		return fmt.Errorf("unknown output format: %v", pdArgs.outputFormat)
 	}
 
-	setFlagYAML := ""
+	setFlagYAML, err := yamlFromSetFlags(applyInstallFlagAlias(make([]string, 0), pdArgs.charts), false, l)
+	if err != nil {
+		return err
+	}
 	if len(args) == 1 {
 		var err error
 		if setFlagYAML, err = tpath.AddSpecRoot("profile: " + args[0]); err != nil {

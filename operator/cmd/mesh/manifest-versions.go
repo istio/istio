@@ -58,7 +58,7 @@ func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs) error {
 		return fmt.Errorf("failed to retrieve version map, error: %v", err)
 	}
 
-	fmt.Print("\nOperator version is ", binversion.OperatorBinaryGoVersion.String(), ".\n\n")
+	fmt.Print("\nBinary version is ", binversion.OperatorBinaryGoVersion.String(), ".\n\n")
 	fmt.Println("This version of istioctl can:")
 	for _, v := range myVersionMap.RecommendedIstioVersions {
 		fmt.Printf("  Install Istio %s\n", v.String())

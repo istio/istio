@@ -24,6 +24,14 @@ import (
 	"github.com/cheggaaa/pb/v3"
 )
 
+type InstallState int
+
+const (
+	StateInstalling InstallState = iota
+	StatePruning
+	StateComplete
+)
+
 // ProgressLog records the progress of an installation
 // This aims to provide information about the install of multiple components in parallel, while working
 // around the limitations of the pb library, which will only support single lines. To do this, we aggregate
@@ -31,7 +39,9 @@ import (
 type ProgressLog struct {
 	components map[string]*ManifestLog
 	bar        *pb.ProgressBar
+	template   string
 	mu         sync.Mutex
+	state      InstallState
 }
 
 func NewProgressLog() *ProgressLog {
@@ -40,6 +50,8 @@ func NewProgressLog() *ProgressLog {
 		bar:        createBar(),
 	}
 }
+
+const inProgress = `{{ yellow (cycle . "-" "-" "-" " ") }} `
 
 // createStatus will return a string to report the current status.
 // ex: - Processing resources for components. Waiting for foo, bar
@@ -56,7 +68,11 @@ func (p *ProgressLog) createStatus(maxWidth int) string {
 	if len(wait) > 0 {
 		msg += fmt.Sprintf(` Waiting for %s`, strings.Join(wait, ", "))
 	}
-	prefix := `{{ yellow (cycle . "-" "-" "-" " ") }} `
+	prefix := inProgress
+	if !p.bar.GetBool(pb.Terminal) {
+		// If we aren't a terminal, no need to spam extra lines
+		prefix = `{{ yellow "-" }} `
+	}
 	// reduce by 2 to allow for the "- " that will be added below
 	maxWidth -= 2
 	if maxWidth > 0 && len(msg) > maxWidth {
@@ -98,20 +114,31 @@ func (p *ProgressLog) reportProgress(component string) func() {
 		// The component has completed
 		if cmp.finished || cmp.err != "" {
 			if cmp.finished {
-				p.bar.SetTemplateString(fmt.Sprintf(`{{ green "✔" }} Component %s installed`, component))
+				p.SetMessage(fmt.Sprintf(`{{ green "✔" }} Component %s installed`, component), true)
 			} else {
-				p.bar.SetTemplateString(fmt.Sprintf(`{{ red "✘" }} Component %s encountered an error: %s`, component, cmp.err))
+				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} Component %s encountered an error: %s`, component, cmp.err), true)
 			}
 			// Close the bar out, outputting a new line
-			p.bar.Finish()
-			p.bar.Write()
 			delete(p.components, component)
 
 			// Now we create a new bar, which will have the remaining components
 			p.bar = createBar()
 			return
 		}
-		p.bar.SetTemplateString(p.createStatus(p.bar.Width()))
+		p.SetMessage(p.createStatus(p.bar.Width()), false)
+	}
+}
+
+func (p *ProgressLog) SetState(state InstallState) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.state = state
+	switch p.state {
+	case StatePruning:
+		p.bar.SetTemplateString(inProgress + `Pruning removed resources`)
+		p.bar.Write()
+	case StateComplete:
+		p.bar.SetTemplateString(`{{ green "✔" }} Installation complete`)
 		p.bar.Write()
 	}
 }
@@ -124,6 +151,20 @@ func (p *ProgressLog) NewComponent(component string) *ManifestLog {
 	defer p.mu.Unlock()
 	p.components[component] = ml
 	return ml
+}
+
+func (p *ProgressLog) SetMessage(status string, finish bool) {
+	// if we are not a terminal and there is no change, do not write
+	// This avoids redundant lines
+	if !p.bar.GetBool(pb.Terminal) && status == p.template {
+		return
+	}
+	p.template = status
+	p.bar.SetTemplateString(p.template)
+	if finish {
+		p.bar.Finish()
+	}
+	p.bar.Write()
 }
 
 // ManifestLog records progress for a single component

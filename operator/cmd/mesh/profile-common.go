@@ -33,11 +33,8 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/operator/version"
-	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
-
-var scope = log.RegisterScope("installer", "installer", 0)
 
 // GenerateConfig creates an IstioOperatorSpec from the following sources, overlaid sequentially:
 // 1. Compiled in base, or optionally base from paths pointing to one or multiple ICP/IOP files at inFilenames.
@@ -52,6 +49,7 @@ var scope = log.RegisterScope("installer", "installer", 0)
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kubeConfig *rest.Config,
 	l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+
 	fy, profile, err := readYamlProfle(inFilenames, setOverlayYAML, force, l)
 	if err != nil {
 		return "", nil, err
@@ -73,6 +71,7 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 }
 
 func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l clog.Logger) (string, string, error) {
+
 	profile := name.DefaultProfileName
 	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
 	fy, fp, err := parseYAMLFiles(inFilenames, force, l)
@@ -172,7 +171,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		if err != nil {
 			return "", nil, err
 		}
-		scope.Infof("Applying Cluster specific settings: %v", kubeOverrides)
+		installerScope.Infof("Applying Cluster specific settings: %v", kubeOverrides)
 		outYAML, err = util.OverlayYAML(outYAML, kubeOverrides)
 		if err != nil {
 			return "", nil, err

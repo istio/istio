@@ -116,6 +116,16 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
 
 	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace, esc.endpointCache.Get(hostname))
+	for _, handler := range esc.c.instanceHandlers {
+		for _, ep := range endpoints {
+			si := &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: nil,
+				Endpoint:    ep,
+			}
+			handler(si, event)
+		}
+	}
 }
 
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
