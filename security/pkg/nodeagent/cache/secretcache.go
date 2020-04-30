@@ -237,7 +237,6 @@ func (sc *SecretCache) setRootCert(rootCert []byte, rootCertExpr time.Time) {
 // and SDS.FetchSecret. Since credential passing from client may change, regenerate secret every time
 // instead of reading from cache.
 func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error) {
-	var ns *model.SecretItem
 	connKey := ConnKey{
 		ConnectionID: connectionID,
 		ResourceName: resourceName,
@@ -253,21 +252,29 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	// the files under the well known path.
 	sdsFromFile := false
 	var err error
+	var ns *model.SecretItem
 
-	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile) {
+	switch {
+	// SDS root certificate
+	case connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile):
 		sdsFromFile = true
 		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey)
-	} else if cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName); ok && cfg.CaCertificatePath != "" {
-		// Based on the resource name, we need to read this secret from a file encoded in the resource name
-		sdsFromFile = true
-		ns, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey)
-	} else if connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile) {
+	// Based on the resource name, we need to read this secret from a file encoded in the resource name
+	case connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile):
 		sdsFromFile = true
 		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
-	} else if cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName); ok && cfg.CertificatePath != "" && cfg.PrivateKeyPath != "" {
-		// Based on the resource name, we need to read this secret from a file encoded in the resource name
-		sdsFromFile = true
-		ns, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey)
+	default:
+		// Check if the resource name refers to a file mounted certificate.
+		// Currently Used in destination rules and server certs (via metadata).
+		cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName)
+		switch {
+		case ok && cfg.IsRootCertificate() && sc.rootCertificateExist(cfg.CaCertificatePath):
+			sdsFromFile = true
+			ns, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey)
+		case ok && cfg.IsKeyCertificate() && sc.keyCertificateExist(cfg.CertificatePath, cfg.PrivateKeyPath):
+			sdsFromFile = true
+			ns, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey)
+		}
 	}
 
 	if sdsFromFile {
