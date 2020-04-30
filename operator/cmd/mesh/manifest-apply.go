@@ -22,15 +22,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -191,7 +190,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, WaitTimeout: waitTimeout, ProgressLog: util.NewProgressLog()}
+	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog()}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return err
@@ -204,7 +203,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return fmt.Errorf("errors occurred during operation")
 	}
 
-	opts.ProgressLog.SetState(util.StateComplete)
+	opts.ProgressLog.SetState(progress.StateComplete)
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
