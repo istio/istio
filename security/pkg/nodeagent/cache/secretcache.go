@@ -355,8 +355,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 
 func (sc *SecretCache) addFileWatcher(file string, key ConnKey) {
 	// Check if this file is being already watched, if so ignore it. FileWatcher has the functionality of
-	// checking for duplicates before start watching - but this check is needed here to avoid processing
-	// duplicate events for the same file.
+	// checking for duplicates. This check is needed here to avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
 	_, exists := sc.certs[file]
 	if !exists {
@@ -366,7 +365,10 @@ func (sc *SecretCache) addFileWatcher(file string, key ConnKey) {
 	// File is not being watched, start watching now and trigger key push.
 	if !exists {
 		cacheLog.Debugf("adding watcher for file %s", file)
-		sc.certWatcher.Add(file)
+		if err := sc.certWatcher.Add(file); err != nil {
+			cacheLog.Errorf("error adding watcher for file %s, Skipping watches ", file)
+			return
+		}
 		go func() {
 			var timerC <-chan time.Time
 			for {

@@ -167,7 +167,7 @@ func ApplyToCommonTLSContext(tlsContext *auth.CommonTlsContext, metadata *model.
 			CaCertificatePath: metadata.TLSServerRootCert,
 		}
 
-		// configure server listners with SDS.
+		// configure server listeners with SDS.
 		tlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
