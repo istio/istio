@@ -2918,9 +2918,8 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 				errs = multierror.Append(errs, err)
 			}
 		case *meshconfig.Network_NetworkEndpoints_FromRegistry:
-			r := e.FromRegistry
-			if strings.EqualFold(r, "kubernetes") && r != "Kubernetes" {
-				errs = multierror.Append(errs, fmt.Errorf("registry name should be Kubernetes instead of %v", r))
+			if ok := labels.IsDNS1123Label(e.FromRegistry); !ok {
+				errs = multierror.Append(errs, fmt.Errorf("invalid registry name: %v", e.FromRegistry))
 			}
 		}
 

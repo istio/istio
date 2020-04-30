@@ -5971,7 +5971,7 @@ func TestValidateMeshNetworks(t *testing.T) {
 						Endpoints: []*meshconfig.Network_NetworkEndpoints{
 							{
 								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
-									FromRegistry: "kubernetes",
+									FromRegistry: "cluster.local",
 								},
 							},
 						},
