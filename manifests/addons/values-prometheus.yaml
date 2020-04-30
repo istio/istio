@@ -1,4 +1,4 @@
-# To simplify the deployment, disable some components
+# To simplify the deployment, disable non-essential components
 alertmanager:
   enabled: false
 pushgateway:
@@ -10,11 +10,13 @@ nodeExporter:
 server:
   persistentVolume:
     enabled: false
+  # Use port 9090 to match Istio documentation
   service:
     servicePort: 9090
 
   # Speed up scraping a bit from the default
   global:
     scrape_interval: 15s
+
   # Match legacy addon deployment
   fullnameOverride: prometheus
