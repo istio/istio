@@ -641,7 +641,7 @@ data:
         {{- end }}
         - name: istio-podinfo
           mountPath: /etc/istio/pod
-         {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.tracing.tlsSettings }}
+         {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetTlsSettings.GetCaCertificates }}
           name: lightstep-certs
           readOnly: true
@@ -704,7 +704,7 @@ data:
         {{ toYaml $value | indent 2 }}
         {{ end }}
         {{ end }}
-      {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.tracing.tlsSettings }}
+      {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
       - name: lightstep-certs
         secret:
           optional: true
