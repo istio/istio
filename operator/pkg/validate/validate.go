@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 var (
@@ -165,6 +166,11 @@ func validateMeshConfig(path util.Path, root interface{}) util.Errors {
 	vs, err := yaml.Marshal(root)
 	if err != nil {
 		return util.Errors{err}
+	}
+	defaultMesh := mesh.DefaultMeshConfig()
+	// ApplyMeshConfigDefaults allows unknown fields, so we first check for unknown fields
+	if err := gogoprotomarshal.ApplyYAMLStrict(string(vs), &defaultMesh); err != nil {
+		return util.Errors{fmt.Errorf("failed to unmarshall mesh config: %v", err)}
 	}
 	// This method will also perform validation automatically
 	if _, validErr := mesh.ApplyMeshConfigDefaults(string(vs)); validErr != nil {

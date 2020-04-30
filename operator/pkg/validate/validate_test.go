@@ -182,6 +182,36 @@ meshConfig:
 `}),
 		},
 		{
+			desc: "Bad mesh config values",
+			yamlStr: `
+values:
+  meshConfig:
+    defaultConfig:
+      discoveryAddress: missingport
+`,
+			wantErrs: makeErrors([]string{`1 error occurred:
+	* invalid discovery address: unable to split "missingport": address missingport: missing port in address
+
+`}),
+		},
+		{
+			desc: "Unknown mesh config",
+			yamlStr: `
+meshConfig:
+  foo: bar
+`,
+			wantErrs: makeErrors([]string{`failed to unmarshall mesh config: unknown field "foo" in v1alpha1.MeshConfig`}),
+		},
+		{
+			desc: "Unknown mesh config values",
+			yamlStr: `
+values:
+  meshConfig:
+    foo: bar
+`,
+			wantErrs: makeErrors([]string{`failed to unmarshall mesh config: unknown field "foo" in v1alpha1.MeshConfig`}),
+		},
+		{
 			desc: "Good mesh config",
 			yamlStr: `
 meshConfig:
