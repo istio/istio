@@ -42,8 +42,8 @@ metadata:
   name: kiali
   namespace: istio-system
 spec:
-  strategy:
-    auth: anonymous
+  auth:
+    strategy: anonymous
 EOF
 popd
 
