@@ -3135,7 +3135,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 						Operation: networking.EnvoyFilter_Patch_ADD,
 						Value: &types.Struct{
 							Fields: map[string]*types.Value{
-								"foo": {
+								"hosts": {
 									Kind: &types.Value_BoolValue{BoolValue: false},
 								},
 							},
@@ -3143,7 +3143,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: `Envoy filter: unknown field "foo" in envoy_api_v2.Cluster`},
+		}, error: `Envoy filter: json: cannot unmarshal bool into Go value of type []json.RawMessage`},
 		{name: "happy config", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
