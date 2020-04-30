@@ -198,4 +198,4 @@ whitelisted_modules:
   - github.com/xeipuuv/gojsonschema
 
   # Apache 2.0: https://github.com/garyburd/redigo/blob/master/LICENSE
-  - github.com/garyburd/redigo
+  - github.com/gomodule/redigo
