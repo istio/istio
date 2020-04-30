@@ -29,7 +29,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/security/pkg/k8s/chiron"
 )
 
@@ -113,28 +112,9 @@ func (s *Server) initCertController(args *PilotArgs) error {
 //
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
-func (s *Server) initDNSCerts(hostname, customHostname, namespace string) error {
-	parts := strings.Split(hostname, ".")
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid hostname %s, should contain at least service name and namespace", hostname)
-	}
-
+func (s *Server) initDNSCerts(names, namespace string) error {
 	// Names in the Istiod cert - support the old service names as well.
 	// The first is the recommended one, also used by Apiserver for webhooks.
-	names := []string{hostname}
-
-	// validate and append custom hostname if there is any
-	if customHostname != "" {
-		partsCustom := strings.Split(customHostname, ".")
-		for _, part := range partsCustom {
-			if !labels.IsDNS1123Label(part) {
-				return fmt.Errorf("invalid custom hostname part %s", part)
-			}
-		}
-		names = append(names, customHostname)
-		log.Infof("Adding custom hostname %s", customHostname)
-	}
-
 	// add a few known hostnames
 	for _, altName := range []string{"istiod", "istiod-remote", "istio-pilot"} {
 		name := fmt.Sprintf("%v.%v.svc", altName, namespace)
