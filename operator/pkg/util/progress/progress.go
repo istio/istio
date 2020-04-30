@@ -34,11 +34,11 @@ const (
 	StateComplete
 )
 
-// ProgressLog records the progress of an installation
+// Log records the progress of an installation
 // This aims to provide information about the install of multiple components in parallel, while working
 // around the limitations of the pb library, which will only support single lines. To do this, we aggregate
 // the current components into a single line, and as components complete there final state is persisted to a new line.
-type ProgressLog struct {
+type Log struct {
 	components map[string]*ManifestLog
 	bar        *pb.ProgressBar
 	template   string
@@ -46,8 +46,8 @@ type ProgressLog struct {
 	state      InstallState
 }
 
-func NewProgressLog() *ProgressLog {
-	return &ProgressLog{
+func NewLog() *Log {
+	return &Log{
 		components: map[string]*ManifestLog{},
 		bar:        createBar(),
 	}
@@ -57,7 +57,7 @@ const inProgress = `{{ yellow (cycle . "-" "-" "-" " ") }} `
 
 // createStatus will return a string to report the current status.
 // ex: - Processing resources for components. Waiting for foo, bar
-func (p *ProgressLog) createStatus(maxWidth int) string {
+func (p *Log) createStatus(maxWidth int) string {
 	comps := []string{}
 	wait := []string{}
 	for c, l := range p.components {
@@ -108,7 +108,7 @@ func createBar() *pb.ProgressBar {
 // progress into a single line. For example "Waiting for x, y, z". Once a component completes, we want
 // a new line created so the information is not lost. To do this, we spin up a new bar with the remaining components
 // on a new line, and create a new bar. For example, this becomes "x succeeded", "waiting for y, z".
-func (p *ProgressLog) reportProgress(component string) func() {
+func (p *Log) reportProgress(component string) func() {
 	return func() {
 		cliName := name.UserFacingComponentName(name.ComponentName(component))
 		p.mu.Lock()
@@ -132,7 +132,7 @@ func (p *ProgressLog) reportProgress(component string) func() {
 	}
 }
 
-func (p *ProgressLog) SetState(state InstallState) {
+func (p *Log) SetState(state InstallState) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.state = state
@@ -146,7 +146,7 @@ func (p *ProgressLog) SetState(state InstallState) {
 	}
 }
 
-func (p *ProgressLog) NewComponent(component string) *ManifestLog {
+func (p *Log) NewComponent(component string) *ManifestLog {
 	ml := &ManifestLog{
 		report: p.reportProgress(component),
 	}
@@ -156,7 +156,7 @@ func (p *ProgressLog) NewComponent(component string) *ManifestLog {
 	return ml
 }
 
-func (p *ProgressLog) SetMessage(status string, finish bool) {
+func (p *Log) SetMessage(status string, finish bool) {
 	// if we are not a terminal and there is no change, do not write
 	// This avoids redundant lines
 	if !p.bar.GetBool(pb.Terminal) && status == p.template {

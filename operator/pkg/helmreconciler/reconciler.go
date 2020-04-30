@@ -61,13 +61,13 @@ type Options struct {
 	Wait bool
 	// WaitTimeout controls the amount of time to wait for resources in a component to become ready before giving up.
 	WaitTimeout time.Duration
-	// ProgressLog tracks the installation progress for all components.
-	ProgressLog *progress.ProgressLog
+	// Log tracks the installation progress for all components.
+	ProgressLog *progress.Log
 }
 
 var defaultOptions = &Options{
 	Log:         clog.NewDefaultLogger(),
-	ProgressLog: progress.NewProgressLog(),
+	ProgressLog: progress.NewLog(),
 }
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
@@ -76,7 +76,7 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		opts = defaultOptions
 	}
 	if opts.ProgressLog == nil {
-		opts.ProgressLog = progress.NewProgressLog()
+		opts.ProgressLog = progress.NewLog()
 	}
 	if iop == nil {
 		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).

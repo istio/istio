@@ -35,7 +35,7 @@ func TestProgressLog(t *testing.T) {
 		expected = newExpected
 	}
 
-	p := NewProgressLog()
+	p := NewLog()
 	foo := p.NewComponent("foo")
 	foo.ReportProgress()
 	expect(`- Processing resources for components foo.`)
