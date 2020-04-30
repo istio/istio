@@ -32,6 +32,7 @@ var (
 		"global.proxy.excludeIPRanges":     validateIPRangesOrStar,
 		"global.proxy.includeInboundPorts": validateStringList(validatePortNumberString),
 		"global.proxy.excludeInboundPorts": validateStringList(validatePortNumberString),
+		"meshConfig":                       validateMeshConfig,
 	}
 )
 
