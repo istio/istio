@@ -64,9 +64,9 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	}
 
 	type args struct {
-		mTLSMode   model.MutualTLSMode
-		sdsUdsPath string
-		node       *model.Proxy
+		mTLSMode         model.MutualTLSMode
+		sdsUdsPath       string
+		node             *model.Proxy
 		listenerProtocol networking.ListenerProtocol
 	}
 	tests := []struct {
@@ -81,7 +81,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol:networking.ListenerProtocolAuto,
+				listenerProtocol: networking.ListenerProtocolAuto,
 			},
 			// No need to set up filter chain, default one is okay.
 			want: nil,
@@ -93,7 +93,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol:networking.ListenerProtocolAuto,
+				listenerProtocol: networking.ListenerProtocolAuto,
 			},
 			want: nil,
 		},
@@ -104,7 +104,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol:networking.ListenerProtocolHTTP,
+				listenerProtocol: networking.ListenerProtocolHTTP,
 			},
 			want: []networking.FilterChain{
 				{
@@ -119,7 +119,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol:networking.ListenerProtocolTCP,
+				listenerProtocol: networking.ListenerProtocolTCP,
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			want: []networking.FilterChain{
@@ -149,9 +149,9 @@ func TestBuildInboundFilterChain(t *testing.T) {
 									},
 								},
 							},
-							AlpnProtocols: []string{"istio-peer-exchange","h2", "http/1.1"},
+							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 						},
-						RequireClientCertificate: protovalue.BoolTrue,},
+						RequireClientCertificate: protovalue.BoolTrue},
 					FilterChainMatch: &listener.FilterChainMatch{
 						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
 					},
@@ -177,7 +177,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 						SdsEnabled: true,
 					},
 				},
-				listenerProtocol:networking.ListenerProtocolHTTP,
+				listenerProtocol: networking.ListenerProtocolHTTP,
 			},
 			want: []networking.FilterChain{
 				{
@@ -241,7 +241,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol:networking.ListenerProtocolHTTP,
+				listenerProtocol: networking.ListenerProtocolHTTP,
 			},
 			want: []networking.FilterChain{
 				{
@@ -260,7 +260,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 						TLSServerRootCert:  "/custom/path/to/root.pem",
 					},
 				},
-				listenerProtocol:networking.ListenerProtocolHTTP,
+				listenerProtocol: networking.ListenerProtocolHTTP,
 			},
 			// Only one filter chain with mTLS settings should be generated.
 			want: []networking.FilterChain{
@@ -300,7 +300,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node,tt.args.listenerProtocol); !reflect.DeepEqual(got, tt.want) {
+			if got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node, tt.args.listenerProtocol); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("BuildInboundFilterChain() = %v, want %v", spew.Sdump(got), spew.Sdump(tt.want))
 				t.Logf("got:\n%v\n", got[0].TLSContext.CommonTlsContext.TlsCertificateSdsSecretConfigs[0])
 			}
