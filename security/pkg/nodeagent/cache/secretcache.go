@@ -388,7 +388,7 @@ func (sc *SecretCache) addFileWatcher(file string, key ConnKey) {
 					if e.Op&fsnotify.Remove == fsnotify.Remove {
 						// File is deleted. Stop watching
 						cacheLog.Debugf("file deleted %s, removing the watcher", file)
-						sc.certWatcher.Remove(file)
+						_ = sc.certWatcher.Remove(file)
 						return
 					}
 					// Use a timer to debounce watch updates
