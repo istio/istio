@@ -12,15 +12,12 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package sharedcontrolplane
+package multimaster
 
 import (
 	"fmt"
-	"testing"
-
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-
 	"istio.io/istio/tests/integration/multicluster"
+	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -36,12 +33,11 @@ var (
 	pilots             []pilot.Instance
 	clusterLocalNS     namespace.Instance
 	controlPlaneValues string
-	nClusters          int
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("sharedcontrolplane", m).
+		NewSuite("multicluster/multimaster", m).
 		Label(label.Multicluster).
 		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
@@ -58,9 +54,6 @@ func TestMain(m *testing.M) {
 			// Store the cluster-local namespace.
 			clusterLocalNS = ns
 
-			// Store the number of clusters so we can create the topology
-			nClusters = len(ctx.Environment().Clusters())
-
 			// Set the cluster-local namespaces in the mesh config.
 			controlPlaneValues = fmt.Sprintf(`
 values:
@@ -74,16 +67,7 @@ values:
 				ns.Name())
 			return nil
 		}).
-		Setup(kube.Setup(func(s *kube.Settings) {
-			// Make all clusters use the same control plane
-			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
-			primaryCluster := resource.ClusterIndex(0)
-			for i := 0; i < nClusters; i++ {
-				s.ControlPlaneTopology[resource.ClusterIndex(i)] = primaryCluster
-			}
-		})).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
-			cfg.IstioOperatorConfigYAML()
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
 		})).
