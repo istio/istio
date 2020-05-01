@@ -339,6 +339,18 @@ func TestController_GetPodLocality(t *testing.T) {
 			},
 		},
 		{
+			name: "should return correct az for given address",
+			pods: []*coreV1.Pod{pod1, pod2},
+			nodes: []*coreV1.Node{
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"}),
+				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2"}),
+			},
+			wantAZ: map[*coreV1.Pod]string{
+				pod1: "region1/zone1/",
+				pod2: "region2/zone2/",
+			},
+		},
+		{
 			name: "should return false if pod isn't in the cache",
 			wantAZ: map[*coreV1.Pod]string{
 				pod1: "",
@@ -401,16 +413,19 @@ func TestController_GetPodLocality(t *testing.T) {
 		},
 	}
 
-	for _, c := range testCases {
-		t.Run(c.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		// If using t.Parallel() you must copy the iteration to a new local variable
+		// https://github.com/golang/go/wiki/CommonMistakes#using-goroutines-on-loop-iterator-variables
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			// Setup kube caches
 			// Pod locality only matters for Endpoints
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
 			defer controller.Stop()
-			addNodes(t, controller, c.nodes...)
-			addPods(t, controller, c.pods...)
-			for _, pod := range c.pods {
+			addNodes(t, controller, tc.nodes...)
+			addPods(t, controller, tc.pods...)
+			for _, pod := range tc.pods {
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 					t.Fatalf("wait for pod err: %v", err)
 				}
@@ -419,7 +434,7 @@ func TestController_GetPodLocality(t *testing.T) {
 			}
 
 			// Verify expected existing pod AZs
-			for pod, wantAZ := range c.wantAZ {
+			for pod, wantAZ := range tc.wantAZ {
 				az := controller.getPodLocality(pod)
 				if wantAZ != "" {
 					if !reflect.DeepEqual(az, wantAZ) {

@@ -40,7 +40,7 @@ func addOperatorDumpFlags(cmd *cobra.Command, args *operatorDumpArgs) {
 		"The namespace the operator controller is installed into")
 	cmd.PersistentFlags().StringVar(&args.common.istioNamespace, "istioNamespace", "istio-system",
 		"The namespace Istio is installed into")
-	cmd.PersistentFlags().StringVarP(&args.common.charts, "charts", "d", "", chartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.common.charts, "charts", "d", "", ChartsFlagHelpStr)
 }
 
 func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Command {
@@ -50,13 +50,14 @@ func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Comman
 		Long:  "The dump subcommand dumps the Istio operator controller manifest.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			operatorDump(rootArgs, odArgs, l)
 		}}
 }
 
+// operatorDump dumps the manifest used to install the operator.
 func operatorDump(args *rootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
-	_, mstr, err := renderOperatorManifest(args, &odArgs.common, l)
+	_, mstr, err := renderOperatorManifest(args, &odArgs.common)
 	if err != nil {
 		l.LogAndFatal(err)
 	}

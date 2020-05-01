@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package certmtls
+package mtlscertplugincasecurenaming
 
 import (
 	"testing"
@@ -37,10 +37,12 @@ var (
 func TestMain(m *testing.M) {
 	// This test verifies:
 	// - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
+	// - The plugin CA certs are correctly used in workload mTLS.
 	// - The CA certificate in the configmap of each namespace is as expected, which
 	//   is used for data plane to control plane TLS authentication.
+	// - Secure naming information is respected in the mTLS handshake.
 	framework.
-		NewSuite("cert_mtls_test", m).
+		NewSuite("mtlscert_pluginca_securenaming_test", m).
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
 		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().

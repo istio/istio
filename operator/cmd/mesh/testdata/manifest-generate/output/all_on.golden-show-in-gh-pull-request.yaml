@@ -8682,9 +8682,7 @@ data:
           },
           "lightstep": {
             "accessToken": "",
-            "address": "",
-            "cacertPath": "",
-            "secure": true
+            "address": ""
           },
           "stackdriver": {
             "debug": false,

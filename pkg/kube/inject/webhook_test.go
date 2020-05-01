@@ -895,7 +895,7 @@ func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, va
 	if err != nil {
 		t.Fatal(err)
 	}
-	l := clog.NewConsoleLogger(os.Stdout, os.Stderr)
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
 	manifests, _, err := operatormesh.GenManifests(nil, oy, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)

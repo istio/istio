@@ -150,7 +150,7 @@ func init() {
 		"Controller resync interval")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", "cluster.local",
 		"DNS domain suffix")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.ClusterID, "clusterID", features.ClusterName.Get(),
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.ClusterID, "clusterID", features.ClusterName,
 		"The ID of the cluster that this Istiod instance resides")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.TrustDomain, "trust-domain", "",
 		"The domain serves to identify the system with spiffe")
@@ -168,6 +168,14 @@ func init() {
 		"HTTP address to use for pilot's self-monitoring information")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
+
+	// Use TLS certificates if provided.
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.TLSOptions.CaCertFile, "caCertFile", "",
+		"File containing the x509 Server CA Certificate")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.TLSOptions.CertFile, "tlsCertFile", "",
+		"File containing the x509 Server Certificate")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.TLSOptions.KeyFile, "tlsKeyFile", "",
+		"File containing the x509 private key matching --tlsCertFile")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

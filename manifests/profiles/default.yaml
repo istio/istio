@@ -6,6 +6,13 @@ spec:
   hub: gcr.io/istio-testing
   tag: latest
 
+  # You may override parts of meshconfig by uncommenting the following lines.
+  meshConfig:
+    enablePrometheusMerge: false
+    # Opt-out of global http2 upgrades.
+    # Destination rule is used to opt-in.
+    # h2_upgrade_policy: DO_NOT_UPGRADE
+
   # Traffic management feature
   components:
     base:
@@ -119,8 +126,8 @@ spec:
             value: "sni-dnat"
         service:
           ports:
-            - port: 15020
-              targetPort: 15020
+            - port: 15021
+              targetPort: 15021
               name: status-port
             - port: 80
               targetPort: 8080
@@ -219,12 +226,6 @@ spec:
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/charts/global.yaml
   values:
-    # You may override parts of meshconfig by uncommenting the following lines.
-    meshConfig:
-      enablePrometheusMerge: false
-      # Opt-out of global http2 upgrades.
-      # Destination rule is used to opt-in.
-      # h2_upgrade_policy: DO_NOT_UPGRADE
     global:
       istioNamespace: istio-system
       istiod:
@@ -283,8 +284,6 @@ spec:
         lightstep:
           address: ""                # example: lightstep-satellite:443
           accessToken: ""            # example: abcdefg1234567
-          secure: true               # example: true|false
-          cacertPath: ""             # example: /etc/lightstep/cacert.pem
         zipkin:
           address: ""
         datadog:
@@ -332,6 +331,8 @@ spec:
         enabled: true
       enableHelmTest: false
       mountMtlsCerts: false
+    base:
+      enableCRDTemplates: false
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -596,7 +597,7 @@ spec:
         jaegerURL:
         jaegerInClusterURL: http://tracing/jaeger
         auth:
-          strategy: ""
+          strategy: login
       prometheusNamespace:
       createDemoSecret: false
       security:

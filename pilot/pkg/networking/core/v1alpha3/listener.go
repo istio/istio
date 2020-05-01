@@ -2165,6 +2165,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		listenerFilters = append(listenerFilters, httpInspectorFilter)
 	}
 
+	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy {
+		listenerFiltersMap[OriginalSrc] = true
+		listenerFilters = append(listenerFilters, originalSrcFilter)
+	}
+
 	for _, chain := range opts.filterChainOpts {
 		for _, filter := range chain.listenerFilters {
 			if _, exist := listenerFiltersMap[filter.Name]; !exist {

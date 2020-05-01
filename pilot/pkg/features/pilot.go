@@ -26,11 +26,6 @@ import (
 )
 
 var (
-	// CertDir is the default location for mTLS certificates used by pilot.
-	// Defaults to /etc/certs, matching k8s template. Can be used if you run pilot
-	// as a regular user on a VM or test environment.
-	CertDir = env.RegisterStringVar("PILOT_CERT_DIR", "", "").Get()
-
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,
@@ -86,11 +81,6 @@ var (
 		"If enabled, Pilot will include EDS pushes in the push debouncing, configured by PILOT_DEBOUNCE_AFTER and PILOT_DEBOUNCE_MAX."+
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	)
-
-	// BaseDir is the base directory for locating configs.
-	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
-	// be used, "/"
-	BaseDir = "BASE"
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	//
@@ -314,7 +304,7 @@ var (
 	).Get()
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
-		"Defines the cluster and service registry that this Istiod instance is belongs to")
+		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
 	EnableIncrementalMCP = env.RegisterBoolVar(
 		"PILOT_ENABLE_INCREMENTAL_MCP",
@@ -324,4 +314,6 @@ var (
 			"resource supports incremental. By default, this is false.").Get()
 	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
+	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
+		"If this is set to false, will not create CA server in istiod.").Get()
 )

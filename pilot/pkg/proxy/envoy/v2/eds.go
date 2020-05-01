@@ -21,6 +21,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
@@ -224,14 +225,13 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		}
 	}
 
+	ep.mutex.Lock()
 	if !serviceAccounts.Equals(ep.ServiceAccounts) {
 		adsLog.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
 			serviceName, ep.ServiceAccounts, serviceAccounts)
 		adsLog.Infof("Full push, service accounts changed, %v", serviceName)
 		fullPush = true
 	}
-
-	ep.mutex.Lock()
 	ep.Shards[clusterID] = istioEndpoints
 	ep.ServiceAccounts = serviceAccounts
 	ep.mutex.Unlock()
@@ -407,6 +407,32 @@ func (s *DiscoveryServer) generateEndpoints(
 		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, lbSetting, enableFailover)
 	}
 	return l
+}
+
+// EdsGenerator implements the new Generate method for EDS, using the in-memory, optimized endpoint
+// storage in DiscoveryServer.
+type EdsGenerator struct {
+	Server *DiscoveryServer
+}
+
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+	resp := []*any.Any{}
+
+	var edsUpdatedServices map[string]struct{} = nil
+	if updates != nil {
+		edsUpdatedServices = model.ConfigNamesOfKind(updates, model.ServiceEntryKind)
+	}
+	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
+	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
+	for _, clusterName := range w.ResourceNames {
+		l := eds.Server.generateEndpoints(clusterName, proxy, push, edsUpdatedServices)
+		if l == nil {
+			continue
+		}
+		resp = append(resp, util.MessageToAny(l))
+	}
+
+	return resp
 }
 
 // pushEds is pushing EDS updates for a single connection. Called the first time

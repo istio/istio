@@ -113,8 +113,8 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
-	// CAROOT defines the CAROOT where one istiod controls remote cluster
-	CAROOT string
+	// FetchCaRoot defines the function to get caRoot
+	FetchCaRoot func() map[string]string
 
 	// Metrics for capturing node-based metrics.
 	Metrics model.Metrics
@@ -185,7 +185,8 @@ type Controller struct {
 	domainSuffix         string
 	clusterID            string
 
-	serviceHandlers []func(*model.Service, model.Event)
+	serviceHandlers  []func(*model.Service, model.Event)
+	instanceHandlers []func(*model.ServiceInstance, model.Event)
 
 	// This is only used for test
 	stop chan struct{}
@@ -955,37 +956,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
 func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	saSet := make(map[string]bool)
-
-	instances := make([]*model.ServiceInstance, 0)
-	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
-	// the service is deployed on, and the service accounts of the pods.
-	for _, port := range ports {
-		svcInstances, err := c.InstancesByPort(svc, port, labels.Collection{})
-		if err != nil {
-			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
-			return nil
-		}
-		instances = append(instances, svcInstances...)
-	}
-
-	for _, si := range instances {
-		if si.Endpoint.ServiceAccount != "" {
-			saSet[si.Endpoint.ServiceAccount] = true
-		}
-	}
-
-	for _, serviceAccount := range svc.ServiceAccounts {
-		sa := serviceAccount
-		saSet[sa] = true
-	}
-
-	saArray := make([]string, 0, len(saSet))
-	for sa := range saSet {
-		saArray = append(saArray, sa)
-	}
-
-	return saArray
+	return model.GetServiceAccounts(svc, ports, c)
 }
 
 // AppendServiceHandler implements a service catalog operation
@@ -995,7 +966,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 }
 
 // AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(func(*model.ServiceInstance, model.Event)) error {
+func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
 }
 
@@ -1046,6 +1018,16 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
+	for _, handler := range c.instanceHandlers {
+		for _, ep := range endpoints {
+			si := &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: nil,
+				Endpoint:    ep,
+			}
+			handler(si, event)
+		}
+	}
 }
 
 // namedRangerEntry for holding network's CIDR and name
