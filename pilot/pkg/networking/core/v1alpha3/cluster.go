@@ -25,7 +25,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	envoy_type_v3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/gogo/protobuf/types"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -274,7 +274,7 @@ func buildLocalityLbEndpoints(proxy *model.Proxy, push *model.PushContext, proxy
 		if isClusterLocal && (proxy.ClusterID != instance.Endpoint.Locality.ClusterID) {
 			continue
 		}
-		addr := util.BuildAddressV3(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
+		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
 		ep := &endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 				Endpoint: &endpoint.Endpoint{
@@ -301,7 +301,7 @@ func buildLocalityLbEndpoints(proxy *model.Proxy, push *model.PushContext, proxy
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
 		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
-			Locality:    util.ConvertLocalityV3(locality),
+			Locality:    util.ConvertLocality(locality),
 			LbEndpoints: eps,
 			LoadBalancingWeight: &wrappers.UInt32Value{
 				Value: weight,
@@ -313,7 +313,7 @@ func buildLocalityLbEndpoints(proxy *model.Proxy, push *model.PushContext, proxy
 }
 
 func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.LocalityLbEndpoints {
-	address := util.BuildAddressV3(bind, port)
+	address := util.BuildAddress(bind, port)
 	lbEndpoint := &endpoint.LbEndpoint{
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
@@ -867,7 +867,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		if c.CommonLbConfig == nil {
 			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 		}
-		c.CommonLbConfig.HealthyPanicThreshold = &envoy_type_v3.Percent{Value: float64(outlier.MinHealthPercent)} // defaults to 50
+		c.CommonLbConfig.HealthyPanicThreshold = &typev3.Percent{Value: float64(outlier.MinHealthPercent)} // defaults to 50
 	}
 }
 

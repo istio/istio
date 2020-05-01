@@ -84,7 +84,7 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 
 			// There may be multiples gateways for one network. Add each gateway as an endpoint.
 			for _, gw := range gateways {
-				epAddr := util.BuildAddressV3(gw.Addr, gw.Port)
+				epAddr := util.BuildAddress(gw.Addr, gw.Port)
 				gwEp := &endpoint.LbEndpoint{
 					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 						Endpoint: &endpoint.Endpoint{

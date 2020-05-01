@@ -284,7 +284,7 @@ func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, c *cluster.Cluster)
 		// To enable session affinity, DNS needs to provide only one and the same telemetry instance IP
 		// (e.g. in k8s, telemetry service spec needs to have SessionAffinity: ClientIP)
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}
-		addr := util.BuildAddressV3(in.Service.Address, uint32(in.Port.Port))
+		addr := util.BuildAddress(in.Service.Address, uint32(in.Port.Port))
 		c.LoadAssignment = &endpoint.ClusterLoadAssignment{
 			ClusterName: c.Name,
 			Endpoints: []*endpoint.LocalityLbEndpoints{

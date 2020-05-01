@@ -70,7 +70,7 @@ var (
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endpoint.LbEndpoint {
-	addr := util.BuildAddressV3(e.Address, e.EndpointPort)
+	addr := util.BuildAddress(e.Address, e.EndpointPort)
 
 	epWeight := e.LbWeight
 	if epWeight == 0 {
@@ -589,7 +589,7 @@ func buildLocalityLbEndpointsFromShards(
 			locLbEps, found := localityEpMap[ep.Locality.Label]
 			if !found {
 				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality:    util.ConvertLocalityV3(ep.Locality.Label),
+					Locality:    util.ConvertLocality(ep.Locality.Label),
 					LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps

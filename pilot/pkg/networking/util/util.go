@@ -171,8 +171,8 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	return cidr
 }
 
-// BuildAddress returns a SocketAddress with the given ip and port or uds.
-func BuildAddress(bind string, port uint32) *core.Address {
+// BuildAddressV2 returns a SocketAddress with the given ip and port or uds.
+func BuildAddressV2(bind string, port uint32) *core.Address {
 	if port != 0 {
 		return &core.Address{
 			Address: &core.Address_SocketAddress{
@@ -196,7 +196,7 @@ func BuildAddress(bind string, port uint32) *core.Address {
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
-func BuildAddressV3(bind string, port uint32) *corev3.Address {
+func BuildAddress(bind string, port uint32) *corev3.Address {
 	if port != 0 {
 		return &corev3.Address{
 			Address: &corev3.Address_SocketAddress{
@@ -302,20 +302,6 @@ func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *corev3.Locality {
-	if locality == "" {
-		return &corev3.Locality{}
-	}
-
-	region, zone, subzone := SplitLocality(locality)
-	return &corev3.Locality{
-		Region:  region,
-		Zone:    zone,
-		SubZone: subzone,
-	}
-}
-
-// ConvertLocality converts '/' separated locality string to Locality struct.
-func ConvertLocalityV3(locality string) *corev3.Locality {
 	if locality == "" {
 		return &corev3.Locality{}
 	}
