@@ -279,6 +279,11 @@ var (
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
+	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
+	// for examples: istiod.mycompany.com
+	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
+		"Custom host name of istiod that istiod signs the server cert.")
+
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.")
 
