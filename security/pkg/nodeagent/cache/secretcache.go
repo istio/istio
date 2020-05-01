@@ -44,7 +44,8 @@ import (
 )
 
 var (
-	cacheLog = log.RegisterScope("cache", "cache debugging", 0)
+	cacheLog       = log.RegisterScope("cache", "cache debugging", 0)
+	newFileWatcher = filewatcher.NewWatcher
 )
 
 const (
@@ -210,7 +211,7 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
 		existingCertChainFile: defaultCertChainFilePath,
 		existingKeyFile:       defaultKeyFilePath,
 		existingRootCertFile:  DefaultRootCertFilePath,
-		certWatcher:           filewatcher.NewWatcher(),
+		certWatcher:           newFileWatcher(),
 		fileCerts:             make(map[string]struct{}),
 		certMutex:             &sync.Mutex{},
 	}

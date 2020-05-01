@@ -52,7 +52,7 @@ func IsJwtExpired(token string, now time.Time) (bool, error) {
 func parseJwtClaims(token string) (map[string]interface{}, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("token contains an invalid number of segments: %d, expected: 3", len(parts))
+		return nil, fmt.Errorf("token %s contains an invalid number of segments: %d, expected: 3", token, len(parts))
 	}
 
 	// Decode the second part.
