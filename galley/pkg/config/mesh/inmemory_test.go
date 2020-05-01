@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meshcfg
+package mesh
 
 import (
 	"testing"
@@ -28,7 +28,7 @@ import (
 func TestInMemorySource_Empty(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewInmemory()
+	s := NewInmemoryMeshCfg()
 
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
@@ -44,12 +44,12 @@ func TestInMemorySource_Empty(t *testing.T) {
 func TestInMemorySource_SetBeforeStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewInmemory()
+	s := NewInmemoryMeshCfg()
 
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
-	s.Set(Default())
+	s.Set(DefaultMeshConfig())
 	g.Expect(s.IsSynced()).To(BeTrue())
 
 	s.Start()
@@ -59,10 +59,10 @@ func TestInMemorySource_SetBeforeStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					FullName: ResourceName,
+					FullName: MeshConfigResourceName,
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Message: Default(),
+				Message: DefaultMeshConfig(),
 			},
 		},
 		{
@@ -76,13 +76,13 @@ func TestInMemorySource_SetBeforeStart(t *testing.T) {
 func TestInMemorySource_SetAfterStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewInmemory()
+	s := NewInmemoryMeshCfg()
 
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
 	s.Start()
-	s.Set(Default())
+	s.Set(DefaultMeshConfig())
 	g.Expect(s.IsSynced()).To(BeTrue())
 
 	expected := []event.Event{
@@ -91,10 +91,10 @@ func TestInMemorySource_SetAfterStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					FullName: ResourceName,
+					FullName: MeshConfigResourceName,
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Message: Default(),
+				Message: DefaultMeshConfig(),
 			},
 		},
 		{
@@ -108,12 +108,12 @@ func TestInMemorySource_SetAfterStart(t *testing.T) {
 func TestInMemorySource_DoubleStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewInmemory()
+	s := NewInmemoryMeshCfg()
 
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
-	s.Set(Default())
+	s.Set(DefaultMeshConfig())
 	s.Start()
 	s.Start()
 	g.Expect(s.IsSynced()).To(BeTrue())
@@ -124,10 +124,10 @@ func TestInMemorySource_DoubleStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					FullName: ResourceName,
+					FullName: MeshConfigResourceName,
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Message: Default(),
+				Message: DefaultMeshConfig(),
 			},
 		},
 		{
@@ -141,13 +141,13 @@ func TestInMemorySource_DoubleStart(t *testing.T) {
 func TestInMemorySource_StartStop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewInmemory()
+	s := NewInmemoryMeshCfg()
 
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
 	s.Start()
-	s.Set(Default())
+	s.Set(DefaultMeshConfig())
 	s.Stop()
 	acc.Clear()
 
@@ -160,10 +160,10 @@ func TestInMemorySource_StartStop(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					FullName: ResourceName,
+					FullName: MeshConfigResourceName,
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Message: Default(),
+				Message: DefaultMeshConfig(),
 			},
 		},
 		{
@@ -175,14 +175,14 @@ func TestInMemorySource_StartStop(t *testing.T) {
 }
 
 func TestInMemorySource_ResetOnUpdate(t *testing.T) {
-	s := NewInmemory()
+	s := NewInmemoryMeshCfg()
 
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
 	s.Start()
-	s.Set(Default())
-	m := Default()
+	s.Set(DefaultMeshConfig())
+	m := DefaultMeshConfig()
 	m.IngressClass = "foo"
 	s.Set(m)
 
@@ -192,10 +192,10 @@ func TestInMemorySource_ResetOnUpdate(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					FullName: ResourceName,
+					FullName: MeshConfigResourceName,
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Message: Default(),
+				Message: DefaultMeshConfig(),
 			},
 		},
 		{

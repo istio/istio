@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meshcfg
+package mesh
 
 import (
 	"istio.io/istio/pkg/config/mesh"
@@ -20,10 +20,17 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 )
 
-// Default mesh configuration
-func Default() *v1alpha1.MeshConfig {
+// DefaultMeshConfig returns a default meshconfig.
+func DefaultMeshConfig() *v1alpha1.MeshConfig {
 	meshconfig := mesh.DefaultMeshConfig()
 	meshconfig.IngressClass = "istio"
 	meshconfig.IngressControllerMode = v1alpha1.MeshConfig_STRICT
 	return &meshconfig
+}
+
+// DefaultMeshNetworks returns a default meshnetworks configuration.
+// By default, it is empty.
+func DefaultMeshNetworks() *v1alpha1.MeshNetworks {
+	mn := mesh.EmptyMeshNetworks()
+	return &mn
 }

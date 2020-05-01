@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meshcfg
+package mesh
 
 import (
 	"fmt"
@@ -38,7 +38,7 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 
 	file := setupDir(t, nil)
 
-	fs, err := NewFS(file)
+	fs, err := NewMeshConfigFS(file)
 	g.Expect(err).To(BeNil())
 	defer func() {
 		err = fs.Close()
@@ -58,7 +58,7 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Message: Default(),
+				Message: DefaultMeshConfig(),
 			},
 		},
 		{
@@ -74,7 +74,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 
 	file := setupDir(t, nil)
 
-	fs, err := NewFS(file)
+	fs, err := NewMeshConfigFS(file)
 	g.Expect(err).To(BeNil())
 	defer func() {
 		err = fs.Close()
@@ -94,7 +94,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Message: Default(),
+				Message: DefaultMeshConfig(),
 			},
 		},
 		{
@@ -105,7 +105,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 	fixtures.ExpectEventsEventually(t, acc, expected...)
 
 	acc.Clear()
-	mcfg := Default()
+	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
 	writeMeshCfg(t, file, mcfg)
 
@@ -121,11 +121,11 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	mcfg := Default()
+	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
 	file := setupDir(t, mcfg)
 
-	fs, err := NewFS(file)
+	fs, err := NewMeshConfigFS(file)
 	g.Expect(err).To(BeNil())
 	defer func() {
 		err = fs.Close()
@@ -156,7 +156,7 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 	fixtures.ExpectEventsEventually(t, acc, expected...)
 
 	acc.Clear()
-	mcfg2 := Default()
+	mcfg2 := DefaultMeshConfig()
 	mcfg2.IngressClass = "bar"
 	writeMeshCfg(t, file, mcfg2)
 
@@ -172,11 +172,11 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 func TestFsSource_InitialFile(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	mcfg := Default()
+	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
 	file := setupDir(t, mcfg)
 
-	fs, err := NewFS(file)
+	fs, err := NewMeshConfigFS(file)
 	g.Expect(err).To(BeNil())
 	defer func() {
 		err = fs.Close()
@@ -210,11 +210,11 @@ func TestFsSource_InitialFile(t *testing.T) {
 func TestFsSource_StartStopStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	mcfg := Default()
+	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
 	file := setupDir(t, mcfg)
 
-	fs, err := NewFS(file)
+	fs, err := NewMeshConfigFS(file)
 	g.Expect(err).To(BeNil())
 	defer func() {
 		err = fs.Close()
@@ -254,11 +254,11 @@ func TestFsSource_StartStopStart(t *testing.T) {
 func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	mcfg := Default()
+	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
 	file := setupDir(t, mcfg)
 
-	fs, err := NewFS(file)
+	fs, err := NewMeshConfigFS(file)
 	g.Expect(err).To(BeNil())
 	defer func() {
 		err = fs.Close()
@@ -298,11 +298,11 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/15987")
 	g := NewGomegaWithT(t)
 
-	mcfg := Default()
+	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
 	file := setupDir(t, mcfg)
 
-	fs, err := NewFS(file)
+	fs, err := NewMeshConfigFS(file)
 	g.Expect(err).To(BeNil())
 	defer func() {
 		err = fs.Close()
@@ -367,18 +367,18 @@ func TestFsSource_InvalidPath(t *testing.T) {
 	file := setupDir(t, nil)
 	file = path.Join(file, "bogus")
 
-	_, err := NewFS(file)
+	_, err := NewMeshConfigFS(file)
 	g.Expect(err).NotTo(BeNil())
 }
 
 func TestFsSource_YamlToJSONError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	mcfg := Default()
+	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
 	file := setupDir(t, mcfg)
 
-	fs, err := newFS(file, func([]byte) ([]byte, error) {
+	fs, err := newMeshConfigFS(file, func([]byte) ([]byte, error) {
 		return nil, fmt.Errorf("horror")
 	})
 
@@ -402,7 +402,7 @@ func TestFsSource_YamlToJSONError(t *testing.T) {
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Message: Default(),
+				Message: DefaultMeshConfig(),
 			},
 		},
 		{
