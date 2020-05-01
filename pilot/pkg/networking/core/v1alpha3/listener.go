@@ -795,6 +795,15 @@ allChainsLabel:
 			filterChainMatch = &fcm
 			if filterChainMatchOption[id].Protocol == istionetworking.ListenerProtocolHTTP {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
+				if chain.TLSContext != nil && chain.TLSContext.CommonTlsContext != nil{
+					alpnProtocols := chain.TLSContext.CommonTlsContext.AlpnProtocols
+					for i, alpn := range alpnProtocols {
+						if alpn == "istio-peer-exchange" {
+							copy(alpnProtocols[i:], alpnProtocols[i+1:])
+							break
+						}
+					}
+				}
 			} else {
 				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.Node, pluginParams.ServiceInstance)
 			}
