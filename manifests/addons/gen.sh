@@ -42,6 +42,8 @@ metadata:
   name: kiali
   namespace: istio-system
 spec:
+  deployment:
+    accessible_namespaces: ["**"]
   auth:
     strategy: anonymous
 EOF
