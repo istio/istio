@@ -13,6 +13,8 @@ data:
     istio_namespace: {{ .Release.Namespace }}
     deployment:
       accessible_namespaces: ['**']
+    login_token:
+      signing_key: {{ randAlphaNum 10 | quote }}
     auth:
       strategy: {{ .Values.dashboard.auth.strategy }}
     server:
