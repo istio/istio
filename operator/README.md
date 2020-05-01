@@ -18,11 +18,11 @@ architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 The operator uses the [IstioOperator API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto), which has
 three main components:
 
-- [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/operator.proto) for runtime config consumed directly by Istio
+- [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/config.proto) for runtime config consumed directly by Istio
 control plane components.
 - [Component configuration API](https://github.com/istio/api/blob/master/operator/v1alpha1/component.proto), for managing
 K8s settings like resources, auto scaling, pod disruption budgets and others defined in the
-[KubernetesResourceSpec](https://github.com/istio/api/blob/master/blob/7791470ecc4c5e123589ff2b781f47b1bcae6ddd/operator/v1alpha1/component.proto)
+[KubernetesResourceSpec](https://github.com/istio/api/blob/master/operator/v1alpha1/component.proto)
 for Istio core and addon components.
 - The legacy
 [Helm installation API](https://istio.io/docs/reference/config/installation-options/) for backwards
