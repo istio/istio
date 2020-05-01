@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meshcfg
+package mesh
 
 import (
 	"testing"
@@ -27,7 +27,7 @@ import (
 func TestDefaults(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	m := Default()
+	m := DefaultMeshConfig()
 	expect := mesh.DefaultMeshConfig()
 	expect.IngressClass = "istio"
 	expect.IngressControllerMode = v1alpha1.MeshConfig_STRICT
