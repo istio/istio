@@ -258,8 +258,8 @@ function connect_kind_clusters() {
   # Set up routing rules for inter-cluster direct pod to pod communication
   C1_NODE="${C1}-control-plane"
   C2_NODE="${C2}-control-plane"
-  C1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${C1_NODE}")
-  C2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${C2_NODE}")
+  C1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.Networks.kind.IPAddress }}" "${C1_NODE}")
+  C2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.Networks.kind.IPAddress }}" "${C2_NODE}")
   C1_POD_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
   C2_POD_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
   docker exec "${C1_NODE}" ip route add "${C2_POD_CIDR}" via "${C2_DOCKER_IP}"
