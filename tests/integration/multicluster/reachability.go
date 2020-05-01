@@ -31,35 +31,38 @@ func ReachabilityTest(t *testing.T, pilots []pilot.Instance) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
-				Prefix: "mc-reachability",
-				Inject: true,
-			})
+			ctx.NewSubTest("reachability").
+				Run(func(ctx framework.TestContext) {
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "mc-reachability",
+						Inject: true,
+					})
 
-			// Deploy a and b in different clusters.
-			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, newEchoConfig("a", ns, ctx.Environment().Clusters()[0], pilots)).
-				With(&b, newEchoConfig("b", ns, ctx.Environment().Clusters()[1], pilots)).
-				BuildOrFail(ctx)
+					// Deploy a and b in different clusters.
+					var a, b echo.Instance
+					echoboot.NewBuilderOrFail(ctx, ctx).
+						With(&a, newEchoConfig("a", ns, ctx.Environment().Clusters()[0], pilots)).
+						With(&b, newEchoConfig("b", ns, ctx.Environment().Clusters()[1], pilots)).
+						BuildOrFail(ctx)
 
-			// Now verify that they can talk to each other.
-			for _, src := range []echo.Instance{a, b} {
-				for _, dest := range []echo.Instance{a, b} {
-					src := src
-					dest := dest
-					subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
-						src.Config().Service,
-						"http",
-						dest.Config().Service,
-						"http",
-						"/")
+					// Now verify that they can talk to each other.
+					for _, src := range []echo.Instance{a, b} {
+						for _, dest := range []echo.Instance{a, b} {
+							src := src
+							dest := dest
+							subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
+								src.Config().Service,
+								"http",
+								dest.Config().Service,
+								"http",
+								"/")
 
-					ctx.NewSubTest(subTestName).
-						RunParallel(func(ctx framework.TestContext) {
-							_ = callOrFail(ctx, src, dest)
-						})
-				}
-			}
+							ctx.NewSubTest(subTestName).
+								RunParallel(func(ctx framework.TestContext) {
+									_ = callOrFail(ctx, src, dest)
+								})
+						}
+					}
+				})
 		})
 }

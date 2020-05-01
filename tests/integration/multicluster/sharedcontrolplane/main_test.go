@@ -41,7 +41,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("multicluster", m).
+		NewSuite("sharedcontrolplane", m).
 		Label(label.Multicluster).
 		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
