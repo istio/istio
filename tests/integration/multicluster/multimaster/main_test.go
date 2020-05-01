@@ -16,8 +16,9 @@ package multimaster
 
 import (
 	"fmt"
-	"istio.io/istio/tests/integration/multicluster"
 	"testing"
+
+	"istio.io/istio/tests/integration/multicluster"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
