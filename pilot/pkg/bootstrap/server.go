@@ -826,7 +826,7 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 	}
 
 	// Generate DNS certificates only if custom certs are not provided via args.
-	if args.TLSOptions.CaCertFile != "" && args.TLSOptions.CertFile != "" && args.TLSOptions.KeyFile != "" {
+	if args.TLSOptions.CaCertFile == "" && args.TLSOptions.CertFile == "" && args.TLSOptions.KeyFile == "" {
 		// Create DNS certificates. This allows injector, validation to work without Citadel, and
 		// allows secure SDS connections to Istiod.
 		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
