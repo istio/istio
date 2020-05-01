@@ -78,7 +78,7 @@ func (n *kubeNamespace) Dump() {
 				}
 
 				if container.Name == "istio-proxy" {
-					if cfgDump, err := cluster.Exec(pod.Namespace, pod.Name, container.Name, "curl http://127.0.0.1:15000/config_dump"); err == nil {
+					if cfgDump, err := cluster.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET config_dump"); err == nil {
 						fname := path.Join(d, fmt.Sprintf("%s-%s.config.json", pod.Name, container.Name))
 						if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
 							scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
