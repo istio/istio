@@ -126,8 +126,8 @@ spec:
             value: "sni-dnat"
         service:
           ports:
-            - port: 15020
-              targetPort: 15020
+            - port: 15021
+              targetPort: 15021
               name: status-port
             - port: 80
               targetPort: 8080
