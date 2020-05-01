@@ -15,8 +15,6 @@
 package memory
 
 import (
-	"go.uber.org/atomic"
-
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -46,7 +44,6 @@ type ConfigEvent struct {
 }
 
 type configstoreMonitor struct {
-	running  *atomic.Bool
 	store    model.ConfigStore
 	handlers map[resource.GroupVersionKind][]Handler
 	eventCh  chan ConfigEvent
@@ -66,7 +63,6 @@ func NewBufferedMonitor(store model.ConfigStore, bufferSize int) Monitor {
 	}
 
 	return &configstoreMonitor{
-		running:  atomic.NewBool(false),
 		store:    store,
 		handlers: handlers,
 		eventCh:  make(chan ConfigEvent, bufferSize),
@@ -74,20 +70,13 @@ func NewBufferedMonitor(store model.ConfigStore, bufferSize int) Monitor {
 }
 
 func (m *configstoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
-	if m.running.Load() {
-		m.eventCh <- configEvent
-	}
+	m.eventCh <- configEvent
 }
 
 func (m *configstoreMonitor) Run(stop <-chan struct{}) {
-	m.running.Store(true)
 	for {
 		select {
 		case <-stop:
-			m.running.Store(false)
-			if _, ok := <-m.eventCh; ok {
-				close(m.eventCh)
-			}
 			return
 		case ce, ok := <-m.eventCh:
 			if ok {
