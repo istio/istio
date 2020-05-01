@@ -454,6 +454,22 @@ global:
   # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
   caAddress: ""
 
+  # Configure the external CA Provider by Keyfactor.
+  keyfactor: 
+    # Name of certificate authorization
+    ca: ""
+    # Using for authentication header
+    authToken: ""
+
+    # API path for enroll new certificate from Keyfactor
+    enrollPath: ""
+
+    # Certificate Template for enroll the new one: Default is Istio
+    caTemplate: "Istio"
+
+    # ApiKey from Api Setting
+    appKey: ""
+
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #
   # The following example defines two networks with different endpoints association methods.

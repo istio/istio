@@ -29,6 +29,7 @@ import (
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	keyfactor "istio.io/istio/security/pkg/nodeagent/caclient/providers/keyfactor"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -127,6 +128,8 @@ const (
 	initialBackoffInMilliSec = "INITIAL_BACKOFF_MSEC"
 
 	pkcs8Key = "PKCS8_KEY"
+
+	keyfactorCAName = "KeyfactorCA"
 )
 
 var (
@@ -331,6 +334,19 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 		// used.
 		caClient, err = gca.NewGoogleCAClient(serverOptions.CAEndpoint, true)
 		serverOptions.PluginNames = []string{"GoogleTokenExchange"}
+	} else if serverOptions.CAProviderName == keyfactorCAName {
+		rootCert, err := ioutil.ReadFile(cache.DefaultRootCertFilePath))
+		if err != nil {
+			log.Errorf("KeyfactorCA setup: missing root-cert.pem in ./etc/certs. Please create secret `cacerts` included root-cert.pem", err)
+		}
+
+		log.Infof("root-cert.pem: %v", string(rootCert))
+
+		conf.RootCert = rootCert
+		caClient, err = keyfactor.NewKeyFactorCAClient(serverOptions.CAEndpoint, conf.RequireCerts, trustDomainEnv, rootCert)
+		if err != nil {
+			log.Fatalf("Cannot create new KeyfactorCA Provider. err: %v", err)
+		}
 	} else {
 		// Determine the default CA.
 		// If /etc/certs exists - it means Citadel is used (possibly in a mode to only provision the root-cert, not keys)
@@ -425,6 +441,7 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
+
 		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert)
 		if err == nil {
 			conf.CitadelClient = caClient

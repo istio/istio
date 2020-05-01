@@ -488,6 +488,22 @@ data:
         {{- else }}
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
+        {{- if .Values.global.caProvider }}
+        - name: CA_PROVIDER
+          value: {{ .Values.global.caProvider }}
+        {{- end }}
+        {{- if and (.Values.global.keyfactorCAConfig) (eq .Values.global.caProvider "KeyfactorCA") }}
+        - name: KEYFACTOR_CA
+          value: {{ .Values.global.keyfactorCAConfig.ca }}
+        - name: KEYFACTOR_AUTH_TOKEN
+          value: {{ .Values.global.keyfactorCAConfig.authToken }}
+        - name: KEYFACTOR_ENROLL_PATH
+          value: {{ .Values.global.keyfactorCAConfig.enrollPath }}
+        - name: KEYFACTOR_CA_TEMPLATE
+          value: {{ .Values.global.keyfactorCAConfig.caTemplate }}
+        - name: KEYFACTOR_APPKEY
+          value: {{ .Values.global.keyfactorCAConfig.appKey }}
+        {{ end }}
         - name: POD_NAME
           valueFrom:
             fieldRef:

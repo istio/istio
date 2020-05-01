@@ -57,6 +57,10 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 
 // GenCSRTemplate generates a certificateRequest template with the given options.
 func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
+
+	if options.Org == "" {
+		options.Org = "Istio-Security"
+	}
 	template := &x509.CertificateRequest{
 		Subject: pkix.Name{
 			Organization: []string{options.Org},

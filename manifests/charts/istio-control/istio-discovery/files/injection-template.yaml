@@ -147,6 +147,10 @@ template: |
       value: {{ .Values.global.jwtPolicy }}
     - name: PILOT_CERT_PROVIDER
       value: {{ .Values.global.pilotCertProvider }}
+    {{- if .Values.global.caProvider }}
+    - name: CA_PROVIDER
+      value: {{ .Values.global.caProvider }}
+    {{- end }}
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
     {{- if .Values.global.caAddress }}
@@ -154,6 +158,18 @@ template: |
     {{- else }}
       value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
     {{- end }}
+    {{- if and (.Values.global.keyfactor) (eq .Values.global.caProvider "KeyfactorCA") }}
+    - name: KEYFACTOR_CA
+      value: {{ .Values.global.keyfactor.ca }}
+    - name: KEYFACTOR_AUTH_TOKEN
+      value: {{ .Values.global.keyfactor.authToken }}
+    - name: KEYFACTOR_ENROLL_PATH
+      value: {{ .Values.global.keyfactor.enrollPath }}
+    - name: KEYFACTOR_CA_TEMPLATE
+      value: {{ .Values.global.keyfactor.caTemplate }}
+    - name: KEYFACTOR_APPKEY
+      value: {{ .Values.global.keyfactor.appKey }}
+    {{ end }}
     - name: POD_NAME
       valueFrom:
         fieldRef:
