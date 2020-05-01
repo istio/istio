@@ -19,12 +19,13 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/label"
+
 	"istio.io/api/annotation"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -41,7 +42,7 @@ var _ analysis.Analyzer = &Analyzer{}
 const (
 	InjectionLabelName         = "istio-injection"
 	InjectionLabelEnableValue  = "enabled"
-	RevisionInjectionLabelName = model.RevisionLabel
+	RevisionInjectionLabelName = label.IstioRev
 
 	istioProxyName = "istio-proxy"
 )
