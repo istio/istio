@@ -212,6 +212,9 @@ EOF
     # TODO: add IPv6
     KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER_NAME}" "${CLUSTER_YAML}"
 
+    # Install MetalLB for LoadBalancer support
+    install_metallb "$CLUSTER_KUBECONFIG"
+
     # Replace with --internal which allows cross-cluster api server access
     kind get kubeconfig --name "${CLUSTER_NAME}" --internal > "${CLUSTER_KUBECONFIG}"
   done
@@ -223,6 +226,7 @@ EOF
   CLUSTER_KUBECONFIGS=("$CLUSTER1_KUBECONFIG" "$CLUSTER2_KUBECONFIG" "$CLUSTER3_KUBECONFIG")
 
   if [[ "${TOPOLOGY}" == "MULTICLUSTER_SINGLE_NETWORK" ]]; then
+
     # Allow direct access between all clusters.
     for i in "${!CLUSTER_NAMES[@]}"; do
       CLUSTERI_NAME="${CLUSTER_NAMES[$i]}"
@@ -236,7 +240,6 @@ EOF
           connect_kind_clusters "${CLUSTERI_NAME}" "${CLUSTERI_KUBECONFIG}" "${CLUSTERJ_NAME}" "${CLUSTERJ_KUBECONFIG}"
         fi
       done
-      install_metallb "$CLUSTERI_KUBECONFIG"
     done
   else
     # Connect clusters 1 and 2, but leave cluster 3 on a separate network.
@@ -260,6 +263,10 @@ function connect_kind_clusters() {
   C2_POD_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
   docker exec "${C1_NODE}" ip route add "${C2_POD_CIDR}" via "${C2_DOCKER_IP}"
   docker exec "${C2_NODE}" ip route add "${C1_POD_CIDR}" via "${C1_DOCKER_IP}"
+
+  # Set up routing rules for inter-cluster pod to MetalLB LoadBalancer communication
+  connect_metallb "$C1_NODE" "$C2_KUBECONFIG" "$C2_DOCKER_IP"
+  connect_metallb "$C2_NODE" "$C1_KUBECONFIG" "$C1_DOCKER_IP"
 }
 
 function install_metallb() {
@@ -294,15 +301,34 @@ data:
       - '"$RANGE" | kubectl apply --kubeconfig="$KUBECONFIG" -f -
 }
 
+function connect_metallb() {
+  REMOTE_NODE=$1
+  METALLB_KUBECONFIG=$2
+  METALLB_DOCKER_IP=$3
+
+  IP_REGEX='(([0-9]{1,3}\.?){4})'
+  LB_CONFIG="$(kubectl --kubeconfig="${METALLB_KUBECONFIG}" -n metallb-system get cm config -o jsonpath="{.data.config}")"
+  if [[ "$LB_CONFIG" =~ $IP_REGEX-$IP_REGEX ]]; then
+    while read -r lb_cidr; do
+      docker exec "${REMOTE_NODE}" ip route add "${lb_cidr}" via "${METALLB_DOCKER_IP}"
+    done < <(ips_to_cidrs "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}")
+  fi
+}
+
 function cidr_to_ips() {
     CIDR="$1"
-    if command -v python3; then
-      python3 - <<EOF
+    python3 - <<EOF
 from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$CIDR').hosts()]
 EOF
-    elif command -v nmap; then
-      nmap -sL "$CIDR" | awk '/Nmap scan report/{print $NF}'
-    fi
+}
+
+function ips_to_cidrs() {
+  IP_RANGE_START="$1"
+  IP_RANGE_END="$2"
+  python3 - <<EOF
+from ipaddress import summarize_address_range, IPv4Address
+[ print(n.compressed) for n in summarize_address_range(IPv4Address(u'$IP_RANGE_START'), IPv4Address(u'$IP_RANGE_END')) ]
+EOF
 }
 
 function cni_run_daemon_kind() {

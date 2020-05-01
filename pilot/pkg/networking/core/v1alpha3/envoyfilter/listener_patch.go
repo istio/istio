@@ -305,6 +305,13 @@ func doNetworkFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 			var retVal *any.Any
 			if userFilter.GetTypedConfig() != nil {
 				// user has any typed struct
+				// The type may not match up exactly. For example, if we use v2 internally but they use v3.
+				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
+				// If we did not do this, proto.Merge below will panic (which is recovered), so even though this
+				// is not 100% reliable its better than doing nothing
+				if userFilter.GetTypedConfig().TypeUrl != filter.GetTypedConfig().TypeUrl {
+					userFilter.ConfigType.(*xdslistener.Filter_TypedConfig).TypedConfig.TypeUrl = filter.GetTypedConfig().TypeUrl
+				}
 				if retVal, err = util.MergeAnyWithAny(filter.GetTypedConfig(), userFilter.GetTypedConfig()); err != nil {
 					retVal = filter.GetTypedConfig()
 				}
@@ -465,6 +472,13 @@ func doHTTPFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 			var retVal *any.Any
 			if userHTTPFilter.GetTypedConfig() != nil {
 				// user has any typed struct
+				// The type may not match up exactly. For example, if we use v2 internally but they use v3.
+				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
+				// If we did not do this, proto.Merge below will panic (which is recovered), so even though this
+				// is not 100% reliable its better than doing nothing
+				if userHTTPFilter.GetTypedConfig().TypeUrl != httpFilter.GetTypedConfig().TypeUrl {
+					userHTTPFilter.ConfigType.(*http_conn.HttpFilter_TypedConfig).TypedConfig.TypeUrl = httpFilter.GetTypedConfig().TypeUrl
+				}
 				if retVal, err = util.MergeAnyWithAny(httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
 					retVal = httpFilter.GetTypedConfig()
 				}

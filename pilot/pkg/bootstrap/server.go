@@ -827,7 +827,7 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 
 	// Create DNS certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	err = s.initDNSCerts(host, args.Namespace)
+	err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
 	if err != nil {
 		return err
 	}

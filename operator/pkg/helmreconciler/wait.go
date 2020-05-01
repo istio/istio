@@ -35,7 +35,7 @@ import (
 
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/progress"
 )
 
 const (
@@ -54,7 +54,7 @@ type deployment struct {
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
 func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kubernetes.Interface,
-	waitTimeout time.Duration, dryRun bool, l *util.ManifestLog) error {
+	waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
 	if dryRun {
 		return nil
 	}
@@ -83,7 +83,7 @@ func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kub
 	return nil
 }
 
-func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *util.ManifestLog) (bool, []string, error) {
+func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *progress.ManifestLog) (bool, []string, error) {
 	pods := []corev1.Pod{}
 	deployments := []deployment{}
 	namespaces := []corev1.Namespace{}
