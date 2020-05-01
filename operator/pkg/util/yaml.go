@@ -16,7 +16,6 @@ package util
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -26,8 +25,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	jsonpb2 "github.com/golang/protobuf/jsonpb"
 	"github.com/kylelemons/godebug/diff"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
 
@@ -71,19 +68,6 @@ func MarshalWithJSONPB(val proto.Message) (string, error) {
 // UnmarshalWithJSONPB unmarshals y into out using gogo jsonpb (required for many proto defined structs).
 func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) error {
 	jb, err := yaml.YAMLToJSON([]byte(y))
-	if err != nil {
-		return err
-	}
-
-	// Remove creationTimestamp from jb if it exists
-	content := make(map[string]interface{})
-	err = json.Unmarshal(jb, &content)
-	if err != nil {
-		return err
-	}
-	un := &unstructured.Unstructured{Object: content}
-	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-	jb, err = json.Marshal(un)
 	if err != nil {
 		return err
 	}
