@@ -2690,7 +2690,7 @@ func listenerKey(bind string, port int) string {
 }
 
 func dropAlpnFromList(alpnProtocols []string, alpnToDrop string) []string {
-	newAlpnProtocols := []string{}
+	var newAlpnProtocols []string
 	for _, alpn := range alpnProtocols {
 		if alpn != alpnToDrop {
 			newAlpnProtocols = append(newAlpnProtocols, alpn)
