@@ -27,10 +27,11 @@ import (
 // RenderCharts renders charts for h.
 func (h *HelmReconciler) RenderCharts() (name.ManifestMap, error) {
 	iopSpec := h.iop.Spec
-	if !h.opts.Force {
-		if err := validate.CheckIstioOperatorSpec(iopSpec, false); err != nil {
+	if err := validate.CheckIstioOperatorSpec(iopSpec, false); err != nil {
+		if !h.opts.Force {
 			return nil, err
 		}
+		h.opts.Log.PrintErr(fmt.Sprintf("spec invalid; continuing because of --force: %v\n", err))
 	}
 
 	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
