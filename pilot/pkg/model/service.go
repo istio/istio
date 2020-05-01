@@ -34,6 +34,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/mitchellh/copystructure"
 
+	"istio.io/api/label"
+
 	authn "istio.io/api/authentication/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -137,10 +139,6 @@ const (
 const (
 	// TLSModeLabelShortname name used for determining endpoint level tls transport socket configuration
 	TLSModeLabelShortname = "tlsMode"
-
-	// TLSModeLabelName is the name of label given to service instances to determine whether to use mTLS or
-	// fallback to plaintext/tls
-	TLSModeLabelName = "security.istio.io/" + TLSModeLabelShortname
 
 	// DisabledTLSModeLabel implies that this endpoint should receive traffic as is (mostly plaintext)
 	DisabledTLSModeLabel = "disabled"
@@ -592,7 +590,7 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 // and apply custom transport socket matchers here.
 func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	if labels != nil {
-		if val, exists := labels[TLSModeLabelName]; exists {
+		if val, exists := labels[label.TLSMode]; exists {
 			return val
 		}
 	}
