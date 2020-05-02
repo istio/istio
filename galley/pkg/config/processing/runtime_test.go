@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
@@ -185,6 +186,11 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 				Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 			},
 			Message: mesh.DefaultMeshConfig(),
+			Origin: &rt.Origin{
+				Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+				Kind:       "MeshConfig",
+				FullName:   resource.NewFullName("istio-system", "meshconfig"),
+			},
 		}),
 		event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig),
 		event.AddFor(coll, r),
@@ -453,5 +459,10 @@ func meshConfigEntry(m *v1alpha1.MeshConfig) *resource.Instance { // nolint:inte
 			Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 		},
 		Message: m,
+		Origin: &rt.Origin{
+			Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+			Kind:       "MeshConfig",
+			FullName:   resource.NewFullName("istio-system", "meshconfig"),
+		},
 	}
 }

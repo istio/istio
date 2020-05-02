@@ -27,6 +27,7 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
@@ -59,6 +60,11 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -95,6 +101,11 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -146,6 +157,11 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: mcfg,
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -197,6 +213,11 @@ func TestFsSource_InitialFile(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: mcfg,
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -234,6 +255,11 @@ func TestFsSource_StartStopStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: mcfg,
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -278,6 +304,11 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: mcfg,
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -322,6 +353,11 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: mcfg,
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -403,6 +439,11 @@ func TestFsSource_YamlToJSONError(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{

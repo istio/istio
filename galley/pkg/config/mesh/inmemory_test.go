@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
@@ -63,6 +64,11 @@ func TestInMemorySource_SetBeforeStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -95,6 +101,11 @@ func TestInMemorySource_SetAfterStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -128,6 +139,11 @@ func TestInMemorySource_DoubleStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -164,6 +180,11 @@ func TestInMemorySource_StartStop(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
@@ -196,6 +217,11 @@ func TestInMemorySource_ResetOnUpdate(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
+				Origin: &rt.Origin{
+					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
+					Kind:       "MeshConfig",
+					FullName:   resource.NewFullName("istio-system", "meshconfig"),
+				},
 			},
 		},
 		{
