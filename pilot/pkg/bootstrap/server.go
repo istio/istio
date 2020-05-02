@@ -215,8 +215,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
 	}
 
-	// CA signing certificate must be created first.
-	if args.TLSOptions.CaCertFile == "" && s.EnableCA() {
+	// CA signing certificate must be created first only if custom TLS certs are not provided.
+	if !hasCustomTLSCerts(args) && s.EnableCA() {
 		var err error
 		var corev1 v1.CoreV1Interface
 		if s.kubeClient != nil {
@@ -546,35 +546,18 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 	if dns == "" {
 		return nil
 	}
-	certDir := dnsCertDir
 
-	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
-	cert := model.GetOrDefault(tlsOptions.CertFile, path.Join(certDir, constants.CertChainFilename))
-
-	certP, err := tls.LoadX509KeyPair(cert, key)
+	certP, root, err := s.getCertificates(tlsOptions)
 	if err != nil {
 		return err
 	}
-
-	cp := x509.NewCertPool()
-	var rootCertBytes []byte
-	if tlsOptions.CaCertFile != "" {
-		rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile)
-		if err != nil {
-			return err
-		}
-	} else {
-		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
-	}
-
-	cp.AppendCertsFromPEM(rootCertBytes)
 
 	// TODO: check if client certs can be used with coredns or others.
 	// If yes - we may require or optionally use them
 	cfg := &tls.Config{
 		Certificates: []tls.Certificate{certP},
 		ClientAuth:   tls.NoClientCert,
-		ClientCAs:    cp,
+		ClientCAs:    root,
 	}
 
 	// create secure grpc listener
@@ -591,33 +574,15 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Options, tlsOptions TLSOptions) error {
-	certDir := dnsCertDir
-
-	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
-	cert := model.GetOrDefault(tlsOptions.CertFile, path.Join(certDir, constants.CertChainFilename))
-
-	certP, err := tls.LoadX509KeyPair(cert, key)
+	certP, root, err := s.getCertificates(tlsOptions)
 	if err != nil {
 		return err
 	}
 
-	cp := x509.NewCertPool()
-	var rootCertBytes []byte
-	if tlsOptions.CaCertFile != "" {
-		rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile)
-		if err != nil {
-			return err
-		}
-	} else {
-		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
-	}
-
-	cp.AppendCertsFromPEM(rootCertBytes)
-
 	cfg := &tls.Config{
 		Certificates: []tls.Certificate{certP},
 		ClientAuth:   tls.VerifyClientCertIfGiven,
-		ClientCAs:    cp,
+		ClientCAs:    root,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
@@ -826,7 +791,7 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 	}
 
 	// Generate DNS certificates only if custom certs are not provided via args.
-	if args.TLSOptions.CaCertFile == "" && args.TLSOptions.CertFile == "" && args.TLSOptions.KeyFile == "" {
+	if !hasCustomTLSCerts(args) {
 		// Create DNS certificates. This allows injector, validation to work without Citadel, and
 		// allows secure SDS connections to Istiod.
 		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
@@ -842,4 +807,45 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 	}
 
 	return nil
+}
+
+// getCertificates returns the cert-key pair and root certificate.
+func (s *Server) getCertificates(tlsOptions TLSOptions) (tls.Certificate, *x509.CertPool, error) {
+	certDir := dnsCertDir
+
+	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
+	cert := model.GetOrDefault(tlsOptions.CertFile, path.Join(certDir, constants.CertChainFilename))
+
+	keyPair, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return tls.Certificate{}, nil, err
+	}
+
+	rootCertBytes, err := s.getRootCertificate(tlsOptions)
+	if err != nil {
+		return tls.Certificate{}, nil, err
+	}
+
+	cp := x509.NewCertPool()
+	cp.AppendCertsFromPEM(rootCertBytes)
+	return keyPair, cp, nil
+}
+
+// getRootCertificate returns the root certificate from TLSOptions if available or from ca.
+func (s *Server) getRootCertificate(tlsOptions TLSOptions) ([]byte, error) {
+	var rootCertBytes []byte
+	var err error
+	if tlsOptions.CaCertFile != "" {
+		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
+			return nil, err
+		}
+	} else {
+		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	}
+	return rootCertBytes, nil
+}
+
+// hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
+func hasCustomTLSCerts(args *PilotArgs) bool {
+	return args.TLSOptions.CaCertFile != "" && args.TLSOptions.CertFile != "" && args.TLSOptions.KeyFile != ""
 }
