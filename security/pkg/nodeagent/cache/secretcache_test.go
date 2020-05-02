@@ -892,7 +892,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 
 	sc := NewSecretCache(fetcher, notifyCallback, opt)
 	defer func() {
-		notifyEvent.Add(1)
+		notifyEvent.Add(2)
 		sc.Close()
 		newFileWatcher = filewatcher.NewWatcher
 		notifyEvent.Wait()
@@ -1027,6 +1027,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 		notifyEvent.Add(1)
 		sc.Close()
 		newFileWatcher = filewatcher.NewWatcher
+		notifyEvent.Wait()
 	}()
 	rootCertPath, _ := filepath.Abs("./testdata/root-cert.pem")
 	keyPath, _ := filepath.Abs("./testdata/key.pem")
