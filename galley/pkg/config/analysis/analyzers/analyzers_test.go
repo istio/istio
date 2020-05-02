@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/mesh"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
@@ -311,7 +311,7 @@ var testGrid = []testCase{
 			"testdata/multicluster-unknown-serviceregistry.yaml",
 		},
 		meshNetworksFile: "testdata/common/meshnetworks.yaml",
-		analyzer:         &mesh.MeshNetworksAnalyzer{},
+		analyzer:         &multicluster.MeshNetworksAnalyzer{},
 		expected: []message{
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},

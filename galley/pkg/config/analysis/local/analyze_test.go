@@ -161,7 +161,7 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 		},
 		Data: map[string]string{
 			meshConfigMapKey:   fmt.Sprintf("rootNamespace: %s", testRootNamespace),
-			meshNetworksMapKey: fmt.Sprintf(`networks: {"n1": {}, "n2": {}}`),
+			meshNetworksMapKey: `networks: {"n1": {}, "n2": {}}`,
 		},
 	}
 

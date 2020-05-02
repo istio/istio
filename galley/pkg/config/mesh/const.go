@@ -18,8 +18,8 @@ import (
 	"istio.io/istio/pkg/config/resource"
 )
 
-// resource name for the Istio MeshConfig resource
+// MeshConfigResourceName is the resource name for the Istio MeshConfig resource.
 var MeshConfigResourceName = resource.NewFullName("istio-system", "meshconfig")
 
-/// resource name for the Istio MeshNetworks resource
+// MeshNetworksResourceName is the resource name for the Istio MeshNetworks resource.
 var MeshNetworksResourceName = resource.NewFullName("istio-system", "meshnetworks")
