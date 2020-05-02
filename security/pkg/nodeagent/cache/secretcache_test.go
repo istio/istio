@@ -867,7 +867,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	opt := Options{
-		RotationInterval: 100 * time.Millisecond,
+		RotationInterval: 75 * time.Millisecond,
 		EvictionDuration: 0,
 	}
 
@@ -881,8 +881,11 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 
 	addedWatchProbe := func(_ string, _ bool) { wgAddedWatch.Done() }
 
+	var closed bool
 	notifyCallback := func(_ ConnKey, _ *model.SecretItem) error {
-		notifyEvent.Done()
+		if !closed {
+			notifyEvent.Done()
+		}
 		return nil
 	}
 
@@ -892,10 +895,8 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 
 	sc := NewSecretCache(fetcher, notifyCallback, opt)
 	defer func() {
-		notifyEvent.Add(2)
 		sc.Close()
 		newFileWatcher = filewatcher.NewWatcher
-		notifyEvent.Wait()
 	}()
 
 	rootCertPath := "./testdata/root-cert.pem"
@@ -989,6 +990,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		Op:   fsnotify.Write,
 	})
 	notifyEvent.Wait()
+	closed = true
 }
 
 // TestWorkloadAgentGenerateSecretFromFileOverSds tests generating secrets from existing files on a
@@ -999,7 +1001,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	opt := Options{
-		RotationInterval: 100 * time.Millisecond,
+		RotationInterval: 75 * time.Millisecond,
 		EvictionDuration: 0,
 	}
 
@@ -1010,11 +1012,14 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 
 	var wgAddedWatch sync.WaitGroup
 	var notifyEvent sync.WaitGroup
+	var closed bool
 
 	addedWatchProbe := func(_ string, _ bool) { wgAddedWatch.Done() }
 
 	notifyCallback := func(_ ConnKey, _ *model.SecretItem) error {
-		notifyEvent.Done()
+		if !closed {
+			notifyEvent.Done()
+		}
 		return nil
 	}
 
@@ -1024,10 +1029,8 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 
 	sc := NewSecretCache(fetcher, notifyCallback, opt)
 	defer func() {
-		notifyEvent.Add(1)
 		sc.Close()
 		newFileWatcher = filewatcher.NewWatcher
-		notifyEvent.Wait()
 	}()
 	rootCertPath, _ := filepath.Abs("./testdata/root-cert.pem")
 	keyPath, _ := filepath.Abs("./testdata/key.pem")
@@ -1120,6 +1123,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 		Op:   fsnotify.Write,
 	})
 	notifyEvent.Wait()
+	closed = true
 }
 
 func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem) error {
