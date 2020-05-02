@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	binversion "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -56,6 +55,12 @@ type HelmReconciler struct {
 	// copy of the last generated manifests.
 	manifests name.ManifestMap
 }
+
+const (
+	pollInterval    = 3 * time.Second
+	pollTimeout     = 1000 * time.Second
+	istiodPodPrefix = "istiod"
+)
 
 // Options are options for HelmReconciler.
 type Options struct {
@@ -212,10 +217,7 @@ func (h *HelmReconciler) checkResourceStatus(componentStatus *map[string]*v1alph
 	overallStatus *v1alpha1.InstallStatus_Status) error {
 	cs := h.client
 	iop := h.iop
-	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
-	if err != nil {
-		return err
-	}
+	t := translate.NewTranslator()
 	errPoll := wait.Poll(pollInterval, pollTimeout, func() (bool, error) {
 		for cn := range *componentStatus {
 			cnMap, ok := t.ComponentMaps[name.ComponentName(cn)]
@@ -243,9 +245,13 @@ func (h *HelmReconciler) checkResourceStatus(componentStatus *map[string]*v1alph
 			return false, err
 		}
 		for _, pod := range podList.Items {
+			if !strings.HasPrefix(pod.Name, istiodPodPrefix) {
+				continue
+			}
 			if pod.Status.Phase == v1.PodRunning {
 				for _, containerStatus := range pod.Status.ContainerStatuses {
 					if !containerStatus.Ready {
+						log.Warnf("container: %v of pod: %v not ready", containerStatus.Name, pod.Name)
 						return false, nil
 					}
 				}
@@ -254,6 +260,7 @@ func (h *HelmReconciler) checkResourceStatus(componentStatus *map[string]*v1alph
 				for _, condition := range pod.Status.Conditions {
 					if condition.Type == v1.PodReady &&
 						condition.Status != v1.ConditionTrue {
+						log.Warnf("pod: %v condition not ready: %v", pod.Name, condition.Message)
 						return false, nil
 					}
 				}
