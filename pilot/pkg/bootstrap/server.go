@@ -199,7 +199,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &envoyv2.EdsGenerator{s.EnvoyXdsServer}
+	epGen := &envoyv2.EdsGenerator{Server: s.EnvoyXdsServer}
 	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
 
 	if features.JwtPolicy.Get() != jwt.JWTPolicyThirdPartyJWT {
@@ -825,11 +825,14 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 		return fmt.Errorf("invalid port(%s) in ISTIOD_ADDR(%s): %v", port, istiodAddr, err)
 	}
 
-	// Create DNS certificates. This allows injector, validation to work without Citadel, and
-	// allows secure SDS connections to Istiod.
-	err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
-	if err != nil {
-		return err
+	// Generate DNS certificates only if custom certs are not provided via args.
+	if args.TLSOptions.CaCertFile == "" && args.TLSOptions.CertFile == "" && args.TLSOptions.KeyFile == "" {
+		// Create DNS certificates. This allows injector, validation to work without Citadel, and
+		// allows secure SDS connections to Istiod.
+		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
+		if err != nil {
+			return err
+		}
 	}
 
 	// run secure grpc server for Istiod - using DNS-based certs from K8S
