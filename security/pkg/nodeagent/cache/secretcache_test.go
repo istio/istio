@@ -920,7 +920,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	conID := "proxy1-id"
 	ctx := context.Background()
 
-	wgAddedWatch.Add(2) // Watch should be added for two files.
+	wgAddedWatch.Add(1) // Watch should be added for cert file.
 	notifyEvent.Add(1)  // Nofify should be called once.
 
 	gotSecret, err := sc.GenerateSecret(ctx, conID, WorkloadKeyCertResourceName, "jwtToken1")
@@ -984,8 +984,8 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 
 	// Inject a file write event and validate that Notify is called.
 	notifyEvent.Add(1)
-	fakeWatcher.InjectEvent(keyPath, fsnotify.Event{
-		Name: keyPath,
+	fakeWatcher.InjectEvent(certChainPath, fsnotify.Event{
+		Name: certChainPath,
 		Op:   fsnotify.Write,
 	})
 	notifyEvent.Wait()
@@ -1048,7 +1048,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 	conID := "proxy1-id"
 	ctx := context.Background()
 
-	wgAddedWatch.Add(2) // Watch should be added for two files.
+	wgAddedWatch.Add(1) // Watch should be added for cert file.
 	notifyEvent.Add(1)  // Nofify should be called once.
 
 	gotSecret, err := sc.GenerateSecret(ctx, conID, resource, "jwtToken1")
@@ -1114,8 +1114,8 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 
 	// Inject a file write event and validate that Notify is called.
 	notifyEvent.Add(1)
-	fakeWatcher.InjectEvent(keyPath, fsnotify.Event{
-		Name: keyPath,
+	fakeWatcher.InjectEvent(certChainPath, fsnotify.Event{
+		Name: certChainPath,
 		Op:   fsnotify.Write,
 	})
 	notifyEvent.Wait()
