@@ -39,7 +39,6 @@ import (
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/google/uuid"
 )
 
@@ -268,12 +267,12 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		sdsFromFile = true
 		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey)
 		sc.addFileWatcher(sc.existingRootCertFile, connKey)
-	// Defautl workload certificate.
+	// Default workload certificate.
 	case connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile):
 		sdsFromFile = true
 		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
+		// Adding cert is sufficient here as key can't change without changing the cert.
 		sc.addFileWatcher(sc.existingCertChainFile, connKey)
-		sc.addFileWatcher(sc.existingKeyFile, connKey)
 	default:
 		// Check if the resource name refers to a file mounted certificate.
 		// Currently used in destination rules and server certs (via metadata).
@@ -287,8 +286,8 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		case ok && cfg.IsKeyCertificate() && sc.keyCertificateExist(cfg.CertificatePath, cfg.PrivateKeyPath):
 			sdsFromFile = true
 			ns, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey)
+			// Adding cert is sufficient here as key can't change without changing the cert.
 			sc.addFileWatcher(cfg.CertificatePath, connKey)
-			sc.addFileWatcher(cfg.PrivateKeyPath, connKey)
 		}
 	}
 
@@ -356,7 +355,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	return ns, nil
 }
 
-func (sc *SecretCache) addFileWatcher(file string, key ConnKey) {
+func (sc *SecretCache) addFileWatcher(file string, connKey ConnKey) {
 	// TODO(ramaraochavali): add integration test for file watcher functionality.
 	// Check if this file is being already watched, if so ignore it. FileWatcher has the functionality of
 	// checking for duplicates. This check is needed here to avoid processing duplicate events for the same file.
@@ -379,19 +378,14 @@ func (sc *SecretCache) addFileWatcher(file string, key ConnKey) {
 				select {
 				case <-timerC:
 					timerC = nil
-					if val, ok := sc.secrets.Load(key); ok {
+					// TODO(ramaraochavali): Remove the watchers for unused keys and certs.
+					if val, ok := sc.secrets.Load(connKey); ok {
 						// Trigger the callback that pushes the secrets to proxy.
 						secret := val.(model.SecretItem)
 						cacheLog.Debugf("file changed %s, triggering push to proxy", file)
-						sc.callbackWithTimeout(key, &secret)
+						sc.callbackWithTimeout(connKey, &secret)
 					}
-				case e := <-sc.certWatcher.Events(file):
-					if e.Op&fsnotify.Remove == fsnotify.Remove {
-						// File is deleted. Stop watching
-						cacheLog.Debugf("file deleted %s, removing the watcher", file)
-						_ = sc.certWatcher.Remove(file)
-						return
-					}
+				case <-sc.certWatcher.Events(file):
 					// Use a timer to debounce watch updates
 					if timerC == nil {
 						timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
