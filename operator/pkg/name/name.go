@@ -99,6 +99,11 @@ var (
 		CNIComponentName,
 	}
 	allComponentNamesMap = make(map[ComponentName]bool)
+
+	// AllComponentNames is a list of all Istio components.
+	AllComponentNames = append(AllCoreComponentNames, IngressComponentName, EgressComponentName, AddonComponentName,
+		IstioOperatorComponentName, IstioOperatorCustomResourceName)
+
 	// DeprecatedComponentNamesMap defines the names of deprecated istio core components used in old versions,
 	// which would not appear as standalone components in current version. This is used for pruning, and alerting
 	// users to the fact that the components are deprecated.

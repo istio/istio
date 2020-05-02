@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
@@ -51,6 +52,10 @@ var (
 	// Path to the operator install base dir in the snapshot. This symbol is required here because it's referenced
 	// in "operator dump" e2e command tests and there's no other way to inject a path into the snapshot into the command.
 	snapshotInstallPackageDir string
+
+	// testK8Interface is used if it is set. Not possible to inject due to cobra command boundary.
+	testK8Interface *kubernetes.Clientset
+	testRestConfig  *rest.Config
 )
 
 func initLogsOrExit(_ *rootArgs) {
@@ -70,7 +75,13 @@ func configLogs(opt *log.Options) error {
 }
 
 func refreshGoldenFiles() bool {
-	return os.Getenv("REFRESH_GOLDEN") == "true"
+	ev := os.Getenv("REFRESH_GOLDEN")
+	return ev == "true" || ev == "1"
+}
+
+func kubeBuilderInstalled() bool {
+	ev := os.Getenv("KUBEBUILDER_INSTALLED")
+	return ev == "true" || ev == "1"
 }
 
 func ReadLayeredYAMLs(filenames []string) (string, error) {
@@ -139,6 +150,12 @@ func K8sConfig(kubeConfigPath string, context string) (*rest.Config, *kubernetes
 
 // InitK8SRestClient creates a rest.Config qne Clientset from the given kubeconfig path and context.
 func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, error) {
+	if testRestConfig != nil || testK8Interface != nil {
+		if !(testRestConfig != nil && testK8Interface != nil) {
+			return nil, nil, fmt.Errorf("testRestConfig and testK8Interface must both be either nil or set")
+		}
+		return testRestConfig, testK8Interface, nil
+	}
 	restConfig, err := defaultRestConfig(kubeconfig, kubeContext)
 	if err != nil {
 		return nil, nil, err
@@ -267,4 +284,22 @@ func createNamespace(cs kubernetes.Interface, namespace string) error {
 // deleteNamespace deletes namespace using the given k8s client.
 func deleteNamespace(cs kubernetes.Interface, namespace string) error {
 	return cs.CoreV1().Namespaces().Delete(context.TODO(), namespace, v12.DeleteOptions{})
+}
+
+// saveIOPToCluster saves the state in an IOP CR in the cluster.
+func saveIOPToCluster(reconciler *helmreconciler.HelmReconciler, iop string) error {
+	obj, err := object.ParseYAMLToK8sObject([]byte(iop))
+	if err != nil {
+		return err
+	}
+	return reconciler.ApplyObject("", obj.UnstructuredObject())
+}
+
+// checkExit exits and prints err it if it not nil.
+func checkExit(err error) {
+	if err == nil {
+		return
+	}
+	fmt.Print(err)
+	os.Exit(1)
 }

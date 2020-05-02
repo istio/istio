@@ -15,11 +15,9 @@
 package mesh
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -28,36 +26,16 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/operator/pkg/compare"
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/pkg/version"
 )
 
-const (
-	istioTestVersion = "istio-1.5.0"
-	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
-	testDataSubdir   = "cmd/mesh/testdata/manifest-generate"
-)
-
-// chartSourceType defines where charts used in the test come from.
-type chartSourceType int
-
-const (
-	// Snapshot charts are in testdata/manifest-generate/data-snapshot
-	snapshotCharts chartSourceType = iota
-	// Compiled in charts come from assets.gen.go
-	compiledInCharts
-	// Live charts come from manifests/
-	liveCharts
-)
-
-type testGroup []struct {
+type generateTestGroup []struct {
 	desc string
 	// Small changes to the input profile produce large changes to the golden output
 	// files. This makes it difficult to spot meaningful changes in pull requests.
@@ -72,25 +50,6 @@ type testGroup []struct {
 	diffSelect                  string
 	diffIgnore                  string
 	chartSource                 chartSourceType
-}
-
-// TestMain is required to create a local release package in /tmp from manifests and operator/data in the format that
-// istioctl expects.
-func TestMain(m *testing.M) {
-	var err error
-	operatorRootDir = filepath.Join(env.IstioSrc, "operator")
-	manifestsDir = filepath.Join(operatorRootDir, "manifests")
-	liveReleaseDir, err = createLocalReleaseCharts()
-	defer os.RemoveAll(liveReleaseDir)
-	if err != nil {
-		panic(err)
-	}
-	liveInstallPackageDir = filepath.Join(liveReleaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
-	snapshotInstallPackageDir = filepath.Join(operatorRootDir, testDataSubdir, "data-snapshot")
-
-	flag.Parse()
-	code := m.Run()
-	os.Exit(code)
 }
 
 func TestManifestGeneratePrometheus(t *testing.T) {
@@ -111,15 +70,14 @@ func TestManifestGeneratePrometheus(t *testing.T) {
 	g.Expect(objectHashesOrdered(objs)).Should(ContainElements(want))
 }
 
-func TestManifestGenerateComponentHubTag(t *testing.T) {
+func TestManifestComponentHubTag(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	g := NewGomegaWithT(t)
-	m, _, err := generateManifest("component_hub_tag", "", liveCharts)
+
+	objs, err := runManifestCommands("component_hub_tag", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs := parseObjectSetFromManifest(t, m)
-	g.Expect(objs.size()).Should(Not(Equal(0)))
 
 	tests := []struct {
 		deploymentName string
@@ -151,12 +109,14 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		containerName := tt.deploymentName
-		if tt.containerName != "" {
-			containerName = tt.containerName
+		for _, os := range objs {
+			containerName := tt.deploymentName
+			if tt.containerName != "" {
+				containerName = tt.containerName
+			}
+			container := mustGetContainer(g, os, tt.deploymentName, containerName)
+			g.Expect(container).Should(HavePathValueEqual(PathValue{"image", tt.want}))
 		}
-		container := mustGetContainer(g, objs, tt.deploymentName, containerName)
-		g.Expect(container).Should(HavePathValueEqual(PathValue{"image", tt.want}))
 	}
 }
 
@@ -167,7 +127,11 @@ func TestManifestGenerateGateways(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs := parseObjectSetFromManifest(t, m)
+	objs, err := parseObjectSetFromManifest(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(3))
@@ -214,7 +178,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 func TestManifestGenerateFlags(t *testing.T) {
 	flagOutputDir := createTempDirOrFail(t, "flag-output")
 	flagOutputValuesDir := createTempDirOrFail(t, "flag-output-values")
-	runTestGroup(t, testGroup{
+	runTestGroup(t, generateTestGroup{
 		{
 			desc: "all_off",
 		},
@@ -278,7 +242,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 }
 
 func TestManifestGeneratePilot(t *testing.T) {
-	runTestGroup(t, testGroup{
+	runTestGroup(t, generateTestGroup{
 		{
 			desc:       "pilot_default",
 			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
@@ -305,7 +269,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 }
 
 func TestManifestGenerateTelemetry(t *testing.T) {
-	runTestGroup(t, testGroup{
+	runTestGroup(t, generateTestGroup{
 		{
 			desc: "all_off",
 		},
@@ -329,7 +293,7 @@ func TestManifestGenerateTelemetry(t *testing.T) {
 }
 
 func TestManifestGenerateGateway(t *testing.T) {
-	runTestGroup(t, testGroup{
+	runTestGroup(t, generateTestGroup{
 		{
 			desc:       "ingressgateway_k8s_settings",
 			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
@@ -338,7 +302,7 @@ func TestManifestGenerateGateway(t *testing.T) {
 }
 
 func TestManifestGenerateAddonK8SOverride(t *testing.T) {
-	runTestGroup(t, testGroup{
+	runTestGroup(t, generateTestGroup{
 		{
 			desc:       "addon_k8s_override",
 			diffSelect: "Service:*:prometheus, Deployment:*:prometheus, Service:*:kiali",
@@ -349,7 +313,7 @@ func TestManifestGenerateAddonK8SOverride(t *testing.T) {
 // TestManifestGenerateHelmValues tests whether enabling components through the values passthrough interface works as
 // expected i.e. without requiring enablement also in IstioOperator API.
 func TestManifestGenerateHelmValues(t *testing.T) {
-	runTestGroup(t, testGroup{
+	runTestGroup(t, generateTestGroup{
 		{
 			desc: "helm_values_enablement",
 			diffSelect: "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway," +
@@ -423,7 +387,7 @@ func TestInstallPackagePath(t *testing.T) {
 		t.Fatal(err)
 	}
 	srv := httpserver.NewServer(serverDir)
-	runTestGroup(t, testGroup{
+	runTestGroup(t, generateTestGroup{
 		{
 			// Use some arbitrary small test input (pilot only) since we are testing the local filesystem code here, not
 			// manifest generation.
@@ -563,7 +527,7 @@ func TestLDFlags(t *testing.T) {
 	}
 }
 
-func runTestGroup(t *testing.T, tests testGroup) {
+func runTestGroup(t *testing.T, tests generateTestGroup) {
 	testDataDir = filepath.Join(operatorRootDir, testDataSubdir)
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
@@ -629,40 +593,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 	}
 }
 
-// runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
-// flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType) (string, error) {
-	args := "manifest generate"
-	for _, f := range filenames {
-		args += " -f " + f
-	}
-	if flags != "" {
-		args += " " + flags
-	}
-	switch chartSource {
-	case snapshotCharts:
-		args += " --set installPackagePath=" + filepath.Join(testDataDir, "data-snapshot")
-	case liveCharts:
-		args += " --set installPackagePath=" + liveInstallPackageDir
-	case compiledInCharts:
-	default:
-	}
-	return runCommand(args)
-}
-
-func createLocalReleaseCharts() (string, error) {
-	releaseDir, err := ioutil.TempDir(os.TempDir(), "istio-test-release-*")
-	if err != nil {
-		return "", err
-	}
-	releaseSubDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
-	cmd := exec.Command("../../scripts/create_release_charts.sh", "-o", releaseSubDir)
-	if stdo, err := cmd.Output(); err != nil {
-		return "", fmt.Errorf("%s: \n%s", err, string(stdo))
-	}
-	return releaseDir, nil
-}
-
+// generateManifest generates a manifest for the given IOP input file, flags and chart source.
 func generateManifest(inFile, flags string, chartSource chartSourceType) (string, object.K8sObjects, error) {
 	inPath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
 	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource)
@@ -671,4 +602,10 @@ func generateManifest(inFile, flags string, chartSource chartSourceType) (string
 	}
 	objs, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
 	return manifest, objs, err
+}
+
+// runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
+// flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
+func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType) (string, error) {
+	return runManifestCommand("generate", filenames, flags, chartSource)
 }

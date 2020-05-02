@@ -138,6 +138,15 @@ var (
 	}
 )
 
+// NewReconcileIstioOperator creates a new ReconcileIstioOperator and returns a ptr to it.
+func NewReconcileIstioOperator(client client.Client, config *rest.Config, scheme *runtime.Scheme) *ReconcileIstioOperator {
+	return &ReconcileIstioOperator{
+		client: client,
+		config: config,
+		scheme: scheme,
+	}
+}
+
 // ReconcileIstioOperator reconciles a IstioOperator object
 type ReconcileIstioOperator struct {
 	// This client, initialized using mgr.Client() above, is a split client

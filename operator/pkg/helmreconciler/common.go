@@ -40,6 +40,9 @@ const (
 )
 
 var (
+	// TestMode sets the controller into test mode. Used for unit tests to bypass things like waiting on resources.
+	TestMode = false
+
 	scope = log.RegisterScope("installer", "installer", 0)
 )
 

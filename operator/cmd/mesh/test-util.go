@@ -52,18 +52,22 @@ type objectSet struct {
 	keySlice []string
 }
 
-// parseObjectSetFromManifest parses an objectSet from the given manifest.
-func parseObjectSetFromManifest(t test.Failer, manifest string) *objectSet {
+// NewObjectSet creates a new objectSet from objs and returns a pointer to it.
+func NewObjectSet(objs object.K8sObjects) *objectSet {
 	ret := &objectSet{}
-	var err error
-	ret.objSlice, err = object.ParseK8sObjectsFromYAMLManifest(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, o := range ret.objSlice {
+	for _, o := range objs {
 		ret.append(o)
 	}
 	return ret
+}
+
+// parseObjectSetFromManifest parses an objectSet from the given manifest.
+func parseObjectSetFromManifest(manifest string) (*objectSet, error) {
+	objSlice, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
+	if err != nil {
+		return nil, err
+	}
+	return NewObjectSet(objSlice), nil
 }
 
 // append appends an object to o.
@@ -155,7 +159,10 @@ func mustGetRole(g *gomega.WithT, objs *objectSet, name string) *object.K8sObjec
 func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
 	obj := mustGetDeployment(g, objs, deploymentName)
 	container := obj.Container(containerName)
-	g.Expect(container).Should(gomega.Not(gomega.BeNil()))
+	if container == nil {
+		panic("foo")
+	}
+	g.Expect(container).Should(gomega.Not(gomega.BeNil()), fmt.Sprintf("Expected to get container %s in deployment %s", containerName, deploymentName))
 	return container
 }
 
