@@ -191,7 +191,7 @@ type SecretCache struct {
 	existingKeyFile       string
 	existingRootCertFile  string
 
-	//certWatcher watches the certificates for changes and triggers a notification to proxy.
+	// certWatcher watches the certificates for changes and triggers a notification to proxy.
 	certWatcher filewatcher.FileWatcher
 	// unique certs being watched with file watcher.
 	fileCerts map[string]struct{}
@@ -276,7 +276,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		sc.addFileWatcher(sc.existingKeyFile, connKey)
 	default:
 		// Check if the resource name refers to a file mounted certificate.
-		// Currently Used in destination rules and server certs (via metadata).
+		// Currently used in destination rules and server certs (via metadata).
 		// Based on the resource name, we need to read the secret from a file encoded in the resource name.
 		cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName)
 		switch {
@@ -357,6 +357,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 }
 
 func (sc *SecretCache) addFileWatcher(file string, key ConnKey) {
+	// TODO(ramaraochavali): add integration test for file watcher functionality.
 	// Check if this file is being already watched, if so ignore it. FileWatcher has the functionality of
 	// checking for duplicates. This check is needed here to avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
