@@ -486,6 +486,7 @@ func (sc *SecretCache) callbackWithTimeout(connKey ConnKey, secret *model.Secret
 
 // Close shuts down the secret cache.
 func (sc *SecretCache) Close() {
+	_ = sc.certWatcher.Close()
 	sc.closing <- true
 }
 
