@@ -281,7 +281,7 @@ function install_metallb() {
     METALLB_IPS=()
     while read -r ip; do
       METALLB_IPS+=("$ip")
-    done < <(cidr_to_ips "DOCKER_KIND_SUBNET" | tail -n 100)
+    done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
   fi
 
   # Give this cluster of those IPs
