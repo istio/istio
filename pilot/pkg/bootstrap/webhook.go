@@ -21,8 +21,6 @@ import (
 	"net/url"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
-
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
@@ -59,16 +57,14 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 		},
 	}
 
-	certFile := model.GetOrDefault(args.TLSOptions.CertFile, dnsCertFile)
-	keyFile := model.GetOrDefault(args.TLSOptions.KeyFile, dnsKeyFile)
-
 	// load the cert/key and setup a persistent watch for updates.
-	cert, err := server.ReloadCertkey(certFile, keyFile)
+	cert, err := s.getCertKeyPair(args.TLSOptions)
 	if err != nil {
 		return err
 	}
-	s.webhookCert = cert
+	s.webhookCert = &cert
 	keyCertWatcher := filewatcher.NewWatcher()
+	keyFile, certFile := s.getCertKeyPaths(args.TLSOptions)
 	for _, file := range []string{certFile, keyFile} {
 		if err := keyCertWatcher.Add(file); err != nil {
 			return fmt.Errorf("could not watch %v: %v", file, err)
@@ -81,14 +77,13 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 				select {
 				case <-keyCertTimerC:
 					keyCertTimerC = nil
-
-					cert, err := server.ReloadCertkey(certFile, keyFile)
+					cert, err := s.getCertKeyPair(args.TLSOptions)
 					if err != nil {
 						return // error logged and metric reported by server.ReloadCertKey
 					}
 
 					s.webhookCertMu.Lock()
-					s.webhookCert = cert
+					s.webhookCert = &cert
 					s.webhookCertMu.Unlock()
 				case <-keyCertWatcher.Events(certFile):
 					if keyCertTimerC == nil {

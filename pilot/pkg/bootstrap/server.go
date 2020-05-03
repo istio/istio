@@ -811,14 +811,9 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 
 // getCertificates returns the cert-key pair and root certificate.
 func (s *Server) getCertificates(tlsOptions TLSOptions) (tls.Certificate, *x509.CertPool, error) {
-	certDir := dnsCertDir
-
-	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
-	cert := model.GetOrDefault(tlsOptions.CertFile, path.Join(certDir, constants.CertChainFilename))
-
-	keyPair, err := tls.LoadX509KeyPair(cert, key)
+	keyPair, err := s.getCertKeyPair(tlsOptions)
 	if err != nil {
-		return tls.Certificate{}, nil, err
+		return keyPair, nil, err
 	}
 
 	rootCertBytes, err := s.getRootCertificate(tlsOptions)
@@ -829,6 +824,23 @@ func (s *Server) getCertificates(tlsOptions TLSOptions) (tls.Certificate, *x509.
 	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(rootCertBytes)
 	return keyPair, cp, nil
+}
+
+// getCertKeyPair returns cert and key loaded in tls.Certificate.
+func (s *Server) getCertKeyPair(tlsOptions TLSOptions) (tls.Certificate, error) {
+	key, cert := s.getCertKeyPaths(tlsOptions)
+	keyPair, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	return keyPair, nil
+}
+
+func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
+	certDir := dnsCertDir
+	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
+	cert := model.GetOrDefault(tlsOptions.CertFile, path.Join(certDir, constants.CertChainFilename))
+	return key, cert
 }
 
 // getRootCertificate returns the root certificate from TLSOptions if available or from ca.
