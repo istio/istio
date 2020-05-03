@@ -867,7 +867,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	opt := Options{
-		RotationInterval: 75 * time.Millisecond,
+		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
 	}
 
@@ -895,6 +895,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 
 	sc := NewSecretCache(fetcher, notifyCallback, opt)
 	defer func() {
+		closed = true
 		sc.Close()
 		newFileWatcher = filewatcher.NewWatcher
 	}()
@@ -990,7 +991,6 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		Op:   fsnotify.Write,
 	})
 	notifyEvent.Wait()
-	closed = true
 }
 
 // TestWorkloadAgentGenerateSecretFromFileOverSds tests generating secrets from existing files on a
@@ -1001,7 +1001,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	opt := Options{
-		RotationInterval: 75 * time.Millisecond,
+		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
 	}
 
@@ -1029,6 +1029,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 
 	sc := NewSecretCache(fetcher, notifyCallback, opt)
 	defer func() {
+		closed = true
 		sc.Close()
 		newFileWatcher = filewatcher.NewWatcher
 	}()
@@ -1123,7 +1124,6 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 		Op:   fsnotify.Write,
 	})
 	notifyEvent.Wait()
-	closed = true
 }
 
 func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem) error {

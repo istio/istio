@@ -356,10 +356,12 @@ func (sc *SecretCache) addFileWatcher(file string, token string, connKey ConnKey
 							sc.callbackWithTimeout(connKey, secret)
 						}
 					}
-				case <-sc.certWatcher.Events(file):
-					// Use a timer to debounce watch updates
-					if timerC == nil {
-						timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+				case e := <-sc.certWatcher.Events(file):
+					if len(e.Op.String()) > 0 { // To avoid spurious events, mainly coming from tests.
+						// Use a timer to debounce watch updates
+						if timerC == nil {
+							timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+						}
 					}
 				}
 			}
