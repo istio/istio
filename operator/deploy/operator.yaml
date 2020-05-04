@@ -42,4 +42,6 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "istio-operator"
+            - name: WAIT_FOR_RESOURCES_TIMEOUT
+              value: {{.Values.waitForResourcesTimeout }}
 ...

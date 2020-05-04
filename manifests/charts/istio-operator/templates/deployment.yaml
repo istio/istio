@@ -39,4 +39,6 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: {{.Values.operatorNamespace}}
+            - name: WAIT_FOR_RESOURCES_TIMEOUT
+              value: {{.Values.waitForResourcesTimeout }}
 ---
