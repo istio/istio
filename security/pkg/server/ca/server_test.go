@@ -23,16 +23,17 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/jwt"
-
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
-
 	caerror "istio.io/istio/security/pkg/pki/error"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
@@ -541,5 +542,129 @@ func TestGetServerCertificate(t *testing.T) {
 	}
 	if len(cert.Certificate) != 4 {
 		t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
+	}
+}
+
+func TestGetKubeJWTAuthenticator(t *testing.T) {
+	type want struct {
+		k8sAPIServerURL string
+		caCertPath      string
+		jwtPath         string
+	}
+	tests := []struct {
+		name          string
+		failFirst     bool
+		config        *rest.Config
+		configErr     error
+		want          want
+		wantErr       bool
+		jwtCalled     int
+		clusterCalled int
+	}{
+		{
+			name: "default method works",
+			want: want{
+				k8sAPIServerURL: "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews",
+				caCertPath:      caCertPath,
+				jwtPath:         jwtPath,
+			},
+			jwtCalled:     1,
+			clusterCalled: 0,
+		},
+		{
+			name: "default method works with valid clusterconfig",
+			config: &rest.Config{
+				Host: "a",
+				TLSClientConfig: rest.TLSClientConfig{
+					CAFile: "b",
+				},
+				BearerTokenFile: "c",
+			},
+			want: want{
+				k8sAPIServerURL: "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews",
+				caCertPath:      caCertPath,
+				jwtPath:         jwtPath,
+			},
+			jwtCalled:     1,
+			clusterCalled: 0,
+		},
+		{
+			name:      "default method works with invalid clusterconfig",
+			configErr: fmt.Errorf("clusterconfig err"),
+			want: want{
+				k8sAPIServerURL: "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews",
+				caCertPath:      caCertPath,
+				jwtPath:         jwtPath,
+			},
+			jwtCalled:     1,
+			clusterCalled: 0,
+		},
+		{
+			name:      "fallback on clusterconfig",
+			failFirst: true,
+			config: &rest.Config{
+				Host: "a",
+				TLSClientConfig: rest.TLSClientConfig{
+					CAFile: "b",
+				},
+				BearerTokenFile: "c",
+			},
+			want: want{
+				k8sAPIServerURL: "a/apis/authentication.k8s.io/v1/tokenreviews",
+				caCertPath:      "b",
+				jwtPath:         "c",
+			},
+			jwtCalled:     2,
+			clusterCalled: 1,
+		},
+		{
+			name:          "clusterconfig fails",
+			failFirst:     true,
+			configErr:     fmt.Errorf("foo"),
+			wantErr:       true,
+			jwtCalled:     1,
+			clusterCalled: 1,
+		},
+	}
+
+	defer func() {
+		newKubeJWTAuthenticator = authenticate.NewKubeJWTAuthenticator
+		inClusterConfig = rest.InClusterConfig
+	}()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			first := true
+			newKubeJWTAuthenticator = func(mc *kubecontroller.Multicluster, k8sAPIServerURL, caCertPath,
+				jwtPath, _, _, _ string) (*authenticate.KubeJWTAuthenticator, error) {
+				tt.jwtCalled--
+				if tt.failFirst && first {
+					first = false
+					return nil, fmt.Errorf("jwt err")
+				}
+
+				assert.Equal(t, tt.want.k8sAPIServerURL, k8sAPIServerURL)
+				assert.Equal(t, tt.want.caCertPath, caCertPath)
+				assert.Equal(t, tt.want.jwtPath, jwtPath)
+				assert.Equal(t, tt.want.k8sAPIServerURL, k8sAPIServerURL)
+
+				return new(authenticate.KubeJWTAuthenticator), nil
+			}
+
+			inClusterConfig = func() (*rest.Config, error) {
+				tt.clusterCalled--
+				return tt.config, tt.configErr
+			}
+
+			_, err := getKubeJWTAuthenticator(nil, "", "", "")
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, 0, tt.clusterCalled)
+			assert.Equal(t, 0, tt.jwtCalled)
+		})
 	}
 }
