@@ -221,7 +221,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// CA signing certificate must be created first only if custom TLS certs are not provided.
-	if !hasCustomTLSCerts(args) && s.EnableCA() {
+	if !hasCustomTLSCerts(args.TLSOptions) && s.EnableCA() {
 		var err error
 		var corev1 v1.CoreV1Interface
 		if s.kubeClient != nil {
@@ -243,13 +243,15 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
-	// common https server for webhooks (e.g. injection, validation)
-	if err := s.initHTTPSWebhookServer(args); err != nil {
-		// Not crashing istiod - existing pods will keep working, new pods
-		// may fail if all webhook injectors are down.
-		// This typically happens if certs are missing.
-		log.Errorf("error initializing injection webhook server: %v", err)
+	// setup watches for certs - This has to be called after initSecureGrpcListener because it sets up DNS certs.
+	if err := s.initCertificateWatches(args.TLSOptions); err != nil {
+		// Not crashing istiod - This typically happens if certs are missing.
+		log.Errorf("error initializing certificate watches: %v", err)
 	}
+
+	// common https server for webhooks (e.g. injection, validation)
+	s.initHTTPSWebhookServer(args)
+
 	// Will run the sidecar injector in pilot.
 	// Only operates if /var/lib/istio/inject exists
 	if err := s.initSidecarInjector(args); err != nil {
@@ -453,7 +455,6 @@ func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) 
 	}
 
 	// TODO check readiness of other secure gRPC and HTTP servers.
-
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -549,6 +550,9 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 // initialize DNS server listener - uses the same certs as gRPC
 func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 	if dns == "" {
+		return nil
+	}
+	if !hasCustomTLSCerts(tlsOptions) && s.ca == nil {
 		return nil
 	}
 
@@ -796,22 +800,16 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 		return fmt.Errorf("invalid port(%s) in ISTIOD_ADDR(%s): %v", port, istiodAddr, err)
 	}
 
-	// TODO(ramaraochavali): Move the cert generation and watch related code to a sepaate function
-	// and call it before we run init of any service.
+	// TODO(ramaraochavali): Move the cert generation sepaate function and call it before we run init of any service.
 
 	// Generate DNS certificates only if custom certs are not provided via args.
-	if !hasCustomTLSCerts(args) {
+	if !hasCustomTLSCerts(args.TLSOptions) {
 		// Create DNS certificates. This allows injector, validation to work without Citadel, and
 		// allows secure SDS connections to Istiod.
 		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
 		if err != nil {
 			return err
 		}
-	}
-
-	// setup watches for certs.
-	if err = s.initCertificateWatches(args.TLSOptions); err != nil {
-		return err
 	}
 
 	// run secure grpc server for Istiod - using DNS-based certs from K8S
@@ -912,8 +910,8 @@ func (s *Server) getRootCertificate(tlsOptions TLSOptions) (*x509.CertPool, erro
 }
 
 // hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
-func hasCustomTLSCerts(args *PilotArgs) bool {
-	return args.TLSOptions.CaCertFile != "" && args.TLSOptions.CertFile != "" && args.TLSOptions.KeyFile != ""
+func hasCustomTLSCerts(tlsOptions TLSOptions) bool {
+	return tlsOptions.CaCertFile != "" && tlsOptions.CertFile != "" && tlsOptions.KeyFile != ""
 }
 
 // getIstiodCertificate returns the istiod certificate.

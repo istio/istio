@@ -23,13 +23,16 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/webhooks/validation/server"
 )
 
-func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
+const (
+	HTTPSHandlerReadyPath = "/httpsReady"
+)
+
+func (s *Server) initHTTPSWebhookServer(args *PilotArgs) {
 	if features.IstiodService.Get() == "" {
 		log.Info("Not starting HTTPS webhook server: istiod address not set")
-		return nil
+		return
 	}
 
 	log.Info("Setting up HTTPS webhook server for istiod webhooks")
@@ -45,7 +48,7 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 	}
 
 	// setup our readiness handler and the corresponding client we'll use later to check it with.
-	s.httpsMux.HandleFunc(server.HTTPSHandlerReadyPath, func(w http.ResponseWriter, _ *http.Request) {
+	s.httpsMux.HandleFunc(HTTPSHandlerReadyPath, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	s.httpsReadyClient = &http.Client{
@@ -56,8 +59,6 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 			},
 		},
 	}
-
-	return nil
 }
 
 func (s *Server) checkHTTPSWebhookServerReadiness() int {
@@ -66,7 +67,7 @@ func (s *Server) checkHTTPSWebhookServerReadiness() int {
 		URL: &url.URL{
 			Scheme: "https",
 			Host:   s.httpsServer.Addr,
-			Path:   server.HTTPSHandlerReadyPath,
+			Path:   HTTPSHandlerReadyPath,
 		},
 	}
 

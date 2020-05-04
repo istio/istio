@@ -60,10 +60,6 @@ func init() {
 	_ = kubeApiApps.AddToScheme(runtimeScheme)
 }
 
-const (
-	HTTPSHandlerReadyPath = "/httpsReady"
-)
-
 // Options contains the configuration for the Istio Pilot validation
 // admission controller.
 type Options struct {
