@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/version"
 )
 
 func TestValueToProto(t *testing.T) {
@@ -87,8 +86,6 @@ mixer:
 			want: `
 hub: docker.io/istio
 tag: 1.2.3
-meshConfig: 
-   rootNamespace: istio-system
 components:
    telemetry:
      enabled: false
@@ -134,6 +131,7 @@ components:
 values:
   global:
     controlPlaneSecurityEnabled: false
+    istioNamespace: istio-system
     proxy:
       readinessInitialDelaySeconds: 2
     policyNamespace: istio-policy
@@ -184,8 +182,6 @@ gateways:
 			want: `
 hub: docker.io/istio
 tag: 1.2.3
-meshConfig: 
-  rootNamespace: istio-system
 components:
   telemetry:
     enabled: true
@@ -212,6 +208,7 @@ values:
   global:
     policyNamespace: istio-policy
     telemetryNamespace: istio-telemetry
+    istioNamespace: istio-system
 `,
 		},
 		{
@@ -241,24 +238,20 @@ components:
      enabled: true
    pilot:
      enabled: true
-meshConfig:
-  rootNamespace: istio-system
 values:
   global:
     telemetryNamespace: istio-telemetry
     policyNamespace: istio-policy
+    istioNamespace: istio-system
 `,
 		},
 	}
-	tr, err := NewReverseTranslator(version.NewMinorVersion(1, 5))
-	if err != nil {
-		t.Fatalf("fail to get helm value.yaml translator: %v", err)
-	}
+	tr := NewReverseTranslator()
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			valueStruct := v1alpha1.Values{}
-			err = util.UnmarshalValuesWithJSONPB(tt.valueYAML, &valueStruct, false)
+			err := util.UnmarshalValuesWithJSONPB(tt.valueYAML, &valueStruct, false)
 			if err != nil {
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}
@@ -283,37 +276,11 @@ values:
 	}
 }
 
-func TestNewReverseTranslator(t *testing.T) {
-	tests := []struct {
-		name         string
-		minorVersion version.MinorVersion
-		wantVer      string
-		wantErr      bool
-	}{
-		{
-			name:         "version 1.4",
-			minorVersion: version.NewMinorVersion(1, 4),
-			wantVer:      "1.4",
-			wantErr:      false,
-		},
-		// TODO: implement 1.5 and fallback logic.
-		{
-			name:         "version 1.99",
-			minorVersion: version.NewMinorVersion(1, 99),
-			wantVer:      "",
-			wantErr:      true,
-		},
+// errToString returns the string representation of err and the empty string if
+// err is nil.
+func errToString(err error) string {
+	if err == nil {
+		return ""
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewReverseTranslator(tt.minorVersion)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewReverseTranslator() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != nil && tt.wantVer != got.Version.String() {
-				t.Errorf("NewReverseTranslator() got = %v, want %v", got.Version.String(), tt.wantVer)
-			}
-		})
-	}
+	return err.Error()
 }

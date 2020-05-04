@@ -26,14 +26,14 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/operator/version"
-	"istio.io/pkg/log"
 )
 
 type manifestGenerateArgs struct {
@@ -138,10 +138,7 @@ func GenManifests(inFilename []string, setOverlayYAML string, force bool,
 		return nil, nil, err
 	}
 
-	t, err := translate.NewTranslator(version.OperatorBinaryVersion.MinorVersion)
-	if err != nil {
-		return nil, nil, err
-	}
+	t := translate.NewTranslator()
 
 	cp, err := controlplane.NewIstioControlPlane(mergedIOPS, t)
 	if err != nil {
