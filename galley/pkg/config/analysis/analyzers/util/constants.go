@@ -19,14 +19,11 @@ import (
 )
 
 const (
-	DefaultKubernetesDomain    = "svc.cluster.local"
-	MeshGateway                = "mesh"
-	ExportToNamespaceLocal     = "."
-	ExportToAllNamespaces      = "*"
-	Wildcard                   = "*"
-	MultiClusterSecretLabelKey = "istio/multiCluster"
-	KubernetesServiceRegistry  = "Kubernetes"
-	MCPServiceRegistry         = "MCP"
+	DefaultKubernetesDomain = "svc.cluster.local"
+	MeshGateway             = "mesh"
+	ExportToNamespaceLocal  = "."
+	ExportToAllNamespaces   = "*"
+	Wildcard                = "*"
 )
 
 var (

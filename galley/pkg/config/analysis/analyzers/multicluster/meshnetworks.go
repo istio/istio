@@ -19,17 +19,29 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
 // MeshNetworksAnalyzer validates MeshNetworks configuration in multi-cluster.
 type MeshNetworksAnalyzer struct{}
 
 var _ analysis.Analyzer = &MeshNetworksAnalyzer{}
+
+var (
+	// Service Registries that are known to istio.
+	serviceRegistries = []serviceregistry.ProviderID{
+		serviceregistry.Mock,
+		serviceregistry.Kubernetes,
+		serviceregistry.Consul,
+		serviceregistry.MCP,
+		serviceregistry.External,
+	}
+)
 
 // Metadata implements Analyzer
 func (s *MeshNetworksAnalyzer) Metadata() analysis.Metadata {
@@ -45,13 +57,11 @@ func (s *MeshNetworksAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
-	// Service Registies can be Kubernetes(self), MCP and/or remote clusters.
-	serviceRegistries := []string{util.KubernetesServiceRegistry, util.MCPServiceRegistry}
 	c.ForEach(collections.K8SCoreV1Secrets.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.Labels[util.MultiClusterSecretLabelKey] == "true" {
+		if r.Metadata.Labels[secretcontroller.MultiClusterSecretLabel] == "true" {
 			s := r.Message.(*v1.Secret)
 			for c := range s.Data {
-				serviceRegistries = append(serviceRegistries, c)
+				serviceRegistries = append(serviceRegistries, serviceregistry.ProviderID(c))
 			}
 		}
 		return true
@@ -66,7 +76,7 @@ func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 				case *v1alpha1.Network_NetworkEndpoints_FromRegistry:
 					found := false
 					for _, s := range serviceRegistries {
-						if re.FromRegistry == s {
+						if serviceregistry.ProviderID(re.FromRegistry) == s {
 							found = true
 						}
 					}
