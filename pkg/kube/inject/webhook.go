@@ -17,6 +17,7 @@ package inject
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -82,10 +83,8 @@ type Webhook struct {
 	revision string
 }
 
-// env will be used for other things besides meshConfig - when webhook is running in Istiod it can take advantage
-// of the config and endpoint cache.
 //nolint directives: interfacer
-func loadConfig(injectFile, valuesFile string, env *model.Environment) (*Config, string, error) {
+func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 	data, err := ioutil.ReadFile(injectFile)
 	if err != nil {
 		return nil, "", err
@@ -145,7 +144,7 @@ type WebhookParameters struct {
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
-	sidecarConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.ValuesFile, p.Env)
+	sidecarConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.ValuesFile)
 	if err != nil {
 		return nil, err
 	}
@@ -176,11 +175,10 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		revision:               p.Revision,
 	}
 
-	var mux *http.ServeMux
-	if p.Mux != nil {
-		p.Mux.HandleFunc("/inject", wh.serveInject)
-		mux = p.Mux
+	if p.Mux == nil {
+		return nil, errors.New("Mux not setup correctly")
 	}
+	p.Mux.HandleFunc("/inject", wh.serveInject)
 
 	p.Env.Watcher.AddMeshHandler(func() {
 		wh.mu.Lock()
@@ -189,7 +187,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	})
 
 	if p.MonitoringPort >= 0 {
-		mon, err := startMonitor(mux, p.MonitoringPort)
+		mon, err := startMonitor(p.Mux, p.MonitoringPort)
 		if err != nil {
 			return nil, fmt.Errorf("could not start monitoring server %v", err)
 		}
@@ -219,7 +217,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		select {
 		case <-timerC:
 			timerC = nil
-			sidecarConfig, valuesConfig, err := loadConfig(wh.configFile, wh.valuesFile, wh.env)
+			sidecarConfig, valuesConfig, err := loadConfig(wh.configFile, wh.valuesFile)
 			if err != nil {
 				log.Errorf("update error: %v", err)
 				break
