@@ -144,6 +144,9 @@ type WebhookParameters struct {
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
+	if p.Mux == nil {
+		return nil, errors.New("expected mux to be passed, but was not passed")
+	}
 	sidecarConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.ValuesFile)
 	if err != nil {
 		return nil, err
@@ -173,10 +176,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		healthCheckFile:        p.HealthCheckFile,
 		env:                    p.Env,
 		revision:               p.Revision,
-	}
-
-	if p.Mux == nil {
-		return nil, errors.New("Mux not setup correctly")
 	}
 	p.Mux.HandleFunc("/inject", wh.serveInject)
 

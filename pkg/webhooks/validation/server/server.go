@@ -16,14 +16,11 @@ package server
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
@@ -115,52 +112,11 @@ type Webhook struct {
 	validator store.BackendValidator
 }
 
-// Reload the server's cert/key for TLS from file and save it for later use by the https server.
-// func (wh *Webhook) reloadKeyCert() {
-// 	pair, err := ReloadCertkey(wh.certFile, wh.keyFile)
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	wh.mu.Lock()
-// 	wh.cert = pair
-// 	wh.mu.Unlock()
-// }
-
-// Reload the server's cert/key for TLS from file.
-func ReloadCertkey(certFile, keyFile string) (*tls.Certificate, error) {
-	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		reportValidationCertKeyUpdateError(err)
-		scope.Warnf("Cert/Key reload error: %v", err)
-		return nil, err
-	}
-
-	reportValidationCertKeyUpdate()
-	scope.Info("Cert and Key reloaded")
-
-	var row int
-	for _, cert := range pair.Certificate {
-		if x509Cert, err := x509.ParseCertificates(cert); err != nil {
-			scope.Infof("x509 cert [%v] - ParseCertificates() error: %v\n", row, err)
-			row++
-		} else {
-			for _, c := range x509Cert {
-				scope.Infof("x509 cert [%v] - Issuer: %q, Subject: %q, SN: %x, NotBefore: %q, NotAfter: %q\n",
-					row, c.Issuer, c.Subject, c.SerialNumber,
-					c.NotBefore.Format(time.RFC3339), c.NotAfter.Format(time.RFC3339))
-				row++
-			}
-		}
-	}
-	return &pair, nil
-}
-
 // New creates a new instance of the admission webhook server.
 func New(p Options) (*Webhook, error) {
 	if p.Mux == nil {
-		scope.Error("Mux not set correctly")
-		return nil, errors.New("Mux not set correctly")
+		scope.Error("mux not set correctly")
+		return nil, errors.New("expected mux to be passed, but was not passed")
 	}
 	wh := &Webhook{
 		schemas:   p.Schemas,

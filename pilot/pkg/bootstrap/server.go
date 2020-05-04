@@ -81,6 +81,11 @@ var (
 	}
 )
 
+const (
+	// debounce file watcher events to minimize noise in logs
+	watchDebounceDelay = 100 * time.Millisecond
+)
+
 func init() {
 	// Disable gRPC tracing. It has performance impacts (See https://github.com/grpc/grpc-go/issues/695)
 	grpc.EnableTracing = false
@@ -142,9 +147,9 @@ type Server struct {
 	// nil if injection disabled
 	injectionWebhook *inject.Webhook
 
-	webhookCertMu sync.Mutex
-	webhookCert   *tls.Certificate
-	jwtPath       string
+	certMu     sync.Mutex
+	istiodCert *tls.Certificate
+	jwtPath    string
 
 	// requiredTerminations keeps track of components that should block server exit if they are not stopped
 	// This allows important cleanup tasks to be completed.
@@ -547,7 +552,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 		return nil
 	}
 
-	certP, root, err := s.getCertificates(tlsOptions)
+	root, err := s.getRootCertificate(tlsOptions)
 	if err != nil {
 		return err
 	}
@@ -555,9 +560,9 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 	// TODO: check if client certs can be used with coredns or others.
 	// If yes - we may require or optionally use them
 	cfg := &tls.Config{
-		Certificates: []tls.Certificate{certP},
-		ClientAuth:   tls.NoClientCert,
-		ClientCAs:    root,
+		GetCertificate: s.getIstiodCertificate,
+		ClientAuth:     tls.NoClientCert,
+		ClientCAs:      root,
 	}
 
 	// create secure grpc listener
@@ -574,15 +579,16 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Options, tlsOptions TLSOptions) error {
-	certP, root, err := s.getCertificates(tlsOptions)
+	// TODO(ramaraochavali): Watch root cert also?
+	root, err := s.getRootCertificate(tlsOptions)
 	if err != nil {
 		return err
 	}
 
 	cfg := &tls.Config{
-		Certificates: []tls.Certificate{certP},
-		ClientAuth:   tls.VerifyClientCertIfGiven,
-		ClientCAs:    root,
+		GetCertificate: s.getIstiodCertificate,
+		ClientAuth:     tls.VerifyClientCertIfGiven,
+		ClientCAs:      root,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
@@ -790,6 +796,9 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 		return fmt.Errorf("invalid port(%s) in ISTIOD_ADDR(%s): %v", port, istiodAddr, err)
 	}
 
+	// TODO(ramaraochavali): Move the cert generation and watch related code to a sepaate function
+	// and call it before we run init of any service.
+
 	// Generate DNS certificates only if custom certs are not provided via args.
 	if !hasCustomTLSCerts(args) {
 		// Create DNS certificates. This allows injector, validation to work without Citadel, and
@@ -800,30 +809,72 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 		}
 	}
 
+	// setup watches for certs.
+	if err = s.initCertificateWatches(args.TLSOptions); err != nil {
+		return err
+	}
+
 	// run secure grpc server for Istiod - using DNS-based certs from K8S
-	err = s.initSecureGrpcServer(port, args.KeepaliveOptions, args.TLSOptions)
-	if err != nil {
+	if err = s.initSecureGrpcServer(port, args.KeepaliveOptions, args.TLSOptions); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// getCertificates returns the cert-key pair and root certificate.
-func (s *Server) getCertificates(tlsOptions TLSOptions) (tls.Certificate, *x509.CertPool, error) {
-	keyPair, err := s.getCertKeyPair(tlsOptions)
+// initCertificateWatches sets up certificate watches for the certs.
+func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
+	// load the cert/key and setup a persistent watch for updates.
+	cert, err := s.getCertKeyPair(tlsOptions)
 	if err != nil {
-		return keyPair, nil, err
+		return err
 	}
-
-	rootCertBytes, err := s.getRootCertificate(tlsOptions)
-	if err != nil {
-		return tls.Certificate{}, nil, err
+	s.istiodCert = &cert
+	// TODO: Setup watcher for root also ?
+	keyCertWatcher := filewatcher.NewWatcher()
+	keyFile, certFile := s.getCertKeyPaths(tlsOptions)
+	for _, file := range []string{certFile, keyFile} {
+		if err := keyCertWatcher.Add(file); err != nil {
+			return fmt.Errorf("could not watch %v: %v", file, err)
+		}
 	}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go func() {
+			var keyCertTimerC <-chan time.Time
+			for {
+				select {
+				case <-keyCertTimerC:
+					keyCertTimerC = nil
+					// Reload the certificates from the paths.
+					cert, err := s.getCertKeyPair(tlsOptions)
+					if err != nil {
+						return // error logged and metric reported by server.ReloadCertKey
+					}
 
-	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(rootCertBytes)
-	return keyPair, cp, nil
+					s.certMu.Lock()
+					s.istiodCert = &cert
+					s.certMu.Unlock()
+				case <-keyCertWatcher.Events(certFile):
+					if keyCertTimerC == nil {
+						keyCertTimerC = time.After(watchDebounceDelay)
+					}
+				case <-keyCertWatcher.Events(keyFile):
+					if keyCertTimerC == nil {
+						keyCertTimerC = time.After(watchDebounceDelay)
+					}
+				case <-keyCertWatcher.Errors(certFile):
+					log.Errorf("error watching %v: %v", certFile, err)
+				case <-keyCertWatcher.Errors(keyFile):
+					log.Errorf("error watching %v: %v", keyFile, err)
+				case <-stop:
+					keyCertWatcher.Close()
+					return
+				}
+			}
+		}()
+		return nil
+	})
+	return nil
 }
 
 // getCertKeyPair returns cert and key loaded in tls.Certificate.
@@ -836,6 +887,7 @@ func (s *Server) getCertKeyPair(tlsOptions TLSOptions) (tls.Certificate, error) 
 	return keyPair, nil
 }
 
+// getCertKeyPaths returns the paths for key and cert.
 func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 	certDir := dnsCertDir
 	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
@@ -844,7 +896,7 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 }
 
 // getRootCertificate returns the root certificate from TLSOptions if available or from ca.
-func (s *Server) getRootCertificate(tlsOptions TLSOptions) ([]byte, error) {
+func (s *Server) getRootCertificate(tlsOptions TLSOptions) (*x509.CertPool, error) {
 	var rootCertBytes []byte
 	var err error
 	if tlsOptions.CaCertFile != "" {
@@ -854,10 +906,19 @@ func (s *Server) getRootCertificate(tlsOptions TLSOptions) ([]byte, error) {
 	} else {
 		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	}
-	return rootCertBytes, nil
+	cp := x509.NewCertPool()
+	cp.AppendCertsFromPEM(rootCertBytes)
+	return cp, nil
 }
 
 // hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
 func hasCustomTLSCerts(args *PilotArgs) bool {
 	return args.TLSOptions.CaCertFile != "" && args.TLSOptions.CertFile != "" && args.TLSOptions.KeyFile != ""
+}
+
+// getIstiodCertificate returns the istiod certificate.
+func (s *Server) getIstiodCertificate(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	s.certMu.Lock()
+	defer s.certMu.Unlock()
+	return s.istiodCert, nil
 }

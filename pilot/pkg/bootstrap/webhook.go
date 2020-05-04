@@ -16,28 +16,15 @@ package bootstrap
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
-	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/webhooks/validation/server"
 )
-
-const (
-	// debounce file watcher events to minimize noise in logs
-	watchDebounceDelay = 100 * time.Millisecond
-)
-
-func (s *Server) getWebhookCertificate(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	s.webhookCertMu.Lock()
-	defer s.webhookCertMu.Unlock()
-	return s.webhookCert, nil
-}
 
 func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 	if features.IstiodService.Get() == "" {
@@ -53,57 +40,9 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 		Addr:    args.DiscoveryOptions.HTTPSAddr,
 		Handler: s.httpsMux,
 		TLSConfig: &tls.Config{
-			GetCertificate: s.getWebhookCertificate,
+			GetCertificate: s.getIstiodCertificate,
 		},
 	}
-
-	// load the cert/key and setup a persistent watch for updates.
-	cert, err := s.getCertKeyPair(args.TLSOptions)
-	if err != nil {
-		return err
-	}
-	s.webhookCert = &cert
-	keyCertWatcher := filewatcher.NewWatcher()
-	keyFile, certFile := s.getCertKeyPaths(args.TLSOptions)
-	for _, file := range []string{certFile, keyFile} {
-		if err := keyCertWatcher.Add(file); err != nil {
-			return fmt.Errorf("could not watch %v: %v", file, err)
-		}
-	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		go func() {
-			var keyCertTimerC <-chan time.Time
-			for {
-				select {
-				case <-keyCertTimerC:
-					keyCertTimerC = nil
-					cert, err := s.getCertKeyPair(args.TLSOptions)
-					if err != nil {
-						return // error logged and metric reported by server.ReloadCertKey
-					}
-
-					s.webhookCertMu.Lock()
-					s.webhookCert = &cert
-					s.webhookCertMu.Unlock()
-				case <-keyCertWatcher.Events(certFile):
-					if keyCertTimerC == nil {
-						keyCertTimerC = time.After(watchDebounceDelay)
-					}
-				case <-keyCertWatcher.Events(keyFile):
-					if keyCertTimerC == nil {
-						keyCertTimerC = time.After(watchDebounceDelay)
-					}
-				case <-keyCertWatcher.Errors(certFile):
-					log.Errorf("error watching %v: %v", certFile, err)
-				case <-keyCertWatcher.Errors(keyFile):
-					log.Errorf("error watching %v: %v", keyFile, err)
-				case <-stop:
-					return
-				}
-			}
-		}()
-		return nil
-	})
 
 	// setup our readiness handler and the corresponding client we'll use later to check it with.
 	s.httpsMux.HandleFunc(server.HTTPSHandlerReadyPath, func(w http.ResponseWriter, _ *http.Request) {
