@@ -17,6 +17,7 @@ package framework
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -67,6 +68,21 @@ func (s *scope) add(r resource.Resource, id *resourceID) {
 	if c, ok := r.(io.Closer); ok {
 		s.addCloser(c)
 	}
+}
+
+func (s *scope) get(ref interface{}) error {
+	refVal := reflect.ValueOf(ref)
+	if refVal.Kind() != reflect.Ptr {
+		return fmt.Errorf("ref must be a pointer, instead got: %T", ref)
+	}
+	for _, res := range s.resources {
+		resVal := reflect.ValueOf(res)
+		if resVal.Type().AssignableTo(refVal.Elem().Type()) {
+			refVal.Elem().Set(resVal)
+			return nil
+		}
+	}
+	return fmt.Errorf("could not find resource of type %v in scope", refVal.Elem().Type())
 }
 
 func (s *scope) addCloser(c io.Closer) {

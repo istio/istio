@@ -451,6 +451,44 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 	g.Expect(errCode2).NotTo(Equal(0))
 }
 
+func TestSuite_GetResource(t *testing.T) {
+	defer cleanupRT()
+	g := NewGomegaWithT(t)
+
+	var (
+		structRes                          fakeEnvironment
+		interfaceRes                       resource.Cluster
+		sErr, iErr, notFoundErr, nonPtrErr error
+	)
+
+	type nonResource struct{}
+	runFn := func(ctx *suiteContext) int {
+		sErr = ctx.GetResource(&structRes)
+		iErr = ctx.GetResource(&interfaceRes)
+		notFoundErr = ctx.GetResource(&nonResource{})
+		nonPtrErr = ctx.GetResource(fakeEnvironment{})
+		return 0
+	}
+
+	s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+	s.Setup(func(c resource.Context) error {
+		c.TrackResource(fakeEnvironment{numClusters: 2})
+		c.TrackResource(fakeCluster{index: 1})
+		return nil
+	})
+	s.Run()
+
+	g.Expect(sErr).To(BeNil())
+	g.Expect(structRes.numClusters).To(Equal(2))
+
+	g.Expect(iErr).To(BeNil())
+	g.Expect(interfaceRes).NotTo(BeNil())
+	g.Expect(interfaceRes.Index()).To(Equal(resource.ClusterIndex(1)))
+
+	g.Expect(notFoundErr).NotTo(BeNil())
+	g.Expect(nonPtrErr).NotTo(BeNil())
+}
+
 func newFakeEnvironmentFactory(numClusters int) resource.EnvironmentFactory {
 	e := fakeEnvironment{numClusters: numClusters}
 	return func(name string, ctx resource.Context) (resource.Environment, error) {
@@ -530,4 +568,8 @@ func (f fakeCluster) Index() resource.ClusterIndex {
 
 func (f fakeCluster) String() string {
 	return fmt.Sprintf("fake_cluster_%d", f.index)
+}
+
+func (f fakeCluster) ID() resource.ID {
+	return fakeID("fake")
 }

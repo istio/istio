@@ -129,6 +129,10 @@ func (s *suiteContext) TrackResource(r resource.Resource) resource.ID {
 	return rid
 }
 
+func (s *suiteContext) GetResource(ref interface{}) error {
+	return s.globalScope.get(ref)
+}
+
 // Environment implements ResourceContext
 func (s *suiteContext) Environment() resource.Environment {
 	return s.environment
