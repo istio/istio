@@ -137,7 +137,6 @@ function cleanup_kind_clusters() {
 }
 
 function setup_kind_cluster() {
-  gobin sigs.k8s.io/kind@v0.8.0
   IP_FAMILY="${1:-ipv4}"
   IMAGE="${2:-kindest/node:v1.18.2}"
   NAME="${3:-istio-testing}"
