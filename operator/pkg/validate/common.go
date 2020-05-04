@@ -22,6 +22,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ghodss/yaml"
+
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -269,6 +274,19 @@ type ValidatorFunc func(path util.Path, i interface{}) util.Errors
 
 // UnmarshalIOP unmarshals a string containing IstioOperator as YAML.
 func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
+	// Remove creationDate (util.UnmarshalWithJSONPB fails if present)
+	mapIOP := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(iopYAML), &mapIOP); err != nil {
+		return nil, err
+	}
+	un := &unstructured.Unstructured{Object: mapIOP}
+	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+	byIOP, err := yaml.Marshal(un)
+	if err != nil {
+		return nil, err
+	}
+	iopYAML = string(byIOP)
+
 	iop := &v1alpha1.IstioOperator{}
 	if err := util.UnmarshalWithJSONPB(iopYAML, iop, false); err != nil {
 		return nil, fmt.Errorf("%s:\n\nYAML:\n%s", err, iopYAML)

@@ -28,7 +28,10 @@ import (
 func (h *HelmReconciler) RenderCharts() (name.ManifestMap, error) {
 	iopSpec := h.iop.Spec
 	if err := validate.CheckIstioOperatorSpec(iopSpec, false); err != nil {
-		return nil, err
+		if !h.opts.Force {
+			return nil, err
+		}
+		h.opts.Log.PrintErr(fmt.Sprintf("spec invalid; continuing because of --force: %v\n", err))
 	}
 
 	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
