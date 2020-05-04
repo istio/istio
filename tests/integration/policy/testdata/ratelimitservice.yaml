@@ -88,6 +88,7 @@ spec:
         app: ratelimit
     spec:
       containers:
+      # TODO(gargnupur): Upload this to istio-testing
       - image: gcr.io/gargnupur-istio-test/ratelimit:v1.4.0
         imagePullPolicy: Always
         name: ratelimit

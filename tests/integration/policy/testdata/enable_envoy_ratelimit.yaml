@@ -76,7 +76,7 @@ spec:
                   # - generic_key:
                   # descriptor_value: "test"
               - request_headers:
-                  header_name: "X-Envoy-Original-Path"
-                  descriptor_key: "X-Envoy-Original-Path"
+                  header_name: ":path"
+                  descriptor_key: "PATH"
                   # - remote_address: {}
                   # - destination_cluster: {}
