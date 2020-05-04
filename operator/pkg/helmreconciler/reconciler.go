@@ -62,6 +62,8 @@ type Options struct {
 	WaitTimeout time.Duration
 	// ProgressLog tracks the installation progress for all components.
 	ProgressLog *util.ProgressLog
+	// Force ignores validation errors
+	Force bool
 }
 
 var defaultOptions = &Options{
