@@ -29,7 +29,7 @@ import (
 
 	kubeApiAdmissions "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/autoscaling/v2beta1"
+	"k8s.io/api/autoscaling/v2beta2"
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	v1 "k8s.io/api/rbac/v1"
@@ -422,8 +422,8 @@ func (a *Accessor) GetPodDisruptionBudget(ns, name string) (*v1beta1.PodDisrupti
 }
 
 // GetHorizontalPodAutoscaler gets the HorizontalPodAutoscaler with the given name
-func (a *Accessor) GetHorizontalPodAutoscaler(ns, name string) (*v2beta1.HorizontalPodAutoscaler, error) {
-	return a.set.AutoscalingV2beta1().HorizontalPodAutoscalers(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+func (a *Accessor) GetHorizontalPodAutoscaler(ns, name string) (*v2beta2.HorizontalPodAutoscaler, error) {
+	return a.set.AutoscalingV2beta2().HorizontalPodAutoscalers(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 }
 
 // GetService returns the service entry with the given name/namespace.

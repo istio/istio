@@ -1,5 +1,5 @@
 {{- if and .Values.mixer.policy.autoscaleEnabled .Values.mixer.policy.autoscaleMin .Values.mixer.policy.autoscaleMax }}
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-policy
@@ -18,6 +18,8 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: {{ .Values.mixer.policy.cpu.targetAverageUtilization }}
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.mixer.policy.cpu.targetAverageUtilization }}
 ---
 {{- end }}

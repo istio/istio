@@ -60,7 +60,7 @@ var (
 	// Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
 	// a type that does not yet exist.
 	watchedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
+		{Group: "autoscaling", Version: "v2beta2", Kind: "HorizontalPodAutoscaler"},
 		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
 		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
 		{Group: "apps", Version: "v1", Kind: "Deployment"},

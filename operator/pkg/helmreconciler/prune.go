@@ -41,7 +41,7 @@ const (
 var (
 	// ordered by which types should be deleted, first to last
 	namespacedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
+		{Group: "autoscaling", Version: "v2beta2", Kind: "HorizontalPodAutoscaler"},
 		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
 		{Group: "apps", Version: "v1", Kind: "Deployment"},
 		{Group: "apps", Version: "v1", Kind: "DaemonSet"},

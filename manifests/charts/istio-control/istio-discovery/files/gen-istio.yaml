@@ -933,7 +933,7 @@ spec:
           name: istio
 ---
 # Source: istio-discovery/templates/autoscale.yaml
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod
@@ -953,7 +953,9 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: 80
+      target:
+        type: Utilization
+        averageUtilization: 80
 ---
 # Source: istio-discovery/templates/telemetryv2_1.4.yaml
 apiVersion: networking.istio.io/v1alpha3

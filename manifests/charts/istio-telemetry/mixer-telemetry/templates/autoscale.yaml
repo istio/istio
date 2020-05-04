@@ -1,6 +1,6 @@
 {{ $telemetry := index .Values "mixer" "telemetry" }}
 {{- if and $telemetry.autoscaleEnabled $telemetry.autoscaleMin $telemetry.autoscaleMax }}
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-telemetry
@@ -19,6 +19,8 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: {{ $telemetry.cpu.targetAverageUtilization }}
+        target:
+         type: Utilization
+         averageUtilization: {{ $telemetry.cpu.targetAverageUtilization }}
 ---
 {{- end }}
