@@ -28,6 +28,10 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/pkg/log"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/env"
@@ -36,8 +40,17 @@ import (
 type handler struct{}
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/header" {
+		if r.Host != "host" {
+			log.Errorf("missing expected host header, got %v", r.Host)
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		if r.Header.Get("Some-Header") != "some-value" {
+			log.Errorf("missing expected Some-Header, got %v", r.Header)
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}
 	if r.URL.Path != "/hello/sunnyvale" && r.URL.Path != "/" {
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte("welcome, it works"))
@@ -255,57 +268,93 @@ func TestAppProbe(t *testing.T) {
 	go http.Serve(listener, &handler{})
 	appPort := listener.Addr().(*net.TCPAddr).Port
 
-	// Starts the pilot agent status server.
-	server, err := NewServer(Config{
-		StatusPort: 0,
-		KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v}},
-"/app-health/hello-world/livez": {"httpGet":{"port": %v}}}`, appPort, appPort),
-	})
-	if err != nil {
-		t.Errorf("failed to create status server %v", err)
-		return
+	simpleConfig := KubeAppProbers{
+		"/app-health/hello-world/readyz": &Prober{
+			HTTPGet: &v1.HTTPGetAction{
+				Path: "/hello/sunnyvale",
+				Port: intstr.IntOrString{IntVal: int32(appPort)},
+			},
+		},
+		"/app-health/hello-world/livez": &Prober{
+			HTTPGet: &v1.HTTPGetAction{
+				Port: intstr.IntOrString{IntVal: int32(appPort)},
+			},
+		},
 	}
-	go server.Run(context.Background())
-
-	var statusPort uint16
-	for statusPort == 0 {
-		server.mutex.RLock()
-		statusPort = server.statusPort
-		server.mutex.RUnlock()
-	}
-
-	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
+	_ = simpleConfig
 	testCases := []struct {
 		probePath  string
+		config     KubeAppProbers
 		statusCode int
 	}{
 		{
-			probePath:  fmt.Sprintf(":%v/bad-path-should-be-404", statusPort),
+			probePath:  "bad-path-should-be-404",
+			config:     simpleConfig,
 			statusCode: http.StatusNotFound,
 		},
 		{
-			probePath:  fmt.Sprintf(":%v/app-health/hello-world/readyz", statusPort),
+			probePath:  "app-health/hello-world/readyz",
+			config:     simpleConfig,
 			statusCode: http.StatusOK,
 		},
 		{
-			probePath:  fmt.Sprintf(":%v/app-health/hello-world/livez", statusPort),
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleConfig,
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath: "app-health/header/readyz",
+			config: KubeAppProbers{
+				"/app-health/header/readyz": &Prober{
+					HTTPGet: &v1.HTTPGetAction{
+						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Path: "/header",
+						HTTPHeaders: []v1.HTTPHeader{
+							{"Host", "host"},
+							{"Some-Header", "some-value"},
+						},
+					},
+				},
+			},
 			statusCode: http.StatusOK,
 		},
 	}
 	for _, tc := range testCases {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
-		if err != nil {
-			t.Errorf("[%v] failed to create request", tc.probePath)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatal("request failed")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != tc.statusCode {
-			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
-		}
+		t.Run(tc.probePath, func(t *testing.T) {
+			// Starts the pilot agent status server.
+			server, err := NewServer(Config{
+				StatusPort: 0,
+			})
+			if err != nil {
+				t.Fatalf("failed to create status server %v", err)
+			}
+			server.appKubeProbers = tc.config
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			_ = cancel
+			go server.Run(ctx)
+
+			var statusPort uint16
+			for statusPort == 0 {
+				server.mutex.RLock()
+				statusPort = server.statusPort
+				server.mutex.RUnlock()
+			}
+
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
+			if err != nil {
+				t.Fatalf("[%v] failed to create request", tc.probePath)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed")
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != tc.statusCode {
+				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+			}
+		})
 	}
 }
 
