@@ -138,7 +138,7 @@ function cleanup_kind_clusters() {
 
 function setup_kind_cluster() {
   IP_FAMILY="${1:-ipv4}"
-  IMAGE="${2:-kindest/node:v1.18.0}"
+  IMAGE="${2:-kindest/node:v1.18.2}"
   NAME="${3:-istio-testing}"
   CONFIG="${4:-}"
   # Delete any previous KinD cluster

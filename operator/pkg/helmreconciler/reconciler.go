@@ -28,15 +28,17 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"istio.io/api/label"
+
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/version"
+
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/pkg/version"
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts.
@@ -63,6 +65,8 @@ type Options struct {
 	WaitTimeout time.Duration
 	// Log tracks the installation progress for all components.
 	ProgressLog *progress.Log
+	// Force ignores validation errors
+	Force bool
 }
 
 var defaultOptions = &Options{
@@ -110,7 +114,7 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 	status := h.processRecursive(manifestMap)
 
 	h.opts.ProgressLog.SetState(progress.StatePruning)
-	pruneErr := h.Prune(manifestMap)
+	pruneErr := h.Prune(manifestMap, false)
 	return status, pruneErr
 }
 
@@ -185,7 +189,7 @@ func (h *HelmReconciler) Delete() error {
 	if err != nil {
 		return err
 	}
-	return h.Prune(manifestMap)
+	return h.Prune(manifestMap, true)
 }
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
@@ -302,7 +306,7 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 		if revision == "" {
 			revision = "default"
 		}
-		labels[model.RevisionLabel] = revision
+		labels[label.IstioRev] = revision
 	}
 
 	labels[istioComponentLabelStr] = componentName
