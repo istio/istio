@@ -15,9 +15,11 @@
 package istio
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net"
 	"os"
 	"path"
@@ -88,12 +90,22 @@ func (i *operatorComponent) Close() (err error) {
 			if e := cluster.DeleteContents("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
 				err = multierror.Append(err, e)
 			}
-			if e := cluster.DeleteNamespace(i.settings.SystemNamespace); e != nil {
-				err = multierror.Append(e, fmt.Errorf("failed listing secrets for namespace %s on cluster %s: %v", i.settings.SystemNamespace, cluster.Name(), e))
-			}
-			if e := cluster.WaitForNamespaceDeletion(i.settings.SystemNamespace); e != nil {
+			if e := i.cleanupSecrets(cluster); e != nil {
 				err = multierror.Append(err, e)
 			}
+		}
+	}
+	return
+}
+
+func (i *operatorComponent) cleanupSecrets(cluster kube.Cluster) (err error) {
+	secrets, err := cluster.GetSecret(i.settings.SystemNamespace).List(context.TODO(), kubeApiMeta.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, s := range secrets.Items {
+		if e := cluster.DeleteSecret(s.Namespace, s.Name); e != nil {
+			err = multierror.Append(err, e)
 		}
 	}
 	return
