@@ -1992,6 +1992,7 @@ webhooks:
         namespace: istio-system
         path: "/inject"
       caBundle: ""
+    sideEffects: NONE
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
