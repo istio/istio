@@ -58,6 +58,9 @@ const (
 
 	// The size of a private key for a self-signed Istio CA.
 	caKeySize = 2048
+
+	// The standard key size to use when generating an RSA private key
+	rsaKeySize = 2048
 )
 
 var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
@@ -330,7 +333,7 @@ func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert
 // returns the certificate chain and the private key.
 func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte, []byte, error) {
 	opts := util.CertOptions{
-		RSAKeySize: caKeySize,
+		RSAKeySize: rsaKeySize,
 	}
 
 	// use the type of private key the CA uses to generate a CSR of that type (e.g. CA cert using RSA will

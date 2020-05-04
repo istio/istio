@@ -47,33 +47,6 @@ vbw9mUuRBuYCROUaNv2/TAkauxVPCYPq7Ow=
 -----END CERTIFICATE-----`
 )
 
-func TestGenCertKeyFromOptions_BothRSAAndRC(t *testing.T) {
-	// set "notBefore" to be one hour ago, this ensures the issued certificate to
-	// be valid as of now.
-	caCertNotBefore := now.Add(-time.Hour)
-	caCertTTL := 24 * time.Hour
-
-	// Options to generate a CA cert with RSA.
-	caCertOptions := CertOptions{
-		Host:         "test_ca.com",
-		NotBefore:    caCertNotBefore,
-		TTL:          caCertTTL,
-		SignerCert:   nil,
-		SignerPriv:   nil,
-		Org:          "MyOrg",
-		IsCA:         true,
-		IsSelfSigned: true,
-		IsClient:     false,
-		IsServer:     true,
-		RSAKeySize:   512,
-		IsEC:         true,
-	}
-	_, _, err := GenCertKeyFromOptions(caCertOptions)
-	if err == nil {
-		t.Error(err)
-	}
-}
-
 func TestGenCertKeyFromOptions_RSA(t *testing.T) {
 	// set "notBefore" to be one hour ago, this ensures the issued certificate to
 	// be valid as of now.
@@ -92,7 +65,7 @@ func TestGenCertKeyFromOptions_RSA(t *testing.T) {
 		IsSelfSigned: true,
 		IsClient:     false,
 		IsServer:     true,
-		RSAKeySize:   512,
+		RSAKeySize:   2048,
 	}
 
 	caCertPem, caPrivPem, err := GenCertKeyFromOptions(caCertOptions)
@@ -144,7 +117,7 @@ func TestGenCertKeyFromOptions_RSA(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				RSAKeySize:   512,
+				RSAKeySize:   2048,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -168,7 +141,7 @@ func TestGenCertKeyFromOptions_RSA(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   512,
+				RSAKeySize:   2048,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -192,7 +165,7 @@ func TestGenCertKeyFromOptions_RSA(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				RSAKeySize:   512,
+				RSAKeySize:   2048,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -216,7 +189,7 @@ func TestGenCertKeyFromOptions_RSA(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   512,
+				RSAKeySize:   2048,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -279,7 +252,7 @@ func TestGenCertKeyFromOptions_RSA(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   512,
+				RSAKeySize:   2048,
 				IsDualUse:    true,
 			},
 			verifyFields: &VerifyFields{
@@ -305,7 +278,7 @@ func TestGenCertKeyFromOptions_RSA(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   512,
+				RSAKeySize:   2048,
 				IsDualUse:    true,
 			},
 			verifyFields: &VerifyFields{
@@ -331,7 +304,7 @@ func TestGenCertKeyFromOptions_RSA(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   512,
+				RSAKeySize:   2048,
 				PKCS8Key:     true,
 			},
 			verifyFields: &VerifyFields{
@@ -873,7 +846,7 @@ func TestGenRootCertFromExistingKey(t *testing.T) {
 	// Generate root certificate and private key
 	caCertTTL := 24 * time.Hour
 	oldOrg := "old org"
-	caKeySize := 512
+	caKeySize := 2048
 	caCertOptions := CertOptions{
 		TTL:          caCertTTL,
 		Org:          oldOrg,
@@ -896,7 +869,7 @@ func TestGenRootCertFromExistingKey(t *testing.T) {
 	// 2. create cert option for new root certificate.
 	defaultOrg := "default org"
 	// Verify that changing RSA key size does not change private key, as the key is reused.
-	defaultRSAKeySize := 1024
+	defaultRSAKeySize := 4096
 	// Create a default cert options
 	newCertOptions := CertOptions{
 		TTL:           caCertTTL,

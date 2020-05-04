@@ -33,7 +33,7 @@ func TestGenCSR(t *testing.T) {
 			csrOptions: CertOptions{
 				Host:       "test_ca.com",
 				Org:        "MyOrg",
-				RSAKeySize: 512,
+				RSAKeySize: 2048,
 			},
 		},
 		{
@@ -90,7 +90,7 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 			csrOptions: CertOptions{
 				Host:       "test_ca.com",
 				Org:        "MyOrg",
-				RSAKeySize: 512,
+				RSAKeySize: 2048,
 				PKCS8Key:   true,
 			},
 		},

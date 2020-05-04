@@ -132,7 +132,7 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 				TTL:        time.Hour,
 				Org:        "MyOrg",
 				IsCA:       true,
-				RSAKeySize: 512,
+				RSAKeySize: 2048,
 			},
 			expectedErr: "failed to extract id the SAN extension does not exist",
 		},
