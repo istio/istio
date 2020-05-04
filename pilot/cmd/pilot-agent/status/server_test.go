@@ -28,9 +28,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/test/util/retry"
 
