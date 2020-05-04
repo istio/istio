@@ -222,7 +222,7 @@ EOF
     # https://github.com/kubernetes-sigs/kind/issues/1558 tracks this upstream
     CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
     kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
-      sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g"
+      sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
   done
 
   # Export variables for the kube configs for the clusters.
