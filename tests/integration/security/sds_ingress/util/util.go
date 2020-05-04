@@ -91,8 +91,7 @@ func CreateIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames
 	ingressType ingress.CallType, ingressCred IngressCredential) {
 	t.Helper()
 	// Get namespace for ingress gateway pod.
-	istioCfg := istio.DefaultConfigOrFail(t, ctx)
-	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+	systemNS := istio.ClaimSystemNamespaceOrFail(t, ctx)
 
 	if len(credNames) == 0 {
 		ctx.Log("no credential names are specified, skip creating ingress secret")
@@ -123,8 +122,7 @@ func CreateIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames
 // nolint: interfacer
 func DeleteIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames []string) {
 	// Get namespace for ingress gateway pod.
-	istioCfg := istio.DefaultConfigOrFail(t, ctx)
-	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+	systemNS := istio.ClaimSystemNamespaceOrFail(t, ctx)
 
 	if len(credNames) == 0 {
 		ctx.Log("no credential names are specified, skip creating ingress secret")
@@ -222,8 +220,7 @@ func SendRequest(ing ingress.Instance, host string, path string, callType ingres
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, // nolint:interfacer
 	ingressType ingress.CallType, ingressCred IngressCredential) {
 	t.Helper()
-	istioCfg := istio.DefaultConfigOrFail(t, ctx)
-	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+	systemNS := istio.ClaimSystemNamespaceOrFail(t, ctx)
 	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
 	for _, cn := range credNames {
 		scrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(context.TODO(), cn, metav1.GetOptions{})

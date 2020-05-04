@@ -20,13 +20,14 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/response"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -55,9 +56,8 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
-			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
-			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			istio.ClaimSystemNamespaceOrFail(t, ctx)
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "sds-egress-gateway-workload",
 				Inject: true,

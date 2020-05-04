@@ -21,13 +21,14 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
@@ -103,12 +104,11 @@ func TestMTLSCertPluginCASecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 			testNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "mtlscert-pluginca-securenaming",
 				Inject: true,
 			})
-			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			istio.ClaimSystemNamespaceOrFail(t, ctx)
 			// Check that the CA certificate in the configmap of each namespace is as expected, which
 			// is used for data plane to control plane TLS authentication.
 			retry.UntilSuccessOrFail(t, func() error {

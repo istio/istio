@@ -16,8 +16,6 @@ package namespace
 
 import (
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment/native"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 )
@@ -40,22 +38,22 @@ type Instance interface {
 }
 
 // Claim an existing namespace in all clusters, or create a new one if doesn't exist.
-func Claim(ctx resource.Context, name string, injectSidecar bool) (i Instance, err error) {
+func Claim(ctx resource.Context, name string, injectSidecar bool, injectorNamespace string) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Native, func() {
 		i = claimNative(ctx, name)
 		err = nil
 	})
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = claimKube(ctx, name, injectSidecar)
+		i, err = claimKube(ctx, name, injectSidecar, injectorNamespace)
 	})
 	return
 }
 
 // ClaimOrFail calls Claim and fails test if it returns error
-func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
+func ClaimOrFail(t test.Failer, ctx resource.Context, name string, injectorNamespace string) Instance {
 	t.Helper()
-	i, err := Claim(ctx, name, true)
+	i, err := Claim(ctx, name, true, injectorNamespace)
 	if err != nil {
 		t.Fatalf("namespace.ClaimOrFail:: %v", err)
 	}
@@ -81,33 +79,6 @@ func NewOrFail(t test.Failer, ctx resource.Context, nsConfig Config) Instance {
 	i, err := New(ctx, nsConfig)
 	if err != nil {
 		t.Fatalf("namespace.NewOrFail: %v", err)
-	}
-	return i
-}
-
-// ClaimSystemNamespace retrieves the namespace for the Istio system components from the environment.
-func ClaimSystemNamespace(ctx resource.Context) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case environment.Kube:
-		istioCfg, err := istio.DefaultConfig(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return Claim(ctx, istioCfg.SystemNamespace, false)
-	case environment.Native:
-		ns := ctx.Environment().(*native.Environment).SystemNamespace
-		return Claim(ctx, ns, false)
-	default:
-		return nil, resource.UnsupportedEnvironment(ctx.Environment())
-	}
-}
-
-// ClaimSystemNamespaceOrFail calls ClaimSystemNamespace, failing the test if an error occurs.
-func ClaimSystemNamespaceOrFail(t test.Failer, ctx resource.Context) Instance {
-	t.Helper()
-	i, err := ClaimSystemNamespace(ctx)
-	if err != nil {
-		t.Fatal(err)
 	}
 	return i
 }

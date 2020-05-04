@@ -240,13 +240,13 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 	con = strings.Replace(con, "namespace: default",
 		"namespace: "+bookInfoNameSpaceStr, -1)
 
-	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
+	ns := istio.ClaimSystemNamespaceOrFail(t, ctx)
 	g.ApplyConfigOrFail(t, ns, con)
 	return con
 }
 
 func deleteConfigOrFail(t *testing.T, config string, g galley.Instance, ctx resource.Context) {
-	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
+	ns := istio.ClaimSystemNamespaceOrFail(t, ctx)
 	g.DeleteConfigOrFail(t, ns, config)
 }
 

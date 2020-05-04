@@ -46,7 +46,7 @@ func TestIstioAccessLog(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			_, g, ing := setupComponentsOrFail(t)
 
-			ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
+			ns := istio.ClaimSystemNamespaceOrFail(t, ctx)
 			g.ApplyConfigOrFail(
 				t,
 				ns,

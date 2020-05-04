@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/util"
 
@@ -25,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -43,9 +44,7 @@ func TestSdsVaultCaFlow(t *testing.T) {
 			// https://github.com/istio/istio/issues/17572.
 			t.Skip("skipped for Istio versions using Trustworthy JWT, https://github.com/istio/istio/issues/17572")
 
-			istioCfg := istio.DefaultConfigOrFail(t, ctx)
-
-			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			istio.ClaimSystemNamespaceOrFail(ctx, ctx)
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "sds-vault-flow",
 				Inject: true,

@@ -29,7 +29,6 @@ import (
 	"istio.io/api/label"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -122,18 +121,14 @@ func (n *kubeNamespace) Close() (err error) {
 	return
 }
 
-func claimKube(ctx resource.Context, name string, injectSidecar bool) (Instance, error) {
+func claimKube(ctx resource.Context, name string, injectSidecar bool, injectorNamespace string) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
-	cfg, err := istio.DefaultConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	for _, cluster := range env.KubeClusters {
 		if !cluster.NamespaceExists(name) {
 			nsConfig := Config{
 				Inject:   injectSidecar,
-				Revision: cfg.CustomSidecarInjectorNamespace,
+				Revision: injectorNamespace,
 			}
 			nsLabels := createNamespaceLabels(&nsConfig)
 			if err := cluster.CreateNamespaceWithLabels(name, "istio-test", nsLabels); err != nil {
