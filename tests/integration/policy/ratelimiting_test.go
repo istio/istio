@@ -16,11 +16,12 @@ package policy
 
 import (
 	"io/ioutil"
-	"math"
 	"net/http"
+
+	"math"
+	"strings"
 	"testing"
 	"time"
-	"strings"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
