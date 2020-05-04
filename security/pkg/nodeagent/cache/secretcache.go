@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -193,8 +194,8 @@ type SecretCache struct {
 	// certWatcher watches the certificates for changes and triggers a notification to proxy.
 	certWatcher filewatcher.FileWatcher
 	// unique certs being watched with file watcher.
-	fileCerts map[string]struct{}
-	certMutex *sync.Mutex
+	fileCerts map[string]map[ConnKey]struct{}
+	certMutex *sync.RWMutex
 }
 
 // NewSecretCache creates a new secret cache.
@@ -211,8 +212,8 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
 		existingKeyFile:       defaultKeyFilePath,
 		existingRootCertFile:  DefaultRootCertFilePath,
 		certWatcher:           newFileWatcher(),
-		fileCerts:             make(map[string]struct{}),
-		certMutex:             &sync.Mutex{},
+		fileCerts:             make(map[string]map[ConnKey]struct{}),
+		certMutex:             &sync.RWMutex{},
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)
@@ -328,14 +329,18 @@ func (sc *SecretCache) addFileWatcher(file string, token string, connKey ConnKey
 	// Check if this file is being already watched, if so ignore it. FileWatcher has the functionality of
 	// checking for duplicates. This check is needed here to avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
-	_, exists := sc.fileCerts[file]
+	npath := filepath.Clean(file)
+	_, exists := sc.fileCerts[npath]
 	if !exists {
-		sc.fileCerts[file] = struct{}{}
+		if _, exists := sc.fileCerts[npath]; !exists {
+			sc.fileCerts[npath] = make(map[ConnKey]struct{})
+		}
+		sc.fileCerts[npath][connKey] = struct{}{}
 	}
 	sc.certMutex.Unlock()
 	// File is not being watched, start watching now and trigger key push.
 	if !exists {
-		cacheLog.Debugf("adding watcher for file %s", file)
+		cacheLog.Infof("adding watcher for file %s", file)
 		if err := sc.certWatcher.Add(file); err != nil {
 			cacheLog.Errorf("error adding watcher for file %s, Skipping watches ", file)
 			return
@@ -347,13 +352,19 @@ func (sc *SecretCache) addFileWatcher(file string, token string, connKey ConnKey
 				case <-timerC:
 					timerC = nil
 					// TODO(ramaraochavali): Remove the watchers for unused keys and certs.
-					if _, ok := sc.secrets.Load(connKey); ok {
-						// Regenerate the Secret and trigger the callback that pushes the secrets to proxy.
-						if _, secret, err := sc.generateFileSecret(connKey, token); err != nil {
-							cacheLog.Errorf("error in generating secret after file change %s, %v", file, err)
-						} else {
-							cacheLog.Debugf("file changed %s, triggering push to proxy", file)
-							sc.callbackWithTimeout(connKey, secret)
+					sc.certMutex.RLock()
+					connKeys := sc.fileCerts[npath]
+					sc.certMutex.RUnlock()
+					// Update all connections that use this file.
+					for ckey := range connKeys {
+						if _, ok := sc.secrets.Load(ckey); ok {
+							// Regenerate the Secret and trigger the callback that pushes the secrets to proxy.
+							if _, secret, err := sc.generateFileSecret(ckey, token); err != nil {
+								cacheLog.Errorf("error in generating secret after file change %s, %v", file, err)
+							} else {
+								cacheLog.Infof("file changed %s, triggering push to proxy", file)
+								sc.callbackWithTimeout(ckey, secret)
+							}
 						}
 					}
 				case e := <-sc.certWatcher.Events(file):
