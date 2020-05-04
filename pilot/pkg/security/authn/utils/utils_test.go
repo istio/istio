@@ -33,34 +33,36 @@ import (
 )
 
 func TestBuildInboundFilterChain(t *testing.T) {
-	tlsContext := &auth.DownstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/etc/certs/cert-chain.pem",
+	tlsContext := func(alpnProtocols []string) *auth.DownstreamTlsContext {
+		return &auth.DownstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				TlsCertificates: []*auth.TlsCertificate{
+					{
+						CertificateChain: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/etc/certs/cert-chain.pem",
+							},
 						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/etc/certs/key.pem",
-						},
-					},
-				},
-			},
-			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/etc/certs/root-cert.pem",
+						PrivateKey: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/etc/certs/key.pem",
+							},
 						},
 					},
 				},
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/etc/certs/root-cert.pem",
+							},
+						},
+					},
+				},
+				AlpnProtocols: alpnProtocols,
 			},
-			AlpnProtocols: []string{"h2", "http/1.1"},
-		},
-		RequireClientCertificate: protovalue.BoolTrue,
+			RequireClientCertificate: protovalue.BoolTrue,
+		}
 	}
 
 	type args struct {
@@ -108,7 +110,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 			},
 			want: []networking.FilterChain{
 				{
-					TLSContext: tlsContext,
+					TLSContext: tlsContext([]string{"h2", "http/1.1"}),
 				},
 			},
 		},
@@ -124,34 +126,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			want: []networking.FilterChain{
 				{
-					TLSContext: &auth.DownstreamTlsContext{
-						CommonTlsContext: &auth.CommonTlsContext{
-							TlsCertificates: []*auth.TlsCertificate{
-								{
-									CertificateChain: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/etc/certs/cert-chain.pem",
-										},
-									},
-									PrivateKey: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/etc/certs/key.pem",
-										},
-									},
-								},
-							},
-							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-								ValidationContext: &auth.CertificateValidationContext{
-									TrustedCa: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/etc/certs/root-cert.pem",
-										},
-									},
-								},
-							},
-							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
-						},
-						RequireClientCertificate: protovalue.BoolTrue},
+					TLSContext: tlsContext([]string{"istio-peer-exchange", "h2", "http/1.1"}),
 					FilterChainMatch: &listener.FilterChainMatch{
 						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
 					},
@@ -245,7 +220,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 			},
 			want: []networking.FilterChain{
 				{
-					TLSContext: tlsContext,
+					TLSContext: tlsContext([]string{"h2", "http/1.1"}),
 				},
 			},
 		},
