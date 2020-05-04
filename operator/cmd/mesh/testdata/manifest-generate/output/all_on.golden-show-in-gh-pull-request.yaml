@@ -8870,10 +8870,10 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
-      {{ if gt .ProxyConfig.Concurrency 0 -}}
+      {{- if gt .ProxyConfig.Concurrency 0 }}
         - --concurrency
         - "{{ .ProxyConfig.Concurrency }}"
-      {{ end -}}
+      {{- end -}}
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
