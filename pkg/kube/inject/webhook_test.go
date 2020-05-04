@@ -16,7 +16,6 @@ package inject
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -31,7 +30,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -50,7 +48,6 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 const yamlSeparator = "\n---"
@@ -1209,9 +1206,6 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	var (
 		configFile     = filepath.Join(dir, "config-file.yaml")
 		valuesFile     = filepath.Join(dir, "values-file.yaml")
-		meshFile       = filepath.Join(dir, "mesh-file.yaml")
-		certFile       = filepath.Join(dir, "cert-file.yaml")
-		keyFile        = filepath.Join(dir, "key-file.yaml")
 		port           = 0
 		monitoringPort = 0
 	)
@@ -1236,28 +1230,9 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		cleanup()
 		t.Fatalf("yaml.Marshal(mesh) failed: %v", err)
 	}
-	if err := ioutil.WriteFile(meshFile, meshBytes.Bytes(), 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", meshFile, err)
-	}
-
-	// cert
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
-	}
-	// key
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
-	}
-
 	wh, err := NewWebhook(WebhookParameters{
 		ConfigFile:     configFile,
 		ValuesFile:     valuesFile,
-		MeshFile:       meshFile,
-		CertFile:       certFile,
-		KeyFile:        keyFile,
 		Port:           port,
 		MonitoringPort: monitoringPort,
 	})
@@ -1457,41 +1432,6 @@ func TestRunAndServe(t *testing.T) {
 	}
 	// Now Validate that metrics are created.
 	testSideCarInjectorMetrics(t, wh)
-}
-
-func TestReloadCert(t *testing.T) {
-	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
-	defer cleanup()
-	stop := make(chan struct{})
-	defer func() { close(stop) }()
-	go wh.Run(stop)
-	checkCert(t, wh, testcerts.ServerCert, testcerts.ServerKey)
-	// Update cert/key files.
-	if err := ioutil.WriteFile(wh.certFile, rotatedCert, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", wh.certFile, err)
-	}
-	if err := ioutil.WriteFile(wh.keyFile, rotatedKey, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
-	}
-	g := gomega.NewGomegaWithT(t)
-	g.Eventually(func() bool {
-		return checkCert(t, wh, rotatedCert, rotatedKey)
-	}, "10s", "100ms").Should(gomega.BeTrue())
-}
-
-func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
-	t.Helper()
-	actual, err := wh.getCert(nil)
-	if err != nil {
-		t.Fatalf("fail to get certificate from webhook: %s", err)
-	}
-	expected, err := tls.X509KeyPair(cert, key)
-	if err != nil {
-		t.Fatalf("fail to load test certs.")
-	}
-	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }
 
 func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
