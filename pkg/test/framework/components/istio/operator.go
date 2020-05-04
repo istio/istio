@@ -156,7 +156,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	if env.IsMulticluster() {
 		// Only setup namespaces ourselves in multicluster, other tests rely on the default namespace config
-		if err := setupNamespaces(i); err != nil {
+		if err := setupNamespaces(ctx, &cfg); err != nil {
 			return nil, err
 		}
 
@@ -200,17 +200,17 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func setupNamespaces(c *operatorComponent) error {
+func setupNamespaces(ctx resource.Context, cfg *Config) error {
 	// gather references to configured names, grouped by configured value
 	namespaces := map[string][]*string{}
 	prefixes := []*string{
-		&c.settings.SystemNamespace,
-		&c.settings.IstioNamespace,
-		&c.settings.ConfigNamespace,
-		&c.settings.TelemetryNamespace,
-		&c.settings.PolicyNamespace,
-		&c.settings.IngressNamespace,
-		&c.settings.EgressNamespace,
+		&cfg.SystemNamespace,
+		&cfg.IstioNamespace,
+		&cfg.ConfigNamespace,
+		&cfg.TelemetryNamespace,
+		&cfg.PolicyNamespace,
+		&cfg.IngressNamespace,
+		&cfg.EgressNamespace,
 	}
 	for _, p := range prefixes {
 		prefix := *p
@@ -221,7 +221,7 @@ func setupNamespaces(c *operatorComponent) error {
 		namespaces[prefix] = append(namespaces[prefix], p)
 	}
 	for prefix, refs := range namespaces {
-		ns, err := namespace.New(c.ctx, namespace.Config{Prefix: prefix})
+		ns, err := namespace.New(ctx, namespace.Config{Prefix: prefix})
 		if err != nil {
 			return err
 		}
@@ -255,6 +255,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		"-f", defaultsIOPFile,
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
+		"--set", "values.global.istioNamespace=" + cfg.SystemNamespace,
 		"--charts", filepath.Join(env.IstioSrc, "manifests"),
 	}
 	// Include all user-specified values.
