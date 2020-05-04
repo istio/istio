@@ -19,13 +19,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"time"
+
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/util/retry"
 
