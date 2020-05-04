@@ -15,7 +15,6 @@
 package istio
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,8 +24,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"time"
-
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/util/retry"
 
@@ -91,22 +88,14 @@ func (i *operatorComponent) Close() (err error) {
 			if e := cluster.DeleteContents("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
 				err = multierror.Append(err, e)
 			}
-			if e := i.cleanupSecrets(cluster); e != nil {
-				err = multierror.Append(err, e)
+			if i.environment.IsMulticluster() {
+				if e := cluster.DeleteNamespace(i.settings.SystemNamespace); e != nil {
+					err = multierror.Append(err, e)
+				}
+				if e := cluster.WaitForNamespaceDeletion(i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
+					err = multierror.Append(err, e)
+				}
 			}
-		}
-	}
-	return
-}
-
-func (i *operatorComponent) cleanupSecrets(cluster kube.Cluster) (err error) {
-	secrets, err := cluster.GetSecret(i.settings.SystemNamespace).List(context.TODO(), kubeApiMeta.ListOptions{})
-	if err != nil {
-		return err
-	}
-	for _, s := range secrets.Items {
-		if e := cluster.DeleteSecret(s.Namespace, s.Name); e != nil {
-			err = multierror.Append(err, e)
 		}
 	}
 	return
