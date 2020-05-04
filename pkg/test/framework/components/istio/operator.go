@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"istio.io/istio/pkg/test/framework/components/namespace"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/cert/ca"
@@ -152,8 +154,13 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return nil, err
 	}
 
-	// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
 	if env.IsMulticluster() {
+		// Only setup namespaces ourselves in multicluster, other tests rely on the default namespace config
+		if err := setupNamespaces(i); err != nil {
+			return nil, err
+		}
+
+		// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
 		if err := deployCACerts(workDir, env, cfg); err != nil {
 			return nil, err
 		}
@@ -191,6 +198,39 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	return i, nil
+}
+
+func setupNamespaces(c *operatorComponent) error {
+	// gather references to configured names, grouped by configured value
+	namespaces := map[string][]*string{}
+	prefixes := []*string{
+		&c.settings.SystemNamespace,
+		&c.settings.IstioNamespace,
+		&c.settings.ConfigNamespace,
+		&c.settings.TelemetryNamespace,
+		&c.settings.PolicyNamespace,
+		&c.settings.IngressNamespace,
+		&c.settings.EgressNamespace,
+	}
+	for _, p := range prefixes {
+		prefix := *p
+		if prefix != DefaultSystemNamespace {
+			// don't generate namespaces if overridden in flags
+			continue
+		}
+		namespaces[prefix] = append(namespaces[prefix], p)
+	}
+	for prefix, refs := range namespaces {
+		ns, err := namespace.New(c.ctx, namespace.Config{Prefix: prefix})
+		if err != nil {
+			return err
+		}
+		// update settings with generated names
+		for _, ref := range refs {
+			*ref = ns.Name()
+		}
+	}
+	return nil
 }
 
 func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string) error {
@@ -339,12 +379,6 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		secret, err := clusterCA.NewIstioCASecret()
 		if err != nil {
 			return fmt.Errorf("failed creating intermediate CA secret for cluster %s: %v", cluster.Name(), err)
-		}
-
-		// Create the system namespace.
-		if err := cluster.CreateNamespace(cfg.SystemNamespace, ""); err != nil {
-			scopes.CI.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+
-				"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
 		}
 
 		// Create the secret for the cacerts.
