@@ -293,3 +293,79 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 	}
 	return val
 }
+
+func TestProxyStatus(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "istioctl-ps",
+				Inject: true,
+			})
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			podID, err := getPodID(a)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			// Ignore --namespace=dummy, we use fully qualified <pod>.<ns>
+			args = []string{"proxy-status"}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			// Just verify pod A is known to Pilot; implicitly this verifies that
+			// the printing code printed it.
+			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, ns.Name())))
+
+			args = []string{"--namespace=dummy",
+				"proxy-status", fmt.Sprintf("%s.%s", podID, ns.Name())}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
+			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
+			g.Expect(output).To(gomega.ContainSubstring("Routes Match"))
+		})
+}
+
+func TestAuthZCheck(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "istioctl-authz",
+				Inject: true,
+			})
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			podID, err := getPodID(a)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			// Ignore --namespace=dummy, we use fully qualified <pod>.<ns>
+			args = []string{"experimental", "authz", "check",
+				fmt.Sprintf("%s.%s", podID, ns.Name())}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			// Just verify pod A is known to Pilot; implicitly this verifies that
+			// the printing code printed it.
+			g.Expect(output).To(gomega.ContainSubstring("0.0.0.0_80"))
+		})
+}
