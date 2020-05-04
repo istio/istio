@@ -641,7 +641,7 @@ func runManifestGenerate(filenames []string, flags string, chartSource chartSour
 	}
 	switch chartSource {
 	case snapshotCharts:
-		args += " --set installPackagePath=" + filepath.Join(testDataDir, "data-snapshot")
+		args += " --set installPackagePath=" + snapshotInstallPackageDir
 	case liveCharts:
 		args += " --set installPackagePath=" + liveInstallPackageDir
 	case compiledInCharts:
