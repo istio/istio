@@ -216,8 +216,13 @@ EOF
     # Install MetalLB for LoadBalancer support
     install_metallb "$CLUSTER_KUBECONFIG"
 
-    # Replace with --internal which allows cross-cluster api server access
-    kind get kubeconfig --name "${CLUSTER_NAME}" --internal > "${CLUSTER_KUBECONFIG}"
+    # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
+    # its much simpler if we have a single kubeconfig that can be used internally and externally.
+    # To do this, we can replace the server with the IP address of the docker container
+    # https://github.com/kubernetes-sigs/kind/issues/1558 tracks this upstream
+    CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
+    kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
+      sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g"
   done
 
   # Export variables for the kube configs for the clusters.
