@@ -330,54 +330,54 @@ func (sc *SecretCache) addFileWatcher(file string, token string, connKey ConnKey
 	// checking for duplicates. This check is needed here to avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
 	npath := filepath.Clean(file)
-	_, exists := sc.fileCerts[npath]
-	if !exists {
-		if _, exists := sc.fileCerts[npath]; !exists {
-			sc.fileCerts[npath] = make(map[ConnKey]struct{})
-		}
-		sc.fileCerts[npath][connKey] = struct{}{}
+	watching := false
+	if _, watching = sc.fileCerts[npath]; !watching {
+		sc.fileCerts[npath] = make(map[ConnKey]struct{})
 	}
+	// Add connKey to the path - so that whenever it changes, connection is also pushed.
+	sc.fileCerts[npath][connKey] = struct{}{}
 	sc.certMutex.Unlock()
+	if watching {
+		return
+	}
 	// File is not being watched, start watching now and trigger key push.
-	if !exists {
-		cacheLog.Infof("adding watcher for file %s", file)
-		if err := sc.certWatcher.Add(file); err != nil {
-			cacheLog.Errorf("error adding watcher for file %s, Skipping watches ", file)
-			return
-		}
-		go func() {
-			var timerC <-chan time.Time
-			for {
-				select {
-				case <-timerC:
-					timerC = nil
-					// TODO(ramaraochavali): Remove the watchers for unused keys and certs.
-					sc.certMutex.RLock()
-					connKeys := sc.fileCerts[npath]
-					sc.certMutex.RUnlock()
-					// Update all connections that use this file.
-					for ckey := range connKeys {
-						if _, ok := sc.secrets.Load(ckey); ok {
-							// Regenerate the Secret and trigger the callback that pushes the secrets to proxy.
-							if _, secret, err := sc.generateFileSecret(ckey, token); err != nil {
-								cacheLog.Errorf("error in generating secret after file change %s, %v", file, err)
-							} else {
-								cacheLog.Infof("file changed %s, triggering push to proxy", file)
-								sc.callbackWithTimeout(ckey, secret)
-							}
-						}
-					}
-				case e := <-sc.certWatcher.Events(file):
-					if len(e.Op.String()) > 0 { // To avoid spurious events, mainly coming from tests.
-						// Use a timer to debounce watch updates
-						if timerC == nil {
-							timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+	cacheLog.Infof("adding watcher for file %s", file)
+	if err := sc.certWatcher.Add(file); err != nil {
+		cacheLog.Errorf("error adding watcher for file %s, Skipping watches ", file)
+		return
+	}
+	go func() {
+		var timerC <-chan time.Time
+		for {
+			select {
+			case <-timerC:
+				timerC = nil
+				// TODO(ramaraochavali): Remove the watchers for unused keys and certs.
+				sc.certMutex.RLock()
+				connKeys := sc.fileCerts[npath]
+				sc.certMutex.RUnlock()
+				// Update all connections that use this file.
+				for ckey := range connKeys {
+					if _, ok := sc.secrets.Load(ckey); ok {
+						// Regenerate the Secret and trigger the callback that pushes the secrets to proxy.
+						if _, secret, err := sc.generateFileSecret(ckey, token); err != nil {
+							cacheLog.Errorf("error in generating secret after file change %s, %v, %v", file, err, ckey)
+						} else {
+							cacheLog.Infof("file changed %s, triggering push to proxy %v", file, ckey)
+							sc.callbackWithTimeout(ckey, secret)
 						}
 					}
 				}
+			case e := <-sc.certWatcher.Events(file):
+				if len(e.Op.String()) > 0 { // To avoid spurious events, mainly coming from tests.
+					// Use a timer to debounce watch updates
+					if timerC == nil {
+						timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+					}
+				}
 			}
-		}()
-	}
+		}
+	}()
 }
 
 // SecretExist checks if secret already existed.
