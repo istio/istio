@@ -124,6 +124,8 @@ type Options struct {
 
 	// ClusterID is the cluster ID
 	ClusterID string
+
+	ECCKeys bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
