@@ -63,6 +63,7 @@ var (
 		ConfigNamespace:                DefaultSystemNamespace,
 		TelemetryNamespace:             DefaultSystemNamespace,
 		PolicyNamespace:                DefaultSystemNamespace,
+		PrometheusNamespace:            DefaultSystemNamespace,
 		IngressNamespace:               DefaultSystemNamespace,
 		EgressNamespace:                DefaultSystemNamespace,
 		DeployIstio:                    true,
@@ -89,6 +90,9 @@ type Config struct {
 
 	// The namespace in which istio policy checker is deployed.
 	PolicyNamespace string
+
+	// The namespace in which prometheus checker is deployed.
+	PrometheusNamespace string
 
 	// The namespace in which istio ingressgateway is deployed
 	IngressNamespace string

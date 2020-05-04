@@ -209,6 +209,7 @@ func setupNamespaces(ctx resource.Context, cfg *Config) error {
 		&cfg.ConfigNamespace,
 		&cfg.TelemetryNamespace,
 		&cfg.PolicyNamespace,
+		&cfg.PrometheusNamespace,
 		&cfg.IngressNamespace,
 		&cfg.EgressNamespace,
 	}
@@ -256,6 +257,10 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 		"--set", "values.global.istioNamespace=" + cfg.SystemNamespace,
+		"--set", "telemetryNamespace=", cfg.TelemetryNamespace,
+		"--set", "prometheusNamespace=", cfg.PrometheusNamespace,
+		"--set", "policyNamespace=", cfg.PolicyNamespace,
+		"--set", "configRootNamespace=", cfg.ConfigNamespace,
 		"--charts", filepath.Join(env.IstioSrc, "manifests"),
 	}
 	// Include all user-specified values.
