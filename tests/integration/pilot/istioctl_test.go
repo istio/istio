@@ -315,14 +315,13 @@ func TestProxyStatus(t *testing.T) {
 			var args []string
 			g := gomega.NewGomegaWithT(t)
 
-			// Ignore --namespace=dummy, we use fully qualified <pod>.<ns>
 			args = []string{"proxy-status"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			// Just verify pod A is known to Pilot; implicitly this verifies that
 			// the printing code printed it.
 			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, ns.Name())))
 
-			args = []string{"--namespace=dummy",
+			args = []string{
 				"proxy-status", fmt.Sprintf("%s.%s", podID, ns.Name())}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
@@ -340,6 +339,9 @@ func TestAuthZCheck(t *testing.T) {
 				Inject: true,
 			})
 
+			authPol := file.AsStringOrFail(t, "../istioctl/testdata/authz-a.yaml")
+			g.ApplyConfigOrFail(t, ns, authPol)
+
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, echoConfig(ns, "a")).
@@ -356,12 +358,11 @@ func TestAuthZCheck(t *testing.T) {
 			var args []string
 			g := gomega.NewGomegaWithT(t)
 
-			// Ignore --namespace=dummy, we use fully qualified <pod>.<ns>
 			args = []string{"experimental", "authz", "check",
 				fmt.Sprintf("%s.%s", podID, ns.Name())}
 			output, _ = istioCtl.InvokeOrFail(t, args)
-			// Just verify pod A is known to Pilot; implicitly this verifies that
-			// the printing code printed it.
-			g.Expect(output).To(gomega.ContainSubstring("0.0.0.0_80"))
+			// Verify the output includes a policy "integ-test", which is the policy
+			// loaded above from authz-a.yaml
+			g.Expect(output).To(gomega.MatchRegexp("noneSDS: default.*\\[integ-test\\]"))
 		})
 }
