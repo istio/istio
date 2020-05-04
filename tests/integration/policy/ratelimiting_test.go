@@ -18,9 +18,8 @@ import (
 	"io/ioutil"
 	"math"
 	"net/http"
-
 	"testing"
-
+	"time"
 	"strings"
 
 	"istio.io/istio/pkg/test/framework"
@@ -33,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	util "istio.io/istio/tests/integration/mixer"
-	"time"
 )
 
 var (
@@ -51,7 +49,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			util.AllowRuleSync(t)
 
-			err := setupEnvoyFilterOrFail(t, ratelimitNs, ctx)
+			err := setupEnvoyFilter(ratelimitNs, ctx)
 			if err != nil {
 				return
 			}
@@ -168,7 +166,7 @@ func testsetup(ctx resource.Context) (err error) {
 	return nil
 }
 
-func setupEnvoyFilterOrFail(t *testing.T, ratelimitNs namespace.Instance, ctx resource.Context) error {
+func setupEnvoyFilter(ratelimitNs namespace.Instance, ctx resource.Context) error {
 	content, err := ioutil.ReadFile("testdata/enable_envoy_ratelimit.yaml")
 	if err != nil {
 		return err
