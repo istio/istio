@@ -148,12 +148,12 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 
 // ProxyGet returns a response of the pod by calling it through the proxy.
 // Not a part of client-go https://github.com/kubernetes/kubernetes/issues/90768
-func (client *Client) proxyGet(name, namespace, path string) restclient.ResponseWrapper {
+func (client *Client) proxyGet(name, namespace, path string, port int) restclient.ResponseWrapper {
 	request := client.RESTClient.Get().
 		Namespace(namespace).
 		Resource("pods").
 		SubResource("proxy").
-		Name(name).
+		Name(fmt.Sprintf("%s:%d", name, port)).
 		Suffix(path)
 	return request
 }
@@ -172,7 +172,7 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[str
 	}
 	result := map[string][]byte{}
 	for _, pilot := range pilots {
-		res, err := client.proxyGet(pilot.Name, pilot.Namespace, path).DoRaw(context.Background())
+		res, err := client.proxyGet(pilot.Name, pilot.Namespace, path, 8080).DoRaw(context.Background())
 		if err != nil {
 			return nil, err
 		}
