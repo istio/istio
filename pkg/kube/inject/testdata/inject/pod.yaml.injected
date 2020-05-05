@@ -166,6 +166,8 @@ spec:
       runAsGroup: 0
       runAsNonRoot: false
       runAsUser: 0
+  securityContext:
+    fsGroup: 1337
   volumes:
   - emptyDir:
       medium: Memory

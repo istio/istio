@@ -178,6 +178,7 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	meshConfig := mesh.DefaultMeshConfig()
 	meshConfig.MixerCheckServer = "istio-policy.istio-system.svc.cluster.local:15004"
 	meshConfig.MixerReportServer = "istio-telemetry.istio-system.svc.cluster.local:15004"
+	meshConfig.DisableMixerHttpReports = false
 
 	g := galley.NewOrFail(t, ctx, galley.Config{MeshConfig: MeshConfig})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g, MeshConfig: &meshConfig})
@@ -225,7 +226,6 @@ func createConfig(t *testing.T, g galley.Instance, config Config, yaml string, n
 }
 
 func TestMain(m *testing.M) {
-	mesh.TestMode = true
 	framework.
 		NewSuite("envoyfilter_test", m).
 		RequireEnvironment(environment.Native).

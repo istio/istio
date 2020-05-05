@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -327,7 +326,6 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
-	mesh.TestMode = true
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer func() {
 		if testEnv != nil {
@@ -365,7 +363,7 @@ func envoyInit(t *testing.T) {
 	for _, port := range testPorts(0) {
 		stat := fmt.Sprintf("cluster.outbound|%d||service3.default.svc.cluster.local.update_success", port.Port)
 		if statsMap[stat] < 1 {
-			t.Error("Failed sds updates")
+			t.Error("Failed cds updates")
 		}
 	}
 
