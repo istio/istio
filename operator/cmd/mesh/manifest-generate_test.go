@@ -377,6 +377,23 @@ func TestManifestGenerateOrdered(t *testing.T) {
 		t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
 	}
 }
+func TestManifestGenerateFlagAliases(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
+	gotSet, err := runManifestGenerate([]string{inPath}, "--set revision=foo", snapshotCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --charts="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if gotAlias != gotSet {
+		t.Errorf("Flag aliases not producing same output: with --set: \n\n%s\n\nWith alias:\n\n%s\nDiff:\n\n%s\n",
+			gotSet, gotAlias, util.YAMLDiff(gotSet, gotAlias))
+	}
+}
 
 func TestMultiICPSFiles(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
