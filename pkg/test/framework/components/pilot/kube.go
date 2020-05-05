@@ -19,10 +19,11 @@ import (
 	"io"
 	"net"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 )
@@ -43,12 +44,10 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	c.id = ctx.TrackResource(c)
 
-	// TODO: This should be obtained from an Istio deployment.
-	icfg, err := istio.DefaultConfig(ctx)
+	ns, err := getIstioNamespace(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	ns := icfg.ConfigNamespace
 
 	fetchFn := c.cluster.NewSinglePodFetch(ns, "istio=pilot")
 	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
@@ -89,6 +88,17 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	return c, nil
+}
+
+func getIstioNamespace(ctx resource.Context, cfg Config) (string, error) {
+	if cfg.Istio != nil {
+		iCfg, err := istio.DefaultConfig(ctx)
+		if err != nil {
+			return "", err
+		}
+		return iCfg.ConfigNamespace, nil
+	}
+	return cfg.Istio.Settings().ConfigNamespace, nil
 }
 
 type kubeComponent struct {

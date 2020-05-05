@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -59,6 +60,9 @@ type Config struct {
 	fmt.Stringer
 	// If set then pilot takes a dependency on the referenced Galley instance
 	Galley galley.Instance
+
+	// If set then pilot uses the referenced Istio instance for configuration
+	Istio istio.Instance
 
 	// The MeshConfig to be used for Pilot in native environment. In Kube environment this can be
 	// configured with Helm.

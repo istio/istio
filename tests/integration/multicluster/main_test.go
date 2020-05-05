@@ -74,6 +74,7 @@ values:
 			pilots = make([]pilot.Instance, len(ctx.Environment().Clusters()))
 			for i, cluster := range ctx.Environment().Clusters() {
 				if pilots[i], err = pilot.New(ctx, pilot.Config{
+					Istio:   ist,
 					Cluster: cluster,
 				}); err != nil {
 					return err

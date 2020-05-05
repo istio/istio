@@ -344,7 +344,7 @@ func createRemoteSecret(ctx resource.Context, cluster kube.Cluster, ns string) (
 		"--namespace=" + ns,
 	}
 
-	scopes.CI.Infof("Creating remote secret for cluster cluster %d %v", cluster.Index(), cmd)
+	scopes.CI.Infof("Creating remote secret for cluster %d %v", cluster.Index(), cmd)
 	out, _, err := istioCtl.Invoke(cmd)
 	if err != nil {
 		return "", fmt.Errorf("create remote secret failed for cluster %d: %v", cluster.Index(), err)
