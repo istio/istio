@@ -69,7 +69,7 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 			if err != nil {
 				return err
 			}
-			if ins != nil {
+			if i != nil {
 				*i = ins
 			}
 		}

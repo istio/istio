@@ -91,7 +91,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 }
 
 func getIstioNamespace(ctx resource.Context, cfg Config) (string, error) {
-	if cfg.Istio != nil {
+	if cfg.Istio == nil {
 		iCfg, err := istio.DefaultConfig(ctx)
 		if err != nil {
 			return "", err
