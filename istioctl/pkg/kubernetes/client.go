@@ -45,10 +45,8 @@ import (
 )
 
 var (
-	proxyContainer     = "istio-proxy"
-	discoveryContainer = "discovery"
-	pilotDiscoveryPath = "/usr/local/bin/pilot-discovery"
-	pilotAgentPath     = "/usr/local/bin/pilot-agent"
+	proxyContainer = "istio-proxy"
+	pilotAgentPath = "/usr/local/bin/pilot-agent"
 )
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
@@ -61,9 +59,8 @@ type Client struct {
 // ExecClient is an interface for remote execution
 type ExecClient interface {
 	EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error)
-	AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error)
+	AllPilotsDiscoveryDo(pilotNamespace, path string) (map[string][]byte, error)
 	GetIstioVersions(namespace string) (*version.MeshInfo, error)
-	PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error)
 	PodsForSelector(namespace, labelSelector string) (*v1.PodList, error)
 	BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*PortForward, error)
 }
@@ -146,8 +143,20 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 	return &stdout, &stderr, err
 }
 
+// ProxyGet returns a response of the pod by calling it through the proxy.
+// Not a part of client-go https://github.com/kubernetes/kubernetes/issues/90768
+func (client *Client) proxyGet(name, namespace, path string, port int) rest.ResponseWrapper {
+	request := client.RESTClient.Get().
+		Namespace(namespace).
+		Resource("pods").
+		SubResource("proxy").
+		Name(fmt.Sprintf("%s:%d", name, port)).
+		Suffix(path)
+	return request
+}
+
 // AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
-func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
+func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[string][]byte, error) {
 	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
 		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
@@ -158,10 +167,9 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 	if len(pilots) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
-	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
 	result := map[string][]byte{}
 	for _, pilot := range pilots {
-		res, err := client.ExtractExecResult(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
+		res, err := client.proxyGet(pilot.Name, pilot.Namespace, path, 8080).DoRaw(context.Background())
 		if err != nil {
 			return nil, err
 		}
@@ -170,22 +178,6 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 		}
 	}
 	return result, err
-}
-
-// PilotDiscoveryDo makes an http request to a single Pilot discovery instance
-func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
-	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
-		"labelSelector": "app=istiod",
-		"fieldSelector": "status.phase=Running",
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(pilots) == 0 {
-		return nil, errors.New("unable to find any Pilot instances")
-	}
-	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
-	return client.ExtractExecResult(pilots[0].Name, pilots[0].Namespace, discoveryContainer, cmd)
 }
 
 // EnvoyDo makes an http request to the Envoy in the specified pod
