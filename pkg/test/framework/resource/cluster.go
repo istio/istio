@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
 // ClusterIndex is the index of a cluster within the Environment
@@ -26,28 +25,28 @@ type ClusterIndex int
 
 type ConfigManager interface {
 	// ApplyConfig applies the given config yaml text via Galley.
-	ApplyConfig(ns namespace.Instance, yamlText ...string) error
+	ApplyConfig(ns string, yamlText ...string) error
 
 	// ApplyConfigOrFail applies the given config yaml text via Galley.
-	ApplyConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string)
+	ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string)
 
 	// DeleteConfig deletes the given config yaml text via Galley.
-	DeleteConfig(ns namespace.Instance, yamlText ...string) error
+	DeleteConfig(ns string, yamlText ...string) error
 
 	// DeleteConfigOrFail deletes the given config yaml text via Galley.
-	DeleteConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string)
+	DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string)
 
 	// ApplyConfigDir recursively applies all the config files in the specified directory
-	ApplyConfigDir(ns namespace.Instance, configDir string) error
+	ApplyConfigDir(ns string, configDir string) error
 
 	// DeleteConfigDir recursively deletes all the config files in the specified directory
-	DeleteConfigDir(ns namespace.Instance, configDir string) error
-
+	DeleteConfigDir(ns string, configDir string) error
 }
 
 // Cluster in a multicluster environment.
 type Cluster interface {
 	fmt.Stringer
+	ConfigManager
 
 	// Index of this Cluster within the Environment
 	Index() ClusterIndex
