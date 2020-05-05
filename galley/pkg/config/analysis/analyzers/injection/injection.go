@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -118,19 +117,4 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 		return true
 	})
-}
-
-func isControlPlane(pod *v1.Pod) bool {
-	if pod.GetNamespace() != constants.IstioSystemNamespace {
-		return false
-	}
-
-	// Control plane typically has labels like this:
-	// app: istiod
-	// istio: pilot
-	// istio.io/rev: canary
-	// For the namespace analyzer we consider any istio-system pod with `app: istiod`
-	// as being a control plane.
-	app := pod.GetLabels()["app"]
-	return app == "istiod"
 }
