@@ -822,7 +822,7 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 	return nil
 }
 
-// initCertificateWatches sets up certificate watches for the certs.
+// initCertificateWatches sets up  watches for the certs.
 func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 	// load the cert/key and setup a persistent watch for updates.
 	cert, err := s.getCertKeyPair(tlsOptions)
@@ -848,7 +848,9 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 					// Reload the certificates from the paths.
 					cert, err := s.getCertKeyPair(tlsOptions)
 					if err != nil {
-						return // error logged and metric reported by server.ReloadCertKey
+						log.Errorf("error in reloading certs, %v", err)
+						// TODO: Add metrics?
+						return
 					}
 
 					s.certMu.Lock()

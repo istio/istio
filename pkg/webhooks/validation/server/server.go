@@ -75,6 +75,7 @@ type Options struct {
 
 	// Port where the webhook is served. the number should be greater than 1024 for non-root
 	// user, because non-root user cannot bind port number less than 1024
+	// Mainly used for testing. Webhook server is started by Istiod.
 	Port uint
 
 	// Use an existing mux instead of creating our own.

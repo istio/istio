@@ -118,6 +118,7 @@ type WebhookParameters struct {
 	ValuesFile string
 
 	// Port is the webhook port, e.g. typically 443 for https.
+	// This is mainly used for tests. Webhook runs on the port started by Istiod.
 	Port int
 
 	// MonitoringPort is the webhook port, e.g. typically 15014.
