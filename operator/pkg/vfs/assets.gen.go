@@ -35,7 +35,6 @@ import (
 	"strings"
 	"time"
 )
-
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -294,6 +293,13 @@ spec:
   hub: gcr.io/istio-testing
   tag: latest
 
+  # You may override parts of meshconfig by uncommenting the following lines.
+  meshConfig:
+    enablePrometheusMerge: false
+    # Opt-out of global http2 upgrades.
+    # Destination rule is used to opt-in.
+    # h2_upgrade_policy: DO_NOT_UPGRADE
+
   # Traffic management feature
   components:
     base:
@@ -407,8 +413,8 @@ spec:
             value: "sni-dnat"
         service:
           ports:
-            - port: 15020
-              targetPort: 15020
+            - port: 15021
+              targetPort: 15021
               name: status-port
             - port: 80
               targetPort: 8080
@@ -507,12 +513,6 @@ spec:
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/charts/global.yaml
   values:
-    # You may override parts of meshconfig by uncommenting the following lines.
-    meshConfig:
-      enablePrometheusMerge: false
-      # Opt-out of global http2 upgrades.
-      # Destination rule is used to opt-in.
-      # h2_upgrade_policy: DO_NOT_UPGRADE
     global:
       istioNamespace: istio-system
       istiod:
@@ -565,8 +565,6 @@ spec:
       imagePullPolicy: ""
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
-      policyCheckFailOpen: false
-      enableTracing: true
       tracer:
         lightstep:
           address: ""                # example: lightstep-satellite:443
@@ -580,8 +578,6 @@ spec:
           maxNumberOfAttributes: 200
           maxNumberOfAnnotations: 200
           maxNumberOfMessageEvents: 200
-      mtls:
-        auto: true
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -606,18 +602,16 @@ spec:
       priorityClassName: ""
       useMCP: false
       trustDomain: "cluster.local"
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
       sds:
         token:
           aud: istio-ca
       sts:
         servicePort: 0
       meshNetworks: {}
-      localityLbSetting:
-        enabled: true
       enableHelmTest: false
       mountMtlsCerts: false
+    base:
+      enableCRDTemplates: false
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -2502,7 +2496,7 @@ var _bindata = map[string]func() (*asset, error){
 	"translateConfig/translateConfig-1.5.yaml":                      translateconfigTranslateconfig15Yaml,
 	"translateConfig/translateConfig-1.6.yaml":                      translateconfigTranslateconfig16Yaml,
 	"translateConfig/translateConfig-1.7.yaml":                      translateconfigTranslateconfig17Yaml,
-	"versions.yaml": versionsYaml,
+	"versions.yaml":                                                 versionsYaml,
 }
 
 // AssetDir returns the file names below a certain
