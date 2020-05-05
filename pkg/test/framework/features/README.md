@@ -17,7 +17,7 @@ will generate constants like
     )
 
 The heirarchical nature of feature labels allows us to aggregate data about related feature sets.  To provide for consistent reporting and aggregation, we have defined the top two layers of heirarchy, and ask that you place your feature under these headings.  For more detail on the purpose of each heading, see Top-Level Feature Headings below.  If you feel that none of the existing headings fit your feature, please check with the Test and Release Working Group before adding a new heading.
-# Writing a Test Wtub
+# Writing a Test Stub
 Test stubs are a valuable way to indicate that a feature should be tested, but isn't yet.  When writing a design doc, a set of test stubs can represent your Test Plan.  You can also use stubs to document features whose lack of testing needs to be visible in our feature coverage dashboard.
 
 To write a stub, simply create a test object and call NotImplementedYet, passing the label of any features this test should cover.  This test gap will now appear in our feature coverage dashboards, which give release managers a better understanding of what is and isn't tested in a given release.  If you are implementing a test stub with no immediate plans to implement the test, it's a best practice to create a tracking issue as well.
@@ -43,3 +43,5 @@ Control contains features relating to controling their service mesh and services
 ### Mirroring
 ## Operations
 Operations contains features related to operating Istio itself, rather than the service mesh or individual services.
+### Observability
+### Security
