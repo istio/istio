@@ -101,6 +101,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// IstioMeshV1Alpha1MeshNetworks describes the collection
+	// istio/mesh/v1alpha1/MeshNetworks
+	IstioMeshV1Alpha1MeshNetworks = collection.Builder{
+		Name:         "istio/mesh/v1alpha1/MeshNetworks",
+		VariableName: "IstioMeshV1Alpha1MeshNetworks",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "",
+			Kind:          "MeshNetworks",
+			Plural:        "meshnetworks",
+			Version:       "v1alpha1",
+			Proto:         "istio.mesh.v1alpha1.MeshNetworks",
+			ProtoPackage:  "istio.io/api/mesh/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// IstioMixerV1ConfigClientQuotaspecbindings describes the collection
 	// istio/mixer/v1/config/client/quotaspecbindings
 	IstioMixerV1ConfigClientQuotaspecbindings = collection.Builder{
@@ -1162,6 +1180,7 @@ var (
 		MustAdd(IstioConfigV1Alpha2Httpapispecs).
 		MustAdd(IstioConfigV1Alpha2Templates).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
+		MustAdd(IstioMeshV1Alpha1MeshNetworks).
 		MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
 		MustAdd(IstioMixerV1ConfigClientQuotaspecs).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
@@ -1230,6 +1249,7 @@ var (
 		MustAdd(IstioConfigV1Alpha2Httpapispecs).
 		MustAdd(IstioConfigV1Alpha2Templates).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
+		MustAdd(IstioMeshV1Alpha1MeshNetworks).
 		MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
 		MustAdd(IstioMixerV1ConfigClientQuotaspecs).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
