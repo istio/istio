@@ -28,7 +28,7 @@ export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
 
-verz:
+debugz:
 	make --version
 
 ISTIO_CNI_HUB ?= gcr.io/istio-testing
@@ -222,7 +222,7 @@ default: init build test
 
 .PHONY: init
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-init: $(ISTIO_OUT)/istio_is_init
+init: $(ISTIO_OUT)/istio_is_init debugz
 	mkdir -p ${TARGET_OUT}/logs
 	mkdir -p ${TARGET_OUT}/release
 
