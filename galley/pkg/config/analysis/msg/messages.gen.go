@@ -116,6 +116,10 @@ var (
 	// InvalidAnnotation defines a diag.MessageType for message "InvalidAnnotation".
 	// Description: An Istio annotation that is not valid
 	InvalidAnnotation = diag.NewMessageType(diag.Warning, "IST0125", "Invalid annotation %s: %s")
+
+	// UnknownMeshNetworksServiceRegistry defines a diag.MessageType for message "UnknownMeshNetworksServiceRegistry".
+	// Description: A service registry in Mesh Networks is unknown
+	UnknownMeshNetworksServiceRegistry = diag.NewMessageType(diag.Error, "IST0126", "Unknown service registry %s in network %s")
 )
 
 // All returns a list of all known message types.
@@ -148,6 +152,7 @@ func All() []*diag.MessageType {
 		NamespaceMultipleInjectionLabels,
 		NamespaceInvalidInjectorRevision,
 		InvalidAnnotation,
+		UnknownMeshNetworksServiceRegistry,
 	}
 }
 
@@ -416,5 +421,15 @@ func NewInvalidAnnotation(r *resource.Instance, annotation string, problem strin
 		r,
 		annotation,
 		problem,
+	)
+}
+
+// NewUnknownMeshNetworksServiceRegistry returns a new diag.Message based on UnknownMeshNetworksServiceRegistry.
+func NewUnknownMeshNetworksServiceRegistry(r *resource.Instance, serviceregistry string, network string) diag.Message {
+	return diag.NewMessage(
+		UnknownMeshNetworksServiceRegistry,
+		r,
+		serviceregistry,
+		network,
 	)
 }

@@ -19,7 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
@@ -153,7 +153,7 @@ func TestVirtualService_NoListeners(t *testing.T) {
 
 	o := processing.ProcessorOptions{
 		DomainSuffix: "cluster.local",
-		MeshConfig:   meshcfg.Default(),
+		MeshConfig:   mesh.DefaultMeshConfig(),
 	}
 
 	xforms := GetProviders().Create(o)

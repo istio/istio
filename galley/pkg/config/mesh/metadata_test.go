@@ -12,11 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meshcfg
+package mesh
 
 import (
-	"istio.io/istio/pkg/config/resource"
+	"testing"
+
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
-// ResourceName for the Istio Mesh Config resource
-var ResourceName = resource.NewFullName("istio-system", "meshconfig")
+func TestMeshConfigNameValidity(t *testing.T) {
+	m := schema.MustGet()
+	_, found := m.AllCollections().Find(collections.IstioMeshV1Alpha1MeshConfig.Name().String())
+	if !found {
+		t.Fatalf("Mesh config collection not found in metadata.")
+	}
+}
