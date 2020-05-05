@@ -196,8 +196,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 }
 
 func setupNamespaces(ctx resource.Context, cfg *Config) error {
-	// gather references to configured names, grouped by configured value
-	namespaces := map[string][]*string{}
 	prefixes := []*string{
 		&cfg.SystemNamespace,
 		&cfg.IstioNamespace,
@@ -208,21 +206,25 @@ func setupNamespaces(ctx resource.Context, cfg *Config) error {
 		&cfg.IngressNamespace,
 		&cfg.EgressNamespace,
 	}
+	var unset []*string
 	for _, p := range prefixes {
-		prefix := *p
-		if prefix != DefaultSystemNamespace {
-			// don't generate namespaces if overridden in flags
+		// gather references to unconfigured namespaces
+		if *p == DefaultSystemNamespace {
+			unset = append(unset, p)
 			continue
 		}
-		namespaces[prefix] = append(namespaces[prefix], p)
+		// ensure namespaces that have a non-empty config value are created
+		if _, err := namespace.Claim(ctx, *p, false, ""); err != nil {
+			return err
+		}
 	}
-	for prefix, refs := range namespaces {
-		ns, err := namespace.New(ctx, namespace.Config{Prefix: prefix})
+	if len(unset) > 0 {
+		ns, err := namespace.New(ctx, namespace.Config{Prefix: DefaultSystemNamespace})
 		if err != nil {
 			return err
 		}
 		// update settings with generated names
-		for _, ref := range refs {
+		for _, ref := range unset {
 			*ref = ns.Name()
 		}
 	}
