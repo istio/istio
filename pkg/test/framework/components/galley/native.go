@@ -20,9 +20,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"syscall"
-
-	"istio.io/pkg/appsignals"
 
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/pkg/test"
@@ -111,8 +108,6 @@ func (c *nativeComponent) ClearConfig() (err error) {
 
 // ApplyConfig implements Galley.ApplyConfig.
 func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) error {
-	defer appsignals.Notify("galley.native.ApplyConfig", syscall.SIGUSR1)
-
 	var err error
 	for _, y := range yamlText {
 		y, err = applyNamespace(ns, y)
@@ -139,8 +134,6 @@ func (c *nativeComponent) ApplyConfigOrFail(t test.Failer, ns namespace.Instance
 
 // DeleteConfig implements Galley.DeleteConfig.
 func (c *nativeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) error {
-	defer appsignals.Notify("galley.native.DeleteConfig", syscall.SIGUSR1)
-
 	var err error
 	for _, y := range yamlText {
 		y, err = applyNamespace(ns, y)
@@ -167,7 +160,6 @@ func (c *nativeComponent) DeleteConfigOrFail(t test.Failer, ns namespace.Instanc
 
 // ApplyConfigDir implements Galley.ApplyConfigDir.
 func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) (err error) {
-	defer appsignals.Notify("galley.native.ApplyConfigDir", syscall.SIGUSR1)
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -200,7 +192,6 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 
 // ApplyConfigDir implements Galley.DeleteConfigDir.
 func (c *nativeComponent) DeleteConfigDir(ns namespace.Instance, sourceDir string) (err error) {
-	defer appsignals.Notify("galley.native.DeleteConfigDir", syscall.SIGUSR1)
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err

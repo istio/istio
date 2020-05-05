@@ -201,6 +201,9 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
+
+  meshConfig:
+    enablePrometheusMerge: false
   profile: default
   tag: latest
   values:
@@ -414,8 +417,6 @@ spec:
       service:
         annotations: {}
       tag: v1.15
-    meshConfig:
-      enablePrometheusMerge: false
     mixer:
       adapters:
         kubernetesenv:

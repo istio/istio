@@ -215,8 +215,13 @@ EOF
     # Install MetalLB for LoadBalancer support
     install_metallb "$CLUSTER_KUBECONFIG"
 
-    # Replace with --internal which allows cross-cluster api server access
-    kind get kubeconfig --name "${CLUSTER_NAME}" --internal > "${CLUSTER_KUBECONFIG}"
+    # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
+    # its much simpler if we have a single kubeconfig that can be used internally and externally.
+    # To do this, we can replace the server with the IP address of the docker container
+    # https://github.com/kubernetes-sigs/kind/issues/1558 tracks this upstream
+    CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
+    kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
+      sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
   done
 
   # Export variables for the kube configs for the clusters.
@@ -257,8 +262,8 @@ function connect_kind_clusters() {
   # Set up routing rules for inter-cluster direct pod to pod communication
   C1_NODE="${C1}-control-plane"
   C2_NODE="${C2}-control-plane"
-  C1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${C1_NODE}")
-  C2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${C2_NODE}")
+  C1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.Networks.kind.IPAddress }}" "${C1_NODE}")
+  C2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.Networks.kind.IPAddress }}" "${C2_NODE}")
   C1_POD_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
   C2_POD_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
   docker exec "${C1_NODE}" ip route add "${C2_POD_CIDR}" via "${C2_DOCKER_IP}"
@@ -275,12 +280,12 @@ function install_metallb() {
   kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
 
   if [ -z "${METALLB_IPS[*]}" ]; then
-    # Take IPs from the end of the docker bridge network subnet to use for MetalLB IPs
-    DOCKER_BRIDGE_SUBNET="$(docker inspect bridge | jq .[0].IPAM.Config[0].Subnet -r)"
+    # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs
+    DOCKER_KIND_SUBNET="$(docker inspect kind | jq .[0].IPAM.Config[0].Subnet -r)"
     METALLB_IPS=()
     while read -r ip; do
       METALLB_IPS+=("$ip")
-    done < <(cidr_to_ips "$DOCKER_BRIDGE_SUBNET" | tail -n 100)
+    done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
   fi
 
   # Give this cluster of those IPs
