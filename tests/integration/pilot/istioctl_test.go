@@ -126,7 +126,7 @@ func TestDescribe(t *testing.T) {
 			})
 
 			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			c.ApplyConfigOrFail(t, ns.Name(), deployment)
+			cluster.ApplyConfigOrFail(t, ns.Name(), deployment)
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).

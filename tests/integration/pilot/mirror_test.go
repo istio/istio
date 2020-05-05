@@ -165,9 +165,9 @@ func TestMirroringExternalService(t *testing.T) {
 		cases:      cases,
 		mirrorHost: fakeExternalURL,
 		fnInjectConfig: func(ns namespace.Instance, instances [3]echo.Instance) {
-			c.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(sidecar, ns.Name(),
+			cluster.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(sidecar, ns.Name(),
 				instances[1].Config().Domain, fakeExternalURL))
-			c.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
+			cluster.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
 			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)
 			}
