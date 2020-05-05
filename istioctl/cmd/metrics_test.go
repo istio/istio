@@ -110,18 +110,13 @@ func mockPortForwardClientAuthPrometheus(_, _ string, _ clioptions.ControlPlaneO
 }
 
 // nolint: unparam
-func (client mockPortForwardConfig) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
+func (client mockPortForwardConfig) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[string][]byte, error) {
 	return nil, fmt.Errorf("mockPortForwardConfig doesn't mock Pilot discovery")
 }
 
 // nolint: unparam
 func (client mockPortForwardConfig) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
 	return nil, fmt.Errorf("mockPortForwardConfig doesn't mock Envoy")
-}
-
-// nolint: unparam
-func (client mockPortForwardConfig) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
-	return nil, fmt.Errorf("mockPortForwardConfig doesn't mock Pilot discovery")
 }
 
 func (client mockPortForwardConfig) GetIstioVersions(namespace string) (*version.MeshInfo, error) {

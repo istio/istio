@@ -75,7 +75,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 				}
 
 				path = fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
-				pilotDumps, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
+				pilotDumps, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, path)
 				if err != nil {
 					return err
 				}
@@ -85,7 +85,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 				}
 				return c.Diff()
 			}
-			statuses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
+			statuses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "/debug/syncz")
 			if err != nil {
 				return err
 			}
