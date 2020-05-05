@@ -74,13 +74,13 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		fetchCaRoot:           opts.FetchCaRoot,
 	}
 
-	err := secretcontroller.StartSecretController(
+	_ = secretcontroller.StartSecretController(
 		kc,
 		mc.AddMemberCluster,
 		mc.UpdateMemberCluster,
 		mc.DeleteMemberCluster,
 		secretNamespace)
-	return mc, err
+	return mc, nil
 }
 
 // AddMemberCluster is passed to the secret controller as a callback to be called

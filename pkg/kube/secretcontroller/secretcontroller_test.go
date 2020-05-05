@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/metadata"
 	metafake "k8s.io/client-go/metadata/fake"
+	"k8s.io/client-go/tools/cache"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -101,8 +102,6 @@ func resetCallbackData() {
 }
 
 func Test_SecretController(t *testing.T) {
-	g := NewWithT(t)
-
 	LoadKubeConfig = mockLoadKubeConfig
 	ValidateClientConfig = mockValidateClientConfig
 	CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
@@ -138,9 +137,9 @@ func Test_SecretController(t *testing.T) {
 	}
 
 	// Start the secret controller and sleep to allow secret process to start.
-	g.Expect(
-		StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace)).
-		Should(Succeed())
+	stopCh := make(chan struct{})
+	c := StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace)
+	cache.WaitForCacheSync(stopCh, c.informer.HasSynced)
 
 	for i, step := range steps {
 		resetCallbackData()
