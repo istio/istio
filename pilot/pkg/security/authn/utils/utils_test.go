@@ -68,7 +68,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		mTLSMode         model.MutualTLSMode
 		sdsUdsPath       string
 		node             *model.Proxy
-		listenerProtocol networking.ListenerProtocol
+		listenerProtocol plugin.ListenerProtocol
 	}
 	tests := []struct {
 		name string
@@ -82,7 +82,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolAuto,
+				listenerProtocol: plugin.ListenerProtocolAuto,
 			},
 			// No need to set up filter chain, default one is okay.
 			want: nil,
@@ -94,7 +94,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolAuto,
+				listenerProtocol: plugin.ListenerProtocolAuto,
 			},
 			want: nil,
 		},
@@ -105,7 +105,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolHTTP,
+				listenerProtocol: plugin.ListenerProtocolHTTP,
 			},
 			want: []plugin.FilterChain{
 				{
@@ -120,7 +120,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolTCP,
+				listenerProtocol: plugin.ListenerProtocolTCP,
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			want: []plugin.FilterChain{
@@ -151,7 +151,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 						SdsEnabled: true,
 					},
 				},
-				listenerProtocol: networking.ListenerProtocolHTTP,
+				listenerProtocol: plugin.ListenerProtocolHTTP,
 			},
 			want: []plugin.FilterChain{
 				{
@@ -215,7 +215,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				listenerProtocol: networking.ListenerProtocolHTTP,
+				listenerProtocol: plugin.ListenerProtocolHTTP,
 			},
 			want: []plugin.FilterChain{
 				{
@@ -234,7 +234,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 						TLSServerRootCert:  "/custom/path/to/root.pem",
 					},
 				},
-				listenerProtocol: networking.ListenerProtocolHTTP,
+				listenerProtocol: plugin.ListenerProtocolHTTP,
 			},
 			// Only one filter chain with mTLS settings should be generated.
 			want: []plugin.FilterChain{
