@@ -130,6 +130,7 @@ type Server struct {
 	certController   *chiron.WebhookController
 	ca               *ca.IstioCA
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
+	// TODO: Unify this path with TLSOptions in PilotArgs.
 	caBundlePath string
 
 	ConfigStores []model.ConfigStoreCache
@@ -552,6 +553,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 	if dns == "" {
 		return nil
 	}
+	// Mainly for tests.
 	if !hasCustomTLSCerts(tlsOptions) && s.ca == nil {
 		return nil
 	}
