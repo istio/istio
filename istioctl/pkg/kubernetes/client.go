@@ -181,13 +181,29 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[str
 }
 
 // EnvoyDo makes an http request to the Envoy in the specified pod
-func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
-	container, err := client.GetPilotAgentContainer(podName, podNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve proxy container name: %v", err)
+func (client *Client) EnvoyDo(podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
+	fw, err := client.BuildPortForwarder(podName, podNamespace, "", 0, 15000)
+	var bytes []byte
+	if err = RunPortForwarder(fw, func(fw *PortForward) error {
+		req, err := http.NewRequest(method, fmt.Sprintf("http://localhost:%d/%s", fw.LocalPort, path), nil)
+		if err != nil {
+			return err
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if bytes, err = ioutil.ReadAll(resp.Body); err != nil {
+			return err
+		}
+
+		close(fw.StopChannel)
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failure running port forward process: %v", err)
 	}
-	cmd := []string{pilotAgentPath, "request", method, path, string(body)}
-	return client.ExtractExecResult(podName, podNamespace, container, cmd)
+	return bytes, nil
 }
 
 // ExtractExecResult wraps PodExec and return the execution result and error if has any.
