@@ -36,10 +36,11 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
 
+	"istio.io/pkg/version"
+
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/version"
 )
 
 var (
