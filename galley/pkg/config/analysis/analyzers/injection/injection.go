@@ -63,24 +63,6 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (a *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
-	controlPlaneRevisions := make(map[string]bool)
-
-	// Gather revisions of control plane
-	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
-		pod := r.Message.(*v1.Pod)
-		if isControlPlane(pod) {
-			revision, ok := r.Metadata.Labels[label.IstioRev]
-			if ok {
-				controlPlaneRevisions[revision] = true
-			}
-		}
-		return true
-	})
-
-	revisions := make([]string, 0, len(controlPlaneRevisions))
-	for revision := range controlPlaneRevisions {
-		revisions = append(revisions, revision)
-	}
 
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
 
@@ -90,7 +72,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		injectionLabel := r.Metadata.Labels[InjectionLabelName]
-		newInjectionLabel, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
+		_, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
 
 		if injectionLabel == "" && !okNewInjectionLabel {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
@@ -100,23 +82,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		if okNewInjectionLabel {
-			if injectionLabel != "" {
-				c.Report(collections.K8SCoreV1Namespaces.Name(),
-					msg.NewNamespaceMultipleInjectionLabels(r,
-						r.Metadata.FullName.String(),
-						r.Metadata.FullName.String()))
-				return true
-			}
-			if _, ok := controlPlaneRevisions[newInjectionLabel]; !ok {
-				c.Report(collections.K8SCoreV1Namespaces.Name(),
-					msg.NewNamespaceInvalidInjectorRevision(r,
-						newInjectionLabel,
-						r.Metadata.FullName.String(),
-						strings.Join(revisions, ", ")))
-				return true
-			}
-		} else if injectionLabel != InjectionLabelEnableValue {
+		if injectionLabel != InjectionLabelEnableValue {
 			// If legacy label has any value other than the enablement value, they are deliberately not injecting it, so ignore
 			return true
 		}

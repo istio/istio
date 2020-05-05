@@ -31,23 +31,6 @@ metadata:
     istio.io/rev: canary
   name: canary-test
 ---
-# Namespace is explicitly enabled in the new style, but refers to a non-existant control plane
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    istio.io/rev: pidgeon
-  name: pidgeon-test
----
-# Namespace has both old and new labels
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: busted
-  labels:
-    istio-injection: enabled
-    istio.io/rev: canary
----
 # Pod that's injected. No warning
 apiVersion: v1
 kind: Pod

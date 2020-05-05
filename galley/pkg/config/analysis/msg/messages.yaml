@@ -256,30 +256,6 @@ messages:
       - name: problem
         type: string
 
-  - name: "NamespaceMultipleInjectionLabels"
-    code: IST0123
-    level: Warning
-    description: "A namespace has both new and legacy injection labels"
-    template: "The namespace has both new and legacy injection labels. Run 'kubectl label namespace %s istio.io/rev-' or 'kubectl label namespace %s istio-injection-'"
-    args:
-      - name: namespace
-        type: string
-      - name: namespace2
-        type: string
-
-  - name: "NamespaceInvalidInjectorRevision"
-    code: IST0124
-    level: Warning
-    description: "A namespace is labeled to inject from unknown control plane."
-    template: "The namespace is labeled to inject from %q but that namespace doesn't exist. Run 'kubectl label namespace %s istio.io/rev=<revision>' where <revision> is one of %s"
-    args:
-      - name: unknownrevision
-        type: string
-      - name: namespace
-        type: string
-      - name: revisions
-        type: string
-
   - name: "InvalidAnnotation"
     code: IST0125
     level: Warning
