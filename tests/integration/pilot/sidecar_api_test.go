@@ -122,7 +122,8 @@ func validateMongoListener(t *testing.T, response *structpath.Instance) {
 			}, "{.address.socketAddress}").
 			Select("{.filterChains[0].filters[0]}").
 			Equals("envoy.mongo_proxy", "{.name}").
-			Select("{.config}").
-			Exists("{.stat_prefix}")
+			Select("{.typedConfig}").
+			Exists("{.statPrefix}").
+			CheckOrFail(t)
 	})
 }

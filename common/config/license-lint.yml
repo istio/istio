@@ -199,3 +199,12 @@ whitelisted_modules:
 
   # Apache 2.0: https://github.com/garyburd/redigo/blob/master/LICENSE
   - github.com/gomodule/redigo
+
+  # Apache 2.0: https://github.com/xdg/scram/blob/master/LICENSE
+  - github.com/xdg/scram
+
+  # Apache 2.0: https://github.com/xdg/stringprep/blob/master/LICENSE
+  - github.com/xdg/stringprep
+
+  # BSD-3: https://github.com/golang/tools/blob/master/LICENSE
+  - golang.org/x/tools
