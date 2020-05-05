@@ -155,11 +155,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	if env.IsMulticluster() {
-		// Only setup namespaces ourselves in multicluster, other tests rely on the default namespace config
-		if err := setupNamespaces(ctx, &cfg); err != nil {
-			return nil, err
-		}
-
 		// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
 		if err := deployCACerts(workDir, env, cfg); err != nil {
 			return nil, err

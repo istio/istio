@@ -46,6 +46,12 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 			if err != nil {
 				return err
 			}
+			if ctx.Environment().IsMulticluster() {
+				// Only setup namespaces in multicluster, some tests still rely on the default namespace config
+				if err := setupNamespaces(ctx, &cfg); err != nil {
+					return err
+				}
+			}
 			if cfn != nil {
 				cfn(&cfg)
 			}
@@ -63,7 +69,9 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 			if err != nil {
 				return err
 			}
-			*i = ins
+			if ins != nil {
+				*i = ins
+			}
 		}
 
 		return nil
