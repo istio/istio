@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
@@ -46,10 +45,8 @@ import (
 )
 
 var (
-	proxyContainer     = "istio-proxy"
-	discoveryContainer = "discovery"
-	pilotDiscoveryPath = "/usr/local/bin/pilot-discovery"
-	pilotAgentPath     = "/usr/local/bin/pilot-agent"
+	proxyContainer = "istio-proxy"
+	pilotAgentPath = "/usr/local/bin/pilot-agent"
 )
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
@@ -148,7 +145,7 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 
 // ProxyGet returns a response of the pod by calling it through the proxy.
 // Not a part of client-go https://github.com/kubernetes/kubernetes/issues/90768
-func (client *Client) proxyGet(name, namespace, path string, port int) restclient.ResponseWrapper {
+func (client *Client) proxyGet(name, namespace, path string, port int) rest.ResponseWrapper {
 	request := client.RESTClient.Get().
 		Namespace(namespace).
 		Resource("pods").
