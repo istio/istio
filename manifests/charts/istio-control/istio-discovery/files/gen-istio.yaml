@@ -1313,7 +1313,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1343,7 +1343,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1373,7 +1373,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1616,7 +1616,7 @@ spec:
                     "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1646,7 +1646,7 @@ spec:
                     "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1676,7 +1676,7 @@ spec:
                     "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
