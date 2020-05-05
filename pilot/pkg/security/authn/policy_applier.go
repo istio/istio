@@ -28,7 +28,7 @@ type PolicyApplier interface {
 	// enforce the underlying authentication policy.
 
 	InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy,
-		listenerProtocol networking.ListenerProtocol) []networking.FilterChain
+		listenerProtocol plugin.ListenerProtocol) []plugin.FilterChain
 
 	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.
