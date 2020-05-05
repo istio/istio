@@ -97,8 +97,8 @@ spec:
         service:
           ports:
           - name: status-port
-            port: 15020
-            targetPort: 15020
+            port: 15021
+            targetPort: 15021
           - name: http2
             port: 80
             targetPort: 8080
@@ -201,9 +201,13 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
+  meshConfig:
+    enablePrometheusMerge: false
   profile: default
   tag: latest
   values:
+    base:
+      enableCRDTemplates: false
     clusterResources: true
     gateways:
       istio-egressgateway:
@@ -262,7 +266,6 @@ spec:
         requests:
           cpu: 10m
       enableHelmTest: false
-      enableTracing: true
       imagePullPolicy: ""
       imagePullSecrets: []
       istioNamespace: istio-system
@@ -270,8 +273,6 @@ spec:
         enableAnalysis: false
         enabled: true
       jwtPolicy: third-party-jwt
-      localityLbSetting:
-        enabled: true
       logAsJson: false
       logging:
         level: default:info
@@ -280,8 +281,6 @@ spec:
         useILB: false
       meshNetworks: {}
       mountMtlsCerts: false
-      mtls:
-        auto: true
       multiCluster:
         clusterName: ""
         enabled: false
@@ -289,10 +288,7 @@ spec:
       omitSidecarInjectorConfigMap: false
       oneNamespace: false
       operatorManageWebhooks: false
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
       pilotCertProvider: istiod
-      policyCheckFailOpen: false
       priorityClassName: ""
       proxy:
         autoInject: enabled
@@ -414,8 +410,6 @@ spec:
       service:
         annotations: {}
       tag: v1.15
-    meshConfig:
-      enablePrometheusMerge: false
     mixer:
       adapters:
         kubernetesenv:
