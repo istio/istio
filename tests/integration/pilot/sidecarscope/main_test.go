@@ -201,7 +201,7 @@ type Config struct {
 
 func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
 	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{})
 
 	includedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "included",

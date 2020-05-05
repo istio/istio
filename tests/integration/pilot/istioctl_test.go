@@ -26,10 +26,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 )
@@ -81,8 +79,6 @@ func TestVersion(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			g := galley.NewOrFail(t, ctx, galley.Config{})
-			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 			cfg := i.Settings()
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
@@ -130,7 +126,7 @@ func TestDescribe(t *testing.T) {
 			})
 
 			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			g.ApplyConfigOrFail(t, ns, deployment)
+			c.ApplyConfigOrFail(t, ns.Name(), deployment)
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).

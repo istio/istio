@@ -165,9 +165,9 @@ func TestMirroringExternalService(t *testing.T) {
 		cases:      cases,
 		mirrorHost: fakeExternalURL,
 		fnInjectConfig: func(ns namespace.Instance, instances [3]echo.Instance) {
-			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, ns.Name(),
+			c.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(sidecar, ns.Name(),
 				instances[1].Config().Domain, fakeExternalURL))
-			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
+			c.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
 			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)
 			}
@@ -211,8 +211,8 @@ func runMirrorTest(options mirrorTestOptions) {
 
 					deployment := tmpl.EvaluateOrFail(t,
 						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-					g.ApplyConfigOrFail(t, ns, deployment)
-					defer g.DeleteConfigOrFail(t, ns, deployment)
+					c.ApplyConfigOrFail(t, ns.Name(), deployment)
+					defer c.DeleteConfigOrFail(t, ns.Name(), deployment)
 
 					for _, proto := range mirrorProtocols {
 						t.Run(string(proto), func(t *testing.T) {
@@ -272,13 +272,13 @@ func verifyTrafficMirror(instances [3]echo.Instance, tc testCaseMirror, testID s
 	deltaFromExpected := math.Abs(actualPercent - tc.percentage)
 
 	if tc.threshold-deltaFromExpected < 0 {
-		err := fmt.Errorf("unexpected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, testID: %s)",
+		err := fmt.Errorf("unexpected mirror traffic. Expected %c%%, got %.1f%% (threshold: %c%%, testID: %s)",
 			tc.percentage, actualPercent, tc.threshold, testID)
 		log.Infof("%v", err)
 		return err
 	}
 
-	log.Infof("Got expected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, , testID: %s)",
+	log.Infof("Got expected mirror traffic. Expected %c%%, got %.1f%% (threshold: %c%%, , testID: %s)",
 		tc.percentage, actualPercent, tc.threshold, testID)
 	return nil
 }

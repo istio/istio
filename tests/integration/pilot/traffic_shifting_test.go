@@ -108,7 +108,7 @@ func TestTrafficShifting(t *testing.T) {
 					}
 
 					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
-					g.ApplyConfigOrFail(t, ns, deployment)
+					c.ApplyConfigOrFail(t, ns.Name(), deployment)
 
 					sendTraffic(t, 100, instances[0], instances[1], hosts, v, errorThreshold)
 				})
@@ -129,7 +129,6 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 			},
 		},
 		Subsets: []echo.SubsetConfig{{}},
-		Galley:  g,
 		Pilot:   p,
 	}
 }
@@ -162,10 +161,10 @@ func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []st
 			percentOfTrafficToHost := float64(hitCount[v]) * 100.0 / float64(totalRequests)
 			deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToHost)
 			if errorThreshold-deltaFromExpected < 0 {
-				return fmt.Errorf("unexpected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
+				return fmt.Errorf("unexpected traffic weight for host %v. Expected %d%%, got %c%% (thresold: %c%%)",
 					v, weight[i], percentOfTrafficToHost, errorThreshold)
 			}
-			t.Logf("Got expected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
+			t.Logf("Got expected traffic weight for host %v. Expected %d%%, got %c%% (thresold: %c%%)",
 				v, weight[i], percentOfTrafficToHost, errorThreshold)
 		}
 		return nil

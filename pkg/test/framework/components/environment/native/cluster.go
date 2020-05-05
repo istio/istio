@@ -27,12 +27,12 @@ import (
 
 var (
 	// Cluster used for the native environment.
-	Cluster = cluster{}
+	DefaultCluster = Cluster{}
 )
 
-var _ resource.Cluster = &cluster{}
+var _ resource.Cluster = &Cluster{}
 
-type cluster struct {
+type Cluster struct {
 	// The folder that Galley reads to local, file-based configuration from
 	configDir string
 	cache     *yml.Cache
@@ -41,20 +41,20 @@ type cluster struct {
 func NewCluster(ctx resource.Context) (resource.Cluster, error) {
 	configDir, err := ctx.CreateTmpDirectory("config")
 	if err != nil {
-		return cluster{}, err
+		return Cluster{}, err
 	}
-	c := cluster{
+	c := Cluster{
 		configDir: configDir,
 		cache:     yml.NewCache(configDir),
 	}
 	return c, nil
 }
 
-func (c cluster) GetConfigDir() string {
+func (c Cluster) GetConfigDir() string {
 	return c.configDir
 }
 
-func (c cluster) ApplyConfig(ns string, yamlText ...string) error {
+func (c Cluster) ApplyConfig(ns string, yamlText ...string) error {
 	for _, y := range yamlText {
 		y, err := yml.ApplyNamespace(y, ns)
 		if err != nil {
@@ -68,7 +68,7 @@ func (c cluster) ApplyConfig(ns string, yamlText ...string) error {
 	return nil
 }
 
-func (c cluster) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+func (c Cluster) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
 	t.Helper()
 	err := c.ApplyConfig(ns, yamlText...)
 	if err != nil {
@@ -76,7 +76,7 @@ func (c cluster) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string)
 	}
 }
 
-func (c cluster) DeleteConfig(ns string, yamlText ...string) error {
+func (c Cluster) DeleteConfig(ns string, yamlText ...string) error {
 	var err error
 	for _, y := range yamlText {
 		y, err = yml.ApplyNamespace(y, ns)
@@ -92,7 +92,7 @@ func (c cluster) DeleteConfig(ns string, yamlText ...string) error {
 	return nil
 }
 
-func (c cluster) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+func (c Cluster) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
 	t.Helper()
 	err := c.DeleteConfig(ns, yamlText...)
 	if err != nil {
@@ -100,7 +100,7 @@ func (c cluster) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string
 	}
 }
 
-func (c cluster) ApplyConfigDir(ns string, configDir string) error {
+func (c Cluster) ApplyConfigDir(ns string, configDir string) error {
 	return filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -128,7 +128,7 @@ func (c cluster) ApplyConfigDir(ns string, configDir string) error {
 	})
 }
 
-func (c cluster) DeleteConfigDir(ns string, configDir string) error {
+func (c Cluster) DeleteConfigDir(ns string, configDir string) error {
 	return filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -146,11 +146,11 @@ func (c cluster) DeleteConfigDir(ns string, configDir string) error {
 	})
 }
 
-func (c cluster) String() string {
+func (c Cluster) String() string {
 	return "nativeCluster"
 }
 
-func (c cluster) Index() resource.ClusterIndex {
+func (c Cluster) Index() resource.ClusterIndex {
 	// Multicluster not supported natively.
 	return 0
 }

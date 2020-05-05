@@ -29,7 +29,7 @@ import (
 
 const (
 	systemNamespace = "istio-system"
-	domain          = "cluster.local"
+	domain          = "Cluster.local"
 
 	networkLabelKey   = "app"
 	networkLabelValue = "istio-test"
@@ -91,7 +91,7 @@ func (e *Environment) IsMulticluster() bool {
 }
 
 func (e *Environment) Clusters() []resource.Cluster {
-	return []resource.Cluster{Cluster}
+	return []resource.Cluster{DefaultCluster}
 }
 
 // ID implements resource.Instance

@@ -21,8 +21,8 @@ import (
 
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -78,10 +78,10 @@ func init() {
 type serviceEntry struct {
 	yaml string
 	ns   namespace.Instance
-	g    galley.Instance
+	cfg resource.ConfigManager
 }
 
-func newServiceEntry(g galley.Instance, address string, cfg echo.Config) (out *serviceEntry, err error) {
+func newServiceEntry(address string, cfg echo.Config) (out *serviceEntry, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("error applying ServiceEntry for %s/%s: %v",
@@ -91,7 +91,7 @@ func newServiceEntry(g galley.Instance, address string, cfg echo.Config) (out *s
 
 	se := &serviceEntry{
 		ns: cfg.Namespace,
-		g:  g,
+		cfg: cfg.Cluster,
 	}
 
 	// Generate the YAML
@@ -101,7 +101,7 @@ func newServiceEntry(g galley.Instance, address string, cfg echo.Config) (out *s
 	}
 
 	// Apply the config to Galley.
-	if err = g.ApplyConfig(cfg.Namespace, se.yaml); err != nil {
+	if err = cfg.Cluster.ApplyConfig(cfg.Namespace.Name(), se.yaml); err != nil {
 		return nil, err
 	}
 
@@ -111,16 +111,6 @@ func newServiceEntry(g galley.Instance, address string, cfg echo.Config) (out *s
 		}
 	}()
 
-	// Wait for the ServiceEntry to be made available by Galley.
-	mcpName := cfg.Namespace.Name() + "/" + cfg.Service
-	err = g.WaitForSnapshot(serviceEntryCollection, func(actuals []*galley.SnapshotObject) error {
-		for _, actual := range actuals {
-			if actual.Metadata.Name == mcpName {
-				return nil
-			}
-		}
-		return fmt.Errorf("never received ServiceEntry %s from Galley", mcpName)
-	})
 
 	if err != nil {
 		return nil, err
@@ -130,7 +120,7 @@ func newServiceEntry(g galley.Instance, address string, cfg echo.Config) (out *s
 
 // Close implements io.Closer
 func (s *serviceEntry) Close() error {
-	return s.g.DeleteConfig(s.ns, s.yaml)
+	return s.cfg.DeleteConfig(s.ns.Name(), s.yaml)
 }
 
 func createServiceEntryYaml(address string, cfg echo.Config) (string, error) {
