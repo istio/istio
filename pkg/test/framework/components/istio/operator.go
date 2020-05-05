@@ -314,7 +314,7 @@ func configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment,
 	// automatically discover endpoints in remote clusters.
 	for _, cluster := range env.KubeClusters {
 		// Create a secret.
-		secret, err := createRemoteSecret(ctx, cluster)
+		secret, err := createRemoteSecret(ctx, cluster, cfg.SystemNamespace)
 		if err != nil {
 			return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 		}
@@ -331,7 +331,7 @@ func configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment,
 	return nil
 }
 
-func createRemoteSecret(ctx resource.Context, cluster kube.Cluster) (string, error) {
+func createRemoteSecret(ctx resource.Context, cluster kube.Cluster, ns string) (string, error) {
 	istioCtl, err := istioctl.New(ctx, istioctl.Config{
 		Cluster: cluster,
 	})
@@ -341,6 +341,7 @@ func createRemoteSecret(ctx resource.Context, cluster kube.Cluster) (string, err
 	cmd := []string{
 		"x", "create-remote-secret",
 		"--name", cluster.Name(),
+		"--namespace=" + ns,
 	}
 
 	scopes.CI.Infof("Creating remote secret for cluster cluster %d %v", cluster.Index(), cmd)
