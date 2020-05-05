@@ -1093,6 +1093,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 			got := NewPolicyApplier(c.in).InboundFilterChain(8080,
 				c.sdsUdsPath,
 				c.node,
+				plugin.ListenerProtocolAuto,
 			)
 			if !reflect.DeepEqual(got, c.expected) {
 				t.Errorf("[%v] unexpected filter chains, got \n%v, want \n%v", c.name, got, c.expected)
