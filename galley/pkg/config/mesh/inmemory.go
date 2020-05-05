@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meshcfg
+package mesh
 
 import (
 	"sync"
@@ -21,8 +21,11 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 
+	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -30,7 +33,7 @@ import (
 // will be published. Otherwise a reset event will be sent.
 type InMemorySource struct {
 	mu      sync.Mutex
-	current *v1alpha1.MeshConfig
+	current proto.Message
 
 	handlers event.Handler
 
@@ -40,10 +43,17 @@ type InMemorySource struct {
 
 var _ event.Source = &InMemorySource{}
 
-// NewInmemory returns a new meshconfig.InMemorySource.
-func NewInmemory() *InMemorySource {
+// NewInmemoryMeshCfg returns a new in-memory source of MeshConfig.
+func NewInmemoryMeshCfg() *InMemorySource {
 	return &InMemorySource{
-		current: Default(),
+		current: DefaultMeshConfig(),
+	}
+}
+
+// NewInmemoryMeshNetworks returns a new-inmemory source of MeshNetworks.
+func NewInmemoryMeshNetworks() *InMemorySource {
+	return &InMemorySource{
+		current: DefaultMeshNetworks(),
 	}
 }
 
@@ -79,11 +89,11 @@ func (s *InMemorySource) Stop() {
 }
 
 // Set new meshconfig
-func (s *InMemorySource) Set(cfg *v1alpha1.MeshConfig) {
+func (s *InMemorySource) Set(cfg proto.Message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cfg = proto.Clone(cfg).(*v1alpha1.MeshConfig)
+	cfg = proto.Clone(cfg)
 	s.current = cfg
 
 	if s.started {
@@ -107,19 +117,39 @@ func (s *InMemorySource) IsSynced() bool {
 
 func (s *InMemorySource) send(k event.Kind) {
 	// must be called under lock
+	var c collection.Schema
+	var n resource.FullName
+	switch t := s.current.(type) {
+	case *v1alpha1.MeshConfig:
+		n = MeshConfigResourceName
+		c = collections.IstioMeshV1Alpha1MeshConfig
+	case *v1alpha1.MeshNetworks:
+		n = MeshNetworksResourceName
+		c = collections.IstioMeshV1Alpha1MeshNetworks
+	default:
+		scope.Processing.Errorf("Unsupported type: %T", t)
+	}
+
 	e := event.Event{
 		Kind:   k,
-		Source: collections.IstioMeshV1Alpha1MeshConfig,
+		Source: c,
+	}
+
+	o := rt.Origin{
+		FullName:   n,
+		Collection: c.Name(),
+		Kind:       c.Resource().Kind(),
 	}
 
 	switch k {
 	case event.Added, event.Updated:
 		e.Resource = &resource.Instance{
 			Metadata: resource.Metadata{
-				FullName: ResourceName,
-				Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
+				FullName: n,
+				Schema:   c.Resource(),
 			},
 			Message: proto.Clone(s.current),
+			Origin:  &o,
 		}
 	}
 

@@ -20,7 +20,7 @@ import (
 
 	"istio.io/pkg/filewatcher"
 
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/fs"
@@ -36,7 +36,7 @@ var (
 	newFileWatcher    = filewatcher.NewWatcher
 	readFile          = ioutil.ReadFile
 
-	meshcfgNewFS        = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
+	meshcfgNewFS        = func(path string) (event.Source, error) { return mesh.NewMeshConfigFS(path) }
 	processorInitialize = processor.Initialize
 	fsNew               = fs.New
 )
@@ -48,7 +48,7 @@ func resetPatchTable() {
 	newFileWatcher = filewatcher.NewWatcher
 	readFile = ioutil.ReadFile
 
-	meshcfgNewFS = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
+	meshcfgNewFS = func(path string) (event.Source, error) { return mesh.NewMeshConfigFS(path) }
 	processorInitialize = processor.Initialize
 	fsNew = fs.New
 }

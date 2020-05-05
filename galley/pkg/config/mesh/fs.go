@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meshcfg
+package mesh
 
 import (
 	"io/ioutil"
@@ -20,6 +20,9 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
+
+	"istio.io/api/mesh/v1alpha1"
 
 	"istio.io/pkg/filewatcher"
 
@@ -42,13 +45,13 @@ type FsSource struct {
 
 var _ event.Source = &FsSource{}
 
-// NewFS returns a new mesh cache, based on watching a file.
-func NewFS(path string) (*FsSource, error) {
-	return newFS(path, yaml.YAMLToJSON)
+// NewMeshConfigFS returns a new meshconfig cache, based on watching a file.
+func NewMeshConfigFS(path string) (*FsSource, error) {
+	return newMeshConfigFS(path, yaml.YAMLToJSON)
 }
 
 // newFS returns a new mesh cache, based on watching a file.
-func newFS(path string, yamlToJSON func(y []byte) ([]byte, error)) (*FsSource, error) {
+func newMeshConfigFS(path string, yamlToJSON func(y []byte) ([]byte, error)) (*FsSource, error) {
 	fw := filewatcher.NewWatcher()
 
 	err := fw.Add(path)
@@ -60,7 +63,7 @@ func newFS(path string, yamlToJSON func(y []byte) ([]byte, error)) (*FsSource, e
 	c := &FsSource{
 		path:       path,
 		fw:         fw,
-		inmemory:   NewInmemory(),
+		inmemory:   NewInmemoryMeshCfg(),
 		yamlToJSON: yamlToJSON,
 	}
 
@@ -69,7 +72,7 @@ func newFS(path string, yamlToJSON func(y []byte) ([]byte, error)) (*FsSource, e
 	// If we were not able to load mesh config, start with the default.
 	if !c.inmemory.IsSynced() {
 		scope.Processing.Infof("Unable to load up mesh config, using default values (path: %s)", path)
-		c.inmemory.Set(Default())
+		c.inmemory.Set(DefaultMeshConfig())
 	}
 
 	c.wg.Add(1)
@@ -96,7 +99,7 @@ func (c *FsSource) Start() {
 
 // Stop implements event.Source
 func (c *FsSource) Stop() {
-	scope.Processing.Debugf("meshcfg.FsSource.Stop >>>")
+	scope.Processing.Debugf("mesh.FsSource.Stop >>>")
 	c.inmemory.Stop()
 
 	// close the file watcher
@@ -105,7 +108,7 @@ func (c *FsSource) Stop() {
 	// wait for the goroutine to be done
 	c.wg.Wait()
 
-	scope.Processing.Debugf("meshcfg.FsSource.Stop <<<")
+	scope.Processing.Debugf("mesh.FsSource.Stop <<<")
 }
 
 // Dispatch implements event.Source
@@ -126,14 +129,20 @@ func (c *FsSource) reload() {
 		return
 	}
 
-	cfg := Default()
+	var cfg proto.Message
+	switch c.inmemory.current.(type) {
+	case *v1alpha1.MeshConfig:
+		cfg = DefaultMeshConfig()
+	case *v1alpha1.MeshNetworks:
+		cfg = DefaultMeshNetworks()
+	}
 	if err = jsonpb.UnmarshalString(string(js), cfg); err != nil {
-		scope.Processing.Errorf("Error reading mesh config as JSON (path: %s): %v", c.path, err)
+		scope.Processing.Errorf("Error reading config file as JSON (path: %s): %v", c.path, err)
 		return
 	}
 
 	c.inmemory.Set(cfg)
-	scope.Processing.Infof("Reloaded mesh config (path: %s): \n%s\n", c.path, string(by))
+	scope.Processing.Infof("Reloaded config (path: %s): \n%s\n", c.path, string(by))
 }
 
 // Close closes this cache.
