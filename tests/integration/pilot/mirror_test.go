@@ -272,13 +272,13 @@ func verifyTrafficMirror(instances [3]echo.Instance, tc testCaseMirror, testID s
 	deltaFromExpected := math.Abs(actualPercent - tc.percentage)
 
 	if tc.threshold-deltaFromExpected < 0 {
-		err := fmt.Errorf("unexpected mirror traffic. Expected %c%%, got %.1f%% (threshold: %c%%, testID: %s)",
+		err := fmt.Errorf("unexpected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, testID: %s)",
 			tc.percentage, actualPercent, tc.threshold, testID)
 		log.Infof("%v", err)
 		return err
 	}
 
-	log.Infof("Got expected mirror traffic. Expected %c%%, got %.1f%% (threshold: %c%%, , testID: %s)",
+	log.Infof("Got expected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, , testID: %s)",
 		tc.percentage, actualPercent, tc.threshold, testID)
 	return nil
 }

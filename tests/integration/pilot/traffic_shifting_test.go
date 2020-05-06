@@ -161,10 +161,10 @@ func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []st
 			percentOfTrafficToHost := float64(hitCount[v]) * 100.0 / float64(totalRequests)
 			deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToHost)
 			if errorThreshold-deltaFromExpected < 0 {
-				return fmt.Errorf("unexpected traffic weight for host %v. Expected %d%%, got %c%% (thresold: %c%%)",
+				return fmt.Errorf("unexpected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
 					v, weight[i], percentOfTrafficToHost, errorThreshold)
 			}
-			t.Logf("Got expected traffic weight for host %v. Expected %d%%, got %c%% (thresold: %c%%)",
+			t.Logf("Got expected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
 				v, weight[i], percentOfTrafficToHost, errorThreshold)
 		}
 		return nil
