@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 
 	yaml2 "github.com/ghodss/yaml"
 	"github.com/kylelemons/godebug/pretty"
@@ -339,6 +340,16 @@ func setPathContext(nc *PathContext, value interface{}, merge bool) error {
 // setValueContext writes the given value to the Node in the given PathContext.
 // If setting the value requires growing the final slice, grows it.
 func setValueContext(nc *PathContext, value interface{}, merge bool) error {
+	vv := value
+	// If value type is a string it could either be a literal string or a map type passed as a string. Try to unmarshal
+	// to discover it's the latter.
+	if reflect.TypeOf(vv).Kind() == reflect.String && strings.Contains(value.(string), ":") {
+		nv := make(map[string]interface{})
+		if err := yaml2.Unmarshal([]byte(vv.(string)), &nv); err == nil {
+			vv = nv
+		}
+		// got error, continue with value as a string.
+	}
 	switch parentNode := nc.Parent.Node.(type) {
 	case *interface{}:
 		switch vParentNode := (*parentNode).(type) {
@@ -355,7 +366,7 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) error {
 				*parentNode = vParentNode
 			}
 
-			merged, err := mergeConditional(value, nc.Node, merge)
+			merged, err := mergeConditional(vv, nc.Node, merge)
 			if err != nil {
 				return err
 			}
@@ -368,16 +379,18 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) error {
 	case map[string]interface{}:
 		key := nc.Parent.KeyToChild.(string)
 
+		// Update is treated differently depending on whether the value is a scalar or map type. If scalar,
+		// insert a new element into the terminal node, otherwise replace the terminal node with the new subtree.
 		if ncNode, ok := nc.Node.(*interface{}); ok {
 			switch vNcNode := (*ncNode).(type) {
 			case []interface{}:
-				switch value.(type) {
+				switch vv.(type) {
 				case map[string]interface{}:
-					// the value is a map, and the node is a slice
-					mergedValue := append(vNcNode, value)
+					// the vv is a map, and the node is a slice
+					mergedValue := append(vNcNode, vv)
 					parentNode[key] = mergedValue
 				case *interface{}:
-					merged, err := mergeConditional(value, vNcNode, merge)
+					merged, err := mergeConditional(vv, vNcNode, merge)
 					if err != nil {
 						return err
 					}
@@ -385,24 +398,24 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) error {
 					parentNode[key] = merged
 					nc.Node = merged
 				default:
-					// the value is an basic JSON type (int, float, string, bool)
-					value = append(vNcNode, value)
-					parentNode[key] = value
-					nc.Node = value
+					// the vv is an basic JSON type (int, float, string, bool)
+					vv = append(vNcNode, vv)
+					parentNode[key] = vv
+					nc.Node = vv
 				}
 			default:
 				return fmt.Errorf("don't know about vnc type %T", vNcNode)
 			}
 		} else {
-			// the value is an basic JSON type (int, float, string, bool); or a map[string]interface{}
-			parentNode[key] = value
-			nc.Node = value
+			// the vv is an basic JSON type (int, float, string, bool); or a map[string]interface{}
+			parentNode[key] = vv
+			nc.Node = vv
 		}
 	// TODO `map[interface{}]interface{}` is used by tests in operator/cmd/mesh, we should add our own tests
 	case map[interface{}]interface{}:
 		key := nc.Parent.KeyToChild.(string)
-		parentNode[key] = value
-		nc.Node = value
+		parentNode[key] = vv
+		nc.Node = vv
 	default:
 		return fmt.Errorf("don't know about type %T", parentNode)
 	}

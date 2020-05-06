@@ -293,8 +293,8 @@ a:
 		},
 		{
 			desc:      "AddMapEntry",
-			path:      `a.test`,
-			value:     `foo`,
+			path:      `a.new_key`,
+			value:     `new_val`,
 			wantFound: true,
 			want: `
 a:
@@ -306,7 +306,40 @@ a:
     - v1
     - v2
     - v3_regex
-  test: foo
+  new_key: new_val
+`,
+		},
+		{
+			desc: "AddMapEntryMapValue",
+			path: `a.new_key`,
+			value: `nk1:
+  nk2: nv2`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list:
+    - v1
+    - v2
+    - v3_regex
+  new_key:
+    nk1:
+      nk2: nv2
+`,
+		},
+		{
+			desc: "ModifyMapEntryMapValue",
+			path: `a.b`,
+			value: `nk1:
+  nk2: nv2`,
+			wantFound: true,
+			want: `
+a:
+  nk1:
+    nk2: nv2
 `,
 		},
 		{
@@ -371,7 +404,7 @@ a:
 			gotYAML := util.ToYAML(root)
 			diff := util.YAMLDiff(gotYAML, tt.want)
 			if diff != "" {
-				t.Errorf("%s: diff:\n%s\n", tt.desc, diff)
+				t.Errorf("%s: (got:-, want:+):\n%s\n", tt.desc, diff)
 			}
 		})
 	}
