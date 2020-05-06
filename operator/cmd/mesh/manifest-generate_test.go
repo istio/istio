@@ -429,6 +429,27 @@ func TestBareSpec(t *testing.T) {
 	}
 }
 
+func TestBareValues(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPathBase := filepath.Join(testDataDir, "input/bare_values.yaml")
+	// As long as the generate doesn't panic, we pass it.  bare_values.yaml doesn't
+	// overlay well because JSON doesn't handle null values, and our charts
+	// don't expect values to be blown away.
+	_, _ = runManifestGenerate([]string{inPathBase}, "", liveCharts)
+}
+
+func TestBogusControlPlaneSec(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPathBase := filepath.Join(testDataDir, "input/bogus_cps.yaml")
+	// As long as the generate doesn't panic, we pass it.  bare_values.yaml doesn't
+	// overlay well because JSON doesn't handle null values, and our charts
+	// don't expect values to be blown away.
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestInstallPackagePath(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	serverDir, err := ioutil.TempDir(os.TempDir(), "istio-test-server-*")
