@@ -35,7 +35,6 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -179,8 +178,9 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	meshConfig.MixerCheckServer = "istio-policy.istio-system.svc.cluster.local:15004"
 	meshConfig.MixerReportServer = "istio-telemetry.istio-system.svc.cluster.local:15004"
 
-	g := galley.NewOrFail(t, ctx, galley.Config{MeshConfig: MeshConfig})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{MeshConfig: &meshConfig})
+
+	cluster := ctx.Environment().Clusters()[0]
 
 	appNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "app",
@@ -192,10 +192,10 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	})
 
 	// Apply all configs
-	createConfig(t, g, config, EnvoyFilterConfig, appNamespace)
-	createConfig(t, g, config, AppConfig, appNamespace)
-	createConfig(t, g, config, IncludedConfig, appNamespace)
-	createConfig(t, g, config, PermissiveMtls, appNamespace)
+	createConfig(t, cluster, config, EnvoyFilterConfig, appNamespace)
+	createConfig(t, cluster, config, AppConfig, appNamespace)
+	createConfig(t, cluster, config, IncludedConfig, appNamespace)
+	createConfig(t, cluster, config, PermissiveMtls, appNamespace)
 
 	time.Sleep(time.Second * 2)
 
@@ -210,7 +210,7 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	return p, nodeID
 }
 
-func createConfig(t *testing.T, g galley.Instance, config Config, yaml string, namespace namespace.Instance) {
+func createConfig(t *testing.T, cluster resource.Cluster, config Config, yaml string, namespace namespace.Instance) {
 	tmpl, err := template.New("Config").Parse(yaml)
 	if err != nil {
 		t.Errorf("failed to create template: %v", err)
@@ -219,7 +219,7 @@ func createConfig(t *testing.T, g galley.Instance, config Config, yaml string, n
 	if err := tmpl.Execute(&buf, config); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := g.ApplyConfig(namespace, buf.String()); err != nil {
+	if err := cluster.ApplyConfig(namespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply config: %v. Config: %v", err, buf.String())
 	}
 }

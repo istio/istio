@@ -25,11 +25,6 @@ import (
 	"istio.io/istio/pkg/test/util/yml"
 )
 
-var (
-	// Cluster used for the native environment.
-	DefaultCluster = Cluster{}
-)
-
 var _ resource.Cluster = &Cluster{}
 
 type Cluster struct {

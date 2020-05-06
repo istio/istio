@@ -61,7 +61,7 @@ type nativeComponent struct {
 func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	e := ctx.Environment().(*native.Environment)
 	if cfg.Cluster == nil {
-		cfg.Cluster = native.DefaultCluster
+		cfg.Cluster = e.Cluster
 	}
 	instance := &nativeComponent{
 		environment: ctx.Environment().(*native.Environment),

@@ -19,7 +19,6 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -64,8 +63,6 @@ spec:
 
 var (
 	serviceEntryTemplate *template.Template
-
-	serviceEntryCollection = collections.IstioNetworkingV1Alpha3Serviceentries.Name().String()
 )
 
 func init() {

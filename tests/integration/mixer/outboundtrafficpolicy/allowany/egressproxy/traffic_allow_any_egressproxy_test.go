@@ -33,7 +33,6 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -80,7 +79,6 @@ func TestMain(m *testing.M) {
 func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
 	meshConfig := mesh.DefaultMeshConfig()
 
-	g := galley.NewOrFail(t, ctx, galley.Config{MeshConfig: MeshConfig})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{MeshConfig: &meshConfig})
 
 	appNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
@@ -92,8 +90,9 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 		AppNamespace: appNamespace.Name(),
 	})
 
+	cluster := ctx.Environment().Clusters()[0]
 	// Apply sidecar config
-	createConfig(t, g, config, Sidecar, appNamespace)
+	createConfig(t, cluster, config, Sidecar, appNamespace)
 
 	time.Sleep(time.Second * 2)
 
@@ -108,7 +107,7 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	return p, nodeID
 }
 
-func createConfig(t *testing.T, g galley.Instance, config Config, yaml string, namespace namespace.Instance) {
+func createConfig(t *testing.T, cluster resource.Cluster, config Config, yaml string, namespace namespace.Instance) {
 	tmpl, err := template.New("Config").Parse(yaml)
 	if err != nil {
 		t.Errorf("failed to create template: %v", err)
@@ -117,7 +116,7 @@ func createConfig(t *testing.T, g galley.Instance, config Config, yaml string, n
 	if err := tmpl.Execute(&buf, config); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := g.ApplyConfig(namespace, buf.String()); err != nil {
+	if err := cluster.ApplyConfig(namespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply config: %v. Config: %v", err, buf.String())
 	}
 }
