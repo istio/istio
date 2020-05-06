@@ -136,7 +136,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	ysf, err := yamlFromSetFlags(applyInstallFlagAlias(args.set, args.charts), args.force, l)
+	ysf, err := yamlFromSetFlags(applyFlagAliases(args.set, args.charts, ""), args.force, l)
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(applyInstallFlagAlias(args.set, args.charts), args.inFilenames, args.force, rootArgs.dryRun,
+	err = ApplyManifests(applyFlagAliases(args.set, args.charts, ""), args.inFilenames, args.force, rootArgs.dryRun,
 		args.kubeConfigPath, args.context, args.wait, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
