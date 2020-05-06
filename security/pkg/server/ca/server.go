@@ -27,8 +27,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
-	"istio.io/pkg/log"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/pkg/log"
 
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
