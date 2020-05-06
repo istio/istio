@@ -20,6 +20,7 @@ spec:
     listKind: HTTPAPISpecList
     plural: httpapispecs
     singular: httpapispec
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -289,6 +290,7 @@ spec:
     listKind: HTTPAPISpecBindingList
     plural: httpapispecbindings
     singular: httpapispecbinding
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -382,6 +384,7 @@ spec:
     listKind: QuotaSpecList
     plural: quotaspecs
     singular: quotaspec
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -475,6 +478,7 @@ spec:
     listKind: QuotaSpecBindingList
     plural: quotaspecbindings
     singular: quotaspecbinding
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -570,6 +574,7 @@ spec:
     shortNames:
     - dr
     singular: destinationrule
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1691,6 +1696,7 @@ spec:
     listKind: EnvoyFilterList
     plural: envoyfilters
     singular: envoyfilter
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1927,6 +1933,7 @@ spec:
     shortNames:
     - gw
     singular: gateway
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2100,6 +2107,7 @@ spec:
     shortNames:
     - se
     singular: serviceentry
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2236,6 +2244,7 @@ spec:
     listKind: SidecarList
     plural: sidecars
     singular: sidecar
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2599,6 +2608,7 @@ spec:
     shortNames:
     - vs
     singular: virtualservice
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3406,6 +3416,7 @@ spec:
     shortNames:
     - we
     singular: workloadentry
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3477,6 +3488,7 @@ spec:
     listKind: attributemanifestList
     plural: attributemanifests
     singular: attributemanifest
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3553,6 +3565,7 @@ spec:
     listKind: handlerList
     plural: handlers
     singular: handler
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3760,6 +3773,7 @@ spec:
     listKind: instanceList
     plural: instances
     singular: instance
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3822,6 +3836,7 @@ spec:
     listKind: ruleList
     plural: rules
     singular: rule
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3976,6 +3991,7 @@ spec:
     listKind: ClusterRbacConfigList
     plural: clusterrbacconfigs
     singular: clusterrbacconfig
+  preserveUnknownFields: false
   scope: Cluster
   subresources:
     status: {}
@@ -4063,6 +4079,7 @@ spec:
     listKind: RbacConfigList
     plural: rbacconfigs
     singular: rbacconfig
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4150,6 +4167,7 @@ spec:
     listKind: ServiceRoleList
     plural: serviceroles
     singular: servicerole
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4273,6 +4291,7 @@ spec:
     listKind: ServiceRoleBindingList
     plural: servicerolebindings
     singular: servicerolebinding
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4460,6 +4479,7 @@ spec:
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
     singular: authorizationpolicy
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4661,6 +4681,7 @@ spec:
     shortNames:
     - pa
     singular: peerauthentication
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4739,6 +4760,7 @@ spec:
     shortNames:
     - ra
     singular: requestauthentication
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
