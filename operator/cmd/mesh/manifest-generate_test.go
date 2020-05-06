@@ -441,9 +441,6 @@ func TestBareValues(t *testing.T) {
 func TestBogusControlPlaneSec(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/bogus_cps.yaml")
-	// As long as the generate doesn't panic, we pass it.  bare_values.yaml doesn't
-	// overlay well because JSON doesn't handle null values, and our charts
-	// don't expect values to be blown away.
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
