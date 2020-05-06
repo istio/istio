@@ -46,8 +46,14 @@ spec:
     spec:
       containers:
       - name: mongodb 
-        image: istio/examples-bookinfo-mongodb:1.15.0
+        image: istio/examples-bookinfo-mongodb:1.16.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 27017
+        volumeMounts:
+        - name: data-db
+          mountPath: /data/db
+      volumes:
+      - name: data-db
+        emptyDir:
 ---

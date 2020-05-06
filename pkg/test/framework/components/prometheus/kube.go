@@ -163,8 +163,6 @@ func (c *kubeComponent) WaitForQuiesceOrFail(t test.Failer, format string, args 
 
 func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) (model.Value, error) {
 
-	time.Sleep(time.Second * 5)
-
 	value, err := retry.Do(func() (interface{}, bool, error) {
 		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
 		if err != nil {

@@ -1,13 +1,4 @@
-# Alpha API disable, making test more hermetic.
 # No DR is added for this test. enableAutoMtls is expected on by default.
-apiVersion: authentication.istio.io/v1alpha1
-kind: MeshPolicy
-metadata:
-  name: "default"
-  annotations:
-    test-suite: "beta-mtls-automtls"
-spec: {}
----
 apiVersion: "security.istio.io/v1beta1"
 kind: "PeerAuthentication"
 metadata:

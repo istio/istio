@@ -289,3 +289,5 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 func (c *Controller) Run(<-chan struct{}) {}
+
+func (c *Controller) HasSynced() bool { return true }

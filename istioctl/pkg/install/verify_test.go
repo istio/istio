@@ -172,11 +172,6 @@ func TestFindResourceInSpec(t *testing.T) {
 		plural string
 	}{
 		{
-			// Should find Istio resourcespecs
-			kind:   "Policy",
-			plural: "policies",
-		},
-		{
 			// Should find Kubernetes resourcespecs
 			kind:   "Service",
 			plural: "services",

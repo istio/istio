@@ -15,7 +15,6 @@
 package pilot
 
 import (
-	"errors"
 	"io"
 	"net"
 	"os"
@@ -41,10 +40,6 @@ var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
 var _ Native = &nativeComponent{}
 
-var (
-	pilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
-)
-
 // Native is the interface for an native pilot server.
 type Native interface {
 	Instance
@@ -64,10 +59,6 @@ type nativeComponent struct {
 
 // NewNativeComponent factory function for the component
 func newNative(ctx resource.Context, cfg Config) (Instance, error) {
-	if cfg.Galley == nil {
-		return nil, errors.New("galley must be provided")
-	}
-
 	e := ctx.Environment().(*native.Environment)
 	instance := &nativeComponent{
 		environment: ctx.Environment().(*native.Environment),
@@ -75,10 +66,6 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		config:      cfg,
 	}
 	instance.id = ctx.TrackResource(instance)
-
-	// Override the default pilot cert dir.
-	// TODO(nmittler): We should eventually replace this hack.
-	bootstrap.PilotCertDir = pilotCertDir
 
 	// Dynamically assign all ports.
 	options := bootstrap.DiscoveryServiceOptions{
@@ -93,9 +80,6 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		m = cfg.MeshConfig
 	}
 	m.AccessLogFile = "./var/log/istio/access.log"
-	// The local tests will use SDS, so we need to override the mesh to specify the UDS path
-	// TODO(howardjohn) should we make this mesh wide default?
-	m.SdsUdsPath = "unix:./etc/istio/proxy/SDS"
 
 	if cfg.ServiceArgs.Registries == nil {
 		cfg.ServiceArgs = bootstrap.ServiceArgs{
@@ -125,15 +109,8 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	if bootstrapArgs.MeshConfig == nil {
 		bootstrapArgs.MeshConfig = &meshapi.MeshConfig{}
 	}
-
-	galleyHostPort := cfg.Galley.Address()[6:]
-	// Set as MCP address, note needs to strip 'tcp://' from the address prefix
-	// Also appending incase if there are existing config sources
-	bootstrapArgs.MeshConfig.ConfigSources = append(bootstrapArgs.MeshConfig.ConfigSources, &meshapi.ConfigSource{
-		Address: galleyHostPort,
-	})
-
-	bootstrapArgs.MCPOptions.MaxMessageSize = 1024 * 1024 * 4
+	// TODO make pilot component (or something other than galley) control this
+	bootstrapArgs.Config.FileDir = cfg.Galley.GetConfigDir()
 
 	// Use testing certs
 	if err := os.Setenv(bootstrap.LocalCertDir.Name, path.Join(env.IstioSrc, "tests/testdata/certs/pilot")); err != nil {
@@ -189,5 +166,5 @@ func (c *nativeComponent) GetDiscoveryAddress() *net.TCPAddr {
 
 // GetSecureDiscoveryAddress gets the discovery address for pilot.
 func (c *nativeComponent) GetSecureDiscoveryAddress() *net.TCPAddr {
-	return c.server.GRPCDNSListener.Addr().(*net.TCPAddr)
+	return c.server.SecureGrpcListener.Addr().(*net.TCPAddr)
 }

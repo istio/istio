@@ -62,6 +62,7 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		q.cond.L.Lock()
+		q.cond.Signal()
 		q.closing = true
 		q.cond.L.Unlock()
 	}()

@@ -27,20 +27,11 @@ import (
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 
+	name2 "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test"
-)
-
-const (
-	deploymentStr  = "Deployment"
-	roleStr        = "Role"
-	roleBindingStr = "RoleBinding"
-	serviceStr     = "Service"
-	hpaStr         = "HorizontalPodAutoscaler"
-	pdbStr         = "PodDisruptionBudget"
-	saStr          = "ServiceAccount"
 )
 
 // PathValue is a path/value type.
@@ -54,6 +45,14 @@ func (pv *PathValue) String() string {
 	return fmt.Sprintf("%s:%v", pv.path, pv.value)
 }
 
+// objectSet is a set of objects maintained both as a slice (for ordering) and map (for speed).
+type objectSet struct {
+	objSlice object.K8sObjects
+	objMap   map[string]*object.K8sObject
+	keySlice []string
+}
+
+// parseObjectSetFromManifest parses an objectSet from the given manifest.
 func parseObjectSetFromManifest(t test.Failer, manifest string) *objectSet {
 	ret := &objectSet{}
 	var err error
@@ -65,13 +64,6 @@ func parseObjectSetFromManifest(t test.Failer, manifest string) *objectSet {
 		ret.append(o)
 	}
 	return ret
-}
-
-// objectSet is a set of objects maintained both as a slice (for ordering) and map (for speed).
-type objectSet struct {
-	objSlice object.K8sObjects
-	objMap   map[string]*object.K8sObject
-	keySlice []string
 }
 
 // append appends an object to o.
@@ -140,21 +132,21 @@ func (o *objectSet) namespace(namespace string) *objectSet {
 
 // mustGetService returns the service with the given name or fails if it's not found in objs.
 func mustGetService(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
-	obj := objs.kind(serviceStr).nameEquals(name)
+	obj := objs.kind(name2.ServiceStr).nameEquals(name)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
 
 // mustGetDeployment returns the deployment with the given name or fails if it's not found in objs.
 func mustGetDeployment(g *gomega.WithT, objs *objectSet, deploymentName string) *object.K8sObject {
-	obj := objs.kind(deploymentStr).nameEquals(deploymentName)
+	obj := objs.kind(name2.DeploymentStr).nameEquals(deploymentName)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
 
 // mustGetRole returns the role with the given name or fails if it's not found in objs.
 func mustGetRole(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
-	obj := objs.kind(roleStr).nameEquals(name)
+	obj := objs.kind(name2.RoleStr).nameEquals(name)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
@@ -333,6 +325,7 @@ func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) 
 	return got.Node
 }
 
+// objectHashesOrdered returns a slice of the hashes of objs, retaining the original ordering.
 func objectHashesOrdered(objs object.K8sObjects) []string {
 	var out []string
 	for _, o := range objs {
@@ -390,7 +383,7 @@ func portVal(name string, port, targetPort int64) map[string]interface{} {
 
 // checkRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
 func checkRoleBindingsReferenceRoles(g *gomega.WithT, objs *objectSet) {
-	for _, o := range objs.kind(roleBindingStr).objSlice {
+	for _, o := range objs.kind(name2.RoleBindingStr).objSlice {
 		ou := o.Unstructured()
 		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
 		mustGetRole(g, objs, rrname.(string))

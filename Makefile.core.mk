@@ -19,10 +19,10 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.6-dev
+VERSION ?= 1.7-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.6-dev.0
+BASE_VERSION ?= 1.7-dev.0
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -275,7 +275,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/cmd/mixs \
   ./mixer/cmd/mixc \
   ./mixer/tools/mixgen \
-  ./security/cmd/node_agent \
   ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
@@ -283,7 +282,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istioctl sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
 
 .PHONY: build
 build: depend
@@ -359,12 +358,15 @@ update-golden: refresh-goldens
 
 gen: go-gen mirror-licenses format update-crds operator-proto gen-kustomize update-golden
 
-gen-check: gen check-clean-repo
+check-no-modify:
+	@bin/check_no_modify.sh
+
+gen-check: check-no-modify gen check-clean-repo
 
 # Generate kustomize templates.
 gen-kustomize:
-	helm template -n istio-base manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
-	helm template -n istio-base --namespace istio-system manifests/charts/istio-control/istio-discovery \
+	helm3 template istio --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
+	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
 		-f manifests/charts/global.yaml > manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
 
 #-----------------------------------------------------------------------------

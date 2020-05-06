@@ -61,6 +61,7 @@ var (
 	ProfilesPath = filepath.Join(env.IstioSrc, "manifests/profiles")
 	// ManifestPathContainer is path of manifests in the operator container for controller to work with.
 	ManifestPathContainer = "/var/lib/istio/manifests"
+	iopCRFile             = ""
 )
 
 func TestController(t *testing.T) {
@@ -96,10 +97,20 @@ func TestController(t *testing.T) {
 					t.Errorf("failed to create istio namespace: %v", err)
 				}
 			}
-
+			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
-			installWithCRFile(t, ctx, cs, istioCtl, workDir, path.Join(ProfilesPath, "default.yaml"))
-			installWithCRFile(t, ctx, cs, istioCtl, workDir, path.Join(ProfilesPath, "demo.yaml"))
+			installWithCRFile(t, ctx, cs, s, istioCtl, path.Join(ProfilesPath, "default.yaml"))
+			installWithCRFile(t, ctx, cs, s, istioCtl, path.Join(ProfilesPath, "demo.yaml"))
+			// cleanup created resources
+			t.Cleanup(func() {
+				scopes.CI.Infof("cleaning up resources")
+				if err := cs.Delete(IstioNamespace, iopCRFile); err != nil {
+					t.Errorf("faild to delete test IstioOperator CR: %v", err)
+				}
+				if err := cs.DeleteNamespace(OperatorNamespace); err != nil {
+					t.Errorf("failed to delete operator namespace: %v", err)
+				}
+			})
 		})
 }
 
@@ -163,8 +174,8 @@ func checkInstallStatus(cs kube.Cluster) error {
 	return nil
 }
 
-func installWithCRFile(t *testing.T, ctx resource.Context, cs kube.Cluster,
-	istioCtl istioctl.Instance, workDir string, iopFile string) {
+func installWithCRFile(t *testing.T, ctx resource.Context, cs kube.Cluster, s *image.Settings,
+	istioCtl istioctl.Instance, iopFile string) {
 	log.Infof(fmt.Sprintf("=== install istio with new operator cr file: %s===\n", iopFile))
 	originalIOPYAML, err := ioutil.ReadFile(iopFile)
 	if err != nil {
@@ -176,13 +187,14 @@ metadata:
   namespace: istio-system
 spec:
   installPackagePath: %s
+hub: %s
+tag: %s
 `
-	overlayYAML := fmt.Sprintf(metadataYAML, ManifestPathContainer)
+	overlayYAML := fmt.Sprintf(metadataYAML, ManifestPathContainer, s.Hub, s.Tag)
 	iopcr, err := util.OverlayYAML(string(originalIOPYAML), overlayYAML)
 	if err != nil {
 		t.Fatalf("failed to overlay iop with metadata: %v", err)
 	}
-	iopCRFile := filepath.Join(workDir, "iop_cr.yaml")
 	if err := ioutil.WriteFile(iopCRFile, []byte(iopcr), os.ModePerm); err != nil {
 		t.Fatalf("failed to write iop cr file: %v", err)
 	}
@@ -214,6 +226,7 @@ func verifyInstallation(t *testing.T, ctx resource.Context,
 }
 
 func sanityCheck(t *testing.T, ctx resource.Context) {
+	scopes.CI.Infof("running sanity test")
 	var client, server echo.Instance
 	test := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "default",
@@ -245,7 +258,7 @@ func sanityCheck(t *testing.T, ctx resource.Context) {
 			return err
 		}
 		return resp.CheckOK()
-	}, retry.Delay(time.Millisecond*100))
+	}, retry.Delay(time.Millisecond*100), retry.Timeout(retryTimeOut))
 }
 
 func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Instance, originalIOPFile string,
@@ -258,7 +271,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 	if originalIOPFile != "" {
 		generateCmd = append(generateCmd, "-f", originalIOPFile)
 	}
-	genManifests := istioCtl.InvokeOrFail(t, generateCmd)
+	genManifests, _ := istioCtl.InvokeOrFail(t, generateCmd)
 	genK8SObjects, err := object.ParseK8sObjectsFromYAMLManifest(genManifests)
 	if err != nil {
 		return fmt.Errorf("failed to parse generated manifest: %v", err)

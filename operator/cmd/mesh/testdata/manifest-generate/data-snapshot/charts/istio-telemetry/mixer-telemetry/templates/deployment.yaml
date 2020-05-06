@@ -24,6 +24,10 @@ spec:
         istio: mixer
         istio-mixer-type: telemetry
       annotations:
+        {{- if .Values.meshConfig.enablePrometheusMerge }}
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
+        {{- end }}
         sidecar.istio.io/inject: "false"
 {{- with .Values.mixer.telemetry.podAnnotations }}
 {{ toYaml . | indent 8 }}
@@ -111,7 +115,7 @@ spec:
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcp://localhost:15019
     {{- else }}
-          - --configStoreURL=mcp://istio-galley.{{ .Values.global.configNamespace }}.svc:9901
+          - --configStoreURL=mcp://istio-galley.{{ .Values.global.istioNamespace }}.svc:9901
     {{- end }}
 {{- else }}
           - --configStoreURL=k8s://
@@ -229,12 +233,10 @@ spec:
         - name: "ISTIO_META_USER_SDS"
           value: "true"
         - name: CA_ADDR
-          {{- if .Values.global.caAddress }}
+      {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-          {{- else if .Values.global.configNamespace }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
-          {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+      {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
       {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}

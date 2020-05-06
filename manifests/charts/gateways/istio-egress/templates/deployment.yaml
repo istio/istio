@@ -36,11 +36,29 @@ spec:
         service.istio.io/canonical-revision: latest
 {{- end }}
       annotations:
+        {{- if .Values.meshConfig.enablePrometheusMerge }}
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/stats/prometheus"
+        {{- end }}
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
     spec:
+{{- if not $gateway.runAsRoot }}
+      securityContext:
+        runAsUser: 1337
+        runAsGroup: 1337
+        runAsNonRoot: true
+        fsGroup: 1337
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
+{{- end }}
       serviceAccountName: istio-egressgateway-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
@@ -62,6 +80,9 @@ spec:
             - -c
             - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
           securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
             privileged: true
 {{- end }}
       containers:
@@ -76,7 +97,7 @@ spec:
 {{- end }}
           ports:
             {{- range $key, $val := $gateway.ports }}
-            - containerPort: {{ $val.port }}
+            - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
@@ -110,7 +131,7 @@ spec:
             failureThreshold: 30
             httpGet:
               path: /healthz/ready
-              port: 15020
+              port: 15021
               scheme: HTTP
             initialDelaySeconds: 1
             periodSeconds: 2
@@ -181,6 +202,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:
+          - name: istio-envoy
+            mountPath: /etc/istio/proxy
           - name: config-volume
             mountPath: /etc/istio/config
           {{- if eq .Values.global.pilotCertProvider "istiod" }}
@@ -223,6 +246,8 @@ spec:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
+      - name: istio-envoy
+        emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:

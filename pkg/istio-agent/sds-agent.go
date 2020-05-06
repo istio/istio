@@ -182,6 +182,9 @@ type SDSAgent struct {
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
+
+	// ClusterID is the cluster where the agent resides
+	ClusterID string
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -192,11 +195,11 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir string) *SDSAgent {
-	ac := &SDSAgent{}
+func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir, clusterID string) *SDSAgent {
+	a := &SDSAgent{}
 
-	ac.PilotCertProvider = pilotCertProvider
-	ac.OutputKeyCertToDir = outputKeyCertToDir
+	a.PilotCertProvider = pilotCertProvider
+	a.OutputKeyCertToDir = outputKeyCertToDir
 
 	_, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
@@ -205,7 +208,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 
 	if _, err := os.Stat(jwtPath); err == nil && citadel.ProvCert == "" {
 		// If the JWT file exists, and explicit 'prov cert' is not - use the JWT
-		ac.JWTPath = jwtPath
+		a.JWTPath = jwtPath
 	} else {
 		// If original /etc/certs or a separate 'provisioning certs' (VM) are present, use them instead of tokens
 		certDir := "./etc/certs"
@@ -213,15 +216,15 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 			certDir = citadel.ProvCert
 		}
 		if _, err := os.Stat(certDir + "/key.pem"); err == nil {
-			ac.CertsPath = certDir
+			a.CertsPath = certDir
 		}
 		// If the root-cert is in the old location, use it.
 		if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
 			CitadelCACertPath = certDir
 		}
 
-		if ac.CertsPath != "" {
-			log.Warna("Using existing certificate ", ac.CertsPath)
+		if a.CertsPath != "" {
+			log.Warna("Using existing certificate ", a.CertsPath)
 		} else {
 			// Can't use in-process SDS.
 			log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
@@ -230,29 +233,31 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 			if discPort == "15012" {
 				log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
 			}
-			return ac
+			// continue to initialize the agent.
 		}
 	}
 
-	ac.SDSAddress = "unix:" + LocalSDS
+	a.SDSAddress = "unix:" + LocalSDS
 
-	ac.CAEndpoint = caEndpointEnv
+	a.CAEndpoint = caEndpointEnv
 	if caEndpointEnv == "" {
 		// if not set, we will fallback to the discovery address
-		ac.CAEndpoint = discAddr
+		a.CAEndpoint = discAddr
 	}
 
 	if tlsRequired {
-		ac.RequireCerts = true
+		a.RequireCerts = true
 	}
 
 	// Istiod uses a fixed, defined port for K8S-signed certificates.
 	// TODO do not special case port 15012
 	if discPort == "15012" {
-		ac.RequireCerts = true
+		a.RequireCerts = true
 	}
 
-	return ac
+	a.ClusterID = clusterID
+
+	return a
 }
 
 // Simplified SDS setup. This is called if and only if user has explicitly mounted a K8S JWT token, and is not
@@ -266,23 +271,24 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 // 3. Monitor mode - watching secret in same namespace ( Ingress)
 //
 // 4. TODO: File watching, for backward compat/migration from mounted secrets.
-func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, error) {
+func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, error) {
 	applyEnvVars()
 
 	gatewaySdsCacheOptions = workloadSdsCacheOptions
 
-	serverOptions.PilotCertProvider = conf.PilotCertProvider
+	serverOptions.PilotCertProvider = sa.PilotCertProvider
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
-	serverOptions.UseLocalJWT = conf.CertsPath == "" // true if we don't have a key.pem
-	serverOptions.CertsDir = conf.CertsPath
-	serverOptions.JWTPath = conf.JWTPath
-	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
-	serverOptions.CAEndpoint = conf.CAEndpoint
-	serverOptions.TLSEnabled = conf.RequireCerts
+	serverOptions.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
+	serverOptions.CertsDir = sa.CertsPath
+	serverOptions.JWTPath = sa.JWTPath
+	serverOptions.OutputKeyCertToDir = sa.OutputKeyCertToDir
+	serverOptions.CAEndpoint = sa.CAEndpoint
+	serverOptions.TLSEnabled = sa.RequireCerts
+	serverOptions.ClusterID = sa.ClusterID
 
 	// TODO: remove the caching, workload has a single cert
-	workloadSecretCache, _ := conf.newSecretCache(serverOptions)
+	workloadSecretCache, _ := sa.newSecretCache(serverOptions)
 
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
@@ -313,7 +319,7 @@ func ingressSdsExists() bool {
 }
 
 // newSecretCache creates the cache for workload secrets and/or gateway secrets.
-func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
+func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
 	ret := &secretfetcher.SecretFetcher{}
 
 	// TODO: get the MC public keys from pilot.
@@ -421,13 +427,13 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 			}
 		}
 
-		conf.RootCert = rootCert
+		sa.RootCert = rootCert
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert)
+		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert, serverOptions.ClusterID)
 		if err == nil {
-			conf.CitadelClient = caClient
+			sa.CitadelClient = caClient
 		}
 	}
 
@@ -443,7 +449,7 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 	workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
-	conf.WorkloadSecrets = workloadSecretCache
+	sa.WorkloadSecrets = workloadSecretCache
 	return
 }
 

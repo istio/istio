@@ -28,6 +28,8 @@ import (
 	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
+	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
+	envoy_type_tracing_v2 "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
@@ -1401,6 +1403,349 @@ func TestHttpProxyListener(t *testing.T) {
 	}
 	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
 		t.Fatalf("expected http proxy stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
+	}
+}
+
+func TestHttpProxyListener_Tracing(t *testing.T) {
+	var customTagsTest = []struct {
+		name             string
+		in               *meshconfig.Tracing
+		out              *http_filter.HttpConnectionManager_Tracing
+		tproxy           model.Proxy
+		envPilotSampling float64
+	}{
+		{
+			name:             "random-sampling-env",
+			tproxy:           proxy,
+			envPilotSampling: 80.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         0,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 80.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:             "random-sampling-env-and-meshconfig",
+			tproxy:           proxy,
+			envPilotSampling: 80.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         10,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 10.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:             "random-sampling-too-low-env",
+			tproxy:           proxy,
+			envPilotSampling: -1,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         300,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:             "random-sampling-too-high-meshconfig",
+			tproxy:           proxy,
+			envPilotSampling: 80.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         300,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:             "random-sampling-too-high-env",
+			tproxy:           proxy,
+			envPilotSampling: 2000.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         300,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			// upstream will set the default to 256 per
+			// its documentation
+			name:   "tag-max-path-length-not-set-default",
+			tproxy: proxy,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         0,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:   "tag-max-path-length-set-to-1024",
+			tproxy: proxy,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 1024,
+				Sampling:         0,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: &wrappers.UInt32Value{
+					Value: 1024,
+				},
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:   "custom-tags-sidecar",
+			tproxy: proxy,
+			in: &meshconfig.Tracing{
+				CustomTags: map[string]*meshconfig.Tracing_CustomTag{
+					"custom_tag_env": {
+						Type: &meshconfig.Tracing_CustomTag_Environment{
+							Environment: &meshconfig.Tracing_Environment{
+								Name:         "custom_tag_env-var",
+								DefaultValue: "custom-tag-env-default",
+							},
+						},
+					},
+					"custom_tag_request_header": {
+						Type: &meshconfig.Tracing_CustomTag_Header{
+							Header: &meshconfig.Tracing_RequestHeader{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
+						},
+					},
+					// leave this in non-alphanumeric order to verify
+					// the stable sorting doing when creating the custom tag filter
+					"custom_tag_literal": {
+						Type: &meshconfig.Tracing_CustomTag_Literal{
+							Literal: &meshconfig.Tracing_Literal{
+								Value: "literal-value",
+							},
+						},
+					},
+				},
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				CustomTags: []*envoy_type_tracing_v2.CustomTag{
+					{
+						Tag: "custom_tag_env",
+						Type: &envoy_type_tracing_v2.CustomTag_Environment_{
+							Environment: &envoy_type_tracing_v2.CustomTag_Environment{
+								Name:         "custom_tag_env-var",
+								DefaultValue: "custom-tag-env-default",
+							},
+						},
+					},
+					{
+						Tag: "custom_tag_literal",
+						Type: &envoy_type_tracing_v2.CustomTag_Literal_{
+							Literal: &envoy_type_tracing_v2.CustomTag_Literal{
+								Value: "literal-value",
+							},
+						},
+					},
+					{
+						Tag: "custom_tag_request_header",
+						Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
+							RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "custom-tracing-gateways",
+			tproxy: proxyGateway,
+			in: &meshconfig.Tracing{
+				MaxPathTagLength: 100,
+				CustomTags: map[string]*meshconfig.Tracing_CustomTag{
+					"custom_tag_request_header": {
+						Type: &meshconfig.Tracing_CustomTag_Header{
+							Header: &meshconfig.Tracing_RequestHeader{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
+						},
+					},
+				},
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				MaxPathTagLength: &wrappers.UInt32Value{
+					Value: 100,
+				},
+				CustomTags: []*envoy_type_tracing_v2.CustomTag{
+					{
+						Tag: "custom_tag_request_header",
+						Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
+							RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	p := &fakePlugin{}
+	configgen := NewConfigGenerator([]plugin.Plugin{p})
+
+	for _, tc := range customTagsTest {
+		featuresSet := false
+		capturedSamplingValue := pilotTraceSamplingEnv
+		if tc.envPilotSampling != 0.0 {
+			pilotTraceSamplingEnv = tc.envPilotSampling
+			featuresSet = true
+		}
+
+		env := buildListenerEnv(nil, nil)
+		if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+			t.Fatalf("error in initializing push context: %s", err)
+		}
+
+		tc.tproxy.ServiceInstances = nil
+		env.Mesh().ProxyHttpPort = 15007
+		env.Mesh().EnableTracing = true
+		env.Mesh().DefaultConfig = &meshconfig.ProxyConfig{
+			Tracing: &meshconfig.Tracing{
+				CustomTags:       tc.in.CustomTags,
+				MaxPathTagLength: tc.in.MaxPathTagLength,
+				Sampling:         tc.in.Sampling,
+			},
+		}
+
+		tc.tproxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+		httpProxy := configgen.buildHTTPProxy(&tc.tproxy, env.PushContext)
+
+		f := httpProxy.FilterChains[0].Filters[0]
+		verifyHTTPConnectionManagerFilter(t, f, tc.out, tc.name)
+
+		if featuresSet {
+			pilotTraceSamplingEnv = capturedSamplingValue
+		}
+	}
+}
+
+func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected *http_filter.HttpConnectionManager_Tracing, name string) {
+	t.Helper()
+	if f.Name == "envoy.http_connection_manager" {
+		cmgr := &http_filter.HttpConnectionManager{}
+		err := getFilterConfig(f, cmgr)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tracing := cmgr.GetTracing()
+		ok := reflect.DeepEqual(tracing, expected)
+
+		if !ok {
+			t.Fatalf("Testcase failure: %s custom tags did match not expected output", name)
+		}
 	}
 }
 

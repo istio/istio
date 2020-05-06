@@ -12,8 +12,9 @@ data:
       scrape_interval: {{ .Values.prometheus.scrapeInterval }}
     scrape_configs:
 
+
+{{- if not .Values.meshConfig.enablePrometheusMerge }}
     # Mixer scrapping. Defaults to Prometheus and mixer on same namespace.
-    #
     - job_name: 'istio-mesh'
       kubernetes_sd_configs:
       - role: endpoints
@@ -79,7 +80,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Values.global.configNamespace }}
+          - {{ .Values.global.istioNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -92,7 +93,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Values.global.configNamespace }}
+          - {{ .Values.global.istioNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -123,6 +124,7 @@ data:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
         regex: istio-sidecar-injector;http-monitoring
+{{- end }}
 
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'
@@ -226,12 +228,14 @@ data:
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
         action: keep
         regex: true
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
       - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status]
         action: drop
         regex: (.+)
       - source_labels: [__meta_kubernetes_pod_annotation_istio_mtls]
         action: drop
         regex: (true)
+{{- end }}
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
         action: replace
         target_label: __metrics_path__
@@ -250,7 +254,7 @@ data:
         action: replace
         target_label: pod_name
 
-{{- if .Values.prometheus.provisionPrometheusCert }}
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
     - job_name: 'kubernetes-pods-istio-secure'
       scheme: https
       tls_config:

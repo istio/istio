@@ -109,13 +109,13 @@ func TestVirtualListenerBuilder(t *testing.T) {
 
 }
 
-func setInboundCaptureAllOnThisNode(proxy *model.Proxy) {
-	proxy.Metadata.InterceptionMode = "REDIRECT"
+func setInboundCaptureAllOnThisNode(proxy *model.Proxy, mode model.TrafficInterceptionMode) {
+	proxy.Metadata.InterceptionMode = mode
 }
 
 var testServices = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
 
-func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int) []*v2.Listener {
+func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int, mode model.TrafficInterceptionMode) []*v2.Listener {
 	// prepare
 	ldsEnv := getDefaultLdsEnv()
 
@@ -136,12 +136,13 @@ func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int) [
 
 	proxy := getDefaultProxy()
 	proxy.ServiceInstances = instances
-	setInboundCaptureAllOnThisNode(&proxy)
+	setInboundCaptureAllOnThisNode(&proxy, mode)
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
 	builder := NewListenerBuilder(&proxy, env.PushContext)
 	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
 		buildManagementListeners(ldsEnv.configgen).
+		buildHTTPProxyListener(ldsEnv.configgen).
 		buildVirtualOutboundListener(ldsEnv.configgen).
 		buildVirtualInboundListener(ldsEnv.configgen).
 		getListeners()
@@ -154,7 +155,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t, testServices, nil)
+	listeners := prepareListeners(t, testServices, nil, model.InterceptionRedirect)
 	// virtual inbound and outbound listener
 	if len(listeners) != 2 {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
@@ -199,7 +200,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t, testServices, nil)
+	listeners := prepareListeners(t, testServices, nil, model.InterceptionRedirect)
 	// virtual inbound and outbound listener
 	if len(listeners) != 2 {
 		t.Fatalf("expect %d listeners, found %d", 2, len(listeners))
@@ -293,9 +294,30 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 }
 
 func TestManagementListenerBuilder(t *testing.T) {
-	listeners := prepareListeners(t, nil, []int{9876})
+	listeners := prepareListeners(t, nil, []int{9876}, model.InterceptionRedirect)
 	l := expectListener(t, listeners, "virtualInbound")
 	expectTCPProxy(t, l.FilterChains, "inbound|9876||mgmtCluster")
+}
+
+func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
+	// prepare
+	t.Helper()
+	listeners := prepareListeners(t, testServices, nil, model.InterceptionTproxy)
+
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	}
+	l := listeners[1]
+	originalSrcFilterFound := false
+	for _, lf := range l.ListenerFilters {
+		if lf.Name == OriginalSrc {
+			originalSrcFilterFound = true
+			break
+		}
+	}
+	if !originalSrcFilterFound {
+		t.Fatalf("listener filter %s expected", OriginalSrc)
+	}
 }
 
 func expectTCPProxy(t *testing.T, chains []*listener.FilterChain, s string) {

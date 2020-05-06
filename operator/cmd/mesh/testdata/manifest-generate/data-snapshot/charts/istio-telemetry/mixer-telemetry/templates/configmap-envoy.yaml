@@ -91,7 +91,7 @@ data:
             combined_validation_context:
               default_validation_context:
                 verify_subject_alt_name:
-                - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
+                - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.istioNamespace }}/sa/istio-galley-service-account
               validation_context_sds_secret_config:
                 name: ROOTCA
                 sds_config:
@@ -102,7 +102,7 @@ data:
                         cluster_name: sds-grpc
         hosts:
           - socket_address:
-              address: istio-galley.{{ .Values.global.configNamespace }}
+              address: istio-galley.{{ .Values.global.istioNamespace }}
               port_value: 15019
 
 

@@ -120,6 +120,17 @@ func (s Schemas) FindByGroupVersionKind(gvk resource.GroupVersionKind) (Schema, 
 	return nil, false
 }
 
+// FindByKind searches and returns the first schema with the given kind
+func (s Schemas) FindByPlural(plural string) (Schema, bool) {
+	for _, rs := range s.byAddOrder {
+		if rs.Resource().Plural() == plural {
+			return rs, true
+		}
+	}
+
+	return nil, false
+}
+
 // MustFind calls FindByGroupVersionKind and panics if not found.
 func (s Schemas) MustFindByGroupVersionKind(gvk resource.GroupVersionKind) Schema {
 	r, found := s.FindByGroupVersionKind(gvk)

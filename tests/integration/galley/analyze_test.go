@@ -151,8 +151,8 @@ func TestInvalidFileError(t *testing.T) {
 
 			// Parse error as the yaml file itself is not valid yaml.
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile)
-			g.Expect(output[0]).To(ContainSubstring("Error(s) adding files"))
-			g.Expect(output[1]).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
 
 			g.Expect(err).To(MatchError(cmd.FileParseError{}))
 		})
@@ -319,6 +319,7 @@ func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
 	g.Expect(output[0]).To(ContainSubstring("No validation issues found when analyzing"))
 }
 
+// istioctlSafe calls istioctl analyze with certain flags set. Stdout and Stderr are merged
 func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, extraArgs ...string) ([]string, error) {
 	t.Helper()
 
@@ -329,11 +330,8 @@ func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, ex
 	args = append(args, fmt.Sprintf("--use-kube=%t", useKube))
 	args = append(args, extraArgs...)
 
-	output, err := i.Invoke(args)
-	if output == "" {
-		return []string{}, err
-	}
-	return strings.Split(strings.TrimSpace(output), "\n"), err
+	output, stderr, err := i.Invoke(args)
+	return strings.Split(strings.TrimSpace(output+"\n"+stderr), "\n"), err
 }
 
 func applyFileOrFail(t *testing.T, ns, filename string) {

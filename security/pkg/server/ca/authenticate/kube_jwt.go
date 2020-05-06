@@ -16,9 +16,9 @@ package authenticate
 
 import (
 	"fmt"
-	"io/ioutil"
 
 	"golang.org/x/net/context"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/security/pkg/k8s/tokenreview"
 )
@@ -29,33 +29,33 @@ const (
 	KubeJWTAuthenticatorType = "KubeJWTAuthenticator"
 )
 
-type tokenReviewClient interface {
-	ValidateK8sJwt(targetJWT, jwtPolicy string) ([]string, error)
-}
+type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
 type KubeJWTAuthenticator struct {
-	client      tokenReviewClient
 	trustDomain string
 	jwtPolicy   string
+
+	// Primary cluster kube client
+	kubeClient kubernetes.Interface
+	// Primary cluster ID
+	clusterID string
+
+	// remote cluster kubeClient getter
+	remoteKubeClientGetter RemoteKubeClientGetter
 }
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
-func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain, jwtPolicy string) (*KubeJWTAuthenticator, error) {
-	// Read the CA certificate of the k8s apiserver
-	caCert, err := ioutil.ReadFile(caCertPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the CA certificate of k8s API server: %v", err)
-	}
-	reviewerJWT, err := ioutil.ReadFile(jwtPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read Citadel JWT: %v", err)
-	}
+func NewKubeJWTAuthenticator(client kubernetes.Interface, clusterID string,
+	remoteKubeClientGetter RemoteKubeClientGetter,
+	trustDomain, jwtPolicy string) *KubeJWTAuthenticator {
 	return &KubeJWTAuthenticator{
-		client:      tokenreview.NewK8sSvcAcctAuthn(k8sAPIServerURL, caCert, string(reviewerJWT)),
-		trustDomain: trustDomain,
-		jwtPolicy:   jwtPolicy,
-	}, nil
+		trustDomain:            trustDomain,
+		jwtPolicy:              jwtPolicy,
+		kubeClient:             client,
+		clusterID:              clusterID,
+		remoteKubeClientGetter: remoteKubeClientGetter,
+	}
 }
 
 func (a *KubeJWTAuthenticator) AuthenticatorType() string {
@@ -69,7 +69,14 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	if err != nil {
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
-	id, err := a.client.ValidateK8sJwt(targetJWT, a.jwtPolicy)
+	clusterID := extractClusterID(ctx)
+	var id []string
+
+	kubeClient := a.GetKubeClient(clusterID)
+	if kubeClient == nil {
+		return nil, fmt.Errorf("could not get cluster %s's kube client", clusterID)
+	}
+	id, err = tokenreview.ValidateK8sJwt(kubeClient, targetJWT, a.jwtPolicy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate the JWT: %v", err)
 	}
@@ -82,4 +89,21 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 		AuthSource: AuthSourceIDToken,
 		Identities: []string{fmt.Sprintf(identityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
 	}, nil
+}
+
+func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interface {
+	// first match local/primary cluster
+	if a.clusterID == clusterID {
+		return a.kubeClient
+	}
+
+	// secondly try other remote clusters
+	if a.remoteKubeClientGetter != nil {
+		if res := a.remoteKubeClientGetter(clusterID); res != nil {
+			return res
+		}
+	}
+
+	// failover to local cluster
+	return a.kubeClient
 }

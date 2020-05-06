@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/gomega"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	securityBeta "istio.io/api/security/v1beta1"
@@ -443,5 +445,115 @@ func TestSetDestinationRule(t *testing.T) {
 
 	if len(subsetsExport) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsExport))
+	}
+}
+
+func TestIsClusterLocal(t *testing.T) {
+	cases := []struct {
+		name     string
+		m        meshconfig.MeshConfig
+		host     string
+		expected bool
+	}{
+		{
+			name:     "local by default",
+			m:        mesh.DefaultMeshConfig(),
+			host:     "s.kube-system.svc.cluster.local",
+			expected: true,
+		},
+		{
+			name:     "not local by default",
+			m:        mesh.DefaultMeshConfig(),
+			host:     "not.cluster.local",
+			expected: false,
+		},
+		{
+			name: "override default",
+			m: meshconfig.MeshConfig{
+				// Remove the cluster-local setting for kube-system.
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: false,
+						},
+						Hosts: []string{"*.kube-system.svc.cluster.local"},
+					},
+				},
+			},
+			host:     "s.kube-system.svc.cluster.local",
+			expected: false,
+		},
+		{
+			name: "local 1",
+			m: meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*.ns1.svc.cluster.local",
+							"*.ns2.svc.cluster.local",
+						},
+					},
+				},
+			},
+			host:     "s.ns1.svc.cluster.local",
+			expected: true,
+		},
+		{
+			name: "local 2",
+			m: meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*.ns1.svc.cluster.local",
+							"*.ns2.svc.cluster.local",
+						},
+					},
+				},
+			},
+			host:     "s.ns2.svc.cluster.local",
+			expected: true,
+		},
+		{
+			name: "not local",
+			m: meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*.ns1.svc.cluster.local",
+							"*.ns2.svc.cluster.local",
+						},
+					},
+				},
+			},
+			host:     "s.ns3.svc.cluster.local",
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			env := &Environment{Watcher: mesh.NewFixedWatcher(&c.m)}
+			push := &PushContext{
+				Mesh: env.Mesh(),
+			}
+			push.initClusterLocalHosts(env)
+
+			svc := &Service{
+				Hostname: host.Name(c.host),
+			}
+			clusterLocal := push.IsClusterLocal(svc)
+			g.Expect(clusterLocal).To(Equal(c.expected))
+		})
 	}
 }

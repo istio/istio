@@ -1,8 +1,3 @@
-# Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
-# Values.yaml, which should not be used by istiod.
-
-# Istiod only uses SDS based config ( files will mapped/handled by SDS).
-
 template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
@@ -143,6 +138,10 @@ template: |
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
+  {{- if gt .ProxyConfig.Concurrency 0 }}
+    - --concurrency
+    - "{{ .ProxyConfig.Concurrency }}"
+  {{- end -}}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -156,10 +155,8 @@ template: |
     - name: CA_ADDR
     {{- if .Values.global.caAddress }}
       value: {{ .Values.global.caAddress }}
-    {{- else if .Values.global.configNamespace }}
-      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
-      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -181,9 +178,9 @@ template: |
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
-    - name: MESH_CONFIG
+    - name: PROXY_CONFIG
       value: |
-             {{ protoToJSON .MeshConfig }}
+             {{ protoToJSON .ProxyConfig }}
     - name: ISTIO_META_POD_PORTS
       value: |-
         [

@@ -24,7 +24,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/atomic"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
@@ -162,18 +161,6 @@ var (
 				Namespace: "default",
 			},
 		},
-	}
-
-	// ExampleAuthenticationPolicy is an example authentication Policy
-	ExampleAuthenticationPolicy = &authn.Policy{
-		Targets: []*authn.TargetSelector{{
-			Name: "hello",
-		}},
-		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{
-				Mtls: &authn.MutualTls{},
-			},
-		}},
 	}
 
 	// ExampleServiceRole is an example rbac service role
@@ -434,7 +421,6 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"HTTPAPISpecBinding", configName, collections.IstioConfigV1Alpha2Httpapispecbindings, ExampleHTTPAPISpecBinding},
 		{"QuotaSpec", configName, collections.IstioMixerV1ConfigClientQuotaspecs, ExampleQuotaSpec},
 		{"QuotaSpecBinding", configName, collections.IstioMixerV1ConfigClientQuotaspecbindings, ExampleQuotaSpecBinding},
-		{"Policy", configName, collections.IstioAuthenticationV1Alpha1Policies, ExampleAuthenticationPolicy},
 		{"ServiceRole", configName, collections.IstioRbacV1Alpha1Serviceroles, ExampleServiceRole},
 		{"ServiceRoleBinding", configName, collections.IstioRbacV1Alpha1Servicerolebindings, ExampleServiceRoleBinding},
 		{"RbacConfig", constants.DefaultRbacConfigName, collections.IstioRbacV1Alpha1Rbacconfigs, ExampleRbacConfig},

@@ -72,7 +72,7 @@ func TestWebhookManagement(t *testing.T) {
 				"dns.istio-galley-service-account", "--namespace", "istio-system", "--validation-path", "./config/galley-webhook.yaml",
 				"--injection-path", "./config/sidecar-injector-webhook.yaml"}
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			output, fErr := istioCtl.Invoke(args)
+			output, _, fErr := istioCtl.Invoke(args)
 			if fErr != nil {
 				t.Fatalf("error returned for 'istioctl %s': %v", strings.Join(args, " "), fErr)
 			}
@@ -94,7 +94,7 @@ func TestWebhookManagement(t *testing.T) {
 			// Test that webhook statuses returned by running istioctl are as expected.
 			args = []string{"experimental", "post-install", "webhook", "status"}
 			istioCtl = istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			output, fErr = istioCtl.Invoke(args)
+			output, _, fErr = istioCtl.Invoke(args)
 			if fErr != nil {
 				t.Fatalf("error returned for 'istioctl %s': %v", strings.Join(args, " "), fErr)
 			}

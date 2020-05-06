@@ -30,6 +30,24 @@ import (
 	"istio.io/istio/operator/version"
 )
 
+// Kubernetes Kind strings.
+const (
+	CRDStr                   = "CustomResourceDefinition"
+	DaemonSetStr             = "DaemonSet"
+	DeploymentStr            = "Deployment"
+	HPAStr                   = "HorizontalPodAutoscaler"
+	NamespaceStr             = "Namespace"
+	PodStr                   = "Pod"
+	PDBStr                   = "PodDisruptionBudget"
+	ReplicationControllerStr = "ReplicationController"
+	ReplicaSetStr            = "ReplicaSet"
+	RoleStr                  = "Role"
+	RoleBindingStr           = "RoleBinding"
+	SAStr                    = "ServiceAccount"
+	ServiceStr               = "Service"
+	StatefulSetStr           = "StatefulSet"
+)
+
 const (
 	// OperatorAPINamespace is the API namespace for operator config.
 	// TODO: move this to a base definitions file when one is created.
@@ -92,8 +110,25 @@ var (
 
 	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
 	// paths in IstioOperator.
-	ValuesEnablementPathMap = make(map[string]string)
+	ValuesEnablementPathMap = map[string]string{
+		"spec.values.gateways.istio-ingressgateway.enabled": "spec.components.ingressGateways.[name:istio-ingressgateway].enabled",
+		"spec.values.gateways.istio-egressgateway.enabled":  "spec.components.egressGateways.[name:istio-egressgateway].enabled",
+	}
 
+	// userFacingComponentNames are the names of components that are displayed to the user in high level CLIs
+	// (like progress log).
+	userFacingComponentNames = map[ComponentName]string{
+		IstioBaseComponentName:          "Istio core",
+		PilotComponentName:              "Istiod",
+		PolicyComponentName:             "Policy",
+		TelemetryComponentName:          "Telemetry",
+		CNIComponentName:                "CNI",
+		IngressComponentName:            "Ingress gateways",
+		EgressComponentName:             "Egress gateways",
+		AddonComponentName:              "Addons",
+		IstioOperatorComponentName:      "Istio operator",
+		IstioOperatorCustomResourceName: "Istio operator CRDs",
+	}
 	scanAddons sync.Once
 )
 
@@ -104,11 +139,46 @@ func init() {
 	if err := loadComponentNamesConfig(); err != nil {
 		panic(err)
 	}
-	generateValuesEnablementMap()
+}
+
+// Manifest defines a manifest for a component.
+type Manifest struct {
+	Name    ComponentName
+	Content string
 }
 
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName][]string
+
+// Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
+// manifest.
+func (mm ManifestMap) Consolidated() map[string]string {
+	out := make(map[string]string)
+	for cname, ms := range mm {
+		allM := ""
+		for _, m := range ms {
+			allM += m + helm.YAMLSeparator
+		}
+		out[string(cname)] = allM
+	}
+	return out
+}
+
+// MergeManifestSlices merges a slice of manifests into a single manifest string.
+func MergeManifestSlices(manifests []string) string {
+	return strings.Join(manifests, helm.YAMLSeparator)
+}
+
+// String implements the Stringer interface.
+func (mm ManifestMap) String() string {
+	out := ""
+	for _, ms := range mm {
+		for _, m := range ms {
+			out += m + helm.YAMLSeparator
+		}
+	}
+	return out
+}
 
 // IsCoreComponent reports whether cn is a core component.
 func (cn ComponentName) IsCoreComponent() bool {
@@ -182,13 +252,11 @@ func loadComponentNamesConfig() error {
 	return nil
 }
 
-func generateValuesEnablementMap() {
-	ValuesEnablementPathMap["spec.values.gateways.istio-ingressgateway.enabled"] = "spec.components.ingressGateways.[name:istio-ingressgateway].enabled"
-	ValuesEnablementPathMap["spec.values.gateways.istio-egressgateway.enabled"] = "spec.components.egressGateways.[name:istio-egressgateway].enabled"
-}
-
+// onceErr is used to report any error returned through once. It must be globally scoped.
 var onceErr error
 
+// ScanBundledAddonComponents scans the specified directory for addons distributed with Istio and dynamically creates
+// a map that can be used to refer to these component names through an API with dynamic values.
 func ScanBundledAddonComponents(chartsRootDir string) error {
 	scanAddons.Do(func() {
 		if chartsRootDir == "" {
@@ -212,4 +280,14 @@ func ScanBundledAddonComponents(chartsRootDir string) error {
 		}
 	})
 	return onceErr
+}
+
+// UserFacingComponentName returns the name of the given component that should be displayed to the user in high
+// level CLIs (like progress log).
+func UserFacingComponentName(name ComponentName) string {
+	ret, ok := userFacingComponentNames[name]
+	if !ok {
+		return "Unknown"
+	}
+	return ret
 }

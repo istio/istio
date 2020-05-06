@@ -23,16 +23,14 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/jwt"
-
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
-
 	caerror "istio.io/istio/security/pkg/pki/error"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
@@ -504,7 +502,7 @@ func TestRun(t *testing.T) {
 			hostname:                  []string{"localhost"},
 			port:                      0,
 			expectedErr:               "",
-			expectedAuthenticatorsLen: 1, // 2 when ID token authenticators are enabled.
+			expectedAuthenticatorsLen: 2, // 2 when ID token authenticators are enabled.
 			getServerCertificateError: "cannot sign",
 		},
 		"Bad signed cert": {
@@ -512,7 +510,7 @@ func TestRun(t *testing.T) {
 			hostname:                  []string{"localhost"},
 			port:                      0,
 			expectedErr:               "",
-			expectedAuthenticatorsLen: 1, // 2 when ID token authenticators are enabled.
+			expectedAuthenticatorsLen: 2, // 2 when ID token authenticators are enabled.
 			getServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
@@ -520,7 +518,7 @@ func TestRun(t *testing.T) {
 			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
 			hostname:                  []string{"localhost", "fancyhost"},
 			port:                      0,
-			expectedAuthenticatorsLen: 1, // 3 when ID token authenticators are enabled.
+			expectedAuthenticatorsLen: 2, // 3 when ID token authenticators are enabled.
 			getServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
@@ -537,7 +535,7 @@ func TestRun(t *testing.T) {
 			tc.expectedAuthenticatorsLen++
 		}
 		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true,
-			jwt.JWTPolicyThirdPartyJWT)
+			jwt.JWTPolicyThirdPartyJWT, "kubernetes")
 		if err == nil {
 			err = server.Run()
 		}
@@ -609,7 +607,7 @@ func TestGetServerCertificate(t *testing.T) {
 	}
 
 	server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
-		"testdomain.com", true, jwt.JWTPolicyThirdPartyJWT)
+		"testdomain.com", true, jwt.JWTPolicyThirdPartyJWT, "kubernetes")
 	if err != nil {
 		t.Errorf("Cannot crete server: %v", err)
 	}

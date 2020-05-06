@@ -30,6 +30,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -41,10 +42,12 @@ import (
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	operatormesh "istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	util2 "istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
@@ -892,7 +895,7 @@ func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, va
 	if err != nil {
 		t.Fatal(err)
 	}
-	l := operatormesh.NewLogger(true, os.Stdout, os.Stderr)
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
 	manifests, _, err := operatormesh.GenManifests(nil, oy, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
@@ -1317,8 +1320,23 @@ func TestRunAndServe(t *testing.T) {
       "op":"add",
       "path":"/metadata/annotations",
       "value":{
-         "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+         "prometheus.io/path":"/stats/prometheus"
       }
+   },
+   {
+      "op": "add",
+      "path": "/metadata/annotations/prometheus.io~1port",
+      "value": "15020"
+   },
+   {
+      "op": "add",
+      "path": "/metadata/annotations/prometheus.io~1scrape",
+      "value": "true"
+   },
+   {
+      "op":"add",
+      "path":"/metadata/annotations/sidecar.istio.io~1status",
+      "value": "{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
    },
     {
       "op":"add",
@@ -1527,6 +1545,53 @@ func BenchmarkInjectServe(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		wh.serveInject(httptest.NewRecorder(), req)
+	}
+}
+
+func TestEnablePrometheusAggregation(t *testing.T) {
+	tests := []struct {
+		name string
+		mesh *meshconfig.MeshConfig
+		anno map[string]string
+		want bool
+	}{
+		{
+			"no settings",
+			nil,
+			nil,
+			true,
+		},
+		{
+			"mesh on",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			nil,
+			true,
+		},
+		{
+			"mesh off",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			nil,
+			false,
+		},
+		{
+			"annotation on",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			map[string]string{annotation.PrometheusMergeMetrics.Name: "true"},
+			true,
+		},
+		{
+			"annotation off",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			map[string]string{annotation.PrometheusMergeMetrics.Name: "false"},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := enablePrometheusMerge(tt.mesh, tt.anno); got != tt.want {
+				t.Errorf("enablePrometheusMerge() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

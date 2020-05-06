@@ -1,3 +1,5 @@
+{{- if eq .Values.revision "" }}
+{{- /* Old versions not needed when revision is set, otherwise we will start applying v2 to old proxies */}}
 {{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -125,6 +127,7 @@ spec:
                 {
                   "debug": "false",
                   "stat_prefix": "istio",
+                  "disable_host_header_fallback": true,
                 }
               vm_config:
                 vm_id: stats_outbound
@@ -237,5 +240,6 @@ spec:
                 code:
                   inline_string: envoy.wasm.null.stackdriver
 ---
+{{- end}}
 {{- end}}
 {{- end}}

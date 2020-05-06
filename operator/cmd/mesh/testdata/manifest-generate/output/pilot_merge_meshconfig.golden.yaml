@@ -1,32 +1,24 @@
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: istio-system
+  labels:
+    istio.io/rev: default
+    release: istio
 data:
-  Corefile: |-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
 
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
+  meshNetworks: |-
+    networks: {}
 
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
   mesh: |-
     accessLogEncoding: TEXT
-    accessLogFile: null
-    accessLogFormat: null
+    accessLogFile: ""
+    accessLogFormat: ""
     defaultConfig:
       concurrency: 2
-      configPath: /etc/istio/proxy
+      configPath: ./etc/istio/proxy
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
@@ -43,6 +35,7 @@ data:
     disableMixerHttpReports: true
     disablePolicyChecks: true
     enableAutoMtls: true
+    enablePrometheusMerge: true
     enableTracing: true
     ingressClass: istio
     ingressControllerMode: STRICT
@@ -52,19 +45,11 @@ data:
     mixerCheckServer: foo:1234
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY
-    protocolDetectionTimeout: 100ms
+    protocolDetectionTimeout: 12s
     reportBatchMaxEntries: 100
     reportBatchMaxTime: 1s
     rootNamespace: istio-control
     sdsUdsPath: unix:/etc/istio/proxy/SDS
     trustDomain: cluster.local
     trustDomainAliases: null
-  meshNetworks: 'networks: {}'
-kind: ConfigMap
-metadata:
-  labels:
-    istio.io/rev: default
-    release: istio
-  name: istio
-  namespace: istio-system
 ---

@@ -28,6 +28,10 @@ spec:
         istio: mixer
         istio-mixer-type: policy
       annotations:
+        {{- if .Values.meshConfig.enablePrometheusMerge }}
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
+        {{- end }}
         sidecar.istio.io/inject: "false"
 {{- with .Values.mixer.policy.podAnnotations }}
 {{ toYaml . | indent 8 }}
@@ -112,12 +116,12 @@ spec:
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcps://istio-galley.{{ .Values.global.configNamespace }}.svc:15019
     {{- else }}
-          - --configStoreURL=mcp://istio-galley.{{ .Values.global.configNamespace }}.svc:9901
+          - --configStoreURL=mcp://istio-galley.{{ .Values.global.istioNamespace }}.svc:9901
     {{- end }}
 {{- else }}
           - --configStoreURL=k8s://
 {{- end }}
-          - --configDefaultNamespace={{ .Values.global.configNamespace }}
+          - --configDefaultNamespace={{ .Values.global.istioNamespace }}
           {{- if .Values.mixer.policy.adapters.useAdapterCRDs }}
           - --useAdapterCRDs=true
           {{- else }}
@@ -193,7 +197,7 @@ spec:
         - --serviceCluster
         - istio-policy
         - --templateFile
-        - /etc/istio/proxy/envoy_policy.yaml.tmpl
+        - /var/lib/istio/envoy/envoy_policy.yaml.tmpl
       {{- if .Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
@@ -232,10 +236,8 @@ spec:
         - name: CA_ADDR
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-        {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}

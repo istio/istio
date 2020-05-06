@@ -56,12 +56,12 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/prometheus
-          {{- if .Values.prometheus.provisionPrometheusCert }}
+          {{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
           - mountPath: /etc/istio-certs
             name: istio-certs
           {{- end }}
 
-{{- if .Values.prometheus.provisionPrometheusCert }}
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
@@ -176,13 +176,13 @@ spec:
         configMap:
           name: prometheus
 
-{{- if .Values.prometheus.provisionPrometheusCert }}
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
       - name: istio-certs
         emptyDir:
           medium: Memory
 {{- end }}
 
-{{- if .Values.prometheus.provisionPrometheusCert }}
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -201,12 +201,6 @@ spec:
         configMap:
           defaultMode: 420
           name: istio-ca-root-cert
-        {{- end }}
-        {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
-      - name: lightstep-certs
-        secret:
-          optional: true
-          secretName: lightstep.cacert
         {{- end }}
 {{- end }}
 

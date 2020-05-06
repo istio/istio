@@ -23,11 +23,12 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/kubectlcmd"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/version"
+	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/pkg/log"
 )
 
@@ -44,10 +45,11 @@ type manifestApplyArgs struct {
 	kubeConfigPath string
 	// context is the cluster context in the kube config
 	context string
-	// readinessTimeout is maximum time to wait for all Istio resources to be ready.
-	readinessTimeout time.Duration
 	// wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
+	// readinessTimeout is maximum time to wait for all Istio resources to be ready. wait must be true for this setting
+	// to take effect.
+	readinessTimeout time.Duration
 	// skipConfirmation determines whether the user is prompted for confirmation.
 	// If set to true, the user is not prompted and a Yes response is assumed in all cases.
 	skipConfirmation bool
@@ -58,20 +60,25 @@ type manifestApplyArgs struct {
 	set []string
 	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	charts string
+	// revision is the Istio control plane revision the command targets.
+	revision string
 }
 
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
+	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
+	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use.")
+	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
+		"Wait until all Pods, Services, and minimum number of Pods "+
+			"of a Deployment are in a ready state before the exiting.")
+	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
+		"Maximum time to wait for Istio resources in each component to be ready."+
+			" The --wait flag must be set for this flag to apply.")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
-	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for all Istio resources to be ready."+
-		" The --wait flag must be set for this flag to apply")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
-		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
-	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
+	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 }
 
 func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) *cobra.Command {
@@ -131,7 +138,7 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 }
 
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) error {
-	l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	// Warn users if they use `manifest apply` without any config args.
 	if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
 		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
@@ -139,10 +146,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 			os.Exit(1)
 		}
 	}
-	if err := configLogs(rootArgs.logToStdErr, logOpts); err != nil {
+	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := ApplyManifests(applyInstallFlagAlias(maArgs.set, maArgs.charts), maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
+	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.charts, maArgs.revision), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
 		maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
@@ -154,81 +161,66 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
-//  verbose full manifests are output
 //  wait    block until Services and Deployments are ready, or timeout after waitTimeout
-func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool, verbose bool,
-	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
+func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
+	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l clog.Logger) error {
 
 	ysf, err := yamlFromSetFlags(setOverlay, force, l)
 	if err != nil {
 		return err
 	}
-
-	kubeconfig, err := manifest.InitK8SRestClient(kubeConfigPath, context)
+	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
 	if err != nil {
 		return err
 	}
-	manifests, iops, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
+	_, iops, err := GenerateConfig(inFilenames, ysf, force, restConfig, l)
 	if err != nil {
-		return fmt.Errorf("failed to generate manifest: %v", err)
+		return err
 	}
-	opts := &kubectlcmd.Options{
-		DryRun:      dryRun,
-		Verbose:     verbose,
-		Wait:        wait,
-		WaitTimeout: waitTimeout,
-		Kubeconfig:  kubeConfigPath,
-		Context:     context,
-	}
-
-	for cn := range name.DeprecatedComponentNamesMap {
-		manifests[cn] = append(manifests[cn], fmt.Sprintf("# %s component has been deprecated.\n", cn))
-	}
-
-	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, iops, opts)
-	if err != nil {
-		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
-	}
-	gotError := false
-
-	for cn := range manifests {
-		if out[cn].Err != nil {
-			cs := fmt.Sprintf("Component %s - manifest apply returned the following errors:", cn)
-			l.logAndPrintf("\n%s", cs)
-			l.logAndPrint("Error: ", out[cn].Err, "\n")
-			gotError = true
-		}
-
-		if !ignoreError(out[cn].Stderr) {
-			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n", out[cn].Stdout, "\n")
-			gotError = true
-		}
-	}
-
-	if gotError {
-		l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
-		return fmt.Errorf("errors were logged during apply operation")
-	}
-	l.logAndPrint("\n\n✔ Installation complete\n")
 
 	crName := installedSpecCRPrefix
 	if iops.Revision != "" {
 		crName += "-" + iops.Revision
 	}
-	if err := saveClusterState(iops, crName, opts); err != nil {
-		l.logAndPrintf("Failed to save install state in the cluster: %s", err)
+	iop, err := translate.IOPStoIOP(iops, crName, iopv1alpha1.Namespace(iops))
+	if err != nil {
+		return err
+	}
+
+	if err := createNamespace(clientset, iop.Namespace); err != nil {
+		return err
+	}
+
+	// Needed in case we are running a test through this path that doesn't start a new process.
+	cache.FlushObjectCaches()
+	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
+		Force: force}
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
+	if err != nil {
+		return err
+	}
+	status, err := reconciler.Reconcile()
+	if err != nil {
+		return fmt.Errorf("errors occurred during operation")
+	}
+	if status.Status != v1alpha1.InstallStatus_HEALTHY {
+		return fmt.Errorf("errors occurred during operation")
+	}
+
+	opts.ProgressLog.SetState(progress.StateComplete)
+
+	// Save state to cluster in IstioOperator CR.
+	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
+	if err != nil {
+		return err
+	}
+	obj, err := object.ParseYAMLToK8sObject([]byte(iopStr))
+	if err != nil {
+		return err
+	}
+	if err := reconciler.ApplyObject("", obj.UnstructuredObject()); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// saveClusterState stores the given IstioOperatorSpec in the cluster as an IstioOperator CR with the given name and
-// namespace.
-func saveClusterState(iops *v1alpha1.IstioOperatorSpec, name string, opts *kubectlcmd.Options) error {
-	iopStr, err := translate.IOPStoIOP(iops, name, iopv1alpha1.Namespace(iops))
-	if err != nil {
-		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
-	}
-	return manifest.Apply(iopStr, opts)
 }

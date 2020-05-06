@@ -5,6 +5,7 @@ spec:
   hub: docker.io/istio
   tag: 1.1.4
   meshConfig:
+    enablePrometheusMerge: true
     rootNamespace: istio-control
     mixerCheckServer: foo:1234
     outboundTrafficPolicy:
@@ -18,3 +19,7 @@ spec:
   components:
     pilot:
       enabled: true
+  values:
+    global:
+      proxy:
+        protocolDetectionTimeout: 12s

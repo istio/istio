@@ -29,11 +29,13 @@ func ProfileCmd() *cobra.Command {
 	}
 
 	pdArgs := &profileDumpArgs{}
+	plArgs := &profileListArgs{}
+	pdfArgs := &profileDiffArgs{}
 	args := &rootArgs{}
 
-	plc := profileListCmd(args)
+	plc := profileListCmd(args, plArgs)
 	pdc := profileDumpCmd(args, pdArgs)
-	pdfc := profileDiffCmd(args)
+	pdfc := profileDiffCmd(args, pdfArgs)
 
 	addFlags(pc, args)
 	addFlags(plc, args)
@@ -41,6 +43,8 @@ func ProfileCmd() *cobra.Command {
 	addFlags(pdfc, args)
 
 	addProfileDumpFlags(pdc, pdArgs)
+	addProfileListFlags(plc, plArgs)
+	addProfileDiffFlags(pdfc, pdfArgs)
 
 	pc.AddCommand(plc)
 	pc.AddCommand(pdc)

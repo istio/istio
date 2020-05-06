@@ -56,12 +56,12 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/prometheus
-          {{- if .Values.prometheus.provisionPrometheusCert }}
+          {{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
           - mountPath: /etc/istio-certs
             name: istio-certs
           {{- end }}
 
-{{- if .Values.prometheus.provisionPrometheusCert }}
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
@@ -103,10 +103,8 @@ spec:
             - name: CA_ADDR
               {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
-              {{- else if .Values.global.configNamespace }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
               {{- else }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -178,13 +176,13 @@ spec:
         configMap:
           name: prometheus
 
-{{- if .Values.prometheus.provisionPrometheusCert }}
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
       - name: istio-certs
         emptyDir:
           medium: Memory
 {{- end }}
 
-{{- if .Values.prometheus.provisionPrometheusCert }}
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -208,7 +206,7 @@ spec:
       - name: lightstep-certs
         secret:
           optional: true
-        secretName: lightstep.cacert
+          secretName: lightstep.cacert
         {{- end }}
 {{- end }}
 

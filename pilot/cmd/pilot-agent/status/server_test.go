@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -105,6 +106,143 @@ func TestNewServer(t *testing.T) {
 		if !strings.Contains(err.Error(), tc.err) {
 			t.Errorf("test case failed [%v], expect error %v, got %v", tc.probe, tc.err, err)
 		}
+	}
+}
+
+func TestStats(t *testing.T) {
+	cases := []struct {
+		name   string
+		envoy  string
+		app    string
+		output string
+	}{
+		{
+			name:   "simple string",
+			envoy:  "foo",
+			output: "foo",
+		},
+		{
+			name: "envoy metric only",
+			envoy: `# TYPE my_metric counter
+		my_metric{} 0
+		# TYPE my_other_metric counter
+		my_other_metric{} 0
+`,
+			output: `# TYPE my_metric counter
+		my_metric{} 0
+		# TYPE my_other_metric counter
+		my_other_metric{} 0
+`,
+		},
+		{
+			name: "app metric only",
+			app: `# TYPE my_metric counter
+		my_metric{} 0
+		# TYPE my_other_metric counter
+		my_other_metric{} 0
+`,
+			output: `# TYPE my_metric counter
+		my_metric{} 0
+		# TYPE my_other_metric counter
+		my_other_metric{} 0
+`,
+		},
+		{
+			name: "multiple metric",
+			envoy: `# TYPE my_metric counter
+my_metric{} 0
+`,
+			app: `# TYPE my_other_metric counter
+my_other_metric{} 0
+`,
+			output: `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			envoy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if _, err := w.Write([]byte(tt.envoy)); err != nil {
+					t.Fatalf("write failed: %v", err)
+				}
+			}))
+			defer envoy.Close()
+			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if _, err := w.Write([]byte(tt.app)); err != nil {
+					t.Fatalf("write failed: %v", err)
+				}
+			}))
+			defer app.Close()
+			envoyPort, err := strconv.Atoi(strings.Split(envoy.URL, ":")[2])
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := &Server{
+				prometheus: &PrometheusScrapeConfiguration{
+					Port: strings.Split(app.URL, ":")[2],
+				},
+				envoyStatsPort: envoyPort,
+			}
+			req := &http.Request{}
+			server.handleStats(rec, req)
+			if rec.Code != 200 {
+				t.Fatalf("handleStats() => %v; want 200", rec.Code)
+			}
+			if rec.Body.String() != tt.output {
+				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
+			}
+		})
+	}
+}
+
+func TestStatsError(t *testing.T) {
+	rec := httptest.NewRecorder()
+	fail := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer fail.Close()
+	pass := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer pass.Close()
+	failPort, err := strconv.Atoi(strings.Split(fail.URL, ":")[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	passPort, err := strconv.Atoi(strings.Split(pass.URL, ":")[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name  string
+		envoy int
+		app   int
+		resp  int
+	}{
+		{"both pass", passPort, passPort, 200},
+		{"envoy pass", passPort, failPort, 503},
+		{"app pass", failPort, passPort, 503},
+		{"both fail", failPort, failPort, 503},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+
+			server := &Server{
+				prometheus: &PrometheusScrapeConfiguration{
+					Port: strconv.Itoa(tt.app),
+				},
+				envoyStatsPort: tt.envoy,
+			}
+			req := &http.Request{}
+			server.handleStats(rec, req)
+			if rec.Code != 200 {
+				t.Fatalf("handleStats() => %v; want 200", rec.Code)
+			}
+		})
 	}
 }
 

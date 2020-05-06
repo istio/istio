@@ -19,11 +19,14 @@ import (
 	"testing"
 	"time"
 
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -120,6 +123,71 @@ func TestAdsReconnect(t *testing.T) {
 		t.Fatal("Recv failed", err)
 	}
 	t.Log("Received ", m)
+}
+
+func sendAndReceive(t *testing.T, node string, client AdsClient, typeURL string, errMsg string) *xdsapi.DiscoveryResponse {
+	if err := sendXds(node, client, typeURL, errMsg); err != nil {
+		t.Fatal(err)
+	}
+	res, err := adsReceive(client, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
+type AdsClient ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+
+// xdsTest runs a given function with a local pilot environment. This is used to test the ADS handling.
+func xdsTest(t *testing.T, name string, fn func(t *testing.T, client AdsClient)) {
+	t.Run(name, func(t *testing.T) {
+		_, tearDown := initLocalPilotTestEnv(t)
+		defer tearDown()
+
+		client, cancel, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer cancel()
+		fn(t, client)
+	})
+}
+
+func TestAdsVersioning(t *testing.T) {
+	node := sidecarID(app3Ip, "app3")
+
+	xdsTest(t, "version mismatch", func(t *testing.T, client AdsClient) {
+		// Send a v2 CDS request, expect v2 response
+		res := sendAndReceive(t, node, client, v2.ClusterType, "")
+		if res.TypeUrl != v2.ClusterType {
+			t.Fatalf("expected type %v, got %v", v2.ClusterType, res.TypeUrl)
+		}
+
+		// Follow up with a v3 CDS request - this is an error. A client should be consistent
+		if err := sendXds(node, client, v3.ClusterType, ""); err != nil {
+			t.Fatal(err)
+		}
+		res, err := adsReceive(client, 15*time.Second)
+		if err == nil {
+			t.Fatalf("expected an error because we sent a different version, got no error: %v", res)
+		}
+	})
+
+	xdsTest(t, "send v2", func(t *testing.T, client AdsClient) {
+		// Send v2 request, expect v2 response
+		res := sendAndReceive(t, node, client, v2.ClusterType, "")
+		if res.TypeUrl != v2.ClusterType {
+			t.Fatalf("expected type %v, got %v", v2.ClusterType, res.TypeUrl)
+		}
+	})
+
+	xdsTest(t, "send v3", func(t *testing.T, client AdsClient) {
+		// Send v3 request, expect v3 response
+		res := sendAndReceive(t, node, client, v3.ClusterType, "")
+		if res.TypeUrl != v3.ClusterType {
+			t.Fatalf("expected type %v, got %v", v3.ClusterType, res.TypeUrl)
+		}
+	})
 }
 
 func TestAdsClusterUpdate(t *testing.T) {

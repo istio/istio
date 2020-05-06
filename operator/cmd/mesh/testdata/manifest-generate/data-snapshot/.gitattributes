@@ -1,0 +1,9 @@
+*.descriptor      linguist-generated=true
+*.descriptor      -diff -merge
+*.descriptor_set  linguist-generated=true
+*.descriptor_set  -diff -merge
+*.pb.html linguist-generated=true
+*.pb.go linguist-generated=true
+*.gen.go linguist-generated=true
+*.gen.yaml linguist-generated=true
+*_pb2.py linguist-generated=true

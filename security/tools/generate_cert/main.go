@@ -55,6 +55,8 @@ var (
 	outPriv        = flag.String("out-priv", "priv.pem", "Output private key file.")
 	keySize        = flag.Int("key-size", 2048, "Size of the generated private key")
 	mode           = flag.String("mode", selfSignedMode, "Supported mode: self-signed, signer, citadel")
+	//Enable this flag if istio mTLS is enabled and the service is running as server side
+	isServer = flag.Bool("server", false, "Whether this certificate is for a server.")
 )
 
 func checkCmdLine() {
@@ -145,6 +147,7 @@ func main() {
 		IsSelfSigned: *mode == selfSignedMode,
 		IsClient:     *isClient,
 		RSAKeySize:   *keySize,
+		IsServer:     *isServer,
 	}
 	certPem, privPem, err := util.GenCertKeyFromOptions(opts)
 

@@ -81,3 +81,6 @@ tools/istioctl.bash
 vendor
 # Contains the built artifacts
 out/
+etc/
+var/
+.idea/

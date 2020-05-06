@@ -40,7 +40,7 @@ const (
 	DefaultRootCert = AuthCertsPath + RootCertFilename
 
 	// ConfigPathDir config directory for storing envoy json config files.
-	ConfigPathDir = "/etc/istio/proxy"
+	ConfigPathDir = "./etc/istio/proxy"
 
 	// BinaryPathFilename envoy binary location
 	BinaryPathFilename = "/usr/local/bin/envoy"

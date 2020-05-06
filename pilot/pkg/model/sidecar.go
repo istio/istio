@@ -346,18 +346,16 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		listenerHosts: make(map[string][]host.Name),
 	}
 
-	if istioListener.Hosts != nil {
-		for _, h := range istioListener.Hosts {
-			parts := strings.SplitN(h, "/", 2)
-			if parts[0] == currentNamespace {
-				parts[0] = configNamespace
-			}
-			if _, exists := out.listenerHosts[parts[0]]; !exists {
-				out.listenerHosts[parts[0]] = make([]host.Name, 0)
-			}
-
-			out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], host.Name(parts[1]))
+	for _, h := range istioListener.Hosts {
+		parts := strings.SplitN(h, "/", 2)
+		if parts[0] == currentNamespace {
+			parts[0] = configNamespace
 		}
+		if _, exists := out.listenerHosts[parts[0]]; !exists {
+			out.listenerHosts[parts[0]] = make([]host.Name, 0)
+		}
+
+		out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], host.Name(parts[1]))
 	}
 
 	dummyNode := Proxy{
@@ -447,20 +445,12 @@ func (sc *SidecarScope) GetEgressListenerForRDS(port int, bind string) *IstioEgr
 
 // Services returns the list of services imported by this egress listener
 func (ilw *IstioEgressListenerWrapper) Services() []*Service {
-	if ilw == nil {
-		return nil
-	}
-
 	return ilw.services
 }
 
 // VirtualServices returns the list of virtual services imported by this
 // egress listener
 func (ilw *IstioEgressListenerWrapper) VirtualServices() []Config {
-	if ilw == nil {
-		return nil
-	}
-
 	return ilw.virtualServices
 }
 
@@ -565,8 +555,8 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []C
 	return importedVirtualServices
 }
 
-// selectServices returns the list of services selected through the hosts field
-// in the egress portion of the Sidecar config
+// Return filtered services through the hosts field in the egress portion of the Sidecar config.
+// Note that the returned service could be trimmed.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string) []*Service {
 
 	importedServices := make([]*Service, 0)
@@ -576,12 +566,16 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
-			importedServices = append(importedServices, matchingServices(importedHosts, s, ilw)...)
+			if svc := matchingService(importedHosts, s, ilw); svc != nil {
+				importedServices = append(importedServices, svc)
+			}
 		}
 
 		// Check if there is an import of form */host or */*
 		if wnsFound {
-			importedServices = append(importedServices, matchingServices(wildcardHosts, s, ilw)...)
+			if svc := matchingService(wildcardHosts, s, ilw); svc != nil {
+				importedServices = append(importedServices, svc)
+			}
 		}
 	}
 
@@ -606,42 +600,28 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 	return filteredServices
 }
 
-func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) []*Service {
+// Return the original service or a trimmed service which has a subset of the ports in original service.
+func matchingService(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) *Service {
 	// If a listener is defined with a port, we should match services with port except in the following case.
 	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
 	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
 		protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
-	importedServices := make([]*Service, 0)
 
 	for _, importedHost := range importedHosts {
 		// Check if the hostnames match per usual hostname matching rules
 		if importedHost.Matches(service.Hostname) {
-			portMatched := false
 			if needsPortMatch {
 				for _, port := range service.Ports {
 					if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-						portMatched = true
-						break
+						sc := service.DeepCopy()
+						sc.Ports = []*Port{port}
+						return sc
 					}
 				}
 			} else {
-				importedServices = append(importedServices, service)
-				break
-			}
-			// If there is a port match, we should trim the service ports to the port specified by listener.
-			if portMatched {
-				for _, port := range service.Ports {
-					if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-						ports := []*Port{}
-						sc := service.DeepCopy()
-						ports = append(ports, port)
-						sc.Ports = ports
-						importedServices = append(importedServices, sc)
-						break
-					}
-				}
+				return service
 			}
 		}
 	}
-	return importedServices
+	return nil
 }

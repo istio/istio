@@ -77,9 +77,6 @@ func (m *configstoreMonitor) Run(stop <-chan struct{}) {
 	for {
 		select {
 		case <-stop:
-			if _, ok := <-m.eventCh; ok {
-				close(m.eventCh)
-			}
 			return
 		case ce, ok := <-m.eventCh:
 			if ok {

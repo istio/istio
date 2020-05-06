@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+
 	"istio.io/istio/pkg/jwt"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -134,6 +136,9 @@ type CAOptions struct {
 // to have a central consistent endpoint to get whether CA functionality is
 // enabled in istiod. EnableCA() is called in multiple places.
 func (s *Server) EnableCA() bool {
+	if !features.EnableCAServer {
+		return false
+	}
 	if s.kubeClient == nil {
 		// No k8s - no self-signed certs.
 		// TODO: implement it using a local directory, for non-k8s env.
@@ -189,11 +194,13 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 			}
 		}
 	}
+
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
-		true, features.JwtPolicy.Get())
+		true, features.JwtPolicy.Get(), s.clusterID, s.kubeClient,
+		s.multicluster.GetRemoteKubeClient)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
@@ -377,7 +384,7 @@ func (s *Server) initPublicKey() error {
 						select {
 						case <-stop:
 							return
-						case <-time.After(namespaceResyncPeriod):
+						case <-time.After(controller.NamespaceResyncPeriod):
 							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
 							if !bytes.Equal(rootCert, newRootCert) {
 								rootCert = newRootCert

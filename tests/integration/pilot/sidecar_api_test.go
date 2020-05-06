@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
@@ -69,6 +70,11 @@ func TestSidecarListeners(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error applying directory: %v", err)
 			}
+			defer func() {
+				if err := g.DeleteConfigDir(nil, path); err != nil {
+					scopes.CI.Errorf("failed to delete directory: %v", err)
+				}
+			}()
 
 			// Now continue to watch on the same stream
 			err = p.WatchDiscovery(time.Second*10,
@@ -116,7 +122,8 @@ func validateMongoListener(t *testing.T, response *structpath.Instance) {
 			}, "{.address.socketAddress}").
 			Select("{.filterChains[0].filters[0]}").
 			Equals("envoy.mongo_proxy", "{.name}").
-			Select("{.config}").
-			Exists("{.stat_prefix}")
+			Select("{.typedConfig}").
+			Exists("{.statPrefix}").
+			CheckOrFail(t)
 	})
 }

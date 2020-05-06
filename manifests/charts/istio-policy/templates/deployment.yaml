@@ -28,6 +28,10 @@ spec:
         istio: mixer
         istio-mixer-type: policy
       annotations:
+        {{- if .Values.meshConfig.enablePrometheusMerge }}
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
+        {{- end }}
         sidecar.istio.io/inject: "false"
 {{- with .Values.mixer.policy.podAnnotations }}
 {{ toYaml . | indent 8 }}
@@ -193,7 +197,7 @@ spec:
         - --serviceCluster
         - istio-policy
         - --templateFile
-        - /etc/istio/proxy/envoy_policy.yaml.tmpl
+        - /var/lib/istio/envoy/envoy_policy.yaml.tmpl
       {{- if .Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS

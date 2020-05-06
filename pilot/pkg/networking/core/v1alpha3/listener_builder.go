@@ -56,11 +56,13 @@ var (
 // 1. Use separate inbound capture listener(:15006) and outbound capture listener(:15001)
 // 2. The above listeners use bind_to_port sub listeners or filter chains.
 type ListenerBuilder struct {
-	node                    *model.Proxy
-	push                    *model.PushContext
-	gatewayListeners        []*xdsapi.Listener
-	inboundListeners        []*xdsapi.Listener
-	outboundListeners       []*xdsapi.Listener
+	node              *model.Proxy
+	push              *model.PushContext
+	gatewayListeners  []*xdsapi.Listener
+	inboundListeners  []*xdsapi.Listener
+	outboundListeners []*xdsapi.Listener
+	// HttpProxyListener is a specialize outbound listener. See MeshConfig.proxyHttpPort
+	httpProxyListener       *xdsapi.Listener
 	virtualOutboundListener *xdsapi.Listener
 	virtualInboundListener  *xdsapi.Listener
 }
@@ -149,6 +151,11 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 			append(lb.virtualInboundListener.ListenerFilters, tlsInspectorFilter)
 	}
 
+	if lb.node.GetInterceptionMode() == model.InterceptionTproxy {
+		lb.virtualInboundListener.ListenerFilters =
+			append(lb.virtualInboundListener.ListenerFilters, originalSrcFilter)
+	}
+
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
@@ -208,6 +215,17 @@ func addressKey(addr *core.Address) string {
 		return t.Pipe.Path
 	}
 	return addr.String()
+}
+
+func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
+	httpProxy := configgen.buildHTTPProxy(lb.node, lb.push)
+	if httpProxy == nil {
+		return lb
+	}
+	removeListenerFilterTimeout([]*xdsapi.Listener{httpProxy})
+	lb.patchOneListener(httpProxy, networking.EnvoyFilter_SIDECAR_OUTBOUND)
+	lb.httpProxyListener = httpProxy
+	return lb
 }
 
 func (lb *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl) *ListenerBuilder {
@@ -310,26 +328,26 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	return lb
 }
 
+func (lb *ListenerBuilder) patchOneListener(listener *xdsapi.Listener, ctx networking.EnvoyFilter_PatchContext) *xdsapi.Listener {
+	if listener == nil {
+		return nil
+	}
+	tempArray := []*xdsapi.Listener{listener}
+	tempArray = envoyfilter.ApplyListenerPatches(ctx, lb.node, lb.push, tempArray, true)
+	// temp array will either be empty [if virtual listener was removed] or will have a modified listener
+	if len(tempArray) == 0 {
+		return nil
+	}
+	return tempArray[0]
+}
 func (lb *ListenerBuilder) patchListeners() {
 	if lb.node.Type == model.Router {
 		envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, lb.node, lb.push, lb.gatewayListeners, false)
 		return
 	}
 
-	patchOneListener := func(listener *xdsapi.Listener, ctx networking.EnvoyFilter_PatchContext) *xdsapi.Listener {
-		if listener == nil {
-			return nil
-		}
-		tempArray := []*xdsapi.Listener{listener}
-		tempArray = envoyfilter.ApplyListenerPatches(ctx, lb.node, lb.push, tempArray, true)
-		// temp array will either be empty [if virtual listener was removed] or will have a modified listener
-		if len(tempArray) == 0 {
-			return nil
-		}
-		return tempArray[0]
-	}
-	lb.virtualOutboundListener = patchOneListener(lb.virtualOutboundListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
-	lb.virtualInboundListener = patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
+	lb.virtualOutboundListener = lb.patchOneListener(lb.virtualOutboundListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
+	lb.virtualInboundListener = lb.patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
 	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node,
 		lb.push, lb.inboundListeners, false)
 	lb.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, lb.node,
@@ -339,18 +357,25 @@ func (lb *ListenerBuilder) patchListeners() {
 func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
 	if lb.node.Type == model.SidecarProxy {
 		nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
-		nVirtual, nVirtualInbound := 0, 0
+		nHTTPProxy, nVirtual, nVirtualInbound := 0, 0, 0
+		if lb.httpProxyListener != nil {
+			nHTTPProxy = 1
+		}
 		if lb.virtualOutboundListener != nil {
 			nVirtual = 1
 		}
 		if lb.virtualInboundListener != nil {
 			nVirtualInbound = 1
 		}
-		nListener := nInbound + nOutbound + nVirtual + nVirtualInbound
+
+		nListener := nInbound + nOutbound + nHTTPProxy + nVirtual + nVirtualInbound
 
 		listeners := make([]*xdsapi.Listener, 0, nListener)
 		listeners = append(listeners, lb.inboundListeners...)
 		listeners = append(listeners, lb.outboundListeners...)
+		if lb.httpProxyListener != nil {
+			listeners = append(listeners, lb.httpProxyListener)
+		}
 		if lb.virtualOutboundListener != nil {
 			listeners = append(listeners, lb.virtualOutboundListener)
 		}
@@ -358,11 +383,13 @@ func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
 			listeners = append(listeners, lb.virtualInboundListener)
 		}
 
-		log.Debugf("Build %d listeners for node %s including %d outbound, %d virtual and %d virtual inbound listeners",
+		log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, %d virtual outbound and %d virtual inbound listeners",
 			nListener,
 			lb.node.ID,
 			nOutbound,
-			nVirtual, nVirtualInbound)
+			nHTTPProxy,
+			nVirtual,
+			nVirtualInbound)
 		return listeners
 	}
 

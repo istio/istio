@@ -35,9 +35,11 @@ import (
 	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/filter/thrift/rate_limit/v2alpha1"
 	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
+	envoy_type_tracing_v2 "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -49,7 +51,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -175,6 +176,9 @@ var (
 	mtlsHTTP10ALPN = []string{"istio-http/1.0", "istio"}
 	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio"}
 	mtlsHTTP2ALPN  = []string{"istio-h2", "istio"}
+
+	// ALPN used for TCP Metadata Exchange.
+	tcpMxcALPN = "istio-peer-exchange"
 
 	// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 	// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
@@ -330,7 +334,9 @@ var (
 	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
 	httpGrpcAccessLog = buildHTTPGrpcAccessLog()
 
-	tracingConfig = buildTracingConfig()
+	// pilotTraceSamplingEnv is value of PILOT_TRACE_SAMPLING env bounded
+	// by [0.0, 100.0]; if outside the range it is set to 100.0
+	pilotTraceSamplingEnv = getPilotRandomSamplingEnv()
 
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 
@@ -458,6 +464,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushCont
 		builder.buildSidecarInboundListeners(configgen).
 			buildSidecarOutboundListeners(configgen).
 			buildManagementListeners(configgen).
+			buildHTTPProxyListener(configgen).
 			buildVirtualOutboundListener(configgen).
 			buildVirtualInboundListener(configgen)
 	}
@@ -791,6 +798,10 @@ allChainsLabel:
 			filterChainMatch = &fcm
 			if filterChainMatchOption[id].Protocol == istionetworking.ListenerProtocolHTTP {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
+				if chain.TLSContext != nil && chain.TLSContext.CommonTlsContext != nil {
+					chain.TLSContext.CommonTlsContext.AlpnProtocols = dropAlpnFromList(
+						chain.TLSContext.CommonTlsContext.AlpnProtocols, tcpMxcALPN)
+				}
 			} else {
 				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.Node, pluginParams.ServiceInstance)
 			}
@@ -1118,11 +1129,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 	}
 
 	tcpListeners = append(tcpListeners, httpListeners...)
-	httpProxy := configgen.buildHTTPProxy(node, push)
-	if httpProxy != nil {
-		tcpListeners = append(tcpListeners, httpProxy)
-	}
-
 	removeListenerFilterTimeout(tcpListeners)
 	return tcpListeners
 }
@@ -1990,26 +1996,114 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if pluginParams.Push.Mesh.EnableTracing {
-		connectionManager.Tracing = tracingConfig
+		proxyConfig := pluginParams.Node.Metadata.ProxyConfigOrDefault(pluginParams.Push.Mesh.DefaultConfig)
+		connectionManager.Tracing = buildTracingConfig(proxyConfig)
 		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
 }
 
-func buildTracingConfig() *http_conn.HttpConnectionManager_Tracing {
-	tc := authn_model.GetTraceConfig()
-	return &http_conn.HttpConnectionManager_Tracing{
-		ClientSampling: &envoy_type.Percent{
-			Value: tc.ClientSampling,
-		},
-		RandomSampling: &envoy_type.Percent{
-			Value: tc.RandomSampling,
-		},
-		OverallSampling: &envoy_type.Percent{
-			Value: tc.OverallSampling,
-		},
+func buildTracingConfig(config *meshconfig.ProxyConfig) *http_conn.HttpConnectionManager_Tracing {
+	tracingCfg := &http_conn.HttpConnectionManager_Tracing{}
+	updateTraceSamplingConfig(config, tracingCfg)
+
+	if config.Tracing != nil {
+		// only specify a MaxPathTagLength if meshconfig has specified one
+		// otherwise, rely on upstream envoy defaults
+		if config.Tracing.MaxPathTagLength != 0 {
+			tracingCfg.MaxPathTagLength =
+				&wrappers.UInt32Value{
+					Value: config.Tracing.MaxPathTagLength,
+				}
+		}
+
+		if len(config.Tracing.CustomTags) != 0 {
+			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
+		}
 	}
+
+	return tracingCfg
+}
+
+func getPilotRandomSamplingEnv() float64 {
+	f := features.TraceSampling
+	if f < 0.0 || f > 100.0 {
+		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
+		return 100.0
+	}
+	return f
+}
+
+func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *http_conn.HttpConnectionManager_Tracing) {
+	sampling := pilotTraceSamplingEnv
+
+	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
+		sampling = config.Tracing.Sampling
+
+		if sampling > 100.0 {
+			sampling = 100.0
+		}
+	}
+	cfg.ClientSampling = &envoy_type.Percent{
+		Value: 100.0,
+	}
+	cfg.RandomSampling = &envoy_type.Percent{
+		Value: sampling,
+	}
+	cfg.OverallSampling = &envoy_type.Percent{
+		Value: 100.0,
+	}
+}
+
+func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*envoy_type_tracing_v2.CustomTag {
+	var tags []*envoy_type_tracing_v2.CustomTag
+
+	for tagName, tagInfo := range customTags {
+		switch tag := tagInfo.Type.(type) {
+		case *meshconfig.Tracing_CustomTag_Environment:
+			env := &envoy_type_tracing_v2.CustomTag{
+				Tag: tagName,
+				Type: &envoy_type_tracing_v2.CustomTag_Environment_{
+					Environment: &envoy_type_tracing_v2.CustomTag_Environment{
+						Name:         tag.Environment.Name,
+						DefaultValue: tag.Environment.DefaultValue,
+					},
+				},
+			}
+			tags = append(tags, env)
+		case *meshconfig.Tracing_CustomTag_Header:
+			header := &envoy_type_tracing_v2.CustomTag{
+				Tag: tagName,
+				Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
+					RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+						Name:         tag.Header.Name,
+						DefaultValue: tag.Header.DefaultValue,
+					},
+				},
+			}
+			tags = append(tags, header)
+		case *meshconfig.Tracing_CustomTag_Literal:
+			env := &envoy_type_tracing_v2.CustomTag{
+				Tag: tagName,
+				Type: &envoy_type_tracing_v2.CustomTag_Literal_{
+					Literal: &envoy_type_tracing_v2.CustomTag_Literal{
+						Value: tag.Literal.Value,
+					},
+				},
+			}
+			tags = append(tags, env)
+		}
+	}
+
+	// looping over customTags, a map, results in the returned value
+	// being non-deterministic when multiple tags were defined; sort by the tag name
+	// to rectify this
+	sort.Slice(tags, func(i, j int) bool {
+		return tags[i].Tag < tags[j].Tag
+	})
+
+	return tags
 }
 
 func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_ThriftConfig) *thrift_ratelimit.RateLimit {
@@ -2076,6 +2170,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	if opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.HttpInspector] = true
 		listenerFilters = append(listenerFilters, httpInspectorFilter)
+	}
+
+	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy {
+		listenerFiltersMap[OriginalSrc] = true
+		listenerFilters = append(listenerFilters, originalSrcFilter)
 	}
 
 	for _, chain := range opts.filterChainOpts {
@@ -2593,4 +2692,15 @@ func resetCachedListenerConfig(mesh *meshconfig.MeshConfig) {
 // listenerKey builds the key for a given bind and port
 func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
+}
+
+func dropAlpnFromList(alpnProtocols []string, alpnToDrop string) []string {
+	var newAlpnProtocols []string
+	for _, alpn := range alpnProtocols {
+		if alpn == alpnToDrop {
+			continue
+		}
+		newAlpnProtocols = append(newAlpnProtocols, alpn)
+	}
+	return newAlpnProtocols
 }

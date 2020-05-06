@@ -6,6 +6,13 @@ spec:
   hub: gcr.io/istio-testing
   tag: latest
 
+  # You may override parts of meshconfig by uncommenting the following lines.
+  meshConfig:
+    enablePrometheusMerge: false
+    # Opt-out of global http2 upgrades.
+    # Destination rule is used to opt-in.
+    # h2_upgrade_policy: DO_NOT_UPGRADE
+
   # Traffic management feature
   components:
     base:
@@ -36,7 +43,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Policy feature
+    # Policy feature
     policy:
       enabled: false
       k8s:
@@ -63,7 +70,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-   # Telemetry feature
+    # Telemetry feature
     telemetry:
       enabled: false
       k8s:
@@ -100,7 +107,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Security feature
+    # Security feature
     citadel:
       enabled: false
       k8s:
@@ -109,7 +116,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Istio Gateway feature
+    # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
       enabled: true
@@ -119,8 +126,8 @@ spec:
             value: "sni-dnat"
         service:
           ports:
-            - port: 15020
-              targetPort: 15020
+            - port: 15021
+              targetPort: 15021
               name: status-port
             - port: 80
               targetPort: 8080
@@ -219,11 +226,6 @@ spec:
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/charts/global.yaml
   values:
-    # You may override parts of meshconfig by uncommenting the following lines.
-    meshConfig:
-      # Opt-out of global http2 upgrades.
-      # Destination rule is used to opt-in.
-      # h2_upgrade_policy: DO_NOT_UPGRADE
     global:
       istioNamespace: istio-system
       istiod:
@@ -276,14 +278,10 @@ spec:
       imagePullPolicy: ""
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
-      policyCheckFailOpen: false
-      enableTracing: true
       tracer:
         lightstep:
           address: ""                # example: lightstep-satellite:443
           accessToken: ""            # example: abcdefg1234567
-          secure: true               # example: true|false
-          cacertPath: ""             # example: /etc/lightstep/cacert.pem
         zipkin:
           address: ""
         datadog:
@@ -293,8 +291,6 @@ spec:
           maxNumberOfAttributes: 200
           maxNumberOfAnnotations: 200
           maxNumberOfMessageEvents: 200
-      mtls:
-        auto: true
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -319,18 +315,16 @@ spec:
       priorityClassName: ""
       useMCP: false
       trustDomain: "cluster.local"
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
       sds:
         token:
           aud: istio-ca
       sts:
         servicePort: 0
       meshNetworks: {}
-      localityLbSetting:
-        enabled: true
       enableHelmTest: false
       mountMtlsCerts: false
+    base:
+      enableCRDTemplates: false
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -361,6 +355,7 @@ spec:
         enabled: false
       v2:
         enabled: true
+        metadataExchange: {}
         prometheus:
           enabled: true
         stackdriver:
@@ -416,6 +411,8 @@ spec:
 
     gateways:
       istio-egressgateway:
+        zvpn: {}
+        env: {}
         autoscaleEnabled: true
         type: ClusterIP
         name: istio-egressgateway
@@ -434,6 +431,8 @@ spec:
         domain: ""
         type: LoadBalancer
         name: istio-ingressgateway
+        zvpn: {}
+        env: {}
         meshExpansionPorts:
           - port: 15011
             targetPort: 15011
@@ -589,12 +588,16 @@ spec:
         grafanaInClusterURL: http://grafana:3000
         jaegerURL:
         jaegerInClusterURL: http://tracing/jaeger
+        auth:
+          strategy: login
       prometheusNamespace:
       createDemoSecret: false
       security:
         enabled: false
         cert_file: /kiali-cert/cert-chain.pem
         private_key_file: /kiali-cert/key.pem
+      service:
+        annotations: {}
 
     # TODO: derive from operator API
     version: ""

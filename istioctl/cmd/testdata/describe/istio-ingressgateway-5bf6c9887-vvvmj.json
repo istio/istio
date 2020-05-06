@@ -318,9 +318,6 @@
         },
         {
          "prefix": "cluster.xds-grpc"
-        },
-        {
-         "suffix": "ssl_context_update_by_sds"
         }
        ]
       }

@@ -69,13 +69,13 @@ func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedReso
 		return nil, nil, fmt.Errorf("GRPC dial failed: %s", err)
 	}
 	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
-	edsstr, err := xds.StreamAggregatedResources(context.Background())
+	client, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return nil, nil, fmt.Errorf("stream resources failed: %s", err)
 	}
 
-	return edsstr, func() {
-		_ = edsstr.CloseSend()
+	return client, func() {
+		_ = client.CloseSend()
 		_ = conn.Close()
 	}, nil
 }
@@ -114,28 +114,15 @@ func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoverySe
 	return nil
 }
 
-func sendEDSNack(_ []string, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
-			Id:       node,
-			Metadata: nodeMetadata,
-		},
-		TypeUrl:     v2.EndpointType,
-		ErrorDetail: &status.Status{Message: "NOPE!"},
-	})
-	if err != nil {
-		return fmt.Errorf("EDS NACK failed: %s", err)
-	}
-
-	return nil
+func sendEDSNack(_ []string, node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+	return sendXds(node, client, v2.EndpointType, "NOPE!")
 }
 
 // If pilot is reset, envoy will connect with a nonce/version info set on the previous
 // connection to pilot. In HA case this may be a different pilot. This is a regression test for
 // reconnect problems.
-func sendEDSReqReconnect(clusters []string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, res *xdsapi.DiscoveryResponse) error {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+func sendEDSReqReconnect(clusters []string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, res *xdsapi.DiscoveryResponse) error {
+	err := client.Send(&xdsapi.DiscoveryRequest{
 		Node: &core.Node{
 			Id:       sidecarID(app3Ip, "app3"),
 			Metadata: nodeMetadata,
@@ -151,19 +138,8 @@ func sendEDSReqReconnect(clusters []string, edsstr ads.AggregatedDiscoveryServic
 	return nil
 }
 
-func sendLDSReq(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
-			Id:       node,
-			Metadata: nodeMetadata,
-		},
-		TypeUrl: v2.ListenerType})
-	if err != nil {
-		return fmt.Errorf("LDS request failed: %s", err)
-	}
-
-	return nil
+func sendLDSReq(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+	return sendXds(node, client, v2.ListenerType, "")
 }
 
 func sendLDSReqWithLabels(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, labels map[string]string) error {
@@ -181,20 +157,8 @@ func sendLDSReqWithLabels(node string, ldsstr ads.AggregatedDiscoveryService_Str
 	return nil
 }
 
-func sendLDSNack(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
-			Id:       node,
-			Metadata: nodeMetadata,
-		},
-		TypeUrl:     v2.ListenerType,
-		ErrorDetail: &status.Status{Message: "NOPE!"}})
-	if err != nil {
-		return fmt.Errorf("LDS NACK failed: %s", err)
-	}
-
-	return nil
+func sendLDSNack(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+	return sendXds(node, client, v2.ListenerType, "NOPE!")
 }
 
 func sendRDSReq(node string, routes []string, nonce string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
@@ -229,32 +193,29 @@ func sendRDSNack(node string, _ []string, nonce string, rdsstr ads.AggregatedDis
 	return nil
 }
 
-func sendCDSReq(node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
-			Id:       node,
-			Metadata: nodeMetadata,
-		},
-		TypeUrl: v2.ClusterType})
-	if err != nil {
-		return fmt.Errorf("CDS request failed: %s", err)
-	}
-
-	return nil
+func sendCDSReq(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+	return sendXds(node, client, v2.ClusterType, "")
 }
 
-func sendCDSNack(node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+func sendCDSNack(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+	return sendXds(node, client, v2.ClusterType, "NOPE!")
+}
+
+func sendXds(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, typeURL string, errMsg string) error {
+	var errorDetail *status.Status
+	if errMsg != "" {
+		errorDetail = &status.Status{Message: errMsg}
+	}
+	err := client.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
-		ErrorDetail: &status.Status{Message: "NOPE!"},
-		TypeUrl:     v2.ClusterType})
+		ErrorDetail: errorDetail,
+		TypeUrl:     typeURL})
 	if err != nil {
-		return fmt.Errorf("CDS NACK failed: %s", err)
+		return fmt.Errorf("%v Request failed: %s", typeURL, err)
 	}
 
 	return nil

@@ -108,11 +108,10 @@ ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
 # Split ISTIO_AGENT_FLAGS by spaces.
 IFS=' ' read -r -a ISTIO_AGENT_FLAGS_ARRAY <<< "$ISTIO_AGENT_FLAGS"
 
-export MESH_CONFIG=${MESH_CONFIG:-"
-defaultConfig:
-  serviceCluster: $SVC
-  controlPlaneAuthPolicy: ${CONTROL_PLANE_AUTH_POLICY}
-  discoveryAddress: ${PILOT_ADDRESS}
+export PROXY_CONFIG=${PROXY_CONFIG:-"
+serviceCluster: $SVC
+controlPlaneAuthPolicy: ${CONTROL_PLANE_AUTH_POLICY}
+discoveryAddress: ${PILOT_ADDRESS}
 "}
 
 if [ ${EXEC_USER} == "${USER:-}" ] ; then

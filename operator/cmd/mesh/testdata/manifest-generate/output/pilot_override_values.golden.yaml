@@ -64,15 +64,13 @@ spec:
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
-          value: istio-sidecar-injector
+          value: istio-sidecar-injector-istio-control
         - name: ISTIOD_ADDR
           value: istiod.istio-control.svc:15012
         - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        - name: DNS_ADDR
-          value: ""
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
