@@ -332,11 +332,11 @@ func AuthNFilterConfigForBackwarding(alphaApplier authn.PolicyApplier, proxyType
 }
 
 // v1alpha1 applier is already per port, so the endpointPort param is not needed.
-func (a v1alpha1PolicyApplier) InboundFilterChain(_ uint32, sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
+func (a v1alpha1PolicyApplier) InboundFilterChain(_ uint32, sdsUdsPath string, node *model.Proxy, listenProtocol plugin.ListenerProtocol) []plugin.FilterChain {
 	if a.policy == nil || len(a.policy.Peers) == 0 {
 		return nil
 	}
-	return authn_utils.BuildInboundFilterChain(GetMutualTLSMode(a.policy), sdsUdsPath, node)
+	return authn_utils.BuildInboundFilterChain(GetMutualTLSMode(a.policy), sdsUdsPath, node, listenProtocol)
 }
 
 // NewPolicyApplier returns new applier for v1alpha1 authentication policy.

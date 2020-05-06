@@ -31,7 +31,8 @@ import (
 )
 
 // BuildInboundFilterChain returns the filter chain(s) correspoinding to the mTLS mode.
-func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
+func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy,
+	listenerProtocol plugin.ListenerProtocol) []plugin.FilterChain {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
 	}
@@ -39,7 +40,8 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 	meta := node.Metadata
 	var alpnIstioMatch *ldsv2.FilterChainMatch
 	var tls *auth.DownstreamTlsContext
-	if util.IsTCPMetadataExchangeEnabled(node) {
+	if util.IsTCPMetadataExchangeEnabled(node) &&
+		(listenerProtocol == plugin.ListenerProtocolTCP || listenerProtocol == plugin.ListenerProtocolAuto) {
 		alpnIstioMatch = &ldsv2.FilterChainMatch{
 			ApplicationProtocols: util.ALPNInMeshWithMxc,
 		}
