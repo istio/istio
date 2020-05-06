@@ -455,23 +455,18 @@ func TestSuite_GetResource(t *testing.T) {
 	defer cleanupRT()
 	g := NewGomegaWithT(t)
 
-	type nonResource struct{}
-
 	var (
 		structRes    fakeEnvironment
 		interfaceRes resource.Cluster
-		notFoundRes  nonResource
 
-		structErr, ifErr, sliceErr error
-		notFoundErr, nonPtrErr     error
+		structErr, ifErr, sliceErr, nonPtrErr error
 	)
 	sliceRes := []resource.Cluster{fakeCluster{index: 3}}
 
 	runFn := func(ctx *suiteContext) int {
 		structErr = ctx.GetResource(&structRes)
 		ifErr = ctx.GetResource(&interfaceRes)
-		sliceErr = ctx.GetResource(sliceRes)
-		notFoundErr = ctx.GetResource(&notFoundRes)
+		sliceErr = ctx.GetResource(&sliceRes)
 		nonPtrErr = ctx.GetResource(fakeEnvironment{})
 		return 0
 	}
@@ -496,8 +491,6 @@ func TestSuite_GetResource(t *testing.T) {
 	g.Expect(sliceRes[0].Index()).To(Equal(resource.ClusterIndex(3)))
 	g.Expect(sliceRes[1].Index()).To(Equal(resource.ClusterIndex(1)))
 
-	g.Expect(notFoundErr).To(BeNil())
-	g.Expect(notFoundRes).To(BeNil())
 	g.Expect(nonPtrErr).NotTo(BeNil())
 }
 
