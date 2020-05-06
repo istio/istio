@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/docker"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/util/reserveport"
 )
 
 type portMap struct {
@@ -29,27 +28,15 @@ type portMap struct {
 	hostAgentPort uint16
 }
 
-func newPortMap(portMgr reserveport.PortManager, cfg echo.Config) (*portMap, error) {
+func newPortMap(cfg echo.Config) (*portMap, error) {
 	m := &portMap{}
-
-	// Reserve a status port for the host agent.
-	var err error
-	if m.hostAgentPort, err = portMgr.ReservePortNumber(); err != nil {
-		return nil, err
-	}
 
 	hasHTTP := false
 	hasGRPC := false
 	for _, p := range cfg.Ports {
-		// Reserve a host port.
-		hostPort, err := portMgr.ReservePortNumber()
-		if err != nil {
-			return nil, err
-		}
-
 		m.ports = append(m.ports, port{
 			containerPort: p,
-			hostPort:      hostPort,
+			// hostPort will be set later by the docker library
 		})
 
 		switch p.Protocol {
