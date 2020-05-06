@@ -169,6 +169,14 @@ func init() {
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
 
+	// Use TLS certificates if provided.
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.TLSOptions.CaCertFile, "caCertFile", "",
+		"File containing the x509 Server CA Certificate")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.TLSOptions.CertFile, "tlsCertFile", "",
+		"File containing the x509 Server Certificate")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.TLSOptions.KeyFile, "tlsKeyFile", "",
+		"File containing the x509 private key matching --tlsCertFile")
+
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
 
