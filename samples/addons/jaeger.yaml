@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-tracing
+  name: jaeger
   namespace: istio-system
   labels:
     app: jaeger
@@ -68,5 +68,20 @@ spec:
       port: 80
       protocol: TCP
       targetPort: 16686
+  selector:
+    app: jaeger
+---
+# Jaeger implements the Zipkin API. To support swapping out the tracing backend, we use a Service named Zipkin.
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: zipkin
+  name: zipkin
+spec:
+  ports:
+    - port: 9411
+      targetPort: 9411
+      name: http-query
   selector:
     app: jaeger
