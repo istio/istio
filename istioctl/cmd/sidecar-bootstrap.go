@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -63,6 +64,7 @@ var (
 	sshAuthMethod     ssh.AuthMethod
 	sshKeyLocation    string
 	sshIgnoreHostKeys bool
+	sshPort           int
 	sshUser           string
 	startIstio        bool
 
@@ -279,7 +281,7 @@ func remoteCopyFile(data []byte, location string, client *ssh.Client) error {
 		//   "Other": READ.
 		//
 		// We keep "OTHER"/"OWNING GROUP" to read so this seemlessly
-		// works with the istio container we start up below.
+		// works with the Istio container we start up below.
 		_, err = fmt.Fprintln(w, "C0644", size, filename)
 		if err != nil {
 			errCh <- err
@@ -401,7 +403,7 @@ func copyCertificates(kubeClient kubernetes.Interface,
 			Auth:            []ssh.AuthMethod{sshAuthMethod},
 			HostKeyCallback: callback,
 		}
-		client, err := ssh.Dial("tcp", address+":22", sshConfig)
+		client, err := ssh.Dial("tcp", address+":"+strconv.Itoa(sshPort), sshConfig)
 		if err != nil {
 			return err
 		}
@@ -531,18 +533,41 @@ func deriveSSHMethod() error {
 
 func vmBootstrapCommand() *cobra.Command {
 	vmBSCommand := &cobra.Command{
-		Use:   "sidecar-bootstrap",
-		Short: "bootstraps a workloadentry representing a vm into the mesh",
+		Use:   "sidecar-bootstrap <workloadEntry>.<namespace>",
+		Short: "bootstraps a non-kubernetes workload (e.g. VM, Baremetal) onto an Istio mesh",
+		Long: `Takes in one or more WorkloadEntries generates identities for them, and copies to
+the particular identities to the workloads over SSH. Optionally allowing for saving the certificates locally
+for use in CI like environments, and starting istio-proxy where no special configuration is needed.
+This allows for workloads to participate in the Istio mesh.
+
+To autenticate to a remote node you can use either SSH Keys, or SSH Passwords. If using passwords you
+must have a TTY for you to be asked your password, we do not accept an argument for it so it
+cannot be left inside your shell history.
+
+Copying is performed with scp, and as such is required if you'd like to copy a file over.
+If SCP is not at the standard path "/usr/bin/scp", you should provide it's location with
+the "--remote-scp-path" option.
+
+In order to start Istio on the remote node you must have docker installed on the remote node.
+Istio will be started on the host network as a docker container in capture mode.`,
+		Example: `  # Copy certificates to a WorkloadEntry named "we" in the "ns" namespace:
+	istioctl x sidecar-bootstrap we.ns
+
+	# Copy certificates, and start istio to a WorkloadEntry named "we" in the "ns" namespace:
+	istioctl x sidecar-bootstrap we.ns --start-istio-proxy
+
+	# Generate Certs locally, but do not copy them to a WorkloadEntry named "we" in the "ns" namespace:
+	istioctl x sidecar-bootstrap we.ns --local-dir path/where/i/want/certs/`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if (len(args) == 1) == all {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("sidecar-bootstrap requires a workload entry, or the all flag")
+				return fmt.Errorf("sidecar-bootstrap requires a workload entry, or the --all flag")
 			}
 			if all && namespace == "" {
 				return fmt.Errorf("sidecar-bootstrap needs a namespace if fetching all workspaces")
 			}
 			if !startIstio && istioProxyImage != "istio/proxyv2:latest" {
-				return fmt.Errorf("sidecar-bootstrap received a non default istio-proxy image argument, but is not starting istio")
+				return fmt.Errorf("sidecar-bootstrap received a non default IstioProxy image argument, but is not starting Istio")
 			}
 			if sshUser == "" {
 				user, err := user.Current()
@@ -617,7 +642,7 @@ func vmBootstrapCommand() *cobra.Command {
 	vmBSCommand.PersistentFlags().StringVarP(&dumpDir, "local-dir", "d", "",
 		"directory to place certs in locally as opposed to copying")
 	vmBSCommand.PersistentFlags().StringVar(&istioProxyImage, "istio-image", "istio/proxyv2:latest",
-		"(experimental) the Istio proxy image to start up when starting istio")
+		"(experimental) the Istio proxy image to start up when starting Istio")
 	vmBSCommand.PersistentFlags().BoolVar(&mutualTLS, "mutual-tls", false,
 		"(experimental) enable mutual TLS if starting Istio-Proxy.")
 	vmBSCommand.PersistentFlags().StringVarP(&organization, "organization", "o", "",
@@ -634,6 +659,8 @@ func vmBootstrapCommand() *cobra.Command {
 		"(experimental) ignore host keys on the remote host")
 	vmBSCommand.PersistentFlags().StringVarP(&sshKeyLocation, "ssh-key", "k", "",
 		"(experimental) the location of the SSH key")
+	vmBSCommand.PersistentFlags().IntVar(&sshPort, "ssh-port", 22,
+		"(experimental) the port to SSH to the machine on")
 	vmBSCommand.PersistentFlags().StringVarP(&sshUser, "ssh-user", "u", "",
 		"(experimental) the user to SSH as, defaults to the current user")
 	vmBSCommand.PersistentFlags().BoolVar(&startIstio, "start-istio-proxy", false,
