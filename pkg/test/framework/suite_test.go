@@ -17,6 +17,7 @@ package framework
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -455,43 +456,59 @@ func TestSuite_GetResource(t *testing.T) {
 	defer cleanupRT()
 	g := NewGomegaWithT(t)
 
-	var (
-		structRes    fakeEnvironment
-		interfaceRes resource.Cluster
+	var resCluster resource.Cluster
 
-		structErr, ifErr, sliceErr, nonPtrErr error
-	)
-	sliceRes := []resource.Cluster{fakeCluster{index: 3}}
-
-	runFn := func(ctx *suiteContext) int {
-		structErr = ctx.GetResource(&structRes)
-		ifErr = ctx.GetResource(&interfaceRes)
-		sliceErr = ctx.GetResource(&sliceRes)
-		nonPtrErr = ctx.GetResource(fakeEnvironment{})
-		return 0
+	tests := map[string]struct {
+		ref        interface{}
+		trackedRes resource.Resource
+		expVal     interface{}
+		expErr     bool
+	}{
+		"struct reference": {
+			ref:        &fakeCluster{},
+			trackedRes: fakeCluster{index: 3},
+			expVal:     fakeCluster{index: 3},
+		},
+		"interface reference": {
+			ref:        &resCluster,
+			trackedRes: fakeCluster{index: 4},
+			expVal:     fakeCluster{index: 4},
+		},
+		"slice reference": {
+			ref:        &[]fakeCluster{{index: 4}},
+			trackedRes: fakeCluster{index: 5},
+			expVal:     []fakeCluster{{index: 4}, {index: 5}},
+		},
+		"non pointer": {
+			ref:        fakeCluster{},
+			trackedRes: fakeCluster{index: 6},
+			expErr:     true,
+		},
 	}
 
-	s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
-	s.Setup(func(c resource.Context) error {
-		c.TrackResource(fakeEnvironment{numClusters: 2})
-		c.TrackResource(fakeCluster{index: 1})
-		return nil
-	})
-	s.Run()
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var err error
+			runFn := func(ctx *suiteContext) int {
+				err = ctx.GetResource(tt.ref)
+				return 0
+			}
+			s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+			s.Setup(func(c resource.Context) error {
+				c.TrackResource(tt.trackedRes)
+				return nil
+			})
+			s.Run()
 
-	g.Expect(structErr).To(BeNil())
-	g.Expect(structRes.numClusters).To(Equal(2))
+			if tt.expErr {
+				g.Expect(err).NotTo(BeNil())
+				return // won't be able to dereference tt.ref
+			}
+			g.Expect(err).To(BeNil())
+			g.Expect(tt.expVal).To(Equal(reflect.ValueOf(tt.ref).Elem().Interface()))
 
-	g.Expect(ifErr).To(BeNil())
-	g.Expect(interfaceRes).NotTo(BeNil())
-	g.Expect(interfaceRes.Index()).To(Equal(resource.ClusterIndex(1)))
-
-	g.Expect(sliceErr).To(BeNil())
-	g.Expect(sliceRes).To(HaveLen(2))
-	g.Expect(sliceRes[0].Index()).To(Equal(resource.ClusterIndex(3)))
-	g.Expect(sliceRes[1].Index()).To(Equal(resource.ClusterIndex(1)))
-
-	g.Expect(nonPtrErr).NotTo(BeNil())
+		})
+	}
 }
 
 func newFakeEnvironmentFactory(numClusters int) resource.EnvironmentFactory {
