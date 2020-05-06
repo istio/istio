@@ -44,11 +44,6 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var (
-	proxyContainer = "istio-proxy"
-	pilotAgentPath = "/usr/local/bin/pilot-agent"
-)
-
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type Client struct {
 	Config *rest.Config
@@ -181,13 +176,32 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[str
 }
 
 // EnvoyDo makes an http request to the Envoy in the specified pod
-func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
-	container, err := client.GetPilotAgentContainer(podName, podNamespace)
+func (client *Client) EnvoyDo(podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
+	fw, err := client.BuildPortForwarder(podName, podNamespace, "", 0, 15000)
 	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve proxy container name: %v", err)
+		return nil, err
 	}
-	cmd := []string{pilotAgentPath, "request", method, path, string(body)}
-	return client.ExtractExecResult(podName, podNamespace, container, cmd)
+	var bytes []byte
+	if err = RunPortForwarder(fw, func(fw *PortForward) error {
+		req, err := http.NewRequest(method, fmt.Sprintf("http://localhost:%d/%s", fw.LocalPort, path), nil)
+		if err != nil {
+			return err
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if bytes, err = ioutil.ReadAll(resp.Body); err != nil {
+			return err
+		}
+
+		close(fw.StopChannel)
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failure running port forward process: %v", err)
+	}
+	return bytes, nil
 }
 
 // ExtractExecResult wraps PodExec and return the execution result and error if has any.
@@ -229,30 +243,6 @@ func (client *Client) GetIstioPods(namespace string, params map[string]string) (
 		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
 	}
 	return list.Items, nil
-}
-
-// GetPilotAgentContainer retrieves the pilot-agent container name for the specified pod
-func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (string, error) {
-	req := client.Get().
-		Resource("pods").
-		Namespace(podNamespace).
-		Name(podName)
-
-	res := req.Do(context.TODO())
-	if res.Error() != nil {
-		return "", fmt.Errorf("unable to retrieve Pod: %v", res.Error())
-	}
-	pod := &v1.Pod{}
-	if err := res.Into(pod); err != nil {
-		return "", fmt.Errorf("unable to parse Pod: %v", res.Error())
-	}
-	for _, c := range pod.Spec.Containers {
-		switch c.Name {
-		case "egressgateway", "ingress", "ingressgateway":
-			return c.Name, nil
-		}
-	}
-	return proxyContainer, nil
 }
 
 type podDetail struct {
