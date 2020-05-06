@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -239,12 +238,4 @@ func (c *Container) Close() error {
 
 func toNatPort(p ContainerPort) nat.Port {
 	return nat.Port(fmt.Sprintf("%d/tcp", p))
-}
-
-func fromNatPort(p string) (ContainerPort, error) {
-	cp, err := strconv.Atoi(strings.Split(p, "/")[0])
-	if err != nil {
-		return 0, err
-	}
-	return ContainerPort(cp), nil
 }
