@@ -20,12 +20,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 
-	"istio.io/istio/pkg/test/framework/image"
-
+	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 
-	"istio.io/istio/pkg/test/deployment"
+	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -156,7 +158,7 @@ type kubeComponent struct {
 	namespace namespace.Instance
 
 	forwarder  testKube.PortForwarder
-	deployment *deployment.Instance
+	deployment *testKube.Deployment
 
 	cluster kube.Cluster
 }
@@ -208,8 +210,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	c.deployment = deployment.NewYamlContentDeployment(c.namespace.Name(), yamlContent)
-	if err = c.deployment.Deploy(c.cluster.Accessor, false); err != nil {
+	c.deployment = testKube.NewYamlContentDeployment(c.namespace.Name(), yamlContent, c.cluster.Accessor)
+	if err = c.deployment.Deploy(false); err != nil {
 		scopes.CI.Info("Error applying PolicyBackend deployment config")
 		return nil, err
 	}
@@ -268,8 +270,12 @@ func (c *kubeComponent) ID() resource.ID {
 }
 
 func (c *kubeComponent) Close() (err error) {
+	if c.deployment != nil {
+		err = c.deployment.Delete(true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
+	}
+
 	if c.forwarder != nil {
-		err = c.forwarder.Close()
+		err = multierror.Append(err, c.forwarder.Close()).ErrorOrNil()
 		c.forwarder = nil
 	}
 
@@ -282,7 +288,7 @@ func (c *kubeComponent) Dump() {
 		scopes.CI.Errorf("Unable to create dump folder for policy-backend-state: %v", err)
 		return
 	}
-	deployment.DumpPodState(workDir, c.namespace.Name(), c.cluster.Accessor)
+	c.cluster.DumpPodState(workDir, c.namespace.Name())
 
 	pods, err := c.cluster.GetPods(c.namespace.Name())
 	if err != nil {

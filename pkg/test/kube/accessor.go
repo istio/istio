@@ -17,13 +17,18 @@ package kube
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
 	"strings"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/version"
 
 	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 
@@ -120,6 +125,72 @@ func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore
 	}
 
 	return list.Items, nil
+}
+
+// DumpPodState logs the current pod state.
+func (a *Accessor) DumpPodState(workDir string, namespace string) {
+	pods, err := a.GetPods(namespace)
+	if err != nil {
+		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
+		return
+	}
+
+	marshaler := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+
+	for _, pod := range pods {
+		str, err := marshaler.MarshalToString(&pod)
+		if err != nil {
+			scopes.CI.Errorf("Error marshaling pod state for output: %v", err)
+			continue
+		}
+
+		outPath := path.Join(workDir, fmt.Sprintf("pod_%s_%s.yaml", namespace, pod.Name))
+
+		if err := ioutil.WriteFile(outPath, []byte(str), os.ModePerm); err != nil {
+			scopes.CI.Infof("Error writing out pod state to file: %v", err)
+		}
+	}
+}
+
+// DumpPodEvents logs the current pod event.
+func (a *Accessor) DumpPodEvents(workDir, namespace string) {
+	pods, err := a.GetPods(namespace)
+	if err != nil {
+		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
+		return
+	}
+
+	marshaler := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+
+	for _, pod := range pods {
+		events, err := a.GetEvents(namespace, pod.Name)
+		if err != nil {
+			scopes.CI.Errorf("Error getting events list for pod %s/%s via kubectl: %v", namespace, pod.Name, err)
+			return
+		}
+
+		outPath := path.Join(workDir, fmt.Sprintf("pod_events_%s_%s.yaml", namespace, pod.Name))
+
+		eventsStr := ""
+		for _, event := range events {
+			eventStr, err := marshaler.MarshalToString(&event)
+			if err != nil {
+				scopes.CI.Errorf("Error marshaling pod event for output: %v", err)
+				continue
+			}
+
+			eventsStr += eventStr
+			eventsStr += "\n"
+		}
+
+		if err := ioutil.WriteFile(outPath, []byte(eventsStr), os.ModePerm); err != nil {
+			scopes.CI.Infof("Error writing out pod events to file: %v", err)
+		}
+	}
 }
 
 func (a *Accessor) GetDeployments(namespace string, selectors ...string) ([]appsv1.Deployment, error) {
@@ -456,6 +527,42 @@ func (a *Accessor) DeleteConfigMap(name, ns string) error {
 func (a *Accessor) CreateSecret(namespace string, secret *kubeApiCore.Secret) (err error) {
 	_, err = a.set.CoreV1().Secrets(namespace).Create(context.TODO(), secret, kubeApiMeta.CreateOptions{})
 	return err
+}
+
+// WaitForSecretToExist waits for the given secret up to the given waitTime.
+func (a *Accessor) WaitForSecretToExist(namespace, name string, waitTime time.Duration) (*kubeApiCore.Secret, error) {
+	secret := a.GetSecret(namespace)
+
+	watch, err := secret.Watch(context.TODO(), kubeApiMeta.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
+	}
+	events := watch.ResultChan()
+
+	startTime := time.Now()
+	for {
+		select {
+		case event := <-events:
+			secret := event.Object.(*kubeApiCore.Secret)
+			if secret.GetName() == name {
+				return secret, nil
+			}
+		case <-time.After(waitTime - time.Since(startTime)):
+			return nil, fmt.Errorf("secret %v did not become existent within %v",
+				name, waitTime)
+		}
+	}
+}
+
+// WaitForSecretToExistOrFail calls WaitForSecretToExist and fails the given test.Failer if an error occurs.
+func (a *Accessor) WaitForSecretToExistOrFail(t test.Failer, namespace, name string,
+	waitTime time.Duration) *kubeApiCore.Secret {
+	t.Helper()
+	s, err := a.WaitForSecretToExist(namespace, name, waitTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
 }
 
 // DeleteSecret deletes secret by name in namespace.
