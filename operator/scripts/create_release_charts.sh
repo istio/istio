@@ -40,12 +40,10 @@ done
 set -x
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-OPERATOR_BASE_DIR="${SCRIPT_DIR}/.."
 INSTALLER_DIR="${SCRIPT_DIR}/../../manifests"
 
 mkdir -p "${OUTPUT_DIR}"
 
 cp -R "${INSTALLER_DIR}/charts" "${OUTPUT_DIR}"
 cp -R "${INSTALLER_DIR}/profiles" "${OUTPUT_DIR}"
-cp -R "${OPERATOR_BASE_DIR}"/data/* "${OUTPUT_DIR}"
 
