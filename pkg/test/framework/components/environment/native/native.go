@@ -69,7 +69,7 @@ func New(ctx resource.Context) (resource.Environment, error) {
 		ctx:             ctx,
 		SystemNamespace: systemNamespace,
 		Domain:          domain,
-		Cluster: cluster,
+		Cluster:         cluster,
 	}
 	e.id = ctx.TrackResource(e)
 

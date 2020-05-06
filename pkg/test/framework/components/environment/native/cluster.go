@@ -149,3 +149,12 @@ func (c Cluster) Index() resource.ClusterIndex {
 	// Multicluster not supported natively.
 	return 0
 }
+
+// ClusterOrDefault gets the given cluster as a kube Cluster if available. Otherwise
+// defaults to the first Cluster in the Environment.
+func ClusterOrDefault(c resource.Cluster, e resource.Environment) resource.Cluster {
+	if c == nil {
+		return e.(*Environment).Cluster
+	}
+	return c.(Cluster)
+}
