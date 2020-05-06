@@ -76,15 +76,11 @@ func TestVersion(t *testing.T) {
 type mockExecVersionConfig struct {
 }
 
-func (client mockExecVersionConfig) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
+func (client mockExecVersionConfig) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[string][]byte, error) {
 	return nil, nil
 }
 
 func (client mockExecVersionConfig) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
-	return nil, nil
-}
-
-func (client mockExecVersionConfig) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
 	return nil, nil
 }
 

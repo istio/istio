@@ -26,7 +26,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/api/label"
+
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -75,6 +76,17 @@ func (n *kubeNamespace) Dump() {
 				fname := path.Join(d, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
 				if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 					scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+				}
+
+				if container.Name == "istio-proxy" {
+					if cfgDump, err := cluster.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET config_dump"); err == nil {
+						fname := path.Join(d, fmt.Sprintf("%s-%s.config.json", pod.Name, container.Name))
+						if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
+							scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+						}
+					} else {
+						scopes.CI.Errorf("Unable to get istio-proxy config dump for pod: %s/%s", pod.Namespace, pod.Name)
+					}
 				}
 			}
 		}
@@ -164,7 +176,7 @@ func createNamespaceLabels(cfg *Config) map[string]string {
 	l := make(map[string]string)
 	if cfg.Inject {
 		if cfg.Revision != "" {
-			l[model.RevisionLabel] = cfg.Revision
+			l[label.IstioRev] = cfg.Revision
 		} else {
 			l["istio-injection"] = "enabled"
 		}

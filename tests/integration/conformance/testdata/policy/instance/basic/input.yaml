@@ -1,6 +1,0 @@
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: idynlistentry1
-spec:
-  template: listentry

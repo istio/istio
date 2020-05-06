@@ -43,7 +43,7 @@
     {{- if or .Values.mixer.policy.enabled .Values.global.remotePolicyAddress }}
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
     # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
-    policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
+    policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen | default false }}
     {{- end }}
     {{- if .Values.mixer.telemetry.reportBatchMaxEntries }}
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
@@ -105,7 +105,10 @@
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
+    {{- if .Values.global.mtls }}
     enableAutoMtls: {{ .Values.global.mtls.auto }}
+    {{- end }}
+
     {{- if .Values.global.useMCP }}
     configSources:
     {{- if .Values.pilot.configSource.subscribedResources }}
@@ -115,11 +118,16 @@
     {{- end }}
     {{- end }}
     {{- end }}
+    {{- with .Values.global.outboundTrafficPolicy }}
     outboundTrafficPolicy:
-      mode: {{ .Values.global.outboundTrafficPolicy.mode }}
-    {{- if  .Values.global.localityLbSetting.enabled }}
+      mode: {{ .mode }}
+    {{- end }}
+
+    {{- with  .Values.global.localityLbSetting }}
+    {{- if  .enabled }}
     localityLbSetting:
-{{ toYaml .Values.global.localityLbSetting | trim | indent 6 }}
+{{ toYaml . | trim | indent 6 }}
+    {{- end }}
     {{- end }}
 
     # Configures DNS certificates provisioned through Chiron linked into Pilot.

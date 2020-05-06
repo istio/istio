@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	SetFlagHelpStr = `Override an IstioOperator value, e.g. to choose a profile
+	setFlagHelpStr = `Override an IstioOperator value, e.g. to choose a profile
 (--set profile=demo), enable or disable components (--set components.policy.enabled=true), or override Istio
 settings (--set values.grafana.enabled=true). See documentation for more info:
 https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb/#IstioControlPlaneSpec`
@@ -34,6 +34,7 @@ https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb/#IstioControl
 (e.g. ~/Downloads/istio-1.6.0/install/kubernetes/operator)
 or release tar URL (e.g. https://github.com/istio/istio/releases/download/1.5.1/istio-1.5.1-linux.tar.gz).
 `
+	revisionFlagHelpStr         = `Target control plane revision for the command.`
 	skipConfirmationFlagHelpStr = `skipConfirmation determines whether the user is prompted for confirmation.
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
 	filenameFlagHelpStr = `Path to file containing IstioOperator custom resource
@@ -44,15 +45,11 @@ This flag can be specified multiple times to overlay multiple files. Multiple fi
 type rootArgs struct {
 	// Dry run performs all steps except actually applying the manifests or creating output dirs/files.
 	dryRun bool
-	// Verbose controls whether additional debug output is displayed and logged.
-	verbose bool
 }
 
 func addFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 	cmd.PersistentFlags().BoolVarP(&rootArgs.dryRun, "dry-run", "",
 		false, "Console/log output only, make no changes.")
-	cmd.PersistentFlags().BoolVarP(&rootArgs.verbose, "verbose", "",
-		false, "Verbose output.")
 }
 
 // GetRootCmd returns the root of the cobra command-tree.

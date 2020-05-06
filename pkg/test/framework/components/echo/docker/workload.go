@@ -99,7 +99,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 	hostName := fmt.Sprintf("%s-%s", cfg.Service, uuid.New().String())
 
 	// Create a mapping of container to host ports.
-	w.portMap, err = newPortMap(e.PortManager, cfg)
+	w.portMap, err = newPortMap(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -115,8 +115,6 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 	var extraHosts []string
 	var capabilities []string
 	if cfg.Subsets[0].Annotations.GetBool(echo.SidecarInject) {
-		w.readinessProbe = sidecarReadinessProbe(w.portMap.hostAgentPort)
-
 		image = imgs.Sidecar
 
 		// Need NET_ADMIN for iptables.
@@ -167,8 +165,6 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"ISTIO_META_INTERCEPTION_MODE="+interceptionMode,
 		)
 	} else {
-		w.readinessProbe = noSidecarReadinessProbe(w.portMap.http().hostPort)
-
 		image = imgs.NoSidecar
 
 		// Add arguments for the entry point.
@@ -200,6 +196,20 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 	if w.container, err = docker.NewContainer(dockerClient, containerCfg); err != nil {
 		return nil, fmt.Errorf("failed creating Docker container: %v\nContainer Config:\n%+v",
 			err, containerCfg)
+	}
+	for i, p := range w.portMap.ports {
+		hp := w.container.PortMap[docker.ContainerPort(p.containerPort.ServicePort)]
+		p.hostPort = uint16(hp)
+		w.portMap.ports[i] = p
+	}
+	w.portMap.hostAgentPort = uint16(w.container.PortMap[docker.ContainerPort(agentStatusPort)])
+
+	// Set up readiness probe
+	// This must be done after container starts, so the ports are allocated
+	if cfg.Subsets[0].Annotations.GetBool(echo.SidecarInject) {
+		w.readinessProbe = sidecarReadinessProbe(w.portMap.hostAgentPort)
+	} else {
+		w.readinessProbe = noSidecarReadinessProbe(w.portMap.http().hostPort)
 	}
 
 	if cfg.Subsets[0].Annotations.GetBool(echo.SidecarInject) {

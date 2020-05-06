@@ -121,7 +121,7 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		return fmt.Errorf("unknown output format: %v", pdArgs.outputFormat)
 	}
 
-	setFlagYAML, err := yamlFromSetFlags(applyInstallFlagAlias(make([]string, 0), pdArgs.charts), false, l)
+	setFlagYAML, err := yamlFromSetFlags(applyFlagAliases(make([]string, 0), pdArgs.charts, ""), false, l)
 	if err != nil {
 		return err
 	}
