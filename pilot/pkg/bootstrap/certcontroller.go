@@ -134,7 +134,6 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		if name == hostname || name == customHost {
 			continue
 		}
-
 		names = append(names, name)
 	}
 

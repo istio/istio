@@ -15,10 +15,7 @@
 package bootstrap
 
 import (
-	"path/filepath"
 	"strings"
-
-	"istio.io/istio/pilot/pkg/model"
 
 	"k8s.io/client-go/dynamic"
 
@@ -57,8 +54,6 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		MixerValidator: validate.NewDefaultValidator(false),
 		Schemas:        collections.Istio,
 		DomainSuffix:   args.Config.ControllerOptions.DomainSuffix,
-		CertFile:       model.GetOrDefault(args.TLSOptions.CertFile, filepath.Join(dnsCertDir, "cert-chain.pem")),
-		KeyFile:        model.GetOrDefault(args.TLSOptions.KeyFile, filepath.Join(dnsCertDir, "key.pem")),
 		Mux:            s.httpsMux,
 	}
 	whServer, err := server.New(params)

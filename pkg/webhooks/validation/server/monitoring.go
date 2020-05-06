@@ -55,14 +55,6 @@ var (
 )
 
 var (
-	metricCertKeyUpdate = stats.Int64(
-		"galley/validation/cert_key_updates",
-		"Galley validation webhook certificate updates",
-		stats.UnitDimensionless)
-	metricCertKeyUpdateError = stats.Int64(
-		"galley/validation/cert_key_update_errors",
-		"Galley validation webhook certificate updates errors",
-		stats.UnitDimensionless)
 	metricValidationPassed = stats.Int64(
 		"galley/validation/passed",
 		"Resource is valid",
@@ -108,15 +100,11 @@ func init() {
 		panic(err)
 	}
 
-	var noKeys []tag.Key
-	errorKey := []tag.Key{ErrorTag}
 	resourceKeys := []tag.Key{GroupTag, VersionTag, ResourceTag}
 	resourceErrorKeys := []tag.Key{GroupTag, VersionTag, ResourceTag, ReasonTag}
 	statusKey := []tag.Key{StatusTag}
 
 	err = view.Register(
-		newView(metricCertKeyUpdate, noKeys, view.Count()),
-		newView(metricCertKeyUpdateError, errorKey, view.Count()),
 		newView(metricValidationPassed, resourceKeys, view.Count()),
 		newView(metricValidationFailed, resourceErrorKeys, view.Count()),
 		newView(metricValidationHTTPError, statusKey, view.Count()),
@@ -158,19 +146,6 @@ func reportValidationHTTPError(status int) {
 		scope.Errorf("Error creating monitoring context for reportValidationHTTPError: %v", err)
 	} else {
 		stats.Record(ctx, metricValidationHTTPError.M(1))
-	}
-}
-
-func reportValidationCertKeyUpdate() {
-	stats.Record(context.Background(), metricCertKeyUpdate.M(1))
-}
-
-func reportValidationCertKeyUpdateError(err error) {
-	ctx, err := tag.New(context.Background(), tag.Insert(ErrorTag, err.Error()))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationCertKeyUpdateError: %v", err)
-	} else {
-		stats.Record(ctx, metricCertKeyUpdateError.M(1))
 	}
 }
 
