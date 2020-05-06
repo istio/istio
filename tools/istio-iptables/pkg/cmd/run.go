@@ -427,7 +427,12 @@ func (iptConfigurator *IptablesConfigurator) run() {
 			"-p", "udp", "--dport", "53",
 			"-j", "REDIRECT", "--to-ports", "15013")
 	}
-
+	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
+		// mark outgoing packets from 127.0.0.1/32 with 1337, match it to policy routing entry setup for TPROXY mode
+		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE,
+			"-p", constants.TCP, "-s", "127.0.0.1/32", "!", "-d", "127.0.0.1/32",
+			"-j", constants.MARK, "--set-mark", iptConfigurator.cfg.InboundTProxyMark)
+	}
 	iptConfigurator.executeCommands()
 }
 

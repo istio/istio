@@ -121,6 +121,9 @@ type Options struct {
 
 	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
 	TLSEnabled bool
+
+	// ClusterID is the cluster ID
+	ClusterID string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

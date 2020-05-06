@@ -26,7 +26,8 @@ import (
 type PolicyApplier interface {
 	// InboundFilterChain returns inbound filter chain(s) for the given endpoint (aka workload) port to
 	// enforce the underlying authentication policy.
-	InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []networking.FilterChain
+	InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy,
+		listenerProtocol networking.ListenerProtocol) []networking.FilterChain
 
 	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.

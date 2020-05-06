@@ -28,8 +28,5 @@ ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
 # Run the pilot agent and Envoy
 /usr/local/bin/istio-start.sh&
 
-# Run the node agent.
-# /usr/local/bin/istio-node-agent-start.sh&
-
 # Start the echo server.
 "/usr/local/bin/server" "${ECHO_ARGS_ARRAY[@]}"

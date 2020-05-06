@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/tests/util"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -143,7 +143,6 @@ metadata:
 spec:
   egress:
   - hosts:
-    - "%s/*"
     - "./b.%s.svc.%s"
     - "*/%s"
   outboundTrafficPolicy:
@@ -166,7 +165,7 @@ func TestMirroringExternalService(t *testing.T) {
 		cases:      cases,
 		mirrorHost: fakeExternalURL,
 		fnInjectConfig: func(ns namespace.Instance, instances [3]echo.Instance) {
-			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, i.Settings().ConfigNamespace, ns.Name(),
+			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, ns.Name(),
 				instances[1].Config().Domain, fakeExternalURL))
 			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
 			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
@@ -179,7 +178,6 @@ func TestMirroringExternalService(t *testing.T) {
 func runMirrorTest(options mirrorTestOptions) {
 	framework.
 		NewTest(options.t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(options.t, ctx, namespace.Config{
 				Prefix: "mirroring",

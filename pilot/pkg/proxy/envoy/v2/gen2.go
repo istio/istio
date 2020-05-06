@@ -16,11 +16,8 @@ package v2
 
 import (
 	"time"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"istio.io/istio/pilot/pkg/networking/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"

@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
@@ -51,11 +52,12 @@ type message struct {
 }
 
 type testCase struct {
-	name           string
-	inputFiles     []string
-	meshConfigFile string // Optional
-	analyzer       analysis.Analyzer
-	expected       []message
+	name             string
+	inputFiles       []string
+	meshConfigFile   string // Optional
+	meshNetworksFile string // Optional
+	analyzer         analysis.Analyzer
+	expected         []message
 }
 
 // Some notes on setting up tests for Analyzers:
@@ -303,6 +305,18 @@ var testGrid = []testCase{
 			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
 		},
 	},
+	{
+		name: "unknown service registry in mesh networks",
+		inputFiles: []string{
+			"testdata/multicluster-unknown-serviceregistry.yaml",
+		},
+		meshNetworksFile: "testdata/common/meshnetworks.yaml",
+		analyzer:         &multicluster.MeshNetworksAnalyzer{},
+		expected: []message{
+			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
+			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
@@ -427,6 +441,13 @@ func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*lo
 		err := sa.AddFileKubeMeshConfig(tc.meshConfigFile)
 		if err != nil {
 			return nil, fmt.Errorf("error applying mesh config file %s: %v", tc.meshConfigFile, err)
+		}
+	}
+
+	if tc.meshNetworksFile != "" {
+		err := sa.AddFileKubeMeshNetworks(tc.meshNetworksFile)
+		if err != nil {
+			return nil, fmt.Errorf("error apply mesh networks file %s: %v", tc.meshNetworksFile, err)
 		}
 	}
 

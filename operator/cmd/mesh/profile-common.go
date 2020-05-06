@@ -33,11 +33,8 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/operator/version"
-	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
-
-var installerScope = log.RegisterScope("installer", "installer", 0)
 
 // GenerateConfig creates an IstioOperatorSpec from the following sources, overlaid sequentially:
 // 1. Compiled in base, or optionally base from paths pointing to one or multiple ICP/IOP files at inFilenames.

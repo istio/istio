@@ -275,7 +275,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/cmd/mixs \
   ./mixer/cmd/mixc \
   ./mixer/tools/mixgen \
-  ./security/cmd/node_agent \
   ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
@@ -283,7 +282,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istioctl sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
 
 .PHONY: build
 build: depend
@@ -362,7 +361,7 @@ gen: go-gen mirror-licenses format update-crds operator-proto gen-kustomize upda
 check-no-modify:
 	@bin/check_no_modify.sh
 
-gen-check: gen check-clean-repo check-no-modify
+gen-check: check-no-modify gen check-clean-repo
 
 # Generate kustomize templates.
 gen-kustomize:

@@ -74,6 +74,7 @@ data:
     protocolDetectionTimeout: 100ms
     reportBatchMaxEntries: 100
     reportBatchMaxTime: 1s
+    rootNamespace: istio-system
     sdsUdsPath: unix:/etc/istio/proxy/SDS
     trustDomain: cluster.local
     trustDomainAliases: null
@@ -285,24 +286,6 @@ data:
         "trustDomainAliases": [],
         "useMCP": false
       },
-      "meshConfig": {
-        "defaultConfig": {
-          "proxyMetadata": {
-            "DNS_AGENT": ""
-          },
-          "tracing": {
-            "tlsSettings": {
-              "caCertificates": null,
-              "clientCertificate": null,
-              "mode": "DISABLE",
-              "privateKey": null,
-              "sni": null,
-              "subjectAltNames": []
-            }
-          }
-        },
-        "enablePrometheusMerge": false
-      },
       "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
@@ -361,7 +344,7 @@ data:
         - "-b"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
         - "-d"
-        - "15090,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+        - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
         {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
         - "-o"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
@@ -470,6 +453,10 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
+      {{- if gt .ProxyConfig.Concurrency 0 }}
+        - --concurrency
+        - "{{ .ProxyConfig.Concurrency }}"
+      {{- end -}}
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -577,7 +564,7 @@ data:
         readinessProbe:
           httpGet:
             path: /healthz/ready
-            port: 15090
+            port: 15021
           initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
           periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
           failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
@@ -658,7 +645,7 @@ data:
         {{- end }}
         - name: istio-podinfo
           mountPath: /etc/istio/pod
-         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.meshConfig.defaultConfig.tracing.tlsSettings }}
+         {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetTlsSettings.GetCaCertificates }}
           name: lightstep-certs
           readOnly: true
@@ -721,7 +708,7 @@ data:
         {{ toYaml $value | indent 2 }}
         {{ end }}
         {{ end }}
-      {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.meshConfig.defaultConfig.tracing.tlsSettings }}
+      {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
       - name: lightstep-certs
         secret:
           optional: true
@@ -1309,7 +1296,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1339,7 +1326,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1369,7 +1356,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1602,7 +1589,7 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filter.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_inbound
@@ -1612,7 +1599,7 @@ spec:
                     "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1632,7 +1619,7 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filter.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
@@ -1642,7 +1629,7 @@ spec:
                     "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1662,7 +1649,7 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filter.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
@@ -1672,7 +1659,7 @@ spec:
                     "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1902,10 +1889,10 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_inbound
@@ -1915,7 +1902,7 @@ spec:
                     "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1932,10 +1919,10 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
@@ -1945,7 +1932,7 @@ spec:
                     "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1962,10 +1949,10 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
@@ -1975,7 +1962,7 @@ spec:
                     "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	dockerContainer "github.com/docker/docker/api/types/container"
@@ -220,7 +221,10 @@ func (c *Container) Logs() (string, error) {
 // Close stops and removes this container.
 func (c *Container) Close() error {
 	scopes.CI.Infof("Closing Docker container %s", c.id)
-	err := c.dockerClient.ContainerStop(context.Background(), c.id, nil)
+	// docker stop will send SIGTERM to the root process. In our case, this is the echo process not Istio
+	// To avoid 10s shutdown on every container, we set the time out to 0s instead.
+	instant := time.Duration(0)
+	err := c.dockerClient.ContainerStop(context.Background(), c.id, &instant)
 	return multierror.Append(err, c.dockerClient.ContainerRemove(context.Background(), c.id, types.ContainerRemoveOptions{})).ErrorOrNil()
 }
 

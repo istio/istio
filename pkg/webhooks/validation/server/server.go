@@ -16,15 +16,11 @@ package server
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sync"
-	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
@@ -34,12 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
-	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -66,12 +60,6 @@ func init() {
 	_ = kubeApiApps.AddToScheme(runtimeScheme)
 }
 
-const (
-	HTTPSHandlerReadyPath = "/httpsReady"
-
-	watchDebounceDelay = 100 * time.Millisecond
-)
-
 // Options contains the configuration for the Istio Pilot validation
 // admission controller.
 type Options struct {
@@ -87,13 +75,8 @@ type Options struct {
 
 	// Port where the webhook is served. the number should be greater than 1024 for non-root
 	// user, because non-root user cannot bind port number less than 1024
+	// Mainly used for testing. Webhook server is started by Istiod.
 	Port uint
-
-	// CertFile is the path to the x509 certificate for https.
-	CertFile string
-
-	// KeyFile is the path to the x509 private key matching `CertFile`.
-	KeyFile string
 
 	// Use an existing mux instead of creating our own.
 	Mux *http.ServeMux
@@ -105,8 +88,6 @@ func (o Options) String() string {
 
 	_, _ = fmt.Fprintf(buf, "DomainSuffix: %s\n", o.DomainSuffix)
 	_, _ = fmt.Fprintf(buf, "Port: %d\n", o.Port)
-	_, _ = fmt.Fprintf(buf, "CertFile: %s\n", o.CertFile)
-	_, _ = fmt.Fprintf(buf, "KeyFile: %s\n", o.KeyFile)
 
 	return buf.String()
 }
@@ -114,130 +95,41 @@ func (o Options) String() string {
 // DefaultArgs allocates an Options struct initialized with Webhook's default configuration.
 func DefaultArgs() Options {
 	return Options{
-		Port:     9443,
-		CertFile: constants.DefaultCertChain,
-		KeyFile:  constants.DefaultKey,
+		Port: 9443,
 	}
 }
 
 // Webhook implements the validating admission webhook for validating Istio configuration.
 type Webhook struct {
-	keyCertWatcher filewatcher.FileWatcher
-
-	mu   sync.RWMutex
-	cert *tls.Certificate
-
 	// pilot
 	schemas      collection.Schemas
 	domainSuffix string
 
 	// mixer
 	validator store.BackendValidator
-
-	server   *http.Server
-	keyFile  string
-	certFile string
-}
-
-// Reload the server's cert/key for TLS from file and save it for later use by the https server.
-func (wh *Webhook) reloadKeyCert() {
-	pair, err := ReloadCertkey(wh.certFile, wh.keyFile)
-	if err != nil {
-		return
-	}
-
-	wh.mu.Lock()
-	wh.cert = pair
-	wh.mu.Unlock()
-}
-
-// Reload the server's cert/key for TLS from file.
-func ReloadCertkey(certFile, keyFile string) (*tls.Certificate, error) {
-	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		reportValidationCertKeyUpdateError(err)
-		scope.Warnf("Cert/Key reload error: %v", err)
-		return nil, err
-	}
-
-	reportValidationCertKeyUpdate()
-	scope.Info("Cert and Key reloaded")
-
-	var row int
-	for _, cert := range pair.Certificate {
-		if x509Cert, err := x509.ParseCertificates(cert); err != nil {
-			scope.Infof("x509 cert [%v] - ParseCertificates() error: %v\n", row, err)
-			row++
-		} else {
-			for _, c := range x509Cert {
-				scope.Infof("x509 cert [%v] - Issuer: %q, Subject: %q, SN: %x, NotBefore: %q, NotAfter: %q\n",
-					row, c.Issuer, c.Subject, c.SerialNumber,
-					c.NotBefore.Format(time.RFC3339), c.NotAfter.Format(time.RFC3339))
-				row++
-			}
-		}
-	}
-	return &pair, nil
 }
 
 // New creates a new instance of the admission webhook server.
 func New(p Options) (*Webhook, error) {
-	if p.Mux != nil {
-		wh := &Webhook{
-			schemas:   p.Schemas,
-			validator: p.MixerValidator,
-		}
-
-		p.Mux.HandleFunc("/validate", wh.serveValidate)
-		// old handlers retained backwards compatibility during upgrades
-		p.Mux.HandleFunc("/admitpilot", wh.serveAdmitPilot)
-		p.Mux.HandleFunc("/admitmixer", wh.serveAdmitMixer)
-
-		return wh, nil
+	if p.Mux == nil {
+		scope.Error("mux not set correctly")
+		return nil, errors.New("expected mux to be passed, but was not passed")
 	}
-	pair, err := ReloadCertkey(p.CertFile, p.KeyFile)
-	if err != nil {
-		return nil, err
-	}
-
-	// Configuration must be updated whenever the caBundle changes. Watch the parent directory of
-	// the target files so we can catch symlink updates of k8s secrets.
-	keyCertWatcher := filewatcher.NewWatcher()
-
-	for _, file := range []string{p.CertFile, p.KeyFile} {
-		if err := keyCertWatcher.Add(file); err != nil {
-			return nil, fmt.Errorf("could not watch %v: %v", file, err)
-		}
-	}
-
 	wh := &Webhook{
-		server: &http.Server{
-			Addr: fmt.Sprintf(":%v", p.Port),
-		},
-		keyFile:        p.KeyFile,
-		certFile:       p.CertFile,
-		keyCertWatcher: keyCertWatcher,
-		cert:           pair,
-		schemas:        p.Schemas,
-		validator:      p.MixerValidator,
+		schemas:   p.Schemas,
+		validator: p.MixerValidator,
 	}
 
-	// mtls disabled because apiserver webhook cert usage is still TBD.
-	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
-	h := http.NewServeMux()
-	h.HandleFunc(HTTPSHandlerReadyPath, wh.serveReady)
-	h.HandleFunc("/validate", wh.serveValidate)
+	p.Mux.HandleFunc("/validate", wh.serveValidate)
 	// old handlers retained backwards compatibility during upgrades
-	h.HandleFunc("/admitpilot", wh.serveAdmitPilot)
-	h.HandleFunc("/admitmixer", wh.serveAdmitMixer)
-	wh.server.Handler = h
+	p.Mux.HandleFunc("/admitpilot", wh.serveAdmitPilot)
+	p.Mux.HandleFunc("/admitmixer", wh.serveAdmitMixer)
 
 	return wh, nil
 }
 
 //Stop the server
 func (wh *Webhook) Stop() {
-	_ = wh.server.Close()
 }
 
 var readyHook = func() {}
@@ -245,15 +137,6 @@ var readyHook = func() {}
 // Run implements the webhook server
 func (wh *Webhook) Run(stopCh <-chan struct{}) {
 
-	if wh.server == nil {
-		// Externally managed
-		return
-	}
-	go func() {
-		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-			scope.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
-		}
-	}()
 	defer func() {
 		wh.Stop()
 	}()
@@ -261,37 +144,6 @@ func (wh *Webhook) Run(stopCh <-chan struct{}) {
 	if readyHook != nil {
 		readyHook()
 	}
-
-	// use a timer to debounce key/cert updates
-	var keyCertTimerC <-chan time.Time
-
-	for {
-		select {
-		case <-keyCertTimerC:
-			keyCertTimerC = nil
-			wh.reloadKeyCert()
-		case <-wh.keyCertWatcher.Events(wh.keyFile):
-			if keyCertTimerC == nil {
-				keyCertTimerC = time.After(watchDebounceDelay)
-			}
-		case <-wh.keyCertWatcher.Events(wh.certFile):
-			if keyCertTimerC == nil {
-				keyCertTimerC = time.After(watchDebounceDelay)
-			}
-		case err := <-wh.keyCertWatcher.Errors(wh.keyFile):
-			scope.Errorf("configWatcher error: %v", err)
-		case err := <-wh.keyCertWatcher.Errors(wh.certFile):
-			scope.Errorf("configWatcher error: %v", err)
-		case <-stopCh:
-			return
-		}
-	}
-}
-
-func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	wh.mu.Lock()
-	defer wh.mu.Unlock()
-	return wh.cert, nil
 }
 
 func toAdmissionResponse(err error) *kubeApiAdmission.AdmissionResponse {
@@ -347,10 +199,6 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 		reportValidationHTTPError(http.StatusInternalServerError)
 		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
 	}
-}
-
-func (wh *Webhook) serveReady(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
 }
 
 func (wh *Webhook) serveAdmitPilot(w http.ResponseWriter, r *http.Request) {
@@ -519,12 +367,6 @@ func validatePort(port int) error {
 // Validate tests if the Options has valid params.
 func (o Options) Validate() error {
 	var errs *multierror.Error
-	if len(o.CertFile) == 0 {
-		errs = multierror.Append(errs, errors.New("cert file not specified"))
-	}
-	if len(o.KeyFile) == 0 {
-		errs = multierror.Append(errs, errors.New("key file not specified"))
-	}
 	if err := validatePort(int(o.Port)); err != nil {
 		errs = multierror.Append(errs, err)
 	}

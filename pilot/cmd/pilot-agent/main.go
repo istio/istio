@@ -90,6 +90,7 @@ var (
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
@@ -210,7 +211,8 @@ var (
 				log.Info("Using existing certs")
 			}
 
-			sa := istio_agent.NewSDSAgent(&proxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir)
+			sa := istio_agent.NewSDSAgent(&proxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir,
+				clusterIDVar.Get())
 
 			// Connection to Istiod secure port
 			if sa.RequireCerts {
@@ -425,7 +427,7 @@ func init() {
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
-			"PROXY_CONFIG environment variable or istio.io/proxyConfig annotation.")
+			"PROXY_CONFIG environment variable or proxy.istio.io/config annotation.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
 	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
