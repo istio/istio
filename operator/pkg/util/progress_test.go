@@ -47,7 +47,7 @@ func TestProgressLog(t *testing.T) {
 	bar.ReportProgress()
 	expect(`- Processing resources for components bar, foo.`)
 	bar.ReportProgress()
-	expect(`  Processing resources for components bar, foo.`)
+	expect(`- Processing resources for components bar, foo.`)
 
 	bar.ReportWaiting([]string{"deployment"})
 	expect(`- Processing resources for components bar, foo. Waiting for deployment`)
@@ -60,4 +60,10 @@ func TestProgressLog(t *testing.T) {
 
 	foo.ReportFinished()
 	expect(`✔ Component foo installed`)
+
+	p.SetState(StatePruning)
+	expect(`- Pruning removed resources`)
+
+	p.SetState(StateComplete)
+	expect(`✔ Installation complete`)
 }
