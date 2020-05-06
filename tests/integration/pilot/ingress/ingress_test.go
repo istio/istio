@@ -67,9 +67,7 @@ func TestMain(m *testing.M) {
 			cfg.Values["pilot.env.PILOT_ENABLED_SERVICE_APIS"] = "true"
 		})).
 		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
+			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
 			if ingr, err = ingress.New(ctx, ingress.Config{

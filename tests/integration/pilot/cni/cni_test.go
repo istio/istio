@@ -59,9 +59,7 @@ func TestCNIReachability(t *testing.T) {
 			if err != nil {
 				ctx.Fatal(err)
 			}
-			p, err := pilot.New(ctx, pilot.Config{
-				Galley: g,
-			})
+			p, err := pilot.New(ctx, pilot.Config{})
 			if err != nil {
 				ctx.Fatal(err)
 			}

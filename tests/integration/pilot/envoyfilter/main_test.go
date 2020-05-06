@@ -180,7 +180,7 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	meshConfig.MixerReportServer = "istio-telemetry.istio-system.svc.cluster.local:15004"
 
 	g := galley.NewOrFail(t, ctx, galley.Config{MeshConfig: MeshConfig})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g, MeshConfig: &meshConfig})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{MeshConfig: &meshConfig})
 
 	appNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "app",

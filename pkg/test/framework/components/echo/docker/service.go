@@ -78,7 +78,7 @@ func init() {
 type serviceEntry struct {
 	yaml string
 	ns   namespace.Instance
-	cfg resource.ConfigManager
+	cfg  resource.ConfigManager
 }
 
 func newServiceEntry(address string, cfg echo.Config) (out *serviceEntry, err error) {
@@ -90,7 +90,7 @@ func newServiceEntry(address string, cfg echo.Config) (out *serviceEntry, err er
 	}()
 
 	se := &serviceEntry{
-		ns: cfg.Namespace,
+		ns:  cfg.Namespace,
 		cfg: cfg.Cluster,
 	}
 
@@ -110,7 +110,6 @@ func newServiceEntry(address string, cfg echo.Config) (out *serviceEntry, err er
 			_ = se.Close()
 		}
 	}()
-
 
 	if err != nil {
 		return nil, err

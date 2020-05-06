@@ -78,9 +78,7 @@ func TestMain(m *testing.M) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
 			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
+			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
 			return nil

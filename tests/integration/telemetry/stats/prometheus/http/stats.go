@@ -106,9 +106,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	if pilotInst, err = pilot.New(ctx, pilot.Config{
-		Galley: galInst,
-	}); err != nil {
+	if pilotInst, err = pilot.New(ctx, pilot.Config{}); err != nil {
 		return err
 	}
 

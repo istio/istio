@@ -60,6 +60,9 @@ type nativeComponent struct {
 // NewNativeComponent factory function for the component
 func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	e := ctx.Environment().(*native.Environment)
+	if cfg.Cluster == nil {
+		cfg.Cluster = native.DefaultCluster
+	}
 	instance := &nativeComponent{
 		environment: ctx.Environment().(*native.Environment),
 		stopChan:    make(chan struct{}),

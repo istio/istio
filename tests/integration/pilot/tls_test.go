@@ -111,7 +111,7 @@ spec:
 							TLS:          true,
 						},
 					},
-					Pilot:  p,
+					Pilot: p,
 					// Set up TLS certs on the server. This will make the server listen with these credentials.
 					TLSSettings: &common.TLSSettings{
 						RootCert:   mustReadFile(t, "root-cert.pem"),
