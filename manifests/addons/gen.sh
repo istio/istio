@@ -32,7 +32,7 @@ KIALI_SRC=$(mktemp -d)
 KIALI_VERSION=1.17.0
 pushd "${KIALI_SRC}"
 curl -s -L https://github.com/kiali/kiali-operator/archive/v${KIALI_VERSION}.tar.gz | tar xz
-OPERATOR_ROLE_CREATE="- create" OPERATOR_ROLE_DELETE="- delete" OPERATOR_ROLE_PATCH="- patch" ./kiali-operator-${KIALI_VERSION}/deploy/merge-operator-yaml.sh \
+OPERATOR_ROLE_CREATE="- create" OPERATOR_ROLE_DELETE="- delete" OPERATOR_ROLE_PATCH="- patch" OPERATOR_ROLE_CLUSTERROLEBINDINGS="- clusterrolebindings" OPERATOR_ROLE_CLUSTERROLES="- clusterroles" ./kiali-operator-${KIALI_VERSION}/deploy/merge-operator-yaml.sh \
   -f "${ADDONS}/kiali.yaml" --operator-image-version v${KIALI_VERSION} --operator-namespace istio-system
 cat <<EOF >> "${ADDONS}/kiali.yaml"
 ---
@@ -47,6 +47,9 @@ spec:
   auth:
     strategy: anonymous
 EOF
+# In 1.17.0 there is no support for all namespace reading. This is fixed in master, but for now we will do some sed
+sed -i 's/# no clusterrolebindings support/- clusterrolebindings/g' "${ADDONS}/kiali.yaml"
+sed -i 's/# no clusterroles support/- clusterroles/g' "${ADDONS}/kiali.yaml"
 popd
 
 # Set up prometheus
