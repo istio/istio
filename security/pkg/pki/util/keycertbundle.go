@@ -264,7 +264,7 @@ func extractCertExpiryTimestamp(certType string, certPem []byte) (float64, error
 	end := cert.NotAfter
 	expiryTimestamp := float64(end.Unix())
 	if end.Before(time.Now()) {
-		return expiryTimestamp, fmt.Errorf("Expired %s found, x509.NotAfter %v, please transit your %s", certType, certType, end)
+		return expiryTimestamp, fmt.Errorf("Expired %s found, x509.NotAfter %v, please transit your %s", certType, end, certType)
 	}
 	return expiryTimestamp, nil
 }
