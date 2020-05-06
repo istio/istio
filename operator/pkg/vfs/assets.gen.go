@@ -15499,7 +15499,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
@@ -15536,7 +15536,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
@@ -15573,7 +15573,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
