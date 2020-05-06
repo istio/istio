@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -39,8 +40,8 @@ type PortMap map[ContainerPort]HostPort
 
 func (m PortMap) toNatPortMap() nat.PortMap {
 	out := make(nat.PortMap)
-	for k, v := range m {
-		out[toNatPort(k)] = []nat.PortBinding{{HostIP: "127.0.0.1", HostPort: strconv.Itoa(int(v))}}
+	for k := range m {
+		out[toNatPort(k)] = []nat.PortBinding{{HostIP: "127.0.0.1"}}
 	}
 	return out
 }
@@ -136,6 +137,14 @@ func NewContainer(dockerClient *client.Client, config ContainerConfig) (*Contain
 
 	c.IPAddress = iresp.NetworkSettings.Networks[networkName].IPAddress
 
+	// Fill in the port map with the actual allocated ports
+	for port, bind := range iresp.NetworkSettings.Ports {
+		hp, err := strconv.Atoi(bind[0].HostPort)
+		if err != nil {
+			return nil, err
+		}
+		config.PortMap[ContainerPort(port.Int())] = HostPort(hp)
+	}
 	scopes.CI.Infof("Docker container %s (image=%s) created in network %s", resp.ID, config.Image, networkName)
 	return c, nil
 }
@@ -230,4 +239,12 @@ func (c *Container) Close() error {
 
 func toNatPort(p ContainerPort) nat.Port {
 	return nat.Port(fmt.Sprintf("%d/tcp", p))
+}
+
+func fromNatPort(p string) (ContainerPort, error) {
+	cp, err := strconv.Atoi(strings.Split(p, "/")[0])
+	if err != nil {
+		return 0, err
+	}
+	return ContainerPort(cp), nil
 }

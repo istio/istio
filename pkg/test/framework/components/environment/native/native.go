@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/docker"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/pkg/test/util/reserveport"
 )
 
 const (
@@ -51,9 +50,6 @@ type Environment struct {
 	// Domain used by components in the native environment.
 	Domain string
 
-	// PortManager provides free ports on-demand.
-	PortManager reserveport.PortManager
-
 	// Docker resources, Lazy-initialized.
 	dockerClient *client.Client
 	network      *docker.Network
@@ -64,16 +60,10 @@ var _ resource.Environment = &Environment{}
 
 // New returns a new native environment.
 func New(ctx resource.Context) (resource.Environment, error) {
-	portMgr, err := reserveport.NewPortManager()
-	if err != nil {
-		return nil, err
-	}
-
 	e := &Environment{
 		ctx:             ctx,
 		SystemNamespace: systemNamespace,
 		Domain:          domain,
-		PortManager:     portMgr,
 	}
 	e.id = ctx.TrackResource(e)
 
