@@ -22,6 +22,7 @@ used for this purpose.
 package tpath
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -300,26 +301,30 @@ func mergeConditional(newVal, originalVal interface{}, merge bool) (interface{},
 func WritePathContext(nc *PathContext, value interface{}, merge bool) error {
 	scope.Debugf("WritePathContext PathContext=%s, value=%v", nc, value)
 
-	switch {
-	case util.IsValueNil(value):
-		scope.Debug("delete")
-		switch {
-		case nc.Parent != nil && isSliceOrPtrInterface(nc.Parent.Node):
-			if err := util.DeleteFromSlicePtr(nc.Parent.Node, nc.Parent.KeyToChild.(int)); err != nil {
-				return err
-			}
-			// FIXME: assumes parent is a map, will not work if it is a slice.
-			if isMapOrInterface(nc.Parent.Parent.Node) {
-				if err := util.InsertIntoMap(nc.Parent.Parent.Node, nc.Parent.Parent.KeyToChild, nc.Parent.Node); err != nil {
-					return err
-				}
-			}
-		}
-	default:
+	if !util.IsValueNil(value) {
 		return setPathContext(nc, value, merge)
 	}
 
-	return nil
+	scope.Debug("delete")
+	if nc.Parent == nil {
+		return errors.New("cannot delete root element")
+	}
+
+	switch {
+	case isSliceOrPtrInterface(nc.Parent.Node):
+		if err := util.DeleteFromSlicePtr(nc.Parent.Node, nc.Parent.KeyToChild.(int)); err != nil {
+			return err
+		}
+		if isMapOrInterface(nc.Parent.Parent.Node) {
+			return util.InsertIntoMap(nc.Parent.Parent.Node, nc.Parent.Parent.KeyToChild, nc.Parent.Node)
+		}
+		// TODO: The case of deleting a list.list.node element is not currently supported.
+		return fmt.Errorf("cannot delete path: unsupported parent.parent type %T for delete", nc.Parent.Parent.Node)
+	case util.IsMap(nc.Parent.Node):
+		return util.DeleteFromMap(nc.Parent.Node, nc.Parent.KeyToChild)
+	default:
+	}
+	return fmt.Errorf("cannot delete path: unsupported parent type %T for delete", nc.Parent.Node)
 }
 
 // setPathContext writes the given value to the Node in the given PathContext,

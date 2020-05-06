@@ -310,6 +310,14 @@ a:
 `,
 		},
 		{
+			desc:      "DeleteMapEntry",
+			path:      `a.b`,
+			wantFound: true,
+			want: `
+a: {}
+`,
+		},
+		{
 			desc: "AddMapEntryMapValue",
 			path: `a.new_key`,
 			value: `nk1:
