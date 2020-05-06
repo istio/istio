@@ -32,7 +32,7 @@ KIALI_SRC=$(mktemp -d)
 KIALI_VERSION=1.17.0
 pushd "${KIALI_SRC}"
 curl -s -L https://github.com/kiali/kiali-operator/archive/v${KIALI_VERSION}.tar.gz | tar xz
-OPERATOR_ROLE_CREATE="- create" OPERATOR_ROLE_DELETE="- delete" OPERATOR_ROLE_PATCH="- patch" OPERATOR_ROLE_CLUSTERROLEBINDINGS="- clusterrolebindings" OPERATOR_ROLE_CLUSTERROLES="- clusterroles" ./kiali-operator-${KIALI_VERSION}/deploy/merge-operator-yaml.sh \
+OPERATOR_ROLE_CREATE="- create" OPERATOR_ROLE_DELETE="- delete" OPERATOR_ROLE_PATCH="- patch" ./kiali-operator-${KIALI_VERSION}/deploy/merge-operator-yaml.sh \
   -f "${ADDONS}/kiali.yaml" --operator-image-version v${KIALI_VERSION} --operator-namespace istio-system
 cat <<EOF >> "${ADDONS}/kiali.yaml"
 ---
@@ -81,9 +81,3 @@ helm3 template prometheus stable/prometheus \
     --from-file=istio-service-dashboard.json="${DASHBOARDS}/istio-service-dashboard.json" \
     --from-file=istio-mesh-dashboard.json="${DASHBOARDS}/istio-mesh-dashboard.json"
 } > "${ADDONS}/grafana.yaml"
-
-
-# Zipkin does not have a helm chart, but the deployment is trivial
-cp "${WD}/zipkin.yaml" "${ADDONS}/zipkin.yaml"
-# Jaeger does not have a helm chart for in memory option. To keep things simple we use plain deployment
-cp "${WD}/jaeger.yaml" "${ADDONS}/jaeger.yaml"
