@@ -129,8 +129,8 @@ rules:
   - watch
 - apiGroups: ["rbac.authorization.k8s.io"]
   resources:
-  # no clusterrolebindings support
-  # no clusterroles support
+  - clusterrolebindings
+  - clusterroles
   - rolebindings
   - roles
   verbs:
