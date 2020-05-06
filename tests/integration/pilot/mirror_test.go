@@ -211,8 +211,8 @@ func runMirrorTest(options mirrorTestOptions) {
 
 					deployment := tmpl.EvaluateOrFail(t,
 						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-					c.ApplyConfigOrFail(t, ns.Name(), deployment)
-					defer c.DeleteConfigOrFail(t, ns.Name(), deployment)
+					cluster.ApplyConfigOrFail(t, ns.Name(), deployment)
+					defer cluster.DeleteConfigOrFail(t, ns.Name(), deployment)
 
 					for _, proto := range mirrorProtocols {
 						t.Run(string(proto), func(t *testing.T) {
