@@ -60,6 +60,8 @@ type manifestApplyArgs struct {
 	set []string
 	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	charts string
+	// revision is the Istio control plane revision the command targets.
+	revision string
 }
 
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
@@ -76,6 +78,7 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 }
 
 func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) *cobra.Command {
@@ -146,7 +149,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := ApplyManifests(applyInstallFlagAlias(maArgs.set, maArgs.charts), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
+	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.charts, maArgs.revision), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
 		maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}

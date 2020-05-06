@@ -118,7 +118,7 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		return fmt.Errorf("unknown output format: %v", pdArgs.outputFormat)
 	}
 
-	setFlags := applyInstallFlagAlias(make([]string, 0), "")
+	setFlags := applyFlagAliases(make([]string, 0), "", "")
 	if len(args) == 1 {
 		setFlags = append(setFlags, "profile="+args[0])
 	}
