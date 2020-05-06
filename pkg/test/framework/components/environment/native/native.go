@@ -147,11 +147,6 @@ func (e *Environment) Close() (err error) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
-	if e.PortManager != nil {
-		err = multierror.Append(err, e.PortManager.Close()).ErrorOrNil()
-	}
-	e.PortManager = nil
-
 	if e.network != nil {
 		err = multierror.Append(err, e.network.Close()).ErrorOrNil()
 	}
