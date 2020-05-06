@@ -455,17 +455,23 @@ func TestSuite_GetResource(t *testing.T) {
 	defer cleanupRT()
 	g := NewGomegaWithT(t)
 
-	var (
-		structRes                          fakeEnvironment
-		interfaceRes                       resource.Cluster
-		sErr, iErr, notFoundErr, nonPtrErr error
-	)
-
 	type nonResource struct{}
+
+	var (
+		structRes    fakeEnvironment
+		interfaceRes resource.Cluster
+		notFoundRes  nonResource
+
+		structErr, ifErr, sliceErr error
+		notFoundErr, nonPtrErr     error
+	)
+	sliceRes := []resource.Cluster{fakeCluster{index: 3}}
+
 	runFn := func(ctx *suiteContext) int {
-		sErr = ctx.GetResource(&structRes)
-		iErr = ctx.GetResource(&interfaceRes)
-		notFoundErr = ctx.GetResource(&nonResource{})
+		structErr = ctx.GetResource(&structRes)
+		ifErr = ctx.GetResource(&interfaceRes)
+		sliceErr = ctx.GetResource(sliceRes)
+		notFoundErr = ctx.GetResource(&notFoundRes)
 		nonPtrErr = ctx.GetResource(fakeEnvironment{})
 		return 0
 	}
@@ -478,14 +484,20 @@ func TestSuite_GetResource(t *testing.T) {
 	})
 	s.Run()
 
-	g.Expect(sErr).To(BeNil())
+	g.Expect(structErr).To(BeNil())
 	g.Expect(structRes.numClusters).To(Equal(2))
 
-	g.Expect(iErr).To(BeNil())
+	g.Expect(ifErr).To(BeNil())
 	g.Expect(interfaceRes).NotTo(BeNil())
 	g.Expect(interfaceRes.Index()).To(Equal(resource.ClusterIndex(1)))
 
-	g.Expect(notFoundErr).NotTo(BeNil())
+	g.Expect(sliceErr).To(BeNil())
+	g.Expect(sliceRes).To(HaveLen(2))
+	g.Expect(sliceRes[0].Index()).To(Equal(resource.ClusterIndex(3)))
+	g.Expect(sliceRes[1].Index()).To(Equal(resource.ClusterIndex(1)))
+
+	g.Expect(notFoundErr).To(BeNil())
+	g.Expect(notFoundRes).To(BeNil())
 	g.Expect(nonPtrErr).NotTo(BeNil())
 }
 

@@ -72,17 +72,34 @@ func (s *scope) add(r resource.Resource, id *resourceID) {
 
 func (s *scope) get(ref interface{}) error {
 	refVal := reflect.ValueOf(ref)
-	if refVal.Kind() != reflect.Ptr {
-		return fmt.Errorf("ref must be a pointer, instead got: %T", ref)
+	if refVal.Kind() != reflect.Ptr && refVal.Kind() != reflect.Slice {
+		return fmt.Errorf("ref must be a pointer or a slice, instead got: %T", ref)
 	}
+
+	var targetT reflect.Type
+	switch refVal.Kind() {
+	case reflect.Ptr:
+		targetT = refVal.Elem().Type()
+	case reflect.Slice:
+		targetT = refVal.Type().Elem()
+	}
+
 	for _, res := range s.resources {
 		resVal := reflect.ValueOf(res)
-		if resVal.Type().AssignableTo(refVal.Elem().Type()) {
-			refVal.Elem().Set(resVal)
-			return nil
+		refT, resT := targetT.String(), resVal.Type().String()
+		fmt.Println(refT, resT)
+		if resVal.Type().AssignableTo(targetT) {
+			switch refVal.Kind() {
+			case reflect.Ptr:
+				refVal.Elem().Set(resVal)
+				return nil
+			case reflect.Slice:
+				reflect.Append(refVal, resVal)
+			}
 		}
+
 	}
-	return fmt.Errorf("could not find resource of type %v in scope", refVal.Elem().Type())
+	return nil
 }
 
 func (s *scope) addCloser(c io.Closer) {

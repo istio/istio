@@ -22,9 +22,10 @@ type Context interface {
 	// cleaned up.
 	TrackResource(r Resource) ID
 
-	// GetResource gets a resource matching the type referenced by the passed in pointer if one exists.
-	// Only useful when only one of the given type of resource is expected in the current context.
-	// An error will be returned if ref is not a pointer, or if no matching resource is found.
+	// GetResource finds a resource or resources of the given element type in the context.
+	// A pointer reference will be assigned to the first matching resource.
+	// All matching resources will be appended to a slice reference.
+	// An error will be returned if ref is not a pointer or a slice.
 	GetResource(ref interface{}) error
 
 	// The Environment in which the tests run
