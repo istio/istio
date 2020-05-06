@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"sync"
+	"time"
 )
 
 // KeyCertBundle stores the cert, private key, cert chain and root cert for an entity. It is thread safe.
@@ -48,6 +49,12 @@ type KeyCertBundle interface {
 
 	// CertOptions returns the CertOptions for rotating the current key cert.
 	CertOptions() (*CertOptions, error)
+
+	// ExtractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
+	ExtractRootCertExpiryTimestamp() (float64, error)
+
+	// ExtractCACertExpiryTimestamp returns the unix timestamp when the CA cert becomes expires.
+	ExtractCACertExpiryTimestamp() (float64, error)
 }
 
 // KeyCertBundleImpl implements the KeyCertBundle interface.
@@ -200,6 +207,16 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 	}, nil
 }
 
+// ExtractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
+func (b *KeyCertBundleImpl) ExtractRootCertExpiryTimestamp() (float64, error) {
+	return extractCertExpiryTimestamp("root cert", b.GetRootCertPem())
+}
+
+// ExtractCACertExpiryTimestamp returns the unix timestamp when the cert chain becomes expires.
+func (b *KeyCertBundleImpl) ExtractCACertExpiryTimestamp() (float64, error) {
+	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
+}
+
 // Verify that the cert chain, root cert and key/cert match.
 func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
 	// Verify the cert can be verified from the root cert through the cert chain.
@@ -236,6 +253,20 @@ func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
 	}
 
 	return nil
+}
+
+func extractCertExpiryTimestamp(certType string, certPem []byte) (float64, error) {
+	cert, err := ParsePemEncodedCertificate(certPem)
+	if err != nil {
+		return -1, fmt.Errorf("Failed to parse the %s: %v", certType, err)
+	}
+
+	end := cert.NotAfter
+	expiryTimestamp := float64(end.Unix())
+	if end.Before(time.Now()) {
+		return expiryTimestamp, fmt.Errorf("Expired %s found, x509.NotAfter %v, please transit your %s", certType, certType, end)
+	}
+	return expiryTimestamp, nil
 }
 
 func copyBytes(src []byte) []byte {

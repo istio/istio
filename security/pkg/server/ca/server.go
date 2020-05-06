@@ -118,44 +118,22 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	return response, nil
 }
 
-func recordCertsExpiry(ca CertificateAuthority) {
-	caKeyCertBundler := ca.GetCAKeyCertBundle()
-	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(caKeyCertBundler))
-
-	if len(caKeyCertBundler.GetCertChainPem()) > 0 {
-		certChainExpiryTimestamp.Record(extractCertChainExpiryTimestamp(caKeyCertBundler))
-	}
-}
-
-// extractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
-func extractRootCertExpiryTimestamp(keyCertBundle util.KeyCertBundle) float64 {
-	rb := keyCertBundle.GetRootCertPem()
-	cert, err := util.ParsePemEncodedCertificate(rb)
+func recordCertsExpiry(keyCertBundle util.KeyCertBundle) {
+	rootCertExpiry, err := keyCertBundle.ExtractRootCertExpiryTimestamp()
 	if err != nil {
-		serverCaLog.Errorf("Failed to parse the root cert: %v", err)
-		return -1
+		serverCaLog.Errorf("failed to extract root cert expiry timestamp (error %v)", err)
 	}
-	end := cert.NotAfter
-	if end.Before(time.Now()) {
-		serverCaLog.Errorf("Expired root cert found, x509.NotAfter %v, please transit your root cert", end)
-	}
-	return float64(end.Unix())
-}
+	rootCertExpiryTimestamp.Record(rootCertExpiry)
 
-// extractCertChainExpiryTimestamp returns the unix timestamp when the cert chain becomes expires.
-func extractCertChainExpiryTimestamp(keyCertBundle util.KeyCertBundle) float64 {
-	cc := keyCertBundle.GetCertChainPem()
-	cert, err := util.ParsePemEncodedCertificate(cc)
+	if len(keyCertBundle.GetCertChainPem()) <= 0 {
+		return
+	}
+
+	certChainExpiry, err := keyCertBundle.ExtractCACertExpiryTimestamp()
 	if err != nil {
-		serverCaLog.Errorf("Failed to parse the cert chain: %v", err)
-		return -1
+		serverCaLog.Errorf("failed to extract CA cert expiry timestamp (error %v)", err)
 	}
-
-	end := cert.NotAfter
-	if end.Before(time.Now()) {
-		serverCaLog.Errorf("Expired cert chain found, x509.NotAfter %v, please transit your cert chain", end)
-	}
-	return float64(end.Unix())
+	certChainExpiryTimestamp.Record(certChainExpiry)
 }
 
 // HandleCSR handles an incoming certificate signing request (CSR). It does
@@ -288,7 +266,7 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 		}
 	}
 
-	recordCertsExpiry(ca)
+	recordCertsExpiry(ca.GetCAKeyCertBundle())
 
 	server := &Server{
 		Authenticators: authenticators,
