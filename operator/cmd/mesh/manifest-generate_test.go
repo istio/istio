@@ -146,7 +146,7 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		},
 		{
 			deploymentName: "kiali",
-			want:           "docker.io/testing/kiali:v1.15",
+			want:           "docker.io/testing/kiali:v1.18",
 		},
 	}
 
