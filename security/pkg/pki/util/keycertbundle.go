@@ -258,13 +258,13 @@ func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
 func extractCertExpiryTimestamp(certType string, certPem []byte) (float64, error) {
 	cert, err := ParsePemEncodedCertificate(certPem)
 	if err != nil {
-		return -1, fmt.Errorf("Failed to parse the %s: %v", certType, err)
+		return -1, fmt.Errorf("failed to parse the %s: %v", certType, err)
 	}
 
 	end := cert.NotAfter
 	expiryTimestamp := float64(end.Unix())
 	if end.Before(time.Now()) {
-		return expiryTimestamp, fmt.Errorf("Expired %s found, x509.NotAfter %v, please transit your %s", certType, end, certType)
+		return expiryTimestamp, fmt.Errorf("expired %s found, x509.NotAfter %v, please transit your %s", certType, end, certType)
 	}
 	return expiryTimestamp, nil
 }

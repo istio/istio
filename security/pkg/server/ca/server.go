@@ -125,7 +125,7 @@ func recordCertsExpiry(keyCertBundle util.KeyCertBundle) {
 	}
 	rootCertExpiryTimestamp.Record(rootCertExpiry)
 
-	if len(keyCertBundle.GetCertChainPem()) <= 0 {
+	if len(keyCertBundle.GetCertChainPem()) == 0 {
 		return
 	}
 
