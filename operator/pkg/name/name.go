@@ -16,18 +16,14 @@ package name
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 	"sync"
 
-	"github.com/ghodss/yaml"
-
 	"istio.io/api/operator/v1alpha1"
+
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/vfs"
-	"istio.io/istio/operator/version"
 )
 
 // Kubernetes Kind strings.
@@ -52,10 +48,7 @@ const (
 	// OperatorAPINamespace is the API namespace for operator config.
 	// TODO: move this to a base definitions file when one is created.
 	OperatorAPINamespace = "operator.istio.io"
-	// ConfigFolder is the folder where we store translation configurations
-	ConfigFolder = "translateConfig"
-	// ConfigPrefix is the prefix of IstioOperator's translation configuration file
-	ConfigPrefix = "names-"
+
 	// DefaultProfileName is the name of the default profile.
 	DefaultProfileName = "default"
 )
@@ -98,11 +91,13 @@ var (
 		TelemetryComponentName,
 		CNIComponentName,
 	}
-	allComponentNamesMap = make(map[ComponentName]bool)
-	// DeprecatedComponentNamesMap defines the names of deprecated istio core components used in old versions,
-	// which would not appear as standalone components in current version. This is used for pruning, and alerting
-	// users to the fact that the components are deprecated.
-	DeprecatedComponentNamesMap = make(map[ComponentName]bool)
+	allComponentNamesMap = map[ComponentName]bool{
+		IstioBaseComponentName: true,
+		PilotComponentName:     true,
+		PolicyComponentName:    true,
+		TelemetryComponentName: true,
+		CNIComponentName:       true,
+	}
 
 	// BundledAddonComponentNamesMap is a map of component names of addons which have helm charts bundled with Istio
 	// and have built in path definitions beyond standard addons coming from external charts.
@@ -131,15 +126,6 @@ var (
 	}
 	scanAddons sync.Once
 )
-
-func init() {
-	for _, n := range AllCoreComponentNames {
-		allComponentNamesMap[n] = true
-	}
-	if err := loadComponentNamesConfig(); err != nil {
-		panic(err)
-	}
-}
 
 // Manifest defines a manifest for a component.
 type Manifest struct {
@@ -230,26 +216,6 @@ func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOper
 func TitleCase(n ComponentName) ComponentName {
 	s := string(n)
 	return ComponentName(strings.ToUpper(s[0:1]) + s[1:])
-}
-
-// loadComponentNamesConfig loads a config that defines version specific components names, such as legacy components
-// names that may not otherwise exist in the code.
-func loadComponentNamesConfig() error {
-	minorVersion := version.OperatorBinaryVersion.MinorVersion
-	f := filepath.Join(ConfigFolder, ConfigPrefix+minorVersion.String()+".yaml")
-	b, err := vfs.ReadFile(f)
-	if err != nil {
-		return fmt.Errorf("failed to read naming file: %v", err)
-	}
-	namesConfig := &ComponentNamesConfig{}
-	err = yaml.Unmarshal(b, &namesConfig)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal naming config file: %v", err)
-	}
-	for _, n := range namesConfig.DeprecatedComponentNames {
-		DeprecatedComponentNamesMap[ComponentName(n)] = true
-	}
-	return nil
 }
 
 // onceErr is used to report any error returned through once. It must be globally scoped.

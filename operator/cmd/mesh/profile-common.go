@@ -23,6 +23,8 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
+	pkgversion "istio.io/pkg/version"
+
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
@@ -32,8 +34,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
-	"istio.io/istio/operator/version"
-	pkgversion "istio.io/pkg/version"
 )
 
 // GenerateConfig creates an IstioOperatorSpec from the following sources, overlaid sequentially:
@@ -177,11 +177,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 			return "", nil, err
 		}
 	}
-	mvs := version.OperatorBinaryVersion.MinorVersion
-	t, err := translate.NewReverseTranslator(mvs)
-	if err != nil {
-		return "", nil, fmt.Errorf("error creating values.yaml translator: %s", err)
-	}
+	t := translate.NewReverseTranslator()
 	userOverlayYAML, err = t.TranslateK8SfromValueToIOP(userOverlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)

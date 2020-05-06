@@ -37,6 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
@@ -44,9 +47,6 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	version2 "istio.io/istio/operator/version"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -305,11 +305,7 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 	if err != nil {
 		return nil, err
 	}
-	mvs := version2.OperatorBinaryVersion.MinorVersion
-	t, err := translate.NewReverseTranslator(mvs)
-	if err != nil {
-		return nil, fmt.Errorf("error creating values.yaml translator: %s", err)
-	}
+	t := translate.NewReverseTranslator()
 	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
 	if err != nil {
 		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
