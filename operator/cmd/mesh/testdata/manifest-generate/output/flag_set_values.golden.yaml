@@ -28,7 +28,6 @@ data:
           }
         },
         "enableHelmTest": false,
-        "enableTracing": true,
         "enabled": true,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
@@ -39,9 +38,6 @@ data:
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "localityLbSetting": {
-          "enabled": true
-        },
         "logAsJson": false,
         "logging": {
           "level": "default:info"
@@ -52,9 +48,6 @@ data:
         },
         "meshNetworks": {},
         "mountMtlsCerts": false,
-        "mtls": {
-          "auto": true
-        },
         "multiCluster": {
           "clusterName": "",
           "enabled": false
@@ -64,11 +57,7 @@ data:
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
         "operatorManageWebhooks": false,
-        "outboundTrafficPolicy": {
-          "mode": "ALLOW_ANY"
-        },
         "pilotCertProvider": "istiod",
-        "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
         "proxy": {

@@ -7026,14 +7026,9 @@ data:
     disablePolicyChecks: true
     enableAutoMtls: false
     enablePrometheusMerge: false
-    enableTracing: true
     ingressClass: istio
     ingressControllerMode: STRICT
     ingressService: istio-ingressgateway
-    localityLbSetting:
-      enabled: true
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY
     protocolDetectionTimeout: 100ms
     reportBatchMaxEntries: 100
     reportBatchMaxTime: 1s
@@ -7214,7 +7209,6 @@ data:
           }
         },
         "enableHelmTest": false,
-        "enableTracing": true,
         "enabled": true,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
@@ -7225,9 +7219,6 @@ data:
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "localityLbSetting": {
-          "enabled": true
-        },
         "logAsJson": false,
         "logging": {
           "level": "default:info"
@@ -7250,11 +7241,7 @@ data:
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
         "operatorManageWebhooks": false,
-        "outboundTrafficPolicy": {
-          "mode": "ALLOW_ANY"
-        },
         "pilotCertProvider": "istiod",
-        "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
         "proxy": {

@@ -8384,17 +8384,11 @@ data:
           address: zipkin.istio-system:9411
     disableMixerHttpReports: true
     disablePolicyChecks: true
-    enableAutoMtls: true
     enablePrometheusMerge: false
-    enableTracing: true
     ingressClass: istio
     ingressControllerMode: STRICT
     ingressService: istio-ingressgateway
-    localityLbSetting:
-      enabled: true
     mixerCheckServer: istio-policy.istio-system.svc.cluster.local:15004
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY
     policyCheckFailOpen: false
     protocolDetectionTimeout: 100ms
     reportBatchMaxEntries: 100
@@ -8576,7 +8570,6 @@ data:
           }
         },
         "enableHelmTest": false,
-        "enableTracing": true,
         "enabled": true,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
@@ -8587,9 +8580,6 @@ data:
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "localityLbSetting": {
-          "enabled": true
-        },
         "logAsJson": false,
         "logging": {
           "level": "default:info"
@@ -8600,9 +8590,6 @@ data:
         },
         "meshNetworks": {},
         "mountMtlsCerts": false,
-        "mtls": {
-          "auto": true
-        },
         "multiCluster": {
           "clusterName": "",
           "enabled": false
@@ -8612,11 +8599,7 @@ data:
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
         "operatorManageWebhooks": false,
-        "outboundTrafficPolicy": {
-          "mode": "ALLOW_ANY"
-        },
         "pilotCertProvider": "istiod",
-        "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
         "proxy": {
