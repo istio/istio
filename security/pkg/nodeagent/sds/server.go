@@ -125,6 +125,7 @@ type Options struct {
 	// ClusterID is the cluster ID
 	ClusterID string
 
+	// Whether to generate EC private keys.
 	ECCKeys bool
 }
 

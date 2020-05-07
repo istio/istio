@@ -866,10 +866,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		Host:       csrHostName,
 		RSAKeySize: keySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
-	}
-
-	if sc.configOptions.ECCKeys {
-		options.IsEC = true
+		IsEC:       sc.configOptions.ECCKeys,
 	}
 
 	// Generate the cert/key, send CSR to CA.
