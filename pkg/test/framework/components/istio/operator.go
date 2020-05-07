@@ -98,32 +98,7 @@ func (i *operatorComponent) Dump() {
 			scopes.CI.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 			return
 		}
-
-		cluster.DumpPodState(d, i.settings.SystemNamespace)
-		cluster.DumpPodEvents(d, i.settings.SystemNamespace)
-
-		pods, err := cluster.GetPods(i.settings.SystemNamespace)
-		if err != nil {
-			scopes.CI.Errorf("Unable to get pods from the system namespace in cluster %s: %v", cluster.Name(), err)
-			return
-		}
-
-		for _, pod := range pods {
-			for _, container := range pod.Spec.Containers {
-				l, err := i.environment.KubeClusters[0].Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
-				if err != nil {
-					scopes.CI.Errorf("Unable to get logs for pod/container in cluster %s: %s/%s/%s", cluster.Name(),
-						pod.Namespace, pod.Name, container.Name)
-					continue
-				}
-
-				fname := path.Join(d, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
-				if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
-					scopes.CI.Errorf("Unable to write logs for pod/container in cluster %s: %s/%s/%s", cluster.Name(),
-						pod.Namespace, pod.Name, container.Name)
-				}
-			}
-		}
+		cluster.DumpPods(d, i.settings.SystemNamespace)
 	}
 }
 
