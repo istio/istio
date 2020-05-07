@@ -53,8 +53,12 @@ func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 			rootCertFile: "bad.pem",
 			expectedErr:  "open bad.pem: no such file or directory",
 		},
-		"With root cert": {
+		"With RSA root cert": {
 			rootCertFile: rootCertFile,
+			expectedErr:  "",
+		},
+		"With EC root cert": {
+			rootCertFile: rootCertFile1,
 			expectedErr:  "",
 		},
 	}
