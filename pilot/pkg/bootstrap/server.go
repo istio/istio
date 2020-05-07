@@ -173,6 +173,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		clusterID:      getClusterID(args),
 		environment:    e,
 		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
+		fileWatcher:    filewatcher.NewWatcher(),
 		forceStop:      args.ForceStop,
 		mux:            http.NewServeMux(),
 	}
@@ -183,7 +184,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
-	s.fileWatcher = filewatcher.NewWatcher()
 	if err := s.initMeshConfiguration(args, s.fileWatcher); err != nil {
 		return nil, fmt.Errorf("error initializing mesh config: %v", err)
 	}
