@@ -179,6 +179,14 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		mux:            http.NewServeMux(),
 	}
 
+	if args.Config.ControllerOptions.WatchedNamespaces != "" {
+		// Add the control-plane namespace to the list of watched namespaces.
+		args.Config.ControllerOptions.WatchedNamespaces = fmt.Sprintf("%s,%s",
+			args.Config.ControllerOptions.WatchedNamespaces,
+			args.Namespace,
+		)
+	}
+
 	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.

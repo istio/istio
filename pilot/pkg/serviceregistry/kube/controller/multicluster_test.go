@@ -38,7 +38,7 @@ import (
 const (
 	testSecretName      = "testSecretName"
 	testSecretNameSpace = "istio-system"
-	WatchedNamespace    = "istio-system"
+	WatchedNamespaces   = "istio-system"
 	DomainSuffix        = "fake_domain"
 	ResyncPeriod        = 1 * time.Second
 )
@@ -109,9 +109,9 @@ func Test_KubeSecretController(t *testing.T) {
 	mc, err := NewMulticluster(clientset,
 		testSecretNameSpace,
 		Options{
-			WatchedNamespace: WatchedNamespace,
-			DomainSuffix:     DomainSuffix,
-			ResyncPeriod:     ResyncPeriod,
+			WatchedNamespaces: WatchedNamespaces,
+			DomainSuffix:      DomainSuffix,
+			ResyncPeriod:      ResyncPeriod,
 		},
 		mockserviceController, nil, nil)
 
