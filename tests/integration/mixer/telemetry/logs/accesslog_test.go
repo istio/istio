@@ -35,7 +35,6 @@ import (
 var (
 	ist               istio.Instance
 	bookinfoNamespace *namespace.Instance
-	galInst           *galley.Instance
 	ingInst           *ingress.Instance
 )
 
@@ -106,11 +105,6 @@ func testsetup(ctx resource.Context) error {
 	if _, err := bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo}); err != nil {
 		return err
 	}
-	g, err := galley.New(ctx, galley.Config{})
-	if err != nil {
-		return err
-	}
-	galInst = &g
 	ing, err := ingress.New(ctx, ingress.Config{Istio: ist})
 	if err != nil {
 		return err
@@ -121,6 +115,7 @@ func testsetup(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
+	ctx.Environment()
 	err = g.ApplyConfig(bookinfoNs, bookinfoGateWayConfig)
 	if err != nil {
 		return err
