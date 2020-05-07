@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /*
-Package tpath contains functions for traversing and updating a tree constructed from yaml or json.Unmarshal.
+tree.go contains functions for traversing and updating a tree constructed from yaml or json.Unmarshal.
 Nodes in such trees have the form map[interface{}]interface{} or map[interface{}][]interface{}.
 For some tree updates, like delete or append, it's necessary to have access to the parent node. PathContext is a
 tree constructed during tree traversal that gives access to ancestor nodes all the way up to the root, which can be
@@ -72,6 +72,75 @@ func (nc *PathContext) String() string {
 // required when (say) appending to a list, where the parent list itself must be updated.
 func GetPathContext(root interface{}, path util.Path, createMissing bool) (*PathContext, bool, error) {
 	return getPathContext(&PathContext{Node: root}, path, path, createMissing)
+}
+
+// WritePathContext writes the given value to the Node in the given PathContext.
+func WritePathContext(nc *PathContext, value interface{}, merge bool) error {
+	scope.Debugf("WritePathContext PathContext=%s, value=%v", nc, value)
+
+	if !util.IsValueNil(value) {
+		return setPathContext(nc, value, merge)
+	}
+
+	scope.Debug("delete")
+	if nc.Parent == nil {
+		return errors.New("cannot delete root element")
+	}
+
+	switch {
+	case isSliceOrPtrInterface(nc.Parent.Node):
+		if err := util.DeleteFromSlicePtr(nc.Parent.Node, nc.Parent.KeyToChild.(int)); err != nil {
+			return err
+		}
+		if isMapOrInterface(nc.Parent.Parent.Node) {
+			return util.InsertIntoMap(nc.Parent.Parent.Node, nc.Parent.Parent.KeyToChild, nc.Parent.Node)
+		}
+		// TODO: The case of deleting a list.list.node element is not currently supported.
+		return fmt.Errorf("cannot delete path: unsupported parent.parent type %T for delete", nc.Parent.Parent.Node)
+	case util.IsMap(nc.Parent.Node):
+		return util.DeleteFromMap(nc.Parent.Node, nc.Parent.KeyToChild)
+	default:
+	}
+	return fmt.Errorf("cannot delete path: unsupported parent type %T for delete", nc.Parent.Node)
+}
+
+// WriteNode writes value to the tree in root at the given path, creating any required missing internal nodes in path.
+func WriteNode(root interface{}, path util.Path, value interface{}) error {
+	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
+	if err != nil {
+		return err
+	}
+	return WritePathContext(pc, value, false)
+}
+
+// MergeNode merges value to the tree in root at the given path, creating any required missing internal nodes in path.
+func MergeNode(root interface{}, path util.Path, value interface{}) error {
+	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
+	if err != nil {
+		return err
+	}
+	return WritePathContext(pc, value, true)
+}
+
+// Find returns the value at path from the given tree, or false if the path does not exist.
+// It behaves differently from GetPathContext in that it never creates map entries at the leaf and does not provide
+// a way to mutate the parent of the found node.
+func Find(inputTree map[string]interface{}, path util.Path) (interface{}, bool, error) {
+	log.Debugf("Find path=%s", path)
+	if len(path) == 0 {
+		return nil, false, fmt.Errorf("path is empty")
+	}
+	node, found := find(inputTree, path)
+	return node, found, nil
+}
+
+// Delete sets value at path of input untyped tree to nil
+func Delete(root map[string]interface{}, path util.Path) (bool, error) {
+	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, false)
+	if err != nil {
+		return false, err
+	}
+	return true, WritePathContext(pc, nil, false)
 }
 
 // getPathContext is the internal implementation of GetPathContext.
@@ -238,95 +307,6 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	return nil, false, fmt.Errorf("leaf type %T in non-leaf Node %s", nc.Node, remainPath)
 }
 
-// WriteNode writes value to the tree in root at the given path, creating any required missing internal nodes in path.
-func WriteNode(root interface{}, path util.Path, value interface{}) error {
-	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
-	if err != nil {
-		return err
-	}
-	return WritePathContext(pc, value, false)
-}
-
-// MergeNode merges value to the tree in root at the given path, creating any required missing internal nodes in path.
-func MergeNode(root interface{}, path util.Path, value interface{}) error {
-	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
-	if err != nil {
-		return err
-	}
-	return WritePathContext(pc, value, true)
-}
-
-// mergeConditional returns a merge of newVal and originalVal if merge is true, otherwise it returns newVal.
-func mergeConditional(newVal, originalVal interface{}, merge bool) (interface{}, error) {
-	if !merge || util.IsValueNilOrDefault(originalVal) {
-		return newVal, nil
-	}
-	newS, err := yaml.Marshal(newVal)
-	if err != nil {
-		return nil, err
-	}
-	if util.IsYAMLEmpty(string(newS)) {
-		return originalVal, nil
-	}
-	originalS, err := yaml.Marshal(originalVal)
-	if err != nil {
-		return nil, err
-	}
-	if util.IsYAMLEmpty(string(originalS)) {
-		return newVal, nil
-	}
-
-	mergedS, err := util.OverlayYAML(string(originalS), string(newS))
-	if err != nil {
-		return nil, err
-	}
-
-	if util.IsMap(originalVal) {
-		// For JSON compatibility
-		out := make(map[string]interface{})
-		if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
-			return nil, err
-		}
-		return out, nil
-	}
-	// For scalars and slices, copy the type
-	out := originalVal
-	if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// WritePathContext writes the given value to the Node in the given PathContext.
-func WritePathContext(nc *PathContext, value interface{}, merge bool) error {
-	scope.Debugf("WritePathContext PathContext=%s, value=%v", nc, value)
-
-	if !util.IsValueNil(value) {
-		return setPathContext(nc, value, merge)
-	}
-
-	scope.Debug("delete")
-	if nc.Parent == nil {
-		return errors.New("cannot delete root element")
-	}
-
-	switch {
-	case isSliceOrPtrInterface(nc.Parent.Node):
-		if err := util.DeleteFromSlicePtr(nc.Parent.Node, nc.Parent.KeyToChild.(int)); err != nil {
-			return err
-		}
-		if isMapOrInterface(nc.Parent.Parent.Node) {
-			return util.InsertIntoMap(nc.Parent.Parent.Node, nc.Parent.Parent.KeyToChild, nc.Parent.Node)
-		}
-		// TODO: The case of deleting a list.list.node element is not currently supported.
-		return fmt.Errorf("cannot delete path: unsupported parent.parent type %T for delete", nc.Parent.Parent.Node)
-	case util.IsMap(nc.Parent.Node):
-		return util.DeleteFromMap(nc.Parent.Node, nc.Parent.KeyToChild)
-	default:
-	}
-	return fmt.Errorf("cannot delete path: unsupported parent type %T for delete", nc.Parent.Node)
-}
-
 // setPathContext writes the given value to the Node in the given PathContext,
 // enlarging all PathContext lists to ensure all indexes are valid.
 func setPathContext(nc *PathContext, value interface{}, merge bool) error {
@@ -428,34 +408,49 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, erro
 	return true, nil
 }
 
-func getTreeRoot(m map[string]interface{}) string {
-	for k := range m {
-		return k
+// mergeConditional returns a merge of newVal and originalVal if merge is true, otherwise it returns newVal.
+func mergeConditional(newVal, originalVal interface{}, merge bool) (interface{}, error) {
+	if !merge || util.IsValueNilOrDefault(originalVal) {
+		return newVal, nil
 	}
-	return ""
+	newS, err := yaml.Marshal(newVal)
+	if err != nil {
+		return nil, err
+	}
+	if util.IsYAMLEmpty(string(newS)) {
+		return originalVal, nil
+	}
+	originalS, err := yaml.Marshal(originalVal)
+	if err != nil {
+		return nil, err
+	}
+	if util.IsYAMLEmpty(string(originalS)) {
+		return newVal, nil
+	}
+
+	mergedS, err := util.OverlayYAML(string(originalS), string(newS))
+	if err != nil {
+		return nil, err
+	}
+
+	if util.IsMap(originalVal) {
+		// For JSON compatibility
+		out := make(map[string]interface{})
+		if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
+			return nil, err
+		}
+		return out, nil
+	}
+	// For scalars and slices, copy the type
+	out := originalVal
+	if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func IsLeafNode(treeNode interface{}) bool {
-	switch treeNode.(type) {
-	case map[string]interface{}, []interface{}:
-		return false
-	default:
-		return true
-	}
-}
-
-// GetFromTreePath returns the value at path from the given tree, or false if the path does not exist.
-func GetFromTreePath(inputTree map[string]interface{}, path util.Path) (interface{}, bool, error) {
-	log.Debugf("GetFromTreePath path=%s", path)
-	if len(path) == 0 {
-		return nil, false, fmt.Errorf("path is empty")
-	}
-	node, found := GetNodeByPath(inputTree, path)
-	return node, found, nil
-}
-
-// GetNodeByPath returns the value at path from the given tree, or false if the path does not exist.
-func GetNodeByPath(treeNode interface{}, path util.Path) (interface{}, bool) {
+// find returns the value at path from the given tree, or false if the path does not exist.
+func find(treeNode interface{}, path util.Path) (interface{}, bool) {
 	if len(path) == 0 || treeNode == nil {
 		return nil, false
 	}
@@ -468,7 +463,7 @@ func GetNodeByPath(treeNode interface{}, path util.Path) (interface{}, bool) {
 		if len(path) == 1 {
 			return val, true
 		}
-		return GetNodeByPath(val, path[1:])
+		return find(val, path[1:])
 	case map[string]interface{}:
 		val := nt[path[0]]
 		if val == nil {
@@ -477,7 +472,7 @@ func GetNodeByPath(treeNode interface{}, path util.Path) (interface{}, bool) {
 		if len(path) == 1 {
 			return val, true
 		}
-		return GetNodeByPath(val, path[1:])
+		return find(val, path[1:])
 	case []interface{}:
 		idx, err := strconv.Atoi(path[0])
 		if err != nil {
@@ -487,21 +482,13 @@ func GetNodeByPath(treeNode interface{}, path util.Path) (interface{}, bool) {
 			return nil, false
 		}
 		val := nt[idx]
-		return GetNodeByPath(val, path[1:])
+		return find(val, path[1:])
 	default:
 		return nil, false
 	}
 }
 
-// DeleteFromTree sets value at path of input untyped tree to nil
-func DeleteFromTree(root map[string]interface{}, path util.Path) (bool, error) {
-	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, false)
-	if err != nil {
-		return false, err
-	}
-	return true, WritePathContext(pc, nil, false)
-}
-
+// stringsEqual reports whether the string representations of a and b are equal. a and b may have different types.
 func stringsEqual(a, b interface{}) bool {
 	return fmt.Sprint(a) == fmt.Sprint(b)
 }
@@ -538,139 +525,6 @@ func isMapOrInterface(v interface{}) bool {
 	return vv.Kind() == reflect.Map
 }
 
-// GetFromStructPath returns the value at path from the given node, or false if the path does not exist.
-func GetFromStructPath(node interface{}, path string) (interface{}, bool, error) {
-	return getFromStructPath(node, util.PathFromString(path))
-}
-
-// getFromStructPath is the internal implementation of GetFromStructPath which recurses through a tree of Go structs
-// given a path. It terminates when the end of the path is reached or a path element does not exist.
-func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, error) {
-	scope.Debugf("getFromStructPath path=%s, node(%T)", path, node)
-	if len(path) == 0 {
-		scope.Debugf("getFromStructPath returning node(%T)%v", node, node)
-		return node, !util.IsValueNil(node), nil
-	}
-	val := reflect.ValueOf(node)
-	kind := reflect.TypeOf(node).Kind()
-	var structElems reflect.Value
-	if len(path) == 0 {
-		return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported leaf type %T", path, node)
-	}
-	switch kind {
-	case reflect.Map:
-		if path[0] == "" {
-			return nil, false, fmt.Errorf("getFromStructPath path %s, empty map key value", path)
-		}
-		return getFromStructPath(val.MapIndex(reflect.ValueOf(path[0])).Interface(), path[1:])
-	case reflect.Slice:
-		idx, err := strconv.Atoi(path[0])
-		if err != nil {
-			return nil, false, fmt.Errorf("getFromStructPath path %s, expected index number, got %s", path, path[0])
-		}
-		return getFromStructPath(val.Index(idx).Interface(), path[1:])
-	case reflect.Ptr:
-		structElems = reflect.ValueOf(node).Elem()
-		if !util.IsStruct(structElems) {
-			return nil, false, fmt.Errorf("getFromStructPath path %s, expected struct ptr, got %T", path, node)
-		}
-	default:
-		return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported type %T", path, node)
-	}
-
-	if util.IsNilOrInvalidValue(structElems) {
-		return nil, false, nil
-	}
-
-	for i := 0; i < structElems.NumField(); i++ {
-		fieldName := structElems.Type().Field(i).Name
-
-		if fieldName != path[0] {
-			continue
-		}
-
-		fv := structElems.Field(i)
-		return getFromStructPath(fv.Interface(), path[1:])
-	}
-
-	return nil, false, nil
-}
-
-// SetFromPath sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.
-// All intermediate along path must be type struct ptr. Out must be either a struct ptr or map ptr.
-// TODO: move these out to a separate package (istio/istio#15494).
-func SetFromPath(node interface{}, path string, out interface{}) (bool, error) {
-	val, found, err := GetFromStructPath(node, path)
-	if err != nil {
-		return false, err
-	}
-	if !found {
-		return false, nil
-	}
-
-	return true, Set(val, out)
-}
-
-// Set sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.
-func Set(val, out interface{}) error {
-	// Special case: map out type must be set through map ptr.
-	if util.IsMap(val) && util.IsMapPtr(out) {
-		reflect.ValueOf(out).Elem().Set(reflect.ValueOf(val))
-		return nil
-	}
-	if util.IsSlice(val) && util.IsSlicePtr(out) {
-		reflect.ValueOf(out).Elem().Set(reflect.ValueOf(val))
-		return nil
-	}
-
-	if reflect.TypeOf(val) != reflect.TypeOf(out) {
-		return fmt.Errorf("setFromPath from type %T != to type %T, %v", val, out, util.IsSlicePtr(out))
-	}
-
-	if !reflect.ValueOf(out).CanSet() {
-		return fmt.Errorf("can't set %v(%T) to out type %T", val, val, out)
-	}
-	reflect.ValueOf(out).Set(reflect.ValueOf(val))
-	return nil
-}
-
-// AddSpecRoot adds a root node called "spec" to the given tree and returns the resulting tree.
-func AddSpecRoot(tree string) (string, error) {
-	t, nt := make(map[string]interface{}), make(map[string]interface{})
-	if err := yaml.Unmarshal([]byte(tree), &t); err != nil {
-		return "", err
-	}
-	nt["spec"] = t
-	out, err := yaml.Marshal(nt)
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
-}
-
-// GetSpecSubtree returns the subtree under "spec".
-func GetSpecSubtree(yml string) (string, error) {
-	return GetConfigSubtree(yml, "spec")
-}
-
-// GetConfigSubtree returns the subtree at the given path.
-func GetConfigSubtree(manifest, path string) (string, error) {
-	root := make(map[string]interface{})
-	if err := yaml2.Unmarshal([]byte(manifest), &root); err != nil {
-		return "", err
-	}
-
-	nc, _, err := GetPathContext(root, util.PathFromString(path), false)
-	if err != nil {
-		return "", err
-	}
-	out, err := yaml2.Marshal(nc.Node)
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
-}
-
 // tryToUnmarshalStringToYAML tries to unmarshal something that may be a YAML list or map into a structure. If not
 // possible, returns original scalar value.
 func tryToUnmarshalStringToYAML(s interface{}) (interface{}, bool) {
@@ -687,7 +541,10 @@ func tryToUnmarshalStringToYAML(s interface{}) (interface{}, bool) {
 	return vv, false
 }
 
-func isMapStringInterface(v interface{}) bool {
-	_, ok := v.(map[string]interface{})
-	return ok
+// getTreeRoot returns the first key found in m. It assumes a single root tree.
+func getTreeRoot(m map[string]interface{}) string {
+	for k := range m {
+		return k
+	}
+	return ""
 }

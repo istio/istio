@@ -286,7 +286,7 @@ func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]
 
 func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
 	t.Helper()
-	got, f, err := tpath.GetFromTreePath(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
+	got, f, err := tpath.Find(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
 	if err != nil {
 		t.Fatal(err)
 	}
