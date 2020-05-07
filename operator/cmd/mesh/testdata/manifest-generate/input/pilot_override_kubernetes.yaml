@@ -22,6 +22,11 @@ spec:
                 value: "60m" # OVERRIDDEN
               - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
                 value: 1234 # OVERRIDDEN
+              - path: spec.template.spec.containers.[name:discovery].env.[name:POD_NAMESPACE].valueFrom
+                value: |
+                  fieldRef:
+                    apiVersion: v2
+                    fieldPath: metadata.myPath
           - kind: Service
             name: istiod
             patches:
