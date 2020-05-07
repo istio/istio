@@ -373,11 +373,10 @@ func TestCreatePluggedCertCA(t *testing.T) {
 // TODO: merge tests for SignCSR.
 func TestSignCSRForWorkload(t *testing.T) {
 	subjectID := "spiffe://example.com/ns/foo/sa/bar"
-	cases := []struct {
+	cases := map[string]struct {
 		certOpts util.CertOptions
 	}{
-		// generate a private key using RSA
-		{
+		"Workload uses RSA": {
 			certOpts: util.CertOptions{
 				// This value is not used, instead, subjectID should be used in certificate.
 				Host:       "spiffe://different.com/test",
@@ -385,8 +384,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 				IsCA:       false,
 			},
 		},
-		// generate a private key using ECC
-		{
+		"Workload uses EC": {
 			certOpts: util.CertOptions{
 				// This value is not used, instead, subjectID should be used in certificate.
 				Host: "spiffe://different.com/test",
@@ -396,21 +394,21 @@ func TestSignCSRForWorkload(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
+	for id, tc := range cases {
 		csrPEM, keyPEM, err := util.GenCSR(tc.certOpts)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("%s: GenCSR error: %v", id, err)
 		}
 
 		ca, err := createCA(time.Hour, tc.certOpts.IsEC)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("%s: createCA error: %v", id, err)
 		}
 
 		requestedTTL := 30 * time.Minute
 		certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, false)
 		if signErr != nil {
-			t.Error(err)
+			t.Errorf("%s: Sign error: %v", id, err)
 		}
 
 		fields := &util.VerifyFields{
@@ -422,27 +420,27 @@ func TestSignCSRForWorkload(t *testing.T) {
 		_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
 		if err = util.VerifyCertificate(
 			keyPEM, append(certPEM, certChainBytes...), rootCertBytes, fields); err != nil {
-			t.Error(err)
+			t.Errorf("%s: VerifyCertificate error: %v", id, err)
 		}
 
 		cert, err := util.ParsePemEncodedCertificate(certPEM)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("%s: ParsePemEncodedCertificate error: %v", id, err)
 		}
 
 		if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
-			t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
+			t.Errorf("%s: Unexpected certificate TTL (expecting %v, actual %v)", id, requestedTTL, ttl)
 		}
 		san := util.ExtractSANExtension(cert.Extensions)
 		if san == nil {
-			t.Errorf("No SAN extension is found in the certificate")
+			t.Errorf("%s: No SAN extension is found in the certificate", id)
 		}
 		expected, err := util.BuildSubjectAltNameExtension(subjectID)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("%s: BuildSubjectAltNameExtension error: %v", id, err)
 		}
 		if !reflect.DeepEqual(expected, san) {
-			t.Errorf("Unexpected extensions: wanted %v but got %v", expected, san)
+			t.Errorf("%s: Unexpected extensions: wanted %v but got %v", id, expected, san)
 		}
 	}
 }
@@ -734,15 +732,12 @@ func createCA(maxTTL time.Duration, isEC bool) (*IstioCA, error) {
 		IsSelfSigned: false,
 		TTL:          time.Hour,
 		Org:          "Intermediate CA",
+		RSAKeySize:   2048,
 		SignerCert:   rootCert,
 		SignerPriv:   rootKey,
+		IsEC:         isEC,
 	}
 
-	if isEC {
-		intermediateCAOpts.IsEC = true
-	} else {
-		intermediateCAOpts.RSAKeySize = 2048
-	}
 	intermediateCert, intermediateKey, err := util.GenCertKeyFromOptions(intermediateCAOpts)
 	if err != nil {
 		return nil, err
