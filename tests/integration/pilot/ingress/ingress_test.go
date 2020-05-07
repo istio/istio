@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 		RequireEnvironmentVersion("1.18").
 		RequireSingleCluster().
 		Setup(func(ctx resource.Context) (err error) {
-			if err := ctx.Environment().Clusters()[0].ApplyConfigDir("", "testdata"); err != nil {
+			if err := ctx.ApplyConfigDir("", "testdata"); err != nil {
 				return err
 			}
 			return nil
@@ -102,7 +102,7 @@ func TestGateway(t *testing.T) {
 				}).
 				BuildOrFail(t)
 			instance.Address()
-			if err := ctx.Environment().Clusters()[0].ApplyConfig(ns.Name(), `
+			if err := ctx.ApplyConfig(ns.Name(), `
 apiVersion: networking.x.k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -206,7 +206,7 @@ func TestIngress(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName2})
 
-			if err := ctx.Environment().Clusters()[0].ApplyConfig(ns.Name(), `
+			if err := ctx.ApplyConfig(ns.Name(), `
 apiVersion: networking.k8s.io/v1beta1
 kind: IngressClass
 metadata:

@@ -101,9 +101,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	if cfg.Pilot == nil {
 		return nil, errors.New("pilot must be provided")
 	}
-	if cfg.Cluster == nil {
-		cfg.Cluster = native.ClusterOrDefault(cfg.Cluster, ctx.Environment())
-	}
+	cfg.Cluster = native.ClusterOrDefault(cfg.Cluster, ctx.Environment())
 
 	w, err := newWorkload(e, cfg, dumpDir)
 	if err != nil {

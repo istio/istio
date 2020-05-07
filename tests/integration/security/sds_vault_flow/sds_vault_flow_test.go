@@ -75,8 +75,8 @@ func TestSdsVaultCaFlow(t *testing.T) {
 					"Namespace": ns.Name(),
 				})
 
-			g.ApplyConfigOrFail(t, ns, deployment)
-			defer g.DeleteConfigOrFail(t, ns, deployment)
+			ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
+			defer ctx.DeleteConfigOrFail(t, ns.Name(), deployment)
 
 			// Sleep 10 seconds for the policy to take effect.
 			time.Sleep(10 * time.Second)

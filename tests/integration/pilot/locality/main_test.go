@@ -161,10 +161,9 @@ var (
 
 	expectAllTrafficToB = map[string]int{"b": sendCount}
 
-	ist     istio.Instance
-	p       pilot.Instance
-	cluster resource.Cluster
-	r       *rand.Rand
+	ist istio.Instance
+	p   pilot.Instance
+	r   *rand.Rand
 )
 
 func init() {
@@ -193,7 +192,6 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Setup(func(ctx resource.Context) (err error) {
-			cluster = ctx.Environment().Clusters()[0]
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
@@ -218,7 +216,7 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 				InstancePort: 8090,
 			},
 		},
-		Pilot:  p,
+		Pilot: p,
 	}
 }
 
@@ -235,18 +233,18 @@ type serviceConfig struct {
 	NonExistantServiceLocality string
 }
 
-func deploy(t test.Failer, ns namespace.Instance, se serviceConfig, from echo.Instance, tmpl *template.Template) {
+func deploy(t test.Failer, ctx resource.Context, ns namespace.Instance, se serviceConfig, from echo.Instance, tmpl *template.Template) {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := deploymentTemplate.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
-	cluster.ApplyConfigOrFail(t, ns.Name(), buf.String())
+	ctx.ApplyConfigOrFail(t, ns.Name(), buf.String())
 	buf.Reset()
 	if err := tmpl.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
-	cluster.ApplyConfigOrFail(t, ns.Name(), buf.String())
+	ctx.ApplyConfigOrFail(t, ns.Name(), buf.String())
 
 	err := WaitUntilRoute(from, se.Host)
 	if err != nil {

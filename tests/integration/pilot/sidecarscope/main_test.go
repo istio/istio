@@ -200,7 +200,6 @@ type Config struct {
 
 func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
 	p := pilot.NewOrFail(t, ctx, pilot.Config{})
-	cluster := ctx.Environment().Clusters()[0]
 
 	includedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "included",
@@ -223,13 +222,13 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	})
 
 	// Apply all configs
-	createConfig(t, cluster, config, SidecarConfig, appNamespace)
-	createConfig(t, cluster, config, AppConfig, appNamespace)
-	createConfig(t, cluster, config, AppConfigListener, appNamespace)
-	createConfig(t, cluster, config, ExcludedConfig, excludedNamespace)
-	createConfig(t, cluster, config, IncludedConfig, includedNamespace)
-	createConfig(t, cluster, config, IncludedConfigListener, includedNamespace)
-	createConfig(t, cluster, config, ExcludedConfigListener, excludedNamespace)
+	createConfig(t, ctx, config, SidecarConfig, appNamespace)
+	createConfig(t, ctx, config, AppConfig, appNamespace)
+	createConfig(t, ctx, config, AppConfigListener, appNamespace)
+	createConfig(t, ctx, config, ExcludedConfig, excludedNamespace)
+	createConfig(t, ctx, config, IncludedConfig, includedNamespace)
+	createConfig(t, ctx, config, IncludedConfigListener, includedNamespace)
+	createConfig(t, ctx, config, ExcludedConfigListener, excludedNamespace)
 
 	time.Sleep(time.Second * 2)
 
@@ -244,7 +243,7 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	return p, nodeID
 }
 
-func createConfig(t *testing.T, cluster resource.Cluster, config Config, yaml string, namespace namespace.Instance) {
+func createConfig(t *testing.T, ctx resource.Context, config Config, yaml string, namespace namespace.Instance) {
 	tmpl, err := template.New("Config").Parse(yaml)
 	if err != nil {
 		t.Errorf("failed to create template: %v", err)
@@ -253,7 +252,7 @@ func createConfig(t *testing.T, cluster resource.Cluster, config Config, yaml st
 	if err := tmpl.Execute(&buf, config); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := cluster.ApplyConfig(namespace.Name(), buf.String()); err != nil {
+	if err := ctx.ApplyConfig(namespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply config: %v. Config: %v", err, buf.String())
 	}
 }

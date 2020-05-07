@@ -182,6 +182,54 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
+func (s *testContext) ApplyConfig(ns string, yamlText ...string) error {
+	for _, c := range s.Environment().Clusters() {
+		if err := c.ApplyConfig(ns, yamlText...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *testContext) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+	for _, c := range s.Environment().Clusters() {
+		c.ApplyConfigOrFail(t, ns, yamlText...)
+	}
+}
+
+func (s *testContext) DeleteConfig(ns string, yamlText ...string) error {
+	for _, c := range s.Environment().Clusters() {
+		if err := c.DeleteConfig(ns, yamlText...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *testContext) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+	for _, c := range s.Environment().Clusters() {
+		c.DeleteConfigOrFail(t, ns, yamlText...)
+	}
+}
+
+func (s *testContext) ApplyConfigDir(ns string, configDir string) error {
+	for _, c := range s.Environment().Clusters() {
+		if err := c.ApplyConfigDir(ns, configDir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *testContext) DeleteConfigDir(ns string, configDir string) error {
+	for _, c := range s.Environment().Clusters() {
+		if err := c.DeleteConfigDir(ns, configDir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {
 	tmp, err := c.CreateTmpDirectory(prefix)
 	if err != nil {

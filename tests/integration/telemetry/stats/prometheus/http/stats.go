@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -40,7 +39,6 @@ var (
 	client, server echo.Instance
 	ist            istio.Instance
 	appNsInst      namespace.Instance
-	galInst        galley.Instance
 	pilotInst      pilot.Instance
 	promInst       prometheus.Instance
 )
@@ -95,10 +93,6 @@ func TestStatsFilter(t *testing.T) {
 
 // TestSetup set up bookinfo app for stats testing.
 func TestSetup(ctx resource.Context) (err error) {
-	galInst, err = galley.New(ctx, galley.Config{})
-	if err != nil {
-		return
-	}
 	appNsInst, err = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
 		Inject: true,
@@ -120,7 +114,6 @@ func TestSetup(ctx resource.Context) (err error) {
 			Namespace: appNsInst,
 			Ports:     nil,
 			Subsets:   []echo.SubsetConfig{{}},
-			Galley:    galInst,
 			Pilot:     pilotInst,
 		}).
 		With(&server, echo.Config{
@@ -134,8 +127,7 @@ func TestSetup(ctx resource.Context) (err error) {
 					InstancePort: 8090,
 				},
 			},
-			Galley: galInst,
-			Pilot:  pilotInst,
+			Pilot: pilotInst,
 		}).
 		Build()
 	if err != nil {
@@ -148,8 +140,8 @@ func TestSetup(ctx resource.Context) (err error) {
 	return nil
 }
 
-func SetupStrictMTLS(_ resource.Context) error {
-	return galInst.ApplyConfig(appNsInst, fmt.Sprintf(`
+func SetupStrictMTLS(ctx resource.Context) error {
+	return ctx.ApplyConfig(appNsInst.Name(), fmt.Sprintf(`
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:

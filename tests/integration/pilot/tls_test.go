@@ -55,7 +55,7 @@ func TestDestinationRuleTLS(t *testing.T) {
 			})
 
 			// Setup our destination rule, enforcing TLS to "server". These certs will be created/mounted below.
-			cluster.ApplyConfigOrFail(t, ns.Name(), `
+			ctx.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:

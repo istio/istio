@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -27,7 +26,6 @@ import (
 
 var (
 	ist           istio.Instance
-	g             galley.Instance
 	p             pilot.Instance
 	rootNamespace string
 )
@@ -38,9 +36,6 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}

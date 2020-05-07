@@ -86,7 +86,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	err = ctx.Environment().Clusters()[0].ApplyConfig(
+	err = ctx.ApplyConfig(
 		bookinfoNsInst.Name(),
 		bookingfoGatewayFile,
 		destinationRuleFile,

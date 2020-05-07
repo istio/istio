@@ -92,7 +92,7 @@ func TestFailover(t *testing.T) {
 
 					fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", r.Int())
 
-					deploy(ctx, ns, serviceConfig{
+					deploy(ctx, ctx, ns, serviceConfig{
 						Name:                       "failover-cds",
 						Host:                       fakeHostname,
 						Namespace:                  ns.Name(),
@@ -130,7 +130,7 @@ func TestFailover(t *testing.T) {
 						BuildOrFail(ctx)
 
 					fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
-					deploy(ctx, ns, serviceConfig{
+					deploy(ctx, ctx, ns, serviceConfig{
 						Name:                       "failover-eds",
 						Host:                       fakeHostname,
 						Namespace:                  ns.Name(),

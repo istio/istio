@@ -23,6 +23,7 @@ import (
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/tests/util"
@@ -64,7 +65,7 @@ type mirrorTestOptions struct {
 	t              *testing.T
 	cases          []testCaseMirror
 	mirrorHost     string
-	fnInjectConfig func(ns namespace.Instance, instances [3]echo.Instance)
+	fnInjectConfig func(ns namespace.Instance, ctx resource.Context, instances [3]echo.Instance)
 }
 
 var (
@@ -164,10 +165,10 @@ func TestMirroringExternalService(t *testing.T) {
 		t:          t,
 		cases:      cases,
 		mirrorHost: fakeExternalURL,
-		fnInjectConfig: func(ns namespace.Instance, instances [3]echo.Instance) {
-			cluster.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(sidecar, ns.Name(),
+		fnInjectConfig: func(ns namespace.Instance, ctx resource.Context, instances [3]echo.Instance) {
+			ctx.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(sidecar, ns.Name(),
 				instances[1].Config().Domain, fakeExternalURL))
-			cluster.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
+			ctx.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
 			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)
 			}
@@ -192,7 +193,7 @@ func runMirrorTest(options mirrorTestOptions) {
 				BuildOrFail(options.t)
 
 			if options.fnInjectConfig != nil {
-				options.fnInjectConfig(ns, instances)
+				options.fnInjectConfig(ns, ctx, instances)
 			}
 
 			for _, c := range options.cases {
@@ -211,8 +212,8 @@ func runMirrorTest(options mirrorTestOptions) {
 
 					deployment := tmpl.EvaluateOrFail(t,
 						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-					cluster.ApplyConfigOrFail(t, ns.Name(), deployment)
-					defer cluster.DeleteConfigOrFail(t, ns.Name(), deployment)
+					ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
+					defer ctx.DeleteConfigOrFail(t, ns.Name(), deployment)
 
 					for _, proto := range mirrorProtocols {
 						t.Run(string(proto), func(t *testing.T) {

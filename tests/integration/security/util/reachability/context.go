@@ -147,10 +147,10 @@ func (rc *Context) Run(testCases []TestCase) {
 			retry.UntilSuccessOrFail(ctx, func() error {
 				ctx.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return rc.ctx.Environment().Clusters()[0].ApplyConfig(c.Namespace.Name(), policyYAML)
+				return rc.ctx.ApplyConfig(c.Namespace.Name(), policyYAML)
 			})
 			ctx.WhenDone(func() error {
-				return rc.ctx.Environment().Clusters()[0].DeleteConfig(c.Namespace.Name(), policyYAML)
+				return rc.ctx.DeleteConfig(c.Namespace.Name(), policyYAML)
 			})
 
 			// Give some time for the policy propagate.

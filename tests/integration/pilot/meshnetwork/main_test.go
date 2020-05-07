@@ -118,7 +118,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 				Inject: true,
 			})
 			// First setup the VM service and its endpoints
-			if err := ctx.Environment().Clusters()[0].ApplyConfig(ns.Name(), VMService); err != nil {
+			if err := ctx.ApplyConfig(ns.Name(), VMService); err != nil {
 				t.Fatal(err)
 			}
 			// Now setup a K8S service

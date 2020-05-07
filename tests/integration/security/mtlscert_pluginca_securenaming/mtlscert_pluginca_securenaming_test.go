@@ -176,7 +176,7 @@ func TestMTLSCertPluginCASecureNaming(t *testing.T) {
 				ctx.NewSubTest(tc.name).
 					Run(func(ctx framework.TestContext) {
 						dr := strings.ReplaceAll(tc.destinationRule, "NS", testNamespace.Name())
-						g.ApplyConfigOrFail(t, testNamespace, dr)
+						ctx.ApplyConfigOrFail(t, testNamespace.Name(), dr)
 						// Verify mTLS works between a and b
 						callOptions := echo.CallOptions{
 							Target:   b,

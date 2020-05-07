@@ -25,9 +25,8 @@ import (
 )
 
 var (
-	i       istio.Instance
-	p       pilot.Instance
-	cluster resource.Cluster
+	i istio.Instance
+	p pilot.Instance
 )
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -39,7 +38,6 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
 		Setup(func(ctx resource.Context) (err error) {
-			cluster = ctx.Environment().Clusters()[0]
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
