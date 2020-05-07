@@ -127,6 +127,7 @@ type Options struct {
 	// OutputKeyCertToDir is the directory for output the key and certificate
 	OutputKeyCertToDir string
 
+	// Whether to generate ECC private keys.
 	ECCKeys bool
 }
 

@@ -75,7 +75,7 @@ var (
 		"The ticker to detect and close stale connections").Get()
 	initialBackoffInMilliSecEnv = env.RegisterIntVar(initialBackoffInMilliSec, 0, "").Get()
 	pkcs8KeysEnv                = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
-	eccKeysEnv                  = env.RegisterBoolVar(eccKey, true, "Whether to generate ECC private keys").Get()
+	eccKeysEnv                  = env.RegisterBoolVar(eccKey, false, "Whether to generate ECC private keys").Get()
 
 	// Location of K8S CA root.
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
