@@ -25,8 +25,6 @@ kubectl apply -f samples/addons/prometheus.yaml -n istio-system
 
 ### Prometheus
 
-Prometheus is an open source monitoring system and time series database. You can use Prometheus with Istio to record metrics that track the health of Istio and of applications within the service mesh. You can visualize metrics using tools like Grafana and Kiali.
-
 [Prometheus](https://prometheus.io/) is an open source monitoring system and time series database.
 You can use Prometheus with Istio to record metrics that track the health of Istio and of applications within the service mesh.
 You can visualize metrics using tools like [Grafana](#grafana) and [Kiali](#kiali).
