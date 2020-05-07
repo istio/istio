@@ -30,7 +30,7 @@ import (
 
 // ToYAML returns a YAML string representation of val, or the error string if an error occurs.
 func ToYAML(val interface{}) string {
-	y, err := yaml.Marshal(val)
+	y, err := yaml2.Marshal(val)
 	if err != nil {
 		return err.Error()
 	}
