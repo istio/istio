@@ -249,7 +249,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// setup watches for certs - This has to be called after initSecureGrpcListener because it sets up DNS certs.
 	if err := s.initCertificateWatches(args.TLSOptions); err != nil {
-		return nil, fmt.Errorf("error initializing certificate watches: %v", err)
+		// Not crashing istiod - This typically happens if certs are missing and in tests.
+		log.Errorf("error initializing certificate watches: %v", err)
 	}
 
 	// common https server for webhooks (e.g. injection, validation)
