@@ -29,7 +29,8 @@ const (
 	statLdsRejected  = "listener_manager.lds.update_rejected"
 	statsLdsSuccess  = "listener_manager.lds.update_success"
 	statServerState  = "server.state"
-	updateStatsRegex = "^(cluster_manager.cds|listener_manager.lds).(update_success|update_rejected)$"
+	statsSdsSuccess  = "listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds"
+	updateStatsRegex = "^(cluster_manager.cds|listener_manager.lds).(update_success|update_rejected)$|^listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds"
 )
 
 type stat struct {
@@ -45,6 +46,7 @@ type Stats struct {
 	CDSUpdatesRejection uint64
 	LDSUpdatesSuccess   uint64
 	LDSUpdatesRejection uint64
+	SDSUpdatesSuccess   uint64
 	// Server State of Envoy.
 	ServerState uint64
 }
@@ -102,6 +104,7 @@ func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error
 		{name: statCdsRejected, value: &s.CDSUpdatesRejection},
 		{name: statsLdsSuccess, value: &s.LDSUpdatesSuccess},
 		{name: statLdsRejected, value: &s.LDSUpdatesRejection},
+		{name: statsSdsSuccess, value: &s.SDSUpdatesSuccess},
 	}
 	if err := parseStats(stats, allStats); err != nil {
 		return nil, err
