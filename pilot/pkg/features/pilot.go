@@ -312,8 +312,13 @@ var (
 		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
 			"to true, and then galley may push data incrementally, it depends on whether the "+
 			"resource supports incremental. By default, this is false.").Get()
+
 	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
+
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
 		"If this is set to false, will not create CA server in istiod.").Get()
+
+	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", false,
+		"If enabled, service entries with selectors will select pods from the cluster.").Get()
 )
