@@ -1327,11 +1327,10 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 }
 
 func TestOutboundListenerAccessLogs(t *testing.T) {
-	mesh.TestMode = true
 	t.Helper()
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil, nil)
-
+	env.Mesh().AccessLogFile = "foo"
 	listeners := buildAllListeners(p, nil, env)
 	found := false
 	for _, l := range listeners {
