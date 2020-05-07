@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package external
+package serviceentry
 
 import (
 	"reflect"
@@ -27,10 +27,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 )
-
-// TODO: move this out of 'external' package. Either 'serviceentry' package or
-// merge with aggregate (caching, events), and possibly merge both into the
-// config directory, for a single top-level cache and event system.
 
 var serviceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
 var workloadEntryKind = collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind()

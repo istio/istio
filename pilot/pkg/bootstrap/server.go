@@ -57,8 +57,8 @@ import (
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/dns"
@@ -129,7 +129,7 @@ type Server struct {
 
 	ConfigStores []model.ConfigStoreCache
 
-	serviceEntryStore *external.ServiceEntryStore
+	serviceEntryStore *serviceentry.ServiceEntryStore
 
 	HTTPListener       net.Listener
 	GRPCListener       net.Listener
