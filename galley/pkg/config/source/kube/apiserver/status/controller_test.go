@@ -117,7 +117,7 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 	g.Eventually(cl.Actions).Should(HaveLen(2))
 	g.Expect(cl.Actions()[1]).To(BeAssignableToTypeOf(k8stesting.UpdateActionImpl{}))
 	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
-	g.Expect(u.Object["status"]).To(BeNil())
+	g.Expect(u.Object["status"]).NotTo(HaveKey("validationMessages"))
 }
 
 func TestBasicReconcilation_AfterUpdate(t *testing.T) {
@@ -146,7 +146,7 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 	g.Eventually(cl.Actions).Should(HaveLen(2))
 	g.Expect(cl.Actions()[1]).To(BeAssignableToTypeOf(k8stesting.UpdateActionImpl{}))
 	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
-	g.Expect(u.Object["status"]).To(BeNil())
+	g.Expect(u.Object["status"]).NotTo(HaveKey("validationMessages"))
 }
 
 func TestBasicReconcilation_AfterUpdate_Othersubfield(t *testing.T) {
@@ -420,7 +420,7 @@ func Test_updateAnalysisCondition(t *testing.T) {
 						"condition rude":"true",
 					},
 					map[string]interface{}{
-						"type":"HasValidationErrors",
+						"type":"PassedValidation",
 						"status":v1.ConditionTrue,
 					},
 				},
@@ -431,16 +431,16 @@ func Test_updateAnalysisCondition(t *testing.T) {
 					map[string]interface{}{
 						"condition rude":"true",
 					},
-					status2.IstioCondition{
-						Type: status2.HasValidationErrors,
-						Status:v12.ConditionTrue,
-						Reason:"errorsFound",
-						Message:"Errors Found.  See validationMessages field for more details",
-						LastTransitionTime:sometime,
-						LastProbeTime:sometime,
+					map[string]interface{}{
+						"type": string(status2.PassedValidation),
+						"status":string(v12.ConditionTrue),
+						"reason":"errorsFound",
+						"message":"Errors Found.  See validationMessages field for more details",
+						"lastTransitionTime":sometime,
+						"lastProbeTime":sometime,
 					},
 					//map[string]interface{}{
-					//	"type":"HasValidationErrors",
+					//	"type":"PassedValidation",
 					//	"status":v1.ConditionTrue,
 					//	"reason":             "errorsFound",
 					//	"message":            "Errors Found.  See validationMessages field for more details",
@@ -457,7 +457,7 @@ func Test_updateAnalysisCondition(t *testing.T) {
 						"condition rude":"true",
 					},
 					map[string]interface{}{
-						"type":"HasValidationErrors",
+						"type":"PassedValidation",
 						"status":v1.ConditionTrue,
 					},
 				},
@@ -468,16 +468,16 @@ func Test_updateAnalysisCondition(t *testing.T) {
 					map[string]interface{}{
 						"condition rude":"true",
 					},
-					status2.IstioCondition{
-						Type: status2.HasValidationErrors,
-						Status:v12.ConditionFalse,
-						Reason:"noErrorsFound",
-						Message:"No errors Found.",
-						LastTransitionTime:sometime,
-						LastProbeTime:sometime,
+					map[string]interface{}{
+						"type": string(status2.PassedValidation),
+						"status":string(v12.ConditionFalse),
+						"reason":"noErrorsFound",
+						"message":"No errors Found.",
+						"lastTransitionTime":sometime,
+						"lastProbeTime":sometime,
 					},
 					//map[string]interface{}{
-					//	"type":"HasValidationErrors",
+					//	"type":"PassedValidation",
 					//	"status":v1.ConditionTrue,
 					//	"reason":             "errorsFound",
 					//	"message":            "Errors Found.  See validationMessages field for more details",
@@ -494,9 +494,10 @@ func Test_updateAnalysisCondition(t *testing.T) {
 			// we don't care about timestamps, because they are irritating to test
 			var newCond []interface{}
 			for _, ucond := range got["conditions"].([]interface{}) {
-				if cond, ok := ucond.(status2.IstioCondition); ok {
-					cond.LastProbeTime = sometime
-					cond.LastTransitionTime = sometime
+				cond := ucond.(map[string]interface{})
+				if _, ok := cond["lastProbeTime"]; ok {
+					cond["lastProbeTime"] = sometime
+					cond["lastTransitionTime"] = sometime
 					newCond = append(newCond, cond)
 				} else {
 					newCond = append(newCond, ucond)
@@ -527,7 +528,7 @@ func Test_removeAnalysisCondition(t *testing.T) {
 						"condition rude":"true",
 					},
 					map[string]interface{}{
-						"type":"HasValidationErrors",
+						"type":"PassedValidation",
 						"status":v12.ConditionTrue,
 					},
 				},

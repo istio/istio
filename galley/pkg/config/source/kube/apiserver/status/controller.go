@@ -221,9 +221,12 @@ func getTypedCondition(in interface{}) (out status2.IstioCondition, err error) {
 }
 
 func removeAnalysisCondition(statusMap map[string]interface{}) map[string]interface{} {
+	if  statusMap["conditions"] == nil {
+		return statusMap
+	}
 	uconds := statusMap["conditions"].([]interface{})
 	for i, ucond := range uconds {
-		if cond, err := getTypedCondition(ucond); err == nil && cond.Type == status2.HasValidationErrors {
+		if cond, err := getTypedCondition(ucond); err == nil && cond.Type == status2.PassedValidation {
 			uconds = append(uconds[:i], uconds[i+1:]...)
 			break
 		}
@@ -234,6 +237,9 @@ func removeAnalysisCondition(statusMap map[string]interface{}) map[string]interf
 
 func updateAnalysisCondition(statusMap map[string]interface{}, status bool) map[string]interface{} {
 	statusMap = removeAnalysisCondition(statusMap)
+	if statusMap["conditions"] == nil {
+		statusMap["conditions"] = []interface{}{}
+	}
 	uconds := statusMap["conditions"].([]interface{})
 	var cstatus metav1.ConditionStatus
 	var message, reason string
@@ -246,13 +252,17 @@ func updateAnalysisCondition(statusMap map[string]interface{}, status bool) map[
 		reason = "noErrorsFound"
 		message = "No errors Found."
 	}
-	uconds = append(uconds, status2.IstioCondition{
-		Type:               status2.HasValidationErrors,
-		Status:             cstatus,
-		LastProbeTime:      metav1.NewTime(time.Now()),
-		LastTransitionTime: metav1.NewTime(time.Now()),
-		Reason:             reason,
-		Message:            message,
+	//uconds = append(uconds, status2.IstioCondition{
+	// due to implementation details in the kubernetes fake client
+	// we can't used typed objects here at all, as they cannot be deepcopied.
+	// typed objects work fine in production, ironically, as deepcopy isn't used.
+	uconds = append(uconds, map[string]interface{}{
+		"type":               string(status2.PassedValidation),
+		"status":             string(cstatus),
+		"lastProbeTime":      time.Now().String(),
+		"lastTransitionTime": time.Now().String(),
+		"reason":             reason,
+		"message":            message,
 	})
 	statusMap["conditions"] = uconds
 	return statusMap
