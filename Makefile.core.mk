@@ -356,7 +356,7 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto copy-from-istiod gen-kustomize update-golden 
+gen: go-gen mirror-licenses format update-crds operator-proto copy-from-istiod gen-kustomize update-golden
 
 check-no-modify:
 	@bin/check_no_modify.sh
