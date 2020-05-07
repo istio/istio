@@ -30,7 +30,8 @@ const (
 	statsLdsSuccess  = "listener_manager.lds.update_success"
 	statServerState  = "server.state"
 	statsSdsSuccess  = "listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds"
-	updateStatsRegex = "^(cluster_manager.cds|listener_manager.lds).(update_success|update_rejected)$|^listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds"
+	updateStatsRegex = "^(cluster_manager.cds|listener_manager.lds).(update_success|update_rejected)$|" +
+		"^listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds"
 )
 
 type stat struct {

@@ -25,10 +25,12 @@ import (
 )
 
 var (
-	liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2"
+	liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\n" +
+		"listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2"
 	onlyServerStats = "server.state: 0"
-	initServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 2\nlistener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2"
-	noServerStats   = ""
+	initServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 2\n" +
+		"listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2"
+	noServerStats = ""
 )
 
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
