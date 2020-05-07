@@ -1,5 +1,5 @@
 ---
-# Source: istio-discovery/templates/istiod-injector-configmap.yaml
+# Source: istiod-remote/templates/istiod-injector-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -660,7 +660,7 @@ data:
       {{- end }}
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
 ---
-# Source: istio-discovery/templates/mutatingwebhook.yaml
+# Source: istiod-remote/templates/mutatingwebhook.yaml
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
