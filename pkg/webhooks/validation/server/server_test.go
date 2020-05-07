@@ -37,8 +37,8 @@ import (
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
 	"istio.io/istio/pkg/test/config"
+	"istio.io/istio/pkg/testcerts"
 )
 
 const (

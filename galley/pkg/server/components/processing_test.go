@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
+	"istio.io/istio/pkg/testcerts"
 )
 
 func TestProcessing_StartErrors(t *testing.T) {
