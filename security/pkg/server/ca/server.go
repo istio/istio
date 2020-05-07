@@ -316,8 +316,8 @@ func (s *Server) getServerCertificate() (*tls.Certificate, error) {
 	if bundle != nil {
 		// cert bundles can have errors (e.g. missing SAN)
 		// that do not matter for getting the encryption type
-		options, _ := bundle.CertOptions()
-		if options != nil && options.IsEC {
+		_, privKey, _, _ := bundle.GetAll()
+		if util.IsECPrivateKey(privKey) {
 			opts = util.CertOptions{
 				IsEC: true,
 			}
