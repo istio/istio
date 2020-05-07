@@ -12,18 +12,20 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package deployment
+package kube
 
 import (
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-// Instance represents an Istio deployment instance that has been performed by this test code.
-type Instance struct {
+// Deployment is a utility that absracts the operation of deploying and deleting
+// Kubernetes deployments.
+type Deployment struct {
+	accessor *Accessor
+
 	// The deployment namespace.
 	namespace string
 
@@ -35,19 +37,19 @@ type Instance struct {
 }
 
 // Deploy this deployment instance.
-func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
-	if i.yamlFilePath != "" {
-		if err = a.Apply(i.namespace, i.yamlFilePath); err != nil {
+func (d *Deployment) Deploy(wait bool, opts ...retry.Option) (err error) {
+	if d.yamlFilePath != "" {
+		if err = d.accessor.Apply(d.namespace, d.yamlFilePath); err != nil {
 			return multierror.Prefix(err, "kube apply of generated yaml file:")
 		}
 	} else {
-		if i.appliedFiles, err = a.ApplyContents(i.namespace, i.yamlContents); err != nil {
+		if d.appliedFiles, err = d.accessor.ApplyContents(d.namespace, d.yamlContents); err != nil {
 			return multierror.Prefix(err, "kube apply of generated yaml file:")
 		}
 	}
 
 	if wait {
-		if _, err := a.WaitUntilPodsAreReady(a.NewPodFetch(i.namespace), opts...); err != nil {
+		if _, err := d.accessor.WaitUntilPodsAreReady(d.accessor.NewPodFetch(d.namespace), opts...); err != nil {
 			scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
 			return err
 		}
@@ -57,18 +59,18 @@ func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 }
 
 // Delete this deployment instance.
-func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
-	if len(i.appliedFiles) > 0 {
+func (d *Deployment) Delete(wait bool, opts ...retry.Option) (err error) {
+	if len(d.appliedFiles) > 0 {
 		// Delete in the opposite order that they were applied.
-		for ix := len(i.appliedFiles) - 1; ix >= 0; ix-- {
-			err = multierror.Append(err, a.Delete(i.namespace, i.appliedFiles[ix])).ErrorOrNil()
+		for ix := len(d.appliedFiles) - 1; ix >= 0; ix-- {
+			err = multierror.Append(err, d.accessor.Delete(d.namespace, d.appliedFiles[ix])).ErrorOrNil()
 		}
-	} else if i.yamlFilePath != "" {
-		if err = a.Delete(i.namespace, i.yamlFilePath); err != nil {
+	} else if d.yamlFilePath != "" {
+		if err = d.accessor.Delete(d.namespace, d.yamlFilePath); err != nil {
 			scopes.CI.Warnf("Error deleting deployment: %v", err)
 		}
 	} else {
-		if err = a.DeleteContents(i.namespace, i.yamlContents); err != nil {
+		if err = d.accessor.DeleteContents(d.namespace, d.yamlContents); err != nil {
 			scopes.CI.Warnf("Error deleting deployment: %v", err)
 		}
 	}
@@ -76,11 +78,20 @@ func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 	if wait && err != nil {
 		// TODO: Just for waiting for deployment namespace deletion may not be enough. There are CRDs
 		// and roles/rolebindings in other parts of the system as well. We should also wait for deletion of them.
-		if e := a.WaitForNamespaceDeletion(i.namespace, opts...); e != nil {
+		if e := d.accessor.WaitForNamespaceDeletion(d.namespace, opts...); e != nil {
 			scopes.CI.Warnf("Error waiting for environment deletion: %v", e)
 			err = multierror.Append(err, e)
 		}
 	}
 
 	return
+}
+
+// NewYamlContentDeployment creates a new deployment from the contents of a yaml document.
+func NewYamlContentDeployment(namespace, yamlContents string, a *Accessor) *Deployment {
+	return &Deployment{
+		accessor:     a,
+		namespace:    namespace,
+		yamlContents: yamlContents,
+	}
 }
