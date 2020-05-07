@@ -359,8 +359,8 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 	pilotTrustDomain := trustDomain
 	if len(pilotTrustDomain) == 0 {
 		if registryID == serviceregistry.Kubernetes &&
-			(domain == podNamespace+".svc.cluster.local" || domain == "") {
-			pilotTrustDomain = "cluster.local"
+			(domain == podNamespace+".svc."+constants.DefaultKubernetesDomain || domain == "") {
+			pilotTrustDomain = constants.DefaultKubernetesDomain
 		} else if registryID == serviceregistry.Consul &&
 			(domain == "service.consul" || domain == "") {
 			pilotTrustDomain = ""
@@ -385,7 +385,7 @@ func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
 		if registryID == serviceregistry.Kubernetes {
-			domain = podNamespace + ".svc.cluster.local"
+			domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
 		} else if registryID == serviceregistry.Consul {
 			domain = "service.consul"
 		} else {

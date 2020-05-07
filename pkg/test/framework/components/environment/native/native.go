@@ -21,6 +21,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/docker"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -29,7 +30,7 @@ import (
 
 const (
 	systemNamespace = "istio-system"
-	domain          = "cluster.local"
+	domain          = constants.DefaultKubernetesDomain
 
 	networkLabelKey   = "app"
 	networkLabelValue = "istio-test"

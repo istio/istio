@@ -171,7 +171,7 @@ func createRoute(action *k8s.HTTPRouteAction, ns string) []*istio.HTTPRouteDesti
 		Destination: &istio.Destination{
 			// TODO cluster.local hardcode
 			// TODO is this the right format?
-			Host: fmt.Sprintf("%s.%s.svc.cluster.local", action.ForwardTo.Name, ns),
+			Host: action.ForwardTo.Name + "." + ns + ".svc." + constants.DefaultKubernetesDomain,
 		},
 	}}
 
