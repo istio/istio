@@ -61,6 +61,11 @@ var (
 		"The unix timestamp, in seconds, when Citadel root cert will expire. "+
 			"We set it to negative in case of internal error.",
 	)
+	certChainExpiryTimestamp = monitoring.NewGauge(
+		"citadel_server_cert_chain_expiry_timestamp",
+		"The unix timestamp, in seconds, when Citadel cert chain will expire. "+
+			"We set it to negative in case of internal error.",
+	)
 )
 
 func init() {
@@ -72,6 +77,7 @@ func init() {
 		certSignErrorCounts,
 		successCounts,
 		rootCertExpiryTimestamp,
+		certChainExpiryTimestamp,
 	)
 }
 
