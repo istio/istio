@@ -16,12 +16,14 @@ package status
 
 import (
 	"fmt"
-	status2 "istio.io/istio/pilot/pkg/status"
-	v1 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"testing"
 	"time"
+
+	v1 "k8s.io/api/core/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	status2 "istio.io/istio/pilot/pkg/status"
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -405,7 +407,7 @@ func Test_updateAnalysisCondition(t *testing.T) {
 
 	type args struct {
 		statusMap map[string]interface{}
-		status bool
+		status    bool
 	}
 	tests := []struct {
 		name string
@@ -414,77 +416,63 @@ func Test_updateAnalysisCondition(t *testing.T) {
 	}{
 		{
 			name: "update existing condition to true",
-			args:args{statusMap:map[string]interface{}{
-				"conditions":[]interface{}{
+			args: args{statusMap: map[string]interface{}{
+				"conditions": []interface{}{
 					map[string]interface{}{
-						"condition rude":"true",
+						"condition rude": "true",
 					},
 					map[string]interface{}{
-						"type":"PassedValidation",
-						"status":v1.ConditionTrue,
+						"type":   "PassedValidation",
+						"status": v1.ConditionTrue,
 					},
 				},
-				"validationMessage":"foo",
-			}, status:true},
-			want:map[string]interface{}{
-				"conditions":[]interface{}{
+				"validationMessage": "foo",
+			}, status: true},
+			want: map[string]interface{}{
+				"conditions": []interface{}{
 					map[string]interface{}{
-						"condition rude":"true",
+						"condition rude": "true",
 					},
 					map[string]interface{}{
-						"type": string(status2.PassedValidation),
-						"status":string(v12.ConditionTrue),
-						"reason":"errorsFound",
-						"message":"Errors Found.  See validationMessages field for more details",
-						"lastTransitionTime":sometime,
-						"lastProbeTime":sometime,
+						"type":               string(status2.PassedValidation),
+						"status":             string(v12.ConditionTrue),
+						"reason":             "errorsFound",
+						"message":            "Errors Found.  See validationMessages field for more details",
+						"lastTransitionTime": sometime,
+						"lastProbeTime":      sometime,
 					},
-					//map[string]interface{}{
-					//	"type":"PassedValidation",
-					//	"status":v1.ConditionTrue,
-					//	"reason":             "errorsFound",
-					//	"message":            "Errors Found.  See validationMessages field for more details",
-					//	""
-					//},
 				},
-				"validationMessage":"foo",
+				"validationMessage": "foo",
 			},
-		},{
+		}, {
 			name: "update existing condition to false",
-			args:args{statusMap:map[string]interface{}{
-				"conditions":[]interface{}{
+			args: args{statusMap: map[string]interface{}{
+				"conditions": []interface{}{
 					map[string]interface{}{
-						"condition rude":"true",
+						"condition rude": "true",
 					},
 					map[string]interface{}{
-						"type":"PassedValidation",
-						"status":v1.ConditionTrue,
+						"type":   "PassedValidation",
+						"status": v1.ConditionTrue,
 					},
 				},
-				"validationMessage":"foo",
-			}, status:false},
-			want:map[string]interface{}{
-				"conditions":[]interface{}{
+				"validationMessage": "foo",
+			}, status: false},
+			want: map[string]interface{}{
+				"conditions": []interface{}{
 					map[string]interface{}{
-						"condition rude":"true",
+						"condition rude": "true",
 					},
 					map[string]interface{}{
-						"type": string(status2.PassedValidation),
-						"status":string(v12.ConditionFalse),
-						"reason":"noErrorsFound",
-						"message":"No errors Found.",
-						"lastTransitionTime":sometime,
-						"lastProbeTime":sometime,
+						"type":               string(status2.PassedValidation),
+						"status":             string(v12.ConditionFalse),
+						"reason":             "noErrorsFound",
+						"message":            "No errors Found.",
+						"lastTransitionTime": sometime,
+						"lastProbeTime":      sometime,
 					},
-					//map[string]interface{}{
-					//	"type":"PassedValidation",
-					//	"status":v1.ConditionTrue,
-					//	"reason":             "errorsFound",
-					//	"message":            "Errors Found.  See validationMessages field for more details",
-					//	""
-					//},
 				},
-				"validationMessage":"foo",
+				"validationMessage": "foo",
 			},
 		},
 	}
@@ -522,25 +510,25 @@ func Test_removeAnalysisCondition(t *testing.T) {
 	}{
 		{
 			name: "remove existing condition",
-			args:args{statusMap:map[string]interface{}{
-				"conditions":[]interface{}{
+			args: args{statusMap: map[string]interface{}{
+				"conditions": []interface{}{
 					map[string]interface{}{
-						"condition rude":"true",
+						"condition rude": "true",
 					},
 					map[string]interface{}{
-						"type":"PassedValidation",
-						"status":v12.ConditionTrue,
+						"type":   "PassedValidation",
+						"status": v12.ConditionTrue,
 					},
 				},
-				"validationMessage":"foo",
+				"validationMessage": "foo",
 			}},
-			want:map[string]interface{}{
-				"conditions":[]interface{}{
+			want: map[string]interface{}{
+				"conditions": []interface{}{
 					map[string]interface{}{
-						"condition rude":"true",
+						"condition rude": "true",
 					},
 				},
-				"validationMessage":"foo",
+				"validationMessage": "foo",
 			},
 		},
 	}

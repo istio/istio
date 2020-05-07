@@ -16,10 +16,12 @@ package status
 
 import (
 	"context"
-	"github.com/ghodss/yaml"
-	status2 "istio.io/istio/pilot/pkg/status"
 	"sync"
 	"time"
+
+	"github.com/ghodss/yaml"
+
+	status2 "istio.io/istio/pilot/pkg/status"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -221,7 +223,7 @@ func getTypedCondition(in interface{}) (out status2.IstioCondition, err error) {
 }
 
 func removeAnalysisCondition(statusMap map[string]interface{}) map[string]interface{} {
-	if  statusMap["conditions"] == nil {
+	if statusMap["conditions"] == nil {
 		return statusMap
 	}
 	uconds := statusMap["conditions"].([]interface{})
