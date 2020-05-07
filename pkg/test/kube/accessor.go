@@ -17,13 +17,9 @@ package kube
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path"
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/version"
 
@@ -125,72 +121,6 @@ func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore
 	}
 
 	return list.Items, nil
-}
-
-// DumpPodState logs the current pod state.
-func (a *Accessor) DumpPodState(workDir string, namespace string) {
-	pods, err := a.GetPods(namespace)
-	if err != nil {
-		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
-		return
-	}
-
-	marshaler := jsonpb.Marshaler{
-		Indent: "  ",
-	}
-
-	for _, pod := range pods {
-		str, err := marshaler.MarshalToString(&pod)
-		if err != nil {
-			scopes.CI.Errorf("Error marshaling pod state for output: %v", err)
-			continue
-		}
-
-		outPath := path.Join(workDir, fmt.Sprintf("pod_%s_%s.yaml", namespace, pod.Name))
-
-		if err := ioutil.WriteFile(outPath, []byte(str), os.ModePerm); err != nil {
-			scopes.CI.Infof("Error writing out pod state to file: %v", err)
-		}
-	}
-}
-
-// DumpPodEvents logs the current pod event.
-func (a *Accessor) DumpPodEvents(workDir, namespace string) {
-	pods, err := a.GetPods(namespace)
-	if err != nil {
-		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
-		return
-	}
-
-	marshaler := jsonpb.Marshaler{
-		Indent: "  ",
-	}
-
-	for _, pod := range pods {
-		events, err := a.GetEvents(namespace, pod.Name)
-		if err != nil {
-			scopes.CI.Errorf("Error getting events list for pod %s/%s via kubectl: %v", namespace, pod.Name, err)
-			return
-		}
-
-		outPath := path.Join(workDir, fmt.Sprintf("pod_events_%s_%s.yaml", namespace, pod.Name))
-
-		eventsStr := ""
-		for _, event := range events {
-			eventStr, err := marshaler.MarshalToString(&event)
-			if err != nil {
-				scopes.CI.Errorf("Error marshaling pod event for output: %v", err)
-				continue
-			}
-
-			eventsStr += eventStr
-			eventsStr += "\n"
-		}
-
-		if err := ioutil.WriteFile(outPath, []byte(eventsStr), os.ModePerm); err != nil {
-			scopes.CI.Infof("Error writing out pod events to file: %v", err)
-		}
-	}
 }
 
 func (a *Accessor) GetDeployments(namespace string, selectors ...string) ([]appsv1.Deployment, error) {
