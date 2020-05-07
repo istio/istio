@@ -16,7 +16,6 @@ package bookinfo
 
 import (
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -28,24 +27,25 @@ type Config struct {
 }
 
 // Deploy returns a new instance of deployed BookInfo
-func Deploy(ctx resource.Context, cfg Config) (i deployment.Instance, err error) {
+func Deploy(ctx resource.Context, cfg Config) (undeploy func(), err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = deploy(ctx, cfg)
+		undeploy, err = deploy(ctx, cfg)
 	})
 
 	return
 }
 
 // DeployOrFail returns a new instance of deployed BookInfo or fails test
-func DeployOrFail(t test.Failer, ctx resource.Context, cfg Config) deployment.Instance {
+func DeployOrFail(t test.Failer, ctx resource.Context, cfg Config) (undeploy func()) {
 	t.Helper()
 
-	i, err := Deploy(ctx, cfg)
+	var err error
+	undeploy, err = Deploy(ctx, cfg)
 	if err != nil {
 		t.Fatalf("bookinfo.DeployOrFail: %v", err)
 	}
 
-	return i
+	return
 }
