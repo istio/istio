@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/config/host"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
@@ -84,6 +86,14 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 		return e.Watcher.Mesh()
 	}
 	return nil
+}
+
+func (e *Environment) GetDiscoveryHost() (host.Name, error) {
+	hostname, _, err := net.SplitHostPort(e.Mesh().DefaultConfig.DiscoveryAddress)
+	if err != nil {
+		return "", err
+	}
+	return host.Name(hostname), nil
 }
 
 func (e *Environment) AddMeshHandler(h func()) {
