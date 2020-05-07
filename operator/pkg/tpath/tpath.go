@@ -330,8 +330,8 @@ func WritePathContext(nc *PathContext, value interface{}, merge bool) error {
 // setPathContext writes the given value to the Node in the given PathContext,
 // enlarging all PathContext lists to ensure all indexes are valid.
 func setPathContext(nc *PathContext, value interface{}, merge bool) error {
-	err := setValueContext(nc, value, merge)
-	if err != nil {
+	processParent, err := setValueContext(nc, value, merge)
+	if err != nil || !processParent {
 		return err
 	}
 
@@ -344,17 +344,9 @@ func setPathContext(nc *PathContext, value interface{}, merge bool) error {
 
 // setValueContext writes the given value to the Node in the given PathContext.
 // If setting the value requires growing the final slice, grows it.
-func setValueContext(nc *PathContext, value interface{}, merge bool) error {
-	vv := value
-	// If value type is a string it could either be a literal string or a map type passed as a string. Try to unmarshal
-	// to discover it's the latter.
-	if reflect.TypeOf(vv).Kind() == reflect.String && strings.Contains(value.(string), ":") {
-		nv := make(map[string]interface{})
-		if err := yaml2.Unmarshal([]byte(vv.(string)), &nv); err == nil {
-			vv = nv
-		}
-		// got error, continue with value as a string.
-	}
+func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, error) {
+	vv, mapFromString := tryToUnmarshalStringToYAML(value)
+
 	switch parentNode := nc.Parent.Node.(type) {
 	case *interface{}:
 		switch vParentNode := (*parentNode).(type) {
@@ -373,20 +365,20 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) error {
 
 			merged, err := mergeConditional(vv, nc.Node, merge)
 			if err != nil {
-				return err
+				return false, err
 			}
 
 			vParentNode[idx] = merged
 			nc.Node = merged
 		default:
-			return fmt.Errorf("don't know about vtype %T", vParentNode)
+			return false, fmt.Errorf("don't know about vtype %T", vParentNode)
 		}
 	case map[string]interface{}:
 		key := nc.Parent.KeyToChild.(string)
 
 		// Update is treated differently depending on whether the value is a scalar or map type. If scalar,
 		// insert a new element into the terminal node, otherwise replace the terminal node with the new subtree.
-		if ncNode, ok := nc.Node.(*interface{}); ok {
+		if ncNode, ok := nc.Node.(*interface{}); ok && !mapFromString {
 			switch vNcNode := (*ncNode).(type) {
 			case []interface{}:
 				switch vv.(type) {
@@ -397,7 +389,7 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) error {
 				case *interface{}:
 					merged, err := mergeConditional(vv, vNcNode, merge)
 					if err != nil {
-						return err
+						return false, err
 					}
 
 					parentNode[key] = merged
@@ -409,10 +401,18 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) error {
 					nc.Node = vv
 				}
 			default:
-				return fmt.Errorf("don't know about vnc type %T", vNcNode)
+				return false, fmt.Errorf("don't know about vnc type %T", vNcNode)
 			}
 		} else {
-			// the vv is an basic JSON type (int, float, string, bool); or a map[string]interface{}
+			// For map passed as string type, the root is the new key.
+			if mapFromString {
+				if err := util.DeleteFromMap(nc.Parent.Node, nc.Parent.KeyToChild); err != nil {
+					return false, err
+				}
+				vm := vv.(map[string]interface{})
+				newKey := getTreeRoot(vm)
+				return false, util.InsertIntoMap(nc.Parent.Node, newKey, vm[newKey])
+			}
 			parentNode[key] = vv
 			nc.Node = vv
 		}
@@ -422,10 +422,17 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) error {
 		parentNode[key] = vv
 		nc.Node = vv
 	default:
-		return fmt.Errorf("don't know about type %T", parentNode)
+		return false, fmt.Errorf("don't know about type %T", parentNode)
 	}
 
-	return nil
+	return true, nil
+}
+
+func getTreeRoot(m map[string]interface{}) string {
+	for k := range m {
+		return k
+	}
+	return ""
 }
 
 func IsLeafNode(treeNode interface{}) bool {
@@ -690,4 +697,25 @@ func GetConfigSubtree(manifest, path string) (string, error) {
 		return "", err
 	}
 	return string(out), nil
+}
+
+// tryToUnmarshalStringToYAML tries to unmarshal something that may be a YAML list or map into a structure. If not
+// possible, returns original scalar value.
+func tryToUnmarshalStringToYAML(s interface{}) (interface{}, bool) {
+	// If value type is a string it could either be a literal string or a map type passed as a string. Try to unmarshal
+	// to discover it's the latter.
+	vv := s
+	if reflect.TypeOf(vv).Kind() == reflect.String && strings.Contains(s.(string), ": ") {
+		nv := make(map[string]interface{})
+		if err := yaml2.Unmarshal([]byte(vv.(string)), &nv); err == nil {
+			return nv, true
+		}
+	}
+	// got error, return original type.
+	return vv, false
+}
+
+func isMapStringInterface(v interface{}) bool {
+	_, ok := v.(map[string]interface{})
+	return ok
 }

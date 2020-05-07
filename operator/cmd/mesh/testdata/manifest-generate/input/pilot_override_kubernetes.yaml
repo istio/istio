@@ -22,11 +22,6 @@ spec:
                 value: "60m" # OVERRIDDEN
               - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
                 value: 1234 # OVERRIDDEN
-              - path: spec.strategy
-              - path: spec.strategy
-                value: |
-                  alternateStrategy:
-                    randomUpdate: 100%
           - kind: Service
             name: istiod
             patches:

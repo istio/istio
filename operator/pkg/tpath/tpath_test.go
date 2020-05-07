@@ -43,6 +43,24 @@ a:
 		wantErr   string
 	}{
 		{
+			desc:      "AddListEntry",
+			path:      `a.b.[name:n2].list`,
+			value:     `foo`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list:
+    - v1
+    - v2
+    - v3_regex
+    - foo
+`,
+		},
+		{
 			desc:      "ModifyListEntryValue",
 			path:      `a.b.[name:n1].value`,
 			value:     `v2`,
@@ -91,6 +109,25 @@ a:
     - v3
     - v3_regex
     name: n2
+`,
+		},
+		{
+			desc: "ModifyListEntryMapValue",
+			path: `a.b.[name:n2]`,
+			value: `name: n2
+list: 
+  - nk1: nv1
+  - nk2: nv2`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list:
+    - nk1: nv1
+    - nk2: nv2
 `,
 		},
 		{
@@ -310,18 +347,11 @@ a:
 `,
 		},
 		{
-			desc:      "DeleteMapEntry",
-			path:      `a.b`,
-			wantFound: true,
-			want: `
-a: {}
-`,
-		},
-		{
 			desc: "AddMapEntryMapValue",
 			path: `a.new_key`,
-			value: `nk1:
-  nk2: nv2`,
+			value: `new_key:
+  nk1:
+    nk2: nv2`,
 			wantFound: true,
 			want: `
 a:
@@ -351,21 +381,11 @@ a:
 `,
 		},
 		{
-			desc:      "AddListEntry",
-			path:      `a.b.[name:n2].list`,
-			value:     `foo`,
+			desc:      "DeleteMapEntry",
+			path:      `a.b`,
 			wantFound: true,
 			want: `
-a:
-  b:
-  - name: n1
-    value: v1
-  - name: n2
-    list:
-    - v1
-    - v2
-    - v3_regex
-    - foo
+a: {}
 `,
 		},
 		{
