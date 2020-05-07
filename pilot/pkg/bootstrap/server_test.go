@@ -21,9 +21,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsi/gomega"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
+
+	"github.com/onsi/gomega"
 )
 
 func TestReloadIstiodCert(t *testing.T) {
