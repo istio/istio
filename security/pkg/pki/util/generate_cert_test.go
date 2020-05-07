@@ -52,10 +52,11 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 	// be valid as of now.
 	caCertNotBefore := now.Add(-time.Hour)
 	caCertTTL := 24 * time.Hour
+	host := "test_ca.com"
 
 	// Options to generate a CA cert with RSA.
 	rsaCaCertOptions := CertOptions{
-		Host:         "test_ca.com",
+		Host:         host,
 		NotBefore:    caCertNotBefore,
 		TTL:          caCertTTL,
 		SignerCert:   nil,
@@ -73,6 +74,26 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		t.Error(err)
 	}
 
+	// Options to generate a CA cert with EC.
+	ecCaCertOptions := CertOptions{
+		Host:         host,
+		NotBefore:    caCertNotBefore,
+		TTL:          caCertTTL,
+		SignerCert:   nil,
+		SignerPriv:   nil,
+		Org:          "MyOrg",
+		IsCA:         true,
+		IsSelfSigned: true,
+		IsClient:     false,
+		IsServer:     true,
+		IsEC:         true,
+	}
+
+	ecCaCertPem, ecCaPrivPem, err := GenCertKeyFromOptions(ecCaCertOptions)
+	if err != nil {
+		t.Error(err)
+	}
+
 	fields := &VerifyFields{
 		NotBefore:   caCertNotBefore,
 		TTL:         caCertTTL,
@@ -80,13 +101,22 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		KeyUsage:    x509.KeyUsageCertSign,
 		IsCA:        true,
 		Org:         "MyOrg",
-		Host:        rsaCaCertOptions.Host,
+		Host:        host,
 	}
 	if VerifyCertificate(rsaCaPrivPem, rsaCaCertPem, rsaCaCertPem, fields) != nil {
 		t.Error(err)
 	}
 
-	caCert, err := ParsePemEncodedCertificate(rsaCaCertPem)
+	if VerifyCertificate(ecCaPrivPem, ecCaCertPem, ecCaCertPem, fields) != nil {
+		t.Error(err)
+	}
+
+	rsaCaCert, err := ParsePemEncodedCertificate(rsaCaCertPem)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ecCaCert, err := ParsePemEncodedCertificate(ecCaCertPem)
 	if err != nil {
 		t.Error(err)
 	}
@@ -96,21 +126,24 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		t.Error(err)
 	}
 
+	ecCaPriv, err := ParsePemEncodedKey(rsaCaPrivPem)
+	if err != nil {
+		t.Error(err)
+	}
+
 	notBefore := now.Add(-5 * time.Minute)
 	ttl := time.Hour
-	cases := []struct {
-		name         string
+	cases := map[string]struct {
 		certOptions  CertOptions
 		verifyFields *VerifyFields
 	}{
 		// These certs are signed by the CA cert
-		{
-			name: "Server cert with DNS SAN",
+		"RSA: Server cert with DNS SAN": {
 			certOptions: CertOptions{
 				Host:         "test_server.com",
 				NotBefore:    notBefore,
 				TTL:          ttl,
-				SignerCert:   caCert,
+				SignerCert:   rsaCaCert,
 				SignerPriv:   rsaCaPriv,
 				Org:          "",
 				IsCA:         false,
@@ -128,13 +161,12 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				Org:         "MyOrg",
 			},
 		},
-		{
-			name: "Server and client cert with DNS SAN",
+		"RSA: Server and client cert with DNS SAN": {
 			certOptions: CertOptions{
 				Host:         "test_client.com",
 				NotBefore:    notBefore,
 				TTL:          ttl,
-				SignerCert:   caCert,
+				SignerCert:   rsaCaCert,
 				SignerPriv:   rsaCaPriv,
 				Org:          "",
 				IsCA:         false,
@@ -152,13 +184,12 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				Org:         "MyOrg",
 			},
 		},
-		{
-			name: "Server cert with IP SAN",
+		"RSA: Server cert with IP SAN": {
 			certOptions: CertOptions{
 				Host:         "1.2.3.4",
 				NotBefore:    notBefore,
 				TTL:          ttl,
-				SignerCert:   caCert,
+				SignerCert:   rsaCaCert,
 				SignerPriv:   rsaCaPriv,
 				Org:          "",
 				IsCA:         false,
@@ -176,13 +207,12 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				Org:         "MyOrg",
 			},
 		},
-		{
-			name: "Client cert with URI SAN",
+		"RSA: Client cert with URI SAN": {
 			certOptions: CertOptions{
 				Host:         "spiffe://domain/ns/bar/sa/foo",
 				NotBefore:    notBefore,
 				TTL:          ttl,
-				SignerCert:   caCert,
+				SignerCert:   rsaCaCert,
 				SignerPriv:   rsaCaPriv,
 				Org:          "",
 				IsCA:         false,
@@ -200,13 +230,12 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				Org:         "MyOrg",
 			},
 		},
-		{
-			name: "Server cert with DNS for webhook",
+		"RSA: Server cert with DNS for webhook": {
 			certOptions: CertOptions{
 				Host:         "spiffe://domain/ns/bar/sa/foo,bar.foo.svcs",
 				NotBefore:    notBefore,
 				TTL:          ttl,
-				SignerCert:   caCert,
+				SignerCert:   rsaCaCert,
 				SignerPriv:   rsaCaPriv,
 				Org:          "",
 				IsCA:         false,
@@ -224,13 +253,12 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				Org:         "MyOrg",
 			},
 		},
-		{
-			name: "Generate cert with multiple host names",
+		"RSA: Generate cert with multiple host names": {
 			certOptions: CertOptions{
 				Host:       "a,b",
 				NotBefore:  notBefore,
 				TTL:        ttl,
-				SignerCert: caCert,
+				SignerCert: rsaCaCert,
 				SignerPriv: rsaCaPriv,
 				RSAKeySize: 2048,
 			},
@@ -239,13 +267,12 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 			},
 		},
-		{
-			name: "Generate dual-use cert",
+		"RSA: Generate dual-use cert": {
 			certOptions: CertOptions{
 				Host:         "spiffe://domain/ns/bar/sa/foo",
 				NotBefore:    notBefore,
 				TTL:          ttl,
-				SignerCert:   caCert,
+				SignerCert:   rsaCaCert,
 				SignerPriv:   rsaCaPriv,
 				Org:          "",
 				IsCA:         false,
@@ -265,13 +292,12 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				CommonName:  "spiffe://domain/ns/bar/sa/foo",
 			},
 		},
-		{
-			name: "Generate dual-use cert with multiple host names",
+		"RSA: Generate dual-use cert with multiple host names": {
 			certOptions: CertOptions{
 				Host:         "a,b,c",
 				NotBefore:    notBefore,
 				TTL:          ttl,
-				SignerCert:   caCert,
+				SignerCert:   rsaCaCert,
 				SignerPriv:   rsaCaPriv,
 				Org:          "",
 				IsCA:         false,
@@ -291,13 +317,12 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				CommonName:  "a", // only first host used for CN
 			},
 		},
-		{
-			name: "Generate PKCS8 private key",
+		"RSA: Generate PKCS8 private key": {
 			certOptions: CertOptions{
 				Host:         "spiffe://domain/ns/bar/sa/foo",
 				NotBefore:    notBefore,
 				TTL:          ttl,
-				SignerCert:   caCert,
+				SignerCert:   rsaCaCert,
 				SignerPriv:   rsaCaPriv,
 				Org:          "",
 				IsCA:         false,
@@ -316,19 +341,222 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				Org:         "MyOrg",
 			},
 		},
+		"EC: Server cert with DNS SAN": {
+			certOptions: CertOptions{
+				Host:         "test_server.com",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   ecCaCert,
+				SignerPriv:   ecCaPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     false,
+				IsServer:     true,
+				IsEC:         true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+			},
+		},
+		"EC: Server and client cert with DNS SAN": {
+			certOptions: CertOptions{
+				Host:         "test_client.com",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   ecCaCert,
+				SignerPriv:   ecCaPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				IsEC:         true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+			},
+		},
+		"EC: Server cert with IP SAN": {
+			certOptions: CertOptions{
+				Host:         "1.2.3.4",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   ecCaCert,
+				SignerPriv:   ecCaPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     false,
+				IsServer:     true,
+				IsEC:         true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+			},
+		},
+		"EC: Client cert with URI SAN": {
+			certOptions: CertOptions{
+				Host:         "spiffe://domain/ns/bar/sa/foo",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   ecCaCert,
+				SignerPriv:   ecCaPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				IsEC:         true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+			},
+		},
+		"EC: Server cert with DNS for webhook": {
+			certOptions: CertOptions{
+				Host:         "spiffe://domain/ns/bar/sa/foo,bar.foo.svcs",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   ecCaCert,
+				SignerPriv:   ecCaPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     false,
+				IsServer:     true,
+				IsEC:         true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+			},
+		},
+		"EC: Generate cert with multiple host names": {
+			certOptions: CertOptions{
+				Host:       "a,b",
+				NotBefore:  notBefore,
+				TTL:        ttl,
+				SignerCert: ecCaCert,
+				SignerPriv: ecCaPriv,
+				IsEC:       true,
+			},
+			verifyFields: &VerifyFields{
+				IsCA:     false,
+				KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+			},
+		},
+		"EC: Generate dual-use cert": {
+			certOptions: CertOptions{
+				Host:         "spiffe://domain/ns/bar/sa/foo",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   ecCaCert,
+				SignerPriv:   ecCaPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				IsEC:         true,
+				IsDualUse:    true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+				CommonName:  "spiffe://domain/ns/bar/sa/foo",
+			},
+		},
+		"EC: Generate dual-use cert with multiple host names": {
+			certOptions: CertOptions{
+				Host:         "a,b,c",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   ecCaCert,
+				SignerPriv:   ecCaPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				IsEC:         true,
+				IsDualUse:    true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+				CommonName:  "a", // only first host used for CN
+			},
+		},
+		"EC: Generate PKCS8 private key": {
+			certOptions: CertOptions{
+				Host:         "spiffe://domain/ns/bar/sa/foo",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   ecCaCert,
+				SignerPriv:   ecCaPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				IsEC:         true,
+				PKCS8Key:     true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+			},
+		},
 	}
 
-	for _, c := range cases {
+	for id, c := range cases {
 		certOptions := c.certOptions
 		certPem, privPem, err := GenCertKeyFromOptions(certOptions)
 		if err != nil {
-			t.Errorf("[%s] cert/key generation error: %v", c.name, err)
+			t.Errorf("[%s] cert/key generation error: %v", id, err)
 		}
 
 		for _, host := range strings.Split(certOptions.Host, ",") {
 			c.verifyFields.Host = host
 			if err := VerifyCertificate(privPem, certPem, rsaCaCertPem, c.verifyFields); err != nil {
-				t.Errorf("[%s] cert verification error: %v", c.name, err)
+				t.Errorf("[%s] cert verification error: %v", id, err)
 			}
 		}
 	}
