@@ -52,6 +52,12 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
 {{- end }}
       serviceAccountName: istio-egressgateway-service-account
 {{- if .Values.global.priorityClassName }}
@@ -125,7 +131,7 @@ spec:
             failureThreshold: 30
             httpGet:
               path: /healthz/ready
-              port: 15020
+              port: 15021
               scheme: HTTP
             initialDelaySeconds: 1
             periodSeconds: 2
@@ -171,6 +177,14 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
+          - name: CANONICAL_SERVICE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-name']
+          - name: CANONICAL_REVISION
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $gateway.name | default "istio-egressgateway" }}
           - name: ISTIO_META_OWNER

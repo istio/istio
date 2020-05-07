@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -375,6 +376,48 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// restore this config and remove the added host.
 		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
 		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}}) // service deleted
+	})
+
+	t.Run("change dns endpoints", func(t *testing.T) {
+		// Setup the expected instances for `httpStatic`. This will be added/removed from as we add various configs
+		instances1 := []*model.ServiceInstance{
+			makeInstance(tcpDNS, "lon.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0],
+				nil, MTLS),
+			makeInstance(tcpDNS, "in.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0],
+				nil, MTLS),
+		}
+
+		// This is not applied, just to make makeInstance pick the right service.
+		tcpDNSUpdated := func() *model.Config {
+			c := tcpDNS.DeepCopy()
+			se := c.Spec.(*networking.ServiceEntry)
+			se.Endpoints = []*networking.WorkloadEntry{
+				{
+					Address: "lon.google.com",
+					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+				},
+			}
+			return &c
+		}()
+
+		instances2 := []*model.ServiceInstance{
+			makeInstance(tcpDNS, "lon.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0],
+				nil, MTLS),
+		}
+
+		createConfigs([]*model.Config{tcpDNS}, store, t)
+		expectServiceInstances(t, sd, tcpDNS, 0, instances1)
+		// Service change, so we need a full push
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.
+			ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "tcpdns.com",
+			Namespace: tcpDNS.Namespace}: {}}}}) // service added
+
+		// now update the config
+		createConfigs([]*model.Config{tcpDNSUpdated}, store, t)
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.
+			ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "tcpdns.com",
+			Namespace: tcpDNSUpdated.Namespace}: {}}}}) // service deleted
+		expectServiceInstances(t, sd, tcpDNS, 0, instances2)
 	})
 
 	t.Run("change workload selector", func(t *testing.T) {
@@ -782,7 +825,7 @@ func TestServicesDiff(t *testing.T) {
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,
-			Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+			Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com", "*.mail.com"},
@@ -794,16 +837,16 @@ func TestServicesDiff(t *testing.T) {
 				{
 					Address: "us.google.com",
 					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
-					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
 				},
 				{
 					Address: "uk.google.com",
 					Ports:   map[string]uint32{"http-port": 1080},
-					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
 				},
 				{
 					Address: "de.google.com",
-					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+					Labels:  map[string]string{"foo": "bar", label.TLSMode: model.IstioMutualTLSModeLabel},
 				},
 			},
 			Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -828,7 +871,7 @@ func TestServicesDiff(t *testing.T) {
 		endpoints = append(endpoints, se.Endpoints...)
 		endpoints = append(endpoints, &networking.WorkloadEntry{
 			Address: "in.google.com",
-			Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+			Labels:  map[string]string{"foo": "bar", label.TLSMode: model.IstioMutualTLSModeLabel},
 		})
 		se.Endpoints = endpoints
 		return &c

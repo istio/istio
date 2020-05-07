@@ -170,8 +170,6 @@ cni:
 }
 
 func TestValidateValuesFromProfile(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/20112")
-	// TODO port to new api
 	tests := []struct {
 		desc     string
 		profile  string
@@ -189,7 +187,7 @@ func TestValidateValuesFromProfile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			pf, err := helm.ReadProfileYAML(tt.profile)
+			pf, err := helm.ReadProfileYAML(tt.profile, filepath.Join(env.IstioSrc, "manifests"))
 			if err != nil {
 				t.Fatalf("fail to read profile: %s", tt.profile)
 			}

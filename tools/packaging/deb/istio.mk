@@ -16,7 +16,7 @@ $(foreach DEP,$(ISTIO_DEB_DEPS),\
         $(eval ${ISTIO_OUT_LINUX}/release/istio.deb: $(ISTIO_OUT_LINUX)/$(DEP)) \
         $(eval ISTIO_FILES+=$(ISTIO_OUT_LINUX)/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
-SIDECAR_DEB_DEPS:=envoy pilot-agent node_agent
+SIDECAR_DEB_DEPS:=envoy pilot-agent
 SIDECAR_FILES:=
 $(foreach DEP,$(SIDECAR_DEB_DEPS),\
         $(eval ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb: $(ISTIO_OUT_LINUX)/$(DEP)) \

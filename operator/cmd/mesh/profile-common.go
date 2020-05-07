@@ -23,6 +23,8 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
+	pkgversion "istio.io/pkg/version"
+
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
@@ -32,12 +34,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
-	"istio.io/istio/operator/version"
-	"istio.io/pkg/log"
-	pkgversion "istio.io/pkg/version"
 )
-
-var installerScope = log.RegisterScope("installer", "installer", 0)
 
 // GenerateConfig creates an IstioOperatorSpec from the following sources, overlaid sequentially:
 // 1. Compiled in base, or optionally base from paths pointing to one or multiple ICP/IOP files at inFilenames.
@@ -52,6 +49,7 @@ var installerScope = log.RegisterScope("installer", "installer", 0)
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kubeConfig *rest.Config,
 	l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+
 	fy, profile, err := readYamlProfle(inFilenames, setOverlayYAML, force, l)
 	if err != nil {
 		return "", nil, err
@@ -73,6 +71,7 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 }
 
 func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l clog.Logger) (string, string, error) {
+
 	profile := name.DefaultProfileName
 	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
 	fy, fp, err := parseYAMLFiles(inFilenames, force, l)
@@ -178,11 +177,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 			return "", nil, err
 		}
 	}
-	mvs := version.OperatorBinaryVersion.MinorVersion
-	t, err := translate.NewReverseTranslator(mvs)
-	if err != nil {
-		return "", nil, fmt.Errorf("error creating values.yaml translator: %s", err)
-	}
+	t := translate.NewReverseTranslator()
 	userOverlayYAML, err = t.TranslateK8SfromValueToIOP(userOverlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)

@@ -272,6 +272,10 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 				}
 			}
 		}
+		if reflect.ValueOf(ncNode).IsNil() {
+			ncNode = make(map[string]interface{})
+			nc.Node = ncNode
+		}
 		if m, ok := ncNode.(map[string]interface{}); ok {
 			nn, ok = m[pe]
 			if !ok {

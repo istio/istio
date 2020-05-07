@@ -41,10 +41,6 @@ var (
 	_ = udpa.TypedStruct{}
 )
 
-const (
-	RevisionLabel = "istio.io/rev"
-)
-
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
 type ConfigKey struct {

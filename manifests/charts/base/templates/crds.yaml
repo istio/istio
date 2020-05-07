@@ -1,3 +1,5 @@
-{{ .Files.Get "files/crd-all.gen.yaml" }}
-{{ .Files.Get "files/crd-mixer.yaml" }}
-{{ .Files.Get "files/crd-operator.yaml" }}
+{{- if .Values.base.enableCRDTemplates }}
+{{ .Files.Get "crds/crd-all.gen.yaml" }}
+{{ .Files.Get "crds/crd-mixer.yaml" }}
+{{ .Files.Get "crds/crd-operator.yaml" }}
+{{- end }}

@@ -33,6 +33,10 @@ import (
 	"istio.io/pkg/probe"
 )
 
+const (
+	HTTPSHandlerReadyPath = "/httpsReady"
+)
+
 // This is for lint fix
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -77,7 +81,7 @@ func webhookHTTPSHandlerReady(client httpClient, port uint) error {
 	readinessURL := &url.URL{
 		Scheme: "https",
 		Host:   fmt.Sprintf("localhost:%v", port),
-		Path:   server.HTTPSHandlerReadyPath,
+		Path:   HTTPSHandlerReadyPath,
 	}
 
 	req := &http.Request{

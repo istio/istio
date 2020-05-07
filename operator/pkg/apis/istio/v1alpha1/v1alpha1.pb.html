@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 94
+number_of_entries: 95
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -5754,28 +5754,6 @@ No
 No
 </td>
 </tr>
-<tr id="TracerLightStepConfig-cacertPath">
-<td><code>cacertPath</code></td>
-<td><code>string</code></td>
-<td>
-<p>Sets path to the file containing the cacert to use when verifying TLS.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracerLightStepConfig-secure">
-<td><code>secure</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables lightstep secure connection.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 </tbody>
 </table>
 </section>
@@ -6816,6 +6794,32 @@ No
 </tbody>
 </table>
 </section>
+<h2 id="BaseConfig">BaseConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="BaseConfig-enableCRDTemplates">
+<td><code>enableCRDTemplates</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>For Helm2 use, adds the CRDs to templates.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Values">Values</h2>
 <section>
 <table class="message-fields">
@@ -7002,6 +7006,15 @@ No
 <td>
 <p>TODO can this import the real mesh config API?</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-base">
+<td><code>base</code></td>
+<td><code><a href="#BaseConfig">BaseConfig</a></code></td>
+<td>
 </td>
 <td>
 No

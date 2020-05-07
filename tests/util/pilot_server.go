@@ -74,8 +74,6 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 
 	meshConfig := mesh.DefaultMeshConfig()
 
-	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
-
 	additionalArgs = append([]func(p *bootstrap.PilotArgs){func(p *bootstrap.PilotArgs) {
 		p.Namespace = "testing"
 		p.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{

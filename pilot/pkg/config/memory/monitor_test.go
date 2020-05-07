@@ -24,6 +24,17 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
+func TestMonitorLifecycle(t *testing.T) {
+	// Regression test to ensure no race conditions during monitor shutdown
+	store := memory.Make(collections.Mocks)
+	m := memory.NewMonitor(store)
+	stop := make(chan struct{})
+	go m.Run(stop)
+	m.ScheduleProcessEvent(memory.ConfigEvent{})
+	close(stop)
+	m.ScheduleProcessEvent(memory.ConfigEvent{})
+}
+
 func TestEventConsistency(t *testing.T) {
 	store := memory.Make(collections.Mocks)
 	controller := memory.NewController(store)

@@ -69,6 +69,23 @@ func addToMeshCmd() *cobra.Command {
 		Use:     "add-to-mesh",
 		Aliases: []string{"add"},
 		Short:   "Add workloads into Istio service mesh",
+		Long: `'istioctl experimental add-to-mesh' restarts pods with an Istio sidecar or configures meshed pod access to external services.
+
+Use 'add-to-mesh' as an alternate to namespace-wide auto injection for troubleshooting compatibility.
+
+The 'remove-from-mesh' command can be used to restart with the sidecar removed.
+
+THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
+		Example: `
+# Restart all productpage pods with an Istio sidecar
+istioctl experimental add-to-mesh service productpage
+
+# Restart just pods from the productpage-v1 deployment
+istioctl experimental add-to-mesh deployment productpage-v1
+
+# Control how meshed pods see an external service
+istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126 \
+   http:9080 tcp:8888 --labels app=test,version=v1 --annotations env=stage --serviceaccount stageAdmin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.HelpFunc()(cmd, args)
 			if len(args) != 0 {
@@ -101,15 +118,22 @@ func deploymentMeshifyCmd() *cobra.Command {
 	var revision string
 
 	cmd := &cobra.Command{
-		Use:   "deployment",
+		Use:   "deployment <deployment>",
 		Short: "Add deployment to Istio service mesh",
-		Long: `istioctl experimental add-to-mesh deployment restarts pods with the Istio sidecar.  Use 'add-to-mesh'
-to test deployments for compatibility with Istio.  If your deployment does not function after
-using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
+		// nolint: lll
+		Long: `'istioctl experimental add-to-mesh deployment' restarts pods with the Istio sidecar.  Use 'add-to-mesh'
+to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
+
+If your deployment does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
 See https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+
+See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.
+
+THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental add-to-mesh deployment productpage-v1`,
+		Example: `
+# Restart pods from the productpage-v1 deployment with Istio sidecar
+istioctl experimental add-to-mesh deployment productpage-v1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting deployment name")
@@ -138,7 +162,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	}
 
 	cmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision")
+		"control plane revision (experimental)")
 
 	return cmd
 }
@@ -147,15 +171,22 @@ func svcMeshifyCmd() *cobra.Command {
 	var revision string
 
 	cmd := &cobra.Command{
-		Use:   "service",
+		Use:   "service <service>",
 		Short: "Add Service to Istio service mesh",
+		// nolint: lll
 		Long: `istioctl experimental add-to-mesh service restarts pods with the Istio sidecar.  Use 'add-to-mesh'
-to test deployments for compatibility with Istio.  If your service does not function after
-using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
+to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
+
+If your service does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
 See https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+
+See also 'istioctl experimental remove-from-mesh service' which does the reverse.
+
+THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental add-to-mesh service productpage`,
+		Example: `
+# Restart all productpage pods with an Istio sidecar
+istioctl experimental add-to-mesh service productpage`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting service name")
@@ -186,22 +217,27 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	}
 
 	cmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision")
+		"control plane revision (experimental)")
 
 	return cmd
 }
 
 func externalSvcMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "external-service <svcname> <ip>... [name1:]port1 [name2:]port2 ...",
-		Short: "Add external service(eg:services running on VM) to Istio service mesh",
-		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and\ 
+		Use:   "external-service <svcname> <ip> [name1:]port1 [[name2:]port2] ...",
+		Short: "Add external service (e.g. services running on a VM) to Istio service mesh",
+		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and 
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+
+See also 'istioctl experimental remove-from-mesh external-service' which does the reverse.
+
+THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126\
-http:9080 tcp:8888 -l app=test,version=v1 -a env=stage -s stageAdmin`,
+		Example: `
+# Control how meshed pods contact 172.12.23.125 and .126
+istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126 \
+   http:9080 tcp:8888 --labels app=test,version=v1 --annotations env=stage --serviceaccount stageAdmin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 3 {
 				return fmt.Errorf("provide service name, IP and Port List")

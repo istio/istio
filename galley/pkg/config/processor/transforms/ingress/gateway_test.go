@@ -19,7 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
@@ -162,7 +162,7 @@ func TestGateway_NoListeners(t *testing.T) {
 
 	o := processing.ProcessorOptions{
 		DomainSuffix: "svc.local",
-		MeshConfig:   meshcfg.Default(),
+		MeshConfig:   mesh.DefaultMeshConfig(),
 	}
 
 	xforms := GetProviders().Create(o)

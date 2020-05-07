@@ -150,6 +150,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(softGraduatedCmd(Analyze()))
+	experimentalCmd.AddCommand(vmBootstrapCommand())
 	experimentalCmd.AddCommand(waitCmd())
 
 	postInstallCmd.AddCommand(Webhook())
@@ -168,8 +169,10 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(profileCmd)
 
-	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UpgradeCmd()))
-	rootCmd.AddCommand(mesh.UpgradeCmd())
+	upgradeCmd := mesh.UpgradeCmd()
+	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace")
+	experimentalCmd.AddCommand(softGraduatedCmd(upgradeCmd))
+	rootCmd.AddCommand(upgradeCmd)
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
 	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())

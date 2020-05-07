@@ -57,6 +57,9 @@ func (c *MemServiceController) AppendInstanceHandler(f func(*model.ServiceInstan
 // Run will run the controller
 func (c *MemServiceController) Run(<-chan struct{}) {}
 
+// HasSynced always returns true
+func (c *MemServiceController) HasSynced() bool { return true }
+
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
 	services map[host.Name]*model.Service

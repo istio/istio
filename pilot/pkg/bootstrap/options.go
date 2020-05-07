@@ -83,6 +83,8 @@ type PilotArgs struct {
 	KeepaliveOptions   *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
+	// Optional TLS configuration
+	TLSOptions TLSOptions
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -116,6 +118,13 @@ type MCPOptions struct {
 	MaxMessageSize        int
 	InitialWindowSize     int
 	InitialConnWindowSize int
+}
+
+// Optional TLS parameters for the server.
+type TLSOptions struct {
+	CaCertFile string
+	CertFile   string
+	KeyFile    string
 }
 
 var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "istio-system", "")

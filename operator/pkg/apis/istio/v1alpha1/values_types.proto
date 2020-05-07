@@ -1623,12 +1623,6 @@ message TracerLightStepConfig {
 
   // Sets the lightstep access token.
   string accessToken = 2;
-
-  // Sets path to the file containing the cacert to use when verifying TLS.
-  string cacertPath = 3;
-
-  // Enables lightstep secure connection.
-  google.protobuf.BoolValue secure = 4;
 }
 
 // Configuration for the zipkin tracing service.
@@ -1908,6 +1902,11 @@ message KialiConfig {
   KialiServiceConfig service = 19;
 }
 
+message BaseConfig {
+  // For Helm2 use, adds the CRDs to templates.
+  google.protobuf.BoolValue enableCRDTemplates = 1;
+}
+
 message Values {
   CNIConfig cni = 2;
 
@@ -1949,6 +1948,8 @@ message Values {
 
   // TODO can this import the real mesh config API?
   TypeInterface meshConfig = 36;
+
+  BaseConfig base = 37;
 }
 
 // GOTYPE: map[string]interface{}

@@ -23,8 +23,6 @@ import (
 
 	"istio.io/istio/pkg/test/util/retry"
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -78,7 +76,6 @@ func TestTrafficShifting(t *testing.T) {
 
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "traffic-shifting",

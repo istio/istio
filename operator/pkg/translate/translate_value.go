@@ -21,11 +21,12 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
+
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
-	"istio.io/istio/operator/pkg/vfs"
+	oversion "istio.io/istio/operator/version"
 )
 
 // ReverseTranslator is a set of mappings to translate between values.yaml and API paths, charts, k8s paths.
@@ -78,11 +79,8 @@ var (
 )
 
 // initAPIMapping generate the reverse mapping from original translator apiMapping.
-func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) error {
-	ts, err := NewTranslator(vs)
-	if err != nil {
-		return err
-	}
+func (t *ReverseTranslator) initAPIAndComponentMapping() {
+	ts := NewTranslator()
 	t.APIMapping = make(map[string]*Translation)
 	t.KubernetesMapping = make(map[string]*Translation)
 	t.ValuesToComponentName = make(map[string]name.ComponentName)
@@ -95,7 +93,6 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 			t.ValuesToComponentName[cm.ToHelmValuesTreeRoot] = cn
 		}
 	}
-	return nil
 }
 
 // initK8SMapping generates the k8s settings mapping for components that are enabled based on templates.
@@ -141,24 +138,28 @@ func (t *ReverseTranslator) initK8SMapping() error {
 }
 
 // NewReverseTranslator creates a new ReverseTranslator for minorVersion and returns a ptr to it.
-func NewReverseTranslator(minorVersion version.MinorVersion) (*ReverseTranslator, error) {
-	v := fmt.Sprintf("%s.%d", minorVersion.MajorVersion, minorVersion.Minor)
-	f := "translateConfig/reverseTranslateConfig-" + v + ".yaml"
-	b, err := vfs.ReadFile(f)
-	if err != nil {
-		return nil, fmt.Errorf("could not read translate configs: %v", err)
+func NewReverseTranslator() *ReverseTranslator {
+	rt := &ReverseTranslator{
+		KubernetesPatternMapping: map[string]string{
+			"{{.ValueComponentName}}.env":                   "Components.{{.ComponentName}}.K8s.Env",
+			"{{.ValueComponentName}}.autoscaleEnabled":      "Components.{{.ComponentName}}.K8s.HpaSpec",
+			"{{.ValueComponentName}}.imagePullPolicy":       "Components.{{.ComponentName}}.K8s.ImagePullPolicy",
+			"{{.ValueComponentName}}.nodeSelector":          "Components.{{.ComponentName}}.K8s.NodeSelector",
+			"{{.ValueComponentName}}.tolerations":           "Components.{{.ComponentName}}.K8s.Tolerations",
+			"{{.ValueComponentName}}.podDisruptionBudget":   "Components.{{.ComponentName}}.K8s.PodDisruptionBudget",
+			"{{.ValueComponentName}}.podAnnotations":        "Components.{{.ComponentName}}.K8s.PodAnnotations",
+			"{{.ValueComponentName}}.priorityClassName":     "Components.{{.ComponentName}}.K8s.PriorityClassName",
+			"{{.ValueComponentName}}.readinessProbe":        "Components.{{.ComponentName}}.K8s.ReadinessProbe",
+			"{{.ValueComponentName}}.replicaCount":          "Components.{{.ComponentName}}.K8s.ReplicaCount",
+			"{{.ValueComponentName}}.resources":             "Components.{{.ComponentName}}.K8s.Resources",
+			"{{.ValueComponentName}}.rollingMaxSurge":       "Components.{{.ComponentName}}.K8s.Strategy",
+			"{{.ValueComponentName}}.rollingMaxUnavailable": "Components.{{.ComponentName}}.K8s.Strategy",
+			"{{.ValueComponentName}}.serviceAnnotations":    "Components.{{.ComponentName}}.K8s.ServiceAnnotations",
+		},
 	}
-	rt := &ReverseTranslator{}
-	err = yaml.Unmarshal(b, rt)
-	if err != nil {
-		return nil, fmt.Errorf("could not Unmarshal reverseTranslateConfig file %s: %s", f, err)
-	}
-	err = rt.initAPIAndComponentMapping(minorVersion)
-	if err != nil {
-		return nil, fmt.Errorf("error initialize API mapping: %s", err)
-	}
-	rt.Version = minorVersion
-	return rt, nil
+	rt.initAPIAndComponentMapping()
+	rt.Version = oversion.OperatorBinaryVersion.MinorVersion
+	return rt
 }
 
 // TranslateFromValueToSpec translates from values.yaml value to IstioOperatorSpec.
