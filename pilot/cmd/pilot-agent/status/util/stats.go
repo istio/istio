@@ -53,11 +53,12 @@ type Stats struct {
 
 // String representation of the Stats.
 func (s *Stats) String() string {
-	return fmt.Sprintf("cds updates: %d successful, %d rejected; lds updates: %d successful, %d rejected",
+	return fmt.Sprintf("cds updates: %d successful, %d rejected; lds updates: %d successful, %d rejected; sds updates: %d successful",
 		s.CDSUpdatesSuccess,
 		s.CDSUpdatesRejection,
 		s.LDSUpdatesSuccess,
-		s.LDSUpdatesRejection)
+		s.LDSUpdatesRejection,
+		s.SDSUpdatesSuccess)
 }
 
 // GetServerState returns the current Envoy state by checking the "server.state" stat.

@@ -59,7 +59,10 @@ func (p *Probe) checkConfigStatus() error {
 		return nil
 	}
 
-	return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
+	if !CDSUpdated || !LDSUpdated {
+		return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
+	}
+	return fmt.Errorf("cert not received from istio-agent (check the istio-agent config and try to restart the pod if the error persists): %s", s.String())
 }
 
 // checkServerState checks to ensure that Envoy is in the READY state

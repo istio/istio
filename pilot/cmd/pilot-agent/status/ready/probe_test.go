@@ -24,9 +24,9 @@ import (
 )
 
 var (
-	liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0"
+	liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2"
 	onlyServerStats = "server.state: 0"
-	initServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 2"
+	initServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 2\nlistener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2"
 	noServerStats   = ""
 )
 
@@ -43,34 +43,44 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 }
 
 func TestEnvoyStats(t *testing.T) {
-	prefix := "config not received from Pilot (is Pilot running?): "
+	ldsCdsPrefix := "config not received from Pilot (is Pilot running?): "
+	sdsErrorPrefix := "cert not received from istio-agent (check the istio-agent config and try to restart the pod if the error persists): "
 	cases := []struct {
 		name   string
 		stats  string
 		result string
 	}{
 		{
-			"only lds",
+			"only LDS",
 			"listener_manager.lds.update_success: 1",
-			prefix + "cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected",
+			ldsCdsPrefix + "cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
 		},
 		{
-			"only cds",
+			"only CDS",
 			"cluster_manager.cds.update_success: 1",
-			prefix + "cds updates: 1 successful, 0 rejected; lds updates: 0 successful, 0 rejected",
+			ldsCdsPrefix + "cds updates: 1 successful, 0 rejected; lds updates: 0 successful, 0 rejected; sds updates: 0 successful",
 		},
 		{
 			"reject CDS",
 			`cluster_manager.cds.update_rejected: 1
 listener_manager.lds.update_success: 1`,
-			prefix + "cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected",
+			ldsCdsPrefix + "cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
+		},
+		{
+			"Missing SDS",
+			`
+cluster_manager.cds.update_success: 1
+listener_manager.lds.update_success: 1
+server.state: 0`,
+			sdsErrorPrefix + "cds updates: 1 successful, 0 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
 		},
 		{
 			"full",
 			`
 cluster_manager.cds.update_success: 1
 listener_manager.lds.update_success: 1
-server.state: 0`,
+server.state: 0
+listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2`,
 			"",
 		},
 	}
