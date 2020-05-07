@@ -28,7 +28,7 @@ metadata:
   name: tracing
   namespace: istio-system
   labels:
-    app: jaeger
+    app: zipkin
 spec:
   type: ClusterIP
   ports:
@@ -37,7 +37,7 @@ spec:
       protocol: TCP
       targetPort: 9411
   selector:
-    app: jaeger
+    app: zipkin
 ---
 apiVersion: v1
 kind: Service
