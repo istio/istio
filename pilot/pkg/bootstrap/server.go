@@ -148,6 +148,9 @@ type Server struct {
 	// nil if injection disabled
 	injectionWebhook *inject.Webhook
 
+	// fileWatcher used to watch mesh config, networks and certificates.
+	fileWatcher filewatcher.FileWatcher
+
 	certMu     sync.Mutex
 	istiodCert *tls.Certificate
 	jwtPath    string
@@ -170,6 +173,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		clusterID:      getClusterID(args),
 		environment:    e,
 		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
+		fileWatcher:    filewatcher.NewWatcher(),
 		forceStop:      args.ForceStop,
 		mux:            http.NewServeMux(),
 	}
@@ -180,11 +184,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
-	fileWatcher := filewatcher.NewWatcher()
-	if err := s.initMeshConfiguration(args, fileWatcher); err != nil {
+	if err := s.initMeshConfiguration(args, s.fileWatcher); err != nil {
 		return nil, fmt.Errorf("error initializing mesh config: %v", err)
 	}
-	s.initMeshNetworks(args, fileWatcher)
+	s.initMeshNetworks(args, s.fileWatcher)
 
 	// Certificate controller is created before MCP controller in case MCP server pod
 	// waits to mount a certificate to be provisioned by the certificate controller.
@@ -246,7 +249,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// setup watches for certs - This has to be called after initSecureGrpcListener because it sets up DNS certs.
 	if err := s.initCertificateWatches(args.TLSOptions); err != nil {
-		// Not crashing istiod - This typically happens if certs are missing.
+		// Not crashing istiod - This typically happens if certs are missing and in tests.
 		log.Errorf("error initializing certificate watches: %v", err)
 	}
 
@@ -518,6 +521,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 	go func() {
 		<-stop
+		s.fileWatcher.Close()
+
 		model.JwtKeyResolver.Close()
 
 		if s.forceStop {
@@ -585,7 +590,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Options, tlsOptions TLSOptions) error {
-	// TODO(ramaraochavali): Watch root cert also?
+	// TODO(ramaraochavali): Restart Server if root certificate changes.
 	root, err := s.getRootCertificate(tlsOptions)
 	if err != nil {
 		return err
@@ -802,7 +807,7 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 		return fmt.Errorf("invalid port(%s) in ISTIOD_ADDR(%s): %v", port, istiodAddr, err)
 	}
 
-	// TODO(ramaraochavali): Move the cert generation sepaate function and call it before we run init of any service.
+	// TODO(ramaraochavali): Move the cert generation separate function and call it before we run init of any service.
 
 	// Generate DNS certificates only if custom certs are not provided via args.
 	if !hasCustomTLSCerts(args.TLSOptions) {
@@ -830,11 +835,10 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 		return err
 	}
 	s.istiodCert = &cert
-	// TODO: Setup watcher for root also ?
-	keyCertWatcher := filewatcher.NewWatcher()
+	// TODO: Setup watcher for root and restart server if it changes.
 	keyFile, certFile := s.getCertKeyPaths(tlsOptions)
 	for _, file := range []string{certFile, keyFile} {
-		if err := keyCertWatcher.Add(file); err != nil {
+		if err := s.fileWatcher.Add(file); err != nil {
 			return fmt.Errorf("could not watch %v: %v", file, err)
 		}
 	}
@@ -856,20 +860,35 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 					s.certMu.Lock()
 					s.istiodCert = &cert
 					s.certMu.Unlock()
-				case <-keyCertWatcher.Events(certFile):
+
+					var cnum int
+					log.Info("Istiod certificates are reloaded")
+					for _, c := range cert.Certificate {
+						if x509Cert, err := x509.ParseCertificates(c); err != nil {
+							log.Infof("x509 cert [%v] - ParseCertificates() error: %v\n", cnum, err)
+							cnum++
+						} else {
+							for _, c := range x509Cert {
+								log.Infof("x509 cert [%v] - Issuer: %q, Subject: %q, SN: %x, NotBefore: %q, NotAfter: %q\n",
+									cnum, c.Issuer, c.Subject, c.SerialNumber,
+									c.NotBefore.Format(time.RFC3339), c.NotAfter.Format(time.RFC3339))
+								cnum++
+							}
+						}
+					}
+				case <-s.fileWatcher.Events(certFile):
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
-				case <-keyCertWatcher.Events(keyFile):
+				case <-s.fileWatcher.Events(keyFile):
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
-				case <-keyCertWatcher.Errors(certFile):
+				case <-s.fileWatcher.Errors(certFile):
 					log.Errorf("error watching %v: %v", certFile, err)
-				case <-keyCertWatcher.Errors(keyFile):
+				case <-s.fileWatcher.Errors(keyFile):
 					log.Errorf("error watching %v: %v", keyFile, err)
 				case <-stop:
-					keyCertWatcher.Close()
 					return
 				}
 			}

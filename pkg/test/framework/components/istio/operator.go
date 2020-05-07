@@ -26,7 +26,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/cert/ca"
-	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -100,8 +99,8 @@ func (i *operatorComponent) Dump() {
 			return
 		}
 
-		deployment.DumpPodState(d, i.settings.SystemNamespace, cluster.Accessor)
-		deployment.DumpPodEvents(d, i.settings.SystemNamespace, cluster.Accessor)
+		cluster.DumpPodState(d, i.settings.SystemNamespace)
+		cluster.DumpPodEvents(d, i.settings.SystemNamespace)
 
 		pods, err := cluster.GetPods(i.settings.SystemNamespace)
 		if err != nil {
