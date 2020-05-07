@@ -40,23 +40,20 @@ To write a stub, simply create a test object and call NotImplementedYet, passing
 
 For reporting purposes, we organize our features under a handful of high level categories, which should change very rarely, so that reports stay consistent.  This section will document the top level categories to help you decide where to place your feature label.
 
-- Observability - features that relate to measuring or exploring your service mesh or the services which comprise it.
-  - Telemetry
-  - Tracing
+* Observability - features that relate to measuring or exploring your service mesh or the services which comprise it.
+    *  Telemetry
+    *  Tracing
 
-- Security - features that allow users to secure their services and service mesh.
-  - Peer
-    - AuthN
-    - AuthZ
-  - User
-    - AuthN
-    - AuthZ
+* Security - features that allow users to secure their services and service mesh.
+    * Peer
+        * AuthN
+        * AuthZ
+    * User
+        * AuthN
+        * AuthZ
+    * Control-Plane
 
-- Control - features relating to controling their service mesh and services.
-  - Routing
-  - Short-Circuiting
-  - Mirroring
-
-- Operations - features related to operating Istio itself, rather than the service mesh or individual services.
-  - Observability
-  - Security
+* Networking - features relating to controlling the traffic of the service mesh.
+    * Routing
+    * Short-Circuiting
+    * Mirroring
