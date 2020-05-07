@@ -35,7 +35,6 @@ import (
 )
 
 func TestIntoResourceFile(t *testing.T) {
-	mesh.TestMode = true
 	cases := []struct {
 		in     string
 		want   string
@@ -342,7 +341,6 @@ values:
 
 // TestRewriteAppProbe tests the feature for pilot agent to take over app health check traffic.
 func TestRewriteAppProbe(t *testing.T) {
-	mesh.TestMode = true
 	cases := []struct {
 		in                  string
 		rewriteAppHTTPProbe bool
