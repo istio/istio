@@ -39,6 +39,8 @@ import (
 )
 
 const (
+	// defaultWaitResourceTimeout is the maximum wait time for all resources(namespace/deployment/pod) to be created.
+	defaultWaitResourceTimeout = 300 * time.Second
 	// cRDPollInterval is how often the state of CRDs is polled when waiting for their creation.
 	cRDPollInterval = 500 * time.Millisecond
 	// cRDPollTimeout is the maximum wait time for all CRDs to be created.

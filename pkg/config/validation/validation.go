@@ -2899,3 +2899,45 @@ func validateLocalities(localities []string) error {
 
 	return nil
 }
+
+// ValidateMeshNetworks validates meshnetworks.
+func ValidateMeshNetworks(meshnetworks *meshconfig.MeshNetworks) (errs error) {
+	for name, network := range meshnetworks.Networks {
+		if err := validateNetwork(network); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid network %v:", name)))
+		}
+	}
+	return
+}
+
+func validateNetwork(network *meshconfig.Network) (errs error) {
+	for _, n := range network.Endpoints {
+		switch e := n.Ne.(type) {
+		case *meshconfig.Network_NetworkEndpoints_FromCidr:
+			if err := ValidateIPSubnet(e.FromCidr); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		case *meshconfig.Network_NetworkEndpoints_FromRegistry:
+			if ok := labels.IsDNS1123Label(e.FromRegistry); !ok {
+				errs = multierror.Append(errs, fmt.Errorf("invalid registry name: %v", e.FromRegistry))
+			}
+		}
+
+	}
+	for _, n := range network.Gateways {
+		switch g := n.Gw.(type) {
+		case *meshconfig.Network_IstioNetworkGateway_RegistryServiceName:
+			if err := ValidateFQDN(g.RegistryServiceName); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		case *meshconfig.Network_IstioNetworkGateway_Address:
+			if err := ValidateIPAddress(g.Address); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+		if err := ValidatePort(int(n.Port)); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return
+}

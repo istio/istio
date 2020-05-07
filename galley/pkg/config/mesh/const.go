@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meshcfg
+package mesh
 
 import (
 	"istio.io/istio/pkg/config/resource"
 )
 
-// ResourceName for the Istio Mesh Config resource
-var ResourceName = resource.NewFullName("istio-system", "meshconfig")
+// MeshConfigResourceName is the resource name for the Istio MeshConfig resource.
+var MeshConfigResourceName = resource.NewFullName("istio-system", "meshconfig")
+
+// MeshNetworksResourceName is the resource name for the Istio MeshNetworks resource.
+var MeshNetworksResourceName = resource.NewFullName("istio-system", "meshnetworks")

@@ -22,8 +22,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
-
 	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
@@ -66,10 +64,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 	parameters := inject.WebhookParameters{
 		ConfigFile: filepath.Join(injectPath, "config"),
 		ValuesFile: filepath.Join(injectPath, "values"),
-		MeshFile:   args.Mesh.ConfigFile,
 		Env:        s.environment,
-		CertFile:   model.GetOrDefault(args.TLSOptions.CertFile, filepath.Join(dnsCertDir, "cert-chain.pem")),
-		KeyFile:    model.GetOrDefault(args.TLSOptions.KeyFile, filepath.Join(dnsCertDir, "key.pem")),
 		// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
 		MonitoringPort: -1,
 		Mux:            s.httpsMux,
@@ -107,7 +102,6 @@ const delayedRetryTime = time.Second
 // - use the K8S root instead of citadel root CA
 // - removed the watcher - the k8s CA is already mounted at startup, no more delay waiting for it
 func (s *Server) patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
-
 	// K8S own CA
 	caCertPem, err := ioutil.ReadFile(s.caBundlePath)
 	if err != nil {

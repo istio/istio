@@ -377,6 +377,23 @@ func TestManifestGenerateOrdered(t *testing.T) {
 		t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
 	}
 }
+func TestManifestGenerateFlagAliases(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
+	gotSet, err := runManifestGenerate([]string{inPath}, "--set revision=foo", snapshotCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --charts="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if gotAlias != gotSet {
+		t.Errorf("Flag aliases not producing same output: with --set: \n\n%s\n\nWith alias:\n\n%s\nDiff:\n\n%s\n",
+			gotSet, gotAlias, util.YAMLDiff(gotSet, gotAlias))
+	}
+}
 
 func TestMultiICPSFiles(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
@@ -406,6 +423,24 @@ func TestMultiICPSFiles(t *testing.T) {
 func TestBareSpec(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBareValues(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPathBase := filepath.Join(testDataDir, "input/bare_values.yaml")
+	// As long as the generate doesn't panic, we pass it.  bare_values.yaml doesn't
+	// overlay well because JSON doesn't handle null values, and our charts
+	// don't expect values to be blown away.
+	_, _ = runManifestGenerate([]string{inPathBase}, "", liveCharts)
+}
+
+func TestBogusControlPlaneSec(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPathBase := filepath.Join(testDataDir, "input/bogus_cps.yaml")
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
 	if err != nil {
 		t.Fatal(err)

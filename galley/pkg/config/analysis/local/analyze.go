@@ -32,7 +32,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	galley_mesh "istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor"
@@ -51,9 +51,10 @@ import (
 )
 
 const (
-	domainSuffix      = "cluster.local"
-	meshConfigMapKey  = "mesh"
-	meshConfigMapName = "istio"
+	domainSuffix       = "cluster.local"
+	meshConfigMapKey   = "mesh"
+	meshConfigMapName  = "istio"
+	meshNetworksMapKey = "meshNetworks"
 )
 
 // Pseudo-constants, since golang doesn't support a true const slice/array
@@ -80,6 +81,9 @@ type SourceAnalyzer struct {
 
 	// Mesh config for this analyzer. This can come from multiple sources, and the last added version will take precedence.
 	meshCfg *v1alpha1.MeshConfig
+
+	// Mesh networks config for this analyzer.
+	meshNetworks *v1alpha1.MeshNetworks
 
 	// Which kube resources are used by this analyzer
 	// Derived from metadata and the specified analyzer and transformer providers
@@ -129,7 +133,8 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 
 	sa := &SourceAnalyzer{
 		m:                    m,
-		meshCfg:              meshcfg.Default(),
+		meshCfg:              galley_mesh.DefaultMeshConfig(),
+		meshNetworks:         galley_mesh.DefaultMeshNetworks(),
 		sources:              make([]precedenceSourceInput, 0),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
@@ -152,13 +157,23 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
 	}
 
-	// Create a source representing mesh config. There should be exactly one of these.
-	meshsrc := meshcfg.NewInmemory()
-	meshsrc.Set(sa.meshCfg)
+	// Create a source representing mesh config. There should be exactly one.
+	meshconfig := galley_mesh.NewInmemoryMeshCfg()
+	meshconfig.Set(sa.meshCfg)
 	sa.sources = append(sa.sources, precedenceSourceInput{
-		src: meshsrc,
+		src: meshconfig,
 		cols: collection.Names{
 			collections.IstioMeshV1Alpha1MeshConfig.Name(),
+		},
+	})
+
+	// Create a source representing meshnetworks. There should be exactly one.
+	meshnetworks := galley_mesh.NewInmemoryMeshNetworks()
+	meshnetworks.Set(sa.meshNetworks)
+	sa.sources = append(sa.sources, precedenceSourceInput{
+		src: meshnetworks,
+		cols: collection.Names{
+			collections.IstioMeshV1Alpha1MeshNetworks.Name(),
 		},
 	})
 
@@ -260,8 +275,8 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 		return
 	}
 
-	// Since we're using a running k8s source, try to get mesh config from the configmap
-	if err := sa.addRunningKubeMeshConfigSource(client); err != nil {
+	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
+	if err := sa.addRunningKubeIstioConfigMapSource(client); err != nil {
 		_, err := client.CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			scope.Analysis.Warnf("%v namespace not found. Istio may not be installed in the target cluster. "+
@@ -294,6 +309,17 @@ func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
 	return nil
 }
 
+// AddFileKubeMeshNetworks gets a file meshnetworks and add it to the analyzer.
+func (sa *SourceAnalyzer) AddFileKubeMeshNetworks(file string) error {
+	mn, err := mesh.ReadMeshNetworks(file)
+	if err != nil {
+		return err
+	}
+
+	sa.meshNetworks = mn
+	return nil
+}
+
 // AddDefaultResources adds some basic dummy Istio resources, based on mesh configuration.
 // This is useful for files-only analysis cases where we don't expect the user to be including istio system resources
 // and don't want to generate false positives because they aren't there.
@@ -316,7 +342,7 @@ func (sa *SourceAnalyzer) AddDefaultResources() error {
 	return sa.AddReaderKubeSource(readers)
 }
 
-func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(client kubernetes.Interface) error {
+func (sa *SourceAnalyzer) addRunningKubeIstioConfigMapSource(client kubernetes.Interface) error {
 	meshConfigMap, err := client.CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
@@ -333,5 +359,17 @@ func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(client kubernetes.Inter
 	}
 
 	sa.meshCfg = cfg
+
+	meshNetworksYaml, ok := meshConfigMap.Data[meshNetworksMapKey]
+	if !ok {
+		return fmt.Errorf("missing config map key %q", meshNetworksMapKey)
+	}
+
+	mn, err := mesh.ParseMeshNetworks(meshNetworksYaml)
+	if err != nil {
+		return fmt.Errorf("error parsing mesh networks: %v", err)
+	}
+
+	sa.meshNetworks = mn
 	return nil
 }

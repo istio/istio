@@ -12,19 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meshcfg
+package mesh
 
 import (
 	"testing"
 
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schema/collections"
+	. "github.com/onsi/gomega"
+
+	"istio.io/api/mesh/v1alpha1"
+
+	"istio.io/istio/pkg/config/mesh"
 )
 
-func TestMeshConfigNameValidity(t *testing.T) {
-	m := schema.MustGet()
-	_, found := m.AllCollections().Find(collections.IstioMeshV1Alpha1MeshConfig.Name().String())
-	if !found {
-		t.Fatalf("Mesh config collection not found in metadata.")
-	}
+func TestDefaults(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	m := DefaultMeshConfig()
+	expect := mesh.DefaultMeshConfig()
+	expect.IngressClass = "istio"
+	expect.IngressControllerMode = v1alpha1.MeshConfig_STRICT
+	g.Expect(*m).To(Equal(expect))
 }

@@ -16,14 +16,18 @@ package mesh
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/docker/distribution/reference"
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
+	client_v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -58,8 +62,6 @@ const (
 type upgradeArgs struct {
 	// inFilenames is an array of paths to the input IstioOperator CR files.
 	inFilenames []string
-	// versionsURI is a URI pointing to a YAML formatted versions mapping.
-	versionsURI string
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
@@ -83,8 +85,6 @@ type upgradeArgs struct {
 func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename",
 		"f", nil, "Path to file containing IstioOperator custom resource")
-	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
-		"", "URI for operator versions to Istio versions map")
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig",
 		"c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
@@ -136,7 +136,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	ysf, err := yamlFromSetFlags(applyInstallFlagAlias(args.set, args.charts), args.force, l)
+	ysf, err := yamlFromSetFlags(applyFlagAliases(args.set, args.charts, ""), args.force, l)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI)
+	err = checkSupportedVersions(kubeClient, currentVersion)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
@@ -214,7 +214,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(applyInstallFlagAlias(args.set, args.charts), args.inFilenames, args.force, rootArgs.dryRun,
+	err = ApplyManifests(applyFlagAliases(args.set, args.charts, ""), args.inFilenames, args.force, rootArgs.dryRun,
 		args.kubeConfigPath, args.context, args.wait, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
@@ -270,28 +270,19 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	}
 }
 
-// checkSupportedVersions checks if the upgrade cur -> tar is supported by the tool
-func checkSupportedVersions(cur, tar, versionsURI string) error {
-	tarGoVersion, err := goversion.NewVersion(tar)
+var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.8")
+
+func checkSupportedVersions(kubeClient *Client, currentVersion string) error {
+	curGoVersion, err := goversion.NewVersion(currentVersion)
 	if err != nil {
-		return fmt.Errorf("failed to parse the target version: %v", tar)
+		return fmt.Errorf("failed to parse the current version %q: %v", currentVersion, err)
 	}
 
-	compatibleMap, err := pkgversion.GetVersionCompatibleMap(versionsURI, tarGoVersion)
-	if err != nil {
-		return err
+	if !SupportedIstioVersions.Check(curGoVersion) {
+		return fmt.Errorf("upgrade is currently not supported from version: %v", currentVersion)
 	}
 
-	curGoVersion, err := goversion.NewVersion(cur)
-	if err != nil {
-		return fmt.Errorf("failed to parse the current version: %v, error: %v", cur, err)
-	}
-
-	if !compatibleMap.SupportedIstioVersions.Check(curGoVersion) {
-		return fmt.Errorf("upgrade is currently not supported: %v -> %v", cur, tar)
-	}
-
-	return nil
+	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
@@ -521,4 +512,81 @@ func (client *Client) ConfigMapForSelector(namespace, labelSelector string) (*v1
 		return nil, fmt.Errorf("failed retrieving configmap: %v", err)
 	}
 	return obj.(*v1.ConfigMapList), nil
+}
+
+func (client *Client) CheckUnsupportedAlphaSecurityCRD() error {
+	c, err := client_v1beta1.NewForConfig(client.Config)
+	if err != nil {
+		return err
+	}
+	crds, err := c.CustomResourceDefinitions().List(context.TODO(), meta_v1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get CRDs: %v", err)
+	}
+
+	unsupportedCRD := func(name string) bool {
+		crds := []string{
+			"clusterrbacconfigs.rbac.istio.io",
+			"rbacconfigs.rbac.istio.io",
+			"servicerolebindings.rbac.istio.io",
+			"serviceroles.rbac.istio.io",
+			"policies.authentication.istio.io",
+			"meshpolicies.authentication.istio.io",
+		}
+		for _, crd := range crds {
+			if name == crd {
+				return true
+			}
+		}
+		return false
+	}
+	getResource := func(crd string) []string {
+		type ResourceItem struct {
+			Metadata meta_v1.ObjectMeta `json:"metadata,omitempty"`
+		}
+		type Resource struct {
+			Items []ResourceItem `json:"items"`
+		}
+
+		parts := strings.Split(crd, ".")
+		cmd := client.Get().AbsPath("apis", strings.Join(parts[1:], "."), "v1alpha1", parts[0])
+		obj, err := cmd.DoRaw(context.TODO())
+		if err != nil {
+			log.Errorf("failed to get resources for crd %s: %v", crd, err)
+			return nil
+		}
+		resource := &Resource{}
+		if err := json.Unmarshal(obj, resource); err != nil {
+			log.Errorf("failed decoding response for crd %s: %v", crd, err)
+			return nil
+		}
+		var foundResources []string
+		for _, res := range resource.Items {
+			n := strings.Join([]string{crd, res.Metadata.Namespace, res.Metadata.Name}, "/")
+			foundResources = append(foundResources, n)
+		}
+		return foundResources
+	}
+
+	var foundCRDs []string
+	var foundResources []string
+	for _, crd := range crds.Items {
+		if unsupportedCRD(crd.Name) {
+			foundCRDs = append(foundCRDs, crd.Name)
+			foundResources = append(foundResources, getResource(crd.Name)...)
+		}
+	}
+	if len(foundCRDs) != 0 {
+		log.Warnf("found %d CRD of unsupported v1alpha1 security policy: %v. "+
+			"The v1alpha1 security policy is no longer supported starting 1.6. It's strongly recommended to delete "+
+			"the CRD of the v1alpha1 security policy to avoid applying any of the v1alpha1 security policy in the unsupported version",
+			len(foundCRDs), foundCRDs)
+	}
+	if len(foundResources) != 0 {
+		return fmt.Errorf("found %d unsupported v1alpha1 security policy: %v. "+
+			"The v1alpha1 security policy is no longer supported starting 1.6. To continue the upgrade, "+
+			"Please migrate to the v1beta1 security policy and delete all the v1alpha1 security policy",
+			len(foundResources), foundResources)
+	}
+	return nil
 }

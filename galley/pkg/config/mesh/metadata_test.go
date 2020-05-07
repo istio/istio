@@ -12,36 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package version
+package mesh
 
 import (
-	"io/ioutil"
 	"testing"
 
-	"gopkg.in/yaml.v2"
-
-	"istio.io/istio/operator/pkg/version"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
-const (
-	operatorVersionsMapFilePath = "../data/versions.yaml"
-)
-
-func TestVersions(t *testing.T) {
-	b, err := ioutil.ReadFile(operatorVersionsMapFilePath)
-	if err != nil {
-		t.Fatal(err)
+func TestMeshConfigNameValidity(t *testing.T) {
+	m := schema.MustGet()
+	_, found := m.AllCollections().Find(collections.IstioMeshV1Alpha1MeshConfig.Name().String())
+	if !found {
+		t.Fatalf("Mesh config collection not found in metadata.")
 	}
-	var vs []version.CompatibilityMapping
-	if err := yaml.Unmarshal(b, &vs); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, v := range vs {
-		if OperatorBinaryGoVersion.Equal(v.OperatorVersion) {
-			t.Logf("Found operator version %s in %s file.", OperatorBinaryGoVersion.String(), operatorVersionsMapFilePath)
-			return
-		}
-	}
-
 }
