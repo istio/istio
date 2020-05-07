@@ -466,9 +466,9 @@ func TestSignCSRForCA(t *testing.T) {
 
 	for id, tc := range cases {
 		certOpts := util.CertOptions{
-			RSAKeySize:    tc.RSAKeySize,
-			IsCA:          tc.IsCA,
-			IsEC:          tc.IsEC,
+			RSAKeySize: tc.RSAKeySize,
+			IsCA:       tc.IsCA,
+			IsEC:       tc.IsEC,
 		}
 		csrPEM, keyPEM, err := util.GenCSR(certOpts)
 		if err != nil {
@@ -522,25 +522,25 @@ func TestSignCSRForCA(t *testing.T) {
 func TestSignCSRTTLError(t *testing.T) {
 	subjectID := "spiffe://example.com/ns/foo/sa/bar"
 	cases := map[string]struct {
-		Org string
+		Org        string
 		RSAKeySize int
-		IsEC bool
+		IsEC       bool
 	}{
 		"CSR uses RSA": {
-				Org:        "istio.io",
-				RSAKeySize: 2048,
+			Org:        "istio.io",
+			RSAKeySize: 2048,
 		},
 		"CSR uses EC": {
-				Org:  "istio.io",
-				IsEC: true,
+			Org:  "istio.io",
+			IsEC: true,
 		},
 	}
 
 	for id, tc := range cases {
 		certOpts := util.CertOptions{
-			Org:           tc.Org,
-			RSAKeySize:    tc.RSAKeySize,
-			IsEC:          tc.IsEC,
+			Org:        tc.Org,
+			RSAKeySize: tc.RSAKeySize,
+			IsEC:       tc.IsEC,
 		}
 		csrPEM, _, err := util.GenCSR(certOpts)
 		if err != nil {

@@ -454,10 +454,10 @@ func TestRun(t *testing.T) {
 
 func TestGetServerCertificate(t *testing.T) {
 	cases := map[string]struct {
-		rootCertFile string
-		certChainFile string
+		rootCertFile    string
+		certChainFile   string
 		signingCertFile string
-		signingKeyFile string
+		signingKeyFile  string
 	}{
 		"RSA server cert": {
 			rootCertFile:    "../../pki/testdata/multilevelpki/root-cert.pem",
