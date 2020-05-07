@@ -360,7 +360,11 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.ApplyConfigOrFail(t, ns.Name(), policy...)
+				name := ""
+				if ns != nil {
+					name = ns.Name()
+				}
+				ctx.ApplyConfigOrFail(t, name, policy...)
 				return policy
 			}
 

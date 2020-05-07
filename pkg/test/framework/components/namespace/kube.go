@@ -99,9 +99,6 @@ var _ resource.Resource = &kubeNamespace{}
 var _ resource.Dumper = &kubeNamespace{}
 
 func (n *kubeNamespace) Name() string {
-	if n == nil {
-		return ""
-	}
 	return n.name
 }
 

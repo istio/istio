@@ -183,8 +183,8 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 }
 
 func (c *testContext) ApplyConfig(ns string, yamlText ...string) error {
-	for _, c := range c.Environment().Clusters() {
-		if err := c.ApplyConfig(ns, yamlText...); err != nil {
+	for _, cc := range c.Environment().Clusters() {
+		if err := cc.ApplyConfig(ns, yamlText...); err != nil {
 			return err
 		}
 	}
@@ -192,14 +192,14 @@ func (c *testContext) ApplyConfig(ns string, yamlText ...string) error {
 }
 
 func (c *testContext) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
-	for _, c := range c.Environment().Clusters() {
-		c.ApplyConfigOrFail(t, ns, yamlText...)
+	for _, cc := range c.Environment().Clusters() {
+		cc.ApplyConfigOrFail(t, ns, yamlText...)
 	}
 }
 
 func (c *testContext) DeleteConfig(ns string, yamlText ...string) error {
-	for _, c := range c.Environment().Clusters() {
-		if err := c.DeleteConfig(ns, yamlText...); err != nil {
+	for _, cc := range c.Environment().Clusters() {
+		if err := cc.DeleteConfig(ns, yamlText...); err != nil {
 			return err
 		}
 	}
@@ -207,14 +207,14 @@ func (c *testContext) DeleteConfig(ns string, yamlText ...string) error {
 }
 
 func (c *testContext) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
-	for _, c := range c.Environment().Clusters() {
-		c.DeleteConfigOrFail(t, ns, yamlText...)
+	for _, cc := range c.Environment().Clusters() {
+		cc.DeleteConfigOrFail(t, ns, yamlText...)
 	}
 }
 
 func (c *testContext) ApplyConfigDir(ns string, configDir string) error {
-	for _, c := range c.Environment().Clusters() {
-		if err := c.ApplyConfigDir(ns, configDir); err != nil {
+	for _, cc := range c.Environment().Clusters() {
+		if err := cc.ApplyConfigDir(ns, configDir); err != nil {
 			return err
 		}
 	}
@@ -222,8 +222,8 @@ func (c *testContext) ApplyConfigDir(ns string, configDir string) error {
 }
 
 func (c *testContext) DeleteConfigDir(ns string, configDir string) error {
-	for _, c := range c.Environment().Clusters() {
-		if err := c.DeleteConfigDir(ns, configDir); err != nil {
+	for _, cc := range c.Environment().Clusters() {
+		if err := cc.DeleteConfigDir(ns, configDir); err != nil {
 			return err
 		}
 	}
