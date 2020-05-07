@@ -481,7 +481,7 @@ func setOutputAndClean(valPath, outPath string, outVal interface{}, valueTree, c
 	if !clean {
 		return nil
 	}
-	if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(valPath), util.ToYAMLPath(valPath)); err != nil {
+	if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(valPath)); err != nil {
 		return err
 	}
 	return nil
@@ -566,7 +566,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			}
 		}
 
-		if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(inPath), util.ToYAMLPath(inPath)); err != nil {
+		if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(inPath)); err != nil {
 			return err
 		}
 	}
@@ -636,7 +636,7 @@ func (t *ReverseTranslator) translateAPI(valueTree map[string]interface{},
 			return err
 		}
 
-		if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(inPath), util.ToYAMLPath(inPath)); err != nil {
+		if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(inPath)); err != nil {
 			return err
 		}
 	}
