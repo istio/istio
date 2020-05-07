@@ -65,8 +65,6 @@ install/kubernetes/istio-init.yaml
 install/kubernetes/istio-non-mcp.yaml
 install/kubernetes/istio-minimal.yaml
 install/kubernetes/helm/istio/requirements.lock
-manifests/charts/istiod-remote/files/injection-template.yaml
-manifests/charts/istiod-remote/templates/istiod-injector-configmap.yaml
 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 *.orig
 # Avoid accidental istio.VERSION changes
