@@ -1698,7 +1698,6 @@ spec:
     listKind: EnvoyFilterList
     plural: envoyfilters
     singular: envoyfilter
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3567,7 +3566,6 @@ spec:
     listKind: handlerList
     plural: handlers
     singular: handler
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3775,7 +3773,6 @@ spec:
     listKind: instanceList
     plural: instances
     singular: instance
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
