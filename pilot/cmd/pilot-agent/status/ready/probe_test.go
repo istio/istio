@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
