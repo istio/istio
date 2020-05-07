@@ -174,31 +174,31 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 			// VIPs or CIDR ranges in the address field
 			return service, nil
 		}
+
 		// This is K8S typically
 		if out == nil {
-			out = service
+			out = service.DeepCopy()
 		} else {
-			// TODO(hzxuzhonghu): This kind of lock is really tricky and error prone, need to refactor.
-			out.Mutex.Lock()
 			service.Mutex.RLock()
-			// ClusterExternalAddresses and ClusterExternalAddresses are only used for getting gateway address
-			if len(service.Attributes.ClusterExternalAddresses[r.Cluster()]) > 0 {
+			// ClusterExternalAddresses and ClusterExternalPorts are only used for getting gateway address
+			externalAddrs := service.Attributes.ClusterExternalAddresses[r.Cluster()]
+			if len(externalAddrs) > 0 {
 				if out.Attributes.ClusterExternalAddresses == nil {
 					out.Attributes.ClusterExternalAddresses = make(map[string][]string)
 				}
-				out.Attributes.ClusterExternalAddresses[r.Cluster()] = service.Attributes.ClusterExternalAddresses[r.Cluster()]
+				out.Attributes.ClusterExternalAddresses[r.Cluster()] = externalAddrs
 			}
-			if len(service.Attributes.ClusterExternalPorts[r.Cluster()]) > 0 {
+			externalPorts := service.Attributes.ClusterExternalPorts[r.Cluster()]
+			if len(externalPorts) > 0 {
 				if out.Attributes.ClusterExternalPorts == nil {
 					out.Attributes.ClusterExternalPorts = make(map[string]map[uint32]uint32)
 				}
-				out.Attributes.ClusterExternalPorts[r.Cluster()] = service.Attributes.ClusterExternalPorts[r.Cluster()]
+				out.Attributes.ClusterExternalPorts[r.Cluster()] = externalPorts
 			}
 			service.Mutex.RUnlock()
-			out.Mutex.Unlock()
 		}
 	}
-	return nil, errs
+	return out, errs
 }
 
 // ManagementPorts retrieves set of health check ports by instance IP
@@ -281,7 +281,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
 		nodeClusterID := nodeClusterID(node)
-		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster(), features.ClusterName.Get()) {
+		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster(), features.ClusterName) {
 			log.Debugf("GetProxyServiceInstances(): not searching registry %v: proxy %v CLUSTER_ID is %v",
 				r.Cluster(), node.ID, nodeClusterID)
 			continue
@@ -341,6 +341,16 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	<-stop
 	log.Info("Registry Aggregator terminated")
+}
+
+// HasSynced returns true when all registries have synced
+func (c *Controller) HasSynced() bool {
+	for _, r := range c.GetRegistries() {
+		if !r.HasSynced() {
+			return false
+		}
+	}
+	return true
 }
 
 // AppendServiceHandler implements a service catalog operation

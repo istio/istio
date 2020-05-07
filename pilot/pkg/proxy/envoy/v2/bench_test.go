@@ -85,7 +85,7 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.updateServiceShards(s.globalPushContext()); err != nil {
+	if err := s.UpdateServiceShards(s.globalPushContext()); err != nil {
 		t.Fatalf("Failed to update service shards: %v", err)
 	}
 	return s
@@ -270,7 +270,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				r := configgen.BuildHTTPRoutes(&proxy, env.PushContext, routeNames)
-				response = routeDiscoveryResponse(r, "", "")
+				response = routeDiscoveryResponse(r, "", "", RouteType)
 			}
 			_ = response
 		})
@@ -285,7 +285,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				c := configgen.BuildClusters(&proxy, env.PushContext)
-				response = cdsDiscoveryResponse(c, "")
+				response = cdsDiscoveryResponse(c, "", ClusterType)
 			}
 			_ = response
 		})
@@ -300,7 +300,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				l := configgen.BuildListeners(&proxy, env.PushContext)
-				response = ldsDiscoveryResponse(l, "", "")
+				response = ldsDiscoveryResponse(l, "", "", ListenerType)
 			}
 			_ = response
 		})
@@ -354,7 +354,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh().LocalityLbSetting, true)
 					loadAssignments = append(loadAssignments, l)
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
+				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, EndpointType)
 			}
 		})
 	}

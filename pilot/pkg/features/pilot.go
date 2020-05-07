@@ -26,11 +26,6 @@ import (
 )
 
 var (
-	// CertDir is the default location for mTLS certificates used by pilot.
-	// Defaults to /etc/certs, matching k8s template. Can be used if you run pilot
-	// as a regular user on a VM or test environment.
-	CertDir = env.RegisterStringVar("PILOT_CERT_DIR", "", "").Get()
-
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,
@@ -86,11 +81,6 @@ var (
 		"If enabled, Pilot will include EDS pushes in the push debouncing, configured by PILOT_DEBOUNCE_AFTER and PILOT_DEBOUNCE_MAX."+
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	)
-
-	// BaseDir is the base directory for locating configs.
-	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
-	// be used, "/"
-	BaseDir = "BASE"
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	//
@@ -251,6 +241,26 @@ var (
 			"Istio Resources",
 	).Get()
 
+	EnableStatus = env.RegisterBoolVar(
+		"PILOT_ENABLE_STATUS",
+		false,
+		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
+	).Get()
+
+	StatusQPS = env.RegisterFloatVar(
+		"PILOT_STATUS_QPS",
+		100,
+		"If status is enabled, controls the QPS with which status will be updated.  "+
+			"See https://godoc.org/k8s.io/client-go/rest#Config QPS",
+	).Get()
+
+	StatusBurst = env.RegisterIntVar(
+		"PILOT_STATUS_BURST",
+		500,
+		"If status is enabled, controls the Burst rate with which status will be updated.  "+
+			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
+	).Get()
+
 	// IstiodService controls the istiod address - used for injection and as default value injected into pods
 	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
 	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
@@ -258,6 +268,11 @@ var (
 	// The 15010 port is used with plain text, 15011 with Spiffe certs - we need a different port for DNS cert.
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
+
+	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
+	// for examples: istiod.mycompany.com
+	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
+		"Custom host name of istiod that istiod signs the server cert.")
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.")
@@ -289,7 +304,7 @@ var (
 	).Get()
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
-		"Defines the cluster and service registry that this Istiod instance is belongs to")
+		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
 	EnableIncrementalMCP = env.RegisterBoolVar(
 		"PILOT_ENABLE_INCREMENTAL_MCP",
@@ -297,4 +312,8 @@ var (
 		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
 			"to true, and then galley may push data incrementally, it depends on whether the "+
 			"resource supports incremental. By default, this is false.").Get()
+	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
+		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
+	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
+		"If this is set to false, will not create CA server in istiod.").Get()
 )

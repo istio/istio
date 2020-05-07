@@ -41,10 +41,6 @@ var (
 	_ = udpa.TypedStruct{}
 )
 
-const (
-	RevisionLabel = "istio.io/rev"
-)
-
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
 type ConfigKey struct {
@@ -215,6 +211,18 @@ type ConfigStore interface {
 // Key function for the configuration objects
 func Key(typ, name, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
+}
+
+func ParseKey(key string) (typ, name, namespace string, err error) {
+	out := strings.Split(key, "/")
+	if len(out) != 3 {
+		err = fmt.Errorf("key '%s' could not be parsed into a key", key)
+	} else {
+		typ = out[0]
+		name = out[1]
+		namespace = out[2]
+	}
+	return
 }
 
 // Key is the unique identifier for a configuration object

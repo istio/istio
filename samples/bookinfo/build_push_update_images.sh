@@ -35,7 +35,7 @@ else
 	shift
 fi
 
-# Process the input arguments. By default, image scanning is disabled. 
+# Process the input arguments. By default, image scanning is disabled.
 PREFIX=istio
 ENABLE_IMAGE_SCAN=false
 echo "$@"
@@ -66,6 +66,13 @@ do
   IMAGES+=" "
 done
 
+# check that $IMAGES contains the images we've just built
+if [[ "${IMAGES}" =~ ^\ +$ ]] ; then
+  echo "Found no images matching prefix \"${PREFIX}/examples-bookinfo\"."
+  echo "Try running the script without specifying the image registry in --prefix (e.g. --prefix=/foo instead of --prefix=docker.io/foo)."
+  exit 1
+fi
+
 #
 # Run security vulnerability scanning on bookinfo sample app images using
 # the ImageScanner tool. If the reuqest is handled successfully, it gives
@@ -83,18 +90,18 @@ done
 #
 function run_vulnerability_scanning() {
   RESULT_DIR="vulnerability_scan_results"
-  CURL_RESPONSE=$(curl -s --create-dirs -o "$RESULT_DIR/$1_$VERSION"  -w "%{http_code}" http://imagescanner.cloud.ibm.com/scan?image="docker.io/$2")
+  CURL_RESPONSE=$(curl -s --create-dirs -o "$RESULT_DIR/$1_$VERSION"  -w "%{http_code}" http://imagescanner.cloud.ibm.com/scan?image="$2")
   if [ "$CURL_RESPONSE" -eq 200 ]; then
      mv "$RESULT_DIR/$1_$VERSION" "$RESULT_DIR/$1_$VERSION.json"
   fi
 }
 
 # Push images. Scan images if ENABLE_IMAGE_SCAN is true.
-for IMAGE in ${IMAGES}; 
-do 
-  echo "Pushing: ${IMAGE}" 
-  docker push "${IMAGE}"; 
-  
+for IMAGE in ${IMAGES};
+do
+  echo "Pushing: ${IMAGE}"
+  docker push "${IMAGE}";
+
   # $IMAGE has the following format: istio/examples-bookinfo*:"$v".
   # We want to get the sample app name from $IMAGE (the examples-bookinfo* portion)
   # to create the file to store the results of the scan for that image. The first
@@ -109,4 +116,5 @@ do
 done
 
 #Update image references in the yaml files
-find . -name "*bookinfo*.yaml" -exec sed -i.bak "s/\\(istio\\/examples-bookinfo-.*\\):[[:digit:]]*\\.[[:digit:]]*\\.[[:digit:]]*/\\1:$VERSION/g" {} +
+find . -name "*bookinfo*.yaml" -exec sed -i.bak "s/image:.*\\(\\/examples-bookinfo-.*\\):.*/image: ${PREFIX//\//\\\/}\\1:$VERSION/g" {} +
+

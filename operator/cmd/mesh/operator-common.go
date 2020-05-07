@@ -15,8 +15,14 @@
 package mesh
 
 import (
+	"context"
+
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -34,20 +40,23 @@ type operatorCommonArgs struct {
 }
 
 const (
-	operatorResourceName = "istio-operator"
+	operatorResourceName     = "istio-operator"
+	operatorDefaultNamespace = "istio-operator"
+	istioDefaultNamespace    = "istio-system"
 )
 
-func isControllerInstalled(kubeconfig, context, operatorNamespace string) (bool, error) {
-	return manifest.DeploymentExists(kubeconfig, context, operatorNamespace, operatorResourceName)
+// isControllerInstalled reports whether an operator deployment exists in the given namespace.
+func isControllerInstalled(cs kubernetes.Interface, operatorNamespace string) (bool, error) {
+	return deploymentExists(cs, operatorNamespace, operatorResourceName)
 }
 
-// chartsRootDir, helmBaseDir, componentName, namespace string) (Template, TemplateRenderer, error) {
-func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs, _ *Logger) (string, string, error) {
+// renderOperatorManifest renders a manifest to install the operator with the given input arguments.
+func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs) (string, string, error) {
 	installPackagePath := snapshotInstallPackageDir
 	if ocArgs.charts != "" {
 		installPackagePath = ocArgs.charts
 	}
-	r, err := helm.NewHelmRenderer(installPackagePath, "istio-operator", istioControllerComponentName, ocArgs.operatorNamespace)
+	r, err := helm.NewHelmRenderer(installPackagePath, "istio-operator", string(name.IstioOperatorComponentName), ocArgs.operatorNamespace)
 	if err != nil {
 		return "", "", err
 	}
@@ -80,4 +89,13 @@ tag: {{.Tag}}
 	}
 	manifest, err := r.RenderManifest(vals)
 	return vals, manifest, err
+}
+
+// deploymentExists returns true if the given deployment in the namespace exists.
+func deploymentExists(cs kubernetes.Interface, namespace, name string) (bool, error) {
+	d, err := cs.AppsV1().Deployments(namespace).Get(context.TODO(), name, v12.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return d != nil, nil
 }

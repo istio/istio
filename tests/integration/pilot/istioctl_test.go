@@ -89,7 +89,7 @@ func TestVersion(t *testing.T) {
 
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
-			output := istioCtl.InvokeOrFail(t, args)
+			output, _ := istioCtl.InvokeOrFail(t, args)
 
 			// istioctl will return a single "control plane version" if all control plane versions match
 			controlPlaneRegex := regexp.MustCompile(`control plane version: [a-z0-9\-]*`)
@@ -105,7 +105,7 @@ func TestVersion(t *testing.T) {
 				regexp.MustCompile(`client version: [a-z0-9\-]*`),
 				regexp.MustCompile(`egressgateway version: [a-z0-9\-]*`),
 				regexp.MustCompile(`ingressgateway version: [a-z0-9\-]*`),
-				regexp.MustCompile(`pilot version: [a-z0-9\-]*`),
+				regexp.MustCompile(`istiod version: [a-z0-9\-]*`),
 				regexp.MustCompile(`galley version: [a-z0-9\-]*`),
 				regexp.MustCompile(`policy version: [a-z0-9\-]*`),
 				regexp.MustCompile(`sidecar-injector version: [a-z0-9\-]*`),
@@ -156,12 +156,12 @@ func TestDescribe(t *testing.T) {
 			// run in parallel.
 			args = []string{"--namespace=dummy",
 				"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, ns.Name())}
-			output = istioCtl.InvokeOrFail(t, args)
+			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(describePodAOutput))
 
 			args = []string{"--namespace=dummy",
 				"x", "describe", "svc", fmt.Sprintf("a.%s", ns.Name())}
-			output = istioCtl.InvokeOrFail(t, args)
+			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(describeSvcAOutput))
 		})
 }
@@ -204,7 +204,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			// able to remove from mesh when the deployment is auto injected
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "remove-from-mesh", "service", "a"}
-			output = istioCtl.InvokeOrFail(t, args)
+			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
 
 			// remove from mesh should be clean
@@ -215,7 +215,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "add-to-mesh", "service", "a"}
-			output = istioCtl.InvokeOrFail(t, args)
+			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
 		})
 }
@@ -247,37 +247,37 @@ func TestProxyConfig(t *testing.T) {
 
 			args = []string{"--namespace=dummy",
 				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, ns.Name())}
-			output = istioCtl.InvokeOrFail(t, args)
+			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("bootstrap"))
 
 			args = []string{"--namespace=dummy",
 				"pc", "cluster", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
-			output = istioCtl.InvokeOrFail(t, args)
+			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
 				"pc", "endpoint", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
-			output = istioCtl.InvokeOrFail(t, args)
+			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
 				"pc", "listener", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
-			output = istioCtl.InvokeOrFail(t, args)
+			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
 				"pc", "route", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
-			output = istioCtl.InvokeOrFail(t, args)
+			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
 				"pc", "secret", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
-			output = istioCtl.InvokeOrFail(t, args)
+			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
 		})

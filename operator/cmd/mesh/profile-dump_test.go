@@ -17,6 +17,7 @@ package mesh
 import (
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"istio.io/istio/operator/pkg/util"
@@ -36,15 +37,18 @@ func TestProfileDump(t *testing.T) {
 			configPath: "components",
 		},
 	}
+	installPackagePathRegex := regexp.MustCompile("  installPackagePath: .*")
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
 			outPath := filepath.Join(testDataDir, "output", tt.desc+".yaml")
 
-			got, err := runProfileDump(inPath, tt.configPath)
+			got, err := runProfileDump(inPath, tt.configPath, snapshotCharts)
 			if err != nil {
 				t.Fatal(err)
 			}
+			// installPackagePath may change, we will remove it for consistent output
+			got = installPackagePathRegex.ReplaceAllString(got, "")
 
 			if refreshGoldenFiles() {
 				t.Logf("Refreshing golden file for %s", outPath)
@@ -64,10 +68,16 @@ func TestProfileDump(t *testing.T) {
 	}
 }
 
-func runProfileDump(profilePath, configPath string) (string, error) {
+func runProfileDump(profilePath, configPath string, chartSource chartSourceType) (string, error) {
 	cmd := "profile dump -f " + profilePath
 	if configPath != "" {
 		cmd += " --config-path " + configPath
+	}
+	switch chartSource {
+	case liveCharts:
+		cmd += " --charts=" + liveInstallPackageDir
+	default:
+		cmd += " --charts=" + snapshotInstallPackageDir
 	}
 	return runCommand(cmd)
 }

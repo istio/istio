@@ -18,7 +18,7 @@ data:
     accessLogFormat: ""
     defaultConfig:
       concurrency: 2
-      configPath: /etc/istio/proxy
+      configPath: ./etc/istio/proxy
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
@@ -35,7 +35,7 @@ data:
     disableMixerHttpReports: true
     disablePolicyChecks: true
     enableAutoMtls: true
-    enablePrometheusMerge: false
+    enablePrometheusMerge: true
     enableTracing: true
     ingressClass: istio
     ingressControllerMode: STRICT

@@ -29,7 +29,7 @@ template: |
     - "-b"
     - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
     - "-d"
-    - "15090,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+    - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
     {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
     - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
@@ -82,7 +82,7 @@ template: |
   - name: enable-core-dump
     args:
     - -c
-    - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+    - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
     command:
       - /bin/sh
   {{- if contains "/" .Values.global.proxy_init.image }}
@@ -138,6 +138,10 @@ template: |
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
+  {{- if gt .ProxyConfig.Concurrency 0 }}
+    - --concurrency
+    - "{{ .ProxyConfig.Concurrency }}"
+  {{- end -}}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -174,9 +178,17 @@ template: |
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
-    - name: MESH_CONFIG
+    - name: CANONICAL_SERVICE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.labels['service.istio.io/canonical-name']
+    - name: CANONICAL_REVISION
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.labels['service.istio.io/canonical-revision']
+    - name: PROXY_CONFIG
       value: |
-             {{ protoToJSON .MeshConfig }}
+             {{ protoToJSON .ProxyConfig }}
     - name: ISTIO_META_POD_PORTS
       value: |-
         [
@@ -245,7 +257,7 @@ template: |
     readinessProbe:
       httpGet:
         path: /healthz/ready
-        port: 15090
+        port: 15021
       initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
       periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
       failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
@@ -305,6 +317,8 @@ template: |
     - mountPath: /var/run/secrets/istio
       name: istiod-ca-cert
     {{- end }}
+    - mountPath: /var/lib/istio/data
+      name: istio-data
     {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
@@ -324,8 +338,8 @@ template: |
     {{- end }}
     - name: istio-podinfo
       mountPath: /etc/istio/pod
-    {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
-    - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
+     {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
+    - mountPath: {{ directory .ProxyConfig.GetTracing.GetTlsSettings.GetCaCertificates }}
       name: lightstep-certs
       readOnly: true
     {{- end }}
@@ -345,6 +359,8 @@ template: |
   - emptyDir:
       medium: Memory
     name: istio-envoy
+  - name: istio-data
+    emptyDir: {}
   - name: istio-podinfo
     downwardAPI:
       items:
@@ -385,7 +401,7 @@ template: |
     {{ toYaml $value | indent 2 }}
     {{ end }}
     {{ end }}
-  {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+  {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
   - name: lightstep-certs
     secret:
       optional: true

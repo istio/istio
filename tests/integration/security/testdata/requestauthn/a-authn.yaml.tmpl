@@ -1,17 +1,3 @@
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
-metadata:
-  name: "alpha-policy-will-be-ignored"
-  namespace: {{ .Namespace }}
-spec:
-  targets:
-  - name: a
-  origins:
-  - jwt:
-      issuer: "test-issuer-1@istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
-  principalBinding: USE_ORIGIN
----
 apiVersion: "security.istio.io/v1beta1"
 kind: "RequestAuthentication"
 metadata:

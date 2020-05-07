@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"path"
@@ -26,11 +27,15 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/status"
+
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -74,10 +79,11 @@ var (
 		plugin.Health,
 		plugin.Mixer,
 	}
+)
 
-	// PilotCertDir is the default location for mTLS certificates used by pilot
-	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
-	PilotCertDir = "/etc/certs/"
+const (
+	// debounce file watcher events to minimize noise in logs
+	watchDebounceDelay = 100 * time.Millisecond
 )
 
 func init() {
@@ -117,13 +123,14 @@ type Server struct {
 	httpsServer      *http.Server // webhooks HTTPS Server.
 	httpsReadyClient *http.Client
 	grpcServer       *grpc.Server
-	secureGrpcServer *grpc.Server   //
+	secureGrpcServer *grpc.Server
 	mux              *http.ServeMux // debug
 	httpsMux         *http.ServeMux // webhooks
 	kubeRegistry     *kubecontroller.Controller
 	certController   *chiron.WebhookController
 	ca               *ca.IstioCA
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
+	// TODO: Unify this path with TLSOptions in PilotArgs.
 	caBundlePath string
 
 	ConfigStores []model.ConfigStoreCache
@@ -141,14 +148,15 @@ type Server struct {
 	// nil if injection disabled
 	injectionWebhook *inject.Webhook
 
-	webhookCertMu sync.Mutex
-	webhookCert   *tls.Certificate
-	jwtPath       string
+	certMu     sync.Mutex
+	istiodCert *tls.Certificate
+	jwtPath    string
 
 	// requiredTerminations keeps track of components that should block server exit if they are not stopped
 	// This allows important cleanup tasks to be completed.
 	// Note: this is still best effort; a process can die at any time.
 	requiredTerminations sync.WaitGroup
+	statusReporter       *status.Reporter
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -196,20 +204,25 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		Namespace:   args.Namespace,
 	}
 
-	log.Infof("JWT policy is %s", features.JwtPolicy.Get())
+	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
+	epGen := &envoyv2.EdsGenerator{Server: s.EnvoyXdsServer}
+	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
+
+	if features.JwtPolicy.Get() != jwt.JWTPolicyThirdPartyJWT {
+		log.Infoa("JWT policy is ", features.JwtPolicy.Get())
+	}
+
 	switch features.JwtPolicy.Get() {
 	case jwt.JWTPolicyThirdPartyJWT:
 		s.jwtPath = ThirdPartyJWTPath
 	case jwt.JWTPolicyFirstPartyJWT:
 		s.jwtPath = securityModel.K8sSAJwtFileName
 	default:
-		err := fmt.Errorf("invalid JWT policy %v", features.JwtPolicy.Get())
-		log.Errorf("%v", err)
-		return nil, err
+		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
 	}
 
-	// CA signing certificate must be created first.
-	if s.EnableCA() {
+	// CA signing certificate must be created first only if custom TLS certs are not provided.
+	if !hasCustomTLSCerts(args.TLSOptions) && s.EnableCA() {
 		var err error
 		var corev1 v1.CoreV1Interface
 		if s.kubeClient != nil {
@@ -231,13 +244,15 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
-	// common https server for webhooks (e.g. injection, validation)
-	if err := s.initHTTPSWebhookServer(args); err != nil {
-		// Not crashing istiod - existing pods will keep working, new pods
-		// may fail if all webhook injectors are down.
-		// This typically happens if certs are missing.
-		log.Errorf("error initializing injection webhook server: %v", err)
+	// setup watches for certs - This has to be called after initSecureGrpcListener because it sets up DNS certs.
+	if err := s.initCertificateWatches(args.TLSOptions); err != nil {
+		// Not crashing istiod - This typically happens if certs are missing.
+		log.Errorf("error initializing certificate watches: %v", err)
 	}
+
+	// common https server for webhooks (e.g. injection, validation)
+	s.initHTTPSWebhookServer(args)
+
 	// Will run the sidecar injector in pilot.
 	// Only operates if /var/lib/istio/inject exists
 	if err := s.initSidecarInjector(args); err != nil {
@@ -254,12 +269,22 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
 		return nil, fmt.Errorf("error initializing monitor: %v", err)
 	}
+	// TODO(irisdingbj):add integration test after centralIstiod finished
+	args.Config.ControllerOptions.FetchCaRoot = nil
+	if features.CentralIstioD {
+		if s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
+			args.Config.ControllerOptions.FetchCaRoot = func() map[string]string {
+				return map[string]string{
+					constants.CACertNamespaceConfigMapDataName: string(s.ca.GetCAKeyCertBundle().GetRootCertPem()),
+				}
+			}
+		}
+	}
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
 	}
-
 	if dns.DNSAddr.Get() != "" {
-		if err := s.initDNSTLSListener(dns.DNSAddr.Get()); err != nil {
+		if err := s.initDNSTLSListener(dns.DNSAddr.Get(), args.TLSOptions); err != nil {
 			log.Warna("error initializing DNS-over-TLS listener ", err)
 		}
 
@@ -295,7 +320,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 					NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient).
 					AddRunFunction(func(stop <-chan struct{}) {
 						log.Infof("Starting namespace controller")
-						nc := NewNamespaceController(fetchData, args.Config.ControllerOptions, s.kubeClient)
+						nc := kubecontroller.NewNamespaceController(fetchData, args.Config.ControllerOptions, s.kubeClient)
 						nc.Run(stop)
 					}).
 					Run(stop)
@@ -315,14 +340,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 func getClusterID(args *PilotArgs) string {
 	clusterID := args.Config.ControllerOptions.ClusterID
 	if clusterID == "" {
-		for _, registry := range args.Service.Registries {
-			if registry == string(serviceregistry.Kubernetes) {
-				clusterID = string(serviceregistry.Kubernetes)
-				break
-			}
+		if hasKubeRegistry(args.Service.Registries) {
+			clusterID = string(serviceregistry.Kubernetes)
 		}
 	}
-
 	return clusterID
 }
 
@@ -435,7 +456,6 @@ func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) 
 	}
 
 	// TODO check readiness of other secure gRPC and HTTP servers.
-
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -529,30 +549,26 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 }
 
 // initialize DNS server listener - uses the same certs as gRPC
-func (s *Server) initDNSTLSListener(dns string) error {
+func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 	if dns == "" {
 		return nil
 	}
-	certDir := dnsCertDir
+	// Mainly for tests.
+	if !hasCustomTLSCerts(tlsOptions) && s.ca == nil {
+		return nil
+	}
 
-	key := path.Join(certDir, constants.KeyFilename)
-	cert := path.Join(certDir, constants.CertChainFilename)
-
-	certP, err := tls.LoadX509KeyPair(cert, key)
+	root, err := s.getRootCertificate(tlsOptions)
 	if err != nil {
 		return err
 	}
 
-	cp := x509.NewCertPool()
-	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
-	cp.AppendCertsFromPEM(rootCertBytes)
-
 	// TODO: check if client certs can be used with coredns or others.
 	// If yes - we may require or optionally use them
 	cfg := &tls.Config{
-		Certificates: []tls.Certificate{certP},
-		ClientAuth:   tls.NoClientCert,
-		ClientCAs:    cp,
+		GetCertificate: s.getIstiodCertificate,
+		ClientAuth:     tls.NoClientCert,
+		ClientCAs:      root,
 	}
 
 	// create secure grpc listener
@@ -568,25 +584,17 @@ func (s *Server) initDNSTLSListener(dns string) error {
 }
 
 // initialize secureGRPCServer - using DNS certs
-func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Options) error {
-	certDir := dnsCertDir
-
-	key := path.Join(certDir, constants.KeyFilename)
-	cert := path.Join(certDir, constants.CertChainFilename)
-
-	certP, err := tls.LoadX509KeyPair(cert, key)
+func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Options, tlsOptions TLSOptions) error {
+	// TODO(ramaraochavali): Watch root cert also?
+	root, err := s.getRootCertificate(tlsOptions)
 	if err != nil {
 		return err
 	}
 
-	cp := x509.NewCertPool()
-	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
-	cp.AppendCertsFromPEM(rootCertBytes)
-
 	cfg := &tls.Config{
-		Certificates: []tls.Certificate{certP},
-		ClientAuth:   tls.VerifyClientCertIfGiven,
-		ClientCAs:    cp,
+		GetCertificate: s.getIstiodCertificate,
+		ClientAuth:     tls.VerifyClientCertIfGiven,
+		ClientCAs:      root,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
@@ -671,13 +679,9 @@ func (s *Server) addTerminatingStartFunc(fn startFunc) {
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
-	// TODO: remove dependency on k8s lib
-	// TODO: set a limit, panic otherwise (to not hide the error)
 	if !cache.WaitForCacheSync(stop, func() bool {
-		if s.kubeRegistry != nil {
-			if !s.kubeRegistry.HasSynced() {
-				return false
-			}
+		if !s.ServiceController().HasSynced() {
+			return false
 		}
 		if !s.configController.HasSynced() {
 			return false
@@ -724,12 +728,19 @@ func (s *Server) initEventHandlers() error {
 			Reason: []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
-	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
-		return fmt.Errorf("append instance handler failed: %v", err)
+	for _, registry := range s.ServiceController().GetRegistries() {
+		// Skip kubernetes and external registries as they are handled separately
+		if registry.Provider() == serviceregistry.Kubernetes ||
+			registry.Provider() == serviceregistry.External {
+			continue
+		}
+		if err := registry.AppendInstanceHandler(instanceHandler); err != nil {
+			return fmt.Errorf("append instance handler to registry %s failed: %v", registry.Provider(), err)
+		}
 	}
 
 	if s.configController != nil {
-		configHandler := func(_, curr model.Config, _ model.Event) {
+		configHandler := func(_, curr model.Config, event model.Event) {
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -740,6 +751,13 @@ func (s *Server) initEventHandlers() error {
 				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
+			if s.statusReporter != nil {
+				if event != model.EventDelete {
+					s.statusReporter.AddInProgressResource(curr)
+				} else {
+					s.statusReporter.DeleteInProgressResource(curr)
+				}
+			}
 		}
 		schemas := collections.Pilot.All()
 		if features.EnableServiceApis {
@@ -770,7 +788,7 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 		// Feature disabled
 		return nil
 	}
-	if s.ca == nil {
+	if args.TLSOptions.CaCertFile == "" && s.ca == nil {
 		// Running locally without configured certs - no TLS mode
 		return nil
 	}
@@ -784,18 +802,125 @@ func (s *Server) initSecureGrpcListener(args *PilotArgs) error {
 		return fmt.Errorf("invalid port(%s) in ISTIOD_ADDR(%s): %v", port, istiodAddr, err)
 	}
 
-	// Create DNS certificates. This allows injector, validation to work without Citadel, and
-	// allows secure SDS connections to Istiod.
-	err = s.initDNSCerts(host, args.Namespace)
-	if err != nil {
-		return err
+	// TODO(ramaraochavali): Move the cert generation sepaate function and call it before we run init of any service.
+
+	// Generate DNS certificates only if custom certs are not provided via args.
+	if !hasCustomTLSCerts(args.TLSOptions) {
+		// Create DNS certificates. This allows injector, validation to work without Citadel, and
+		// allows secure SDS connections to Istiod.
+		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
+		if err != nil {
+			return err
+		}
 	}
 
 	// run secure grpc server for Istiod - using DNS-based certs from K8S
-	err = s.initSecureGrpcServer(port, args.KeepaliveOptions)
-	if err != nil {
+	if err = s.initSecureGrpcServer(port, args.KeepaliveOptions, args.TLSOptions); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// initCertificateWatches sets up  watches for the certs.
+func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
+	// load the cert/key and setup a persistent watch for updates.
+	cert, err := s.getCertKeyPair(tlsOptions)
+	if err != nil {
+		return err
+	}
+	s.istiodCert = &cert
+	// TODO: Setup watcher for root also ?
+	keyCertWatcher := filewatcher.NewWatcher()
+	keyFile, certFile := s.getCertKeyPaths(tlsOptions)
+	for _, file := range []string{certFile, keyFile} {
+		if err := keyCertWatcher.Add(file); err != nil {
+			return fmt.Errorf("could not watch %v: %v", file, err)
+		}
+	}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go func() {
+			var keyCertTimerC <-chan time.Time
+			for {
+				select {
+				case <-keyCertTimerC:
+					keyCertTimerC = nil
+					// Reload the certificates from the paths.
+					cert, err := s.getCertKeyPair(tlsOptions)
+					if err != nil {
+						log.Errorf("error in reloading certs, %v", err)
+						// TODO: Add metrics?
+						return
+					}
+
+					s.certMu.Lock()
+					s.istiodCert = &cert
+					s.certMu.Unlock()
+				case <-keyCertWatcher.Events(certFile):
+					if keyCertTimerC == nil {
+						keyCertTimerC = time.After(watchDebounceDelay)
+					}
+				case <-keyCertWatcher.Events(keyFile):
+					if keyCertTimerC == nil {
+						keyCertTimerC = time.After(watchDebounceDelay)
+					}
+				case <-keyCertWatcher.Errors(certFile):
+					log.Errorf("error watching %v: %v", certFile, err)
+				case <-keyCertWatcher.Errors(keyFile):
+					log.Errorf("error watching %v: %v", keyFile, err)
+				case <-stop:
+					keyCertWatcher.Close()
+					return
+				}
+			}
+		}()
+		return nil
+	})
+	return nil
+}
+
+// getCertKeyPair returns cert and key loaded in tls.Certificate.
+func (s *Server) getCertKeyPair(tlsOptions TLSOptions) (tls.Certificate, error) {
+	key, cert := s.getCertKeyPaths(tlsOptions)
+	keyPair, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	return keyPair, nil
+}
+
+// getCertKeyPaths returns the paths for key and cert.
+func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
+	certDir := dnsCertDir
+	key := model.GetOrDefault(tlsOptions.KeyFile, path.Join(certDir, constants.KeyFilename))
+	cert := model.GetOrDefault(tlsOptions.CertFile, path.Join(certDir, constants.CertChainFilename))
+	return key, cert
+}
+
+// getRootCertificate returns the root certificate from TLSOptions if available or from ca.
+func (s *Server) getRootCertificate(tlsOptions TLSOptions) (*x509.CertPool, error) {
+	var rootCertBytes []byte
+	var err error
+	if tlsOptions.CaCertFile != "" {
+		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
+			return nil, err
+		}
+	} else {
+		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	}
+	cp := x509.NewCertPool()
+	cp.AppendCertsFromPEM(rootCertBytes)
+	return cp, nil
+}
+
+// hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
+func hasCustomTLSCerts(tlsOptions TLSOptions) bool {
+	return tlsOptions.CaCertFile != "" && tlsOptions.CertFile != "" && tlsOptions.KeyFile != ""
+}
+
+// getIstiodCertificate returns the istiod certificate.
+func (s *Server) getIstiodCertificate(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	s.certMu.Lock()
+	defer s.certMu.Unlock()
+	return s.istiodCert, nil
 }

@@ -19,19 +19,20 @@ import (
 	"os"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/cmd"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+
+	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (
@@ -149,6 +150,8 @@ func init() {
 		"Controller resync interval")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", "cluster.local",
 		"DNS domain suffix")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.ClusterID, "clusterID", features.ClusterName,
+		"The ID of the cluster that this Istiod instance resides")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.TrustDomain, "trust-domain", "",
 		"The domain serves to identify the system with spiffe")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
@@ -165,6 +168,14 @@ func init() {
 		"HTTP address to use for pilot's self-monitoring information")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
+
+	// Use TLS certificates if provided.
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.TLSOptions.CaCertFile, "caCertFile", "",
+		"File containing the x509 Server CA Certificate")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.TLSOptions.CertFile, "tlsCertFile", "",
+		"File containing the x509 Server Certificate")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.TLSOptions.KeyFile, "tlsKeyFile", "",
+		"File containing the x509 private key matching --tlsCertFile")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

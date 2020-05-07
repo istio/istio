@@ -57,7 +57,11 @@ func TestMain(m *testing.M) {
 			controlPlaneValues = fmt.Sprintf(`
 values:
   meshConfig:
-    clusterLocalNamespaces: ["kube-system", "%s"]
+    serviceSettings: 
+      - settings:
+          clusterLocal: true
+        hosts:
+          - "*.%s.svc.cluster.local"
 `,
 				ns.Name())
 			return nil

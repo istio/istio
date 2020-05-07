@@ -23,7 +23,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/env"
 )
@@ -170,8 +170,6 @@ cni:
 }
 
 func TestValidateValuesFromProfile(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/20112")
-	// TODO port to new api
 	tests := []struct {
 		desc     string
 		profile  string
@@ -189,11 +187,11 @@ func TestValidateValuesFromProfile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			pf, err := helm.ReadProfileYAML(tt.profile)
+			pf, err := helm.ReadProfileYAML(tt.profile, filepath.Join(env.IstioSrc, "manifests"))
 			if err != nil {
 				t.Fatalf("fail to read profile: %s", tt.profile)
 			}
-			val, _, err := manifest.ParseK8SYAMLToIstioOperator(pf)
+			val, _, err := object.ParseK8SYAMLToIstioOperator(pf)
 			if err != nil {
 				t.Fatalf(" fail to parse profile to ISCP: (%s), got error %s", tt.profile, err)
 			}

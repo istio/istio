@@ -265,7 +265,9 @@ message EgressGatewayConfig {
 
   TypeSliceOfMapStringInterface additionalContainers = 24;
 
-  // Next available 26.
+  google.protobuf.BoolValue runAsRoot = 26;
+
+  // Next available 27.
 }
 
 
@@ -533,7 +535,10 @@ message GlobalConfig {
 
   // The address of the CA for CSR.
   string caAddress = 61;
-  // The next available key is 62
+
+  // Controls whether one central istiod is enabled.
+  google.protobuf.BoolValue centralIstiod = 62;
+  // The next available key is 63
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -680,7 +685,9 @@ message IngressGatewayConfig {
 
   string telemetry_domain_name = 43;
 
-  // Next available 45.
+  google.protobuf.BoolValue runAsRoot = 45;
+
+  // Next available 46.
 }
 
 // Secret Discovery Service (SDS) Configuration for ingress gateway.
@@ -1166,6 +1173,8 @@ message TelemetryV2Config {
   TelemetryV2PrometheusConfig prometheus = 2;
 
   TelemetryV2StackDriverConfig stackdriver = 3;
+
+  TelemetryV2AccessLogPolicyFilterConfig access_log_policy = 5;
 }
 
 message TelemetryV2MetadataExchangeConfig {
@@ -1195,6 +1204,13 @@ message TelemetryV2StackDriverConfig {
   google.protobuf.BoolValue disableOutbound = 6;
 
   TypeMapStringInterface configOverride = 5;
+}
+
+// Conrols telemetry v2 access log policy filter settings.
+message TelemetryV2AccessLogPolicyFilterConfig {
+  google.protobuf.BoolValue enabled = 1;
+
+  google.protobuf.Duration logWindowDuration = 2;
 }
 
 // PilotConfigSource describes information about a configuration store inside a
@@ -1607,12 +1623,6 @@ message TracerLightStepConfig {
 
   // Sets the lightstep access token.
   string accessToken = 2;
-
-  // Sets path to the file containing the cacert to use when verifying TLS.
-  string cacertPath = 3;
-
-  // Enables lightstep secure connection.
-  google.protobuf.BoolValue secure = 4;
 }
 
 // Configuration for the zipkin tracing service.
@@ -1892,6 +1902,11 @@ message KialiConfig {
   KialiServiceConfig service = 19;
 }
 
+message BaseConfig {
+  // For Helm2 use, adds the CRDs to templates.
+  google.protobuf.BoolValue enableCRDTemplates = 1;
+}
+
 message Values {
   CNIConfig cni = 2;
 
@@ -1933,6 +1948,8 @@ message Values {
 
   // TODO can this import the real mesh config API?
   TypeInterface meshConfig = 36;
+
+  BaseConfig base = 37;
 }
 
 // GOTYPE: map[string]interface{}

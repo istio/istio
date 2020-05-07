@@ -15,9 +15,12 @@
 package mesh
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"time"
+
+	"github.com/gogo/protobuf/proto"
 
 	"istio.io/api/networking/v1alpha3"
 
@@ -32,10 +35,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-)
-
-var (
-	defaultClusterLocalNamespaces = []string{"kube-system"}
 )
 
 // DefaultProxyConfig for individual proxies
@@ -132,7 +131,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 			EnableAutoMtls:                    &types.BoolValue{Value: false},
 			ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
 			LocalityLbSetting:                 &v1alpha3.LocalityLoadBalancerSetting{},
-			ClusterLocalNamespaces:            append(make([]string, 0), defaultClusterLocalNamespaces...),
+			ServiceSettings:                   []*meshconfig.MeshConfig_ServiceSettings{},
 		}
 	}
 	// Defaults matching the standard install
@@ -176,19 +175,18 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DefaultDestinationRuleExportTo:    []string{"*"},
 		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
 		ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
-		ClusterLocalNamespaces:            append(make([]string, 0), defaultClusterLocalNamespaces...),
+		ServiceSettings:                   make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 	}
-
 }
 
-// IsClusterLocal indicates whether the given namespace is configured to be cluster-local.
-func IsClusterLocal(mesh *meshconfig.MeshConfig, namespace string) bool {
-	for _, clusterLocalNS := range mesh.ClusterLocalNamespaces {
-		if namespace == clusterLocalNS {
-			return true
-		}
+// ApplyProxyConfig applies the give proxy config yaml to a mesh config object. The passed in mesh config
+// will not be modified.
+func ApplyProxyConfig(yaml string, meshConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
+	mc := proto.Clone(&meshConfig).(*meshconfig.MeshConfig)
+	if err := gogoprotomarshal.ApplyYAML(yaml, mc.DefaultConfig); err != nil {
+		return nil, fmt.Errorf("could not parse proxy config: %v", err)
 	}
-	return false
+	return mc, nil
 }
 
 // ApplyMeshConfig returns a new MeshConfig decoded from the
@@ -244,10 +242,9 @@ func ParseMeshNetworks(yaml string) (*meshconfig.MeshNetworks, error) {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
-	// TODO validate the loaded MeshNetworks
-	// if err := ValidateMeshNetworks(&out); err != nil {
-	// 	return nil, err
-	// }
+	if err := validation.ValidateMeshNetworks(&out); err != nil {
+		return nil, err
+	}
 	return &out, nil
 }
 

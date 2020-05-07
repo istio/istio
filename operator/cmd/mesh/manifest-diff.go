@@ -20,10 +20,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"istio.io/istio/operator/pkg/compare"
-
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -33,6 +32,8 @@ const YAMLSuffix = ".yaml"
 type manifestDiffArgs struct {
 	// compareDir indicates comparison between directory.
 	compareDir bool
+	// verbose generates verbose output.
+	verbose bool
 	// selectResources constrains the list of resources to compare to only the ones in this list, ignoring all others.
 	// The format of each list item is :: and the items are comma separated. The * character represents wildcard selection.
 	// e.g.
@@ -49,17 +50,19 @@ type manifestDiffArgs struct {
 
 func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
 	cmd.PersistentFlags().BoolVarP(&diffArgs.compareDir, "directory", "r",
-		false, "compare directory")
+		false, "Compare directory.")
+	cmd.PersistentFlags().BoolVarP(&diffArgs.verbose, "verbose", "v",
+		false, "Verbose output.")
 	cmd.PersistentFlags().StringVar(&diffArgs.selectResources, "select", "::",
-		"selectResources constrains the list of resources to compare to only the ones in this list, ignoring all others.\n"+
+		"Constrain the list of resources to compare to only the ones in this list, ignoring all others.\n"+
 			"The format of each list item is \"::\" and the items are comma separated. The \"*\" character represents wildcard selection.\n"+
 			"e.g.\n"+
 			"    Deployment:istio-system:* - compare all deployments in istio-system namespace\n"+
 			"    Service:*:istiod - compare Services called \"istiod\" in all namespaces")
 	cmd.PersistentFlags().StringVar(&diffArgs.ignoreResources, "ignore", "",
-		"ignoreResources ignores all listed items during comparison. It uses the same list format as selectResources")
+		"Ignore all listed items during comparison, using the same list format as selectResources.")
 	cmd.PersistentFlags().StringVar(&diffArgs.renameResources, "rename", "",
-		"renameResources identifies renamed resources before comparison.\n"+
+		"Rename resources before comparison.\n"+
 			"The format of each renaming pair is A->B, all renaming pairs are comma separated.\n"+
 			"e.g. Service:*:istiod->Service:*:istio-control - rename istiod service into istio-control")
 }
@@ -79,8 +82,8 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 			var err error
 			var equal bool
 			if diffArgs.compareDir {
-				equal, err = compareManifestsFromDirs(rootArgs, args[0], args[1], diffArgs.renameResources,
-					diffArgs.selectResources, diffArgs.ignoreResources)
+				equal, err = compareManifestsFromDirs(rootArgs, diffArgs.verbose, args[0], args[1],
+					diffArgs.renameResources, diffArgs.selectResources, diffArgs.ignoreResources)
 				if err != nil {
 					return err
 				}
@@ -90,8 +93,8 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 				return nil
 			}
 
-			equal, err = compareManifestsFromFiles(rootArgs, args, diffArgs.renameResources,
-				diffArgs.selectResources, diffArgs.ignoreResources)
+			equal, err = compareManifestsFromFiles(rootArgs, args, diffArgs.verbose,
+				diffArgs.renameResources, diffArgs.selectResources, diffArgs.ignoreResources)
 			if err != nil {
 				return err
 			}
@@ -104,7 +107,7 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 }
 
 //compareManifestsFromFiles compares two manifest files
-func compareManifestsFromFiles(rootArgs *rootArgs, args []string,
+func compareManifestsFromFiles(rootArgs *rootArgs, args []string, verbose bool,
 	renameResources, selectResources, ignoreResources string) (bool, error) {
 	initLogsOrExit(rootArgs)
 
@@ -118,7 +121,7 @@ func compareManifestsFromFiles(rootArgs *rootArgs, args []string,
 	}
 
 	diff, err := compare.ManifestDiffWithRenameSelectIgnore(string(a), string(b), renameResources, selectResources,
-		ignoreResources, rootArgs.verbose)
+		ignoreResources, verbose)
 	if err != nil {
 		return false, err
 	}
@@ -136,7 +139,7 @@ func yamlFileFilter(path string) bool {
 }
 
 //compareManifestsFromDirs compares manifests from two directories
-func compareManifestsFromDirs(rootArgs *rootArgs, dirName1, dirName2,
+func compareManifestsFromDirs(rootArgs *rootArgs, verbose bool, dirName1, dirName2,
 	renameResources, selectResources, ignoreResources string) (bool, error) {
 	initLogsOrExit(rootArgs)
 
@@ -150,7 +153,7 @@ func compareManifestsFromDirs(rootArgs *rootArgs, dirName1, dirName2,
 	}
 
 	diff, err := compare.ManifestDiffWithRenameSelectIgnore(mf1, mf2, renameResources, selectResources,
-		ignoreResources, rootArgs.verbose)
+		ignoreResources, verbose)
 	if err != nil {
 		return false, err
 	}

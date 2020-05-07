@@ -98,6 +98,9 @@ func startEnvoy(e envoy.Instance) error {
 // stopEnvoy stops the envoy process
 func stopEnvoy(e envoy.Instance) error {
 	log.Printf("stop envoy ...\n")
+	if e == nil {
+		return nil
+	}
 	err := e.ShutdownAndWait().WithTimeout(waitTimeout).Do()
 	if err == context.DeadlineExceeded {
 		return e.KillAndWait().WithTimeout(waitTimeout).Do()

@@ -181,7 +181,7 @@ func poll(acceptedVersions []string, targetResource string, opts clioptions.Cont
 		return 0, 0, err
 	}
 	path := fmt.Sprintf("/debug/config_distribution?resource=%s", targetResource)
-	pilotResponses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
+	pilotResponses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, path)
 	if err != nil {
 		return 0, 0, fmt.Errorf("unable to query pilot for distribution "+
 			"(are you using pilot version >= 1.4 with config distribution tracking on): %s", err)

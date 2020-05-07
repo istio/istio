@@ -26,13 +26,11 @@ import (
 	"sync"
 	"time"
 
-	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/klog"
-
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
@@ -115,6 +113,9 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
+	// FetchCaRoot defines the function to get caRoot
+	FetchCaRoot func() map[string]string
+
 	// Metrics for capturing node-based metrics.
 	Metrics model.Metrics
 
@@ -184,7 +185,8 @@ type Controller struct {
 	domainSuffix         string
 	clusterID            string
 
-	serviceHandlers []func(*model.Service, model.Event)
+	serviceHandlers  []func(*model.Service, model.Event)
+	instanceHandlers []func(*model.ServiceInstance, model.Event)
 
 	// This is only used for test
 	stop chan struct{}
@@ -304,22 +306,20 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		delete(c.nodeSelectorsForServices, svcConv.Hostname)
 		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 		c.Unlock()
-		// EDS needs to just know when service is deleted.
-		c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 	default:
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
-		var nodeSelector labels.Instance
-		if isNodePortGatewayService(svcConv) {
+		if isNodePortGatewayService(svc) {
 			// We need to know which services are using node selectors because during node events,
 			// we have to update all the node port services accordingly.
-			nodeSelector = getNodeSelectorsForService(*svc)
+			nodeSelector := getNodeSelectorsForService(*svc)
+			c.Lock()
+			// only add when it is nodePort gateway service
+			c.nodeSelectorsForServices[svcConv.Hostname] = nodeSelector
+			c.Unlock()
 			c.updateServiceExternalAddr(svcConv)
 		}
 		c.Lock()
-		if len(nodeSelector) > 0 {
-			c.nodeSelectorsForServices[svcConv.Hostname] = getNodeSelectorsForService(*svc)
-		}
 		c.servicesMap[svcConv.Hostname] = svcConv
 		if instances == nil {
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
@@ -327,9 +327,9 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
 		c.Unlock()
-		c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 	}
 
+	c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 	// Notify service handlers.
 	for _, f := range c.serviceHandlers {
 		f(svcConv, event)
@@ -382,7 +382,6 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 			}
 		}
 		if k8sNode.address == "" {
-			klog.Warningf("selected node %s without external ip address is unqualified ", node.Name)
 			return nil
 		}
 
@@ -407,10 +406,9 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	return nil
 }
 
-func isNodePortGatewayService(svc *model.Service) bool {
-	svc.Mutex.RLock()
-	defer svc.Mutex.RUnlock()
-	return svc.Attributes.ClusterExternalPorts != nil
+func isNodePortGatewayService(svc *v1.Service) bool {
+	_, ok := svc.Annotations[kube.NodeSelectorAnnotation]
+	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
 }
 
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
@@ -501,7 +499,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	log.Infof("Controller terminated")
 }
 
-// Stop the controller. Mostly for tests, to simplify the code (defer c.Stop())
+// Stop the controller. Only for tests, to simplify the code (defer c.Stop())
 func (c *Controller) Stop() {
 	if c.stop != nil {
 		close(c.stop)
@@ -529,36 +527,49 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	return svc, nil
 }
 
+// getNodePortServices returns nodePort type gateway service
+func (c *Controller) getNodePortGatewayServices() []*model.Service {
+	c.RLock()
+	defer c.RUnlock()
+	out := make([]*model.Service, 0, len(c.nodeSelectorsForServices))
+	for hostname := range c.nodeSelectorsForServices {
+		svc := c.servicesMap[hostname]
+		if svc != nil {
+			out = append(out, svc)
+		}
+	}
+
+	return out
+}
+
 // updateServiceExternalAddr updates ClusterExternalAddresses for ingress gateway service of nodePort type
 func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 	// node event, update all nodePort gateway services
 	if len(svcs) == 0 {
-		svcs, _ = c.Services()
+		svcs = c.getNodePortGatewayServices()
 	}
 	for _, svc := range svcs {
-		if isNodePortGatewayService(svc) {
-			c.RLock()
-			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
-			c.RUnlock()
-			// update external address
-			svc.Mutex.Lock()
-			if nodeSelector == nil {
-				var extAddresses []string
-				for _, n := range c.nodeInfoMap {
-					extAddresses = append(extAddresses, n.address)
-				}
-				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
-			} else {
-				var nodeAddresses []string
-				for _, n := range c.nodeInfoMap {
-					if nodeSelector.SubsetOf(n.labels) {
-						nodeAddresses = append(nodeAddresses, n.address)
-					}
-				}
-				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
+		c.RLock()
+		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
+		c.RUnlock()
+		// update external address
+		svc.Mutex.Lock()
+		if nodeSelector == nil {
+			var extAddresses []string
+			for _, n := range c.nodeInfoMap {
+				extAddresses = append(extAddresses, n.address)
 			}
-			svc.Mutex.Unlock()
+			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
+		} else {
+			var nodeAddresses []string
+			for _, n := range c.nodeInfoMap {
+				if nodeSelector.SubsetOf(n.labels) {
+					nodeAddresses = append(nodeAddresses, n.address)
+				}
+			}
+			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 		}
+		svc.Mutex.Unlock()
 	}
 }
 
@@ -945,37 +956,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
 func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	saSet := make(map[string]bool)
-
-	instances := make([]*model.ServiceInstance, 0)
-	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
-	// the service is deployed on, and the service accounts of the pods.
-	for _, port := range ports {
-		svcInstances, err := c.InstancesByPort(svc, port, labels.Collection{})
-		if err != nil {
-			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
-			return nil
-		}
-		instances = append(instances, svcInstances...)
-	}
-
-	for _, si := range instances {
-		if si.Endpoint.ServiceAccount != "" {
-			saSet[si.Endpoint.ServiceAccount] = true
-		}
-	}
-
-	for _, serviceAccount := range svc.ServiceAccounts {
-		sa := serviceAccount
-		saSet[sa] = true
-	}
-
-	saArray := make([]string, 0, len(saSet))
-	for sa := range saSet {
-		saArray = append(saArray, sa)
-	}
-
-	return saArray
+	return model.GetServiceAccounts(svc, ports, c)
 }
 
 // AppendServiceHandler implements a service catalog operation
@@ -985,7 +966,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 }
 
 // AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(func(*model.ServiceInstance, model.Event)) error {
+func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
 }
 
@@ -1036,6 +1018,16 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
+	for _, handler := range c.instanceHandlers {
+		for _, ep := range endpoints {
+			si := &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: nil,
+				Endpoint:    ep,
+			}
+			handler(si, event)
+		}
+	}
 }
 
 // namedRangerEntry for holding network's CIDR and name

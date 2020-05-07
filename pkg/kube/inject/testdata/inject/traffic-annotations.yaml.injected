@@ -12,7 +12,13 @@ spec:
   template:
     metadata:
       annotations:
+        proxy.istio.io/config: |-
+          discoveryAddress: foo:123
+          concurrency: 0
+          proxyMetadata:
+            FOO: bar
         sidecar.istio.io/interceptionMode: REDIRECT
+        sidecar.istio.io/proxyCPU: 4000m
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6,15020
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
@@ -43,7 +49,7 @@ spec:
         - --proxyComponentLogLevel=misc:error
         - --trust-domain=cluster.local
         - --concurrency
-        - "2"
+        - "4"
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -71,9 +77,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: MESH_CONFIG
+        - name: PROXY_CONFIG
           value: |
-            {}
+            {"discoveryAddress":"foo:123","proxyMetadata":{"FOO":"bar"}}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -90,13 +96,15 @@ spec:
           value: REDIRECT
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
-            {"traffic.sidecar.istio.io/excludeInboundPorts":"4,5,6","traffic.sidecar.istio.io/excludeOutboundIPRanges":"10.96.0.2/24,10.96.0.3/24","traffic.sidecar.istio.io/excludeOutboundPorts":"7,8,9","traffic.sidecar.istio.io/includeInboundPorts":"1,2,3","traffic.sidecar.istio.io/includeOutboundIPRanges":"127.0.0.1/24,10.96.0.1/24"}
+            {"proxy.istio.io/config":"discoveryAddress: foo:123\nconcurrency: 0\nproxyMetadata:\n  FOO: bar","sidecar.istio.io/proxyCPU":"4000m","traffic.sidecar.istio.io/excludeInboundPorts":"4,5,6","traffic.sidecar.istio.io/excludeOutboundIPRanges":"10.96.0.2/24,10.96.0.3/24","traffic.sidecar.istio.io/excludeOutboundPorts":"7,8,9","traffic.sidecar.istio.io/includeInboundPorts":"1,2,3","traffic.sidecar.istio.io/includeOutboundIPRanges":"127.0.0.1/24,10.96.0.1/24"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: traffic
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/traffic
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: FOO
+          value: bar
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{}'
         image: gcr.io/istio-testing/proxyv2:latest
@@ -114,12 +122,8 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: "4"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -160,6 +164,9 @@ spec:
         - 15090,4,5,6,15020
         - -o
         - 7,8,9
+        env:
+        - name: FOO
+          value: bar
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-init

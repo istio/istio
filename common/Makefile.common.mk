@@ -113,9 +113,6 @@ update-common-protos:
 check-clean-repo:
 	@common/scripts/check_clean_repo.sh
 
-check-no-modify:
-	@common/scripts/check_no_modify.sh
-
 tidy-docker:
 	@docker image prune --all --force --filter="label=io.istio.repo=https://github.com/istio/tools" --filter="label!=io.istio.version=$(IMAGE_VERSION)"
 

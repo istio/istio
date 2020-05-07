@@ -1,0 +1,13 @@
+networks:
+  network1:
+    endpoints:
+      - fromRegistry: kubernetes
+    gateways:
+      - port: 443
+        registry_service_name: istio-ingressgateway.istio-system.svc.cluster.local
+  network2:
+    endpoints:
+      - fromRegistry: istio-testing
+    gateways:
+      - port: 443
+        registry_service_name: istio-ingressgateway.istio-system.svc.cluster.local

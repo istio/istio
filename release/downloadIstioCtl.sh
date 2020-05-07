@@ -43,6 +43,33 @@ if [ "x${ISTIO_VERSION}" = "x" ] ; then
   exit;
 fi
 
+LOCAL_ARCH=$(uname -m)
+if [ "${TARGET_ARCH}" ]; then
+    LOCAL_ARCH=${TARGET_ARCH}
+fi
+
+case "${LOCAL_ARCH}" in 
+  x86_64)
+    ISTIO_ARCH=amd64
+    ;;
+  armv8*)
+    ISTIO_ARCH=arm64
+    ;;
+  aarch64*)
+    ISTIO_ARCH=arm64
+    ;;
+  armv*)
+    ISTIO_ARCH=armv7
+    ;;
+  amd64|arm64)
+    ISTIO_ARCH=${LOCAL_ARCH}
+    ;;
+  *)
+    echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
+    exit 1
+    ;;
+esac
+
 download_failed () {
   printf "Download failed, please make sure your ISTIO_VERSION is correct and verify the download URL exists!"
   exit 1
@@ -50,15 +77,30 @@ download_failed () {
 
 # Downloads the istioctl binary archive.
 tmp=$(mktemp -d /tmp/istioctl.XXXXXX)
-filename="istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
+NAME="istioctl-${ISTIO_VERSION}"
+
 cd "$tmp" || exit
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
-printf "Downloading %s from %s ... \n" "${filename}" "${URL}"
-curl -sLO "${URL}" || download_failed
+ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istioctl-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
+
+printf "Downloading %s from %s ... \n" "${NAME}" "${URL}"
+if ! curl -fsLO "$URL"
+then
+  printf "Failed. \n\nTrying with TARGET_ARCH. Downloading %s from %s ...\n" "${NAME}" "$ARCH_URL"
+  if ! curl -fsLO "$ARCH_URL"
+  then
+   download_failed
+  else
+    filename="istioctl-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
+    tar -xzf "${filename}"
+  fi
+else
+  filename="istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
+  tar -xzf "${filename}"
+fi
 printf "%s download complete!\n" "${filename}"
 
 # setup istioctl
-tar -xzf "${filename}"
 cd "$HOME" || exit
 mkdir -p ".istioctl/bin"
 mv "${tmp}/istioctl" ".istioctl/bin/istioctl"

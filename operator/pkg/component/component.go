@@ -25,13 +25,12 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -78,11 +77,11 @@ type IstioComponent interface {
 // CommonComponentFields is a struct common to all components.
 type CommonComponentFields struct {
 	*Options
-	componentName name.ComponentName
+	ComponentName name.ComponentName
 	// addonName is the name of the addon component.
 	addonName string
 	// resourceName is the name of all resources for this component.
-	resourceName string
+	ResourceName string
 	// index is the index of the component (only used for components with multiple instances like gateways).
 	index int
 	// componentSpec for the actual component e.g. GatewaySpec, ComponentSpec.
@@ -122,7 +121,7 @@ func NewCRDComponent(opts *Options) *CRDComponent {
 	return &CRDComponent{
 		&CommonComponentFields{
 			Options:       opts,
-			componentName: name.IstioBaseComponentName,
+			ComponentName: name.IstioBaseComponentName,
 		},
 	}
 }
@@ -139,12 +138,12 @@ func (c *CRDComponent) RenderManifest() (string, error) {
 
 // ComponentName implements the IstioComponent interface.
 func (c *CRDComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
+	return c.CommonComponentFields.ComponentName
 }
 
 // ResourceName implements the IstioComponent interface.
 func (c *CRDComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
+	return c.CommonComponentFields.ResourceName
 }
 
 // Namespace implements the IstioComponent interface.
@@ -168,8 +167,8 @@ func NewPilotComponent(opts *Options) *PilotComponent {
 	return &PilotComponent{
 		&CommonComponentFields{
 			Options:       opts,
-			componentName: cn,
-			resourceName:  opts.Translator.ComponentMaps[cn].ResourceName,
+			ComponentName: cn,
+			ResourceName:  opts.Translator.ComponentMaps[cn].ResourceName,
 		},
 	}
 }
@@ -186,12 +185,12 @@ func (c *PilotComponent) RenderManifest() (string, error) {
 
 // ComponentName implements the IstioComponent interface.
 func (c *PilotComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
+	return c.CommonComponentFields.ComponentName
 }
 
 // ResourceName implements the IstioComponent interface.
 func (c *PilotComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
+	return c.CommonComponentFields.ResourceName
 }
 
 // Namespace implements the IstioComponent interface.
@@ -215,7 +214,7 @@ func NewPolicyComponent(opts *Options) *PolicyComponent {
 	return &PolicyComponent{
 		&CommonComponentFields{
 			Options:       opts,
-			componentName: cn,
+			ComponentName: cn,
 		},
 	}
 }
@@ -232,12 +231,12 @@ func (c *PolicyComponent) RenderManifest() (string, error) {
 
 // ComponentName implements the IstioComponent interface.
 func (c *PolicyComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
+	return c.CommonComponentFields.ComponentName
 }
 
 // ResourceName implements the IstioComponent interface.
 func (c *PolicyComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
+	return c.CommonComponentFields.ResourceName
 }
 
 // Namespace implements the IstioComponent interface.
@@ -261,7 +260,7 @@ func NewTelemetryComponent(opts *Options) *TelemetryComponent {
 	return &TelemetryComponent{
 		&CommonComponentFields{
 			Options:       opts,
-			componentName: cn,
+			ComponentName: cn,
 		},
 	}
 }
@@ -278,12 +277,12 @@ func (c *TelemetryComponent) RenderManifest() (string, error) {
 
 // ComponentName implements the IstioComponent interface.
 func (c *TelemetryComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
+	return c.CommonComponentFields.ComponentName
 }
 
 // ResourceName implements the IstioComponent interface.
 func (c *TelemetryComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
+	return c.CommonComponentFields.ResourceName
 }
 
 // Namespace implements the IstioComponent interface.
@@ -307,7 +306,7 @@ func NewCNIComponent(opts *Options) *CNIComponent {
 	return &CNIComponent{
 		&CommonComponentFields{
 			Options:       opts,
-			componentName: cn,
+			ComponentName: cn,
 		},
 	}
 }
@@ -324,12 +323,12 @@ func (c *CNIComponent) RenderManifest() (string, error) {
 
 // ComponentName implements the IstioComponent interface.
 func (c *CNIComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
+	return c.CommonComponentFields.ComponentName
 }
 
 // ResourceName implements the IstioComponent interface.
 func (c *CNIComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
+	return c.CommonComponentFields.ResourceName
 }
 
 // Namespace implements the IstioComponent interface.
@@ -353,8 +352,8 @@ func NewIngressComponent(resourceName string, index int, spec *v1alpha1.GatewayS
 	return &IngressComponent{
 		CommonComponentFields: &CommonComponentFields{
 			Options:       opts,
-			componentName: cn,
-			resourceName:  resourceName,
+			ComponentName: cn,
+			ResourceName:  resourceName,
 			index:         index,
 			componentSpec: spec,
 		},
@@ -373,12 +372,12 @@ func (c *IngressComponent) RenderManifest() (string, error) {
 
 // ComponentName implements the IstioComponent interface.
 func (c *IngressComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
+	return c.CommonComponentFields.ComponentName
 }
 
 // ResourceName implements the IstioComponent interface.
 func (c *IngressComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
+	return c.CommonComponentFields.ResourceName
 }
 
 // Namespace implements the IstioComponent interface.
@@ -403,10 +402,10 @@ func NewEgressComponent(resourceName string, index int, spec *v1alpha1.GatewaySp
 	return &EgressComponent{
 		CommonComponentFields: &CommonComponentFields{
 			Options:       opts,
-			componentName: cn,
+			ComponentName: cn,
 			index:         index,
 			componentSpec: spec,
-			resourceName:  resourceName,
+			ResourceName:  resourceName,
 		},
 	}
 }
@@ -423,12 +422,12 @@ func (c *EgressComponent) RenderManifest() (string, error) {
 
 // ComponentName implements the IstioComponent interface.
 func (c *EgressComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
+	return c.CommonComponentFields.ComponentName
 }
 
 // ResourceName implements the IstioComponent interface.
 func (c *EgressComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
+	return c.CommonComponentFields.ResourceName
 }
 
 // Namespace implements the IstioComponent interface.
@@ -452,8 +451,8 @@ func NewAddonComponent(addonName, resourceName string, spec *v1alpha1.ExternalCo
 	return &AddonComponent{
 		CommonComponentFields: &CommonComponentFields{
 			Options:       opts,
-			componentName: name.AddonComponentName,
-			resourceName:  resourceName,
+			ComponentName: name.AddonComponentName,
+			ResourceName:  resourceName,
 			addonName:     addonName,
 			componentSpec: spec,
 		},
@@ -472,12 +471,12 @@ func (c *AddonComponent) RenderManifest() (string, error) {
 
 // ComponentName implements the IstioComponent interface.
 func (c *AddonComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
+	return c.CommonComponentFields.ComponentName
 }
 
 // ResourceName implements the IstioComponent interface.
 func (c *AddonComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
+	return c.CommonComponentFields.ResourceName
 }
 
 // Namespace implements the IstioComponent interface.
@@ -508,14 +507,14 @@ func runComponent(c *CommonComponentFields) error {
 // renderManifest renders the manifest for the component defined by c and returns the resulting string.
 func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error) {
 	if !cf.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", cf.componentName)
+		return "", fmt.Errorf("component %s not started in RenderManifest", cf.ComponentName)
 	}
 
 	if !c.Enabled() {
-		return disabledYAMLStr(cf.componentName, cf.resourceName), nil
+		return disabledYAMLStr(cf.ComponentName, cf.ResourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.componentName)
+	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.ComponentName)
 	if err != nil {
 		return "", err
 	}
@@ -532,13 +531,12 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		scope.Infof("Initial manifest with merged values:\n%s\n", my)
 	}
 	// Add the k8s resources from IstioOperatorSpec.
-	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.componentName, cf.resourceName, cf.addonName, cf.index)
+	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.ComponentName, cf.ResourceName, cf.addonName, cf.index)
 	if err != nil {
-		log.Errorf("Error in OverlayK8sSettings: %s", err)
 		return "", err
 	}
-	cnOutput := string(cf.componentName)
-	if !cf.componentName.IsCoreComponent() && !cf.componentName.IsGateway() {
+	cnOutput := string(cf.ComponentName)
+	if !cf.ComponentName.IsCoreComponent() && !cf.ComponentName.IsGateway() {
 		cnOutput += " " + cf.addonName
 	}
 	my = "# Resources for " + cnOutput + " component\n\n" + my
@@ -546,9 +544,14 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		scope.Infof("Manifest after k8s API settings:\n%s\n", my)
 	}
 	// Add the k8s resource overlays from IstioOperatorSpec.
-	pathToK8sOverlay := fmt.Sprintf("Components.%s.", cf.componentName)
-	if cf.componentName == name.IngressComponentName || cf.componentName == name.EgressComponentName {
-		pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
+	pathToK8sOverlay := ""
+	if !cf.ComponentName.IsCoreComponent() && !cf.ComponentName.IsGateway() {
+		pathToK8sOverlay += fmt.Sprintf("AddonComponents.%s.", cf.addonName)
+	} else {
+		pathToK8sOverlay += fmt.Sprintf("Components.%s.", cf.ComponentName)
+		if cf.ComponentName == name.IngressComponentName || cf.ComponentName == name.EgressComponentName {
+			pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
+		}
 	}
 	pathToK8sOverlay += "K8S.Overlays"
 	var overlays []*v1alpha1.K8SObjectOverlay
@@ -578,8 +581,8 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 // If a helm subdir is not found in ComponentMap translations, it is assumed to be "addon/<component name>.
 func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error) {
 	iop := c.InstallSpec
-	cns := string(c.componentName)
-	if c.componentName.IsAddon() {
+	cns := string(c.ComponentName)
+	if c.ComponentName.IsAddon() {
 		// For addons, distinguish the chart path using the addon name.
 		cns = c.addonName
 	}
@@ -591,7 +594,7 @@ func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error)
 }
 
 func isCoreComponentEnabled(c *CommonComponentFields) bool {
-	enabled, err := c.Translator.IsComponentEnabled(c.componentName, c.InstallSpec)
+	enabled, err := c.Translator.IsComponentEnabled(c.ComponentName, c.InstallSpec)
 	if err != nil {
 		return false
 	}

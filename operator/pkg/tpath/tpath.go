@@ -198,6 +198,10 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 				}
 			}
 		}
+		if reflect.ValueOf(ncNode).IsNil() {
+			ncNode = make(map[string]interface{})
+			nc.Node = ncNode
+		}
 		if m, ok := ncNode.(map[string]interface{}); ok {
 			nn, ok = m[pe]
 			if !ok {
@@ -554,10 +558,15 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 	val := reflect.ValueOf(node)
 	kind := reflect.TypeOf(node).Kind()
 	var structElems reflect.Value
-	if len(path) == 0 && (kind == reflect.Map || kind == reflect.Slice) {
+	if len(path) == 0 {
 		return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported leaf type %T", path, node)
 	}
 	switch kind {
+	case reflect.Map:
+		if path[0] == "" {
+			return nil, false, fmt.Errorf("getFromStructPath path %s, empty map key value", path)
+		}
+		return getFromStructPath(val.MapIndex(reflect.ValueOf(path[0])).Interface(), path[1:])
 	case reflect.Slice:
 		idx, err := strconv.Atoi(path[0])
 		if err != nil {

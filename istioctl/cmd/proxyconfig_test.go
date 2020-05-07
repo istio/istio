@@ -320,7 +320,7 @@ func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubecon
 }
 
 // nolint: unparam
-func (client mockExecConfig) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
+func (client mockExecConfig) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[string][]byte, error) {
 	return client.results, nil
 }
 
@@ -331,14 +331,6 @@ func (client mockExecConfig) EnvoyDo(podName, podNamespace, method, path string,
 		return nil, fmt.Errorf("unable to retrieve Pod: pods %q not found", podName)
 	}
 	return results, nil
-}
-
-// nolint: unparam
-func (client mockExecConfig) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
-	for _, results := range client.results {
-		return results, nil
-	}
-	return nil, fmt.Errorf("unable to find any Pilot instances")
 }
 
 func (client mockExecConfig) GetIstioVersions(namespace string) (*version.MeshInfo, error) {

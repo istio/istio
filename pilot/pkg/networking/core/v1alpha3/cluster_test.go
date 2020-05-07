@@ -36,7 +36,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	authn_beta "istio.io/api/security/v1beta1"
@@ -245,14 +244,13 @@ func buildTestClusters(serviceHostname string, serviceResolution model.Resolutio
 		locality,
 		mesh,
 		destRule,
-		nil, // authnPolicy
 		nil, // peerAuthn
 	)
 }
 
 func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadata(
 		serviceHostname,
 		serviceResolution,
@@ -261,7 +259,6 @@ func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution 
 		locality,
 		mesh,
 		destRule,
-		authnPolicy,
 		peerAuthn,
 		&model.NodeMetadata{},
 		model.MaxIstioVersion)
@@ -269,18 +266,18 @@ func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution 
 
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
+	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication,
 	meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution, externalService,
 		nodeType, locality, mesh,
-		destRule, authnPolicy, peerAuthn, meta, istioVersion,
+		destRule, peerAuthn, meta, istioVersion,
 		// Add default sidecar proxy meta
 		[]string{"6.6.6.6", "::1"})
 }
 
 func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
+	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication,
 	meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
@@ -385,24 +382,6 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 						Name:    "acme",
 					},
 						Spec: destRule,
-					}}, nil
-			}
-			if typ == collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind() && authnPolicy != nil {
-				// Set the policy name conforming to the authentication rule:
-				// - namespace wide policy (i.e has not target selector) must be name "default"
-				// - service-specific policy can be named anything but 'default'
-				policyName := "default"
-				if authnPolicy.Targets != nil {
-					policyName = "acme"
-				}
-				return []model.Config{
-					{ConfigMeta: model.ConfigMeta{
-						Type:      collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
-						Version:   collections.IstioAuthenticationV1Alpha1Policies.Resource().Version(),
-						Name:      policyName,
-						Namespace: TestServiceNamespace,
-					},
-						Spec: authnPolicy,
 					}}, nil
 			}
 			if typ == collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() && peerAuthn != nil {
@@ -550,9 +529,15 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig mesh
 	return env
 }
 
-func withClusterLocalNamespaces(env *model.Environment, ns ...string) *model.Environment { // nolint:interfacer
-	env.Mesh().ClusterLocalNamespaces = ns
-	return env
+func withClusterLocalHosts(m meshconfig.MeshConfig, hosts ...string) meshconfig.MeshConfig { // nolint:interfacer
+	m.ServiceSettings = append(append(make([]*meshconfig.MeshConfig_ServiceSettings, 0), m.ServiceSettings...),
+		&meshconfig.MeshConfig_ServiceSettings{
+			Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+				ClusterLocal: true,
+			},
+			Hosts: hosts,
+		})
+	return m
 }
 
 func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
@@ -618,7 +603,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	}
 
 	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, false, model.SidecarProxy,
-		nil, testMesh, destRule, nil, nil, envoyMetadata, model.MaxIstioVersion)
+		nil, testMesh, destRule, nil, envoyMetadata, model.MaxIstioVersion)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	g.Expect(clusters).To(HaveLen(10))
@@ -675,7 +660,6 @@ func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta 
 				},
 			},
 		},
-		nil, // authnPolicy
 		nil, // peerAuthn
 		meta,
 		model.MaxIstioVersion,
@@ -1373,7 +1357,6 @@ func TestGatewayLocalityLB(t *testing.T) {
 				},
 			},
 		},
-		nil, // authnPolicy
 		nil, // peerAuthn,
 		&model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
 		model.MaxIstioVersion)
@@ -1424,7 +1407,6 @@ func TestGatewayLocalityLB(t *testing.T) {
 				},
 			},
 		},
-		nil, // authnPolicy
 		nil, // peerAuthn
 		&model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
 		model.MaxIstioVersion)
@@ -1621,7 +1603,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		{
 			name: "cluster local",
 			newEnv: func(sd model.ServiceDiscovery, cs model.IstioConfigStore) *model.Environment {
-				return withClusterLocalNamespaces(newTestEnvironment(sd, testMesh, cs), "test-ns")
+				return newTestEnvironment(sd, withClusterLocalHosts(testMesh, "*.example.org"), cs)
 			},
 			instances: []*model.ServiceInstance{
 				{
@@ -2115,279 +2097,6 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	}
 }
 
-func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	destRule := &networking.DestinationRule{
-		Host: TestServiceNHostname,
-		TrafficPolicy: &networking.TrafficPolicy{
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{
-					MaxRequestsPerConnection: 1,
-				},
-			},
-			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
-				{
-					Port: &networking.PortSelector{
-						Number: 9090,
-					},
-					Tls: &networking.ClientTLSSettings{
-						Mode: networking.ClientTLSSettings_DISABLE,
-					},
-				},
-			},
-		},
-	}
-
-	authnPolicy := &authn.Policy{
-		Peers: []*authn.PeerAuthenticationMethod{},
-	}
-
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy, nil)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	// mTLS is disabled by authN policy so autoMTLS does not kick in. No cluster should have TLS context.
-	for _, cluster := range clusters {
-		g.Expect(getTLSContext(t, cluster)).To(BeNil())
-	}
-}
-
-func TestAutoMTLSClusterStrictMode(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	destRule := &networking.DestinationRule{
-		Host: TestServiceNHostname,
-		TrafficPolicy: &networking.TrafficPolicy{
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{
-					MaxRequestsPerConnection: 1,
-				},
-			},
-			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
-				{
-					Port: &networking.PortSelector{
-						Number: 9090,
-					},
-					Tls: &networking.ClientTLSSettings{
-						Mode: networking.ClientTLSSettings_DISABLE,
-					},
-				},
-			},
-		},
-	}
-
-	authnPolicy := &authn.Policy{
-		Peers: []*authn.PeerAuthenticationMethod{
-			{
-				Params: &authn.PeerAuthenticationMethod_Mtls{
-					Mtls: &authn.MutualTls{
-						Mode: authn.MutualTls_STRICT,
-					},
-				},
-			},
-		},
-	}
-
-	testMesh.EnableAutoMtls.Value = true
-
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy, nil)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	// TlsContext is nil because we use socket match instead
-	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
-	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
-
-	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
-	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
-
-	// Sanity check: make sure TLS is not accidentally added to other clusters.
-	for i := 2; i < len(clusters); i++ {
-		cluster := clusters[i]
-		g.Expect(getTLSContext(t, cluster)).To(BeNil())
-	}
-}
-
-func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	destRule := &networking.DestinationRule{
-		Host: TestServiceNHostname,
-		TrafficPolicy: &networking.TrafficPolicy{
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{
-					MaxRequestsPerConnection: 1,
-				},
-			},
-			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
-				{
-					Port: &networking.PortSelector{
-						Number: 9090,
-					},
-					Tls: &networking.ClientTLSSettings{
-						Mode: networking.ClientTLSSettings_DISABLE,
-					},
-				},
-			},
-		},
-	}
-
-	authnPolicy := &authn.Policy{
-		Peers: []*authn.PeerAuthenticationMethod{
-			{
-				Params: &authn.PeerAuthenticationMethod_Mtls{
-					Mtls: &authn.MutualTls{
-						Mode: authn.MutualTls_STRICT,
-					},
-				},
-			},
-		},
-	}
-
-	clusters, err := buildTestClustersWithAuthnPolicy(
-		TestServiceNHostname,
-		0,
-		true,
-		model.SidecarProxy,
-		nil,
-		testMesh,
-		destRule,
-		authnPolicy,
-		nil, // peerAuthn
-	)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	// Service is external, use the TLS settings specified in DR.
-	for _, cluster := range clusters {
-		g.Expect(getTLSContext(t, cluster)).To(BeNil())
-	}
-}
-
-func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	destRule := &networking.DestinationRule{
-		Host: TestServiceNHostname,
-		TrafficPolicy: &networking.TrafficPolicy{
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{
-					MaxRequestsPerConnection: 1,
-				},
-			},
-		},
-	}
-
-	authnPolicy := &authn.Policy{
-		Targets: []*authn.TargetSelector{
-			{
-				Name: "foo",
-				Ports: []*authn.PortSelector{
-					{
-						Port: &authn.PortSelector_Number{
-							Number: 8080,
-						},
-					},
-				},
-			},
-		},
-		Peers: []*authn.PeerAuthenticationMethod{
-			{
-				Params: &authn.PeerAuthenticationMethod_Mtls{
-					Mtls: &authn.MutualTls{
-						Mode: authn.MutualTls_STRICT,
-					},
-				},
-			},
-		},
-	}
-
-	testMesh.EnableAutoMtls.Value = true
-
-	clusters, err := buildTestClustersWithAuthnPolicy(
-		TestServiceNHostname,
-		0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy,
-		nil, // peerAuthn
-	)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	// TlsContext is nil because we use socket match instead
-	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
-	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
-
-	// For 9090, authn policy disable mTLS, so it should not have TLS context.
-	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
-
-	// Sanity check: make sure TLS is not accidentally added to other clusters.
-	for i := 2; i < len(clusters); i++ {
-		cluster := clusters[i]
-		g.Expect(getTLSContext(t, cluster)).To(BeNil())
-	}
-}
-
-func TestAutoMTLSClusterWithPeerAuthnStrictMode(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	destRule := &networking.DestinationRule{
-		Host: TestServiceNHostname,
-		TrafficPolicy: &networking.TrafficPolicy{
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{
-					MaxRequestsPerConnection: 1,
-				},
-			},
-			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
-				{
-					Port: &networking.PortSelector{
-						Number: 9090,
-					},
-					Tls: &networking.ClientTLSSettings{
-						Mode: networking.ClientTLSSettings_DISABLE,
-					},
-				},
-			},
-		},
-	}
-
-	// This alpha policy will be ignored.
-	authnPolicy := &authn.Policy{
-		Peers: []*authn.PeerAuthenticationMethod{
-			{
-				Params: &authn.PeerAuthenticationMethod_Mtls{
-					Mtls: &authn.MutualTls{
-						Mode: authn.MutualTls_PERMISSIVE,
-					},
-				},
-			},
-		},
-	}
-
-	peerAuthn := &authn_beta.PeerAuthentication{
-		Mtls: &authn_beta.PeerAuthentication_MutualTLS{
-			Mode: authn_beta.PeerAuthentication_MutualTLS_STRICT,
-		},
-	}
-
-	testMesh.EnableAutoMtls.Value = true
-
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy, peerAuthn)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	// TlsContext is nil because we use socket match instead
-	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
-	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
-
-	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
-	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
-
-	// Sanity check: make sure TLS is not accidentally added to other clusters.
-	for i := 2; i < len(clusters); i++ {
-		cluster := clusters[i]
-		g.Expect(getTLSContext(t, cluster)).To(BeNil())
-	}
-}
-
 func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -2426,7 +2135,7 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 
 	testMesh.EnableAutoMtls.Value = true
 
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, nil, peerAuthn)
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, peerAuthn)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// No policy visible, auto-mTLS should set to PERMISSIVE.
@@ -2503,6 +2212,14 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
+	mutualTLSSettings := &networking.ClientTLSSettings{
+		Mode:              networking.ClientTLSSettings_MUTUAL,
+		CaCertificates:    constants.DefaultRootCert,
+		ClientCertificate: constants.DefaultCertChain,
+		PrivateKey:        constants.DefaultKey,
+		SubjectAltNames:   []string{"custom.foo.com"},
+		Sni:               "custom.foo.com",
+	}
 
 	tests := []struct {
 		name          string
@@ -2512,6 +2229,8 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
+
+		validateTLSContext func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext)
 	}{
 		{
 			name:                       "user specified without tls",
@@ -2528,6 +2247,24 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
+		},
+		{
+			name:                       "user specified mutual tls",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              apiv2.Cluster_EDS,
+			tls:                        mutualTLSSettings,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTLSSettings.CaCertificates
+				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettings.ClientCertificate, mutualTLSSettings.PrivateKey)
+				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
+					t.Fatalf("expected root name %v got %v", rootName, got)
+				}
+				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
+					t.Fatalf("expected cert name %v got %v", certName, got)
+				}
+			},
 		},
 		{
 			name:                       "auto detect with tls",
@@ -2549,11 +2286,11 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 	proxy := &model.Proxy{
 		Type:         model.SidecarProxy,
-		Metadata:     &model.NodeMetadata{},
+		Metadata:     &model.NodeMetadata{SdsEnabled: true},
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
 	}
 	push := model.NewPushContext()
-	push.Mesh = &meshconfig.MeshConfig{}
+	push.Mesh = &meshconfig.MeshConfig{SdsUdsPath: "foo"}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -2573,6 +2310,14 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			if test.expectTransportSocketMatch && opts.cluster.TransportSocketMatches == nil ||
 				!test.expectTransportSocketMatch && opts.cluster.TransportSocketMatches != nil {
 				t.Errorf("Expected TransportSocketMatch %v", test.expectTransportSocketMatch)
+			}
+
+			if test.validateTLSContext != nil {
+				ctx := &envoy_api_v2_auth.UpstreamTlsContext{}
+				if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
+					t.Fatal(err)
+				}
+				test.validateTLSContext(t, ctx)
 			}
 		})
 	}

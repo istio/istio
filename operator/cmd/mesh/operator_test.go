@@ -15,33 +15,16 @@
 package mesh
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
-	"reflect"
 	"testing"
 
-	"github.com/kr/pretty"
-
-	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/operator/pkg/util/clog"
 )
 
-// applyParams is used to capture the inputs to operatorInit applyManifest call.
-type applyParams struct {
-	manifest      string
-	componentName string
-	opts          kubectlcmd.Options
-}
-
-var (
-	applyOutput  []applyParams
-	deleteOutput = ""
-)
-
+// TODO: rewrite this with running the actual top level command.
 func TestOperatorDump(t *testing.T) {
 	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
 
@@ -81,6 +64,7 @@ func TestOperatorDump(t *testing.T) {
 	}
 }
 
+// TODO: rewrite this with running the actual top level command.
 func TestOperatorInit(t *testing.T) {
 	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
 	rootArgs := &rootArgs{}
@@ -93,84 +77,11 @@ func TestOperatorInit(t *testing.T) {
 		},
 	}
 
-	operatorInit(rootArgs, oiArgs, NewLogger(rootArgs.logToStdErr, os.Stdout, os.Stderr), mockApplyManifest)
-	gotYAML := ""
-	for _, ao := range applyOutput {
-		gotYAML += ao.manifest
-	}
-
-	fmt.Println(gotYAML)
-	if refreshGoldenFiles() {
-		t.Logf("Refreshing golden file for %s", goldenFilepath)
-		if err := ioutil.WriteFile(goldenFilepath, []byte(gotYAML), 0644); err != nil {
-			t.Error(err)
-		}
-	}
-
-	wantYAML, err := readFile(goldenFilepath)
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, installerScope)
+	_, gotYAML, err := renderOperatorManifest(rootArgs, &oiArgs.common)
 	if err != nil {
-		t.Fatal(err)
+		l.LogAndFatal(err)
 	}
-
-	if diff := util.YAMLDiff(wantYAML, gotYAML); diff != "" {
-		t.Fatalf("diff: %s", diff)
-	}
-
-	wantOpts := kubectlcmd.Options{}
-
-	wantParams := []applyParams{
-		{
-			componentName: istioControllerComponentName,
-			opts:          wantOpts,
-		},
-		{
-			componentName: istioNamespaceComponentName,
-			opts:          wantOpts,
-		},
-		{
-			componentName: istioOperatorCRComponentName,
-			opts:          wantOpts,
-		},
-	}
-
-	for i, ao := range applyOutput {
-		if got, want := ao.componentName, wantParams[i].componentName; got != want {
-			t.Fatalf("wrong component name: got:%s, want:%s", got, want)
-		}
-		if !reflect.DeepEqual(ao.opts, wantParams[i].opts) {
-			t.Fatalf("wrong opts: got:%v, want:%v", pretty.Sprint(ao.opts), pretty.Sprint(wantParams[i].opts))
-		}
-	}
-}
-
-func mockApplyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, _ bool, _ *Logger) bool {
-	applyOutput = append(applyOutput, applyParams{
-		componentName: componentName,
-		manifest:      manifestStr,
-		opts:          *opts,
-	})
-	return true
-}
-
-func TestOperatorRemove(t *testing.T) {
-	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-remove.yaml")
-
-	rootArgs := &rootArgs{}
-	orArgs := &operatorRemoveArgs{
-		operatorInitArgs: operatorInitArgs{
-			common: operatorCommonArgs{
-				hub:               "foo.io/istio",
-				tag:               "1.2.3",
-				operatorNamespace: "operator-test-namespace",
-				istioNamespace:    "istio-test-namespace",
-			},
-			kubeConfigPath: path.Join(env.IstioSrc, "tests/util/kubeconfig"),
-		},
-		force: true,
-	}
-
-	operatorRemove(rootArgs, orArgs, NewLogger(rootArgs.logToStdErr, os.Stdout, os.Stderr), mockDeleteManifest)
-	gotYAML := deleteOutput
 
 	if refreshGoldenFiles() {
 		t.Logf("Refreshing golden file for %s", goldenFilepath)
@@ -187,9 +98,4 @@ func TestOperatorRemove(t *testing.T) {
 	if diff := util.YAMLDiff(wantYAML, gotYAML); diff != "" {
 		t.Fatalf("diff: %s", diff)
 	}
-}
-
-func mockDeleteManifest(manifestStr, _ string, _ *kubectlcmd.Options, _ *Logger) bool {
-	deleteOutput = manifestStr
-	return true
 }

@@ -30,7 +30,6 @@ metadata:
     app: istio-ingressgateway
     bbb: bbb-val
     istio: ingressgateway
-    
     release: istio
 spec:
   maxReplicas: 5
@@ -328,7 +327,6 @@ metadata:
     app: istio-ingressgateway
     bbb: bbb-val
     istio: ingressgateway
-    
     release: istio
 spec:
   type: LoadBalancer
@@ -337,7 +335,6 @@ spec:
     app: istio-ingressgateway
     bbb: bbb-val
     istio: ingressgateway
-    
   ports:
     -
       name: status-port
@@ -384,7 +381,6 @@ metadata:
     ccc: ccc-val
     ddd: ddd-val
     istio: ingressgateway
-    
     release: istio
 spec:
   maxReplicas: 5
@@ -682,7 +678,6 @@ metadata:
     ccc: ccc-val
     ddd: ddd-val
     istio: ingressgateway
-    
     release: istio
 spec:
   type: LoadBalancer
@@ -691,7 +686,6 @@ spec:
     ccc: ccc-val
     ddd: ddd-val
     istio: ingressgateway
-    
   ports:
     -
       name: status-port
@@ -938,7 +932,6 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   maxReplicas: 5

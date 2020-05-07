@@ -16,6 +16,7 @@ package v2
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -32,6 +33,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 )
 
 var (
@@ -95,6 +97,18 @@ type XdsConnection struct {
 	LDSWatch bool
 	// CDSWatch is set if the remote server is watching Clusters
 	CDSWatch bool
+
+	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
+	// only generate one version or the other, because the protos are wire compatible we can cast to the
+	// requested version. This struct keeps track of the types requested for each resource type.
+	// For example, if Envoy requests Clusters v3, we would track that here. Pilot would generate a v2
+	// cluster response, but change the TypeUrl in the response to be v3.
+	RequestedTypes struct {
+		CDS string
+		EDS string
+		RDS string
+		LDS string
+	}
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -213,29 +227,57 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			// This should be only set for the first request. Guard with ID check regardless.
-			if discReq.Node != nil && discReq.Node.Id != "" {
-				if cancel, err := s.initConnection(discReq.Node, con); err != nil {
-					return err
-				} else if cancel != nil {
-					defer cancel()
+			// This should be only set for the first request. The node id may not be set - for example malicious clients.
+			if con.node == nil {
+				if discReq.Node == nil {
+					return errors.New("missing node ID")
 				}
+				if err := s.initConnection(discReq.Node, con); err != nil {
+					return err
+				}
+				defer s.removeCon(con.ConID)
+			}
+			if s.StatusReporter != nil {
+				s.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
+			}
+
+			// Based on node metadata a different generator was selected, use it instead of the default
+			// behavior.
+			if con.node.XdsResourceGenerator != nil {
+				// Endpoints are special - will use the optimized code path.
+				err = s.handleCustomGenerator(con, discReq)
+				if err != nil {
+					return err
+				}
+				continue
 			}
 
 			switch discReq.TypeUrl {
-			case ClusterType:
+			case ClusterType, v3.ClusterType:
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.CDS); err != nil {
+					return err
+				}
 				if err := s.handleCds(con, discReq); err != nil {
 					return err
 				}
-			case ListenerType:
+			case ListenerType, v3.ListenerType:
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.LDS); err != nil {
+					return err
+				}
 				if err := s.handleLds(con, discReq); err != nil {
 					return err
 				}
-			case RouteType:
+			case RouteType, v3.RouteType:
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.RDS); err != nil {
+					return err
+				}
 				if err := s.handleRds(con, discReq); err != nil {
 					return err
 				}
-			case EndpointType:
+			case EndpointType, v3.EndpointType:
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.EDS); err != nil {
+					return err
+				}
 				if err := s.handleEds(con, discReq); err != nil {
 					return err
 				}
@@ -261,6 +303,19 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 		}
 	}
+}
+
+// handleTypeURL records the type url received in an XDS response. If this conflicts with a previously sent type,
+// an error is returned. For example, if a v2 cluster request was sent initially, then a v3 response was received, we will throw an error.
+// This is to ensure that when we do pushes, we are sending a consistent type, rather than flipping between v2 and v3.
+// A proper XDS client will not send mixed versions.
+func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) error {
+	if *requestedType == "" {
+		*requestedType = typeURL
+	} else if *requestedType != typeURL {
+		return fmt.Errorf("invalid type %v, expected %v", typeURL, *requestedType)
+	}
+	return nil
 }
 
 func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
@@ -414,18 +469,17 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (func(), error) {
-	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
-	initialized := con.node != nil
-	con.mu.RUnlock()
-
-	if initialized {
-		return nil, nil // only need to init the node on first request in the stream
-	}
-
+func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) error {
 	proxy, err := s.initProxy(node)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	// Based on node metadata and version, we can associate a different generator.
+	// TODO: use a map of generators, so it's easily customizable and to avoid deps
+	proxy.Active = map[string]*model.WatchedResource{}
+	if proxy.Metadata.Generator != "" {
+		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
 	}
 
 	// First request so initialize connection id and start tracking it.
@@ -435,7 +489,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	s.addCon(con.ConID, con)
 	con.mu.Unlock()
 
-	return func() { s.removeCon(con.ConID) }, nil
+	return nil
 }
 
 // initProxy initializes the Proxy from node.
@@ -508,6 +562,13 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 }
 
 // DeltaAggregatedResources is not implemented.
+// Instead, Generators may send only updates/add, with Delete indicated by an empty spec.
+// This works if both ends follow this model. For example EDS and the API generator follow this
+// pattern.
+//
+// The delta protocol changes the request, adding unsubscribe/subscribe instead of sending full
+// list of resources. On the response it adds 'removed resources' and sends changes for everything.
+// TODO: we could implement this method if needed, the change is not very big.
 func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
@@ -540,7 +601,20 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.node, pushEv) {
-		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
+		if con.node.XdsResourceGenerator != nil {
+			// to verify if logic works on generator
+			adsLog.Infof("Skipping generator push to %v, no updates required", con.ConID)
+		} else {
+			adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
+		}
+
+		if s.StatusReporter != nil {
+			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
+			// inform distribution status reporter that this connection has been updated, because it effectively has
+			for _, typeURL := range []string{ClusterType, ListenerType, RouteType, EndpointType} {
+				s.StatusReporter.RegisterEvent(con.ConID, typeURL, pushEv.noncePrefix)
+			}
+		}
 		return nil
 	}
 
@@ -548,6 +622,20 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
+
+	// When using Generator, the generic WatchedResource is used instead of the individual
+	// 'LDSWatch', etc.
+	// Each Generator is responsible for determining if the push event requires a push -
+	// returning nil if the push is not needed.
+	if con.node.XdsResourceGenerator != nil {
+		for _, w := range con.node.Active {
+			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, w, pushEv.configsUpdated)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	pushTypes := PushTypeFor(con.node, pushEv)
 
 	if con.CDSWatch && pushTypes[CDS] {
@@ -555,6 +643,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, ClusterType, pushEv.noncePrefix)
 	}
 
 	if len(con.Clusters) > 0 && pushTypes[EDS] {
@@ -562,18 +652,24 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, EndpointType, pushEv.noncePrefix)
 	}
 	if con.LDSWatch && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, ListenerType, pushEv.noncePrefix)
 	}
 	if len(con.Routes) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, RouteType, pushEv.noncePrefix)
 	}
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
@@ -691,6 +787,9 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	}
 
 	xdsClients.Record(float64(len(s.adsClients)))
+	if s.StatusReporter != nil {
+		go s.StatusReporter.RegisterDisconnect(conID, []string{ClusterType, ListenerType, RouteType, EndpointType})
+	}
 }
 
 // Send with timeout
@@ -703,17 +802,17 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 		conn.mu.Lock()
 		if res.Nonce != "" {
 			switch res.TypeUrl {
-			case ClusterType:
+			case ClusterType, v3.ClusterType:
 				conn.ClusterNonceSent = res.Nonce
-			case ListenerType:
+			case ListenerType, v3.ListenerType:
 				conn.ListenerNonceSent = res.Nonce
-			case RouteType:
+			case RouteType, v3.RouteType:
 				conn.RouteNonceSent = res.Nonce
-			case EndpointType:
+			case EndpointType, v3.EndpointType:
 				conn.EndpointNonceSent = res.Nonce
 			}
 		}
-		if res.TypeUrl == RouteType {
+		if res.TypeUrl == RouteType || res.TypeUrl == v3.RouteType {
 			conn.RouteVersionInfoSent = res.VersionInfo
 		}
 		conn.mu.Unlock()

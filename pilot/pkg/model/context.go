@@ -38,6 +38,10 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 )
 
+const (
+	defaultDomainSuffix = "cluster.local"
+)
+
 var _ mesh.Holder = &Environment{}
 var _ mesh.NetworksHolder = &Environment{}
 
@@ -66,6 +70,16 @@ type Environment struct {
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
 	PushContext *PushContext
+
+	// DomainSuffix provides a default domain for the Istio server.
+	DomainSuffix string
+}
+
+func (e *Environment) GetDomainSuffix() string {
+	if len(e.DomainSuffix) > 0 {
+		return e.DomainSuffix
+	}
+	return defaultDomainSuffix
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -103,12 +117,16 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 // Request is an alias for array of marshaled resources.
 type Resources = []*any.Any
 
+// XdsUpdates include information about the subset of updated resources.
+// See for example EDS incremental updates.
+type XdsUpdates = map[ConfigKey]struct{}
+
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource) Resources
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates XdsUpdates) Resources
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -187,12 +205,6 @@ type Proxy struct {
 	Active map[string]*WatchedResource
 }
 
-// VersionNonce holds information about ack/nack status in the protocol.
-type VersionNonce struct {
-	Version string
-	Nonce   string
-}
-
 // WatchedResource tracks an active DiscoveryRequest type.
 type WatchedResource struct {
 	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
@@ -203,12 +215,22 @@ type WatchedResource struct {
 	// TypeUrl type are watched.
 	ResourceNames []string
 
-	// CurrentVersionNonce is the version and nonce sent to a client.
-	CurrentVersionNonce VersionNonce
+	// VersionSent is the version of the resource included in the last sent response.
+	// It corresponds to the [Cluster/Route/Listener]VersionSent in the XDS package.
+	VersionSent string
 
-	// LastVersionNonce is the last version and nonce acked/nacked by the client. If different from CurrentVersionNonce
-	// the client is still processing the request and didn't ack/nack.
-	LastVersionNonce VersionNonce
+	// NonceSent is the nonce sent in the last sent response. If it is equal with NonceAcked, the
+	// last message has been processed. If empty: we never sent a message of this type.
+	NonceSent string
+
+	// VersionAcked represents the version that was applied successfully. It can be different from
+	// VersionSent: if NonceSent == NonceAcked and versions are different it means the client rejected
+	// the last version, and VersionAcked is the last accepted and active config.
+	// If empty it means the client has no accepted/valid version, and is not ready.
+	VersionAcked string
+
+	// NonceAcked is the last acked message.
+	NonceAcked string
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time

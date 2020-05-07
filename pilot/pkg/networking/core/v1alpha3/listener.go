@@ -51,7 +51,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -177,6 +176,9 @@ var (
 	mtlsHTTP10ALPN = []string{"istio-http/1.0", "istio"}
 	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio"}
 	mtlsHTTP2ALPN  = []string{"istio-h2", "istio"}
+
+	// ALPN used for TCP Metadata Exchange.
+	tcpMxcALPN = "istio-peer-exchange"
 
 	// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 	// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
@@ -331,6 +333,10 @@ var (
 
 	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
 	httpGrpcAccessLog = buildHTTPGrpcAccessLog()
+
+	// pilotTraceSamplingEnv is value of PILOT_TRACE_SAMPLING env bounded
+	// by [0.0, 100.0]; if outside the range it is set to 100.0
+	pilotTraceSamplingEnv = getPilotRandomSamplingEnv()
 
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 
@@ -792,6 +798,10 @@ allChainsLabel:
 			filterChainMatch = &fcm
 			if filterChainMatchOption[id].Protocol == istionetworking.ListenerProtocolHTTP {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
+				if chain.TLSContext != nil && chain.TLSContext.CommonTlsContext != nil {
+					chain.TLSContext.CommonTlsContext.AlpnProtocols = dropAlpnFromList(
+						chain.TLSContext.CommonTlsContext.AlpnProtocols, tcpMxcALPN)
+				}
 			} else {
 				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.Node, pluginParams.ServiceInstance)
 			}
@@ -1987,26 +1997,16 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	if pluginParams.Push.Mesh.EnableTracing {
 		proxyConfig := pluginParams.Node.Metadata.ProxyConfigOrDefault(pluginParams.Push.Mesh.DefaultConfig)
-		connectionManager.Tracing = buildTracingConfig(proxyConfig, pluginParams.Node.Type)
+		connectionManager.Tracing = buildTracingConfig(proxyConfig)
 		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
 }
 
-func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType) *http_conn.HttpConnectionManager_Tracing {
-	tc := authn_model.GetTraceConfig()
-	tracingCfg := &http_conn.HttpConnectionManager_Tracing{
-		ClientSampling: &envoy_type.Percent{
-			Value: tc.ClientSampling,
-		},
-		RandomSampling: &envoy_type.Percent{
-			Value: tc.RandomSampling,
-		},
-		OverallSampling: &envoy_type.Percent{
-			Value: tc.OverallSampling,
-		},
-	}
+func buildTracingConfig(config *meshconfig.ProxyConfig) *http_conn.HttpConnectionManager_Tracing {
+	tracingCfg := &http_conn.HttpConnectionManager_Tracing{}
+	updateTraceSamplingConfig(config, tracingCfg)
 
 	if config.Tracing != nil {
 		// only specify a MaxPathTagLength if meshconfig has specified one
@@ -2018,14 +2018,42 @@ func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType
 				}
 		}
 
-		// custom tags should only be used for sidecar proxies and should not include
-		// gateways due to client requests from outside of the mesh
-		if len(config.Tracing.CustomTags) != 0 && proxyType == model.SidecarProxy {
+		if len(config.Tracing.CustomTags) != 0 {
 			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
 		}
 	}
 
 	return tracingCfg
+}
+
+func getPilotRandomSamplingEnv() float64 {
+	f := features.TraceSampling
+	if f < 0.0 || f > 100.0 {
+		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
+		return 100.0
+	}
+	return f
+}
+
+func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *http_conn.HttpConnectionManager_Tracing) {
+	sampling := pilotTraceSamplingEnv
+
+	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
+		sampling = config.Tracing.Sampling
+
+		if sampling > 100.0 {
+			sampling = 100.0
+		}
+	}
+	cfg.ClientSampling = &envoy_type.Percent{
+		Value: 100.0,
+	}
+	cfg.RandomSampling = &envoy_type.Percent{
+		Value: sampling,
+	}
+	cfg.OverallSampling = &envoy_type.Percent{
+		Value: 100.0,
+	}
 }
 
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*envoy_type_tracing_v2.CustomTag {
@@ -2142,6 +2170,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	if opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.HttpInspector] = true
 		listenerFilters = append(listenerFilters, httpInspectorFilter)
+	}
+
+	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy {
+		listenerFiltersMap[OriginalSrc] = true
+		listenerFilters = append(listenerFilters, originalSrcFilter)
 	}
 
 	for _, chain := range opts.filterChainOpts {
@@ -2659,4 +2692,15 @@ func resetCachedListenerConfig(mesh *meshconfig.MeshConfig) {
 // listenerKey builds the key for a given bind and port
 func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
+}
+
+func dropAlpnFromList(alpnProtocols []string, alpnToDrop string) []string {
+	var newAlpnProtocols []string
+	for _, alpn := range alpnProtocols {
+		if alpn == alpnToDrop {
+			continue
+		}
+		newAlpnProtocols = append(newAlpnProtocols, alpn)
+	}
+	return newAlpnProtocols
 }

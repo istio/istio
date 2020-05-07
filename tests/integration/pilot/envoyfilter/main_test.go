@@ -89,7 +89,7 @@ spec:
           "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager"
           access_log:
           - name: envoy.http_grpc_access_log
-            config: 
+            config:
               common_config:
                 log_name: "grpc-als-example"
                 grpc_service:
@@ -154,15 +154,14 @@ spec:
   - address: 2.2.2.2
 `
 	PermissiveMtls = `
-apiVersion: authentication.istio.io/v1alpha1
-kind: Policy
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
   name: default
   namespace: {{.AppNamespace}}
 spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
+  mtls:
+    mode: PERMISSIVE
 `
 	MeshConfig = `
 disablePolicyChecks: false
