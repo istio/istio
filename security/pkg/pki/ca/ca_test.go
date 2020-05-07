@@ -640,43 +640,60 @@ func TestSignWithCertChain(t *testing.T) {
 }
 
 func TestGenKeyCert(t *testing.T) {
-	rootCertFile := "../testdata/multilevelpki/root-cert.pem"
-	certChainFile := "../testdata/multilevelpki/int-cert-chain.pem"
-	signingCertFile := "../testdata/multilevelpki/int-cert.pem"
-	signingKeyFile := "../testdata/multilevelpki/int-key.pem"
+	cases := []struct{
+		rootCertFile string
+		certChainFile string
+		signingCertFile string
+		signingKeyFile string
+	}{
+		{
+			rootCertFile : "../testdata/multilevelpki/root-cert.pem",
+			certChainFile : "../testdata/multilevelpki/int-cert-chain.pem",
+			signingCertFile : "../testdata/multilevelpki/int-cert.pem",
+			signingKeyFile : "../testdata/multilevelpki/int-key.pem",
+		},
+		{
+			rootCertFile : "../testdata/multilevelpki/ecc-root-cert.pem",
+			certChainFile : "../testdata/multilevelpki/ecc-int-cert-chain.pem",
+			signingCertFile : "../testdata/multilevelpki/ecc-int-cert.pem",
+			signingKeyFile : "../testdata/multilevelpki/ecc-int-key.pem",
+		},
+	}
 	caNamespace := "default"
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := 3650 * 24 * time.Hour
 
-	client := fake.NewSimpleClientset()
+	for _, tc := range cases {
+		client := fake.NewSimpleClientset()
 
-	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
-		defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
-	if err != nil {
-		t.Fatalf("failed to create a plugged-cert CA Options: %v", err)
-	}
+		caopts, err := NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+		if err != nil {
+			t.Fatalf("failed to create a plugged-cert CA Options: %v", err)
+		}
 
-	ca, err := NewIstioCA(caopts)
-	if err != nil {
-		t.Errorf("got error while creating plugged-cert CA: %v", err)
-	}
-	if ca == nil {
-		t.Fatalf("failed to create a plugged-cert CA.")
-	}
+		ca, err := NewIstioCA(caopts)
+		if err != nil {
+			t.Errorf("got error while creating plugged-cert CA: %v", err)
+		}
+		if ca == nil {
+			t.Fatalf("failed to create a plugged-cert CA.")
+		}
 
-	certPEM, privPEM, err := ca.GenKeyCert([]string{"host1", "host2"}, 3650*24*time.Hour)
-	if err != nil {
-		t.Error(err)
-	}
+		certPEM, privPEM, err := ca.GenKeyCert([]string{"host1", "host2"}, 3650*24*time.Hour)
+		if err != nil {
+			t.Error(err)
+		}
 
-	cert, err := tls.X509KeyPair(certPEM, privPEM)
-	if err != nil {
-		t.Error(err)
-	}
+		cert, err := tls.X509KeyPair(certPEM, privPEM)
+		if err != nil {
+			t.Error(err)
+		}
 
-	if len(cert.Certificate) != 3 {
-		t.Errorf("unexpected number of certificates returned: %d (expected 3)", len(cert.Certificate))
+		if len(cert.Certificate) != 3 {
+			t.Errorf("unexpected number of certificates returned: %d (expected 3)", len(cert.Certificate))
+		}
 	}
 }
 
