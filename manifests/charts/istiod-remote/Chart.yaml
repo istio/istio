@@ -6,6 +6,7 @@ tillerVersion: ">=2.7.2"
 description: Helm chart for istio control plane
 keywords:
   - istio
+  - istiod-remote
 sources:
   - http://github.com/istio/istio
 engine: gotpl
