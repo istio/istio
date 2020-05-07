@@ -182,7 +182,7 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
-func (s *testContext) ApplyConfig(ns string, yamlText ...string) error {
+func (c *testContext) ApplyConfig(ns string, yamlText ...string) error {
 	for _, c := range s.Environment().Clusters() {
 		if err := c.ApplyConfig(ns, yamlText...); err != nil {
 			return err
@@ -191,13 +191,13 @@ func (s *testContext) ApplyConfig(ns string, yamlText ...string) error {
 	return nil
 }
 
-func (s *testContext) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+func (c *testContext) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
 	for _, c := range s.Environment().Clusters() {
 		c.ApplyConfigOrFail(t, ns, yamlText...)
 	}
 }
 
-func (s *testContext) DeleteConfig(ns string, yamlText ...string) error {
+func (c *testContext) DeleteConfig(ns string, yamlText ...string) error {
 	for _, c := range s.Environment().Clusters() {
 		if err := c.DeleteConfig(ns, yamlText...); err != nil {
 			return err
@@ -206,13 +206,13 @@ func (s *testContext) DeleteConfig(ns string, yamlText ...string) error {
 	return nil
 }
 
-func (s *testContext) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+func (c *testContext) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
 	for _, c := range s.Environment().Clusters() {
 		c.DeleteConfigOrFail(t, ns, yamlText...)
 	}
 }
 
-func (s *testContext) ApplyConfigDir(ns string, configDir string) error {
+func (c *testContext) ApplyConfigDir(ns string, configDir string) error {
 	for _, c := range s.Environment().Clusters() {
 		if err := c.ApplyConfigDir(ns, configDir); err != nil {
 			return err
@@ -221,7 +221,7 @@ func (s *testContext) ApplyConfigDir(ns string, configDir string) error {
 	return nil
 }
 
-func (s *testContext) DeleteConfigDir(ns string, configDir string) error {
+func (c *testContext) DeleteConfigDir(ns string, configDir string) error {
 	for _, c := range s.Environment().Clusters() {
 		if err := c.DeleteConfigDir(ns, configDir); err != nil {
 			return err

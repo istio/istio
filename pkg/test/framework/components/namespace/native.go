@@ -32,6 +32,9 @@ var _ Instance = &nativeNamespace{}
 var _ resource.Resource = &nativeNamespace{}
 
 func (n *nativeNamespace) Name() string {
+	if n == nil {
+		return ""
+	}
 	return n.name
 }
 
