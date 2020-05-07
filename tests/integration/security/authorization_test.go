@@ -63,9 +63,9 @@ func TestAuthorization_mTLS(t *testing.T) {
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("c", ns2, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
+				With(&c, util.EchoConfig("c", ns2, false, nil, p)).
 				BuildOrFail(t)
 
 			newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -123,10 +123,10 @@ func TestAuthorization_JWT(t *testing.T) {
 
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, p)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -199,10 +199,10 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 
 			var a, bInNS1, cInNS1, cInNS2 echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns1, false, nil, g, p)).
-				With(&bInNS1, util.EchoConfig("b", ns1, false, nil, g, p)).
-				With(&cInNS1, util.EchoConfig("c", ns1, false, nil, g, p)).
-				With(&cInNS2, util.EchoConfig("c", ns2, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns1, false, nil, p)).
+				With(&bInNS1, util.EchoConfig("b", ns1, false, nil, p)).
+				With(&cInNS1, util.EchoConfig("c", ns1, false, nil, p)).
+				With(&cInNS2, util.EchoConfig("c", ns2, false, nil, p)).
 				BuildOrFail(t)
 
 			newTestCase := func(namePrefix string, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -281,9 +281,9 @@ func TestAuthorization_Deny(t *testing.T) {
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, p)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -369,11 +369,11 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 
 			var a, b, c, d, x echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
-				With(&x, util.EchoConfig("x", ns2, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, p)).
+				With(&x, util.EchoConfig("x", ns2, false, nil, p)).
 				BuildOrFail(t)
 
 			newTestCase := func(from, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -450,7 +450,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 
 			var b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
 				BuildOrFail(t)
 
 			var ingr ingress.Instance
@@ -523,7 +523,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
@@ -640,7 +640,7 @@ func TestAuthorization_TCP(t *testing.T) {
 				},
 			}
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&x, util.EchoConfig("x", ns2, false, nil, g, p)).
+				With(&x, util.EchoConfig("x", ns2, false, nil, p)).
 				With(&a, echo.Config{
 					Subsets:        []echo.SubsetConfig{{}},
 					Namespace:      ns,
@@ -765,8 +765,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 			portC := 8090
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", nsA, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", nsB, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", nsA, false, nil, p)).
+				With(&b, util.EchoConfig("b", nsB, false, nil, p)).
 				With(&c, echo.Config{
 					Service:   "c",
 					Namespace: nsC,
@@ -868,10 +868,10 @@ func TestAuthorization_GRPC(t *testing.T) {
 			})
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, p)).
 				BuildOrFail(t)
 
 			cases := []rbacUtil.TestCase{

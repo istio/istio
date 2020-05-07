@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/file"
@@ -62,7 +61,6 @@ type TestCase struct {
 // Context is a context for reachability tests.
 type Context struct {
 	ctx          framework.TestContext
-	g            galley.Instance
 	p            pilot.Instance
 	Namespace    namespace.Instance
 	A, B         echo.Instance
@@ -72,14 +70,14 @@ type Context struct {
 }
 
 // CreateContext creates and initializes reachability context.
-func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instance) Context {
+func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 	ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 		Prefix: "reachability",
 		Inject: true,
 	})
 
 	var a, b, multiVersion, headless, naked echo.Instance
-	cfg := util.EchoConfig("multiversion", ns, false, nil, g, p)
+	cfg := util.EchoConfig("multiversion", ns, false, nil, p)
 	cfg.Subsets = []echo.SubsetConfig{
 		// Istio deployment, with sidecar.
 		{
@@ -92,17 +90,16 @@ func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instanc
 		},
 	}
 	echoboot.NewBuilderOrFail(ctx, ctx).
-		With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-		With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+		With(&a, util.EchoConfig("a", ns, false, nil, p)).
+		With(&b, util.EchoConfig("b", ns, false, nil, p)).
 		With(&multiVersion, cfg).
-		With(&headless, util.EchoConfig("headless", ns, true, nil, g, p)).
+		With(&headless, util.EchoConfig("headless", ns, true, nil, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false), g, p)).
+			SetBool(echo.SidecarInject, false), p)).
 		BuildOrFail(ctx)
 
 	return Context{
 		ctx:          ctx,
-		g:            g,
 		p:            p,
 		Namespace:    ns,
 		A:            a,
@@ -150,10 +147,10 @@ func (rc *Context) Run(testCases []TestCase) {
 			retry.UntilSuccessOrFail(ctx, func() error {
 				ctx.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return rc.g.ApplyConfig(c.Namespace, policyYAML)
+				return rc.ctx.Environment().Clusters()[0].ApplyConfig(c.Namespace.Name(), policyYAML)
 			})
 			ctx.WhenDone(func() error {
-				return rc.g.DeleteConfig(c.Namespace, policyYAML)
+				return rc.ctx.Environment().Clusters()[0].DeleteConfig(c.Namespace.Name(), policyYAML)
 			})
 
 			// Give some time for the policy propagate.

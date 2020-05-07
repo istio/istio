@@ -67,11 +67,11 @@ func TestRequestAuthentication(t *testing.T) {
 
 			var a, b, c, d, e echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
-				With(&e, util.EchoConfig("e", ns, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, p)).
+				With(&e, util.EchoConfig("e", ns, false, nil, p)).
 				BuildOrFail(t)
 
 			testCases := []authn.TestCase{
@@ -311,8 +311,8 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
 				BuildOrFail(t)
 
 			// These test cases verify in-mesh traffic doesn't need tokens.

@@ -53,8 +53,8 @@ func TestSdsVaultCaFlow(t *testing.T) {
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
 				BuildOrFail(t)
 
 			checkers := []connection.Checker{

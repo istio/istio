@@ -91,7 +91,7 @@ func doIstioMutualTest(
 	ctx framework.TestContext, ns namespace.Instance, configPath, expectedResp string) {
 	var client echo.Instance
 	echoboot.NewBuilderOrFail(ctx, ctx).
-		With(&client, util.EchoConfig("client", ns, false, nil, g, p)).
+		With(&client, util.EchoConfig("client", ns, false, nil, p)).
 		BuildOrFail(ctx)
 	g.ApplyConfigOrFail(ctx, ns, file.AsStringOrFail(ctx, configPath))
 	defer g.DeleteConfigOrFail(ctx, ns, file.AsStringOrFail(ctx, configPath))

@@ -29,7 +29,7 @@ import (
 
 const (
 	systemNamespace = "istio-system"
-	domain          = "Cluster.local"
+	domain          = "cluster.local"
 
 	networkLabelKey   = "app"
 	networkLabelValue = "istio-test"

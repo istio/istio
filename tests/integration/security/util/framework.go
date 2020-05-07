@@ -17,12 +17,11 @@ package util
 import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 )
 
-func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations, g galley.Instance, p pilot.Instance) echo.Config {
+func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations, p pilot.Instance) echo.Config {
 	out := echo.Config{
 		Service:        name,
 		Namespace:      ns,
@@ -50,7 +49,6 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Protocol: protocol.GRPC,
 			},
 		},
-		Galley: g,
 		Pilot:  p,
 	}
 

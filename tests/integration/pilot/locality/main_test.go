@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -162,10 +161,10 @@ var (
 
 	expectAllTrafficToB = map[string]int{"b": sendCount}
 
-	ist istio.Instance
-	p   pilot.Instance
-	g   galley.Instance
-	r   *rand.Rand
+	ist     istio.Instance
+	p       pilot.Instance
+	cluster resource.Cluster
+	r       *rand.Rand
 )
 
 func init() {
@@ -194,9 +193,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
+			cluster = ctx.Environment().Clusters()[0]
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
@@ -221,7 +218,6 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 				InstancePort: 8090,
 			},
 		},
-		Galley: g,
 		Pilot:  p,
 	}
 }
@@ -245,12 +241,12 @@ func deploy(t test.Failer, ns namespace.Instance, se serviceConfig, from echo.In
 	if err := deploymentTemplate.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
-	g.ApplyConfigOrFail(t, ns, buf.String())
+	cluster.ApplyConfigOrFail(t, ns.Name(), buf.String())
 	buf.Reset()
 	if err := tmpl.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
-	g.ApplyConfigOrFail(t, ns, buf.String())
+	cluster.ApplyConfigOrFail(t, ns.Name(), buf.String())
 
 	err := WaitUntilRoute(from, se.Host)
 	if err != nil {

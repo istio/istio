@@ -50,6 +50,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
 		Run(func(ctx framework.TestContext) {
+			cluster := ctx.Environment().Clusters()[0]
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix:   "default",
 				Inject:   true,
@@ -57,7 +58,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 				Labels:   nil,
 			})
 			// Apply bad config (referencing invalid host)
-			g.ApplyConfigOrFail(t, ns, `
+		cluster.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -76,7 +77,7 @@ spec:
 				return expectStatus(t, ctx, ns, true)
 			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
-			g.ApplyConfigOrFail(t, ns, `
+		cluster.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:

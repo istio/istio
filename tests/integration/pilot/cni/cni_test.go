@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -55,21 +54,13 @@ components:
 func TestCNIReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g, err := galley.New(ctx, galley.Config{})
-			if err != nil {
-				ctx.Fatal(err)
-			}
-			p, err := pilot.New(ctx, pilot.Config{})
-			if err != nil {
-				ctx.Fatal(err)
-			}
 			kenv := ctx.Environment().(*kube.Environment)
 			cluster := kenv.KubeClusters[0]
-			_, err = cluster.WaitUntilPodsAreReady(cluster.NewSinglePodFetch("kube-system", "k8s-app=istio-cni-node"))
+			_, err := cluster.WaitUntilPodsAreReady(cluster.NewSinglePodFetch("kube-system", "k8s-app=istio-cni-node"))
 			if err != nil {
 				ctx.Fatal(err)
 			}
-			rctx := reachability.CreateContext(ctx, g, p)
+			rctx := reachability.CreateContext(ctx, pilot.NewOrFail(t, ctx, pilot.Config{}))
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{

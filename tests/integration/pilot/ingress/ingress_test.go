@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -38,7 +37,6 @@ import (
 
 var (
 	i    istio.Instance
-	g    galley.Instance
 	p    pilot.Instance
 	ingr ingress.Instance
 )
@@ -55,10 +53,7 @@ func TestMain(m *testing.M) {
 		RequireEnvironmentVersion("1.18").
 		RequireSingleCluster().
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if err := g.ApplyConfigDir(nil, "testdata"); err != nil {
+			if err := ctx.Environment().Clusters()[0].ApplyConfigDir("", "testdata"); err != nil {
 				return err
 			}
 			return nil
@@ -96,7 +91,6 @@ func TestGateway(t *testing.T) {
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
-					Galley:    g,
 					Ports: []echo.Port{
 						{
 							Name:     "http",
@@ -108,7 +102,7 @@ func TestGateway(t *testing.T) {
 				}).
 				BuildOrFail(t)
 			instance.Address()
-			if err := g.ApplyConfig(ns, `
+			if err := ctx.Environment().Clusters()[0].ApplyConfig(ns.Name(), `
 apiVersion: networking.x.k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -191,7 +185,6 @@ func TestIngress(t *testing.T) {
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
-					Galley:    g,
 					Ports: []echo.Port{
 						{
 							Name:     "http",
@@ -213,7 +206,7 @@ func TestIngress(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName2})
 
-			if err := g.ApplyConfig(ns, `
+			if err := ctx.Environment().Clusters()[0].ApplyConfig(ns.Name(), `
 apiVersion: networking.k8s.io/v1beta1
 kind: IngressClass
 metadata:
