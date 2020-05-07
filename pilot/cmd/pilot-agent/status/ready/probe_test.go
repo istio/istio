@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 var (
@@ -46,42 +47,57 @@ func TestEnvoyStats(t *testing.T) {
 	ldsCdsPrefix := "config not received from Pilot (is Pilot running?): "
 	sdsErrorPrefix := "cert not received from istio-agent (check the istio-agent config and try to restart the pod if the error persists): "
 	cases := []struct {
-		name   string
-		stats  string
-		result string
+		name     string
+		stats    string
+		result   string
+		nodeType model.NodeType
 	}{
 		{
 			"only LDS",
 			"listener_manager.lds.update_success: 1",
 			ldsCdsPrefix + "cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
+			model.SidecarProxy,
 		},
 		{
 			"only CDS",
 			"cluster_manager.cds.update_success: 1",
 			ldsCdsPrefix + "cds updates: 1 successful, 0 rejected; lds updates: 0 successful, 0 rejected; sds updates: 0 successful",
+			model.SidecarProxy,
 		},
 		{
 			"reject CDS",
 			`cluster_manager.cds.update_rejected: 1
 listener_manager.lds.update_success: 1`,
 			ldsCdsPrefix + "cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
+			model.SidecarProxy,
 		},
 		{
-			"Missing SDS",
+			"Sidecar missing SDS",
 			`
 cluster_manager.cds.update_success: 1
 listener_manager.lds.update_success: 1
 server.state: 0`,
 			sdsErrorPrefix + "cds updates: 1 successful, 0 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
+			model.SidecarProxy,
 		},
 		{
-			"full",
+			"gateway full",
+			`
+cluster_manager.cds.update_success: 1
+listener_manager.lds.update_success: 1
+server.state: 0`,
+			"",
+			model.Router,
+		},
+		{
+			"sidecar full",
 			`
 cluster_manager.cds.update_success: 1
 listener_manager.lds.update_success: 1
 server.state: 0
 listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2`,
 			"",
+			model.SidecarProxy,
 		},
 	}
 
@@ -89,7 +105,10 @@ listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2`,
 		t.Run(tt.name, func(t *testing.T) {
 			server := createAndStartServer(tt.stats)
 			defer server.Close()
-			probe := Probe{AdminPort: 1234}
+			probe := Probe{
+				AdminPort: 1234,
+				NodeType:  tt.nodeType,
+			}
 
 			err := probe.Check()
 

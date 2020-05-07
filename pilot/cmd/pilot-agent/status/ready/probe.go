@@ -51,18 +51,14 @@ func (p *Probe) checkConfigStatus() error {
 		return err
 	}
 
-	CDSUpdated := s.CDSUpdatesSuccess > 0
-	LDSUpdated := s.LDSUpdatesSuccess > 0
-	SDSUpdated := s.SDSUpdatesSuccess > 0
-	if CDSUpdated && LDSUpdated && SDSUpdated {
-		p.receivedFirstUpdate = true
-		return nil
-	}
-
-	if !CDSUpdated || !LDSUpdated {
+	if s.CDSUpdatesSuccess == 0 || s.LDSUpdatesSuccess == 0 {
 		return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
 	}
-	return fmt.Errorf("cert not received from istio-agent (check the istio-agent config and try to restart the pod if the error persists): %s", s.String())
+	if p.NodeType == model.SidecarProxy && s.SDSUpdatesSuccess == 0 {
+		return fmt.Errorf("cert not received from istio-agent (check the istio-agent config and try to restart the pod if the error persists): %s", s.String())
+	}
+	p.receivedFirstUpdate = true
+	return nil
 }
 
 // checkServerState checks to ensure that Envoy is in the READY state
