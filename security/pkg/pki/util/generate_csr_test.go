@@ -26,17 +26,17 @@ import (
 
 func TestGenCSR(t *testing.T) {
 	// Options to generate a CSR.
-	cases := []struct {
+	cases := map[string]struct {
 		csrOptions CertOptions
 	}{
-		{
+		"GenCSR with RSA": {
 			csrOptions: CertOptions{
 				Host:       "test_ca.com",
 				Org:        "MyOrg",
 				RSAKeySize: 2048,
 			},
 		},
-		{
+		"GenCSR with EC": {
 			csrOptions: CertOptions{
 				Host: "test_ca.com",
 				Org:  "MyOrg",
@@ -45,37 +45,37 @@ func TestGenCSR(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
+	for id, tc := range cases {
 		csrPem, _, err := GenCSR(tc.csrOptions)
 
 		if err != nil {
-			t.Errorf("failed to gen CSR")
+			t.Errorf("%s: failed to gen CSR", id)
 		}
 
 		pemBlock, _ := pem.Decode(csrPem)
 		if pemBlock == nil {
-			t.Fatalf("failed to decode csr")
+			t.Fatalf("%s: failed to decode csr", id)
 		}
 		csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
 		if err != nil {
-			t.Fatalf("failed to parse csr")
+			t.Fatalf("%s: failed to parse csr", id)
 		}
 		if err = csr.CheckSignature(); err != nil {
-			t.Errorf("csr signature is invalid")
+			t.Errorf("%s: csr signature is invalid", id)
 		}
 		if csr.Subject.Organization[0] != "MyOrg" {
-			t.Errorf("csr subject does not match")
+			t.Errorf("%s: csr subject does not match", id)
 		}
 		if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
-			t.Errorf("csr host does not match")
+			t.Errorf("%s: csr host does not match", id)
 		}
 		if tc.csrOptions.IsEC {
 			if reflect.TypeOf(csr.PublicKey) != reflect.TypeOf(&ecdsa.PublicKey{}) {
-				t.Errorf("decoded PKCS#8 returned unexpected key type: %T", csr.PublicKey)
+				t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, csr.PublicKey)
 			}
 		} else {
 			if reflect.TypeOf(csr.PublicKey) != reflect.TypeOf(&rsa.PublicKey{}) {
-				t.Errorf("decoded PKCS#8 returned unexpected key type: %T", csr.PublicKey)
+				t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, csr.PublicKey)
 			}
 		}
 	}
@@ -83,11 +83,10 @@ func TestGenCSR(t *testing.T) {
 
 func TestGenCSRPKCS8Key(t *testing.T) {
 	// Options to generate a CSR.
-	cases := []struct {
+	cases := map[string]struct {
 		csrOptions CertOptions
 	}{
-		// generate a PKCS8Key with RSA
-		{
+		"PKCS8Key with RSA": {
 			csrOptions: CertOptions{
 				Host:       "test_ca.com",
 				Org:        "MyOrg",
@@ -95,8 +94,7 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 				PKCS8Key:   true,
 			},
 		},
-		// generate a PKCS8Key with ECC
-		{
+		"PKCS8Key with EC": {
 			csrOptions: CertOptions{
 				Host:     "test_ca.com",
 				Org:      "MyOrg",
@@ -106,46 +104,46 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
+	for id, tc := range cases {
 		csrPem, keyPem, err := GenCSR(tc.csrOptions)
 
 		if err != nil {
-			t.Errorf("failed to gen CSR")
+			t.Errorf("%s: failed to gen CSR", id)
 		}
 
 		pemBlock, _ := pem.Decode(csrPem)
 		if pemBlock == nil {
-			t.Fatalf("failed to decode csr")
+			t.Fatalf("%s: failed to decode csr", id)
 		}
 		csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
 		if err != nil {
-			t.Fatalf("failed to parse csr")
+			t.Fatalf("%s: failed to parse csr", id)
 		}
 		if err = csr.CheckSignature(); err != nil {
-			t.Errorf("csr signature is invalid")
+			t.Errorf("%s: csr signature is invalid", id)
 		}
 		if csr.Subject.Organization[0] != "MyOrg" {
-			t.Errorf("csr subject does not match")
+			t.Errorf("%s: csr subject does not match", id)
 		}
 		if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
-			t.Errorf("csr host does not match")
+			t.Errorf("%s: csr host does not match", id)
 		}
 
 		keyPemBlock, _ := pem.Decode(keyPem)
 		if keyPemBlock == nil {
-			t.Fatalf("failed to decode private key PEM")
+			t.Fatalf("%s: failed to decode private key PEM", id)
 		}
 		key, err := x509.ParsePKCS8PrivateKey(keyPemBlock.Bytes)
 		if err != nil {
-			t.Errorf("failed to parse PKCS#8 private key")
+			t.Errorf("%s: failed to parse PKCS#8 private key", id)
 		}
 		if tc.csrOptions.IsEC {
 			if reflect.TypeOf(key) != reflect.TypeOf(&ecdsa.PrivateKey{}) {
-				t.Errorf("decoded PKCS#8 returned unexpected key type: %T", key)
+				t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, key)
 			}
 		} else {
 			if reflect.TypeOf(key) != reflect.TypeOf(&rsa.PrivateKey{}) {
-				t.Errorf("decoded PKCS#8 returned unexpected key type: %T", key)
+				t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, key)
 			}
 		}
 	}
