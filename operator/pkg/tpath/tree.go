@@ -531,13 +531,20 @@ func tryToUnmarshalStringToYAML(s interface{}) (interface{}, bool) {
 	// If value type is a string it could either be a literal string or a map type passed as a string. Try to unmarshal
 	// to discover it's the latter.
 	vv := s
-	if reflect.TypeOf(vv).Kind() == reflect.String && strings.Contains(s.(string), ": ") {
-		nv := make(map[string]interface{})
-		if err := yaml2.Unmarshal([]byte(vv.(string)), &nv); err == nil {
-			return nv, true
+
+	if reflect.TypeOf(vv).Kind() == reflect.String {
+		sv := strings.Split(vv.(string), "\n")
+		// Need to be careful not to transform string literals into maps unless they really are maps, since scalar handling
+		// is different for inserts.
+		if len(sv) == 1 && strings.Contains(s.(string), ": ") ||
+			len(sv) > 1 && strings.Contains(s.(string), ":") {
+			nv := make(map[string]interface{})
+			if err := yaml2.Unmarshal([]byte(vv.(string)), &nv); err == nil {
+				return nv, true
+			}
 		}
 	}
-	// got error, return original type.
+	// looks like a literal or failed unmarshal, return original type.
 	return vv, false
 }
 
