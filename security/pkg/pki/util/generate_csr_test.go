@@ -86,6 +86,7 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 	cases := []struct {
 		csrOptions CertOptions
 	}{
+		// generate a PKCS8Key with RSA
 		{
 			csrOptions: CertOptions{
 				Host:       "test_ca.com",
@@ -94,6 +95,7 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 				PKCS8Key:   true,
 			},
 		},
+		// generate a PKCS8Key with ECC
 		{
 			csrOptions: CertOptions{
 				Host:     "test_ca.com",

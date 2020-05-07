@@ -75,7 +75,7 @@ var (
 		"The ticker to detect and close stale connections").Get()
 	initialBackoffInMilliSecEnv = env.RegisterIntVar(initialBackoffInMilliSec, 0, "").Get()
 	pkcs8KeysEnv                = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
-	useECCEnv                   = env.RegisterBoolVar(useECC, true, "Whether to generate ECC private keys").Get()
+	eccKeysEnv                  = env.RegisterBoolVar(eccKey, true, "Whether to generate ECC private keys").Get()
 
 	// Location of K8S CA root.
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
@@ -129,7 +129,9 @@ const (
 
 	pkcs8Key = "PKCS8_KEY"
 
-	useECC = "ECC_GENERATION"
+	// The environmental variable name to specify that private keys should be
+	// generated using Elliptical Curve Cryptography
+	eccKey = "ECC_KEY"
 )
 
 var (
@@ -488,7 +490,7 @@ func applyEnvVars() {
 	serverOptions.CAProviderName = caProviderEnv
 	serverOptions.TrustDomain = trustDomainEnv
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
-	serverOptions.ECCKeys = useECCEnv
+	serverOptions.ECCKeys = eccKeysEnv
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv

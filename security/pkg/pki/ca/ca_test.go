@@ -376,6 +376,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 	cases := []struct {
 		certOpts util.CertOptions
 	}{
+		// generate a private key using RSA
 		{
 			certOpts: util.CertOptions{
 				// This value is not used, instead, subjectID should be used in certificate.
@@ -384,6 +385,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 				IsCA:       false,
 			},
 		},
+		// generate a private key using ECC
 		{
 			certOpts: util.CertOptions{
 				// This value is not used, instead, subjectID should be used in certificate.
@@ -447,83 +449,113 @@ func TestSignCSRForWorkload(t *testing.T) {
 
 func TestSignCSRForCA(t *testing.T) {
 	subjectID := "spiffe://example.com/ns/foo/sa/baz"
-	opts := util.CertOptions{
-		RSAKeySize: 2048,
-		IsCA:       true,
-	}
-	csrPEM, keyPEM, err := util.GenCSR(opts)
-	if err != nil {
-		t.Error(err)
-	}
-
-	ca, err := createCA(365*24*time.Hour, false)
-	if err != nil {
-		t.Error(err)
-	}
-
-	requestedTTL := 30 * 24 * time.Hour
-	certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, true)
-	if signErr != nil {
-		t.Error(signErr)
+	cases := []struct {
+		certOpts util.CertOptions
+	}{
+		{
+			certOpts: util.CertOptions{
+				RSAKeySize: 2048,
+				IsCA:       true,
+			},
+		},
+		{
+			certOpts: util.CertOptions{
+				IsEC: true,
+				IsCA: true,
+			},
+		},
 	}
 
-	fields := &util.VerifyFields{
-		KeyUsage: x509.KeyUsageCertSign,
-		IsCA:     true,
-		Host:     subjectID,
-	}
-	_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
-	if err = util.VerifyCertificate(
-		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, fields); err != nil {
-		t.Error(err)
-	}
+	for _, tc := range cases {
+		csrPEM, keyPEM, err := util.GenCSR(tc.certOpts)
+		if err != nil {
+			t.Error(err)
+		}
 
-	cert, err := util.ParsePemEncodedCertificate(certPEM)
-	if err != nil {
-		t.Error(err)
-	}
+		ca, err := createCA(365*24*time.Hour, tc.certOpts.IsEC)
+		if err != nil {
+			t.Error(err)
+		}
 
-	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
-		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
-	}
-	san := util.ExtractSANExtension(cert.Extensions)
-	if san == nil {
-		t.Errorf("No SAN extension is found in the certificate")
-	}
-	expected, err := util.BuildSubjectAltNameExtension(subjectID)
-	if err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(expected, san) {
-		t.Errorf("Unexpected extensions: wanted %v but got %v", expected, san)
+		requestedTTL := 30 * 24 * time.Hour
+		certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, true)
+		if signErr != nil {
+			t.Error(signErr)
+		}
+
+		fields := &util.VerifyFields{
+			KeyUsage: x509.KeyUsageCertSign,
+			IsCA:     true,
+			Host:     subjectID,
+		}
+		_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
+		if err = util.VerifyCertificate(
+			keyPEM, append(certPEM, certChainBytes...), rootCertBytes, fields); err != nil {
+			t.Error(err)
+		}
+
+		cert, err := util.ParsePemEncodedCertificate(certPEM)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
+			t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
+		}
+		san := util.ExtractSANExtension(cert.Extensions)
+		if san == nil {
+			t.Errorf("No SAN extension is found in the certificate")
+		}
+		expected, err := util.BuildSubjectAltNameExtension(subjectID)
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(expected, san) {
+			t.Errorf("Unexpected extensions: wanted %v but got %v", expected, san)
+		}
 	}
 }
 
 func TestSignCSRTTLError(t *testing.T) {
 	subjectID := "spiffe://example.com/ns/foo/sa/bar"
-	opts := util.CertOptions{
-		Org:        "istio.io",
-		RSAKeySize: 2048,
-	}
-	csrPEM, _, err := util.GenCSR(opts)
-	if err != nil {
-		t.Error(err)
+	cases := []struct {
+		certOpts util.CertOptions
+	}{
+		{
+			certOpts: util.CertOptions{
+				Org:        "istio.io",
+				RSAKeySize: 2048,
+			},
+		},
+		{
+			certOpts: util.CertOptions{
+				Org:  "istio.io",
+				IsEC: true,
+			},
+		},
 	}
 
-	ca, err := createCA(2*time.Hour, false)
-	if err != nil {
-		t.Error(err)
-	}
+	for _, tc := range cases {
+		csrPEM, _, err := util.GenCSR(tc.certOpts)
+		if err != nil {
+			t.Error(err)
+		}
 
-	ttl := 3 * time.Hour
+		ca, err := createCA(2*time.Hour, false)
+		if err != nil {
+			t.Error(err)
+		}
 
-	cert, signErr := ca.Sign(csrPEM, []string{subjectID}, ttl, false)
-	if cert != nil {
-		t.Errorf("Expected null cert be obtained a non-null cert.")
-	}
-	expectedErr := "requested TTL 3h0m0s is greater than the max allowed TTL 2h0m0s"
-	if signErr.(*caerror.Error).Error() != expectedErr {
-		t.Errorf("Expected error: %s but got error: %s.", signErr.(*caerror.Error).Error(), expectedErr)
+		ttl := 3 * time.Hour
+
+		cert, signErr := ca.Sign(csrPEM, []string{subjectID}, ttl, false)
+		if cert != nil {
+			t.Errorf("Expected null cert be obtained a non-null cert.")
+		}
+		expectedErr := "requested TTL 3h0m0s is greater than the max allowed TTL 2h0m0s"
+		if signErr.(*caerror.Error).Error() != expectedErr {
+			t.Errorf("Expected error: %s but got error: %s.", signErr.(*caerror.Error).Error(), expectedErr)
+		}
 	}
 }
 
