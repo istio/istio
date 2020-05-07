@@ -28,5 +28,8 @@ sidecarInjectorWebhook:
   remoteWebhookHost: istiod.istio-system.svc
   remoteWebhookPort: 443
 
+  # caBundle to be patched at runtime or user can specify it manually
+  caBundle: ""
+
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
