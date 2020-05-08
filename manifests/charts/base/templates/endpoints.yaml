@@ -1,5 +1,5 @@
 {{- if .Values.global.remotePilotAddress }}
-  {{- if .Values.global.pilot.enabled }}
+  {{- if .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: Endpoints
 metadata:
