@@ -1581,6 +1581,15 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
 	}
 
+	if discoveryHost, err := e.GetDiscoveryHost(); err != nil {
+		log.Errorf("failed to make discoveryAddress cluster-local: %v", err)
+	} else {
+		if !strings.HasSuffix(string(discoveryHost), domainSuffix) {
+			discoveryHost += host.Name("." + domainSuffix)
+		}
+		defaultClusterLocalHosts = append(defaultClusterLocalHosts, discoveryHost)
+	}
+
 	// Collect the cluster-local hosts.
 	clusterLocalHosts := make([]host.Name, 0)
 	for _, serviceSettings := range ps.Mesh.ServiceSettings {
