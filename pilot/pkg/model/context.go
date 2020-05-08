@@ -25,8 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/config/host"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
@@ -37,6 +35,7 @@ import (
 	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 )
