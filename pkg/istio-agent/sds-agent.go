@@ -291,11 +291,10 @@ func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, err
 	serverOptions.TLSEnabled = sa.RequireCerts
 	serverOptions.ClusterID = sa.ClusterID
 
-	var gatewaySecretCache *cache.SecretCache
-
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := sa.newSecretCache(serverOptions)
 
+	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
 		if ingressSdsExists() {
 			log.Infof("Starting gateway SDS")
@@ -303,7 +302,6 @@ func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, err
 			// TODO: what is the setting for ingress ?
 			serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
 			gatewaySecretCache = newIngressSecretCache(podNamespace)
-
 		} else {
 			log.Infof("Skipping gateway SDS")
 		}
