@@ -34,14 +34,10 @@ data:
           address: zipkin.istio-system:9411
     disableMixerHttpReports: true
     disablePolicyChecks: true
-    enableAutoMtls: true
     enablePrometheusMerge: true
-    enableTracing: true
     ingressClass: istio
     ingressControllerMode: STRICT
     ingressService: istio-ingressgateway
-    localityLbSetting:
-      enabled: true
     mixerCheckServer: foo:1234
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY
