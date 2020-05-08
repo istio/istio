@@ -12,6 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-func TestSDSAgent(t *testing.T) {
-	s := NewSDSAgent("istiod.istio-system:15012", false, "custom", "", "", "kubernetes")
+package istioagent
+
+import (
+	"testing"
+)
+
+func TestSDSAgentWithEmptyCAProvider(t *testing.T) {
+	ca := caProviderEnv
+	caProviderEnv = ""
+	defer func() { caProviderEnv = ca }()
+	sa := NewSDSAgent("istiod.istio-system:15012", false, "custom", "", "", "kubernetes")
+	_, err := sa.Start(true, "test")
+
+	if err != nil {
+		t.Fatalf("Unexpected error starting SDSAgent %v", err)
+	}
+
+	// g := gomega.NewGomegaWithT(t)
+
+	// // Validate that istiod cert is updated.
+	// g.Eventually(func() error {
+	// 	c, err := net.Dial("unix", "./etc/istio/proxy/SDS")
+	// 	defer func() {
+	// 		_ = c.Close()
+	// 		server.Stop()
+	// 	}()
+	// 	return err
+	// }, "10s", "100ms").Should(gomega.BeNil())
 }
