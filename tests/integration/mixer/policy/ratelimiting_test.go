@@ -26,10 +26,8 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/components/redis"
@@ -42,7 +40,6 @@ import (
 var (
 	ist        istio.Instance
 	bookinfoNs namespace.Instance
-	g          galley.Instance
 	red        redis.Instance
 	ing        ingress.Instance
 	prom       prometheus.Instance
@@ -66,8 +63,8 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 			destinationService := "productpage"
 			bookInfoNameSpaceStr := bookinfoNs.Name()
 			config := setupConfigOrFail(t, bookinfo.ProductPageRedisRateLimit, bookInfoNameSpaceStr,
-				red, g, ctx)
-			defer deleteConfigOrFail(t, config, g, ctx)
+				red, ctx)
+			defer deleteConfigOrFail(t, config, ctx)
 			util.AllowRuleSync(t)
 
 			res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
@@ -114,17 +111,17 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
 	framework.NewTest(t).Label(label.Flaky).Run(func(ctx framework.TestContext) {
-		g.ApplyConfigOrFail(
+		ctx.ApplyConfigOrFail(
 			t,
-			bookinfoNs,
+			bookinfoNs.Name(),
 			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		)
-		defer g.DeleteConfigOrFail(t,
-			bookinfoNs,
+		defer ctx.DeleteConfigOrFail(t,
+			bookinfoNs.Name(),
 			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 		bookInfoNameSpaceStr := bookinfoNs.Name()
-		config := setupConfigOrFail(t, config, bookInfoNameSpaceStr, red, g, ctx)
-		defer deleteConfigOrFail(t, config, g, ctx)
+		config := setupConfigOrFail(t, config, bookInfoNameSpaceStr, red, ctx)
+		defer deleteConfigOrFail(t, config, ctx)
 		util.AllowRuleSync(t)
 
 		// This is the number of requests we allow to be missing to be reported, so as to make test stable.
@@ -227,7 +224,7 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 }
 
 func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpaceStr string,
-	red redis.Instance, g galley.Instance, ctx resource.Context) string {
+	red redis.Instance, ctx resource.Context) string {
 	p := path.Join(env.BookInfoRoot, string(config))
 	content, err := ioutil.ReadFile(p)
 	if err != nil {
@@ -241,13 +238,13 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 		"namespace: "+bookInfoNameSpaceStr, -1)
 
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-	g.ApplyConfigOrFail(t, ns, con)
+	ctx.ApplyConfigOrFail(t, ns.Name(), con)
 	return con
 }
 
-func deleteConfigOrFail(t *testing.T, config string, g galley.Instance, ctx resource.Context) {
+func deleteConfigOrFail(t *testing.T, config string, ctx resource.Context) {
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-	g.DeleteConfigOrFail(t, ns, config)
+	ctx.DeleteConfigOrFail(t, ns.Name(), config)
 }
 
 func TestMain(m *testing.M) {
@@ -290,13 +287,6 @@ func testsetup(ctx resource.Context) (err error) {
 	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo}); err != nil {
 		return
 	}
-	g, err = galley.New(ctx, galley.Config{})
-	if err != nil {
-		return
-	}
-	if _, err = mixer.New(ctx, mixer.Config{Galley: g}); err != nil {
-		return
-	}
 	red, err = redis.New(ctx, redis.Config{})
 	if err != nil {
 		return
@@ -326,7 +316,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	err = g.ApplyConfig(bookinfoNs,
+	err = ctx.ApplyConfig(bookinfoNs.Name(),
 		bookinfoGatewayFile,
 		destinationRuleFile,
 		virtualServiceFile)

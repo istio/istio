@@ -18,18 +18,13 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
 	inst istio.Instance
-	g    galley.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -39,17 +34,6 @@ func TestMain(m *testing.M) {
 		NewSuite("sds_ingress_k8sca", m).
 		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Run()
 
 }
@@ -71,7 +55,7 @@ func TestMtlsGatewaysK8sca(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiMtlsGateways(ctx, inst, g)
+			util.RunTestMultiMtlsGateways(ctx, inst)
 		})
 }
 
@@ -80,6 +64,6 @@ func TestTlsGatewaysK8sca(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiTLSGateways(ctx, inst, g)
+			util.RunTestMultiTLSGateways(ctx, inst)
 		})
 }

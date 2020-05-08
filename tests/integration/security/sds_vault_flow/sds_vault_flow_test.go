@@ -53,8 +53,8 @@ func TestSdsVaultCaFlow(t *testing.T) {
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
 				BuildOrFail(t)
 
 			checkers := []connection.Checker{
@@ -75,8 +75,8 @@ func TestSdsVaultCaFlow(t *testing.T) {
 					"Namespace": ns.Name(),
 				})
 
-			g.ApplyConfigOrFail(t, ns, deployment)
-			defer g.DeleteConfigOrFail(t, ns, deployment)
+			ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
+			defer ctx.DeleteConfigOrFail(t, ns.Name(), deployment)
 
 			// Sleep 10 seconds for the policy to take effect.
 			time.Sleep(10 * time.Second)

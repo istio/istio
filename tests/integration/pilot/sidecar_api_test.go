@@ -66,12 +66,12 @@ func TestSidecarListeners(t *testing.T) {
 			if err != nil {
 				t.Fatalf("No such directory: %v", err)
 			}
-			err = g.ApplyConfigDir(nil, path)
+			err = ctx.ApplyConfigDir("", path)
 			if err != nil {
 				t.Fatalf("Error applying directory: %v", err)
 			}
 			defer func() {
-				if err := g.DeleteConfigDir(nil, path); err != nil {
+				if err := ctx.DeleteConfigDir("", path); err != nil {
 					scopes.CI.Errorf("failed to delete directory: %v", err)
 				}
 			}()

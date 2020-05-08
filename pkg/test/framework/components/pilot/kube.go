@@ -105,11 +105,6 @@ func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 
-//func (c *kubeComponent) Start(ctx resource.Context) (err error) {
-//
-//
-//}
-
 // Close stops the kube pilot server.
 func (c *kubeComponent) Close() (err error) {
 	if c.client != nil {

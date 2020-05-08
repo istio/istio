@@ -66,15 +66,14 @@ spec:
   mtls:
     mode: STRICT
 `, name, name)
-	g.ApplyConfigOrFail(t, ns, policyYAML)
-	defer g.DeleteConfigOrFail(t, ns, policyYAML)
+	ctx.ApplyConfigOrFail(t, ns.Name(), policyYAML)
+	defer ctx.DeleteConfigOrFail(t, ns.Name(), policyYAML)
 
 	var healthcheck echo.Instance
 	cfg := echo.Config{
 		Namespace: ns,
 		Service:   name,
 		Pilot:     p,
-		Galley:    g,
 		Ports: []echo.Port{{
 			Name:         "http-8080",
 			Protocol:     protocol.HTTP,

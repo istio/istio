@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -35,7 +34,6 @@ import (
 var (
 	ist               istio.Instance
 	bookinfoNamespace *namespace.Instance
-	galInst           *galley.Instance
 	ingInst           *ingress.Instance
 )
 
@@ -44,16 +42,16 @@ func TestIstioAccessLog(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			_, g, ing := setupComponentsOrFail(t)
+			_, ing := setupComponentsOrFail(t)
 
 			ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-			g.ApplyConfigOrFail(
+			ctx.ApplyConfigOrFail(
 				t,
-				ns,
+				ns.Name(),
 				bookinfo.TelemetryLogEntry.LoadOrFail(t))
-			defer g.DeleteConfigOrFail(
+			defer ctx.DeleteConfigOrFail(
 				t,
-				ns,
+				ns.Name(),
 				bookinfo.TelemetryLogEntry.LoadOrFail(t))
 
 			util.AllowRuleSync(t)
@@ -106,11 +104,6 @@ func testsetup(ctx resource.Context) error {
 	if _, err := bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo}); err != nil {
 		return err
 	}
-	g, err := galley.New(ctx, galley.Config{})
-	if err != nil {
-		return err
-	}
-	galInst = &g
 	ing, err := ingress.New(ctx, ingress.Config{Istio: ist})
 	if err != nil {
 		return err
@@ -121,23 +114,18 @@ func testsetup(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
-	err = g.ApplyConfig(bookinfoNs, bookinfoGateWayConfig)
+	err = ctx.ApplyConfig(bookinfoNs.Name(), bookinfoGateWayConfig)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func setupComponentsOrFail(t *testing.T) (bookinfoNs namespace.Instance, g galley.Instance,
-	ing ingress.Instance) {
+func setupComponentsOrFail(t *testing.T) (bookinfoNs namespace.Instance, ing ingress.Instance) {
 	if bookinfoNamespace == nil {
 		t.Fatalf("bookinfo namespace not allocated in setup")
 	}
 	bookinfoNs = *bookinfoNamespace
-	if galInst == nil {
-		t.Fatalf("galley not setup")
-	}
-	g = *galInst
 	if ingInst == nil {
 		t.Fatalf("ingress not setup")
 	}
