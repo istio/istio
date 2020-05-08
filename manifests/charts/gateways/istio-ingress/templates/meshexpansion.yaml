@@ -16,7 +16,16 @@ spec:
         name: tcp-istiod
       hosts:
         - "*"
+    {{- if  .Values.global.centralIstiod }}
+    - port:
+        number: 443
+        protocol: TCP
+        name: tcp-istiodwebhook
+      hosts:
+        - "*"
+    {{- end }}
 ---
+
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -37,6 +46,15 @@ spec:
         host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15012
+  {{- if  .Values.global.centralIstiod }}
+  - match:
+    - port: 443
+    route:
+    - destination:
+        host: istiod.istio-system.svc.cluster.local
+        port:
+          number: 443
+  {{- end }}
 ---
 
 apiVersion: networking.istio.io/v1alpha3
@@ -54,6 +72,12 @@ spec:
         number: 15012
       tls:
         mode: DISABLE
+    {{- if  .Values.global.centralIstiod }}
+    - port:
+        number: 443
+      tls:
+        mode: DISABLE
+    {{- end }}
 
 {{- end }}
 
