@@ -38,17 +38,21 @@ func ReachabilityTest(t *testing.T, pilots []pilot.Instance) {
 						Inject: true,
 					})
 
-					// Deploy a and b in different clusters.
-					var a, b, c, d echo.Instance
+					// Deploy services in different clusters.
+					// There are more in the remote cluster to tease out cases where remote proxies inconsistently
+					// use different discovery servers.
+					var a, b, c, d, e, f echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).
 						With(&a, newEchoConfig("a", ns, ctx.Environment().Clusters()[0], pilots)).
 						With(&b, newEchoConfig("b", ns, ctx.Environment().Clusters()[1], pilots)).
 						With(&c, newEchoConfig("c", ns, ctx.Environment().Clusters()[1], pilots)).
 						With(&d, newEchoConfig("d", ns, ctx.Environment().Clusters()[1], pilots)).
+						With(&d, newEchoConfig("e", ns, ctx.Environment().Clusters()[1], pilots)).
+						With(&d, newEchoConfig("f", ns, ctx.Environment().Clusters()[1], pilots)).
 						BuildOrFail(ctx)
 
 					// Now verify that they can talk to each other.
-					for _, src := range []echo.Instance{a, b, c, d} {
+					for _, src := range []echo.Instance{a, b, c, d, e, f} {
 						for _, dest := range []echo.Instance{a, b} {
 							src := src
 							dest := dest
