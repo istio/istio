@@ -81,7 +81,7 @@ var (
 	}
 )
 
-const (
+var (
 	// debounce file watcher events to minimize noise in logs
 	watchDebounceDelay = 100 * time.Millisecond
 )

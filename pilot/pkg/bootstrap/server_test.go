@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
@@ -58,6 +59,9 @@ func TestReloadIstiodCert(t *testing.T) {
 		CertFile: certFile,
 		KeyFile:  keyFile,
 	}
+
+	// Set increased value in tests to allow copy of both files to be finished.
+	watchDebounceDelay = 200 * time.Millisecond
 
 	// setup cert watches.
 	err = s.initCertificateWatches(tlsOptions)
