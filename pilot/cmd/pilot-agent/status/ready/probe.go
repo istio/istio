@@ -29,6 +29,7 @@ type Probe struct {
 	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
+	SDSEnabled          bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -54,7 +55,7 @@ func (p *Probe) checkConfigStatus() error {
 	if s.CDSUpdatesSuccess == 0 || s.LDSUpdatesSuccess == 0 {
 		return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
 	}
-	if p.NodeType == model.SidecarProxy && s.SDSUpdatesSuccess == 0 {
+	if p.NodeType == model.SidecarProxy && p.SDSEnabled && s.SDSUpdatesSuccess == 0 {
 		return fmt.Errorf("cert not received from istio-agent (check the istio-agent config and try to restart the pod if the error persists): %s", s.String())
 	}
 	p.receivedFirstUpdate = true

@@ -75,6 +75,7 @@ type Config struct {
 	NodeType       model.NodeType
 	StatusPort     uint16
 	AdminPort      uint16
+	SDSEnabled     bool
 }
 
 // Server provides an endpoint for handling status probes.
@@ -94,6 +95,7 @@ func NewServer(config Config) (*Server, error) {
 			LocalHostAddr: config.LocalHostAddr,
 			AdminPort:     config.AdminPort,
 			NodeType:      config.NodeType,
+			SDSEnabled:    config.SDSEnabled,
 		},
 	}
 	if config.KubeAppProbers == "" {

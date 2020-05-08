@@ -50,22 +50,25 @@ func TestEnvoyStats(t *testing.T) {
 	ldsCdsPrefix := "config not received from Pilot (is Pilot running?): "
 	sdsErrorPrefix := "cert not received from istio-agent (check the istio-agent config and try to restart the pod if the error persists): "
 	cases := []struct {
-		name     string
-		stats    string
-		result   string
-		nodeType model.NodeType
+		name       string
+		stats      string
+		result     string
+		nodeType   model.NodeType
+		sdsEnabled bool
 	}{
 		{
 			"only LDS",
 			"listener_manager.lds.update_success: 1",
 			ldsCdsPrefix + "cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
 			model.SidecarProxy,
+			true,
 		},
 		{
 			"only CDS",
 			"cluster_manager.cds.update_success: 1",
 			ldsCdsPrefix + "cds updates: 1 successful, 0 rejected; lds updates: 0 successful, 0 rejected; sds updates: 0 successful",
 			model.SidecarProxy,
+			true,
 		},
 		{
 			"reject CDS",
@@ -73,27 +76,40 @@ func TestEnvoyStats(t *testing.T) {
 listener_manager.lds.update_success: 1`,
 			ldsCdsPrefix + "cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
 			model.SidecarProxy,
+			true,
 		},
 		{
-			"Sidecar missing SDS",
+			"Sidecar SDS missing SDS",
 			`
 cluster_manager.cds.update_success: 1
 listener_manager.lds.update_success: 1
 server.state: 0`,
 			sdsErrorPrefix + "cds updates: 1 successful, 0 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
 			model.SidecarProxy,
+			true,
 		},
 		{
-			"gateway full",
+			"sidecar without SDS healthy",
+			`
+cluster_manager.cds.update_success: 1
+listener_manager.lds.update_success: 1
+server.state: 0`,
+			"",
+			model.SidecarProxy,
+			false,
+		},
+		{
+			"gateway healthy",
 			`
 cluster_manager.cds.update_success: 1
 listener_manager.lds.update_success: 1
 server.state: 0`,
 			"",
 			model.Router,
+			true,
 		},
 		{
-			"sidecar full",
+			"sidecar healthy",
 			`
 cluster_manager.cds.update_success: 1
 listener_manager.lds.update_success: 1
@@ -101,6 +117,7 @@ server.state: 0
 listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2`,
 			"",
 			model.SidecarProxy,
+			true,
 		},
 	}
 
@@ -109,8 +126,9 @@ listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2`,
 			server := createAndStartServer(tt.stats)
 			defer server.Close()
 			probe := Probe{
-				AdminPort: 1234,
-				NodeType:  tt.nodeType,
+				AdminPort:  1234,
+				NodeType:   tt.nodeType,
+				SDSEnabled: tt.sdsEnabled,
 			}
 
 			err := probe.Check()
@@ -118,13 +136,13 @@ listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2`,
 			// Expect no error
 			if tt.result == "" {
 				if err != nil {
-					t.Fatalf("Expected no error, got: %v", err)
+					t.Fatalf("Test %s: expected no error, got: %v", tt.name, err)
 				}
 				return
 			}
 			// Expect error
-			if err.Error() != tt.result {
-				t.Fatalf("Expected: \n'%v', got: \n'%v'", tt.result, err.Error())
+			if err == nil || err.Error() != tt.result {
+				t.Fatalf("Test %s: expected: \n'%v', got: \n'%v'", tt.name, tt.result, err)
 			}
 		})
 	}

@@ -511,6 +511,7 @@ var (
 					StatusPort:     statusPort,
 					KubeAppProbers: prober,
 					NodeType:       role.Type,
+					SDSEnabled:     nodeAgentSDSEnabled,
 				})
 				if err != nil {
 					cancel()
