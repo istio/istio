@@ -20,10 +20,11 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/operator/pkg/object"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"istio.io/istio/operator/pkg/object"
 )
 
 func TestHelmReconciler_ApplyObject(t *testing.T) {
