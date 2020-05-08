@@ -91,8 +91,6 @@ func (s *scope) get(ref interface{}) error {
 	fmt.Printf("target: %s\n", target)
 	for _, res := range s.resources {
 		resVal := reflect.ValueOf(res)
-		t := fmt.Sprintf("%T", res)
-		fmt.Printf("res: %s\n", t)
 		if resVal.Type().AssignableTo(targetT) {
 			if refVal.Kind() == reflect.Slice {
 				refVal.Set(reflect.Append(refVal, resVal))

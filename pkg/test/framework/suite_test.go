@@ -453,7 +453,6 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 
 func TestSuite_GetResource(t *testing.T) {
 	defer cleanupRT()
-	g := NewGomegaWithT(t)
 
 	act := func(refPtr interface{}, trackedResource resource.Resource) error {
 		var err error
@@ -471,6 +470,7 @@ func TestSuite_GetResource(t *testing.T) {
 	}
 
 	t.Run("struct reference", func(t *testing.T) {
+		g := NewGomegaWithT(t)
 		var ref *fakeCluster
 		tracked := &fakeCluster{index: 1}
 		// notice that we pass **fakeCluster:
@@ -481,6 +481,7 @@ func TestSuite_GetResource(t *testing.T) {
 		g.Expect(tracked).To(Equal(ref))
 	})
 	t.Run("interface reference", func(t *testing.T) {
+		g := NewGomegaWithT(t)
 		var ref resource.Cluster
 		tracked := &fakeCluster{index: 1}
 		err := act(&ref, tracked)
@@ -488,6 +489,7 @@ func TestSuite_GetResource(t *testing.T) {
 		g.Expect(tracked).To(Equal(ref))
 	})
 	t.Run("slice reference", func(t *testing.T) {
+		g := NewGomegaWithT(t)
 		existing := &fakeCluster{index: 1}
 		tracked := &fakeCluster{index: 2}
 		ref := []resource.Cluster{existing}
@@ -498,6 +500,7 @@ func TestSuite_GetResource(t *testing.T) {
 		g.Expect(tracked).To(Equal(ref[1]))
 	})
 	t.Run("non pointer ref", func(t *testing.T) {
+		g := NewGomegaWithT(t)
 		err := act(fakeCluster{}, &fakeCluster{})
 		g.Expect(err).NotTo(BeNil())
 	})
