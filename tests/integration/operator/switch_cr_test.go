@@ -331,7 +331,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 				}
 			}
 			return nil
-		}, retry.Timeout(time.Second*30), retry.Delay(time.Millisecond*100))
+		}, retry.Timeout(time.Second*300), retry.Delay(time.Millisecond*100))
 	}
 	return nil
 }
