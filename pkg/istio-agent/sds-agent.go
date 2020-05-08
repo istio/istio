@@ -87,7 +87,7 @@ var (
 )
 
 const (
-	// name of authentication provider.
+	// name of authentication provider. Specify empty if proxy uses file mounted certs and provisioning is not needed.
 	caProvider = "CA_PROVIDER"
 
 	// CA endpoint.
@@ -202,7 +202,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	a.ClusterID = clusterID
 
 	// If a workload is using file mounted certs i,e, CA Provider is not set, we do not to have to initialize CA.
-	if usingFileMountedCerts() {
+	if !shouldProvisionCertificates() {
 		log.Info("Workload is using file mounted certificates. Skipping CA initialization")
 		return a
 	}
@@ -335,7 +335,7 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 	var err error
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
-	if !usingFileMountedCerts() {
+	if shouldProvisionCertificates() {
 		// TODO: this should all be packaged in a plugin, possibly with optional compilation.
 		log.Infof("serverOptions.CAEndpoint == %v", serverOptions.CAEndpoint)
 		if (serverOptions.CAProviderName == "GoogleCA" || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
@@ -469,7 +469,7 @@ func newIngressSecretCache(namespace string) (gatewaySecretCache *cache.SecretCa
 		UseCaClient: false,
 	}
 	// If gateway is using file mounted certs, we do not have to setup secret fetcher.
-	if !usingFileMountedCerts() {
+	if shouldProvisionCertificates() {
 		cs, err := kube.CreateClientset("", "")
 
 		if err != nil {
@@ -509,6 +509,8 @@ func applyEnvVars() {
 	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 }
 
-func usingFileMountedCerts() bool {
-	return caProviderEnv == ""
+// shouldProvisionCertificates returns true if certs needs to be provisioned for the workload/gateway.
+// Returns flase, when proxy uses file mounted certificates i.e. CA_PROVIDER is empty.
+func shouldProvisionCertificates() bool {
+	return len(caProviderEnv) > 0
 }
