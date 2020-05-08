@@ -59,6 +59,9 @@ const (
 	// IstioIngressNamespace is the namespace where Istio ingress controller is deployed
 	IstioIngressNamespace = "istio-system"
 
+	// DefaultKubernetesDomain the default service domain suffix for Kubernetes, if not overridden in config.
+	DefaultKubernetesDomain = "cluster.local"
+
 	// IstioLabel indicates that a workload is part of a named Istio system component.
 	IstioLabel = "istio"
 

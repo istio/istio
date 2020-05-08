@@ -28,6 +28,8 @@ import (
 
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 // Based on istio-ecosystem/istio-coredns-plugin
@@ -167,7 +169,7 @@ func InitDNSAgent(discoveryAddress string, domain string, cert []byte, suffixes 
 	}
 
 	dnsDomainL := strings.Split(domain, ".")
-	clusterLocal := "cluster.local"
+	clusterLocal := constants.DefaultKubernetesDomain
 	if len(dnsDomainL) > 3 {
 		clusterLocal = strings.Join(dnsDomainL[2:], ".")
 	}
