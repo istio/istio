@@ -65,7 +65,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.EnvoyXdsServer)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
-	if s.kubeRegistry != nil {
+	if features.EnableServiceEntrySelectPods && s.kubeRegistry != nil {
 		// Add an instance handler in the service entry store to handle pod events from kubernetes registry
 		_ = s.kubeRegistry.AppendInstanceHandler(s.serviceEntryStore.GetForeignServiceInstanceHandler())
 	}
