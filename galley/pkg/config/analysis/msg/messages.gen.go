@@ -118,8 +118,12 @@ var (
 	UnknownMeshNetworksServiceRegistry = diag.NewMessageType(diag.Error, "IST0126", "Unknown service registry %s in network %s")
 
 	// NoMatchingWorkloadsFound defines a diag.MessageType for message "NoMatchingWorkloadsFound".
-	// Description: There aren't workloads matching this the resource labels
+	// Description: There aren't workloads matching the resource labels
 	NoMatchingWorkloadsFound = diag.NewMessageType(diag.Warning, "IST0127", "No matching workloads for this resource with the following labels: %s")
+
+	// NoHostFound defines a diag.MessageType for message "NoHostFound".
+	// Description: The host specified in this resource doesn't match with any existing service o service entry
+	NoHostFound = diag.NewMessageType(diag.Warning, "IST0128", "No matching services or service entries for the following host in this resource: %s")
 )
 
 // All returns a list of all known message types.
@@ -153,6 +157,7 @@ func All() []*diag.MessageType {
 		InvalidAnnotation,
 		UnknownMeshNetworksServiceRegistry,
 		NoMatchingWorkloadsFound,
+		NoHostFound,
 	}
 }
 
@@ -429,5 +434,14 @@ func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string) diag.Messa
 		NoMatchingWorkloadsFound,
 		r,
 		labels,
+	)
+}
+
+// NewNoHostFound returns a new diag.Message based on NoHostFound.
+func NewNoHostFound(r *resource.Instance, host string) diag.Message {
+	return diag.NewMessage(
+		NoHostFound,
+		r,
+		host,
 	)
 }

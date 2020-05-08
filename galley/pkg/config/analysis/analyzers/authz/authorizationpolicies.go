@@ -18,6 +18,9 @@ import (
 	apps_v1 "k8s.io/api/apps/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 
 	"istio.io/api/security/v1beta1"
@@ -41,14 +44,19 @@ func (a *AuthorizationPoliciesAnalyzer) Metadata() analysis.Metadata {
 			collections.IstioSecurityV1Beta1Authorizationpolicies.Name(),
 			collections.K8SAppsV1Deployments.Name(),
 			collections.K8SCoreV1Namespaces.Name(),
+			collections.IstioNetworkingV1Alpha3Serviceentries.Name(),
+			collections.K8SCoreV1Services.Name(),
 		},
 	}
 }
 
 func (a *AuthorizationPoliciesAnalyzer) Analyze(c analysis.Context) {
+	serviceEntryHosts := util.InitServiceEntryHostMap(c)
+
 	c.ForEach(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), func(r *resource.Instance) bool {
 		a.analyzeNoMatchingWorkloads(r, c)
-		a.analyzeNamespaceNotFound(r,c)
+		a.analyzeNamespaceNotFound(r, c)
+		a.analyzeHostNotFound(r, c, serviceEntryHosts)
 		return true
 	})
 }
@@ -85,6 +93,21 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 			for _, ns := range from.Source.Namespaces {
 				if !c.Exists(collections.K8SCoreV1Namespaces.Name(), resource.NewFullName("", resource.LocalName(ns))) {
 					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewReferencedResourceNotFound(r, "namespace", ns))
+				}
+			}
+		}
+	}
+}
+
+func (a *AuthorizationPoliciesAnalyzer) analyzeHostNotFound(r *resource.Instance, c analysis.Context,
+	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
+	ap := r.Message.(*v1beta1.AuthorizationPolicy)
+	for _, rule := range ap.Rules {
+		for _, to := range rule.To {
+			for _, host := range to.Operation.Hosts {
+				// Check if the host is either a Service or a Service Entry
+				if se := util.GetDestinationHost(r.Metadata.FullName.Namespace, host, serviceEntryHosts); se == nil {
+					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewNoHostFound(r, host))
 				}
 			}
 		}
