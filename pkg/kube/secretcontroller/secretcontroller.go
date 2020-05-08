@@ -188,19 +188,15 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 }
 
 // StartSecretController creates the secret controller.
-func StartSecretController(
-	k8s kubernetes.Interface,
-	addCallback addSecretCallback,
-	updateCallback updateSecretCallback,
-	removeCallback removeSecretCallback,
-	namespace string) error {
+func StartSecretController(k8s kubernetes.Interface, addCallback addSecretCallback,
+	updateCallback updateSecretCallback, removeCallback removeSecretCallback, namespace string) *Controller {
 	stopCh := make(chan struct{})
 	clusterStore := newClustersStore()
 	controller := NewController(k8s, namespace, clusterStore, addCallback, updateCallback, removeCallback)
 
 	go controller.Run(stopCh)
 
-	return nil
+	return controller
 }
 
 func (c *Controller) runWorker() {
