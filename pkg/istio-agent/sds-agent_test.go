@@ -13,5 +13,5 @@
 // limitations under the License.
 
 func TestSDSAgent(t *testing.T) {
-	
+	s := NewSDSAgent("istiod.istio-system:15012", false, "custom", "", "", "kubernetes")
 }
