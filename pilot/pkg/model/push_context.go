@@ -888,7 +888,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
+	authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1584,10 +1584,10 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 	if discoveryHost, err := e.GetDiscoveryHost(); err != nil {
 		log.Errorf("failed to make discoveryAddress cluster-local: %v", err)
 	} else {
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, discoveryHost)
 		if !strings.HasSuffix(string(discoveryHost), domainSuffix) {
-			defaultClusterLocalHosts = append(defaultClusterLocalHosts, discoveryHost+host.Name("."+domainSuffix))
+			discoveryHost += host.Name("." + domainSuffix)
 		}
+		defaultClusterLocalHosts = append(defaultClusterLocalHosts, discoveryHost)
 	}
 
 	// Collect the cluster-local hosts.
