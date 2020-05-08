@@ -71,29 +71,38 @@ func (s *scope) add(r resource.Resource, id *resourceID) {
 }
 
 func (s *scope) get(ref interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	refVal := reflect.ValueOf(ref)
 	if refVal.Kind() != reflect.Ptr {
-		return fmt.Errorf("ref must be a pointer or a slice, instead got: %T", ref)
+		return fmt.Errorf("ref must be a pointer instead got: %T", ref)
+	}
+	// work with the underlying value rather than the pointer
+	refVal = refVal.Elem()
+
+	targetT := refVal.Type()
+	if refVal.Kind() == reflect.Slice {
+		// for slices look at the element type
+		targetT = targetT.Elem()
 	}
 
-	if refVal.Elem().Kind() == reflect.Slice {
-		refVal = refVal.Elem()
-	}
-
-	targetT := refVal.Type().Elem()
+	target := fmt.Sprintf("%v", targetT)
+	fmt.Printf("target: %s\n", target)
 	for _, res := range s.resources {
 		resVal := reflect.ValueOf(res)
+		t := fmt.Sprintf("%T", res)
+		fmt.Printf("res: %s\n", t)
 		if resVal.Type().AssignableTo(targetT) {
-			switch refVal.Kind() {
-			case reflect.Ptr:
-				refVal.Elem().Set(resVal)
-				return nil
-			case reflect.Slice:
+			if refVal.Kind() == reflect.Slice {
 				refVal.Set(reflect.Append(refVal, resVal))
+			} else {
+				refVal.Set(resVal)
+				return nil
 			}
 		}
-
 	}
+
 	return nil
 }
 

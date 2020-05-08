@@ -17,7 +17,6 @@ package framework
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"sync"
 	"testing"
 
@@ -456,59 +455,52 @@ func TestSuite_GetResource(t *testing.T) {
 	defer cleanupRT()
 	g := NewGomegaWithT(t)
 
-	var resCluster resource.Cluster
-
-	tests := map[string]struct {
-		ref        interface{}
-		trackedRes resource.Resource
-		expVal     interface{}
-		expErr     bool
-	}{
-		"struct reference": {
-			ref:        &fakeCluster{},
-			trackedRes: fakeCluster{index: 3},
-			expVal:     fakeCluster{index: 3},
-		},
-		"interface reference": {
-			ref:        &resCluster,
-			trackedRes: fakeCluster{index: 4},
-			expVal:     fakeCluster{index: 4},
-		},
-		"slice reference": {
-			ref:        &[]fakeCluster{{index: 4}},
-			trackedRes: fakeCluster{index: 5},
-			expVal:     []fakeCluster{{index: 4}, {index: 5}},
-		},
-		"non pointer": {
-			ref:        fakeCluster{},
-			trackedRes: fakeCluster{index: 6},
-			expErr:     true,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			var err error
-			runFn := func(ctx *suiteContext) int {
-				err = ctx.GetResource(tt.ref)
-				return 0
-			}
-			s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
-			s.Setup(func(c resource.Context) error {
-				c.TrackResource(tt.trackedRes)
-				return nil
-			})
-			s.Run()
-
-			if tt.expErr {
-				g.Expect(err).NotTo(BeNil())
-				return // won't be able to dereference tt.ref
-			}
-			g.Expect(err).To(BeNil())
-			g.Expect(tt.expVal).To(Equal(reflect.ValueOf(tt.ref).Elem().Interface()))
-
+	act := func(refPtr interface{}, trackedResource resource.Resource) error {
+		var err error
+		runFn := func(ctx *suiteContext) int {
+			err = ctx.GetResource(refPtr)
+			return 0
+		}
+		s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+		s.Setup(func(c resource.Context) error {
+			c.TrackResource(trackedResource)
+			return nil
 		})
+		s.Run()
+		return err
 	}
+
+	t.Run("struct reference", func(t *testing.T) {
+		var ref *fakeCluster
+		tracked := &fakeCluster{index: 1}
+		// notice that we pass **fakeCluster:
+		// GetResource requires *T where T implements resource.Resource.
+		// *fakeCluster implements it but fakeCluster does not.
+		err := act(&ref, tracked)
+		g.Expect(err).To(BeNil())
+		g.Expect(tracked).To(Equal(ref))
+	})
+	t.Run("interface reference", func(t *testing.T) {
+		var ref resource.Cluster
+		tracked := &fakeCluster{index: 1}
+		err := act(&ref, tracked)
+		g.Expect(err).To(BeNil())
+		g.Expect(tracked).To(Equal(ref))
+	})
+	t.Run("slice reference", func(t *testing.T) {
+		existing := &fakeCluster{index: 1}
+		tracked := &fakeCluster{index: 2}
+		ref := []resource.Cluster{existing}
+		err := act(&ref, tracked)
+		g.Expect(err).To(BeNil())
+		g.Expect(ref).To(HaveLen(2))
+		g.Expect(existing).To(Equal(ref[0]))
+		g.Expect(tracked).To(Equal(ref[1]))
+	})
+	t.Run("non pointer ref", func(t *testing.T) {
+		err := act(fakeCluster{}, &fakeCluster{})
+		g.Expect(err).NotTo(BeNil())
+	})
 }
 
 func newFakeEnvironmentFactory(numClusters int) resource.EnvironmentFactory {
@@ -539,7 +531,7 @@ func (f fakeEnvironment) EnvironmentName() environment.Name {
 func (f fakeEnvironment) Clusters() []resource.Cluster {
 	out := make([]resource.Cluster, f.numClusters)
 	for i := 0; i < f.numClusters; i++ {
-		out[i] = fakeCluster{index: i}
+		out[i] = &fakeCluster{index: i}
 	}
 	return out
 }
@@ -554,7 +546,8 @@ func (id fakeID) String() string {
 	return string(id)
 }
 
-var _ resource.Cluster = fakeCluster{}
+var _ resource.Resource = &fakeCluster{}
+var _ resource.Cluster = &fakeCluster{}
 
 type fakeCluster struct {
 	index int
@@ -584,14 +577,14 @@ func (f fakeCluster) DeleteConfigDir(ns string, configDir string) error {
 	panic("implement me")
 }
 
-func (f fakeCluster) Index() resource.ClusterIndex {
+func (f *fakeCluster) Index() resource.ClusterIndex {
 	return resource.ClusterIndex(f.index)
 }
 
-func (f fakeCluster) String() string {
+func (f *fakeCluster) String() string {
 	return fmt.Sprintf("fake_cluster_%d", f.index)
 }
 
-func (f fakeCluster) ID() resource.ID {
+func (f *fakeCluster) ID() resource.ID {
 	return fakeID("fake")
 }
