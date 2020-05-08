@@ -497,7 +497,8 @@ func (a *Accessor) WaitForSecretToExistOrFail(t test.Failer, namespace, name str
 
 // DeleteSecret deletes secret by name in namespace.
 func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
-	err = a.set.CoreV1().Secrets(namespace).Delete(context.TODO(), name, *deleteOptionsForeground())
+	var immediate int64
+	err = a.set.CoreV1().Secrets(namespace).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{GracePeriodSeconds: &immediate})
 	return err
 }
 
