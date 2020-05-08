@@ -47,8 +47,9 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 }
 
 func TestEnvoyStats(t *testing.T) {
-	ldsCdsPrefix := "config not received from Pilot (is Pilot running?): "
-	sdsErrorPrefix := "cert not received from istio-agent (check the istio-agent config and try to restart the pod if the error persists): "
+	ldsCdsPrefix := "config not received from XDS server (is Istiod running?): "
+	sdsErrorPrefix :=
+		"secret not received from SDS server (check the istio-agent config and try to restart the pod if the error persists): "
 	cases := []struct {
 		name       string
 		stats      string
@@ -59,14 +60,16 @@ func TestEnvoyStats(t *testing.T) {
 		{
 			"only LDS",
 			"listener_manager.lds.update_success: 1",
-			ldsCdsPrefix + "cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
+			ldsCdsPrefix +
+				"cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
 			model.SidecarProxy,
 			true,
 		},
 		{
 			"only CDS",
 			"cluster_manager.cds.update_success: 1",
-			ldsCdsPrefix + "cds updates: 1 successful, 0 rejected; lds updates: 0 successful, 0 rejected; sds updates: 0 successful",
+			ldsCdsPrefix +
+				"cds updates: 1 successful, 0 rejected; lds updates: 0 successful, 0 rejected; sds updates: 0 successful",
 			model.SidecarProxy,
 			true,
 		},
@@ -74,17 +77,19 @@ func TestEnvoyStats(t *testing.T) {
 			"reject CDS",
 			`cluster_manager.cds.update_rejected: 1
 listener_manager.lds.update_success: 1`,
-			ldsCdsPrefix + "cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
+			ldsCdsPrefix +
+				"cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
 			model.SidecarProxy,
 			true,
 		},
 		{
-			"Sidecar SDS missing SDS",
+			"Sidecar SDS missing SDS update",
 			`
 cluster_manager.cds.update_success: 1
 listener_manager.lds.update_success: 1
 server.state: 0`,
-			sdsErrorPrefix + "cds updates: 1 successful, 0 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
+			sdsErrorPrefix +
+				"cds updates: 1 successful, 0 rejected; lds updates: 1 successful, 0 rejected; sds updates: 0 successful",
 			model.SidecarProxy,
 			true,
 		},
@@ -136,13 +141,13 @@ listener.0.0.0.0_15006.server_ssl_socket_factory.ssl_context_update_by_sds: 2`,
 			// Expect no error
 			if tt.result == "" {
 				if err != nil {
-					t.Fatalf("Test %s: expected no error, got: %v", tt.name, err)
+					t.Fatalf("Expected no error, got: '%v'", err)
 				}
 				return
 			}
 			// Expect error
 			if err == nil || err.Error() != tt.result {
-				t.Fatalf("Test %s: expected: \n'%v', got: \n'%v'", tt.name, tt.result, err)
+				t.Fatalf("Expected: \n'%v', got: \n'%v'", tt.result, err)
 			}
 		})
 	}
