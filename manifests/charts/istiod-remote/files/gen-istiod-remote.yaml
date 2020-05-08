@@ -208,9 +208,12 @@ data:
       },
       "revision": "",
       "sidecarInjectorWebhook": {
+        "alwaysInjectSelector": [],
         "caBundle": "",
         "enableNamespacesByDefault": false,
+        "injectLabel": "istio-injection",
         "injectedAnnotations": {},
+        "neverInjectSelector": [],
         "objectSelector": {
           "autoInject": true,
           "enabled": false
@@ -228,9 +231,9 @@ data:
   config: |-
     policy: enabled
     alwaysInjectSelector:
-      null
+      []
     neverInjectSelector:
-      null
+      []
     injectedAnnotations:
 
     template: |

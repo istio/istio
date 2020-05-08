@@ -1,4 +1,10 @@
 sidecarInjectorWebhook:
+  # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
+  # always skip the injection on pods that match that label selector, regardless of the global policy.
+  # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
+  neverInjectSelector: []
+  alwaysInjectSelector: []
+
   # injectedAnnotations are additional annotations that will be added to the pod spec after injection
   # This is primarily to support PSP annotations. For example, if you defined a PSP with the annotations:
   #
@@ -17,6 +23,10 @@ sidecarInjectorWebhook:
   # with the exception of namespaces with "istio-injection:disabled" annotation
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
+
+  # If set, will use the value as injection label. The value must match the 'release' label of the injector,
+  # except when 1.2 istio-injection label is used, which must be set to "enabled".
+  injectLabel: istio-injection
 
   # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
   # It is disabled by default since this function will only work after k8s v1.15.
