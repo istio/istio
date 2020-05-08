@@ -44,7 +44,7 @@ spec:
 
 var (
 	igwServiceName = "istio-ingressgateway"
-	istiodPort     = 15012
+	discoveryPort  = 15012
 )
 
 func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
@@ -67,7 +67,7 @@ func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
 	}, retry.Timeout(time.Minute))
 }
 
-func getIstiodAddress(cfg Config, cluster kubeenv.Cluster) (net.TCPAddr, error) {
+func getRemoteDiscoveryAddress(cfg Config, cluster kubeenv.Cluster) (net.TCPAddr, error) {
 	// If running in KinD, MetalLB must be installed to enable LoadBalancer resources
 	svc, err := cluster.GetService(cfg.SystemNamespace, igwServiceName)
 	if err != nil {
@@ -78,5 +78,5 @@ func getIstiodAddress(cfg Config, cluster kubeenv.Cluster) (net.TCPAddr, error) 
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return net.TCPAddr{IP: net.ParseIP(ip), Port: istiodPort}, nil
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: discoveryPort}, nil
 }

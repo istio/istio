@@ -242,7 +242,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 			var remoteIstiodAddress net.TCPAddr
 			if err := retry.UntilSuccess(func() error {
 				var err error
-				remoteIstiodAddress, err = getIstiodAddress(cfg, controlPlaneCluster.(kube.Cluster))
+				remoteIstiodAddress, err = getRemoteDiscoveryAddress(cfg, controlPlaneCluster.(kube.Cluster))
 				return err
 			}, retry.Timeout(1*time.Minute)); err != nil {
 				return fmt.Errorf("failed getting the istiod address for cluster %d: %v", controlPlaneCluster.Index(), err)
