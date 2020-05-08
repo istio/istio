@@ -1,5 +1,5 @@
 {{- if .Values.global.remotePilotAddress }}
-  {{- if .Values.global.pilot.enabled }}
+  {{- if .Values.pilot.enabled }}
 # when istiod is enabled in remote cluster, we can't use istiod service name  
 apiVersion: v1
 kind: Service
