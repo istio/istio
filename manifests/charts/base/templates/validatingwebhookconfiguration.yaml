@@ -9,10 +9,14 @@ metadata:
 webhooks:
   - name: validation.istio.io
     clientConfig:
+      {{- if and (.Values.global.remotePilotAddress) (.Values.global.centralIstiod) }}
+      url: https://{{ .Values.global.remotePilotAddress }}:443/validate
+      {{- else }}
       service:
         name: istiod
         namespace: {{ .Values.global.istioNamespace }}
         path: "/validate"
+      {{- end }}
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:

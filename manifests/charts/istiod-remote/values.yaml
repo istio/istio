@@ -33,10 +33,6 @@ sidecarInjectorWebhook:
   objectSelector:
     enabled: false
     autoInject: true
-  
-  # remote webhook host and port number to point the mutating webhook configuration to.
-  remoteWebhookHost: istiod.istio-system.svc
-  remoteWebhookPort: 443
 
   # caBundle to be patched at runtime or user can specify it manually
   caBundle: ""
