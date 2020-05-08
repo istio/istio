@@ -319,6 +319,7 @@ var (
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
 		"If this is set to false, will not create CA server in istiod.").Get()
 
-	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", false,
-		"If enabled, service entries with selectors will select pods from the cluster.").Get()
+	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
+		"If enabled, service entries with selectors will select pods from the cluster. "+
+			"It is safe to disable it if you are quite sure you don't need this feature").Get()
 )
