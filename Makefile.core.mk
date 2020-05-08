@@ -356,15 +356,15 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto copy-from-istiod gen-kustomize update-golden
+gen: go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden
 
 check-no-modify:
 	@bin/check_no_modify.sh
 
 gen-check: check-no-modify gen check-clean-repo
 
-# Copy the injection template file from istiod chart to istiod-remote chart
-copy-from-istiod:
+# Copy the injection template file and configmap from istiod chart to istiod-remote chart
+sync-configs-from-istiod:
 	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files/
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
 
