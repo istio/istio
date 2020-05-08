@@ -850,31 +850,29 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 				case <-keyCertTimerC:
 					keyCertTimerC = nil
 					// Reload the certificates from the paths.
-					cert, err := s.getCertKeyPair(tlsOptions)
-					if err != nil {
-						log.Errorf("error in reloading certs, %v", err)
-						// TODO: Add metrics?
-						return
-					}
+					if cert, err := s.getCertKeyPair(tlsOptions); err == nil {
+						s.certMu.Lock()
+						s.istiodCert = &cert
+						s.certMu.Unlock()
 
-					s.certMu.Lock()
-					s.istiodCert = &cert
-					s.certMu.Unlock()
-
-					var cnum int
-					log.Info("Istiod certificates are reloaded")
-					for _, c := range cert.Certificate {
-						if x509Cert, err := x509.ParseCertificates(c); err != nil {
-							log.Infof("x509 cert [%v] - ParseCertificates() error: %v\n", cnum, err)
-							cnum++
-						} else {
-							for _, c := range x509Cert {
-								log.Infof("x509 cert [%v] - Issuer: %q, Subject: %q, SN: %x, NotBefore: %q, NotAfter: %q\n",
-									cnum, c.Issuer, c.Subject, c.SerialNumber,
-									c.NotBefore.Format(time.RFC3339), c.NotAfter.Format(time.RFC3339))
+						var cnum int
+						log.Info("Istiod certificates are reloaded")
+						for _, c := range cert.Certificate {
+							if x509Cert, err := x509.ParseCertificates(c); err != nil {
+								log.Infof("x509 cert [%v] - ParseCertificates() error: %v\n", cnum, err)
 								cnum++
+							} else {
+								for _, c := range x509Cert {
+									log.Infof("x509 cert [%v] - Issuer: %q, Subject: %q, SN: %x, NotBefore: %q, NotAfter: %q\n",
+										cnum, c.Issuer, c.Subject, c.SerialNumber,
+										c.NotBefore.Format(time.RFC3339), c.NotAfter.Format(time.RFC3339))
+									cnum++
+								}
 							}
 						}
+					} else {
+						log.Errorf("error in reloading certs, %v", err)
+						// TODO: Add metrics?
 					}
 				case <-s.fileWatcher.Events(certFile):
 					if keyCertTimerC == nil {
