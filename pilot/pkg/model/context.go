@@ -34,12 +34,9 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/monitoring"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-)
-
-const (
-	defaultDomainSuffix = "cluster.local"
 )
 
 var _ mesh.Holder = &Environment{}
@@ -79,7 +76,7 @@ func (e *Environment) GetDomainSuffix() string {
 	if len(e.DomainSuffix) > 0 {
 		return e.DomainSuffix
 	}
-	return defaultDomainSuffix
+	return constants.DefaultKubernetesDomain
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {

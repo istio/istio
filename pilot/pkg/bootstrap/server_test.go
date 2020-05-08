@@ -21,10 +21,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"istio.io/istio/pkg/testcerts"
+	. "github.com/onsi/gomega"
+
 	"istio.io/pkg/filewatcher"
 
-	"github.com/onsi/gomega"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/testcerts"
 )
 
 func TestReloadIstiodCert(t *testing.T) {
@@ -36,8 +40,8 @@ func TestReloadIstiodCert(t *testing.T) {
 
 	defer func() {
 		close(stop)
-		s.fileWatcher.Close()
-		_ = os.RemoveAll(dir) // nolint: errcheck
+		_ = s.fileWatcher.Close()
+		_ = os.RemoveAll(dir)
 	}()
 	if err != nil {
 		t.Fatalf("TempDir() failed: %v", err)
@@ -82,12 +86,88 @@ func TestReloadIstiodCert(t *testing.T) {
 		t.Fatalf("WriteFile(%v) failed: %v", tlsOptions.KeyFile, err)
 	}
 
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 
 	// Validate that istiod cert is updated.
 	g.Eventually(func() bool {
 		return checkCert(t, s, testcerts.RotatedCert, testcerts.RotatedKey)
-	}, "10s", "100ms").Should(gomega.BeTrue())
+	}, "10s", "100ms").Should(BeTrue())
+}
+
+func TestNewServer(t *testing.T) {
+	// All of the settings to apply and verify. Currently just testing domain suffix,
+	// but we should expand this list.
+	cases := []struct {
+		name           string
+		domain         string
+		expectedDomain string
+	}{
+		{
+			name:           "default domain",
+			domain:         "",
+			expectedDomain: constants.DefaultKubernetesDomain,
+		},
+		{
+			name:           "override domain",
+			domain:         "mydomain.com",
+			expectedDomain: "mydomain.com",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			configDir, err := ioutil.TempDir("", "TestNewServer")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer func() {
+				_ = os.RemoveAll(configDir)
+			}()
+
+			args := NewPilotArgs(func(p *PilotArgs) {
+				p.Namespace = "istio-system"
+				p.DiscoveryOptions = DiscoveryServiceOptions{
+					// Dynamically assign all ports.
+					HTTPAddr:       ":0",
+					MonitoringAddr: ":0",
+					GrpcAddr:       ":0",
+				}
+				p.Config = ConfigArgs{
+					ControllerOptions: kubecontroller.Options{
+						DomainSuffix: c.domain,
+					},
+					FileDir: configDir,
+				}
+
+				meshCfg := mesh.DefaultMeshConfig()
+				p.MeshConfig = &meshCfg
+
+				// Use the config store for service entries as well.
+				p.Service = ServiceArgs{
+					// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
+					Registries: []string{},
+				}
+
+				// Include all of the default plugins for integration with Mixer, etc.
+				p.Plugins = DefaultPlugins
+				p.ForceStop = true
+			})
+
+			g := NewGomegaWithT(t)
+			s, err := NewServer(args)
+			g.Expect(err).To(Succeed())
+
+			stop := make(chan struct{})
+			g.Expect(s.Start(stop)).To(Succeed())
+			defer func() {
+				close(stop)
+				s.WaitUntilCompletion()
+			}()
+
+			g.Expect(s.environment.GetDomainSuffix()).To(Equal(c.expectedDomain))
+		})
+	}
 }
 
 func checkCert(t *testing.T, s *Server, cert, key []byte) bool {

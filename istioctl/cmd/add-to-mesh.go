@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
 	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	istioProtocol "istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -492,7 +493,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Labels:  o.Labels,
 		})
 	}
-	host := fmt.Sprintf("%v.%v.svc.cluster.local", o.Name, o.Namespace)
+	host := fmt.Sprintf("%v.%v.svc.%s", o.Name, o.Namespace, constants.DefaultKubernetesDomain)
 	spec := &v1alpha3.ServiceEntry{
 		Hosts:      []string{host},
 		Ports:      ports,
