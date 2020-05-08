@@ -549,7 +549,7 @@ func TestIsClusterLocal(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
-			env := &Environment{Watcher: mesh.NewFixedWatcher(&c.m)}
+			env := &Environment{Watcher: mesh.NewFixedWatcher(&c.m), SystemNamespace: "istio-system"}
 			push := &PushContext{
 				Mesh: env.Mesh(),
 			}
