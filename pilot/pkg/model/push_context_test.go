@@ -462,6 +462,12 @@ func TestIsClusterLocal(t *testing.T) {
 			expected: true,
 		},
 		{
+			name:     "istiod local by default",
+			m:        mesh.DefaultMeshConfig(),
+			host:     "istiod.istio-system.svc.cluster.local",
+			expected: true,
+		},
+		{
 			name:     "not local by default",
 			m:        mesh.DefaultMeshConfig(),
 			host:     "not.cluster.local",

@@ -167,6 +167,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	e := &model.Environment{
 		ServiceDiscovery: aggregate.NewController(),
 		PushContext:      model.NewPushContext(),
+		SystemNamespace:  args.Namespace,
 	}
 
 	s := &Server{

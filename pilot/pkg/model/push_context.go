@@ -1576,8 +1576,9 @@ func (ps *PushContext) initMeshNetworks() {
 func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 	// Create the default list of cluster-local hosts.
 	domainSuffix := e.GetDomainSuffix()
-	defaultClusterLocalHosts := make([]host.Name, 0, len(defaultClusterLocalNamespaces))
-	for _, n := range defaultClusterLocalNamespaces {
+	clusterLocalNamespaces := append(defaultClusterLocalNamespaces, e.SystemNamespace)
+	defaultClusterLocalHosts := make([]host.Name, 0, len(clusterLocalNamespaces))
+	for _, n := range clusterLocalNamespaces {
 		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
 	}
 

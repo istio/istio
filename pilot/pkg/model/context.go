@@ -73,6 +73,9 @@ type Environment struct {
 
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string
+
+	// SystemNamespace is the namespace istiod is currently running in
+	SystemNamespace string
 }
 
 func (e *Environment) GetDomainSuffix() string {
