@@ -854,9 +854,8 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 					if err != nil {
 						log.Errorf("error in reloading certs, %v", err)
 						// TODO: Add metrics?
-						return
+						break
 					}
-
 					s.certMu.Lock()
 					s.istiodCert = &cert
 					s.certMu.Unlock()
@@ -876,6 +875,7 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 							}
 						}
 					}
+
 				case <-s.fileWatcher.Events(certFile):
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
