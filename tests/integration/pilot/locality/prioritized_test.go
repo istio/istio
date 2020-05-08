@@ -83,7 +83,7 @@ func TestPrioritized(t *testing.T) {
 						BuildOrFail(ctx)
 
 					fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", r.Int())
-					deploy(ctx, ns, serviceConfig{
+					deploy(ctx, ctx, ns, serviceConfig{
 						Name:             "prioritized-cds",
 						Host:             fakeHostname,
 						Namespace:        ns.Name(),
@@ -121,7 +121,7 @@ func TestPrioritized(t *testing.T) {
 
 					fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
 
-					deploy(ctx, ns, serviceConfig{
+					deploy(ctx, ctx, ns, serviceConfig{
 						Name:             "prioritized-eds",
 						Host:             fakeHostname,
 						Namespace:        ns.Name(),

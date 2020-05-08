@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/features"
 
 	"istio.io/istio/pkg/test/framework/label"
@@ -165,6 +166,54 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 	}
 
 	return dir, err
+}
+
+func (s *suiteContext) ApplyConfig(ns string, yamlText ...string) error {
+	for _, c := range s.Environment().Clusters() {
+		if err := c.ApplyConfig(ns, yamlText...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *suiteContext) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+	for _, c := range s.Environment().Clusters() {
+		c.ApplyConfigOrFail(t, ns, yamlText...)
+	}
+}
+
+func (s *suiteContext) DeleteConfig(ns string, yamlText ...string) error {
+	for _, c := range s.Environment().Clusters() {
+		if err := c.DeleteConfig(ns, yamlText...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *suiteContext) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+	for _, c := range s.Environment().Clusters() {
+		c.DeleteConfigOrFail(t, ns, yamlText...)
+	}
+}
+
+func (s *suiteContext) ApplyConfigDir(ns string, configDir string) error {
+	for _, c := range s.Environment().Clusters() {
+		if err := c.ApplyConfigDir(ns, configDir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *suiteContext) DeleteConfigDir(ns string, configDir string) error {
+	for _, c := range s.Environment().Clusters() {
+		if err := c.DeleteConfigDir(ns, configDir); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Outcome string

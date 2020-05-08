@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -497,6 +498,30 @@ var _ resource.Cluster = fakeCluster{}
 
 type fakeCluster struct {
 	index int
+}
+
+func (f fakeCluster) ApplyConfig(ns string, yamlText ...string) error {
+	panic("implement me")
+}
+
+func (f fakeCluster) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+	panic("implement me")
+}
+
+func (f fakeCluster) DeleteConfig(ns string, yamlText ...string) error {
+	panic("implement me")
+}
+
+func (f fakeCluster) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+	panic("implement me")
+}
+
+func (f fakeCluster) ApplyConfigDir(ns string, configDir string) error {
+	panic("implement me")
+}
+
+func (f fakeCluster) DeleteConfigDir(ns string, configDir string) error {
+	panic("implement me")
 }
 
 func (f fakeCluster) Index() resource.ClusterIndex {

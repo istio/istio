@@ -30,13 +30,13 @@ func TestWhiteListing(t *testing.T) {
 		// Verify you can access productpage right now.
 		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
 
-		g.ApplyConfigOrFail(
+		ctx.ApplyConfigOrFail(
 			t,
-			bookinfoNs,
+			bookinfoNs.Name(),
 			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
-		defer g.DeleteConfigOrFail(
+		defer ctx.DeleteConfigOrFail(
 			t,
-			bookinfoNs,
+			bookinfoNs.Name(),
 			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 		util.AllowRuleSync(t)
 

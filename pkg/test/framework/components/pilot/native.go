@@ -60,6 +60,9 @@ type nativeComponent struct {
 // NewNativeComponent factory function for the component
 func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	e := ctx.Environment().(*native.Environment)
+	if cfg.Cluster == nil {
+		cfg.Cluster = e.Cluster
+	}
 	instance := &nativeComponent{
 		environment: ctx.Environment().(*native.Environment),
 		stopChan:    make(chan struct{}),
@@ -109,8 +112,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	if bootstrapArgs.MeshConfig == nil {
 		bootstrapArgs.MeshConfig = &meshapi.MeshConfig{}
 	}
-	// TODO make pilot component (or something other than galley) control this
-	bootstrapArgs.Config.FileDir = cfg.Galley.GetConfigDir()
+	bootstrapArgs.Config.FileDir = cfg.Cluster.(native.Cluster).GetConfigDir()
 
 	// Use testing certs
 	if err := os.Setenv(bootstrap.LocalCertDir.Name, path.Join(env.IstioSrc, "tests/testdata/certs/pilot")); err != nil {
