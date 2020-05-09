@@ -453,41 +453,58 @@ func TestRun(t *testing.T) {
 }
 
 func TestGetServerCertificate(t *testing.T) {
-	rootCertFile := "../../pki/testdata/multilevelpki/root-cert.pem"
-	certChainFile := "../../pki/testdata/multilevelpki/int2-cert-chain.pem"
-	signingCertFile := "../../pki/testdata/multilevelpki/int2-cert.pem"
-	signingKeyFile := "../../pki/testdata/multilevelpki/int2-key.pem"
+	cases := map[string]struct {
+		rootCertFile    string
+		certChainFile   string
+		signingCertFile string
+		signingKeyFile  string
+	}{
+		"RSA server cert": {
+			rootCertFile:    "../../pki/testdata/multilevelpki/root-cert.pem",
+			certChainFile:   "../../pki/testdata/multilevelpki/int2-cert-chain.pem",
+			signingCertFile: "../../pki/testdata/multilevelpki/int2-cert.pem",
+			signingKeyFile:  "../../pki/testdata/multilevelpki/int2-key.pem",
+		},
+		"ECC server cert": {
+			rootCertFile:    "../../pki/testdata/multilevelpki/ecc-root-cert.pem",
+			certChainFile:   "../../pki/testdata/multilevelpki/ecc-int2-cert-chain.pem",
+			signingCertFile: "../../pki/testdata/multilevelpki/ecc-int2-cert.pem",
+			signingKeyFile:  "../../pki/testdata/multilevelpki/ecc-int2-key.pem",
+		},
+	}
 	caNamespace := "default"
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
 
-	client := fake.NewSimpleClientset()
+	for id, tc := range cases {
+		client := fake.NewSimpleClientset()
 
-	caopts, err := ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
-		defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
-	if err != nil {
-		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
-	}
+		caopts, err := ca.NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+		if err != nil {
+			t.Fatalf("%s: Failed to create a plugged-cert CA Options: %v", id, err)
+		}
 
-	ca, err := ca.NewIstioCA(caopts)
-	if err != nil {
-		t.Errorf("Got error while creating plugged-cert CA: %v", err)
-	}
-	if ca == nil {
-		t.Fatalf("Failed to create a plugged-cert CA.")
-	}
+		ca, err := ca.NewIstioCA(caopts)
+		if err != nil {
+			t.Errorf("%s: Got error while creating plugged-cert CA: %v", id, err)
+		}
+		if ca == nil {
+			t.Fatalf("Failed to create a plugged-cert CA.")
+		}
 
-	server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
-		"testdomain.com", true, jwt.JWTPolicyThirdPartyJWT, "kubernetes")
-	if err != nil {
-		t.Errorf("Cannot crete server: %v", err)
-	}
-	cert, err := server.getServerCertificate()
-	if err != nil {
-		t.Errorf("getServerCertificate error: %v", err)
-	}
-	if len(cert.Certificate) != 4 {
-		t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
+		server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
+			"testdomain.com", true, jwt.JWTPolicyThirdPartyJWT, "kubernetes")
+		if err != nil {
+			t.Errorf("%s: Cannot crete server: %v", id, err)
+		}
+		cert, err := server.getServerCertificate()
+		if err != nil {
+			t.Errorf("%s: getServerCertificate error: %v", id, err)
+		}
+		if len(cert.Certificate) != 4 {
+			t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
+		}
 	}
 }
