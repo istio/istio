@@ -554,7 +554,7 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 222m
+            cpu: 555m
             memory: 128Mi
         volumeMounts:
         - mountPath: /etc/istio/config

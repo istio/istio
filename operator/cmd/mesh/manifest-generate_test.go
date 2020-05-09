@@ -223,7 +223,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 		{
 			desc:       "gateways",
 			diffIgnore: "ConfigMap:*:istio",
-			flags:      "-s components.ingressGateways.[0].k8s.resources.requests.cpu=999m",
+			flags:      "-s components.ingressGateways.[0].k8s.resources.requests.cpu=999m -s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m",
 		},
 		{
 			desc:       "gateways_override_default",
