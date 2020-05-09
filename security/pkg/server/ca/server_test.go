@@ -111,7 +111,7 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 		IsCA:         true,
 		IsSelfSigned: true,
 		IsServer:     true,
-		RSAKeySize:   512,
+		RSAKeySize:   2048,
 	})
 	if err != nil {
 		t.Errorf("failed to gen cert for Citadel self signed cert %v", err)
