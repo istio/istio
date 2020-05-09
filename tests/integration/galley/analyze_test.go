@@ -31,12 +31,13 @@ import (
 )
 
 const (
-	serviceRoleBindingFile     = "testdata/servicerolebinding.yaml"
-	serviceRoleFile            = "testdata/servicerole.yaml"
-	invalidFile                = "testdata/invalid.yaml"
-	invalidExtensionFile       = "testdata/invalid.md"
-	jsonServiceRoleBindingFile = "testdata/servicerolebinding.json"
-	dirWithConfig              = "testdata/some-dir/"
+	gatewayFile          = "testdata/gateway.yaml"
+	jsonGatewayFile      = "testdata/gateway.json"
+	destinationRuleFile  = "testdata/destinationrule.yaml"
+	virtualServiceFile   = "testdata/virtualservice.yaml"
+	invalidFile          = "testdata/invalid.yaml"
+	invalidExtensionFile = "testdata/invalid.md"
+	dirWithConfig        = "testdata/some-dir/"
 )
 
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
@@ -76,15 +77,10 @@ func TestFileOnly(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			// Validation error if we have a service role binding without a service role
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, serviceRoleBindingFile)
+			// Validation error if we have a gateway with invalid selector
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, gatewayFile)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-
-			// Error goes away if we include both the binding and its role
-			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, serviceRoleBindingFile, serviceRoleFile)
-			expectNoMessages(t, g, output)
-			g.Expect(err).To(BeNil())
 		})
 }
 
@@ -171,8 +167,8 @@ func TestJsonInputFile(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			// Validation error if we have a service role binding without a service role
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonServiceRoleBindingFile)
+			// Validation error if we have a gateway with invalid selector.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonGatewayFile)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
@@ -191,20 +187,14 @@ func TestKubeOnly(t *testing.T) {
 				Inject: true,
 			})
 
-			applyFileOrFail(t, ns.Name(), serviceRoleBindingFile)
+			applyFileOrFail(t, ns.Name(), gatewayFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			// Validation error if we have a service role binding without a service role
+			// Validation error if we have a gateway with invalid selector.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-
-			// Error goes away if we include both the binding and its role
-			applyFileOrFail(t, ns.Name(), serviceRoleFile)
-			output, err = istioctlSafe(t, istioCtl, ns.Name(), true)
-			expectNoMessages(t, g, output)
-			g.Expect(err).To(BeNil())
 		})
 }
 
@@ -220,13 +210,13 @@ func TestFileAndKubeCombined(t *testing.T) {
 				Inject: true,
 			})
 
-			applyFileOrFail(t, ns.Name(), serviceRoleBindingFile)
+			applyFileOrFail(t, ns.Name(), virtualServiceFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			// Simulating applying the service role to a cluster that already has the binding, we should
+			// Simulating applying the destination rule that defines the subset, we should
 			// fix the error and thus see no message
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, serviceRoleFile)
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, destinationRuleFile)
 			expectNoMessages(t, g, output)
 			g.Expect(err).To(BeNil())
 		})
@@ -248,8 +238,8 @@ func TestAllNamespaces(t *testing.T) {
 				Inject: true,
 			})
 
-			applyFileOrFail(t, ns1.Name(), serviceRoleBindingFile)
-			applyFileOrFail(t, ns2.Name(), serviceRoleBindingFile)
+			applyFileOrFail(t, ns1.Name(), gatewayFile)
+			applyFileOrFail(t, ns2.Name(), gatewayFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 

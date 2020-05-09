@@ -162,26 +162,6 @@ collections:
     kind: "rule"
     group: "config.istio.io"
 
-  - name: "istio/rbac/v1alpha1/clusterrbacconfigs"
-    kind: "ClusterRbacConfig"
-    group: "rbac.istio.io"
-    pilot: true
-
-  - name: "istio/rbac/v1alpha1/rbacconfigs"
-    kind: "RbacConfig"
-    group: "rbac.istio.io"
-    pilot: true
-
-  - name: "istio/rbac/v1alpha1/servicerolebindings"
-    kind: "ServiceRoleBinding"
-    group: "rbac.istio.io"
-    pilot: true
-
-  - name: "istio/rbac/v1alpha1/serviceroles"
-    kind: "ServiceRole"
-    group: "rbac.istio.io"
-    pilot: true
-
   - name: "istio/security/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"
     group: "security.istio.io"
@@ -330,22 +310,6 @@ collections:
     kind: "handler"
     group: "config.istio.io"
 
-  - name: "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs"
-    kind: "ClusterRbacConfig"
-    group: "rbac.istio.io"
-
-  - name: "k8s/rbac.istio.io/v1alpha1/policy"
-    kind: "ServiceRoleBinding"
-    group: "rbac.istio.io"
-
-  - name: "k8s/rbac.istio.io/v1alpha1/rbacconfigs"
-    kind: "RbacConfig"
-    group: "rbac.istio.io"
-
-  - name: "k8s/rbac.istio.io/v1alpha1/serviceroles"
-    kind: "ServiceRole"
-    group: "rbac.istio.io"
-
   - name: "k8s/security.istio.io/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"
     group: "security.istio.io"
@@ -382,10 +346,6 @@ snapshots:
       - "istio/policy/v1beta1/handlers"
       - "istio/policy/v1beta1/instances"
       - "istio/policy/v1beta1/rules"
-      - "istio/rbac/v1alpha1/clusterrbacconfigs"
-      - "istio/rbac/v1alpha1/rbacconfigs"
-      - "istio/rbac/v1alpha1/servicerolebindings"
-      - "istio/rbac/v1alpha1/serviceroles"
       - "istio/security/v1beta1/authorizationpolicies"
       - "istio/security/v1beta1/requestauthentications"
       - "istio/security/v1beta1/peerauthentications"
@@ -396,8 +356,6 @@ snapshots:
   - name: "localAnalysis"
     strategy: immediate
     collections:
-      - "istio/rbac/v1alpha1/servicerolebindings"
-      - "istio/rbac/v1alpha1/serviceroles"
       - "istio/mesh/v1alpha1/MeshConfig"
       - "istio/mesh/v1alpha1/MeshNetworks"
       - "istio/networking/v1alpha3/envoyfilters"
@@ -623,41 +581,6 @@ resources:
     protoPackage: "istio.io/api/mesh/v1alpha1"
     description: "describes the networks for the Istio mesh."
 
-  - kind: "ServiceRole"
-    plural: "serviceroles"
-    group: "rbac.istio.io"
-    version: "v1alpha1"
-    proto: "istio.rbac.v1alpha1.ServiceRole"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-    description: "describes an RBAC service role."
-
-  - kind: "ServiceRoleBinding"
-    plural: "servicerolebindings"
-    group: "rbac.istio.io"
-    version: "v1alpha1"
-    proto: "istio.rbac.v1alpha1.ServiceRoleBinding"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-    description: "describes an RBAC service role."
-
-  - kind: "RbacConfig"
-    plural: "rbacconfigs"
-    group: "rbac.istio.io"
-    version: "v1alpha1"
-    proto: "istio.rbac.v1alpha1.RbacConfig"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-    description: "describes the mesh level RBAC config.\n
-      Deprecated: use ClusterRbacConfig instead.\n
-      See https://github.com/istio/istio/issues/8825 for more details."
-
-  - kind: "ClusterRbacConfig"
-    plural: "clusterrbacconfigs"
-    group: "rbac.istio.io"
-    version: "v1alpha1"
-    clusterScoped: true
-    proto: "istio.rbac.v1alpha1.RbacConfig"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-    description: "describes the cluster level RBAC config."
-
   - kind: "AuthorizationPolicy"
     plural: "authorizationpolicies"
     group: "security.istio.io"
@@ -747,10 +670,6 @@ transforms:
       "k8s/networking.istio.io/v1alpha3/workloadentries": "istio/networking/v1alpha3/workloadentries"
       "k8s/networking.istio.io/v1alpha3/sidecars": "istio/networking/v1alpha3/sidecars"
       "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking/v1alpha3/virtualservices"
-      "k8s/rbac.istio.io/v1alpha1/policy": "istio/rbac/v1alpha1/servicerolebindings"
-      "k8s/rbac.istio.io/v1alpha1/rbacconfigs": "istio/rbac/v1alpha1/rbacconfigs"
-      "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs": "istio/rbac/v1alpha1/clusterrbacconfigs"
-      "k8s/rbac.istio.io/v1alpha1/serviceroles": "istio/rbac/v1alpha1/serviceroles"
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
       "k8s/security.istio.io/v1beta1/requestauthentications": "istio/security/v1beta1/requestauthentications"
       "k8s/security.istio.io/v1beta1/peerauthentications": "istio/security/v1beta1/peerauthentications"
