@@ -141,12 +141,12 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "beta-mtls-off-headless-nake.yaml",
+					// test access headless service with sidecar injected
+					ConfigFile:          "beta-mtls-off-headless.yaml",
 					Namespace:           rctx.Namespace,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude server without sidecar injected
-						return !rctx.IsNaked(opts.Target)
+						return opts.Target == rctx.Headless
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
