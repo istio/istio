@@ -19,6 +19,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -28,6 +29,7 @@ func TestGenCSR(t *testing.T) {
 	// Options to generate a CSR.
 	cases := map[string]struct {
 		csrOptions CertOptions
+		err error
 	}{
 		"GenCSR with RSA": {
 			csrOptions: CertOptions{
@@ -43,13 +45,28 @@ func TestGenCSR(t *testing.T) {
 				ECSigAlg: EcdsaSigAlg,
 			},
 		},
+		"GenCSR with EC errors due to invalid signature algorithm": {
+			csrOptions: CertOptions{
+				Host:     "test_ca.com",
+				Org:      "MyOrg",
+				ECSigAlg: "ED25519",
+			},
+			err: errors.New("csr cert generation fails due to unsupported EC signature algorithm"),
+		},
 	}
 
 	for id, tc := range cases {
 		csrPem, _, err := GenCSR(tc.csrOptions)
 
 		if err != nil {
-			t.Errorf("%s: failed to gen CSR", id)
+			if tc.err != nil {
+				if reflect.DeepEqual(err, tc.err) {
+					continue
+				}
+				t.Fatalf("%s: expected error to match expected error: %v", id, err)
+			} else {
+				t.Errorf("%s: failed to gen CSR", id)
+			}
 		}
 
 		pemBlock, _ := pem.Decode(csrPem)
