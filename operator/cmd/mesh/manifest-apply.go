@@ -218,7 +218,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-	if err := reconciler.ApplyObject("", obj.UnstructuredObject()); err != nil {
+	if err := reconciler.ApplyObject(obj.UnstructuredObject()); err != nil {
 		return err
 	}
 

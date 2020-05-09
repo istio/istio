@@ -98,7 +98,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, waitUntilReady bo
 			if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
 				return nil, 0, err
 			}
-			if err := h.ApplyObject(cname, obj.UnstructuredObject()); err != nil {
+			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
 				scope.Error(err.Error())
 				errs = util.AppendErr(errs, err)
 				continue
@@ -148,7 +148,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, waitUntilReady bo
 
 // ApplyObject creates or updates an object in the API server depending on whether it already exists.
 // It mutates obj.
-func (h *HelmReconciler) ApplyObject(chartName string, obj *unstructured.Unstructured) error {
+func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 	if obj.GetKind() == "List" {
 		var errs util.Errors
 		list, err := obj.ToList()
@@ -157,7 +157,7 @@ func (h *HelmReconciler) ApplyObject(chartName string, obj *unstructured.Unstruc
 			return err
 		}
 		for _, item := range list.Items {
-			err = h.ApplyObject(chartName, &item)
+			err = h.ApplyObject(&item)
 			if err != nil {
 				errs = util.AppendErr(errs, err)
 			}
@@ -193,10 +193,9 @@ func (h *HelmReconciler) ApplyObject(chartName string, obj *unstructured.Unstruc
 			return nil
 		case err == nil:
 			scope.Infof("updating resource: %s", objectStr)
-			if err := applyOverlay(receiver, obj); err != nil {
-				return err
-			}
-			updateErr := h.client.Update(context.TODO(), receiver)
+			// Kubernetes enforces read-modify-write so we need to set the resource version
+			obj.SetResourceVersion(receiver.GetResourceVersion())
+			updateErr := h.client.Update(context.TODO(), obj)
 			return updateErr
 		}
 		return nil
