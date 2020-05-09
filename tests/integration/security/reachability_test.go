@@ -46,6 +46,9 @@ func TestReachability(t *testing.T) {
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						if src == rctx.HeadlessNaked || opts.Target == rctx.HeadlessNaked {
+							return false
+						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -64,7 +67,7 @@ func TestReachability(t *testing.T) {
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the naked app.
-						return opts.Target != rctx.Naked
+						return !rctx.IsNaked(opts.Target)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -103,10 +106,11 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
 						// have proxy neither.
-						if src == rctx.Naked {
-							return opts.Target == rctx.Naked
+						if rctx.IsNaked(src) {
+							return rctx.IsNaked(opts.Target)
 						}
-						// Headless service with sidecar injected, autoMtls does not apply.
+						// headless service with sidecar injected, global mTLS enabled,
+						// no client side transport socket or transport_socket_matches since it's headless service.
 						if src != rctx.Headless && opts.Target == rctx.Headless {
 							return false
 						}
@@ -123,8 +127,8 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
 						// have proxy or have mTLS disabled
-						if src == rctx.Naked {
-							return opts.Target == rctx.Naked || (opts.Target == rctx.B && opts.PortName != "http")
+						if rctx.IsNaked(src) {
+							return rctx.IsNaked(opts.Target) || (opts.Target == rctx.B && opts.PortName != "http")
 
 						}
 						// Headless service with sidecar injected, autoMtls does not apply.
@@ -141,7 +145,8 @@ func TestReachability(t *testing.T) {
 					Namespace:           rctx.Namespace,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						// Exclude server without sidecar injected
+						return !rctx.IsNaked(opts.Target)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -153,7 +158,7 @@ func TestReachability(t *testing.T) {
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
+						if rctx.IsHeadless(opts.Target) && opts.PortName == "tcp" {
 							return false
 						}
 
