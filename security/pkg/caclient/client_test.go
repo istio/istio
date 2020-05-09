@@ -46,7 +46,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 	}{
 		"Success": {
 			pltfmc:            mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			keySize:           512,
+			keySize:           2048,
 			caResponse:        &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain},
 			ttl:               time.Hour,
 			maxRetries:        0,
@@ -64,12 +64,12 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			ttl:         time.Hour,
 			maxRetries:  0,
 			interval:    time.Second,
-			expectedErr: "CSR creation failed (crypto/rsa: message too long for RSA public key size)",
+			expectedErr: "requested key size does not meet the minimum requied size of 2048 (requested: 128)",
 			sendTimes:   0,
 		},
 		"Getting platform credential error": {
 			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", nil, "Err1", true},
-			keySize:     512,
+			keySize:     2048,
 			ttl:         time.Hour,
 			maxRetries:  0,
 			interval:    time.Second,
@@ -78,7 +78,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		},
 		"SendCSR empty response error": {
 			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			keySize:     512,
+			keySize:     2048,
 			ttl:         time.Hour,
 			maxRetries:  2,
 			interval:    time.Millisecond,
@@ -88,7 +88,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		"SendCSR returns error": {
 			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			caError:     "error returned from CA",
-			keySize:     512,
+			keySize:     2048,
 			ttl:         time.Hour,
 			maxRetries:  1,
 			interval:    time.Millisecond,
@@ -98,7 +98,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		"SendCSR not approved": {
 			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			caResponse:  &pb.CsrResponse{IsApproved: false},
-			keySize:     512,
+			keySize:     2048,
 			ttl:         time.Hour,
 			maxRetries:  1,
 			interval:    time.Millisecond,
