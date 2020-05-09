@@ -57,7 +57,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 				Labels:   nil,
 			})
 			// Apply bad config (referencing invalid host)
-			g.ApplyConfigOrFail(t, ns, `
+			ctx.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -76,7 +76,7 @@ spec:
 				return expectStatus(t, ctx, ns, true)
 			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
-			g.ApplyConfigOrFail(t, ns, `
+			ctx.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:

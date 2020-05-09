@@ -21,6 +21,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/docker"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -29,7 +30,7 @@ import (
 
 const (
 	systemNamespace = "istio-system"
-	domain          = "cluster.local"
+	domain          = constants.DefaultKubernetesDomain
 
 	networkLabelKey   = "app"
 	networkLabelValue = "istio-test"
@@ -54,16 +55,22 @@ type Environment struct {
 	dockerClient *client.Client
 	network      *docker.Network
 	mux          sync.Mutex
+	Cluster      resource.Cluster
 }
 
 var _ resource.Environment = &Environment{}
 
 // New returns a new native environment.
 func New(ctx resource.Context) (resource.Environment, error) {
+	cluster, err := NewCluster(ctx)
+	if err != nil {
+		return nil, err
+	}
 	e := &Environment{
 		ctx:             ctx,
 		SystemNamespace: systemNamespace,
 		Domain:          domain,
+		Cluster:         cluster,
 	}
 	e.id = ctx.TrackResource(e)
 
@@ -91,7 +98,7 @@ func (e *Environment) IsMulticluster() bool {
 }
 
 func (e *Environment) Clusters() []resource.Cluster {
-	return []resource.Cluster{Cluster}
+	return []resource.Cluster{e.Cluster}
 }
 
 // ID implements resource.Instance

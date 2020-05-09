@@ -22,6 +22,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
@@ -37,7 +38,7 @@ import (
 const (
 	tcpHealthPort     = 3333
 	httpReadinessPort = 8080
-	defaultDomain     = "cluster.local"
+	defaultDomain     = constants.DefaultKubernetesDomain
 )
 
 var (

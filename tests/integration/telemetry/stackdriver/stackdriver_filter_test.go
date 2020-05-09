@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
@@ -51,7 +50,6 @@ const (
 var (
 	ist        istio.Instance
 	echoNsInst namespace.Instance
-	galInst    galley.Instance
 	sdInst     stackdriver.Instance
 	srv        echo.Instance
 	clt        echo.Instance
@@ -63,10 +61,6 @@ func getIstioInstance() *istio.Instance {
 
 func getEchoNamespaceInstance() namespace.Instance {
 	return echoNsInst
-}
-
-func getGalInstance() galley.Instance {
-	return galInst
 }
 
 func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSeries, err error) {
@@ -202,10 +196,6 @@ func setupConfig(cfg *istio.Config) {
 }
 
 func testSetup(ctx resource.Context) (err error) {
-	galInst, err = galley.New(ctx, galley.Config{})
-	if err != nil {
-		return
-	}
 	echoNsInst, err = namespace.New(ctx, namespace.Config{
 		Prefix: "istio-echo",
 		Inject: true,
@@ -230,10 +220,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = galInst.ApplyConfig(
-		echoNsInst,
-		sdBootstrap,
-	)
+	err = ctx.ApplyConfig(echoNsInst.Name(), sdBootstrap)
 	if err != nil {
 		return
 	}
@@ -245,7 +232,6 @@ func testSetup(ctx resource.Context) (err error) {
 		With(&clt, echo.Config{
 			Service:   "clt",
 			Namespace: getEchoNamespaceInstance(),
-			Galley:    getGalInstance(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -258,7 +244,6 @@ func testSetup(ctx resource.Context) (err error) {
 		With(&srv, echo.Config{
 			Service:   "srv",
 			Namespace: getEchoNamespaceInstance(),
-			Galley:    getGalInstance(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{

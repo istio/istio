@@ -31,9 +31,9 @@ func TestNewMetric(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			g.ApplyConfigOrFail(ctx, nil,
+			ctx.ApplyConfigOrFail(ctx, "",
 				bookinfo.DoubleMetric.LoadOrFail(ctx))
-			defer g.DeleteConfigOrFail(ctx, nil,
+			defer ctx.DeleteConfigOrFail(ctx, "",
 				bookinfo.DoubleMetric.LoadOrFail(ctx))
 
 			util.AllowRuleSync(t)

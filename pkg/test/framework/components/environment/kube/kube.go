@@ -15,6 +15,8 @@
 package kube
 
 import (
+	"fmt"
+
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/kube"
@@ -103,6 +105,19 @@ func (e *Environment) IsControlPlaneCluster(cluster resource.Cluster) bool {
 		return controlPlaneIndex == cluster.Index()
 	}
 	return true
+}
+
+// GetControlPlaneCluster returns the cluster running the control plane for the given cluster based on the ControlPlaneTopology.
+// An error is returned if the given cluster isn't present in the topology, or the cluster in the topology isn't in KubeClusters.
+func (e *Environment) GetControlPlaneCluster(cluster resource.Cluster) (resource.Cluster, error) {
+	if controlPlaneIndex, ok := e.Settings().ControlPlaneTopology[cluster.Index()]; ok {
+		if int(controlPlaneIndex) >= len(e.KubeClusters) {
+			err := fmt.Errorf("control plane index %d out of range in %d configured clusters", controlPlaneIndex, len(e.KubeClusters))
+			return nil, err
+		}
+		return e.KubeClusters[controlPlaneIndex], nil
+	}
+	return nil, fmt.Errorf("no control plane cluster found in topology for cluster %d", cluster.Index())
 }
 
 func (e *Environment) Case(name environment.Name, fn func()) {

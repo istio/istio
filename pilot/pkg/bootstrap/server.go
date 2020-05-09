@@ -57,8 +57,8 @@ import (
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/dns"
@@ -135,7 +135,7 @@ type Server struct {
 
 	ConfigStores []model.ConfigStoreCache
 
-	serviceEntryStore *external.ServiceEntryStore
+	serviceEntryStore *serviceentry.ServiceEntryStore
 
 	HTTPListener       net.Listener
 	GRPCListener       net.Listener
@@ -167,6 +167,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	e := &model.Environment{
 		ServiceDiscovery: aggregate.NewController(),
 		PushContext:      model.NewPushContext(),
+		DomainSuffix:     args.Config.ControllerOptions.DomainSuffix,
 	}
 
 	s := &Server{
@@ -234,7 +235,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		// May return nil, if the CA is missing required configs - This is not an error.
 		s.ca, err = s.createCA(corev1, caOpts)
 		if err != nil {
-			return nil, fmt.Errorf("failied to create CA: %v", err)
+			return nil, fmt.Errorf("failed to create CA: %v", err)
 		}
 		err = s.initPublicKey()
 		if err != nil {
@@ -854,9 +855,8 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 					if err != nil {
 						log.Errorf("error in reloading certs, %v", err)
 						// TODO: Add metrics?
-						return
+						break
 					}
-
 					s.certMu.Lock()
 					s.istiodCert = &cert
 					s.certMu.Unlock()
@@ -876,6 +876,7 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 							}
 						}
 					}
+
 				case <-s.fileWatcher.Events(certFile):
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)

@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -60,7 +61,7 @@ type myProtoValue struct {
 }
 
 const (
-	k8sSuffix         = ".svc.cluster.local"
+	k8sSuffix         = ".svc." + constants.DefaultKubernetesDomain
 	noVersionMetadata = "no-metadata"
 )
 

@@ -21,6 +21,7 @@ export CLUSTER3_NAME=${CLUSTER3_NAME:-"cluster3"}
 
 export CLUSTER_NAMES=("${CLUSTER1_NAME}" "${CLUSTER2_NAME}" "${CLUSTER3_NAME}")
 export CLUSTER_POD_SUBNETS=(10.10.0.0/16 10.20.0.0/16 10.30.0.0/16)
+export CLUSTER_SVC_SUBNETS=(10.255.10.0/24 10.255.20.0/24 10.255.30.0/24)
 
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
@@ -197,13 +198,14 @@ function setup_kind_clusters() {
   for i in "${!CLUSTER_NAMES[@]}"; do
     CLUSTER_NAME="${CLUSTER_NAMES[$i]}"
     CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$i]}"
+    CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$i]}"
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
     cat <<EOF > "${CLUSTER_YAML}"
       kind: Cluster
       apiVersion: kind.sigs.k8s.io/v1alpha3
       networking:
         podSubnet: ${CLUSTER_POD_SUBNET}
-        serviceSubnet: 10.255.10.0/24
+        serviceSubnet: ${CLUSTER_SVC_SUBNET}
 EOF
 
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
@@ -259,15 +261,19 @@ function connect_kind_clusters() {
   C2="${3}"
   C2_KUBECONFIG="${4}"
 
-  # Set up routing rules for inter-cluster direct pod to pod communication
+  # Set up routing rules for inter-cluster direct pod to pod & service communication
   C1_NODE="${C1}-control-plane"
   C2_NODE="${C2}-control-plane"
   C1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.Networks.kind.IPAddress }}" "${C1_NODE}")
   C2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.Networks.kind.IPAddress }}" "${C2_NODE}")
   C1_POD_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
   C2_POD_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+  C1_SVC_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl cluster-info dump | sed -n 's/^.*--service-cluster-ip-range=\([^"]*\).*$/\1/p' | head -n 1)
+  C2_SVC_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl cluster-info dump | sed -n 's/^.*--service-cluster-ip-range=\([^"]*\).*$/\1/p' | head -n 1)
   docker exec "${C1_NODE}" ip route add "${C2_POD_CIDR}" via "${C2_DOCKER_IP}"
+  docker exec "${C1_NODE}" ip route add "${C2_SVC_CIDR}" via "${C2_DOCKER_IP}"
   docker exec "${C2_NODE}" ip route add "${C1_POD_CIDR}" via "${C1_DOCKER_IP}"
+  docker exec "${C2_NODE}" ip route add "${C1_SVC_CIDR}" via "${C1_DOCKER_IP}"
 
   # Set up routing rules for inter-cluster pod to MetalLB LoadBalancer communication
   connect_metallb "$C1_NODE" "$C2_KUBECONFIG" "$C2_DOCKER_IP"

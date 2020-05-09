@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
@@ -51,7 +52,6 @@ import (
 )
 
 const (
-	domainSuffix       = "cluster.local"
 	meshConfigMapKey   = "mesh"
 	meshConfigMapName  = "istio"
 	meshNetworksMapKey = "meshNetworks"
@@ -209,7 +209,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 
 	processorSettings := processor.Settings{
 		Metadata:           sa.m,
-		DomainSuffix:       domainSuffix,
+		DomainSuffix:       constants.DefaultKubernetesDomain,
 		Source:             newPrecedenceSource(sa.sources),
 		TransformProviders: sa.transformerProviders,
 		Distributor:        distributor,

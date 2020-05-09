@@ -35,9 +35,13 @@ const (
 	anotherRootCertFile = "../testdata/cert.pem"
 	// These key/cert contain workload key/cert, and a self-signed root cert,
 	// all with TTL 100 years.
-	rootCertFile1  = "../testdata/self-signed-root-cert.pem"
-	certChainFile1 = "../testdata/workload-cert.pem"
-	keyFile1       = "../testdata/workload-key.pem"
+	rootCertFile1    = "../testdata/self-signed-root-cert.pem"
+	certChainFile1   = "../testdata/workload-cert.pem"
+	keyFile1         = "../testdata/workload-key.pem"
+	ecRootCertFile   = "../testdata/ec-root-cert.pem"
+	ecRootKeyFile    = "../testdata/ec-root-key.pem"
+	ecClientCertFile = "../testdata/ec-workload-cert.pem"
+	ecClientKeyFile  = "../testdata/ec-workload-key.pem"
 )
 
 func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
@@ -49,8 +53,12 @@ func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 			rootCertFile: "bad.pem",
 			expectedErr:  "open bad.pem: no such file or directory",
 		},
-		"With root cert": {
+		"With RSA root cert": {
 			rootCertFile: rootCertFile,
+			expectedErr:  "",
+		},
+		"With EC root cert": {
+			rootCertFile: rootCertFile1,
 			expectedErr:  "",
 		},
 	}
@@ -118,7 +126,7 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 		certOptions   *CertOptions
 		expectedErr   string
 	}{
-		"No SAN": {
+		"No SAN RSA": {
 			caCertFile:    rootCertFile,
 			caKeyFile:     rootKeyFile,
 			certChainFile: "",
@@ -128,11 +136,11 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 				TTL:        time.Hour,
 				Org:        "MyOrg",
 				IsCA:       true,
-				RSAKeySize: 512,
+				RSAKeySize: 2048,
 			},
 			expectedErr: "failed to extract id the SAN extension does not exist",
 		},
-		"Success": {
+		"RSA Success": {
 			caCertFile:    certChainFile1,
 			caKeyFile:     keyFile1,
 			certChainFile: "",
@@ -146,7 +154,34 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 			},
 			expectedErr: "",
 		},
-	}
+		"No SAN EC": {
+			caCertFile:    ecRootCertFile,
+			caKeyFile:     ecRootKeyFile,
+			certChainFile: "",
+			rootCertFile:  ecRootCertFile,
+			certOptions: &CertOptions{
+				Host:     "watt",
+				TTL:      100 * 365 * 24 * time.Hour,
+				Org:      "Juju org",
+				IsCA:     true,
+				ECSigAlg: EcdsaSigAlg,
+			},
+			expectedErr: "failed to extract id the SAN extension does not exist",
+		},
+		"EC Success": {
+			caCertFile:    ecClientCertFile,
+			caKeyFile:     ecClientKeyFile,
+			certChainFile: "",
+			rootCertFile:  ecRootCertFile,
+			certOptions: &CertOptions{
+				Host:     "watt",
+				TTL:      365 * 24 * time.Hour,
+				Org:      "Juju org",
+				IsCA:     false,
+				ECSigAlg: EcdsaSigAlg,
+			},
+			expectedErr: "",
+		}}
 	for id, tc := range testCases {
 		k, err := NewVerifiedKeyCertBundleFromFile(tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
 		if err != nil {
@@ -314,7 +349,7 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 		IsCA:         true,
 		IsSelfSigned: true,
 		IsServer:     true,
-		RSAKeySize:   512,
+		RSAKeySize:   2048,
 	})
 	if err != nil {
 		t.Errorf("failed to gen cert for Citadel self signed cert %v", err)

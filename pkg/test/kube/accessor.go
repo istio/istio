@@ -627,6 +627,14 @@ func (a *Accessor) GetUnstructured(gvr schema.GroupVersionResource, namespace, n
 	return u, nil
 }
 
+// DeleteUnstructured deletes an unstructured k8s resource object based on the provided schema, namespace, and name.
+func (a *Accessor) DeleteUnstructured(gvr schema.GroupVersionResource, namespace, name string) error {
+	if err := a.dynClient.Resource(gvr).Namespace(namespace).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete resource %v of type %v: %v", name, gvr, err)
+	}
+	return nil
+}
+
 // ApplyContents applies the given config contents using kubectl.
 func (a *Accessor) ApplyContents(namespace string, contents string) ([]string, error) {
 	return a.ctl.applyContents(namespace, contents, false)

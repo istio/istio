@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zipkin
+  labels:
+    app: zipkin
+spec:
+  selector:
+    matchLabels:
+      app: zipkin
+  template:
+    metadata:
+      labels:
+        app: zipkin
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+        - name: zipkin
+          image: openzipkin/zipkin-slim:2.20.0
+          env:
+            - name: STORAGE_METHOD
+              value: "mem"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tracing
+  namespace: istio-system
+  labels:
+    app: zipkin
+spec:
+  type: ClusterIP
+  ports:
+    - name: http-query
+      port: 80
+      protocol: TCP
+      targetPort: 9411
+  selector:
+    app: zipkin
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: zipkin
+  name: zipkin
+spec:
+  ports:
+    - port: 9411
+      targetPort: 9411
+      name: http-query
+  selector:
+    app: zipkin

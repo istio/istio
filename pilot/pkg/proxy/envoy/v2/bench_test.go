@@ -47,7 +47,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -65,7 +65,7 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	configController := memory.NewController(store)
 	istioConfigStore := model.MakeIstioStore(configController)
 	serviceControllers := aggregate.NewController()
-	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore, s)
+	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, istioConfigStore, s)
 	go configController.Run(make(chan struct{}))
 	serviceEntryRegistry := serviceregistry.Simple{
 		ProviderID:       "External",

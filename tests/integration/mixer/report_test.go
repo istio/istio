@@ -44,8 +44,8 @@ func TestMixer_Report_Direct(t *testing.T) {
 				Prefix: "mixreport",
 			})
 
-			g.ApplyConfigOrFail(t,
-				ns,
+			ctx.ApplyConfigOrFail(t,
+				ns.Name(),
 				testReportConfig,
 				be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))
 

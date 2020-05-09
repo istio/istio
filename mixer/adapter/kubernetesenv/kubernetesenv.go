@@ -426,11 +426,8 @@ func initMultiClusterSecretController(b *builder, kubeconfig string, env adapter
 		return fmt.Errorf("could not create K8s client: %v", err)
 	}
 
-	err = secretcontroller.StartSecretController(kubeClient, b.createCacheController,
+	_ = secretcontroller.StartSecretController(kubeClient, b.createCacheController,
 		b.updateCacheController, b.deleteCacheController, clusterNs)
-	if err != nil {
-		return fmt.Errorf("could not start secret controller: %v", err)
-	}
 
 	return nil
 }

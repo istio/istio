@@ -34,12 +34,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/monitoring"
 
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-)
-
-const (
-	defaultDomainSuffix = "cluster.local"
 )
 
 var _ mesh.Holder = &Environment{}
@@ -79,7 +77,7 @@ func (e *Environment) GetDomainSuffix() string {
 	if len(e.DomainSuffix) > 0 {
 		return e.DomainSuffix
 	}
-	return defaultDomainSuffix
+	return constants.DefaultKubernetesDomain
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -87,6 +85,18 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 		return e.Watcher.Mesh()
 	}
 	return nil
+}
+
+func (e *Environment) GetDiscoveryHost() (host.Name, error) {
+	proxyConfig := mesh.DefaultProxyConfig()
+	if e.Mesh().DefaultConfig != nil {
+		proxyConfig = *e.Mesh().DefaultConfig
+	}
+	hostname, _, err := net.SplitHostPort(proxyConfig.DiscoveryAddress)
+	if err != nil {
+		return "", err
+	}
+	return host.Name(hostname), nil
 }
 
 func (e *Environment) AddMeshHandler(h func()) {
