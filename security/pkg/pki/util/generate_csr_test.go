@@ -93,10 +93,8 @@ func TestGenCSR(t *testing.T) {
 			if reflect.TypeOf(csr.PublicKey) != reflect.TypeOf(&ecdsa.PublicKey{}) {
 				t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, csr.PublicKey)
 			}
-		} else {
-			if reflect.TypeOf(csr.PublicKey) != reflect.TypeOf(&rsa.PublicKey{}) {
-				t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, csr.PublicKey)
-			}
+		} else if reflect.TypeOf(csr.PublicKey) != reflect.TypeOf(&rsa.PublicKey{}) {
+			t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, csr.PublicKey)
 		}
 	}
 }
@@ -164,10 +162,8 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 			if reflect.TypeOf(key) != reflect.TypeOf(&ecdsa.PrivateKey{}) {
 				t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, key)
 			}
-		} else {
-			if reflect.TypeOf(key) != reflect.TypeOf(&rsa.PrivateKey{}) {
-				t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, key)
-			}
+		} else if reflect.TypeOf(key) != reflect.TypeOf(&rsa.PrivateKey{}) {
+			t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, key)
 		}
 	}
 }

@@ -80,12 +80,6 @@ AATCkAx7whb2k3xWm+UjlFWFiV11oYmIdYgXqiAQkiz7fEq6QFhsjjCizeGzAlhT
 TmngRSxv/dSvGA==
 -----END EC PRIVATE KEY-----`
 
-	keyED25519 = `
------BEGIN EC PRIVATE KEY-----
-NysTBKhBEfI14fwuruCzvz4WOB++26gFYxP1Jy+PP5ECnJVUsyFoA8+WYDjhxBXL
-VJtKP+w6+3txjHsiMUH/1w==
------END EC PRIVATE KEY-----`
-
 	keyInvalidECDSA = `
 -----BEGIN EC PRIVATE KEY-----
 -----END EC PRIVATE KEY-----`
