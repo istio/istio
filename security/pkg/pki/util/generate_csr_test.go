@@ -29,7 +29,7 @@ func TestGenCSR(t *testing.T) {
 	// Options to generate a CSR.
 	cases := map[string]struct {
 		csrOptions CertOptions
-		err error
+		err        error
 	}{
 		"GenCSR with RSA": {
 			csrOptions: CertOptions{
