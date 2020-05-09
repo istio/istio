@@ -28,6 +28,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -35,6 +36,15 @@ import (
 	"time"
 
 	"istio.io/pkg/log"
+)
+
+// SupportedECSignatureAlgorithms are the types of EC Signature Algorithms
+// to be used in key generation (e.g. ECDSA or ED2551)
+type SupportedECSignatureAlgorithms string
+
+const (
+	// only ECDSA using P256 is currently supported
+	EcdsaSigAlg SupportedECSignatureAlgorithms = "ECDSA"
 )
 
 // CertOptions contains options for generating a new certificate.
@@ -83,9 +93,10 @@ type CertOptions struct {
 	// If true, the private key is encoded with PKCS#8.
 	PKCS8Key bool
 
-	// Whether this certificate uses Elliptical Curve. Mutually
-	// exclusive with respect to RSAKeySize.
-	IsEC bool
+	// The type of Elliptical Signature algorithm to use
+	// when generating private keys. Currently only ECDSA is supported.
+	// If empty, RSA is used, otherwise ECC is used.
+	ECSigAlg SupportedECSignatureAlgorithms
 }
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
@@ -95,10 +106,17 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 	// private key will be used to sign this certificate in the self-signed
 	// case, otherwise the certificate is signed by the signer private key
 	// as specified in the CertOptions.
-	if options.IsEC {
-		ecPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			return nil, nil, fmt.Errorf("cert generation fails at EC key generation (%v)", err)
+	if options.ECSigAlg != "" {
+		var ecPriv *ecdsa.PrivateKey
+
+		switch options.ECSigAlg {
+		case EcdsaSigAlg:
+			ecPriv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			if err != nil {
+				return nil, nil, fmt.Errorf("cert generation fails at EC key generation (%v)", err)
+			}
+		default:
+			return nil, nil, errors.New("cert generation fails due to unsupported EC signature algorithm")
 		}
 		return genCert(options, ecPriv, &ecPriv.PublicKey)
 	}

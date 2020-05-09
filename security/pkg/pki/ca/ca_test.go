@@ -387,9 +387,9 @@ func TestSignCSRForWorkload(t *testing.T) {
 		"Workload uses EC": {
 			certOpts: util.CertOptions{
 				// This value is not used, instead, subjectID should be used in certificate.
-				Host: "spiffe://different.com/test",
-				IsEC: true,
-				IsCA: false,
+				Host:     "spiffe://different.com/test",
+				ECSigAlg: util.EcdsaSigAlg,
+				IsCA:     false,
 			},
 		},
 	}
@@ -400,7 +400,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 			t.Errorf("%s: GenCSR error: %v", id, err)
 		}
 
-		ca, err := createCA(time.Hour, tc.certOpts.IsEC)
+		ca, err := createCA(time.Hour, tc.certOpts.ECSigAlg)
 		if err != nil {
 			t.Errorf("%s: createCA error: %v", id, err)
 		}
@@ -450,15 +450,15 @@ func TestSignCSRForCA(t *testing.T) {
 	cases := map[string]struct {
 		RSAKeySize int
 		IsCA       bool
-		IsEC       bool
+		ECSigAlg   util.SupportedECSignatureAlgorithms
 	}{
 		"CA uses RSA": {
 			RSAKeySize: 2048,
 			IsCA:       true,
 		},
 		"CA uses EC": {
-			IsEC: true,
-			IsCA: true,
+			ECSigAlg: util.EcdsaSigAlg,
+			IsCA:     true,
 		},
 	}
 
@@ -466,14 +466,14 @@ func TestSignCSRForCA(t *testing.T) {
 		certOpts := util.CertOptions{
 			RSAKeySize: tc.RSAKeySize,
 			IsCA:       tc.IsCA,
-			IsEC:       tc.IsEC,
+			ECSigAlg:   tc.ECSigAlg,
 		}
 		csrPEM, keyPEM, err := util.GenCSR(certOpts)
 		if err != nil {
 			t.Errorf("%s: GenCSR error: %v", id, err)
 		}
 
-		ca, err := createCA(365*24*time.Hour, tc.IsEC)
+		ca, err := createCA(365*24*time.Hour, tc.ECSigAlg)
 		if err != nil {
 			t.Errorf("%s: createCA error: %v", id, err)
 		}
@@ -522,15 +522,15 @@ func TestSignCSRTTLError(t *testing.T) {
 	cases := map[string]struct {
 		Org        string
 		RSAKeySize int
-		IsEC       bool
+		ECSigAlg   util.SupportedECSignatureAlgorithms
 	}{
 		"CSR uses RSA": {
 			Org:        "istio.io",
 			RSAKeySize: 2048,
 		},
 		"CSR uses EC": {
-			Org:  "istio.io",
-			IsEC: true,
+			Org:      "istio.io",
+			ECSigAlg: util.EcdsaSigAlg,
 		},
 	}
 
@@ -538,14 +538,14 @@ func TestSignCSRTTLError(t *testing.T) {
 		certOpts := util.CertOptions{
 			Org:        tc.Org,
 			RSAKeySize: tc.RSAKeySize,
-			IsEC:       tc.IsEC,
+			ECSigAlg:   tc.ECSigAlg,
 		}
 		csrPEM, _, err := util.GenCSR(certOpts)
 		if err != nil {
 			t.Errorf("%s: GenCSR error: %v", id, err)
 		}
 
-		ca, err := createCA(2*time.Hour, tc.IsEC)
+		ca, err := createCA(2*time.Hour, tc.ECSigAlg)
 		if err != nil {
 			t.Errorf("%s: createCA error: %v", id, err)
 		}
@@ -701,7 +701,7 @@ func TestGenKeyCert(t *testing.T) {
 	}
 }
 
-func createCA(maxTTL time.Duration, isEC bool) (*IstioCA, error) {
+func createCA(maxTTL time.Duration, ecSigAlg util.SupportedECSignatureAlgorithms) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,
@@ -709,7 +709,7 @@ func createCA(maxTTL time.Duration, isEC bool) (*IstioCA, error) {
 		TTL:          time.Hour,
 		Org:          "Root CA",
 		RSAKeySize:   2048,
-		IsEC:         isEC,
+		ECSigAlg:     ecSigAlg,
 	}
 
 	rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(rootCAOpts)
@@ -735,7 +735,7 @@ func createCA(maxTTL time.Duration, isEC bool) (*IstioCA, error) {
 		RSAKeySize:   2048,
 		SignerCert:   rootCert,
 		SignerPriv:   rootKey,
-		IsEC:         isEC,
+		ECSigAlg:     ecSigAlg,
 	}
 
 	intermediateCert, intermediateKey, err := util.GenCertKeyFromOptions(intermediateCAOpts)

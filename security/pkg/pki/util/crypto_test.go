@@ -15,7 +15,11 @@
 package util
 
 import (
+	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"reflect"
@@ -74,6 +78,12 @@ xGSDfnFvR13RCqeUdlQofVYpolqrSobOyOVfQv2ksnPPsC87NISM
 MGgCAQEEHBMUyVWFKTW4TwtwCmIAxdpsBFn0MV7tGeSA32CgBwYFK4EEACGhPAM6
 AATCkAx7whb2k3xWm+UjlFWFiV11oYmIdYgXqiAQkiz7fEq6QFhsjjCizeGzAlhT
 TmngRSxv/dSvGA==
+-----END EC PRIVATE KEY-----`
+
+	keyED25519 = `
+-----BEGIN EC PRIVATE KEY-----
+NysTBKhBEfI14fwuruCzvz4WOB++26gFYxP1Jy+PP5ECnJVUsyFoA8+WYDjhxBXL
+VJtKP+w6+3txjHsiMUH/1w==
 -----END EC PRIVATE KEY-----`
 
 	keyInvalidECDSA = `
@@ -309,6 +319,31 @@ func TestGetRSAKeySize(t *testing.T) {
 			t.Errorf(`%s: Unexpected error: "%s"`, id, err)
 		} else if size != c.size {
 			t.Errorf(`%s: Unmatched key size: expected %v but got "%v"`, id, c.size, size)
+		}
+	}
+}
+
+func TestIsSupportedECPrivateKey(t *testing.T) {
+	_, ed25519PrivKey, _ := ed25519.GenerateKey(nil)
+	ecdsaPrivKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	cases := map[string]struct {
+		key         crypto.PrivateKey
+		isSupported bool
+	}{
+		"ECDSA": {
+			key:         ecdsaPrivKey,
+			isSupported: true,
+		},
+		"ED25519": {
+			key:         ed25519PrivKey,
+			isSupported: false,
+		},
+	}
+
+	for id, tc := range cases {
+		if IsSupportedECPrivateKey(&tc.key) != tc.isSupported {
+			t.Errorf("%s: does not match expected support level for EC signature algorithms", id)
 		}
 	}
 }

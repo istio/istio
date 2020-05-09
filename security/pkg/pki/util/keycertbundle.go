@@ -213,7 +213,7 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 		}
 		opts.RSAKeySize = size
 	case *ecdsa.PrivateKey:
-		opts.IsEC = true
+		opts.ECSigAlg = EcdsaSigAlg
 	default:
 		return nil, errors.New("unknown private key type")
 	}

@@ -317,9 +317,9 @@ func (s *Server) getServerCertificate() (*tls.Certificate, error) {
 		// cert bundles can have errors (e.g. missing SAN)
 		// that do not matter for getting the encryption type
 		_, privKey, _, _ := bundle.GetAll()
-		if util.IsECPrivateKey(privKey) {
+		if util.IsSupportedECPrivateKey(privKey) {
 			opts = util.CertOptions{
-				IsEC: true,
+				ECSigAlg: util.EcdsaSigAlg,
 			}
 		}
 	}

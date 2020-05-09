@@ -26,6 +26,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -41,10 +42,15 @@ const minimumRsaKeySize = 2048
 func GenCSR(options CertOptions) ([]byte, []byte, error) {
 	var priv interface{}
 	var err error
-	if options.IsEC {
-		priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			return nil, nil, fmt.Errorf("EC key generation failed (%v)", err)
+	if options.ECSigAlg != "" {
+		switch options.ECSigAlg {
+		case EcdsaSigAlg:
+			priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			if err != nil {
+				return nil, nil, fmt.Errorf("EC key generation failed (%v)", err)
+			}
+		default:
+			return nil, nil, errors.New("csr cert generation fails due to unsupported EC signature algorithm")
 		}
 	} else {
 		if options.RSAKeySize < minimumRsaKeySize {

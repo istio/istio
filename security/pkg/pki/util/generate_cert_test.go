@@ -86,7 +86,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		IsSelfSigned: true,
 		IsClient:     false,
 		IsServer:     true,
-		IsEC:         true,
+		ECSigAlg:     EcdsaSigAlg,
 	}
 
 	ecCaCertPem, ecCaPrivPem, err := GenCertKeyFromOptions(ecCaCertOptions)
@@ -353,7 +353,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				IsEC:         true,
+				ECSigAlg:     EcdsaSigAlg,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -376,7 +376,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				IsEC:         true,
+				ECSigAlg:     EcdsaSigAlg,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -399,7 +399,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				IsEC:         true,
+				ECSigAlg:     EcdsaSigAlg,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -422,7 +422,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				IsEC:         true,
+				ECSigAlg:     EcdsaSigAlg,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -445,7 +445,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				IsEC:         true,
+				ECSigAlg:     EcdsaSigAlg,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -463,7 +463,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				TTL:        ttl,
 				SignerCert: ecCaCert,
 				SignerPriv: ecCaPriv,
-				IsEC:       true,
+				ECSigAlg:   EcdsaSigAlg,
 			},
 			verifyFields: &VerifyFields{
 				IsCA:     false,
@@ -482,7 +482,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				IsEC:         true,
+				ECSigAlg:     EcdsaSigAlg,
 				IsDualUse:    true,
 			},
 			verifyFields: &VerifyFields{
@@ -507,7 +507,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				IsEC:         true,
+				ECSigAlg:     EcdsaSigAlg,
 				IsDualUse:    true,
 			},
 			verifyFields: &VerifyFields{
@@ -532,7 +532,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				IsEC:         true,
+				ECSigAlg:     EcdsaSigAlg,
 				PKCS8Key:     true,
 			},
 			verifyFields: &VerifyFields{

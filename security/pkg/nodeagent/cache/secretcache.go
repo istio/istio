@@ -127,8 +127,9 @@ type Options struct {
 	// OutputKeyCertToDir is the directory for output the key and certificate
 	OutputKeyCertToDir string
 
-	// Whether to generate ECC private keys.
-	ECCKeys bool
+	// The type of Elliptical Signature algorithm to use
+	// when generating private keys. Currently only ECDSA is supported.
+	ECCSigAlg string
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -866,7 +867,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		Host:       csrHostName,
 		RSAKeySize: keySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
-		IsEC:       sc.configOptions.ECCKeys,
+		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
 	}
 
 	// Generate the cert/key, send CSR to CA.

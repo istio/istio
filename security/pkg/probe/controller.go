@@ -93,8 +93,8 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 
 	_, signingKey, _, _ := c.ca.GetCAKeyCertBundle().GetAll()
 	// TODO the user can specify algorithm to generate for CSRs independent of CA certificate
-	if util.IsECPrivateKey(signingKey) {
-		opts.IsEC = true
+	if util.IsSupportedECPrivateKey(signingKey) {
+		opts.ECSigAlg = util.EcdsaSigAlg
 	}
 
 	csrPEM, privPEM, err := util.GenCSR(opts)
@@ -160,8 +160,8 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	}
 
 	// TODO the user can specify algorithm to generate for CSRs independent of CA certificate
-	if util.IsECPrivateKey(priv) {
-		opts.IsEC = true
+	if util.IsSupportedECPrivateKey(priv) {
+		opts.ECSigAlg = util.EcdsaSigAlg
 	}
 
 	csr, privKeyBytes, err := util.GenCSR(opts)

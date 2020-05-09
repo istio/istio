@@ -38,9 +38,9 @@ func TestGenCSR(t *testing.T) {
 		},
 		"GenCSR with EC": {
 			csrOptions: CertOptions{
-				Host: "test_ca.com",
-				Org:  "MyOrg",
-				IsEC: true,
+				Host:     "test_ca.com",
+				Org:      "MyOrg",
+				ECSigAlg: EcdsaSigAlg,
 			},
 		},
 	}
@@ -69,7 +69,10 @@ func TestGenCSR(t *testing.T) {
 		if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
 			t.Errorf("%s: csr host does not match", id)
 		}
-		if tc.csrOptions.IsEC {
+		if tc.csrOptions.ECSigAlg != "" {
+			if tc.csrOptions.ECSigAlg != EcdsaSigAlg {
+				t.Errorf("%s: Only ECDSA signature algorithms are currently supported", id)
+			}
 			if reflect.TypeOf(csr.PublicKey) != reflect.TypeOf(&ecdsa.PublicKey{}) {
 				t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, csr.PublicKey)
 			}
@@ -98,7 +101,7 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 			csrOptions: CertOptions{
 				Host:     "test_ca.com",
 				Org:      "MyOrg",
-				IsEC:     true,
+				ECSigAlg: EcdsaSigAlg,
 				PKCS8Key: true,
 			},
 		},
@@ -137,7 +140,10 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 		if err != nil {
 			t.Errorf("%s: failed to parse PKCS#8 private key", id)
 		}
-		if tc.csrOptions.IsEC {
+		if tc.csrOptions.ECSigAlg != "" {
+			if tc.csrOptions.ECSigAlg != EcdsaSigAlg {
+				t.Errorf("%s: Only ECDSA signature algorithms are currently supported", id)
+			}
 			if reflect.TypeOf(key) != reflect.TypeOf(&ecdsa.PrivateKey{}) {
 				t.Errorf("%s: decoded PKCS#8 returned unexpected key type: %T", id, key)
 			}
