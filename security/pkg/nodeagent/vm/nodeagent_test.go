@@ -35,7 +35,7 @@ func TestStartWithArgs(t *testing.T) {
 		CAClientConfig: caclient.Config{
 			CAAddress:                 "ca_addr",
 			Org:                       "Google Inc.",
-			RSAKeySize:                512,
+			RSAKeySize:                2048,
 			Env:                       "onprem",
 			CSRInitialRetrialInterval: time.Millisecond,
 			CSRMaxRetries:             3,
@@ -104,7 +104,7 @@ func TestStartWithArgs(t *testing.T) {
 			},
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			caProtocol:  mock.NewFakeProtocol(nil, ""),
-			expectedErr: "CSR creation failed (crypto/rsa: message too long for RSA public key size)",
+			expectedErr: "requested key size does not meet the minimum requied size of 2048 (requested: 128)",
 			sendTimes:   0,
 		},
 		"Getting agent credential error": {

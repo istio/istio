@@ -312,6 +312,19 @@ func (s *Server) getServerCertificate() (*tls.Certificate, error) {
 		RSAKeySize: 2048,
 	}
 
+	bundle := s.ca.GetCAKeyCertBundle()
+	if bundle != nil {
+		// cert bundles can have errors (e.g. missing SAN)
+		// that do not matter for getting the encryption type
+		_, privKey, _, _ := bundle.GetAll()
+		if util.IsSupportedECPrivateKey(privKey) {
+			opts = util.CertOptions{
+				ECSigAlg: util.EcdsaSigAlg,
+			}
+		}
+	}
+
+	// TODO the user can specify algorithm to generate for CSRs independent of CA certificate
 	csrPEM, privPEM, err := util.GenCSR(opts)
 	if err != nil {
 		return nil, err

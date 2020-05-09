@@ -75,6 +75,7 @@ var (
 		"The ticker to detect and close stale connections").Get()
 	initialBackoffInMilliSecEnv = env.RegisterIntVar(initialBackoffInMilliSec, 0, "").Get()
 	pkcs8KeysEnv                = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
+	eccSigAlgEnv                = env.RegisterStringVar(eccSigAlg, "", "The type of ECC signature algorithm to use when generating private keys").Get()
 
 	// Location of K8S CA root.
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
@@ -127,6 +128,10 @@ const (
 	initialBackoffInMilliSec = "INITIAL_BACKOFF_MSEC"
 
 	pkcs8Key = "PKCS8_KEY"
+
+	// The type of Elliptical Signature algorithm to use
+	// when generating private keys. Currently only ECDSA is supported.
+	eccSigAlg = "ECC_SIGNATURE_ALGORITHM"
 )
 
 var (
@@ -446,6 +451,7 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 
 	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
 	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
+	workloadSdsCacheOptions.ECCSigAlg = serverOptions.ECCSigAlg
 	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 	workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
@@ -484,6 +490,7 @@ func applyEnvVars() {
 	serverOptions.CAProviderName = caProviderEnv
 	serverOptions.TrustDomain = trustDomainEnv
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
+	serverOptions.ECCSigAlg = eccSigAlgEnv
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
