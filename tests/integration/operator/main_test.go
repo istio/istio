@@ -24,7 +24,6 @@ import (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("operator_controller", m).
-		Skip("https://github.com/istio/istio/issues/22969").
 		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Run()
