@@ -760,6 +760,11 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 // maybeInitDNSCerts initializes DNS certs if needed.
 func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
+	// Tests will have empty host - we should just ignore.
+	if host == "" {
+		return nil
+	}
+
 	// Generate DNS certificates only if custom certs are not provided via args.
 	if !hasCustomTLSCerts(args.TLSOptions) {
 		// Create DNS certificates. This allows injector, validation to work without Citadel, and
@@ -984,33 +989,13 @@ func (s *Server) maybeCreateCA(args *PilotArgs, caOpts *CAOptions) error {
 }
 
 // startCA starts the CA server if configured.
-func (s *Server) startCA(args *PilotArgs, caOpts *CAOptions) error {
+func (s *Server) startCA(args *PilotArgs, caOpts *CAOptions) {
 	if s.ca != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			s.RunCA(s.secureGrpcServer, s.ca, caOpts)
 			return nil
 		})
 	}
-
-	if s.kubeClient != nil {
-		fetchData := func() map[string]string {
-			return map[string]string{
-				constants.CACertNamespaceConfigMapDataName: string(s.ca.GetCAKeyCertBundle().GetRootCertPem()),
-			}
-		}
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient).
-				AddRunFunction(func(stop <-chan struct{}) {
-					log.Infof("Starting namespace controller")
-					nc := kubecontroller.NewNamespaceController(fetchData, args.Config.ControllerOptions, s.kubeClient)
-					nc.Run(stop)
-				}).
-				Run(stop)
-			return nil
-		})
-	}
-	return nil
 }
 
 func (s *Server) fetchCARoot() map[string]string {
