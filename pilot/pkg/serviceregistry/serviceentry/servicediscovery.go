@@ -109,27 +109,15 @@ func getWorkloadEntryHandler(c *ServiceEntryStore) func(model.Config, model.Conf
 			namespace: curr.Namespace,
 		}
 
-		// fire off the k8s handlers
-		if len(c.instanceHandlers) > 0 {
-			si := convertWorkloadEntryToServiceInstanceForK8S(curr.Namespace, wle)
-			if si != nil {
-				for _, h := range c.instanceHandlers {
-					h(si, event)
-				}
+	// fire off the k8s handlers
+	if len(c.instanceHandlers) > 0 {
+		si := convertWorkloadEntryToServiceInstanceForK8S(curr.Namespace, wle)
+		if si != nil {
+			for _, h := range c.instanceHandlers {
+				h(si, event)
 			}
 		}
-
-		c.storeMutex.RLock()
-		// We will only select entries in the same namespace
-		entries := c.seWithSelectorByNamespace[curr.Namespace]
-		c.storeMutex.RUnlock()
-
-		// if there are no service entries, return now to avoid taking unnecessary locks
-		if len(entries) == 0 {
-			return
-		}
-		log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
-		instances := []*model.ServiceInstance{}
+	}
 
 	s.storeMutex.RLock()
 	// We will only select entries in the same namespace
@@ -292,8 +280,6 @@ func (s *ServiceEntryStore) ForeignServiceInstanceHandler(si *model.ServiceInsta
 				// ignore the udpate as nothing has changed
 				redundantEventForPod = true
 			}
-		}  else {
-			delete(d.foreignRegistryInstancesByIP, si.Endpoint.Address)
 		}
 		s.foreignRegistryInstancesByIP[si.Endpoint.Address] = si
 	}
