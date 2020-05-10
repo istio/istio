@@ -220,7 +220,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureGrpcServer(port, args); err != nil {
+	if err := s.initSecureGrpcServer(args, port); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
@@ -535,7 +535,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 }
 
 // initialize secureGRPCServer.
-func (s *Server) initSecureGrpcServer(port string, args *PilotArgs) error {
+func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
 	if features.IstiodService.Get() == "" {
 		return nil
 	}
@@ -559,7 +559,7 @@ func (s *Server) initSecureGrpcServer(port string, args *PilotArgs) error {
 
 	tlsCreds := credentials.NewTLS(cfg)
 
-	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect
+	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect.
 	secureGrpc := fmt.Sprintf(":%s", port)
 
 	// create secure grpc listener
