@@ -262,10 +262,9 @@ var (
 	).Get()
 
 	// IstiodService controls the istiod address - used for injection and as default value injected into pods
-	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
-	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
-	// istio-pilot or istiod) plus namespace and .svc.
-	// The 15010 port is used with plain text, 15011 with Spiffe certs - we need a different port for DNS cert.
+	// The name must be part of the DNS certificate served by istiod. The '.svc' is imposed by K8S - that's how
+	// the names for webhooks are defined, based on webhook service (which will be stiod) plus namespace and .svc.
+	// The 15010 port is used with plain text, 15012 for secure port.
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
