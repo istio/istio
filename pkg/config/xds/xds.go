@@ -22,6 +22,7 @@ import (
 	xdsAPI "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -40,7 +41,7 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 	var obj proto.Message
 	switch applyTo {
 	case networking.EnvoyFilter_CLUSTER:
-		obj = &xdsAPI.Cluster{}
+		obj = &cluster.Cluster{}
 	case networking.EnvoyFilter_LISTENER:
 		obj = &xdsAPI.Listener{}
 	case networking.EnvoyFilter_ROUTE_CONFIGURATION:

@@ -29,7 +29,7 @@ import (
 	"testing"
 	"time"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
 	"istio.io/api/networking/v1alpha3"
 

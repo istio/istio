@@ -17,11 +17,12 @@ package envoyfilter
 import (
 	"testing"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 )
@@ -29,7 +30,7 @@ import (
 func Test_clusterMatch(t *testing.T) {
 	type args struct {
 		proxy          *model.Proxy
-		cluster        *xdsapi.Cluster
+		cluster        *cluster.Cluster
 		matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch
 		operation      networking.EnvoyFilter_Patch_Operation
 	}
@@ -48,7 +49,7 @@ func Test_clusterMatch(t *testing.T) {
 						Cluster: &networking.EnvoyFilter_ClusterMatch{Name: "scooby"},
 					},
 				},
-				cluster: &xdsapi.Cluster{Name: "scrappy"},
+				cluster: &cluster.Cluster{Name: "scrappy"},
 			},
 			want: false,
 		},
@@ -66,7 +67,7 @@ func Test_clusterMatch(t *testing.T) {
 						},
 					},
 				},
-				cluster: &xdsapi.Cluster{Name: "outbound|80|v2|foo.bar"},
+				cluster: &cluster.Cluster{Name: "outbound|80|v2|foo.bar"},
 			},
 			want: false,
 		},
@@ -84,7 +85,7 @@ func Test_clusterMatch(t *testing.T) {
 						},
 					},
 				},
-				cluster: &xdsapi.Cluster{Name: "outbound|80|v1|google.com"},
+				cluster: &cluster.Cluster{Name: "outbound|80|v1|google.com"},
 			},
 			want: false,
 		},
@@ -102,7 +103,7 @@ func Test_clusterMatch(t *testing.T) {
 						},
 					},
 				},
-				cluster: &xdsapi.Cluster{Name: "outbound|90|v1|foo.bar"},
+				cluster: &cluster.Cluster{Name: "outbound|90|v1|foo.bar"},
 			},
 			want: false,
 		},
@@ -120,7 +121,7 @@ func Test_clusterMatch(t *testing.T) {
 						},
 					},
 				},
-				cluster: &xdsapi.Cluster{Name: "outbound|80|v1|foo.bar"},
+				cluster: &cluster.Cluster{Name: "outbound|80|v1|foo.bar"},
 			},
 			want: true,
 		},
@@ -202,62 +203,62 @@ func TestApplyClusterPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundIn := []*xdsapi.Cluster{
-		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V4_ONLY, LbPolicy: xdsapi.Cluster_ROUND_ROBIN},
+	sidecarOutboundIn := []*cluster.Cluster{
+		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
-			}, LbPolicy: xdsapi.Cluster_MAGLEV,
+			}, LbPolicy: cluster.Cluster_MAGLEV,
 		},
 	}
 
-	sidecarOutboundOut := []*xdsapi.Cluster{
-		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
+	sidecarOutboundOut := []*cluster.Cluster{
+		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
-			}, LbPolicy: xdsapi.Cluster_RING_HASH, DnsLookupFamily: xdsapi.Cluster_V6_ONLY,
+			}, LbPolicy: cluster.Cluster_RING_HASH, DnsLookupFamily: cluster.Cluster_V6_ONLY,
 		},
 		{Name: "new-cluster1"},
 		{Name: "new-cluster2"},
 	}
 
-	sidecarInboundIn := []*xdsapi.Cluster{
-		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V4_ONLY, LbPolicy: xdsapi.Cluster_ROUND_ROBIN},
+	sidecarInboundIn := []*cluster.Cluster{
+		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
 		{Name: "inbound|9999||mgmtCluster"},
 	}
-	sidecarInboundOut := []*xdsapi.Cluster{
-		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
+	sidecarInboundOut := []*cluster.Cluster{
+		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
 	}
 
-	gatewayInput := []*xdsapi.Cluster{
-		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V4_ONLY, LbPolicy: xdsapi.Cluster_ROUND_ROBIN},
+	gatewayInput := []*cluster.Cluster{
+		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
-			}, LbPolicy: xdsapi.Cluster_MAGLEV,
+			}, LbPolicy: cluster.Cluster_MAGLEV,
 		},
 		{Name: "outbound|443||gateway.com"},
 	}
-	gatewayOutput := []*xdsapi.Cluster{
-		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
+	gatewayOutput := []*cluster.Cluster{
+		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
-			}, LbPolicy: xdsapi.Cluster_RING_HASH, DnsLookupFamily: xdsapi.Cluster_V6_ONLY,
+			}, LbPolicy: cluster.Cluster_RING_HASH, DnsLookupFamily: cluster.Cluster_V6_ONLY,
 		},
 	}
 
 	testCases := []struct {
 		name         string
-		input        []*xdsapi.Cluster
+		input        []*cluster.Cluster
 		proxy        *model.Proxy
 		patchContext networking.EnvoyFilter_PatchContext
-		output       []*xdsapi.Cluster
+		output       []*cluster.Cluster
 	}{
 		{
 			name:         "sidecar outbound cluster patch",

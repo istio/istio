@@ -290,7 +290,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
 		Name:             VirtualOutboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
+		Address:          util.BuildAddressV2(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
 		FilterChains:     filterChains,
@@ -317,7 +317,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	}
 	lb.virtualInboundListener = &xdsapi.Listener{
 		Name:             VirtualInboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
+		Address:          util.BuildAddressV2(actualWildcard, ProxyInboundListenPort),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
 		TrafficDirection: core.TrafficDirection_INBOUND,
