@@ -409,7 +409,7 @@ func (s *Server) initPublicKey() error {
 	return nil
 }
 
-func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.IstioCA, error) {
+func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.IstioCA, error) {
 	var caOpts *ca.IstioCAOptions
 	var err error
 

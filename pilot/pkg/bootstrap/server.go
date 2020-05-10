@@ -220,7 +220,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureGrpcListener(args, port); err != nil {
+	if err := s.initSecureGrpcServer(port, args); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
@@ -537,10 +537,19 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 	return nil
 }
 
-// initialize secureGRPCServer - using DNS certs
-func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Options, tlsOptions TLSOptions) error {
+// initialize secureGRPCServer.
+func (s *Server) initSecureGrpcServer(port string, args *PilotArgs) error {
+	if features.IstiodService.Get() == "" {
+		return nil
+	}
+
+	if args.TLSOptions.CaCertFile == "" && s.ca == nil {
+		// Running locally without configured certs - no TLS mode
+		return nil
+	}
+
 	// TODO(ramaraochavali): Restart Server if root certificate changes.
-	root, err := s.getRootCertificate(tlsOptions)
+	root, err := s.getRootCertificate(args.TLSOptions)
 	if err != nil {
 		return err
 	}
@@ -563,7 +572,7 @@ func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Opt
 	}
 	s.SecureGrpcListener = l
 
-	opts := s.grpcServerOptions(keepalive)
+	opts := s.grpcServerOptions(args.KeepaliveOptions)
 	opts = append(opts, grpc.Creds(tlsCreds))
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
@@ -735,25 +744,6 @@ func (s *Server) initEventHandlers() error {
 	return nil
 }
 
-// add a GRPC listener using DNS-based certificates
-func (s *Server) initSecureGrpcListener(args *PilotArgs, port string) error {
-	if features.IstiodService.Get() == "" {
-		return nil
-	}
-
-	if args.TLSOptions.CaCertFile == "" && s.ca == nil {
-		// Running locally without configured certs - no TLS mode
-		return nil
-	}
-
-	// run secure grpc server for Istiod - using DNS-based certs from K8S
-	if err := s.initSecureGrpcServer(port, args.KeepaliveOptions, args.TLSOptions); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // initIstiodCerts creates Istiod certificates and also sets up watches to them.
 func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	if err := s.maybeInitDNSCerts(args, host); err != nil {
@@ -768,6 +758,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	return nil
 }
 
+// maybeInitDNSCerts initializes DNS certs if needed.
 func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
 	// Generate DNS certificates only if custom certs are not provided via args.
 	if !hasCustomTLSCerts(args.TLSOptions) {
