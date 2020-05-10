@@ -236,32 +236,32 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 
 // a custom comparison of foreign service instances based on the fields that we need
 // i.e. excluding the ports. Returns true if equal, false otherwise.
-func CompareForeignServiceInstances(old, new *ServiceInstance) bool {
-	if old.Endpoint == nil && new.Endpoint == nil {
+func CompareForeignServiceInstances(first, second *ServiceInstance) bool {
+	if first.Endpoint == nil && second.Endpoint == nil {
 		return true
 	}
-	if old.Endpoint == nil || new.Endpoint == nil {
+	if first.Endpoint == nil || second.Endpoint == nil {
 		return false
 	}
-	if old.Endpoint.Address != new.Endpoint.Address {
+	if first.Endpoint.Address != second.Endpoint.Address {
 		return false
 	}
-	if old.Endpoint.TLSMode != new.Endpoint.TLSMode {
+	if first.Endpoint.TLSMode != second.Endpoint.TLSMode {
 		return false
 	}
-	if !old.Endpoint.Labels.Equals(new.Endpoint.Labels) {
+	if !first.Endpoint.Labels.Equals(second.Endpoint.Labels) {
 		return false
 	}
-	if old.Endpoint.ServiceAccount != new.Endpoint.ServiceAccount {
+	if first.Endpoint.ServiceAccount != second.Endpoint.ServiceAccount {
 		return false
 	}
-	if old.Endpoint.Locality != new.Endpoint.Locality {
+	if first.Endpoint.Locality != second.Endpoint.Locality {
 		return false
 	}
-	if old.Endpoint.LbWeight != new.Endpoint.LbWeight {
+	if first.Endpoint.LbWeight != second.Endpoint.LbWeight {
 		return false
 	}
-	if old.Endpoint.UID != new.Endpoint.UID {
+	if first.Endpoint.UID != second.Endpoint.UID {
 		return false
 	}
 	return true
