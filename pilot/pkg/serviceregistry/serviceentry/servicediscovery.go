@@ -110,10 +110,10 @@ func getWorkloadEntryHandler(c *ServiceEntryStore) func(model.Config, model.Conf
 		}
 
 	// fire off the k8s handlers
-	if len(c.instanceHandlers) > 0 {
+	if len(s.instanceHandlers) > 0 {
 		si := convertWorkloadEntryToServiceInstanceForK8S(curr.Namespace, wle)
 		if si != nil {
-			for _, h := range c.instanceHandlers {
+			for _, h := range s.instanceHandlers {
 				h(si, event)
 			}
 		}
@@ -273,7 +273,7 @@ func (s *ServiceEntryStore) ForeignServiceInstanceHandler(si *model.ServiceInsta
 			delete(s.foreignRegistryInstancesByIP, si.Endpoint.Address)
 		}
 	default: // add or update
-		if old, exists := d.foreignRegistryInstancesByIP[si.Endpoint.Address]; exists {
+		if old, exists := s.foreignRegistryInstancesByIP[si.Endpoint.Address]; exists {
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
 			if model.CompareForeignServiceInstances(old, si) {
