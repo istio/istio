@@ -5,6 +5,9 @@ prometheus:
   image: prometheus
   tag: v2.15.1
   retention: 6h
+  persist: false
+  storageClassName: ""
+  accessMode: ReadWriteMany
 
   # Controls the frequency of prometheus scraping
   scrapeInterval: 15s

@@ -1,0 +1,18 @@
+{{- if .Values.prometheus.persist }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: istio-prometheus-pvc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: grafana
+    release: {{ .Release.Name }}
+spec:
+  storageClassName: {{ .Values.prometheus.storageClassName }}
+  accessModes:
+    - {{ .Values.prometheus.accessMode }}
+  resources:
+    requests:
+      storage: 5Gi
+{{- end }}
+

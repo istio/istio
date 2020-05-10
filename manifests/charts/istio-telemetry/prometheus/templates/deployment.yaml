@@ -56,6 +56,8 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/prometheus
+          - name: storage-volume
+            mountPath: /var/lib/prometheus/data
           {{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
           - mountPath: /etc/istio-certs
             name: istio-certs
@@ -175,6 +177,13 @@ spec:
       - name: config-volume
         configMap:
           name: prometheus
+      - name: storage-volume
+{{- if .Values.prometheus.persist }}
+        persistentVolumeClaim:
+          claimName: istio-prometheus-pvc
+{{- else }}
+        emptyDir: {}
+{{- end }}
 
 {{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
       - name: istio-certs

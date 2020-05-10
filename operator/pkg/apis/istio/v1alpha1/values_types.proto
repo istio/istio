@@ -1287,6 +1287,12 @@ message PrometheusConfig {
   // is shared with Prometheus through mounted files.
   // When this option is set as false, this certificate provisioning mechanism is disabled.
   google.protobuf.BoolValue  provisionPrometheusCert = 20;
+
+  google.protobuf.BoolValue persist = 21;
+
+  string storageClassName = 22;
+
+  string accessMode = 23;
 }
 
 // Configuration for Prometheus adapter in mixer.
