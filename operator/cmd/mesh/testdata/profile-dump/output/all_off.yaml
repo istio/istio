@@ -407,7 +407,7 @@ spec:
         private_key_file: /kiali-cert/key.pem
       service:
         annotations: {}
-      tag: v1.18
+      tag: v1.15
     mixer:
       adapters:
         kubernetesenv:
