@@ -72,7 +72,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 	if features.EnableK8SServiceSelectWorkloadEntries && s.kubeRegistry != nil {
 		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
-		_ = s.serviceEntryStore.AppendInstanceHandler(s.kubeRegistry.GetForeignServiceInstanceHandler())
+		_ = s.serviceEntryStore.AppendInstanceHandler(s.kubeRegistry.ForeignServiceInstanceHandler)
 	}
 
 	// Defer running of the service controllers.
