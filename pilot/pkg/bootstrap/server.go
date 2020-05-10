@@ -227,12 +227,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// common https server for webhooks (e.g. injection, validation)
 	s.initHTTPSWebhookServer(args)
 
-	// Will run the sidecar injector in pilot.
 	// Only operates if /var/lib/istio/inject exists
 	if err := s.initSidecarInjector(args); err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 	}
-	// Will run the config validater in pilot.
+
 	// Only operates if /var/lib/istio/validation exists
 	if err := s.initConfigValidation(args); err != nil {
 		return nil, fmt.Errorf("error initializing config validator: %v", err)
@@ -253,12 +252,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
 	}
-	if err := s.initDNSServer(args); err != nil {
-		return nil, err
-	}
+
+	s.initDNSServer(args)
 
 	// Start CA. This should be called after CA and Istiod certs have been created.
-	s.startCA(args, caOpts)
+	s.startCA(caOpts)
 
 	s.initNamespaceController(args)
 
@@ -484,7 +482,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 }
 
 // initDNSServer initializes gRPC DNS Server for DNS resolutions.
-func (s *Server) initDNSServer(args *PilotArgs) error {
+func (s *Server) initDNSServer(args *PilotArgs) {
 	if dns.DNSAddr.Get() != "" {
 		if err := s.initDNSTLSListener(dns.DNSAddr.Get(), args.TLSOptions); err != nil {
 			log.Warna("error initializing DNS-over-TLS listener ", err)
@@ -499,7 +497,6 @@ func (s *Server) initDNSServer(args *PilotArgs) error {
 			return nil
 		})
 	}
-	return nil
 }
 
 // initialize DNS server listener - uses the same certs as gRPC
@@ -989,7 +986,7 @@ func (s *Server) maybeCreateCA(args *PilotArgs, caOpts *CAOptions) error {
 }
 
 // startCA starts the CA server if configured.
-func (s *Server) startCA(args *PilotArgs, caOpts *CAOptions) {
+func (s *Server) startCA(caOpts *CAOptions) {
 	if s.ca != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			s.RunCA(s.secureGrpcServer, s.ca, caOpts)
