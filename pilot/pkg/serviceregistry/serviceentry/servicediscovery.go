@@ -75,6 +75,7 @@ type ServiceEntryStore struct { // nolint:golint
 	seWithSelectorByNamespace map[string][]servicesWithEntry
 	changeMutex               sync.RWMutex
 	refreshIndexes            bool
+	instanceHandlers          []func(*model.ServiceInstance, model.Event)
 }
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
@@ -98,13 +99,37 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 // kube registry controller also calls this function indirectly via the Share interface
 // When invoked via the kube registry controller, the old object is nil as the registry
 // controller does its own deduping and has no notion of object versions
-func (s *ServiceEntryStore) workloadEntryHandler(old, curr model.Config, event model.Event) {
-	wle := curr.Spec.(*networking.WorkloadEntry)
-	key := configKey{
-		kind:      workloadEntryConfigType,
-		name:      curr.Name,
-		namespace: curr.Namespace,
-	}
+func getWorkloadEntryHandler(c *ServiceEntryStore) func(model.Config, model.Config, model.Event) {
+	return func(old, curr model.Config, event model.Event) {
+
+		wle := curr.Spec.(*networking.WorkloadEntry)
+		key := configKey{
+			kind:      workloadEntryConfigType,
+			name:      curr.Name,
+			namespace: curr.Namespace,
+		}
+
+		// fire off the k8s handlers
+		if len(c.instanceHandlers) > 0 {
+			si := convertWorkloadEntryToServiceInstanceForK8S(curr.Namespace, wle)
+			if si != nil {
+				for _, h := range c.instanceHandlers {
+					h(si, event)
+				}
+			}
+		}
+
+		c.storeMutex.RLock()
+		// We will only select entries in the same namespace
+		entries := c.seWithSelectorByNamespace[curr.Namespace]
+		c.storeMutex.RUnlock()
+
+		// if there are no service entries, return now to avoid taking unnecessary locks
+		if len(entries) == 0 {
+			return
+		}
+		log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
+		instances := []*model.ServiceInstance{}
 
 	s.storeMutex.RLock()
 	// We will only select entries in the same namespace
@@ -266,6 +291,17 @@ func (s *ServiceEntryStore) ForeignServiceInstanceHandler(si *model.ServiceInsta
 			if reflect.DeepEqual(old.Endpoint, si.Endpoint) {
 				// ignore the update as nothing has changed
 				redundantEventForPod = true
+			} else {
+				delete(d.foreignRegistryInstancesByIP, si.Endpoint.Address)
+			}
+		default: // add or update
+			if old, exists := d.foreignRegistryInstancesByIP[si.Endpoint.Address]; exists {
+				// If multiple k8s services select the same pod or a service has multiple ports,
+				// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
+				if model.CompareForeignServiceInstances(old, si) {
+					// ignore the udpate as nothing has changed
+					redundantEventForPod = true
+				}
 			}
 		}
 		s.foreignRegistryInstancesByIP[si.Endpoint.Address] = si
@@ -318,7 +354,8 @@ func (s *ServiceEntryStore) AppendServiceHandler(_ func(*model.Service, model.Ev
 }
 
 // AppendInstanceHandler adds instance event handler. Service Entries does not use these handlers.
-func (s *ServiceEntryStore) AppendInstanceHandler(_ func(*model.ServiceInstance, model.Event)) error {
+func (d *ServiceEntryStore) AppendInstanceHandler(h func(*model.ServiceInstance, model.Event)) error {
+	d.instanceHandlers = append(d.instanceHandlers, h)
 	return nil
 }
 

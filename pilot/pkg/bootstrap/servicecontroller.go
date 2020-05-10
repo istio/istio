@@ -66,8 +66,13 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
 	if features.EnableServiceEntrySelectPods && s.kubeRegistry != nil {
-		// Add an instance handler in the service entry store to handle pod events from kubernetes registry
-		_ = s.kubeRegistry.AppendInstanceHandler(s.serviceEntryStore.ForeignServiceInstanceHandler)
+		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
+		_ = s.kubeRegistry.AppendInstanceHandler(s.serviceEntryStore.GetForeignServiceInstanceHandler())
+	}
+
+	if features.EnableK8SServiceSelectWorkloadEntries && s.kubeRegistry != nil {
+		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
+		_ = s.serviceEntryStore.AppendInstanceHandler(s.kubeRegistry.GetForeignServiceInstanceHandler())
 	}
 
 	// Defer running of the service controllers.

@@ -234,6 +234,39 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	}
 }
 
+// a custom comparison of foreign service instances based on the fields that we need
+// i.e. excluding the ports. Returns true if equal, false otherwise.
+func CompareForeignServiceInstances(old, new *ServiceInstance) bool {
+	if old.Endpoint == nil && new.Endpoint == nil {
+		return true
+	}
+	if old.Endpoint == nil || new.Endpoint == nil {
+		return false
+	}
+	if old.Endpoint.Address != new.Endpoint.Address {
+		return false
+	}
+	if old.Endpoint.TLSMode != new.Endpoint.TLSMode {
+		return false
+	}
+	if !old.Endpoint.Labels.Equals(new.Endpoint.Labels) {
+		return false
+	}
+	if old.Endpoint.ServiceAccount != new.Endpoint.ServiceAccount {
+		return false
+	}
+	if old.Endpoint.Locality != new.Endpoint.Locality {
+		return false
+	}
+	if old.Endpoint.LbWeight != new.Endpoint.LbWeight {
+		return false
+	}
+	if old.Endpoint.UID != new.Endpoint.UID {
+		return false
+	}
+	return true
+}
+
 // GetLocalityLabelOrDefault returns the locality from the supplied label, or falls back to
 // the supplied default locality if the supplied label is empty. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.

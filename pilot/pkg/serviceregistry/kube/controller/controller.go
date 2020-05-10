@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -210,6 +211,9 @@ type Controller struct {
 
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
+
+	// service instances from workload entries  - map of ip -> service instance]=
+	foreignRegistryInstancesByIP map[string]*model.ServiceInstance
 }
 
 // NewController creates a new Kubernetes controller
@@ -220,18 +224,19 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
-		domainSuffix:               options.DomainSuffix,
-		client:                     client,
-		metadataClient:             metadataClient,
-		queue:                      queue.NewQueue(1 * time.Second),
-		clusterID:                  options.ClusterID,
-		xdsUpdater:                 options.XDSUpdater,
-		servicesMap:                make(map[host.Name]*model.Service),
-		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
-		nodeInfoMap:                make(map[string]kubernetesNode),
-		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
-		networksWatcher:            options.NetworksWatcher,
-		metrics:                    options.Metrics,
+		domainSuffix:                 options.DomainSuffix,
+		client:                       client,
+		metadataClient:               metadataClient,
+		queue:                        queue.NewQueue(1 * time.Second),
+		clusterID:                    options.ClusterID,
+		xdsUpdater:                   options.XDSUpdater,
+		servicesMap:                  make(map[host.Name]*model.Service),
+		nodeSelectorsForServices:     make(map[host.Name]labels.Instance),
+		nodeInfoMap:                  make(map[string]kubernetesNode),
+		externalNameSvcInstanceMap:   make(map[host.Name][]*model.ServiceInstance),
+		foreignRegistryInstancesByIP: make(map[string]*model.ServiceInstance),
+		networksWatcher:              options.NetworksWatcher,
+		metrics:                      options.Metrics,
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -712,7 +717,73 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 		}
 		return inScopeInstances, nil
 	}
-	return nil, nil
+
+	outInstances, err := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	foreignInstances, err2 := c.getForeignServiceInstancesByPort(svc, reqSvcPort, labelsList)
+	return append(outInstances, foreignInstances...), multierror.Append(err, err2)
+}
+
+func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvcPort int,
+	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
+	// Run through all the foreign instances, select ones that match these labels
+	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
+	// as InstancesByPort is called by the aggregate controller. We dont want to include
+	// foreign instances for any other registry
+	if svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
+		svc.MeshExternal || svc.Resolution != model.ClientSideLB {
+		return nil, nil
+	}
+
+	item, exists, err := c.services.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
+	if err != nil {
+		log.Infof("get foreignServiceInstancesByPort(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
+		return nil, err
+	}
+
+	if !exists {
+		return nil, nil
+	}
+
+	k8sService := item.(*v1.Service)
+	if k8sService.Spec.Selector == nil {
+		// this shouldn't be possible as we already check for resolution above. But just in case
+		return nil, nil
+	}
+	selector := klabels.Set(k8sService.Spec.Selector).AsSelectorPreValidated()
+
+	// Get the service port name so that we can construct the service instance
+	var servicePort *model.Port
+	for _, p := range svc.Ports {
+		if p.Port == reqSvcPort {
+			servicePort = p
+			break
+		}
+	}
+
+	out := make([]*model.ServiceInstance, 0)
+
+	c.RLock()
+	for _, fi := range c.foreignRegistryInstancesByIP {
+		if fi.Service.Attributes.Namespace != svc.Attributes.Namespace {
+			continue
+		}
+		if selector.Matches(klabels.Set(fi.Endpoint.Labels)) {
+			// create an instance with endpoint whose service port name matches
+			// TODO(rshriram): we currently ignore the workload entry (endpoint) ports and setup 1-1 mapping
+			// from service port to endpoint port. Need to figure out a way to map workload entry port to
+			// appropriate k8s service port
+			istioEndpoint := *fi.Endpoint
+			istioEndpoint.EndpointPort = uint32(reqSvcPort)
+			istioEndpoint.ServicePortName = servicePort.Name
+			out = append(out, &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: servicePort,
+				Endpoint:    &istioEndpoint,
+			})
+		}
+	}
+	c.RUnlock()
+	return out, nil
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
@@ -762,6 +833,63 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		}
 	}
 	return out, nil
+}
+
+// GetForeignServiceInstanceHandler defines the handler for service instances generated by other registries
+func (c *Controller) GetForeignServiceInstanceHandler() func(*model.ServiceInstance, model.Event) {
+	return func(si *model.ServiceInstance, event model.Event) {
+		// ignore malformed workload entries. And ignore any workload entry that does not have a label
+		// as there is no way for us to select them
+		if si.Service == nil || si.Service.Attributes.Namespace == "" || len(si.Endpoint.Labels) == 0 {
+			return
+		}
+		var redundantEventForInstance bool
+		// this is from a workload entry. Store it in separate map so that
+		// the InstancesByPort can use these as well as the k8s pods.
+		c.Lock()
+		switch event {
+		case model.EventDelete:
+			delete(c.foreignRegistryInstancesByIP, si.Endpoint.Address)
+		default: // add or update
+			if old, exists := c.foreignRegistryInstancesByIP[si.Endpoint.Address]; exists {
+				// ignore spurious updates
+				if model.CompareForeignServiceInstances(old, si) {
+					// ignore the udpate as nothing has changed
+					redundantEventForInstance = true
+				}
+			}
+			c.foreignRegistryInstancesByIP[si.Endpoint.Address] = si
+		}
+		c.Unlock()
+		if redundantEventForInstance {
+			return
+		}
+		dummyPod := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Namespace: si.Service.Attributes.Namespace, Labels: si.Endpoint.Labels},
+		}
+		// find the workload entry's service by label selector
+		if services, err := getPodServices(listerv1.NewServiceLister(c.services.GetIndexer()), dummyPod); err == nil && len(services) > 0 {
+			for _, svc := range services {
+				endpoints := make([]*model.IstioEndpoint, 0)
+				if event != model.EventDelete {
+					// endpoint for each service port
+					// TODO(rshriram): we currently ignore the workload entry (endpoint) ports and setup 1-1 mapping
+					// from service port to endpoint port. Need to figure out a way to map workload entry port to
+					// appropriate k8s service port
+					for _, port := range svc.Spec.Ports {
+						istioEndpoint := *si.Endpoint
+						istioEndpoint.EndpointPort = uint32(port.Port)
+						istioEndpoint.ServicePortName = port.Name
+						endpoints = append(endpoints, &istioEndpoint)
+					}
+				}
+				// fire off eds update
+				_ = c.xdsUpdater.EDSUpdate(c.clusterID,
+					string(kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)),
+					svc.Namespace, endpoints)
+			}
+		}
+	}
 }
 
 func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error) {
