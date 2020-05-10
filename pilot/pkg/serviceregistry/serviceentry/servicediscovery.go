@@ -285,24 +285,15 @@ func (s *ServiceEntryStore) ForeignServiceInstanceHandler(si *model.ServiceInsta
 			delete(s.foreignRegistryInstancesByIP, si.Endpoint.Address)
 		}
 	default: // add or update
-		if old, exists := s.foreignRegistryInstancesByIP[si.Endpoint.Address]; exists {
-			// If multiple k8s services select the same pod, we may be getting multiple events
-			// ignore them as we only care about the Endpoint itself.
-			if reflect.DeepEqual(old.Endpoint, si.Endpoint) {
-				// ignore the update as nothing has changed
+		if old, exists := d.foreignRegistryInstancesByIP[si.Endpoint.Address]; exists {
+			// If multiple k8s services select the same pod or a service has multiple ports,
+			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
+			if model.CompareForeignServiceInstances(old, si) {
+				// ignore the udpate as nothing has changed
 				redundantEventForPod = true
-			} else {
-				delete(d.foreignRegistryInstancesByIP, si.Endpoint.Address)
 			}
-		default: // add or update
-			if old, exists := d.foreignRegistryInstancesByIP[si.Endpoint.Address]; exists {
-				// If multiple k8s services select the same pod or a service has multiple ports,
-				// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
-				if model.CompareForeignServiceInstances(old, si) {
-					// ignore the udpate as nothing has changed
-					redundantEventForPod = true
-				}
-			}
+		}  else {
+			delete(d.foreignRegistryInstancesByIP, si.Endpoint.Address)
 		}
 		s.foreignRegistryInstancesByIP[si.Endpoint.Address] = si
 	}
