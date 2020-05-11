@@ -21,8 +21,6 @@ import (
 	"path"
 	"time"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	"github.com/hashicorp/go-multierror"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
@@ -116,10 +114,6 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Use testing certs
 	if err := os.Setenv(bootstrap.LocalCertDir.Name, path.Join(env.IstioSrc, "tests/testdata/certs/pilot")); err != nil {
-		return nil, err
-	}
-	// TODO make this the default instead of feature flag, replace with standard configuration for address/port
-	if err := os.Setenv(features.IstiodService.Name, "istiod.istio-system.svc:0"); err != nil {
 		return nil, err
 	}
 	var err error

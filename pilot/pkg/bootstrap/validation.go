@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
@@ -43,9 +42,6 @@ var (
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
 	if s.kubeClient == nil {
-		return nil
-	}
-	if features.IstiodService.Get() == "" {
 		return nil
 	}
 
