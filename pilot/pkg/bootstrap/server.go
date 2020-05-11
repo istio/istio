@@ -210,7 +210,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// CA signing certificate must be created first if needed.
-	if err := s.maybeCreateCA(args, caOpts); err != nil {
+	if err := s.maybeCreateCA(caOpts); err != nil {
 		return nil, err
 	}
 
@@ -967,7 +967,7 @@ func (s *Server) initJwtPolicy() {
 }
 
 // maybeCreateCA creates and initializes CA Key if needed.
-func (s *Server) maybeCreateCA(args *PilotArgs, caOpts *CAOptions) error {
+func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 	// CA signing certificate must be created only if CA is enabled.
 	if s.EnableCA() {
 		var err error
