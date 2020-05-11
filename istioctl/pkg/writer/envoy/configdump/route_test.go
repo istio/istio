@@ -78,18 +78,6 @@ func TestConfigWriter_PrintRouteDump(t *testing.T) {
 		wantErr        bool
 	}{
 		{
-			name:           "display all routes when no filter is passed",
-			filter:         RouteFilter{},
-			wantOutputFile: "testdata/routedump.json",
-			callPrime:      true,
-		},
-		{
-			name:           "filter routes in the dump",
-			filter:         RouteFilter{Name: "15004"},
-			wantOutputFile: "testdata/routedumpfiltered.json",
-			callPrime:      true,
-		},
-		{
 			name:      "errors if config writer is not primed",
 			callPrime: false,
 			wantErr:   true,
@@ -99,9 +87,8 @@ func TestConfigWriter_PrintRouteDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotOut := &bytes.Buffer{}
 			cw := &ConfigWriter{Stdout: gotOut}
-			cd, _ := ioutil.ReadFile("testdata/configdump.json")
 			if tt.callPrime {
-				cw.Prime(cd)
+				cw.Prime([]byte(""))
 			}
 			err := cw.PrintRouteDump(tt.filter)
 			if tt.wantOutputFile != "" {
