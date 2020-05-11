@@ -51,7 +51,7 @@ spec:
     - port: 443
     route:
     - destination:
-        host: istiod.istio-system.svc.cluster.local
+        host: istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 443
   {{- end }}
