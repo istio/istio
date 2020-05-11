@@ -328,6 +328,7 @@ spec:
       mountMtlsCerts: false
     base:
       enableCRDTemplates: false
+      validationURL: ""
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
