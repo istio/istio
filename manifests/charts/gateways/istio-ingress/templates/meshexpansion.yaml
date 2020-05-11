@@ -46,7 +46,7 @@ spec:
         host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15012
-  {{- if or .Values.sidecarInjectorWebhook.injectionURL) (.Values.base.validationURL }}
+  {{- if or .Values.sidecarInjectorWebhook.injectionURL .Values.base.validationURL }}
   - match:
     - port: 15053
     route:
