@@ -182,7 +182,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	prometheus.EnableHandlingTimeHistogram()
 
 	// Parse and validate Istiod Address.
-	host, port, err := s.parseIstiodAddress()
+	istiodHost, istiodPort, err := s.parseIstiodAddress()
 	if err != nil {
 		return nil, fmt.Errorf("error parsing Istiod address: %v", err)
 	}
@@ -215,12 +215,12 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Create Istiod certs and setup watches.
-	if err := s.initIstiodCerts(args, host); err != nil {
+	if err := s.initIstiodCerts(args, istiodHost); err != nil {
 		return nil, err
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureGrpcServer(args, port); err != nil {
+	if err := s.initSecureGrpcServer(args, istiodPort); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
@@ -539,7 +539,7 @@ func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
 	if features.IstiodService.Get() == "" {
 		return nil
 	}
-
+	// TODO(ramaraochavali): See if we can always create a self signed cert in tests also and cleanup this condition.
 	if args.TLSOptions.CaCertFile == "" && s.ca == nil {
 		// Running locally without configured certs - no TLS mode
 		return nil
@@ -560,6 +560,7 @@ func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
 	tlsCreds := credentials.NewTLS(cfg)
 
 	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect.
+	// TODO(ramaraochavali): clean up istio-agent startup to remove the dependency of "15012" port.
 	secureGrpc := fmt.Sprintf(":%s", port)
 
 	// create secure grpc listener
