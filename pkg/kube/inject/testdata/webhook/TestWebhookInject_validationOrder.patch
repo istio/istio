@@ -57,6 +57,13 @@
   },
   {
     "op": "add",
+    "path": "/spec/securityContext",
+    "value": {
+      "fsGroup": 1337
+    }
+  },
+  {
+    "op": "add",
     "path": "/metadata/annotations",
     "value": {
       "prometheus.io/path": "/stats/prometheus"

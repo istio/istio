@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	caerror "istio.io/istio/security/pkg/pki/error"
-	pkiutil "istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
@@ -99,55 +98,6 @@ func (authz *mockAuthorizer) authorize(requester *authenticate.Caller, requested
 		return fmt.Errorf("%v", authz.errMsg)
 	}
 	return nil
-}
-
-// Test the root cert expiry timestamp can be extracted correctly.
-func TestExtractRootCertExpiryTimestamp(t *testing.T) {
-	cert, key, err := pkiutil.GenCertKeyFromOptions(pkiutil.CertOptions{
-		Host:         "citadel.testing.istio.io",
-		NotBefore:    time.Now(),
-		TTL:          time.Second * 5,
-		Org:          "MyOrg",
-		IsCA:         true,
-		IsSelfSigned: true,
-		IsServer:     true,
-		RSAKeySize:   512,
-	})
-	if err != nil {
-		t.Errorf("failed to gen cert for Citadel self signed cert %v", err)
-	}
-	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
-	if err != nil {
-		t.Errorf("failed to create key cert bundle %v", err)
-	}
-	ca := &mockca.FakeCA{
-		KeyCertBundle: kb,
-	}
-	testCases := []struct {
-		name     string
-		ttlRange []float64
-		sleep    int
-	}{
-		{
-			name:     "ttl-valid",
-			ttlRange: []float64{3, 5},
-			sleep:    3,
-		},
-		{
-			name:     "ttl-valid-3s-less",
-			ttlRange: []float64{0, 2},
-			sleep:    3,
-		},
-	}
-	for _, tc := range testCases {
-		sec := extractRootCertExpiryTimestamp(ca) - float64(time.Now().Unix())
-		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
-			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
-		}
-		if tc.sleep != 0 {
-			time.Sleep(time.Duration(tc.sleep) * time.Second)
-		}
-	}
 }
 
 func TestCreateCertificate(t *testing.T) {
@@ -457,7 +407,7 @@ func TestRun(t *testing.T) {
 			tc.expectedAuthenticatorsLen++
 		}
 		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true,
-			jwt.JWTPolicyThirdPartyJWT, "kubernetes")
+			jwt.PolicyThirdParty, "kubernetes")
 		if err == nil {
 			err = server.Run()
 		}
@@ -503,41 +453,58 @@ func TestRun(t *testing.T) {
 }
 
 func TestGetServerCertificate(t *testing.T) {
-	rootCertFile := "../../pki/testdata/multilevelpki/root-cert.pem"
-	certChainFile := "../../pki/testdata/multilevelpki/int2-cert-chain.pem"
-	signingCertFile := "../../pki/testdata/multilevelpki/int2-cert.pem"
-	signingKeyFile := "../../pki/testdata/multilevelpki/int2-key.pem"
+	cases := map[string]struct {
+		rootCertFile    string
+		certChainFile   string
+		signingCertFile string
+		signingKeyFile  string
+	}{
+		"RSA server cert": {
+			rootCertFile:    "../../pki/testdata/multilevelpki/root-cert.pem",
+			certChainFile:   "../../pki/testdata/multilevelpki/int2-cert-chain.pem",
+			signingCertFile: "../../pki/testdata/multilevelpki/int2-cert.pem",
+			signingKeyFile:  "../../pki/testdata/multilevelpki/int2-key.pem",
+		},
+		"ECC server cert": {
+			rootCertFile:    "../../pki/testdata/multilevelpki/ecc-root-cert.pem",
+			certChainFile:   "../../pki/testdata/multilevelpki/ecc-int2-cert-chain.pem",
+			signingCertFile: "../../pki/testdata/multilevelpki/ecc-int2-cert.pem",
+			signingKeyFile:  "../../pki/testdata/multilevelpki/ecc-int2-key.pem",
+		},
+	}
 	caNamespace := "default"
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
 
-	client := fake.NewSimpleClientset()
+	for id, tc := range cases {
+		client := fake.NewSimpleClientset()
 
-	caopts, err := ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
-		defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
-	if err != nil {
-		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
-	}
+		caopts, err := ca.NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+		if err != nil {
+			t.Fatalf("%s: Failed to create a plugged-cert CA Options: %v", id, err)
+		}
 
-	ca, err := ca.NewIstioCA(caopts)
-	if err != nil {
-		t.Errorf("Got error while creating plugged-cert CA: %v", err)
-	}
-	if ca == nil {
-		t.Fatalf("Failed to create a plugged-cert CA.")
-	}
+		ca, err := ca.NewIstioCA(caopts)
+		if err != nil {
+			t.Errorf("%s: Got error while creating plugged-cert CA: %v", id, err)
+		}
+		if ca == nil {
+			t.Fatalf("Failed to create a plugged-cert CA.")
+		}
 
-	server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
-		"testdomain.com", true, jwt.JWTPolicyThirdPartyJWT, "kubernetes")
-	if err != nil {
-		t.Errorf("Cannot crete server: %v", err)
-	}
-	cert, err := server.getServerCertificate()
-	if err != nil {
-		t.Errorf("getServerCertificate error: %v", err)
-	}
-	if len(cert.Certificate) != 4 {
-		t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
+		server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
+			"testdomain.com", true, jwt.PolicyThirdParty, "kubernetes")
+		if err != nil {
+			t.Errorf("%s: Cannot crete server: %v", id, err)
+		}
+		cert, err := server.getServerCertificate()
+		if err != nil {
+			t.Errorf("%s: getServerCertificate error: %v", id, err)
+		}
+		if len(cert.Certificate) != 4 {
+			t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
+		}
 	}
 }

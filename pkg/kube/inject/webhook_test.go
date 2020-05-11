@@ -465,7 +465,6 @@ func TestInjectRequired(t *testing.T) {
 }
 
 func TestWebhookInject(t *testing.T) {
-	mesh.TestMode = true
 	cases := []struct {
 		inputFile    string
 		wantFile     string
@@ -1192,7 +1191,6 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 
 func TestRunAndServe(t *testing.T) {
 	// TODO: adjust the test to match prod defaults instead of fake defaults.
-	mesh.TestMode = true
 	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
 	defer cleanup()
 	stop := make(chan struct{})
@@ -1236,6 +1234,13 @@ func TestRunAndServe(t *testing.T) {
       "path":"/spec/imagePullSecrets/-",
       "value":{
          "name":"istio-image-pull-secrets"
+      }
+   },
+   {
+      "op":"add",
+      "path":"/spec/securityContext",
+      "value":{
+         "fsGroup":1337
       }
    },
    {

@@ -50,8 +50,8 @@ spec:
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
+              apiVersion: v2
+              fieldPath: metadata.myPath
         - name: SERVICE_ACCOUNT
           valueFrom:
             fieldRef:

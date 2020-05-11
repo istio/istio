@@ -62,8 +62,6 @@ const (
 type upgradeArgs struct {
 	// inFilenames is an array of paths to the input IstioOperator CR files.
 	inFilenames []string
-	// versionsURI is a URI pointing to a YAML formatted versions mapping.
-	versionsURI string
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
@@ -87,8 +85,6 @@ type upgradeArgs struct {
 func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename",
 		"f", nil, "Path to file containing IstioOperator custom resource")
-	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
-		"", "URI for operator versions to Istio versions map")
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig",
 		"c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
@@ -171,7 +167,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(kubeClient, currentVersion, targetVersion, args.versionsURI)
+	err = checkSupportedVersions(kubeClient, currentVersion)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
@@ -274,36 +270,19 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	}
 }
 
-// checkSupportedVersions checks if the upgrade cur -> tar is supported by the tool
-func checkSupportedVersions(kubeClient *Client, cur, tar, versionsURI string) error {
-	tarGoVersion, err := goversion.NewVersion(tar)
+var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.8")
+
+func checkSupportedVersions(kubeClient *Client, currentVersion string) error {
+	curGoVersion, err := goversion.NewVersion(currentVersion)
 	if err != nil {
-		return fmt.Errorf("failed to parse the target version: %v", tar)
+		return fmt.Errorf("failed to parse the current version %q: %v", currentVersion, err)
 	}
 
-	compatibleMap, err := pkgversion.GetVersionCompatibleMap(versionsURI, tarGoVersion)
-	if err != nil {
-		return err
+	if !SupportedIstioVersions.Check(curGoVersion) {
+		return fmt.Errorf("upgrade is currently not supported from version: %v", currentVersion)
 	}
 
-	curGoVersion, err := goversion.NewVersion(cur)
-	if err != nil {
-		return fmt.Errorf("failed to parse the current version: %v, error: %v", cur, err)
-	}
-
-	if !compatibleMap.SupportedIstioVersions.Check(curGoVersion) {
-		return fmt.Errorf("upgrade is currently not supported: %v -> %v", cur, tar)
-	}
-
-	ver16, err := goversion.NewVersion("1.6")
-	if err != nil {
-		return fmt.Errorf("failed to parse version string %q: %v", "1.6", err)
-	}
-	if tarGoVersion.GreaterThanOrEqual(ver16) {
-		return kubeClient.CheckUnsupportedAlphaSecurityCRD()
-	}
-
-	return nil
+	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane

@@ -15,7 +15,7 @@
 package v2
 
 import (
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"

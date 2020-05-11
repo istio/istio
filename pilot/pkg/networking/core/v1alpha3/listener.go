@@ -2238,7 +2238,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like
 		Name:            opts.bind + "_" + strconv.Itoa(opts.port),
-		Address:         util.BuildAddress(opts.bind, uint32(opts.port)),
+		Address:         util.BuildAddressV2(opts.bind, uint32(opts.port)),
 		ListenerFilters: listenerFilters,
 		FilterChains:    filterChains,
 		DeprecatedV1:    deprecatedV1,

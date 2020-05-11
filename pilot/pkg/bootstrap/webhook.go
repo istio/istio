@@ -21,8 +21,6 @@ import (
 	"time"
 
 	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/features"
 )
 
 const (
@@ -30,8 +28,7 @@ const (
 )
 
 func (s *Server) initHTTPSWebhookServer(args *PilotArgs) {
-	if features.IstiodService.Get() == "" {
-		log.Info("Not starting HTTPS webhook server: istiod address not set")
+	if s.kubeClient == nil {
 		return
 	}
 

@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/version"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema"
 )
@@ -359,10 +358,7 @@ func findResourceInSpec(kind string) string {
 // nolint: lll
 func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag string, iop *v1alpha1.IstioOperator, filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) (int, int, error) {
 	// Generate the manifest this IstioOperator will make
-	t, err := translate.NewTranslator(version.OperatorBinaryVersion.MinorVersion)
-	if err != nil {
-		return 0, 0, err
-	}
+	t := translate.NewTranslator()
 
 	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t)
 	if err != nil {

@@ -37,5 +37,7 @@ spec:
       - image: docker.io/istio/proxy_init:unittest-test
         name: istio-init
         resources: {}
+      securityContext:
+        fsGroup: 1337
 status: {}
 ---

@@ -146,7 +146,7 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		},
 		{
 			deploymentName: "kiali",
-			want:           "docker.io/testing/kiali:v1.15",
+			want:           "docker.io/testing/kiali:v1.18",
 		},
 	}
 
@@ -171,12 +171,9 @@ func TestManifestGenerateGateways(t *testing.T) {
 	g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(3))
-
-	// Two namespaces so two sets of these.
-	// istio-ingressgateway and user-ingressgateway share these as they are in the same namespace (istio-system).
-	g.Expect(objs.kind(name.RoleStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(name.RoleBindingStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.RoleStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.RoleBindingStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(3))
 
 	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 	d := dobj.Unstructured()
@@ -423,6 +420,24 @@ func TestMultiICPSFiles(t *testing.T) {
 func TestBareSpec(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBareValues(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPathBase := filepath.Join(testDataDir, "input/bare_values.yaml")
+	// As long as the generate doesn't panic, we pass it.  bare_values.yaml doesn't
+	// overlay well because JSON doesn't handle null values, and our charts
+	// don't expect values to be blown away.
+	_, _ = runManifestGenerate([]string{inPathBase}, "", liveCharts)
+}
+
+func TestBogusControlPlaneSec(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPathBase := filepath.Join(testDataDir, "input/bogus_cps.yaml")
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
 	if err != nil {
 		t.Fatal(err)

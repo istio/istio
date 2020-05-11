@@ -20,10 +20,11 @@ import (
 	"strings"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/version"
 
 	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 
@@ -458,6 +459,42 @@ func (a *Accessor) CreateSecret(namespace string, secret *kubeApiCore.Secret) (e
 	return err
 }
 
+// WaitForSecretToExist waits for the given secret up to the given waitTime.
+func (a *Accessor) WaitForSecretToExist(namespace, name string, waitTime time.Duration) (*kubeApiCore.Secret, error) {
+	secret := a.GetSecret(namespace)
+
+	watch, err := secret.Watch(context.TODO(), kubeApiMeta.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
+	}
+	events := watch.ResultChan()
+
+	startTime := time.Now()
+	for {
+		select {
+		case event := <-events:
+			secret := event.Object.(*kubeApiCore.Secret)
+			if secret.GetName() == name {
+				return secret, nil
+			}
+		case <-time.After(waitTime - time.Since(startTime)):
+			return nil, fmt.Errorf("secret %v did not become existent within %v",
+				name, waitTime)
+		}
+	}
+}
+
+// WaitForSecretToExistOrFail calls WaitForSecretToExist and fails the given test.Failer if an error occurs.
+func (a *Accessor) WaitForSecretToExistOrFail(t test.Failer, namespace, name string,
+	waitTime time.Duration) *kubeApiCore.Secret {
+	t.Helper()
+	s, err := a.WaitForSecretToExist(namespace, name, waitTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
 // DeleteSecret deletes secret by name in namespace.
 func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
 	var immediate int64
@@ -588,6 +625,14 @@ func (a *Accessor) GetUnstructured(gvr schema.GroupVersionResource, namespace, n
 	}
 
 	return u, nil
+}
+
+// DeleteUnstructured deletes an unstructured k8s resource object based on the provided schema, namespace, and name.
+func (a *Accessor) DeleteUnstructured(gvr schema.GroupVersionResource, namespace, name string) error {
+	if err := a.dynClient.Resource(gvr).Namespace(namespace).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete resource %v of type %v: %v", name, gvr, err)
+	}
+	return nil
 }
 
 // ApplyContents applies the given config contents using kubectl.

@@ -265,7 +265,6 @@ spec:
         requests:
           cpu: 10m
       enableHelmTest: false
-      enableTracing: true
       imagePullPolicy: ""
       imagePullSecrets: []
       istioNamespace: istio-system
@@ -273,8 +272,6 @@ spec:
         enableAnalysis: false
         enabled: true
       jwtPolicy: third-party-jwt
-      localityLbSetting:
-        enabled: true
       logAsJson: false
       logging:
         level: default:info
@@ -283,8 +280,6 @@ spec:
         useILB: false
       meshNetworks: {}
       mountMtlsCerts: false
-      mtls:
-        auto: true
       multiCluster:
         clusterName: ""
         enabled: false
@@ -292,10 +287,7 @@ spec:
       omitSidecarInjectorConfigMap: false
       oneNamespace: false
       operatorManageWebhooks: false
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
       pilotCertProvider: istiod
-      policyCheckFailOpen: false
       priorityClassName: ""
       proxy:
         autoInject: enabled
@@ -416,7 +408,7 @@ spec:
         private_key_file: /kiali-cert/key.pem
       service:
         annotations: {}
-      tag: v1.15
+      tag: v1.18
     mixer:
       adapters:
         kubernetesenv:

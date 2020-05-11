@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -64,7 +63,6 @@ spec:
 
 var (
 	i istio.Instance
-	g galley.Instance
 	p pilot.Instance
 )
 
@@ -75,12 +73,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
+			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
 			return nil
@@ -125,7 +118,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 				Inject: true,
 			})
 			// First setup the VM service and its endpoints
-			if err := g.ApplyConfig(ns, VMService); err != nil {
+			if err := ctx.ApplyConfig(ns.Name(), VMService); err != nil {
 				t.Fatal(err)
 			}
 			// Now setup a K8S service
@@ -135,7 +128,6 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 				Namespace: ns,
 				Subsets:   []echo.SubsetConfig{{}},
 				Pilot:     p,
-				Galley:    g,
 				Ports: []echo.Port{
 					{
 						Name:        "http",

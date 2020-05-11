@@ -77,7 +77,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			Namespace:           ns,
 			Ports:               ports,
 			Subsets:             []echo.SubsetConfig{{}},
-			Galley:              g,
 			Pilot:               p,
 			IncludeInboundPorts: "*",
 		}).
@@ -86,7 +85,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			Namespace:           ns,
 			Subsets:             []echo.SubsetConfig{{}},
 			Ports:               ports,
-			Galley:              g,
 			Pilot:               p,
 			IncludeInboundPorts: "*",
 		}).
@@ -96,7 +94,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 				Namespace: ns,
 				Subsets:   []echo.SubsetConfig{{}},
 				Ports:     ports,
-				Galley:    g,
 				Pilot:     p,
 			}).
 		With(&inoutUnitedApp1, echo.Config{
@@ -104,7 +101,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			Namespace: ns,
 			Subsets:   []echo.SubsetConfig{{}},
 			Ports:     ports,
-			Galley:    g,
 			Pilot:     p,
 		}).
 		BuildOrFail(ctx)

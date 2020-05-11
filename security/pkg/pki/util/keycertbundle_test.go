@@ -35,9 +35,13 @@ const (
 	anotherRootCertFile = "../testdata/cert.pem"
 	// These key/cert contain workload key/cert, and a self-signed root cert,
 	// all with TTL 100 years.
-	rootCertFile1  = "../testdata/self-signed-root-cert.pem"
-	certChainFile1 = "../testdata/workload-cert.pem"
-	keyFile1       = "../testdata/workload-key.pem"
+	rootCertFile1    = "../testdata/self-signed-root-cert.pem"
+	certChainFile1   = "../testdata/workload-cert.pem"
+	keyFile1         = "../testdata/workload-key.pem"
+	ecRootCertFile   = "../testdata/ec-root-cert.pem"
+	ecRootKeyFile    = "../testdata/ec-root-key.pem"
+	ecClientCertFile = "../testdata/ec-workload-cert.pem"
+	ecClientKeyFile  = "../testdata/ec-workload-key.pem"
 )
 
 func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
@@ -49,8 +53,12 @@ func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 			rootCertFile: "bad.pem",
 			expectedErr:  "open bad.pem: no such file or directory",
 		},
-		"With root cert": {
+		"With RSA root cert": {
 			rootCertFile: rootCertFile,
+			expectedErr:  "",
+		},
+		"With EC root cert": {
+			rootCertFile: rootCertFile1,
 			expectedErr:  "",
 		},
 	}
@@ -118,7 +126,7 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 		certOptions   *CertOptions
 		expectedErr   string
 	}{
-		"No SAN": {
+		"No SAN RSA": {
 			caCertFile:    rootCertFile,
 			caKeyFile:     rootKeyFile,
 			certChainFile: "",
@@ -128,11 +136,11 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 				TTL:        time.Hour,
 				Org:        "MyOrg",
 				IsCA:       true,
-				RSAKeySize: 512,
+				RSAKeySize: 2048,
 			},
 			expectedErr: "failed to extract id the SAN extension does not exist",
 		},
-		"Success": {
+		"RSA Success": {
 			caCertFile:    certChainFile1,
 			caKeyFile:     keyFile1,
 			certChainFile: "",
@@ -146,7 +154,34 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 			},
 			expectedErr: "",
 		},
-	}
+		"No SAN EC": {
+			caCertFile:    ecRootCertFile,
+			caKeyFile:     ecRootKeyFile,
+			certChainFile: "",
+			rootCertFile:  ecRootCertFile,
+			certOptions: &CertOptions{
+				Host:     "watt",
+				TTL:      100 * 365 * 24 * time.Hour,
+				Org:      "Juju org",
+				IsCA:     true,
+				ECSigAlg: EcdsaSigAlg,
+			},
+			expectedErr: "failed to extract id the SAN extension does not exist",
+		},
+		"EC Success": {
+			caCertFile:    ecClientCertFile,
+			caKeyFile:     ecClientKeyFile,
+			certChainFile: "",
+			rootCertFile:  ecRootCertFile,
+			certOptions: &CertOptions{
+				Host:     "watt",
+				TTL:      365 * 24 * time.Hour,
+				Org:      "Juju org",
+				IsCA:     false,
+				ECSigAlg: EcdsaSigAlg,
+			},
+			expectedErr: "",
+		}}
 	for id, tc := range testCases {
 		k, err := NewVerifiedKeyCertBundleFromFile(tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
 		if err != nil {
@@ -300,6 +335,137 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 			}
 		} else if tc.expectedErr != "" {
 			t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
+		}
+	}
+}
+
+// Test the root cert expiry timestamp can be extracted correctly.
+func TestExtractRootCertExpiryTimestamp(t *testing.T) {
+	cert, key, err := GenCertKeyFromOptions(CertOptions{
+		Host:         "citadel.testing.istio.io",
+		NotBefore:    time.Now(),
+		TTL:          time.Second * 5,
+		Org:          "MyOrg",
+		IsCA:         true,
+		IsSelfSigned: true,
+		IsServer:     true,
+		RSAKeySize:   2048,
+	})
+	if err != nil {
+		t.Errorf("failed to gen cert for Citadel self signed cert %v", err)
+	}
+	kb, err := NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
+	if err != nil {
+		t.Errorf("failed to create key cert bundle %v", err)
+	}
+	testCases := []struct {
+		name     string
+		ttlRange []float64
+		sleep    int
+	}{
+		{
+			name:     "ttl-valid",
+			ttlRange: []float64{3, 5},
+			sleep:    3,
+		},
+		{
+			name:     "ttl-valid-3s-less",
+			ttlRange: []float64{0, 2},
+			sleep:    3,
+		},
+	}
+	for _, tc := range testCases {
+		expiryTimestamp, err := kb.ExtractRootCertExpiryTimestamp()
+		if err != nil {
+			t.Errorf("failed to extract root cert expiry timestamp %v", err)
+		}
+
+		sec := expiryTimestamp - float64(time.Now().Unix())
+		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
+			t.Errorf("[%v] failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
+		}
+		if tc.sleep != 0 {
+			time.Sleep(time.Duration(tc.sleep) * time.Second)
+		}
+	}
+}
+
+// Test the CA cert expiry timestamp can be extracted correctly.
+func TestExtractCACertExpiryTimestamp(t *testing.T) {
+	rootCertBytes, rootKeyBytes, err := GenCertKeyFromOptions(CertOptions{
+		Host:         "citadel.testing.istio.io",
+		Org:          "MyOrg",
+		NotBefore:    time.Now(),
+		IsCA:         true,
+		IsSelfSigned: true,
+		TTL:          time.Hour,
+		RSAKeySize:   2048,
+	})
+	if err != nil {
+		t.Errorf("failed to gen root cert for Citadel self signed cert %v", err)
+	}
+
+	rootCert, err := ParsePemEncodedCertificate(rootCertBytes)
+	if err != nil {
+		t.Errorf("failed to parsing pem for root cert %v", err)
+	}
+
+	rootKey, err := ParsePemEncodedKey(rootKeyBytes)
+	if err != nil {
+		t.Errorf("failed to parsing pem for root key cert %v", err)
+	}
+
+	caCertBytes, caCertKeyBytes, err := GenCertKeyFromOptions(CertOptions{
+		Host:         "citadel.testing.istio.io",
+		Org:          "MyOrg",
+		NotBefore:    time.Now(),
+		TTL:          time.Second * 5,
+		IsServer:     true,
+		IsCA:         true,
+		IsSelfSigned: false,
+		RSAKeySize:   2048,
+		SignerCert:   rootCert,
+		SignerPriv:   rootKey,
+	})
+	if err != nil {
+		t.Errorf("failed to gen CA cert for Citadel self signed cert %v", err)
+	}
+
+	kb, err := NewVerifiedKeyCertBundleFromPem(
+		caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes)
+	if err != nil {
+		t.Errorf("failed to create key cert bundle %v", err)
+	}
+
+	testCases := []struct {
+		name     string
+		ttlRange []float64
+		sleep    int
+	}{
+		{
+			name:     "ttl-valid",
+			ttlRange: []float64{3, 5},
+			sleep:    3,
+		},
+		{
+			name:     "ttl-valid-3s-less",
+			ttlRange: []float64{0, 2},
+			sleep:    3,
+		},
+	}
+	for _, tc := range testCases {
+		expiryTimestamp, err := kb.ExtractCACertExpiryTimestamp()
+		if err != nil {
+			t.Errorf("failed to extract CA cert expiry timestamp %v", err)
+		}
+
+		sec := expiryTimestamp - float64(time.Now().Unix())
+		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
+			t.Errorf("[%v] failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
+		}
+
+		if tc.sleep != 0 {
+			time.Sleep(time.Duration(tc.sleep) * time.Second)
 		}
 	}
 }

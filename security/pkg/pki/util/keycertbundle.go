@@ -20,11 +20,15 @@ package util
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"sync"
+	"time"
 )
 
 // KeyCertBundle stores the cert, private key, cert chain and root cert for an entity. It is thread safe.
@@ -48,6 +52,12 @@ type KeyCertBundle interface {
 
 	// CertOptions returns the CertOptions for rotating the current key cert.
 	CertOptions() (*CertOptions, error)
+
+	// ExtractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
+	ExtractRootCertExpiryTimestamp() (float64, error)
+
+	// ExtractCACertExpiryTimestamp returns the unix timestamp when the CA cert becomes expires.
+	ExtractCACertExpiryTimestamp() (float64, error)
 }
 
 // KeyCertBundleImpl implements the KeyCertBundle interface.
@@ -186,18 +196,39 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 	if len(ids) != 1 {
 		return nil, fmt.Errorf("expect single id from the cert, found %v", ids)
 	}
-	size, err := GetRSAKeySize(*b.privKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get RSA key size: %v", err)
+
+	opts := &CertOptions{
+		Host:      ids[0],
+		Org:       b.cert.Issuer.Organization[0],
+		IsCA:      b.cert.IsCA,
+		TTL:       b.cert.NotAfter.Sub(b.cert.NotBefore),
+		IsDualUse: ids[0] == b.cert.Subject.CommonName,
 	}
-	return &CertOptions{
-		Host:       ids[0],
-		Org:        b.cert.Issuer.Organization[0],
-		IsCA:       b.cert.IsCA,
-		TTL:        b.cert.NotAfter.Sub(b.cert.NotBefore),
-		RSAKeySize: size,
-		IsDualUse:  ids[0] == b.cert.Subject.CommonName,
-	}, nil
+
+	switch (*b.privKey).(type) {
+	case *rsa.PrivateKey:
+		size, err := GetRSAKeySize(*b.privKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get RSA key size: %v", err)
+		}
+		opts.RSAKeySize = size
+	case *ecdsa.PrivateKey:
+		opts.ECSigAlg = EcdsaSigAlg
+	default:
+		return nil, errors.New("unknown private key type")
+	}
+
+	return opts, nil
+}
+
+// ExtractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
+func (b *KeyCertBundleImpl) ExtractRootCertExpiryTimestamp() (float64, error) {
+	return extractCertExpiryTimestamp("root cert", b.GetRootCertPem())
+}
+
+// ExtractCACertExpiryTimestamp returns the unix timestamp when the cert chain becomes expires.
+func (b *KeyCertBundleImpl) ExtractCACertExpiryTimestamp() (float64, error) {
+	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
 }
 
 // Verify that the cert chain, root cert and key/cert match.
@@ -236,6 +267,20 @@ func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
 	}
 
 	return nil
+}
+
+func extractCertExpiryTimestamp(certType string, certPem []byte) (float64, error) {
+	cert, err := ParsePemEncodedCertificate(certPem)
+	if err != nil {
+		return -1, fmt.Errorf("failed to parse the %s: %v", certType, err)
+	}
+
+	end := cert.NotAfter
+	expiryTimestamp := float64(end.Unix())
+	if end.Before(time.Now()) {
+		return expiryTimestamp, fmt.Errorf("expired %s found, x509.NotAfter %v, please transit your %s", certType, end, certType)
+	}
+	return expiryTimestamp, nil
 }
 
 func copyBytes(src []byte) []byte {
