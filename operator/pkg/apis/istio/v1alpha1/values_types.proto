@@ -1907,6 +1907,11 @@ message BaseConfig {
   google.protobuf.BoolValue enableCRDTemplates = 1;
 }
 
+message IstiodRemoteConfig {
+  // Controls whether istiod remote configuration is enabled.
+  google.protobuf.BoolValue enable = 1;
+}
+
 message Values {
   CNIConfig cni = 2;
 
@@ -1950,6 +1955,8 @@ message Values {
   TypeInterface meshConfig = 36;
 
   BaseConfig base = 37;
+
+  IstiodRemoteConfig istiodremote = 38;
 }
 
 // GOTYPE: map[string]interface{}
