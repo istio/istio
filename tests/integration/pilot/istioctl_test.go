@@ -340,7 +340,7 @@ func TestAuthZCheck(t *testing.T) {
 			})
 
 			authPol := file.AsStringOrFail(t, "../istioctl/testdata/authz-a.yaml")
-			g.ApplyConfigOrFail(t, ns, authPol)
+			ctx.ApplyConfigOrFail(t, ns.Name(), authPol)
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
