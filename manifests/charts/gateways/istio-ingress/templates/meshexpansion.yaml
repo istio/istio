@@ -16,14 +16,12 @@ spec:
         name: tcp-istiod
       hosts:
         - "*"
-    {{- if or .Values.sidecarInjectorWebhook.injectionURL .Values.base.validationURL }}
     - port:
-        number: 15053
+        number: 15017
         protocol: TCP
         name: tcp-istiodwebhook
       hosts:
         - "*"
-    {{- end }}
 ---
 
 apiVersion: networking.istio.io/v1alpha3
@@ -46,15 +44,13 @@ spec:
         host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15012
-  {{- if or .Values.sidecarInjectorWebhook.injectionURL .Values.base.validationURL }}
   - match:
-    - port: 15053
+    - port: 15017
     route:
     - destination:
         host: istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 443
-  {{- end }}
 ---
 
 apiVersion: networking.istio.io/v1alpha3
@@ -72,12 +68,10 @@ spec:
         number: 15012
       tls:
         mode: DISABLE
-    {{- if or .Values.sidecarInjectorWebhook.injectionURL .Values.base.validationURL }}
     - port:
-        number: 15053
+        number: 15017
       tls:
         mode: DISABLE
-    {{- end }}
 
 {{- end }}
 
