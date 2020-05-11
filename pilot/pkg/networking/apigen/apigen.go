@@ -19,15 +19,19 @@ import (
 
 	gogotypes "github.com/gogo/protobuf/types"
 	golangany "github.com/golang/protobuf/ptypes/any"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/pkg/log"
 )
 
+// Experimental/WIP: this is not yet ready for production use.
+// You can continue to use 1.5 Galley until this is ready.
+//
 // APIGenerator supports generation of high-level API resources, similar with the MCP
 // protocol. This is a replacement for MCP, using XDS (and in future UDPA) as a transport.
 // Based on lessons from MCP, the protocol allows incremental updates by
@@ -115,7 +119,11 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			// EDS is pass-through.
 			svcs := push.Services(proxy)
 			for _, s := range svcs {
-				c := external.ServiceToServiceEntry(s)
+				// Ignore services that are result of conversion from ServiceEntry.
+				if s.Attributes.ServiceRegistry == serviceregistry.External {
+					continue
+				}
+				c := serviceentry.ServiceToServiceEntry(s)
 				b, err := configToResource(c)
 				if err != nil {
 					log.Warna("Resource error ", err, " ", c.Namespace, "/", c.Name)
