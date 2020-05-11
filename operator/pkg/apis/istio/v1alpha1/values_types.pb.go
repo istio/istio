@@ -7474,7 +7474,7 @@ func (m *KialiConfig) GetService() *KialiServiceConfig {
 type BaseConfig struct {
 	// For Helm2 use, adds the CRDs to templates.
 	EnableCRDTemplates *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enableCRDTemplates,proto3" json:"enableCRDTemplates,omitempty"`
-	// Configures the validation webbhook url.
+	// URL to use for validating webhook.
 	ValidationURL        string   `protobuf:"bytes,2,opt,name=validationURL,proto3" json:"validationURL,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
