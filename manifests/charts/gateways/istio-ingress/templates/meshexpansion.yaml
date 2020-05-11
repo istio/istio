@@ -16,9 +16,9 @@ spec:
         name: tcp-istiod
       hosts:
         - "*"
-    {{- if  .Values.global.centralIstiod }}
+    {{- if or .Values.sidecarInjectorWebhook.injectionURL .Values.base.validationURL }}
     - port:
-        number: 443
+        number: 15453
         protocol: TCP
         name: tcp-istiodwebhook
       hosts:
@@ -46,9 +46,9 @@ spec:
         host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15012
-  {{- if  .Values.global.centralIstiod }}
+  {{- if or .Values.sidecarInjectorWebhook.injectionURL) (.Values.base.validationURL }}
   - match:
-    - port: 443
+    - port: 15453
     route:
     - destination:
         host: istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
@@ -72,9 +72,9 @@ spec:
         number: 15012
       tls:
         mode: DISABLE
-    {{- if  .Values.global.centralIstiod }}
+    {{- if or .Values.sidecarInjectorWebhook.injectionURL .Values.base.validationURL }}
     - port:
-        number: 443
+        number: 15453
       tls:
         mode: DISABLE
     {{- end }}
