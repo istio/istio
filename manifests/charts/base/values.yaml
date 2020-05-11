@@ -16,5 +16,5 @@ base:
   enableCRDTemplates: false
 
   # Validation webhook configuration url
-  # For example: https://$remotePilotAddress:443/validate
+  # For example: https://$remotePilotAddress:15053/validate
   validationURL: ""
