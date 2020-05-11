@@ -16,10 +16,10 @@ Exceptions to this rule are configuration items that affect K8s level settings (
 
 ## Step 1. Make changes in charts and values.yaml in `manifests` directory
 
-## Step 2. Make corresponding values changes in [operator/data/profiles/default.yaml](../operator/data/profiles/default.yaml)
+## Step 2. Make corresponding values changes in [manifests/profiles/default.yaml](../profiles/default.yaml)
 
-The values.yaml in `manifests` are only used for direct Helm based installations, which is being deprecated.
-If any values.yaml changes are being made, the same changes must be made in the `operator/data/profiles/default.yaml`
+The values.yaml in `manifests` are used for direct Helm based installations.
+If any values.yaml changes are being made, the same changes must be made in the `manifests/profiles/default.yaml`
 file, which must be in sync with the Helm values in `manifests`.
 
 ## Step 3. Update the validation schema
@@ -34,27 +34,12 @@ $ make operator-proto
 
 This will regenerate the Go structs used for schema validation.
 
-## Step 4. Update the generated manifests
+## Step 4. Regenerate golden files (if required)
 
-Tests of istioctl use the auto-generated manifests to ensure that the istioctl binary has the correct version of the charts.
-These manifests can be found in [gen-istio.yaml](../charts/istio-control/istio-discovery/files/gen-istio.yaml).
-To regenerate the manifests, run:
-
-```bash
-$ make gen
-```
-
-## Step 5. Update golden files
-
-The new charts/values will likely produce different installation manifests. Unit tests that expect a certain command
-output will fail for this reason. To update the golden output files, run:
+Some schema changes (changes or deletes) may break the golden files. Edit the affected golden file inputs to reflect
+the new schema and regenerate the goldens using:
 
 ```bash
 $ make refresh-goldens
 ```
 
-This will generate git diffs in the golden output files. Check that the changes are what you expect.
-
-## Step 6. Create a PR using outputs from Steps 1 to 5
-
-Your PR should pass all the checks if you followed these steps.
