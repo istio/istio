@@ -261,13 +261,6 @@ var (
 			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
 	).Get()
 
-	// IstiodService controls the istiod address - used for injection and as default value injected into pods.
-	// The name must be part of the DNS certificate served by istiod. The '.svc' is imposed by K8S - that's how
-	// the names for webhooks are defined, based on webhook service (which will be istiod) plus namespace and .svc.
-	// The 15010 port is used with plain text port 15012 is used with secure port.
-	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
-		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
-
 	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
 	// for examples: istiod.mycompany.com
 	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
