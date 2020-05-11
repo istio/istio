@@ -194,7 +194,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 		case err == nil:
 			scope.Infof("updating resource: %s", objectStr)
 			// The correct way to do this is with a server-side apply. However, this requires users to be running Kube 1.16.
-			// When we no longer support < 1.16 use the below code instead. Check in the linked issue for updates.
+			// When we no longer support < 1.16 use the code described in the linked issue.
 			// https://github.com/kubernetes-sigs/controller-runtime/issues/347
 			if err := applyOverlay(receiver, obj); err != nil {
 				return err
