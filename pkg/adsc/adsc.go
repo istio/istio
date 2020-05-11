@@ -46,8 +46,6 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
 )
@@ -324,7 +322,7 @@ func (a *ADSC) handleRecv() {
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
-			case v2.ListenerTypeV3:
+			case v2.ListenerType:
 				{
 					ll := &xdsapi.Listener{}
 					_ = proto.Unmarshal(valBytes, ll)
@@ -333,19 +331,19 @@ func (a *ADSC) handleRecv() {
 
 			case v2.ClusterTypeV3:
 				{
-					cl := &xdsapi.Cluster{}
+					cl := &cluster.Cluster{}
 					_ = proto.Unmarshal(valBytes, cl)
 					clusters = append(clusters, cl)
 				}
 
 			case v2.EndpointTypeV3:
 				{
-					el := &xdsapi.ClusterLoadAssignment{}
+					el := &endpoint.ClusterLoadAssignment{}
 					_ = proto.Unmarshal(valBytes, el)
 					eds = append(eds, el)
 				}
 
-			case v2.RouteTypeV3:
+			case v2.RouteType:
 				{
 					rl := &xdsapi.RouteConfiguration{}
 					_ = proto.Unmarshal(valBytes, rl)
