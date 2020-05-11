@@ -12816,7 +12816,7 @@ template: |
   - name: enable-core-dump
     args:
     - -c
-    - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+    - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
     command:
       - /bin/sh
   {{- if contains "/" .Values.global.proxy_init.image }}
@@ -13128,6 +13128,8 @@ template: |
     - mountPath: /var/run/secrets/istio
       name: istiod-ca-cert
     {{- end }}
+    - mountPath: /var/lib/istio/data
+      name: istio-data
     {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
@@ -13168,6 +13170,8 @@ template: |
   - emptyDir:
       medium: Memory
     name: istio-envoy
+  - name: istio-data
+    emptyDir: {}
   - name: podinfo
     downwardAPI:
       items:
