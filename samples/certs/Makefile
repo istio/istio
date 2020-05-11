@@ -27,7 +27,6 @@ CITADEL_SAN_DNS ?= localhost
 #------------------------------------------------------------------------
 # variables: workload certs: eg VM
 WORKLOAD_DAYS ?= 365
-WORKLOAD_CERTS ?= 0
 
 #------------------------------------------------------------------------
 ##help:		print this help message
@@ -78,15 +77,9 @@ root-key.pem:
 ##<name>-certs:	generate Citadel certificates for <name>. Includes all PEM files needed.
 .PHONY: %-certs
 
-ifeq ($(WORKLOAD_CERTS),0)
 %-certs: %/cert-chain.pem root-cert.pem
 	@echo "Citadel inputs stored in $(dir $<)"
 	@cp root-cert.pem $(dir $<)
-else
-%-certs: %/cert-chain.pem root-cert.pem %/workload-cert-chain.pem
-	@echo "Citadel inputs and workload certs stored in $(dir $<)"
-	@cp root-cert.pem $(dir $<)
-endif
 
 %/cert-chain.pem: %/ca-cert.pem root-cert.pem
 	@echo "generating $@"
@@ -135,7 +128,12 @@ endif
 	@echo "L = $(L:/=)" >> $@
 
 #------------------------------------------------------------------------
-##WORKLOAD_CERTS=1 <name>-certs: generate workload certificates using above intermediate ca Includes all PEM needed.
+##<name>-certs-wl: generate Citadel certificates for <name> and workload certificates using the intermediate ca Includes all PEM needed.
+.PHONY: %-certs-wl
+
+%-certs-wl: %/cert-chain.pem root-cert.pem %/workload-cert-chain.pem
+	@echo "Citadel inputs and workload certs stored in $(dir $<)"
+	@cp root-cert.pem $(dir $<)
 
 %/workload-cert-chain.pem: %/workload-cert.pem %/ca-cert.pem root-cert.pem
 	@echo "generating $@"

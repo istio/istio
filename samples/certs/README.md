@@ -24,7 +24,7 @@ The following `make` targets are defined:
 
 - `make root-ca`: this will generate a new root CA key and certificate.
 - `make $NAME-certs`: this will generate all needed files to bootstrap a new Citadel for cluster `$NAME` (e.g., `us-east`, `cluster01`, etc.).
-- `WORKLOAD_CERTS=1 make $NAME-certs`: this will generate all needed files to bootstrap a new Citadel for cluster `$NAME` (e.g., `us-east`, `cluster01`, etc.). And at the same time
+- `make $NAME-certs-wl`: this will generate all needed files to bootstrap a new Citadel for cluster `$NAME` (e.g., `us-east`, `cluster01`, etc.). And at the same time
 it will generate a certificate which can be used for VM and signs with the intermediate CA.
 
 The intermediate CA files used for cluster `$NAME` are created under a directory named
