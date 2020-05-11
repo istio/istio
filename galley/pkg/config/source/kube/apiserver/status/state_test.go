@@ -15,10 +15,11 @@
 package status
 
 import (
-	status2 "istio.io/istio/pilot/pkg/status"
 	"sync"
 	"testing"
 	"time"
+
+	status2 "istio.io/istio/pilot/pkg/status"
 
 	. "github.com/onsi/gomega"
 
@@ -290,24 +291,24 @@ func TestState_ClearMessages_AgainstAppliedEmptyState(t *testing.T) {
 
 	g.Expect(s.hasWork()).To(BeFalse())
 }
- func TestStatus_CompatibleWithDistribution(t *testing.T) {
+func TestStatus_CompatibleWithDistribution(t *testing.T) {
 
-	 g := NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 
-	 res := *data.EntryN1I1V1
-	 res.Origin = &rt.Origin{
-		 Collection: basicmeta.K8SCollection1.Name(),
-		 Kind:       "k1",
-		 FullName:   res.Metadata.FullName,
-		 Version:    res.Metadata.Version,
-	 }
+	res := *data.EntryN1I1V1
+	res.Origin = &rt.Origin{
+		Collection: basicmeta.K8SCollection1.Name(),
+		Kind:       "k1",
+		FullName:   res.Metadata.FullName,
+		Version:    res.Metadata.Version,
+	}
 
-	 ms := msg.NewInternalError(&res, "t")
+	ms := msg.NewInternalError(&res, "t")
 
-	 statusMap := make(map[string]interface{})
-	 statusMap["validationMessages"] = toStatusValue(diag.Messages{ms})
-	 statusMap = updateAnalysisCondition(statusMap, true)
+	statusMap := make(map[string]interface{})
+	statusMap["validationMessages"] = toStatusValue(diag.Messages{ms})
+	statusMap = updateAnalysisCondition(statusMap, true)
 
-	 _, err := status2.GetTypedStatus(statusMap)
-	 g.Expect(err).NotTo(HaveOccurred())
- }
+	_, err := status2.GetTypedStatus(statusMap)
+	g.Expect(err).NotTo(HaveOccurred())
+}
