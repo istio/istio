@@ -917,14 +917,14 @@ func (s *Server) initGenerators() {
 
 // initJwtPolicy initializes JwtPolicy.
 func (s *Server) initJwtPolicy() {
-	if features.JwtPolicy.Get() != jwt.JWTPolicyThirdPartyJWT {
+	if features.JwtPolicy.Get() != jwt.PolicyThirdParty {
 		log.Infoa("JWT policy is ", features.JwtPolicy.Get())
 	}
 
 	switch features.JwtPolicy.Get() {
-	case jwt.JWTPolicyThirdPartyJWT:
+	case jwt.PolicyThirdParty:
 		s.jwtPath = ThirdPartyJWTPath
-	case jwt.JWTPolicyFirstPartyJWT:
+	case jwt.PolicyFirstParty:
 		s.jwtPath = securityModel.K8sSAJwtFileName
 	default:
 		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
