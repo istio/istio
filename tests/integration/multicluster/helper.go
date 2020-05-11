@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
@@ -33,6 +35,40 @@ var (
 	retryTimeout = time.Second * 30
 	retryDelay   = time.Millisecond * 100
 )
+
+func SetupClusterLocalNamespace(ctx resource.Context) (ns namespace.Instance, controlPlaneValues string, err error) {
+	// Create a cluster-local namespace.
+	ns, err = namespace.New(ctx, namespace.Config{
+		Prefix: "local",
+		Inject: true,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Set the cluster-local namespaces in the mesh config.
+	controlPlaneValues = fmt.Sprintf(`
+values:
+  meshConfig:
+    serviceSettings: 
+      - settings:
+          clusterLocal: true
+        hosts:
+          - "*.%s.svc.cluster.local"
+`,
+		ns.Name())
+	return
+}
+
+// SetupMultinetwork puts every cluster in the environment on it's own network unless otherwise specified.
+func SetupMultinetwork(s *kube.Settings) {
+	for i := 0; i < len(s.KubeConfig); i++ {
+		idx := resource.ClusterIndex(i)
+		if _, ok := s.NetworkTopology[idx]; !ok {
+			s.NetworkTopology[idx] = fmt.Sprintf("test-network-%d", i)
+		}
+	}
+}
 
 func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster, pilots []pilot.Instance) echo.Config {
 	return echo.Config{
