@@ -377,10 +377,12 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 // onto the http server readiness check. The "http" portion of the readiness check is satisfied
 // by the fact we've started listening on this handler and everything has already initialized.
 func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) {
-	if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
-		log.Warnf("https webhook server not ready: %v", status)
-		w.WriteHeader(status)
-		return
+	if s.kubeClient != nil {
+		if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
+			log.Warnf("https webhook server not ready: %v", status)
+			w.WriteHeader(status)
+			return
+		}
 	}
 
 	// TODO check readiness of other secure gRPC and HTTP servers.
@@ -453,7 +455,6 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 		if s.forceStop {
 			s.grpcServer.Stop()
 			_ = s.httpServer.Close()
-			_ = s.httpsServer.Close()
 		} else {
 			s.grpcServer.GracefulStop()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -746,13 +747,8 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 // maybeInitDNSCerts initializes DNS certs if needed.
 func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
-	// Tests will have empty host - we should just ignore.
-	if host == "" {
-		return nil
-	}
-
 	// Generate DNS certificates only if custom certs are not provided via args.
-	if !hasCustomTLSCerts(args.TLSOptions) {
+	if !hasCustomTLSCerts(args.TLSOptions) && s.EnableCA() {
 		// Create DNS certificates. This allows injector, validation to work without Citadel, and
 		// allows secure SDS connections to Istiod.
 		if err := s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace); err != nil {
