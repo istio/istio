@@ -1,6 +1,7 @@
 .SUFFIXES: .csr .pem .conf
 .PRECIOUS: %/ca-key.pem %/ca-cert.pem %/cert-chain.pem
 .PRECIOUS: root-cert.csr root-ca.conf %/cluster-ca.csr %/intermediate.conf
+.PRECIOUS: %/workload-cert.pem %/key.pem %/workload-cert-chain.pem %/workload.conf %/workload.csr
 .SECONDARY: root-cert.csr root-ca.conf %/cluster-ca.csr %/intermediate.conf
 
 .DEFAULT_GOAL := help
@@ -22,6 +23,11 @@ CITADEL_ORG ?= Istio
 CITADEL_CN ?= Intermediate CA
 CITADEL_SAN_DNS ?= localhost
 # Additional variables are defined in %/intermediate.conf target below.
+
+#------------------------------------------------------------------------
+# variables: workload certs: eg VM
+WORKLOAD_DAYS ?= 365
+WORKLOAD_CERTS ?= 0
 
 #------------------------------------------------------------------------
 ##help:		print this help message
@@ -72,9 +78,15 @@ root-key.pem:
 ##<name>-certs:	generate Citadel certificates for <name>. Includes all PEM files needed.
 .PHONY: %-certs
 
+ifeq ($(WORKLOAD_CERTS),0)
 %-certs: %/cert-chain.pem root-cert.pem
 	@echo "Citadel inputs stored in $(dir $<)"
 	@cp root-cert.pem $(dir $<)
+else
+%-certs: %/cert-chain.pem root-cert.pem %/workload-cert-chain.pem
+	@echo "Citadel inputs and workload certs stored in $(dir $<)"
+	@cp root-cert.pem $(dir $<)
+endif
 
 %/cert-chain.pem: %/ca-cert.pem root-cert.pem
 	@echo "generating $@"
@@ -117,6 +129,55 @@ root-key.pem:
 	@echo "URI.1 = spiffe://cluster.local/ns/istio-system/sa/citadel" >> $@
 	@echo "URI.2 = spiffe://$(L:/=)/ns/istio-system/sa/citadel" >> $@
 	@echo "DNS.1 = $(CITADEL_SAN_DNS)" >> $@
+	@echo "[ req_dn ]" >> $@
+	@echo "O = $(CITADEL_ORG)" >> $@
+	@echo "CN = $(CITADEL_CN)" >> $@
+	@echo "L = $(L:/=)" >> $@
+
+#------------------------------------------------------------------------
+##WORKLOAD_CERTS=1 <name>-certs: generate workload certificates using above intermediate ca Includes all PEM needed.
+
+%/workload-cert-chain.pem: %/workload-cert.pem %/ca-cert.pem root-cert.pem
+	@echo "generating $@"
+	@cat $^ > $@
+
+%/workload-cert.pem: %/workload.csr
+	@echo "generating $@"
+	@openssl x509 -req -days $(WORKLOAD_DAYS) \
+		-CA $(dir $<)/ca-cert.pem  -CAkey $(dir $<)/ca-key.pem -set_serial $(CITADEL_SERIAL) \
+		-extensions req_ext -extfile $(dir $<)/workload.conf \
+		-in $< -out $@
+
+%/workload.csr: L=$(dir $@)
+%/workload.csr: %/key.pem %/workload.conf
+	@echo "generating $@"
+	@openssl req -new -config $(L)/workload.conf -key $< -out $@
+
+%/key.pem:
+	@echo "generating $@"
+	@mkdir -p $(dir $@)
+	@openssl genrsa -out $@ 4096
+
+%/workload.conf: L=$(dir $@)
+%/workload.conf:
+	@echo "[ req ]" > $@
+	@echo "encrypt_key = no" >> $@
+	@echo "prompt = no" >> $@
+	@echo "utf8 = yes" >> $@
+	@echo "default_md = sha256" >> $@
+	@echo "default_bits = $(CITADEL_KEYSZ)" >> $@
+	@echo "req_extensions = req_ext" >> $@
+	@echo "x509_extensions = req_ext" >> $@
+	@echo "distinguished_name = req_dn" >> $@
+	@echo "[ req_ext ]" >> $@
+	@echo "subjectKeyIdentifier = hash" >> $@
+	@echo "basicConstraints = critical, CA:false" >> $@
+	@echo "keyUsage = digitalSignature, keyEncipherment" >> $@
+	@echo "extendedKeyUsage = serverAuth, clientAuth" >> $@
+	@echo "subjectAltName=@san" >> $@
+	@echo "[ san ]" >> $@
+	@echo "URI.1 = spiffe://cluster.local/ns/vm/sa/default" >> $@
+	@echo "DNS.1 = spiffe://cluster.local/ns/vm/sa/default" >> $@
 	@echo "[ req_dn ]" >> $@
 	@echo "O = $(CITADEL_ORG)" >> $@
 	@echo "CN = $(CITADEL_CN)" >> $@
