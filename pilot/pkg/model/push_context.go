@@ -1581,7 +1581,7 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
 	}
 
-	if discoveryHost, err := e.GetDiscoveryHost(); err != nil {
+	if discoveryHost, _, err := e.GetDiscoveryAddress(); err != nil {
 		log.Errorf("failed to make discoveryAddress cluster-local: %v", err)
 	} else {
 		if !strings.HasSuffix(string(discoveryHost), domainSuffix) {
