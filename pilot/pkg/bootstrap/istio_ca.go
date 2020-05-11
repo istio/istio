@@ -154,7 +154,7 @@ func (s *Server) EnableCA() bool {
 		// for debug we may want to override this by setting trustedIssuer explicitly.
 		// If TOKEN_ISSUER is set, we ignore the lack of mounted JWT token, it means user is using
 		// an external OIDC provider to validate the tokens, and istiod lack of a JWT doesn't indicate a problem.
-		if features.JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT && trustedIssuer.Get() == "" {
+		if features.JwtPolicy.Get() == jwt.PolicyThirdParty && trustedIssuer.Get() == "" {
 			log.Warnf("istiod running without access to K8S tokens (jwt path %v). CA will run to support VMs ",
 				s.jwtPath)
 			return true
