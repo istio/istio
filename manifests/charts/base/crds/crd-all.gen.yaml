@@ -262,6 +262,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -356,6 +359,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -450,6 +456,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -531,6 +540,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -1665,6 +1677,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -1902,6 +1917,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -2051,6 +2069,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -2212,6 +2233,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -2557,6 +2581,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3369,6 +3396,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3454,6 +3484,9 @@ spec:
               description: The load balancing weight associated with the endpoint.
               type: integer
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3534,6 +3567,9 @@ spec:
               format: string
               type: string
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -3741,6 +3777,9 @@ spec:
               description: Depends on adapter implementation.
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -3803,6 +3842,9 @@ spec:
               format: string
               type: string
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -3959,6 +4001,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -4046,6 +4091,9 @@ spec:
               - ON_WITH_EXCLUSION
               type: string
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -4134,6 +4182,9 @@ spec:
               - ON_WITH_EXCLUSION
               type: string
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -4245,6 +4296,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -4447,6 +4501,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -4647,6 +4704,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
@@ -4726,6 +4786,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
@@ -4834,6 +4897,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
