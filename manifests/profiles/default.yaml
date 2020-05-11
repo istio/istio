@@ -204,6 +204,9 @@ spec:
     # Istio CNI feature
     cni:
       enabled: false
+    # Istiod remote configuration
+    istiodremote:
+      enabled: false
 
   addonComponents:
     prometheus:
