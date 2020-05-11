@@ -190,7 +190,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.initMeshNetworks(args, s.fileWatcher)
 
 	// Parse and validate Istiod Address.
-	host, port, err := e.GetDiscoveryAddress()
+	istiodHost, istiodPort, err := e.GetDiscoveryAddress()
 	if err != nil {
 		return nil, err
 	}
@@ -209,17 +209,17 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// CA signing certificate must be created first if needed.
-	if err := s.maybeCreateCA(args, caOpts); err != nil {
+	if err := s.maybeCreateCA(caOpts); err != nil {
 		return nil, err
 	}
 
 	// Create Istiod certs and setup watches.
-	if err := s.initIstiodCerts(args, string(host)); err != nil {
+	if err := s.initIstiodCerts(args, string(istiodHost)); err != nil {
 		return nil, err
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureGrpcServer(args, port); err != nil {
+	if err := s.initSecureGrpcServer(args, istiodPort); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
@@ -550,6 +550,7 @@ func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
 	tlsCreds := credentials.NewTLS(cfg)
 
 	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect.
+	// TODO(ramaraochavali): clean up istio-agent startup to remove the dependency of "15012" port.
 	secureGrpc := fmt.Sprintf(":%s", port)
 
 	// create secure grpc listener
@@ -931,9 +932,9 @@ func (s *Server) initJwtPolicy() {
 }
 
 // maybeCreateCA creates and initializes CA Key if needed.
-func (s *Server) maybeCreateCA(args *PilotArgs, caOpts *CAOptions) error {
-	// CA signing certificate must be created only if custom TLS certs are not provided.
-	if !hasCustomTLSCerts(args.TLSOptions) && s.EnableCA() {
+func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
+	// CA signing certificate must be created only if CA is enabled.
+	if s.EnableCA() {
 		var err error
 		var corev1 v1.CoreV1Interface
 		if s.kubeClient != nil {
