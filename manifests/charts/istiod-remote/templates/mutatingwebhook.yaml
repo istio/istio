@@ -15,8 +15,8 @@ metadata:
 webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
-      {{- if and (.Values.global.remotePilotAddress) (.Values.global.centralIstiod) }}
-      url: https://{{ .Values.global.remotePilotAddress }}:443/inject
+      {{- if .Values.sidecarInjectorWebhook.injectionURL }}
+      url: {{ .Values.sidecarInjectorWebhook.injectionURL }}
       {{- else }}
       service:
         name: istiod

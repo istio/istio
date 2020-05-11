@@ -9,8 +9,8 @@ metadata:
 webhooks:
   - name: validation.istio.io
     clientConfig:
-      {{- if and (.Values.global.remotePilotAddress) (.Values.global.centralIstiod) }}
-      url: https://{{ .Values.global.remotePilotAddress }}:443/validate
+      {{- if .Values.base.validationURL }}
+      url: {{ .Values.base.validationURL }}
       {{- else }}
       service:
         name: istiod
