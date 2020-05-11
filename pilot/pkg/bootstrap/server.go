@@ -23,7 +23,6 @@ import (
 	"net"
 	"net/http"
 	"path"
-	"strconv"
 	"sync"
 	"time"
 
@@ -181,12 +180,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	prometheus.EnableHandlingTimeHistogram()
 
-	// Parse and validate Istiod Address.
-	host, port, err := s.parseIstiodAddress()
-	if err != nil {
-		return nil, fmt.Errorf("error parsing Istiod address: %v", err)
-	}
-
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
@@ -195,6 +188,12 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("error initializing mesh config: %v", err)
 	}
 	s.initMeshNetworks(args, s.fileWatcher)
+
+	// Parse and validate Istiod Address.
+	host, port, err := e.GetDiscoveryAddress()
+	if err != nil {
+		return nil, err
+	}
 
 	if err := s.initControllers(args); err != nil {
 		return nil, err
@@ -215,7 +214,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Create Istiod certs and setup watches.
-	if err := s.initIstiodCerts(args, host); err != nil {
+	if err := s.initIstiodCerts(args, string(host)); err != nil {
 		return nil, err
 	}
 
@@ -378,12 +377,10 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 // onto the http server readiness check. The "http" portion of the readiness check is satisfied
 // by the fact we've started listening on this handler and everything has already initialized.
 func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) {
-	if features.IstiodService.Get() != "" {
-		if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
-			log.Warnf("https webhook server not ready: %v", status)
-			w.WriteHeader(status)
-			return
-		}
+	if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
+		log.Warnf("https webhook server not ready: %v", status)
+		w.WriteHeader(status)
+		return
 	}
 
 	// TODO check readiness of other secure gRPC and HTTP servers.
@@ -456,9 +453,7 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 		if s.forceStop {
 			s.grpcServer.Stop()
 			_ = s.httpServer.Close()
-			if features.IstiodService.Get() != "" {
-				_ = s.httpsServer.Close()
-			}
+			_ = s.httpsServer.Close()
 		} else {
 			s.grpcServer.GracefulStop()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -466,10 +461,8 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 			if err := s.httpServer.Shutdown(ctx); err != nil {
 				log.Warna(err)
 			}
-			if features.IstiodService.Get() != "" {
-				if err := s.httpsServer.Shutdown(ctx); err != nil {
-					log.Warna(err)
-				}
+			if err := s.httpsServer.Shutdown(ctx); err != nil {
+				log.Warna(err)
 			}
 		}
 	}()
@@ -536,10 +529,6 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer.
 func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
-	if features.IstiodService.Get() == "" {
-		return nil
-	}
-
 	if args.TLSOptions.CaCertFile == "" && s.ca == nil {
 		// Running locally without configured certs - no TLS mode
 		return nil
@@ -888,26 +877,6 @@ func (s *Server) getIstiodCertificate(info *tls.ClientHelloInfo) (*tls.Certifica
 	s.certMu.Lock()
 	defer s.certMu.Unlock()
 	return s.istiodCert, nil
-}
-
-// parseIstiodAddress parses the Istiod address and validates it.
-func (s *Server) parseIstiodAddress() (string, string, error) {
-	istiodAddr := features.IstiodService.Get()
-	if istiodAddr == "" {
-		// Feature disabled
-		return "", "", nil
-	}
-
-	// validate
-	host, port, err := net.SplitHostPort(istiodAddr)
-	if err != nil {
-		return "", "", fmt.Errorf("invalid ISTIOD_ADDR(%s): %v", istiodAddr, err)
-	}
-	if _, err := strconv.Atoi(port); err != nil {
-		return "", "", fmt.Errorf("invalid port(%s) in ISTIOD_ADDR(%s): %v", port, istiodAddr, err)
-	}
-
-	return host, port, nil
 }
 
 // initControllers initializes the controllers.

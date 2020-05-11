@@ -21,8 +21,6 @@ import (
 	"time"
 
 	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/features"
 )
 
 const (
@@ -30,11 +28,6 @@ const (
 )
 
 func (s *Server) initHTTPSWebhookServer(args *PilotArgs) {
-	if features.IstiodService.Get() == "" {
-		log.Info("Not starting HTTPS webhook server: istiod address not set")
-		return
-	}
-
 	log.Info("Setting up HTTPS webhook server for istiod webhooks")
 
 	// create the https server for hosting the k8s injectionWebhook handlers.
