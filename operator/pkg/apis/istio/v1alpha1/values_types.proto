@@ -1909,7 +1909,7 @@ message BaseConfig {
 
 message IstiodRemoteConfig {
   // Controls whether istiod remote configuration is enabled.
-  google.protobuf.BoolValue enable = 1;
+  google.protobuf.BoolValue enabled = 1;
 }
 
 message Values {
