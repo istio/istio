@@ -229,6 +229,10 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 
+		if networkName := c.environment.GetNetworkName(cluster); networkName != "" {
+			installSettings = append(installSettings, "--set", "values.global.network="+networkName)
+		}
+
 		if c.environment.IsControlPlaneCluster(cluster) {
 			// Expose Istiod through ingress to allow remote clusters to connect
 			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")

@@ -36,6 +36,8 @@ var (
 	kubeConfigs string
 	// hold controlPlaneTopology from command line to parse later
 	controlPlaneTopology string
+	// hold networkTopology from command line to parse later
+	networkTopology string
 )
 
 // newSettingsFromCommandline returns Settings obtained from command-line flags. flag.Parse must be called before calling this function.
@@ -53,6 +55,11 @@ func newSettingsFromCommandline() (*Settings, error) {
 	}
 
 	s.ControlPlaneTopology, err = newControlPlaneTopology(s.KubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	s.NetworkTopology, err = parseNetworkTopology()
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +147,30 @@ func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterInde
 	return out, nil
 }
 
+func parseNetworkTopology() (map[resource.ClusterIndex]string, error) {
+	out := make(map[resource.ClusterIndex]string)
+	if controlPlaneTopology == "" {
+		return out, nil
+	}
+
+	values := strings.Split(controlPlaneTopology, ",")
+	for _, v := range values {
+		parts := strings.Split(v, ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("failed parsing control plane mapping entry %s", v)
+		}
+		clusterIndex, err := strconv.Atoi(parts[0])
+		if err != nil || clusterIndex < 0 {
+			return nil, fmt.Errorf("failed parsing control plane mapping entry %s: failed parsing cluster index", v)
+		}
+		if len(parts[1]) == 0 {
+			return nil, fmt.Errorf("failed parsing control plane mapping entry %s: failed parsing network name", v)
+		}
+		out[resource.ClusterIndex(clusterIndex)] = parts[1]
+	}
+	return out, nil
+}
+
 func normalizeFile(path *string) error {
 	// trim leading/trailing spaces from the path and if it uses the homedir ~, expand it.
 	var err error
@@ -179,4 +210,8 @@ func init() {
 			"a given cluster appears in the 'istio.test.kube.config' flag. This topology also determines where control planes should "+
 			"be deployed. If not specified, the default is to deploy a control plane per cluster (i.e. `replicated control "+
 			"planes') and map every cluster to itself (e.g. 0:0,1:1,...).")
+	flag.StringVar(&networkTopology, "istio.test.kube.networkTopology",
+		"", "Specifies the mapping for each cluster to it's network name, for multi-network scenarios. The value is a "+
+			"comma-separated list of the form <clusterIndex>:<networkName>, where the indexes refer to the order in which "+
+			"a given cluster appears in the 'istio.test.kube.config' flag. If not specified, values.global.network will be left unset")
 }

@@ -35,6 +35,9 @@ type Settings struct {
 	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
 	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex
+
+	// ControlPlaneTopology maps each cluster to the network name for multi-network scenarios.
+	NetworkTopology map[resource.ClusterIndex]string
 }
 
 type SetupSettingsFunc func(s *Settings)

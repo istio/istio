@@ -120,6 +120,10 @@ func (e *Environment) GetControlPlaneCluster(cluster resource.Cluster) (resource
 	return nil, fmt.Errorf("no control plane cluster found in topology for cluster %d", cluster.Index())
 }
 
+func (e *Environment) GetNetworkName(cluster Cluster) string {
+	return e.s.NetworkTopology[cluster.Index()]
+}
+
 func (e *Environment) Case(name environment.Name, fn func()) {
 	if name == e.EnvironmentName() {
 		fn()
