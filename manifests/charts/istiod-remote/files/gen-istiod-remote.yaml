@@ -213,6 +213,7 @@ data:
         "enableNamespacesByDefault": false,
         "injectLabel": "istio-injection",
         "injectedAnnotations": {},
+        "injectionURL": "",
         "neverInjectSelector": [],
         "objectSelector": {
           "autoInject": true,
