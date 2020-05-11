@@ -4,6 +4,6 @@ metadata:
   name: config
   namespace: istio-system
 data:
-  # Delete a field, update a field and create a new field
+  # Can't delete a field until we mandate >= Kube 1.16. See ApplyObject comments.
   field: two
   new: new
