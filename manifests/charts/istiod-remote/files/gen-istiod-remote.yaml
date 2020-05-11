@@ -213,13 +213,12 @@ data:
         "enableNamespacesByDefault": false,
         "injectLabel": "istio-injection",
         "injectedAnnotations": {},
+        "injectionURL": "",
         "neverInjectSelector": [],
         "objectSelector": {
           "autoInject": true,
           "enabled": false
-        },
-        "remoteWebhookHost": "istiod.istio-system.svc",
-        "remoteWebhookPort": 443
+        }
       }
     }
 
@@ -676,7 +675,10 @@ metadata:
 webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
-      url: https://istiod.istio-system.svc:443/inject
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/inject"      
       caBundle: 
     rules:
       - operations: [ "CREATE" ]
