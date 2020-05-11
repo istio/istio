@@ -261,8 +261,8 @@ func updateAnalysisCondition(statusMap map[string]interface{}, status bool) map[
 	uconds = append(uconds, map[string]interface{}{
 		"type":               string(status2.PassedValidation),
 		"status":             string(cstatus),
-		"lastProbeTime":      time.Now().String(),
-		"lastTransitionTime": time.Now().String(),
+		"lastProbeTime":      time.Now().Format(time.RFC3339),
+		"lastTransitionTime": time.Now().Format(time.RFC3339),
 		"reason":             reason,
 		"message":            message,
 	})
