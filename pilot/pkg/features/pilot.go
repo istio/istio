@@ -269,7 +269,7 @@ var (
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.")
 
-	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
 
 	// Default request timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero
