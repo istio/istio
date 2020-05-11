@@ -1905,9 +1905,6 @@ message KialiConfig {
 message BaseConfig {
   // For Helm2 use, adds the CRDs to templates.
   google.protobuf.BoolValue enableCRDTemplates = 1;
-
-  // Configures the validation webbhook url.
-  string validationURL = 2;
 }
 
 message Values {
