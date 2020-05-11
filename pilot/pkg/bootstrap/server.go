@@ -968,8 +968,8 @@ func (s *Server) initJwtPolicy() {
 
 // maybeCreateCA creates and initializes CA Key if needed.
 func (s *Server) maybeCreateCA(args *PilotArgs, caOpts *CAOptions) error {
-	// CA signing certificate must be created only if custom TLS certs are not provided.
-	if !hasCustomTLSCerts(args.TLSOptions) && s.EnableCA() {
+	// CA signing certificate must be created only if CA is enabled.
+	if s.EnableCA() {
 		var err error
 		var corev1 v1.CoreV1Interface
 		if s.kubeClient != nil {
