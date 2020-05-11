@@ -27,6 +27,8 @@ CITADEL_SAN_DNS ?= localhost
 #------------------------------------------------------------------------
 # variables: workload certs: eg VM
 WORKLOAD_DAYS ?= 365
+NAMESPACE ?= vm
+SERVICE_ACCOUNT ?= default
 
 #------------------------------------------------------------------------
 ##help:		print this help message
@@ -128,7 +130,7 @@ root-key.pem:
 	@echo "L = $(L:/=)" >> $@
 
 #------------------------------------------------------------------------
-##<name>-certs-wl: generate Citadel certificates for <name> and workload certificates using the intermediate ca Includes all PEM needed.
+##<name>-certs-wl: generate certificates for a virtual machine connected to the namespace `$NAMESPACE` using serviceAccount `$SERVICE_ACCOUNT` as well as intermediate certificates for K8s cluster `$NAME`
 .PHONY: %-certs-wl
 
 %-certs-wl: %/cert-chain.pem root-cert.pem %/workload-cert-chain.pem
@@ -174,8 +176,8 @@ root-key.pem:
 	@echo "extendedKeyUsage = serverAuth, clientAuth" >> $@
 	@echo "subjectAltName=@san" >> $@
 	@echo "[ san ]" >> $@
-	@echo "URI.1 = spiffe://cluster.local/ns/vm/sa/default" >> $@
-	@echo "DNS.1 = spiffe://cluster.local/ns/vm/sa/default" >> $@
+	@echo "URI.1 = spiffe://cluster.local/ns/$(NAMESPACE)/sa/$(SERVICE_ACCOUNT)" >> $@
+	@echo "DNS.1 = spiffe://cluster.local/ns/$(NAMESPACE)/sa/$(SERVICE_ACCOUNT)" >> $@
 	@echo "[ req_dn ]" >> $@
 	@echo "O = $(CITADEL_ORG)" >> $@
 	@echo "CN = $(CITADEL_CN)" >> $@
