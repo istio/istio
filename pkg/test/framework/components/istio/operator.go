@@ -195,7 +195,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string) error {
+func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string) (err error) {
 	// Create an istioctl to configure this cluster.
 	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
 		Cluster: cluster,
@@ -236,6 +236,12 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		if c.environment.IsControlPlaneCluster(cluster) {
 			// Expose Istiod through ingress to allow remote clusters to connect
 			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
+			if c.environment.IsMultinetwork() {
+				installSettings = append(installSettings, "-f", "$ISTIO/operator/data/examples/multicluster/values-istio-multicluster-gateways.yaml")
+				defer func() {
+					err = configureDNS(cluster, cfg)
+				}()
+			}
 		} else {
 			installSettings = append(installSettings, "--set", "profile=remote")
 			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
@@ -272,10 +278,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
 	if _, _, err := istioCtl.Invoke(cmd); err != nil {
 		return fmt.Errorf("manifest apply failed: %v", err)
-	}
-
-	if err := configureDNS(cluster, cfg); err != nil {
-		return err
 	}
 
 	return nil
