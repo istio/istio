@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -912,7 +913,10 @@ func (s *Server) initNamespaceController(args *PilotArgs) {
 // initGenerators initializes generators to be used by XdsServer.
 func (s *Server) initGenerators() {
 	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = &envoyv2.EdsGenerator{Server: s.EnvoyXdsServer}
+	epGen := &envoyv2.EdsGenerator{Server: s.EnvoyXdsServer}
+	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
+	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
+	s.EnvoyXdsServer.Generators["api/"+envoyv2.EndpointType] = epGen
 }
 
 // initJwtPolicy initializes JwtPolicy.
