@@ -24,6 +24,8 @@ The following `make` targets are defined:
 
 - `make root-ca`: this will generate a new root CA key and certificate.
 - `make $NAME-certs`: this will generate all needed files to bootstrap a new Citadel for cluster `$NAME` (e.g., `us-east`, `cluster01`, etc.).
+- `make $NAME-certs-wl`: this will generate certificates for a virtual machine connected to the namespace `$NAMESPACE` using
+serviceAccount `$SERVICE_ACCOUNT` as well as intermediate certificates for K8s cluster `$NAME`
 
 The intermediate CA files used for cluster `$NAME` are created under a directory named
 `$NAME`. By creating files under a directory, we can create them using the naming convention

@@ -121,6 +121,13 @@ type Options struct {
 
 	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
 	TLSEnabled bool
+
+	// ClusterID is the cluster ID
+	ClusterID string
+
+	// The type of Elliptical Signature algorithm to use
+	// when generating private keys. Currently only ECDSA is supported.
+	ECCSigAlg string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

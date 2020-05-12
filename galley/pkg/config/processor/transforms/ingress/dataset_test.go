@@ -23,7 +23,7 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/pkg/config/resource"
 )
@@ -218,7 +218,7 @@ func vs1v2() *resource.Instance {
 }
 
 func meshConfig() *v1alpha1.MeshConfig {
-	m := meshcfg.Default()
+	m := mesh.DefaultMeshConfig()
 	m.IngressClass = "cls"
 	m.IngressControllerMode = v1alpha1.MeshConfig_STRICT
 	return m

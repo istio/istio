@@ -158,18 +158,28 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 func ApplyToCommonTLSContext(tlsContext *auth.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
 	// configure TLS with SDS
 	if metadata.SdsEnabled && sdsPath != "" {
-		// configure egress with SDS
+		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+		// which does not support rotation, we will serve them over SDS by reading the files.
+		// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
+		res := model.SdsCertificateConfig{
+			CertificatePath:   metadata.TLSServerCertChain,
+			PrivateKeyPath:    metadata.TLSServerKey,
+			CaCertificatePath: metadata.TLSServerRootCert,
+		}
+
+		// configure server listeners with SDS.
 		tlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
 				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(
-					SDSRootResourceName, sdsPath),
+					model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), sdsPath),
 			},
 		}
 		tlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			ConstructSdsSecretConfig(SDSDefaultResourceName, sdsPath),
+			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), sdsPath),
 		}
 	} else {
+		// TODO(ramaraochavali): Clean this codepath later as we default to SDS.
 		// SDS disabled, fall back on using mounted certificates
 		base := metadata.SdsBase + constants.AuthCertsPath
 		tlsServerRootCert := model.GetOrDefault(metadata.TLSServerRootCert, base+constants.RootCertFilename)

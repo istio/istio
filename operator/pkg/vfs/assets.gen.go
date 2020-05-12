@@ -32,7 +32,6 @@ import (
 	"strings"
 	"time"
 )
-
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -125,11 +124,6 @@ spec:
 
       controlPlaneSecurityEnabled: true
 
-    # Multicluster with gateways requires a root CA
-    # Cluster local CAs are bootstrapped with the root CA.
-    security:
-      selfSigned: false
-
     gateways:
       istio-egressgateway:
         env:
@@ -155,35 +149,35 @@ func examplesMulticlusterValuesIstioMulticlusterGatewaysYaml() (*asset, error) {
 var _examplesMulticlusterValuesIstioMulticlusterPrimaryYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
+  # https://istio.io/docs/setup/install/multicluster/shared/#main-cluster
   values:
-    gateways:
-      istio-ingressgateway:
-        env:
-          ISTIO_META_NETWORK: "network1"
     global:
-      mtls:
-        enabled: true
-      controlPlaneSecurityEnabled: true
-      proxy:
-        accessLogFile: "/dev/stdout"
+      multiCluster:
+        # unique cluster name, must be a DNS label name
+        clusterName: main0
       network: network1
+
+      # Mesh network configuration. This is optional and may be omitted if
+      # all clusters are on the same network.
+      meshNetworks:
+        network1:
+          endpoints:
+          # Always use Kubernetes as the registry name for the main cluster in the mesh network configuration
+          - fromRegistry: Kubernetes
+          gateways:
+          - registry_service_name: istio-ingressgateway.istio-system.svc.cluster.local
+            port: 443
+
+        network2:
+          endpoints:
+          - fromRegistry: remote0
+          gateways:
+          - registry_service_name: istio-ingressgateway.istio-system.svc.cluster.local
+            port: 443
+
+      # Use the existing istio-ingressgateway.
       meshExpansion:
         enabled: true
-    pilot:
-      meshNetworks:
-        networks:
-          network1:
-            endpoints:
-            - fromRegistry: Kubernetes
-            gateways:
-            - address: 0.0.0.0
-              port: 443
-          network2:
-            endpoints:
-            - fromRegistry: n2-k8s-config
-            gateways:
-            - address: 0.0.0.0
-              port: 443
 `)
 
 func examplesMulticlusterValuesIstioMulticlusterPrimaryYamlBytes() ([]byte, error) {
@@ -241,11 +235,6 @@ spec:
 
       controlPlaneSecurityEnabled: true
 
-    # Multicluster with gateways requires a root CA
-    # Cluster local CAs are bootstrapped with the root CA.
-    security:
-      selfSigned: false
-
     # Provides dns resolution for service entries of form
     # name.namespace.global
     istiocoredns:
@@ -276,11 +265,6 @@ spec:
         enabled: true
 
       controlPlaneSecurityEnabled: true
-
-    # Multicluster with gateways requires a root CA
-    # Cluster local CAs are bootstrapped with the root CA.
-    security:
-      selfSigned: false
 `)
 
 func examplesVmValuesIstioMeshexpansionYamlBytes() ([]byte, error) {
@@ -305,6 +289,13 @@ metadata:
 spec:
   hub: gcr.io/istio-testing
   tag: latest
+
+  # You may override parts of meshconfig by uncommenting the following lines.
+  meshConfig:
+    enablePrometheusMerge: false
+    # Opt-out of global http2 upgrades.
+    # Destination rule is used to opt-in.
+    # h2_upgrade_policy: DO_NOT_UPGRADE
 
   # Traffic management feature
   components:
@@ -336,7 +327,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Policy feature
+    # Policy feature
     policy:
       enabled: false
       k8s:
@@ -363,7 +354,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-   # Telemetry feature
+    # Telemetry feature
     telemetry:
       enabled: false
       k8s:
@@ -400,7 +391,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Security feature
+    # Security feature
     citadel:
       enabled: false
       k8s:
@@ -409,7 +400,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Istio Gateway feature
+    # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
       enabled: true
@@ -419,8 +410,8 @@ spec:
             value: "sni-dnat"
         service:
           ports:
-            - port: 15020
-              targetPort: 15020
+            - port: 15021
+              targetPort: 15021
               name: status-port
             - port: 80
               targetPort: 8080
@@ -428,18 +419,6 @@ spec:
             - port: 443
               targetPort: 8443
               name: https
-            - port: 15029
-              targetPort: 15029
-              name: kiali
-            - port: 15030
-              targetPort: 15030
-              name: prometheus
-            - port: 15031
-              targetPort: 15031
-              name: grafana
-            - port: 15032
-              targetPort: 15032
-              name: tracing
             - port: 15443
               targetPort: 15443
               name: tls
@@ -531,11 +510,6 @@ spec:
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/charts/global.yaml
   values:
-    # You may override parts of meshconfig by uncommenting the following lines.
-    meshConfig: {}
-      # Opt-out of global http2 upgrades.
-      # Destination rule is used to opt-in.
-      # h2_upgrade_policy: DO_NOT_UPGRADE
     global:
       istioNamespace: istio-system
       istiod:
@@ -588,8 +562,6 @@ spec:
       imagePullPolicy: ""
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
-      policyCheckFailOpen: false
-      enableTracing: true
       tracer:
         lightstep:
           address: ""                # example: lightstep-satellite:443
@@ -603,8 +575,6 @@ spec:
           maxNumberOfAttributes: 200
           maxNumberOfAnnotations: 200
           maxNumberOfMessageEvents: 200
-      mtls:
-        auto: true
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -629,16 +599,12 @@ spec:
       priorityClassName: ""
       useMCP: false
       trustDomain: "cluster.local"
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
       sds:
         token:
           aud: istio-ca
       sts:
         servicePort: 0
       meshNetworks: {}
-      localityLbSetting:
-        enabled: true
       enableHelmTest: false
       mountMtlsCerts: false
     pilot:
@@ -671,6 +637,7 @@ spec:
         enabled: false
       v2:
         enabled: true
+        metadataExchange: {}
         prometheus:
           enabled: true
         stackdriver:
@@ -726,6 +693,8 @@ spec:
 
     gateways:
       istio-egressgateway:
+        zvpn: {}
+        env: {}
         autoscaleEnabled: true
         type: ClusterIP
         name: istio-egressgateway
@@ -744,6 +713,8 @@ spec:
         domain: ""
         type: LoadBalancer
         name: istio-ingressgateway
+        zvpn: {}
+        env: {}
         meshExpansionPorts:
           - port: 15011
             targetPort: 15011
@@ -899,12 +870,16 @@ spec:
         grafanaInClusterURL: http://grafana:3000
         jaegerURL:
         jaegerInClusterURL: http://tracing/jaeger
+        auth:
+          strategy: login
       prometheusNamespace:
       createDemoSecret: false
       security:
         enabled: false
         cert_file: /kiali-cert/cert-chain.pem
         private_key_file: /kiali-cert/key.pem
+      service:
+        annotations: {}
 
     # TODO: derive from operator API
     version: ""
@@ -929,6 +904,9 @@ func profilesDefaultYaml() (*asset, error) {
 var _profilesDemoYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
+  meshConfig:
+    accessLogFile: /dev/stdout
+    disablePolicyChecks: false
   components:
     egressGateways:
     - name: istio-egressgateway
@@ -962,18 +940,6 @@ spec:
             - port: 443
               targetPort: 8443
               name: https
-            - port: 15029
-              targetPort: 15029
-              name: kiali
-            - port: 15030
-              targetPort: 15030
-              name: prometheus
-            - port: 15031
-              targetPort: 15031
-              name: grafana
-            - port: 15032
-              targetPort: 15032
-              name: tracing
             - port: 31400
               targetPort: 31400
               name: tcp
@@ -1031,9 +997,7 @@ spec:
 
   values:
     global:
-      disablePolicyChecks: false
       proxy:
-        accessLogFile: /dev/stdout
         resources:
           requests:
             cpu: 10m
@@ -2296,7 +2260,7 @@ var _bindata = map[string]func() (*asset, error){
 	"translateConfig/translateConfig-1.4.yaml":                      translateconfigTranslateconfig14Yaml,
 	"translateConfig/translateConfig-1.5.yaml":                      translateconfigTranslateconfig15Yaml,
 	"translateConfig/translateConfig-1.6.yaml":                      translateconfigTranslateconfig16Yaml,
-	"versions.yaml": versionsYaml,
+	"versions.yaml":                                                 versionsYaml,
 }
 
 // AssetDir returns the file names below a certain

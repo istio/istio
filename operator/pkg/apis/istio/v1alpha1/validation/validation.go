@@ -68,8 +68,14 @@ func deprecatedSettingsMessage(values *valuesv1alpha1.Values) string {
 		def interface{}
 	}{
 		{"global.certificates", "meshConfig.certificates", nil},
+		{"global.trustDomainAliases", "meshConfig.trustDomainAliases", nil},
+		{"global.outboundTrafficPolicy", "meshConfig.outboundTrafficPolicy", nil},
+		{"global.localityLbSetting", "meshConfig.localityLbSetting", nil},
+		{"global.policyCheckFailOpen", "meshConfig.policyCheckFailOpen", false},
+		{"global.enableTracing", "meshConfig.enableTracing", false},
 		{"global.proxy.accessLogFormat", "meshConfig.accessLogFormat", ""},
 		{"global.proxy.accessLogFile", "meshConfig.accessLogFile", ""},
+		{"global.proxy.accessLogEncoding", "meshConfig.accessLogEncoding", valuesv1alpha1.AccessLogEncoding_JSON},
 		{"global.proxy.concurrency", "meshConfig.concurrency", uint32(0)},
 		{"global.disablePolicyChecks", "meshConfig.disablePolicyChecks", nil},
 		{"global.proxy.envoyAccessLogService", "meshConfig.envoyAccessLogService", nil},
@@ -77,8 +83,9 @@ func deprecatedSettingsMessage(values *valuesv1alpha1.Values) string {
 		{"global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", ""},
 		{"mixer.telemetry.reportBatchMaxEntries", "meshConfig.reportBatchMaxEntries", uint32(0)},
 		{"mixer.telemetry.reportBatchMaxTime", "meshConfig.reportBatchMaxTime", ""},
-		{"pilot.ingress", "meshConfig", nil},
-		{"global.mtls.enabled", "PeerAuthentication", nil},
+		{"pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil},
+		{"global.mtls.enabled", "the PeerAuthentication resource", nil},
+		{"global.mtls.auto", "meshConfig.enableAutoMtls", nil},
 	}
 	for _, d := range deprecations {
 		v, f, _ := tpath.GetFromStructPath(values, firstCharsToUpper(d.old))
@@ -101,7 +108,7 @@ func validateFeatures(values *valuesv1alpha1.Values, _ *v1alpha1.IstioOperatorSp
 	if m == nil {
 		return nil
 	}
-	if m.GetAuto().Value && !g.GetControlPlaneSecurityEnabled().Value {
+	if m.GetAuto().Value && !g.GetControlPlaneSecurityEnabled().GetValue() {
 		return []error{fmt.Errorf("security: auto mtls is enabled, but control plane security is not enabled")}
 	}
 	return nil

@@ -21,6 +21,8 @@ import (
 	"net/url"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
@@ -57,14 +59,17 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 		},
 	}
 
+	certFile := model.GetOrDefault(args.TLSOptions.CertFile, dnsCertFile)
+	keyFile := model.GetOrDefault(args.TLSOptions.KeyFile, dnsKeyFile)
+
 	// load the cert/key and setup a persistent watch for updates.
-	cert, err := server.ReloadCertkey(dnsCertFile, dnsKeyFile)
+	cert, err := server.ReloadCertkey(certFile, keyFile)
 	if err != nil {
 		return err
 	}
 	s.webhookCert = cert
 	keyCertWatcher := filewatcher.NewWatcher()
-	for _, file := range []string{dnsCertFile, dnsKeyFile} {
+	for _, file := range []string{certFile, keyFile} {
 		if err := keyCertWatcher.Add(file); err != nil {
 			return fmt.Errorf("could not watch %v: %v", file, err)
 		}
@@ -77,7 +82,7 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 				case <-keyCertTimerC:
 					keyCertTimerC = nil
 
-					cert, err := server.ReloadCertkey(dnsCertFile, dnsKeyFile)
+					cert, err := server.ReloadCertkey(certFile, keyFile)
 					if err != nil {
 						return // error logged and metric reported by server.ReloadCertKey
 					}
@@ -85,18 +90,18 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 					s.webhookCertMu.Lock()
 					s.webhookCert = cert
 					s.webhookCertMu.Unlock()
-				case <-keyCertWatcher.Events(dnsCertFile):
+				case <-keyCertWatcher.Events(certFile):
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
-				case <-keyCertWatcher.Events(dnsKeyFile):
+				case <-keyCertWatcher.Events(keyFile):
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
-				case <-keyCertWatcher.Errors(dnsCertFile):
-					log.Errorf("error watching %v: %v", dnsCertFile, err)
-				case <-keyCertWatcher.Errors(dnsKeyFile):
-					log.Errorf("error watching %v: %v", dnsKeyFile, err)
+				case <-keyCertWatcher.Errors(certFile):
+					log.Errorf("error watching %v: %v", certFile, err)
+				case <-keyCertWatcher.Errors(keyFile):
+					log.Errorf("error watching %v: %v", keyFile, err)
 				case <-stop:
 					return
 				}

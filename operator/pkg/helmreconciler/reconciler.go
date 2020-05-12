@@ -106,7 +106,11 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 		return nil, err
 	}
 
-	return h.processRecursive(manifestMap), h.Prune(manifestMap)
+	status := h.processRecursive(manifestMap)
+
+	h.opts.ProgressLog.SetState(util.StatePruning)
+	pruneErr := h.Prune(manifestMap, false)
+	return status, pruneErr
 }
 
 // processRecursive processes the given manifests in an order of dependencies defined in h. Dependencies are a tree,
@@ -178,7 +182,7 @@ func (h *HelmReconciler) Delete() error {
 	if err != nil {
 		return err
 	}
-	return h.Prune(manifestMap)
+	return h.Prune(manifestMap, true)
 }
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
@@ -264,13 +268,27 @@ func overallStatus(componentStatus map[string]*v1alpha1.InstallStatus_VersionSta
 	return ret
 }
 
-// getOwnerLabels returns a map of labels for the given component name, revision and owning CR resource name.
-func (h *HelmReconciler) getOwnerLabels(componentName string) (map[string]string, error) {
+// getCoreOwnerLabels returns a map of labels for associating installation resources. This is the common
+// labels shared between all resources; see getOwnerLabels to get labels per-component labels
+func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	crName, err := h.getCRName()
 	if err != nil {
 		return nil, err
 	}
 	labels := make(map[string]string)
+
+	labels[operatorLabelStr] = operatorReconcileStr
+	labels[owningResourceKey] = crName
+	labels[istioVersionLabelStr] = version.Info.Version
+
+	return labels, nil
+}
+
+func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, componentName string) map[string]string {
+	labels := map[string]string{}
+	for k, v := range coreLabels {
+		labels[k] = v
+	}
 	revision := ""
 	if h.iop != nil {
 		revision = h.iop.Spec.Revision
@@ -284,12 +302,19 @@ func (h *HelmReconciler) getOwnerLabels(componentName string) (map[string]string
 		labels[model.RevisionLabel] = revision
 	}
 
-	labels[operatorLabelStr] = operatorReconcileStr
-	labels[owningResourceKey] = crName
 	labels[istioComponentLabelStr] = componentName
-	labels[istioVersionLabelStr] = version.Info.Version
 
-	return labels, nil
+	return labels
+}
+
+// getOwnerLabels returns a map of labels for the given component name, revision and owning CR resource name.
+func (h *HelmReconciler) getOwnerLabels(componentName string) (map[string]string, error) {
+	labels, err := h.getCoreOwnerLabels()
+	if err != nil {
+		return nil, err
+	}
+
+	return h.addComponentLabels(labels, componentName), nil
 }
 
 // applyLabelsAndAnnotations applies owner labels and annotations to the object.

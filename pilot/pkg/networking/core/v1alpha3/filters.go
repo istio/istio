@@ -22,12 +22,15 @@ import (
 	router "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/router/v2"
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/http_inspector/v2"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/original_dst/v2"
+	originalsrc "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/original_src/v2alpha1"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 )
+
+const OriginalSrc = "envoy.listener.original_src"
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
 // This should not be used for filters that will be mutated
@@ -73,6 +76,12 @@ var (
 		Name: wellknown.OriginalDestination,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
+		},
+	}
+	originalSrcFilter = &listener.ListenerFilter{
+		Name: OriginalSrc,
+		ConfigType: &listener.ListenerFilter_TypedConfig{
+			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{}),
 		},
 	}
 )

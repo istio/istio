@@ -5909,3 +5909,96 @@ func TestServiceSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateMeshNetworks(t *testing.T) {
+	testcases := []struct {
+		name  string
+		mn    *meshconfig.MeshNetworks
+		valid bool
+	}{
+		{
+			name:  "Empty MeshNetworks",
+			mn:    &meshconfig.MeshNetworks{},
+			valid: true,
+		},
+		{
+			name: "Valid MeshNetworks",
+			mn: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"n1": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+									FromRegistry: "Kubernetes",
+								},
+							},
+						},
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+									RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+								},
+								Port: 80,
+							},
+						},
+					},
+					"n2": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+									FromRegistry: "cluster1",
+								},
+							},
+						},
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+									RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+								},
+								Port: 443,
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "Invalid registry name",
+			mn: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"n1": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+									FromRegistry: "cluster.local",
+								},
+							},
+						},
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+									RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+								},
+								Port: 80,
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateMeshNetworks(tc.mn)
+			if err != nil && tc.valid {
+				t.Errorf("error not expected on valid meshnetworks: %v", *tc.mn)
+			}
+			if err == nil && !tc.valid {
+				t.Errorf("expected an error on invalid meshnetworks: %v", *tc.mn)
+			}
+		})
+	}
+}

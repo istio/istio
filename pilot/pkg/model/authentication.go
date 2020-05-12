@@ -15,6 +15,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"istio.io/api/security/v1beta1"
@@ -38,6 +39,10 @@ const (
 
 	// MTLSStrict if authentication policy enable mTLS in strict mode.
 	MTLSStrict
+)
+
+const (
+	ResourceSeparator = "~"
 )
 
 // String converts MutualTLSMode to human readable string for debugging.
@@ -251,4 +256,59 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 	}
 
 	return configs
+}
+
+// SdsCertificateConfig holds TLS certs needed to build SDS TLS context.
+type SdsCertificateConfig struct {
+	CertificatePath   string
+	PrivateKeyPath    string
+	CaCertificatePath string
+}
+
+// GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name
+func (s SdsCertificateConfig) GetResourceName() string {
+	if s.IsKeyCertificate() {
+		return "file-cert:" + s.CertificatePath + ResourceSeparator + s.PrivateKeyPath // Format: file-cert:%s~%s
+	}
+	return ""
+}
+
+// GetRootResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name for the root
+func (s SdsCertificateConfig) GetRootResourceName() string {
+	if s.IsRootCertificate() {
+		return "file-root:" + s.CaCertificatePath // Format: file-root:%s
+	}
+	return ""
+}
+
+// IsRootCertificate returns true if this config represents a root certificate config.
+func (s SdsCertificateConfig) IsRootCertificate() bool {
+	return s.CaCertificatePath != ""
+}
+
+// IsKeyCertificate returns true if this config represents key certificate config.
+func (s SdsCertificateConfig) IsKeyCertificate() bool {
+	return s.CertificatePath != "" && s.PrivateKeyPath != ""
+}
+
+// SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
+// If the resource name is not valid, false is returned.
+func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
+	if strings.HasPrefix(resource, "file-cert:") {
+		filesString := strings.TrimPrefix(resource, "file-cert:")
+		split := strings.Split(filesString, ResourceSeparator)
+		if len(split) != 2 {
+			return SdsCertificateConfig{}, false
+		}
+		return SdsCertificateConfig{split[0], split[1], ""}, true
+	} else if strings.HasPrefix(resource, "file-root:") {
+		filesString := strings.TrimPrefix(resource, "file-root:")
+		split := strings.Split(filesString, ResourceSeparator)
+		if len(split) != 1 {
+			return SdsCertificateConfig{}, false
+		}
+		return SdsCertificateConfig{"", "", split[0]}, true
+	} else {
+		return SdsCertificateConfig{}, false
+	}
 }

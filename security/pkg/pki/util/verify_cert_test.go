@@ -131,7 +131,7 @@ func TestVerifyCert(t *testing.T) {
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
 			expectedFields: verifyField2,
-			expectedErr:    "the generated private key and cert doesn't match",
+			expectedErr:    "the generated private RSA key and cert doesn't match",
 		},
 		"Wrong SAN": {
 			privPem:        []byte(key),
