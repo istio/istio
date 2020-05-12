@@ -17,7 +17,6 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -307,18 +306,7 @@ func (c *Controller) Cluster() string {
 	return c.clusterID
 }
 
-func (c *Controller) checkReadyForEvents() error {
-	if !c.HasSynced() {
-		return errors.New("waiting till full synchronization")
-	}
-	return nil
-}
-
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
-	if err := c.checkReadyForEvents(); err != nil {
-		return err
-	}
-
 	svc, ok := curr.(*v1.Service)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
@@ -386,9 +374,6 @@ func getNodeSelectorsForService(svc v1.Service) labels.Instance {
 }
 
 func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
-	if err := c.checkReadyForEvents(); err != nil {
-		return err
-	}
 	node, ok := obj.(*v1.Node)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -556,12 +541,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.networksWatcher.AddNetworksHandler(c.initNetworkLookup)
 		c.initNetworkLookup()
 	}
-
-	go func() {
-		cache.WaitForCacheSync(stop, c.HasSynced)
-		c.queue.Run(stop)
-	}()
-
 	nodeInformer := c.nodeMetadataInformer
 	if nodeInformer == nil {
 		nodeInformer = c.nodeInformer
@@ -570,13 +549,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.pods.informer.Run(stop)
 	go nodeInformer.Run(stop)
 	go c.filteredNodeInformer.Run(stop)
-
-	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, nodeInformer.HasSynced, c.filteredNodeInformer.HasSynced,
-		c.pods.informer.HasSynced,
-		c.serviceInformer.HasSynced)
-
 	go c.endpoints.Run(stop)
+	cache.WaitForCacheSync(stop, c.HasSynced)
+	c.queue.Run(stop)
 
 	<-stop
 	log.Infof("Controller terminated")

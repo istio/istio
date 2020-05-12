@@ -153,10 +153,6 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 }
 
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
-	if err := esc.c.checkReadyForEvents(); err != nil {
-		return err
-	}
-
 	ep, ok := curr.(*discoveryv1alpha1.EndpointSlice)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)

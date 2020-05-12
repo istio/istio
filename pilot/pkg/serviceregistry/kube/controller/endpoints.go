@@ -215,10 +215,6 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 }
 
 func (e *endpointsController) onEvent(curr interface{}, event model.Event) error {
-	if err := e.c.checkReadyForEvents(); err != nil {
-		return err
-	}
-
 	ep, ok := curr.(*v1.Endpoints)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
