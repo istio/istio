@@ -43,6 +43,7 @@ const (
    No Traffic Policy
 7070 VirtualService: a\..*
    when headers are end-user=jason
+7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
@@ -61,6 +62,7 @@ Service: a\..*
    No Traffic Policy
 7070 VirtualService: a\..*
    when headers are end-user=jason
+7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
