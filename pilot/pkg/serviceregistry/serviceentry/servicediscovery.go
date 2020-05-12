@@ -99,15 +99,13 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 // kube registry controller also calls this function indirectly via the Share interface
 // When invoked via the kube registry controller, the old object is nil as the registry
 // controller does its own deduping and has no notion of object versions
-func getWorkloadEntryHandler(c *ServiceEntryStore) func(model.Config, model.Config, model.Event) {
-	return func(old, curr model.Config, event model.Event) {
-
-		wle := curr.Spec.(*networking.WorkloadEntry)
-		key := configKey{
-			kind:      workloadEntryConfigType,
-			name:      curr.Name,
-			namespace: curr.Namespace,
-		}
+func (s *ServiceEntryStore) workloadEntryHandler(old, curr model.Config, event model.Event) {
+	wle := curr.Spec.(*networking.WorkloadEntry)
+	key := configKey{
+		kind:      workloadEntryConfigType,
+		name:      curr.Name,
+		namespace: curr.Namespace,
+	}
 
 	// fire off the k8s handlers
 	if len(s.instanceHandlers) > 0 {
@@ -331,8 +329,8 @@ func (s *ServiceEntryStore) AppendServiceHandler(_ func(*model.Service, model.Ev
 }
 
 // AppendInstanceHandler adds instance event handler. Service Entries does not use these handlers.
-func (d *ServiceEntryStore) AppendInstanceHandler(h func(*model.ServiceInstance, model.Event)) error {
-	d.instanceHandlers = append(d.instanceHandlers, h)
+func (s *ServiceEntryStore) AppendInstanceHandler(h func(*model.ServiceInstance, model.Event)) error {
+	s.instanceHandlers = append(s.instanceHandlers, h)
 	return nil
 }
 

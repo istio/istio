@@ -738,7 +738,7 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 		return nil, nil
 	}
 
-	item, exists, err := c.services.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
+	item, exists, err := c.serviceInformer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
 	if err != nil {
 		log.Infof("get foreignServiceInstancesByPort(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, err
@@ -865,7 +865,7 @@ func (c *Controller) ForeignServiceInstanceHandler(si *model.ServiceInstance, ev
 		ObjectMeta: metav1.ObjectMeta{Namespace: si.Service.Attributes.Namespace, Labels: si.Endpoint.Labels},
 	}
 	// find the workload entry's service by label selector
-	if services, err := getPodServices(listerv1.NewServiceLister(c.services.GetIndexer()), dummyPod); err == nil && len(services) > 0 {
+	if services, err := getPodServices(listerv1.NewServiceLister(c.serviceInformer.GetIndexer()), dummyPod); err == nil && len(services) > 0 {
 		for _, svc := range services {
 			endpoints := make([]*model.IstioEndpoint, 0)
 			if event != model.EventDelete {
