@@ -29,6 +29,10 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 		return nil, err
 	}
 	dac := clusterDump.GetDynamicActiveClusters()
+	// Allow sorting to work even if we don't have the exact same type
+	for i := range dac {
+		dac[i].Cluster.TypeUrl = "type.googleapis.com/envoy.api.v2.Cluster"
+	}
 	sort.Slice(dac, func(i, j int) bool {
 		cluster := &xdsapi.Cluster{}
 		err = ptypes.UnmarshalAny(dac[i].Cluster, cluster)
