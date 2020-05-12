@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -62,24 +61,6 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (a *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
-	controlPlaneRevisions := make(map[string]bool)
-
-	// Gather revisions of control plane
-	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
-		pod := r.Message.(*v1.Pod)
-		if isControlPlane(pod) {
-			revision, ok := r.Metadata.Labels[model.RevisionLabel]
-			if ok {
-				controlPlaneRevisions[revision] = true
-			}
-		}
-		return true
-	})
-
-	revisions := make([]string, 0, len(controlPlaneRevisions))
-	for revision := range controlPlaneRevisions {
-		revisions = append(revisions, revision)
-	}
 
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
 
@@ -89,7 +70,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		injectionLabel := r.Metadata.Labels[InjectionLabelName]
-		newInjectionLabel, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
+		_, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
 
 		if injectionLabel == "" && !okNewInjectionLabel {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
@@ -105,14 +86,6 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 					msg.NewNamespaceMultipleInjectionLabels(r,
 						r.Metadata.FullName.String(),
 						r.Metadata.FullName.String()))
-				return true
-			}
-			if _, ok := controlPlaneRevisions[newInjectionLabel]; !ok {
-				c.Report(collections.K8SCoreV1Namespaces.Name(),
-					msg.NewNamespaceInvalidInjectorRevision(r,
-						newInjectionLabel,
-						r.Metadata.FullName.String(),
-						strings.Join(revisions, ", ")))
 				return true
 			}
 		} else if injectionLabel != InjectionLabelEnableValue {
@@ -151,19 +124,4 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 		return true
 	})
-}
-
-func isControlPlane(pod *v1.Pod) bool {
-	if pod.GetNamespace() != constants.IstioSystemNamespace {
-		return false
-	}
-
-	// Control plane typically has labels like this:
-	// app: istiod
-	// istio: pilot
-	// istio.io/rev: canary
-	// For the namespace analyzer we consider any istio-system pod with `app: istiod`
-	// as being a control plane.
-	app := pod.GetLabels()["app"]
-	return app == "istiod"
 }
