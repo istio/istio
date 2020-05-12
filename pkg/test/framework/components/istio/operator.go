@@ -237,8 +237,11 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 			// Expose Istiod through ingress to allow remote clusters to connect
 			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
 			if c.environment.IsMultinetwork() {
-				installSettings = append(installSettings, "-f", "$ISTIO/operator/data/examples/multicluster/values-istio-multicluster-gateways.yaml")
+				installSettings = append(installSettings, "-f", "operator/data/examples/multicluster/values-istio-multicluster-gateways.yaml")
 				defer func() {
+					if err != nil {
+						return
+					}
 					err = configureDNS(cluster, cfg)
 				}()
 			}
