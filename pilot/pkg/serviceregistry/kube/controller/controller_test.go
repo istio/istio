@@ -178,7 +178,7 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	go c.Run(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
 	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
-		c.services.HasSynced)
+		c.serviceInformer.HasSynced)
 	return c, fx
 }
 
