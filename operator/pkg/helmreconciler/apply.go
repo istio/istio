@@ -36,8 +36,7 @@ import (
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
-// waitUnitReady waits until all resources in the manifest are in a ready state.
-func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, waitUntilReady bool) (object.K8sObjects, int, error) {
+func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObjects, int, error) {
 	var processedObjects object.K8sObjects
 	var deployedObjects int
 	var errs util.Errors
@@ -128,20 +127,15 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, waitUntilReady bo
 			return processedObjects, 0, errs.ToError()
 		}
 
-		// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
-		// For example, for the validation webhook to become ready, so we should wait for it always.
-		if waitUntilReady || h.opts.Wait {
-			err := WaitForResources(processedObjects, h.restConfig, h.clientSet,
-				h.opts.WaitTimeout, h.opts.DryRun, plog)
-			if err != nil {
-				werr := fmt.Errorf("failed to wait for resource: %v", err)
-				plog.ReportError(werr.Error())
-				return processedObjects, 0, werr
-			}
-			plog.ReportFinished()
-		} else {
-			plog.ReportFinished()
+		err := WaitForResources(processedObjects, h.restConfig, h.clientSet,
+			h.opts.WaitTimeout, h.opts.DryRun, plog)
+		if err != nil {
+			werr := fmt.Errorf("failed to wait for resource: %v", err)
+			plog.ReportError(werr.Error())
+			return processedObjects, 0, werr
 		}
+		plog.ReportFinished()
+
 	}
 	return processedObjects, deployedObjects, nil
 }
