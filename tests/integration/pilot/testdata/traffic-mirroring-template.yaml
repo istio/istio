@@ -13,6 +13,6 @@ spec:
       mirror:
         host: {{.MirrorHost}}
 {{- if not .Absent }}
-      mirror_percentage: 
+      mirrorPercentage: 
         value: {{.Percent}}
 {{- end }}
