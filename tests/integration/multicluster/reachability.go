@@ -16,6 +16,8 @@ package multicluster
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -27,17 +29,12 @@ import (
 )
 
 // ReachabilityTest tests that services in 2 different clusters can talk to each other.
-func ReachabilityTest(t *testing.T, pilots []pilot.Instance) {
+func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("reachability").
 				Run(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
-						Prefix: "mc-reachability",
-						Inject: true,
-					})
-
 					// Deploy services in different clusters.
 					// There are more in the remote cluster to tease out cases where remote proxies inconsistently
 					// use different discovery servers.
@@ -50,6 +47,12 @@ func ReachabilityTest(t *testing.T, pilots []pilot.Instance) {
 						With(&e, newEchoConfig("e", ns, ctx.Environment().Clusters()[1], pilots)).
 						With(&f, newEchoConfig("f", ns, ctx.Environment().Clusters()[1], pilots)).
 						BuildOrFail(ctx)
+
+					ctx.Environment().Case(environment.Kube, func() {
+						if ctx.Environment().(*kube.Environment).IsMultinetwork() {
+							setupServiceEntries()
+						}
+					})
 
 					// Now verify that they can talk to each other.
 					for _, src := range []echo.Instance{a, b, c, d, e, f} {

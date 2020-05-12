@@ -185,6 +185,15 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
+	if env.IsMultinetwork() {
+		// enable cross network traffic
+		for _, cluster := range env.KubeClusters {
+			if err := createCrossNetworkGateway(cluster, cfg); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// Wait for all of the control planes to be started.
 	for _, cluster := range env.KubeClusters {
 		if err := waitForControlPlane(i, cluster, cfg); err != nil {
@@ -193,6 +202,29 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	return i, nil
+}
+
+func createCrossNetworkGateway(cluster kube.Cluster, cfg Config) error {
+	_, err := cluster.ApplyContents(cfg.SystemNamespace, fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: cross-network-gateway
+  namespace: %s
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: tls
+      protocol: TLS
+    tls:
+      mode: AUTO_PASSTHROUGH
+    hosts:
+    - "*.local"
+`, cfg.SystemNamespace))
+	return err
 }
 
 func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string) (err error) {
@@ -236,15 +268,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		if c.environment.IsControlPlaneCluster(cluster) {
 			// Expose Istiod through ingress to allow remote clusters to connect
 			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
-			if c.environment.IsMultinetwork() {
-				installSettings = append(installSettings, "-f", "operator/data/examples/multicluster/values-istio-multicluster-gateways.yaml")
-				defer func() {
-					if err != nil {
-						return
-					}
-					err = configureDNS(cluster, cfg)
-				}()
-			}
 		} else {
 			installSettings = append(installSettings, "--set", "profile=remote")
 			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
@@ -387,29 +410,6 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 			scopes.CI.Infof("failed to create CA secrets on cluster %s. This can happen when deploying "+
 				"multiple control planes. Error: %v", cluster.Name(), err)
 		}
-	}
-	return nil
-}
-
-func configureDNS(cluster kube.Cluster, cfg Config) error {
-	dnsSvc, err := cluster.GetService(cfg.SystemNamespace, "istiocoredns")
-	if err != nil {
-		return err
-	}
-	dnsIP := dnsSvc.Spec.ClusterIP
-
-	err = cluster.Apply("kube-system", fmt.Sprintf(`
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kube-dns
-  namespace: kube-system
-data:
-  stubDomains: |
-    {"global": ["%s"]}
-`, dnsIP))
-	if err != nil {
-		return err
 	}
 	return nil
 }

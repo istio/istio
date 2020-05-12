@@ -36,18 +36,19 @@ var (
 	retryDelay   = time.Millisecond * 100
 )
 
-func SetupClusterLocalNamespace(ctx resource.Context) (ns namespace.Instance, controlPlaneValues string, err error) {
-	// Create a cluster-local namespace.
-	ns, err = namespace.New(ctx, namespace.Config{
-		Prefix: "local",
-		Inject: true,
-	})
-	if err != nil {
-		return nil, "", err
-	}
+func Setup(controlPlaneValues *string, clusterLocalNS, mcReachabilityNS *namespace.Instance) func(ctx resource.Context) error {
+	return func(ctx resource.Context) (err error) {
+		// Create a cluster-local namespace.
+		if *clusterLocalNS, err = namespace.New(ctx, namespace.Config{Prefix: "local", Inject: true}); err != nil {
+			return err
+		}
+		// Create a cluster-local namespace.
+		if *mcReachabilityNS, err = namespace.New(ctx, namespace.Config{Prefix: "mc-reachability", Inject: true}); err != nil {
+			return err
+		}
 
-	// Set the cluster-local namespaces in the mesh config.
-	controlPlaneValues = fmt.Sprintf(`
+		// Set the cluster-local namespaces in the mesh config.
+		*controlPlaneValues = fmt.Sprintf(`
 values:
   meshConfig:
     serviceSettings: 
@@ -55,9 +56,10 @@ values:
           clusterLocal: true
         hosts:
           - "*.%s.svc.cluster.local"
-`,
-		ns.Name())
-	return
+`, (*clusterLocalNS).Name())
+
+		return
+	}
 }
 
 // SetupMultinetwork puts every cluster in the environment on it's own network unless otherwise specified.

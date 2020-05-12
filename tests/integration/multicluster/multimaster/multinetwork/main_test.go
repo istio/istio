@@ -15,7 +15,6 @@
 package multimaster
 
 import (
-	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -32,10 +31,10 @@ import (
 )
 
 var (
-	ist                istio.Instance
-	pilots             []pilot.Instance
-	clusterLocalNS     namespace.Instance
-	controlPlaneValues string
+	ist                              istio.Instance
+	pilots                           []pilot.Instance
+	clusterLocalNS, mcReachabilityNS namespace.Instance
+	controlPlaneValues               string
 )
 
 func TestMain(m *testing.M) {
@@ -44,33 +43,8 @@ func TestMain(m *testing.M) {
 		Label(label.Multicluster).
 		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
-		Setup(func(ctx resource.Context) (err error) {
-			// Create a cluster-local namespace.
-			ns, err := namespace.New(ctx, namespace.Config{
-				Prefix: "local",
-				Inject: true,
-			})
-			if err != nil {
-				return err
-			}
-
-			// Store the cluster-local namespace.
-			clusterLocalNS = ns
-
-			// Set the cluster-local namespaces in the mesh config.
-			controlPlaneValues = fmt.Sprintf(`
-values:
-  meshConfig:
-    serviceSettings: 
-      - settings:
-          clusterLocal: true
-        hosts:
-          - "*.%s.svc.cluster.local"
-`,
-				ns.Name())
-			return nil
-		}).
 		Setup(kube.Setup(multicluster.SetupMultinetwork)).
+		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
@@ -90,7 +64,7 @@ values:
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, pilots)
+	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots)
 }
 
 func TestClusterLocalService(t *testing.T) {

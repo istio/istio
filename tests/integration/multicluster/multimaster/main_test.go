@@ -29,10 +29,10 @@ import (
 )
 
 var (
-	ist                istio.Instance
-	pilots             []pilot.Instance
-	clusterLocalNS     namespace.Instance
-	controlPlaneValues string
+	ist                              istio.Instance
+	pilots                           []pilot.Instance
+	clusterLocalNS, mcReachabilityNS namespace.Instance
+	controlPlaneValues               string
 )
 
 func TestMain(m *testing.M) {
@@ -42,10 +42,7 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
 		Skip("multinetwork WIP").
-		Setup(func(ctx resource.Context) (err error) {
-			clusterLocalNS, controlPlaneValues, err = multicluster.SetupClusterLocalNamespace(ctx)
-			return
-		}).
+		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
@@ -65,7 +62,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, pilots)
+	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots)
 }
 
 func TestClusterLocalService(t *testing.T) {
