@@ -396,9 +396,8 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		c.Unlock()
 	}
 
-	if updatedNeeded {
-		// update all related services
-		c.updateServiceExternalAddr()
+	// update all related services
+	if updatedNeeded && c.updateServiceExternalAddr() {
 		c.xdsUpdater.ConfigUpdate(&model.PushRequest{
 			Full: true,
 		})
@@ -543,10 +542,14 @@ func (c *Controller) getNodePortGatewayServices() []*model.Service {
 }
 
 // updateServiceExternalAddr updates ClusterExternalAddresses for ingress gateway service of nodePort type
-func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
+func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) bool {
 	// node event, update all nodePort gateway services
 	if len(svcs) == 0 {
 		svcs = c.getNodePortGatewayServices()
+	}
+	// no nodePort gateway service found, no update
+	if len(svcs) == 0 {
+		return false
 	}
 	for _, svc := range svcs {
 		c.RLock()
@@ -571,6 +574,7 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 		}
 		svc.Mutex.Unlock()
 	}
+	return true
 }
 
 // getPodLocality retrieves the locality for a pod.
