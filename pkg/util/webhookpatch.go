@@ -15,16 +15,27 @@
 package util
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"time"
 
 	"k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+	"k8s.io/client-go/tools/cache"
+
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/webhooks/validation/controller"
 )
 
 // PatchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
@@ -63,4 +74,108 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 		_, err = client.Patch(context.TODO(), webhookConfigName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	}
 	return err
+}
+
+const delayedRetryTime = time.Second
+
+// Moved out of injector main. Changes:
+// - pass the existing k8s client
+// - use the K8S root instead of citadel root CA
+// - removed the watcher - the k8s CA is already mounted at startup, no more delay waiting for it
+func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string, client kubernetes.Interface, stopCh <-chan struct{}) error {
+	// K8S own CA
+	caCertPem, err := ioutil.ReadFile(caBundlePath)
+	if err != nil {
+		log.Warna("Skipping webhook patch, missing CA path ", caBundlePath)
+		return err
+	}
+
+	var retry bool
+	if err = PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+		injectionWebhookConfigName, webhookName, caCertPem); err != nil {
+		log.Warna("Error patching Webhook ", err)
+		retry = true
+	}
+
+	shouldPatch := make(chan struct{})
+
+	watchlist := cache.NewListWatchFromClient(
+		client.AdmissionregistrationV1beta1().RESTClient(),
+		"mutatingwebhookconfigurations",
+		"",
+		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", injectionWebhookConfigName)))
+
+	_, controller := cache.NewInformer(
+		watchlist,
+		&v1beta1.MutatingWebhookConfiguration{},
+		0,
+		cache.ResourceEventHandlerFuncs{
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				oldConfig := oldObj.(*v1beta1.MutatingWebhookConfiguration)
+				newConfig := newObj.(*v1beta1.MutatingWebhookConfiguration)
+
+				if oldConfig.ResourceVersion != newConfig.ResourceVersion {
+					for i, w := range newConfig.Webhooks {
+						if w.Name == webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
+							log.Infof("Detected a change in CABundle, patching MutatingWebhookConfiguration again")
+							shouldPatch <- struct{}{}
+							break
+						}
+					}
+				}
+			},
+		},
+	)
+	go controller.Run(stopCh)
+
+	go func() {
+		var delayedRetryC <-chan time.Time
+		if retry {
+			delayedRetryC = time.After(delayedRetryTime)
+		}
+
+		for {
+			select {
+			case <-delayedRetryC:
+				if retry := doPatch(client, injectionWebhookConfigName, webhookName, caCertPem); retry {
+					delayedRetryC = time.After(delayedRetryTime)
+				} else {
+					log.Infof("Retried patch succeeded")
+					delayedRetryC = nil
+				}
+			case <-shouldPatch:
+				if retry := doPatch(client, injectionWebhookConfigName, webhookName, caCertPem); retry {
+					if delayedRetryC == nil {
+						delayedRetryC = time.After(delayedRetryTime)
+					}
+				} else {
+					delayedRetryC = nil
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caCertPem []byte) (retry bool) {
+	client := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
+	if err := PatchMutatingWebhookConfig(client, webhookConfigName, webhookName, caCertPem); err != nil {
+		log.Errorf("Patch webhook failed: %v", err)
+		return true
+	}
+	log.Infof("Patched webhook %s", webhookName)
+	return false
+}
+
+func CreateValidationWebhookController(client kubernetes.Interface, dynamicInterface dynamic.Interface,
+	webhookConfigName, ns, caBundlePath string) *controller.Controller {
+	o := controller.Options{
+		WatchedNamespace:  ns,
+		CAPath:            caBundlePath,
+		WebhookConfigName: webhookConfigName,
+		ServiceName:       "istiod",
+	}
+	whController, _ := controller.New(o, client, dynamicInterface)
+	return whController
 }
