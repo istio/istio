@@ -51,9 +51,9 @@ func TestProgressLog(t *testing.T) {
 	// string buffer won't rewrite, so we append
 	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `.`)
 	bar.ReportProgress()
-	expect(`- Processing resources for components bar, foo.`)
+	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `.`)
 	bar.ReportProgress()
-	expect(`- Processing resources for components bar, foo.`)
+	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `.`)
 
 	bar.ReportWaiting([]string{"deployment"})
 	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `. Waiting for deployment`)
