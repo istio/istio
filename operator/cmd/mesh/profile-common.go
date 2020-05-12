@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	yaml2 "github.com/ghodss/yaml"
+	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
@@ -125,7 +125,6 @@ func parseYAMLFiles(inFilenames []string, force bool, l clog.Logger) (overlayYAM
 // files and the --set flag. If successful, it returns an IstioOperatorSpec string and struct.
 func genIOPSFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation bool,
 	kubeConfig *rest.Config, l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	//userOverlayYAML, err := util.OverlayYAML(fileOverlayYAML, setOverlayYAML)
 
 	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)
 	if err != nil {
@@ -330,7 +329,7 @@ func validateSetFlags(setFlags []string) error {
 // overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
 func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 	iop := make(map[string]interface{})
-	if err := yaml2.Unmarshal([]byte(iopYAML), &iop); err != nil {
+	if err := yaml.Unmarshal([]byte(iopYAML), &iop); err != nil {
 		return "", err
 	}
 	// Unmarshal returns nil for empty manifests but we need something to insert into.
@@ -351,7 +350,7 @@ func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 		}
 	}
 
-	out, err := yaml2.Marshal(iop)
+	out, err := yaml.Marshal(iop)
 	if err != nil {
 		return "", err
 	}
