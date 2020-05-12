@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/metadata"
@@ -75,14 +76,14 @@ var (
 	deleted string
 )
 
-func addCallback(_ kubernetes.Interface, _ metadata.Interface, id string) error {
+func addCallback(_ kubernetes.Interface, _ metadata.Interface, _ dynamic.Interface, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = id
 	return nil
 }
 
-func updateCallback(_ kubernetes.Interface, _ metadata.Interface, id string) error {
+func updateCallback(_ kubernetes.Interface, _ metadata.Interface, _ dynamic.Interface, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = id
