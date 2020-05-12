@@ -25,8 +25,6 @@ import (
 	"regexp"
 	"time"
 
-	"istio.io/istio/pkg/test/util/retry"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/cert/ca"
@@ -36,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
@@ -264,7 +263,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	cmd := []string{
 		"manifest", "apply",
 		"--skip-confirmation",
-		"--wait",
 	}
 	cmd = append(cmd, installSettings...)
 	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
