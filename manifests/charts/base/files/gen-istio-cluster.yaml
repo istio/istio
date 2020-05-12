@@ -22,7 +22,6 @@ spec:
     listKind: HTTPAPISpecList
     plural: httpapispecs
     singular: httpapispec
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -264,9 +263,6 @@ spec:
                 type: object
               type: array
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -295,7 +291,6 @@ spec:
     listKind: HTTPAPISpecBindingList
     plural: httpapispecbindings
     singular: httpapispecbinding
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -361,9 +356,6 @@ spec:
                 type: object
               type: array
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -392,7 +384,6 @@ spec:
     listKind: QuotaSpecList
     plural: quotaspecs
     singular: quotaspec
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -458,9 +449,6 @@ spec:
                 type: object
               type: array
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -489,7 +477,6 @@ spec:
     listKind: QuotaSpecBindingList
     plural: quotaspecbindings
     singular: quotaspecbinding
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -542,9 +529,6 @@ spec:
                 type: object
               type: array
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -588,7 +572,6 @@ spec:
     shortNames:
     - dr
     singular: destinationrule
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1679,9 +1662,6 @@ spec:
                   type: object
               type: object
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -1919,9 +1899,6 @@ spec:
                   type: object
               type: object
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -1952,7 +1929,6 @@ spec:
     shortNames:
     - gw
     singular: gateway
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2071,9 +2047,6 @@ spec:
                 type: object
               type: array
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -2129,7 +2102,6 @@ spec:
     shortNames:
     - se
     singular: serviceentry
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2235,9 +2207,6 @@ spec:
                   type: object
               type: object
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -2269,7 +2238,6 @@ spec:
     listKind: SidecarList
     plural: sidecars
     singular: sidecar
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2583,9 +2551,6 @@ spec:
                   type: object
               type: object
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -2636,7 +2601,6 @@ spec:
     shortNames:
     - vs
     singular: virtualservice
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3398,9 +3362,6 @@ spec:
                 type: object
               type: array
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3447,7 +3408,6 @@ spec:
     shortNames:
     - we
     singular: workloadentry
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3486,9 +3446,6 @@ spec:
               description: The load balancing weight associated with the endpoint.
               type: integer
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3522,7 +3479,6 @@ spec:
     listKind: attributemanifestList
     plural: attributemanifests
     singular: attributemanifest
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3569,9 +3525,6 @@ spec:
               format: string
               type: string
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -3779,9 +3732,6 @@ spec:
               description: Depends on adapter implementation.
               type: object
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -3844,9 +3794,6 @@ spec:
               format: string
               type: string
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -3877,7 +3824,6 @@ spec:
     listKind: ruleList
     plural: rules
     singular: rule
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4003,9 +3949,6 @@ spec:
                   type: object
               type: object
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -4035,7 +3978,6 @@ spec:
     listKind: ClusterRbacConfigList
     plural: clusterrbacconfigs
     singular: clusterrbacconfig
-  preserveUnknownFields: false
   scope: Cluster
   subresources:
     status: {}
@@ -4093,9 +4035,6 @@ spec:
               - ON_WITH_EXCLUSION
               type: string
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -4126,7 +4065,6 @@ spec:
     listKind: RbacConfigList
     plural: rbacconfigs
     singular: rbacconfig
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4184,9 +4122,6 @@ spec:
               - ON_WITH_EXCLUSION
               type: string
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -4217,7 +4152,6 @@ spec:
     listKind: ServiceRoleList
     plural: serviceroles
     singular: servicerole
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4298,9 +4232,6 @@ spec:
                 type: object
               type: array
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -4344,7 +4275,6 @@ spec:
     listKind: ServiceRoleBindingList
     plural: servicerolebindings
     singular: servicerolebinding
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4503,9 +4433,6 @@ spec:
                 type: object
               type: array
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -4535,7 +4462,6 @@ spec:
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
     singular: authorizationpolicy
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4706,9 +4632,6 @@ spec:
                   type: object
               type: object
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
@@ -4740,7 +4663,6 @@ spec:
     shortNames:
     - pa
     singular: peerauthentication
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4788,9 +4710,6 @@ spec:
                   type: object
               type: object
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
@@ -4822,7 +4741,6 @@ spec:
     shortNames:
     - ra
     singular: requestauthentication
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4899,9 +4817,6 @@ spec:
                   type: object
               type: object
           type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
