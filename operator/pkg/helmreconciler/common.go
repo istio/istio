@@ -18,6 +18,10 @@ import (
 	"io"
 	"strings"
 
+	jsonpatch "github.com/evanphx/json-patch"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/pkg/log"
 )
@@ -110,4 +114,21 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 	for k := range InstallTree[componentName].(ComponentTree) {
 		buildInstallTreeString(k, prefix+"  ", sb)
 	}
+}
+
+// applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
+func applyOverlay(current, overlay runtime.Object) error {
+	cj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, current)
+	if err != nil {
+		return err
+	}
+	uj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, overlay)
+	if err != nil {
+		return err
+	}
+	merged, err := jsonpatch.MergePatch(cj, uj)
+	if err != nil {
+		return err
+	}
+	return runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
 }
