@@ -323,6 +323,8 @@ spec:
       meshNetworks: {}
       enableHelmTest: false
       mountMtlsCerts: false
+    base:
+      validationURL: ""
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1

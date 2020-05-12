@@ -1902,6 +1902,14 @@ message KialiConfig {
   KialiServiceConfig service = 19;
 }
 
+message BaseConfig {
+   // For Helm2 use, adds the CRDs to templates.
+   google.protobuf.BoolValue enableCRDTemplates = 1;
+
+   // URL to use for validating webhook.
+   string validationURL = 2;
+}
+
 message Values {
   CNIConfig cni = 2;
 
@@ -1943,6 +1951,8 @@ message Values {
 
   // TODO can this import the real mesh config API?
   TypeInterface meshConfig = 36;
+
+  BaseConfig base = 37;
 }
 
 // GOTYPE: map[string]interface{}
