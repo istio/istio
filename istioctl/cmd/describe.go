@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
+	pilot_v1alpha3 "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -629,6 +630,18 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		if err != nil {
 			return nil, err
 		}
+		if listenerTyped.Name == pilot_v1alpha3.VirtualInboundListenerName {
+			for _, filterChain := range listenerTyped.FilterChains {
+				for _, filter := range filterChain.Filters {
+					hcm := &http_conn.HttpConnectionManager{}
+					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
+						return hcm, nil
+					}
+				}
+			}
+		}
+		// This next check is deprecated in 1.6 and can be removed when we remove
+		// the old config_dumps in support of https://github.com/istio/istio/issues/23042
 		if filter.Verify(listenerTyped) {
 			sockAddr := listenerTyped.Address.GetSocketAddress()
 			if sockAddr != nil {
