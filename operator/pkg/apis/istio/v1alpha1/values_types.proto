@@ -1913,6 +1913,11 @@ message BaseConfig {
   string validationURL = 2;
 }
 
+message IstiodRemoteConfig {
+  // URL to use for sidecar injector webhook.
+  string injectionURL = 1;
+}
+
 message Values {
   CNIConfig cni = 2;
 
@@ -1956,6 +1961,8 @@ message Values {
   TypeInterface meshConfig = 36;
 
   BaseConfig base = 37;
+
+  IstiodRemoteConfig istiodRemote = 38;
 }
 
 // GOTYPE: map[string]interface{}
