@@ -176,7 +176,6 @@ var testGrid = []testCase{
 			{msg.NamespaceNotInjected, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
-			{msg.NamespaceInvalidInjectorRevision, "Namespace pidgeon-test"},
 		},
 	},
 	{
