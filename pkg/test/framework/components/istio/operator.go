@@ -274,6 +274,10 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		return fmt.Errorf("manifest apply failed: %v", err)
 	}
 
+	if err := configureDNS(cluster, cfg); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -378,6 +382,29 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 			scopes.CI.Infof("failed to create CA secrets on cluster %s. This can happen when deploying "+
 				"multiple control planes. Error: %v", cluster.Name(), err)
 		}
+	}
+	return nil
+}
+
+func configureDNS(cluster kube.Cluster, cfg Config) error {
+	dnsSvc, err := cluster.GetService(cfg.SystemNamespace, "istiocoredns")
+	if err != nil {
+		return err
+	}
+	dnsIP := dnsSvc.Spec.ClusterIP
+
+	err = cluster.Apply("kube-system", fmt.Sprintf(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-dns
+  namespace: kube-system
+data:
+  stubDomains: |
+    {"global": ["%s"]}
+`, dnsIP))
+	if err != nil {
+		return err
 	}
 	return nil
 }
