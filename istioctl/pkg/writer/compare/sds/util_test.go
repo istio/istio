@@ -15,12 +15,9 @@
 package sdscompare
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"reflect"
 	"testing"
 
-	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 )
 
@@ -44,7 +41,6 @@ xO7AQk5MJcGg6cfE5wWAKU1ATjpK4CN+RTn8v8ODLoI2SW3pfsnXxm93O+pp9HN4
 +O+1PQtNUWhCfh+g6BN2mYo2OEZ8qGSxDlMZej4YOdVkW8PHmFZTK0w9iJKqM5o1
 V6g5gZlqSoRhICK09tpc
 -----END CERTIFICATE-----`
-	configDumpPath = "testdata/envoyconfigdumpsds.json"
 )
 
 var (
@@ -179,34 +175,3 @@ func secretItemPresent(item SecretItem, l []SecretItem) bool {
 }
 
 func filterNone(n string) bool { return true }
-
-func TestGetEnvoyActiveSecrets(t *testing.T) {
-	tests := []struct {
-		name            string
-		inputFile       string
-		wantErr         bool
-		expectedSecrets int
-	}{
-		{
-			name:            "normal config dump should parse into a secret",
-			inputFile:       configDumpPath,
-			expectedSecrets: 4,
-			wantErr:         false,
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			rawDump, _ := ioutil.ReadFile(tc.inputFile)
-			dump := &configdump.Wrapper{}
-			json.Unmarshal(rawDump, dump)
-
-			output, err := GetEnvoySecrets(dump)
-			if tc.wantErr != (err != nil) {
-				t.Errorf("expected error: %t, but got: %t, error: %v", tc.wantErr, err != nil, err)
-			}
-			if len(output) != tc.expectedSecrets {
-				t.Errorf("expected %d secrets, but got: %d", tc.expectedSecrets, len(output))
-			}
-		})
-	}
-}

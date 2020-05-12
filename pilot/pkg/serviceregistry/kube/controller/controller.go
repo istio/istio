@@ -167,11 +167,12 @@ type kubernetesNode struct {
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client         kubernetes.Interface
-	metadataClient metadata.Interface
-	queue          queue.Instance
-	services       cache.SharedIndexInformer
-	endpoints      kubeEndpointsController
+	client          kubernetes.Interface
+	metadataClient  metadata.Interface
+	queue           queue.Instance
+	serviceInformer cache.SharedIndexInformer
+	serviceLister   listerv1.ServiceLister
+	endpoints       kubeEndpointsController
 
 	nodeMetadataInformer cache.SharedIndexInformer
 	// Used to watch node accessible from remote cluster.
@@ -235,8 +236,9 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
 
-	c.services = sharedInformers.Core().V1().Services().Informer()
-	registerHandlers(c.services, c.queue, "Services", c.onServiceEvent)
+	c.serviceInformer = sharedInformers.Core().V1().Services().Informer()
+	c.serviceLister = sharedInformers.Core().V1().Services().Lister()
+	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
@@ -396,9 +398,8 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		c.Unlock()
 	}
 
-	if updatedNeeded {
-		// update all related services
-		c.updateServiceExternalAddr()
+	// update all related services
+	if updatedNeeded && c.updateServiceExternalAddr() {
 		c.xdsUpdater.ConfigUpdate(&model.PushRequest{
 			Full: true,
 		})
@@ -461,7 +462,7 @@ func compareEndpoints(a, b *v1.Endpoints) bool {
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	if !c.services.HasSynced() ||
+	if !c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
 		!c.nodeMetadataInformer.HasSynced() ||
@@ -483,7 +484,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 
-	go c.services.Run(stop)
+	go c.serviceInformer.Run(stop)
 	go c.pods.informer.Run(stop)
 	go c.nodeMetadataInformer.Run(stop)
 	go c.filteredNodeInformer.Run(stop)
@@ -491,7 +492,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	// To avoid endpoints without labels or ports, wait for sync.
 	cache.WaitForCacheSync(stop, c.nodeMetadataInformer.HasSynced, c.filteredNodeInformer.HasSynced,
 		c.pods.informer.HasSynced,
-		c.services.HasSynced)
+		c.serviceInformer.HasSynced)
 
 	go c.endpoints.Run(stop)
 
@@ -543,10 +544,14 @@ func (c *Controller) getNodePortGatewayServices() []*model.Service {
 }
 
 // updateServiceExternalAddr updates ClusterExternalAddresses for ingress gateway service of nodePort type
-func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
+func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) bool {
 	// node event, update all nodePort gateway services
 	if len(svcs) == 0 {
 		svcs = c.getNodePortGatewayServices()
+	}
+	// no nodePort gateway service found, no update
+	if len(svcs) == 0 {
+		return false
 	}
 	for _, svc := range svcs {
 		c.RLock()
@@ -571,6 +576,7 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 		}
 		svc.Mutex.Unlock()
 	}
+	return true
 }
 
 // getPodLocality retrieves the locality for a pod.
@@ -725,7 +731,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			}
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
-			if services, err := getPodServices(listerv1.NewServiceLister(c.services.GetIndexer()), pod); err == nil && len(services) > 0 {
+			if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
 				}
@@ -763,8 +769,7 @@ func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error
 	}
 
 	var services []*v1.Service
-	for i := range allServices {
-		service := allServices[i]
+	for _, service := range allServices {
 		if service.Spec.Selector == nil {
 			// services with nil selectors match nothing, not everything.
 			continue
@@ -799,8 +804,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	}
 
 	// Find the Service associated with the pod.
-	svcLister := listerv1.NewServiceLister(c.services.GetIndexer())
-	services, err := getPodServices(svcLister, dummyPod)
+	services, err := getPodServices(c.serviceLister, dummyPod)
 	if err != nil {
 		return nil, fmt.Errorf("error getting instances: %v", err)
 

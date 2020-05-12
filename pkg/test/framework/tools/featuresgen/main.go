@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,4 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package configdump
+package main
+
+import (
+	"istio.io/istio/pkg/test/framework/tools/featuresgen/cmd"
+)
+
+func main() {
+	cmd.Execute()
+}

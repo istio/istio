@@ -24,22 +24,21 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
-		in     string
-		want   string
-		values string
-		mesh   func(m *meshapi.MeshConfig)
+		in         string
+		want       string
+		setFlags   []string
+		inFilePath string
+		mesh       func(m *meshapi.MeshConfig)
 	}{
 		//"testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
@@ -48,13 +47,9 @@ func TestIntoResourceFile(t *testing.T) {
 		},
 		// verify cni
 		{
-			in:   "hello.yaml",
-			want: "hello.yaml.cni.injected",
-			values: `
-components:
-  cni:
-    enabled: true
-`,
+			in:       "hello.yaml",
+			want:     "hello.yaml.cni.injected",
+			setFlags: []string{"components.cni.enabled=true"},
 		},
 		{
 			in:   "hello-mtls-not-ready.yaml",
@@ -92,22 +87,14 @@ components:
 			want: "hello-multi.yaml.injected",
 		},
 		{
-			in:   "hello.yaml",
-			want: "hello-always.yaml.injected",
-			values: `
-values:
-  global:
-    imagePullPolicy: Always
-`,
+			in:       "hello.yaml",
+			want:     "hello-always.yaml.injected",
+			setFlags: []string{"values.global.imagePullPolicy=Always"},
 		},
 		{
-			in:   "hello.yaml",
-			want: "hello-never.yaml.injected",
-			values: `
-values:
-  global:
-    imagePullPolicy: Never
-`,
+			in:       "hello.yaml",
+			want:     "hello-never.yaml.injected",
+			setFlags: []string{"values.global.imagePullPolicy=Never"},
 		},
 		{
 			in:   "hello-ignore.yaml",
@@ -122,14 +109,9 @@ values:
 			want: "statefulset.yaml.injected",
 		},
 		{
-			in:   "enable-core-dump.yaml",
-			want: "enable-core-dump.yaml.injected",
-			values: `
-values:
-  global:
-    proxy:
-      enableCoreDump: true
-`,
+			in:       "enable-core-dump.yaml",
+			want:     "enable-core-dump.yaml.injected",
+			setFlags: []string{"values.global.proxy.enableCoreDump=true"},
 		},
 		{
 			in:   "enable-core-dump-annotation.yaml",
@@ -203,15 +185,12 @@ values:
 			// Verifies that parameters are applied properly when no annotations are provided.
 			in:   "traffic-params.yaml",
 			want: "traffic-params.yaml.injected",
-			values: `
-values:
-  global:
-    proxy:
-      includeIPRanges: "127.0.0.1/24,10.96.0.1/24"
-      excludeIPRanges: "10.96.0.2/24,10.96.0.3/24"
-      excludeInboundPorts: "4,5,6"
-      statusPort: 0
-  `,
+			setFlags: []string{
+				`values.global.proxy.includeIPRanges=127.0.0.1/24,10.96.0.1/24`,
+				`values.global.proxy.excludeIPRanges=10.96.0.2/24,10.96.0.3/24`,
+				`values.global.proxy.excludeInboundPorts=4,5,6`,
+				`values.global.proxy.statusPort=0`,
+			},
 		},
 		{
 			// Verifies that empty include lists are applied properly from parameters.
@@ -243,15 +222,12 @@ values:
 			// Verifies that the status params behave properly.
 			in:   "status_params.yaml",
 			want: "status_params.yaml.injected",
-			values: `
-values:
-  global:
-    proxy:
-      statusPort: 123
-      readinessInitialDelaySeconds: 100
-      readinessPeriodSeconds: 200
-      readinessFailureThreshold: 300
-  `,
+			setFlags: []string{
+				`values.global.proxy.statusPort=123`,
+				`values.global.proxy.readinessInitialDelaySeconds=100`,
+				`values.global.proxy.readinessPeriodSeconds=200`,
+				`values.global.proxy.readinessFailureThreshold=300`,
+			},
 		},
 		{
 			// Verifies that the status annotations override the params.
@@ -262,15 +238,12 @@ values:
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
 			in:   "kubevirtInterfaces.yaml",
 			want: "kubevirtInterfaces.yaml.injected",
-			values: `
-values:
-  global:
-    proxy:
-      statusPort: 123
-      readinessInitialDelaySeconds: 100
-      readinessPeriodSeconds: 200
-      readinessFailureThreshold: 300
-  `,
+			setFlags: []string{
+				`values.global.proxy.statusPort=123`,
+				`values.global.proxy.readinessInitialDelaySeconds=100`,
+				`values.global.proxy.readinessPeriodSeconds=200`,
+				`values.global.proxy.readinessFailureThreshold=300`,
+			},
 		},
 		{
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
@@ -279,25 +252,15 @@ values:
 		},
 		{
 			// Verifies that global.podDNSSearchNamespaces are applied properly
-			in:   "hello.yaml",
-			want: "hello-template-in-values.yaml.injected",
-			values: `
-values:
-  global:
-    podDNSSearchNamespaces:
-    - "global"
-    - "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
-  `,
+			in:         "hello.yaml",
+			want:       "hello-template-in-values.yaml.injected",
+			inFilePath: "hello-template-in-values-iop.yaml",
 		},
 		{
 			// Verifies that global.mountMtlsCerts is applied properly
-			in:   "hello.yaml",
-			want: "hello-mount-mtls-certs.yaml.injected",
-			values: `
-values:
-  global:
-    mountMtlsCerts: true
-  `,
+			in:       "hello.yaml",
+			want:     "hello-mount-mtls-certs.yaml.injected",
+			setFlags: []string{`values.global.mountMtlsCerts=true`},
 		},
 	}
 
@@ -310,7 +273,7 @@ values:
 			if c.mesh != nil {
 				c.mesh(&m)
 			}
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, c.values)
+			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, c.setFlags, c.inFilePath)
 			inputFilePath := "testdata/inject/" + c.in
 			wantFilePath := "testdata/inject/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -404,7 +367,7 @@ func TestRewriteAppProbe(t *testing.T) {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
 			m := mesh.DefaultMeshConfig()
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, "")
+			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, nil, "")
 			inputFilePath := "testdata/inject/app_probe/" + c.in
 			wantFilePath := "testdata/inject/app_probe/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -458,7 +421,7 @@ func TestInvalidAnnotations(t *testing.T) {
 	m := mesh.DefaultMeshConfig()
 	for _, c := range cases {
 		t.Run(c.annotation, func(t *testing.T) {
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, "")
+			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, nil, "")
 			inputFilePath := "testdata/inject/" + c.in
 			in, err := os.Open(inputFilePath)
 			if err != nil {

@@ -193,10 +193,13 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			return nil
 		case err == nil:
 			scope.Infof("updating resource: %s", objectStr)
-			// Kubernetes enforces read-modify-write so we need to set the resource version
-			obj.SetResourceVersion(receiver.GetResourceVersion())
-			updateErr := h.client.Update(context.TODO(), obj)
-			return updateErr
+			// The correct way to do this is with a server-side apply. However, this requires users to be running Kube 1.16.
+			// When we no longer support < 1.16 use the code described in the linked issue.
+			// https://github.com/kubernetes-sigs/controller-runtime/issues/347
+			if err := applyOverlay(receiver, obj); err != nil {
+				return err
+			}
+			return h.client.Update(context.TODO(), receiver)
 		}
 		return nil
 	})
