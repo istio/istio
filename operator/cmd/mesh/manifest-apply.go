@@ -45,7 +45,7 @@ type manifestApplyArgs struct {
 	kubeConfigPath string
 	// context is the cluster context in the kube config
 	context string
-	// wait is flag that indicates whether to wait resources ready before exiting. DEPRECATED in 1.6.
+	// Deprecated: wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
 	// readinessTimeout is maximum time to wait for all Istio resources to be ready. wait must be true for this setting
 	// to take effect.
