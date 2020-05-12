@@ -21,13 +21,6 @@ spec:
   components:
     base:
       enabled: true
-    citadel:
-      enabled: false
-      k8s:
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
     cni:
       enabled: false
     egressGateways:
@@ -163,8 +156,6 @@ spec:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
-    proxy:
-      enabled: false
     telemetry:
       enabled: false
       k8s:

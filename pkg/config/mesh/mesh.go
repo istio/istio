@@ -48,7 +48,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		DrainDuration:          types.DurationProto(45 * time.Second),
 		ParentShutdownDuration: types.DurationProto(60 * time.Second),
 		ProxyAdminPort:         15000,
-		Concurrency:            2,
+		Concurrency:            &types.Int32Value{Value: 2},
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		DiscoveryAddress:       "istiod.istio-system.svc:15012",
 		Tracing: &meshconfig.Tracing{
