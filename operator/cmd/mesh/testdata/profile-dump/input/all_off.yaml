@@ -9,7 +9,5 @@ spec:
       enabled: false
     telemetry:
       enabled: false
-    proxy:
-      enabled: false
     cni:
       enabled: false

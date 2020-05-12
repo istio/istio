@@ -107,15 +107,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-    # Security feature
-    citadel:
-      enabled: false
-      k8s:
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
