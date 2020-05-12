@@ -199,7 +199,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			if err := applyOverlay(receiver, obj); err != nil {
 				return err
 			}
-			return h.client.Update(context.TODO(), obj)
+			return h.client.Update(context.TODO(), receiver)
 		}
 		return nil
 	})
