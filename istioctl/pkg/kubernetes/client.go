@@ -189,7 +189,7 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[str
 
 // EnvoyDo makes an http request to the Envoy in the specified pod
 func (client *Client) EnvoyDo(podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
-	fw, err := client.BuildPortForwarder(podName, podNamespace, "", 0, 15000)
+	fw, err := client.BuildPortForwarder(podName, podNamespace, "127.0.0.1", 0, 15000)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +352,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 func (client *Client) BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*PortForward, error) {
 	var err error
 	if localPort == 0 {
-		localPort, err = availablePort()
+		localPort, err = availablePort(localAddr)
 		if err != nil {
 			return nil, fmt.Errorf("failure allocating port: %v", err)
 		}
@@ -399,8 +399,8 @@ func (client *Client) BuildPortForwarder(podName string, ns string, localAddr st
 	}, nil
 }
 
-func availablePort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", ":0")
+func availablePort(localAddr string) (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", localAddr+":0")
 	if err != nil {
 		return 0, err
 	}
@@ -413,6 +413,7 @@ func availablePort() (int, error) {
 	return port, l.Close()
 }
 
+// PodsForSelector finds pods matching selector
 func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
 	podGet := client.Get().Resource("pods").Namespace(namespace).Param("labelSelector", labelSelector)
 	obj, err := podGet.Do(context.TODO()).Get()
@@ -422,6 +423,7 @@ func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodL
 	return obj.(*v1.PodList), nil
 }
 
+// RunPortForwarder runs a port forwarder
 func RunPortForwarder(fw *PortForward, readyFunc func(fw *PortForward) error) error {
 
 	errCh := make(chan error, 1)
