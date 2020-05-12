@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package progress
 
 import (
 	"bytes"
 	"io"
 	"testing"
+
+	"istio.io/istio/operator/pkg/name"
 )
 
 func TestProgressLog(t *testing.T) {
@@ -35,31 +37,35 @@ func TestProgressLog(t *testing.T) {
 		expected = newExpected
 	}
 
-	p := NewProgressLog()
-	foo := p.NewComponent("foo")
+	p := NewLog()
+	cnp := name.PilotComponentName
+	cnpo := name.UserFacingComponentName(cnp)
+	cnb := name.IstioBaseComponentName
+	cnbo := name.UserFacingComponentName(cnb)
+	foo := p.NewComponent(string(cnp))
 	foo.ReportProgress()
-	expect(`- Processing resources for components foo.`)
+	expect(`- Processing resources for ` + cnpo + `.`)
 
-	bar := p.NewComponent("bar")
+	bar := p.NewComponent(string(cnb))
 	bar.ReportProgress()
 	// string buffer won't rewrite, so we append
-	expect(`- Processing resources for components bar, foo.`)
+	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `.`)
 	bar.ReportProgress()
-	expect(`- Processing resources for components bar, foo.`)
+	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `.`)
 	bar.ReportProgress()
-	expect(`- Processing resources for components bar, foo.`)
+	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `.`)
 
 	bar.ReportWaiting([]string{"deployment"})
-	expect(`- Processing resources for components bar, foo. Waiting for deployment`)
+	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `. Waiting for deployment`)
 
 	bar.ReportError("some error")
-	expect(`✘ Component bar encountered an error: some error`)
+	expect(`✘ ` + cnbo + ` encountered an error: some error`)
 
 	foo.ReportProgress()
-	expect(`- Processing resources for components foo.`)
+	expect(`- Processing resources for ` + cnpo + `.`)
 
 	foo.ReportFinished()
-	expect(`✔ Component foo installed`)
+	expect(`✔ ` + cnpo + ` installed`)
 
 	p.SetState(StatePruning)
 	expect(`- Pruning removed resources`)
