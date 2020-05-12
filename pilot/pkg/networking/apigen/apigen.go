@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 
 	gogotypes "github.com/gogo/protobuf/types"
 	golangany "github.com/golang/protobuf/ptypes/any"
+
 	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -66,6 +67,9 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	// We use: networking.istio.io/v1alpha3/EnvoyFilter
 	gvk := strings.SplitN(w.TypeUrl, "/", 3)
 	if len(gvk) == 3 {
+		// TODO: extra validation may be needed - at least logging that a resource
+		// of unknown type was requested. This should not be an error - maybe client asks
+		// for a valid CRD we just don't know about. An empty set indicates we have no such config.
 		rgvk := resource.GroupVersionKind{
 			Group:   gvk[0],
 			Version: gvk[1],
@@ -75,7 +79,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			meshAny, err := gogotypes.MarshalAny(push.Mesh)
 			if err == nil {
 				resp = append(resp, &golangany.Any{
-					TypeUrl: w.TypeUrl,
+					TypeUrl: meshAny.TypeUrl,
 					Value:   meshAny.Value,
 				})
 			}

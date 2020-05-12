@@ -139,12 +139,6 @@ type ADSC struct {
 const (
 	typePrefix = "type.googleapis.com/envoy.api.v2."
 
-	// Constants used for XDS
-
-	// ClusterType is used for cluster discovery. Typically first request received
-	ClusterType = typePrefix + "Cluster"
-	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
-	endpointType = typePrefix + "ClusterLoadAssignment"
 	// ListenerType is sent after clusters and endpoints.
 	ListenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
