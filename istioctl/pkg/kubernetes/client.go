@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -38,6 +39,7 @@ import (
 
 	"istio.io/api/label"
 
+	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -141,12 +143,22 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 // ProxyGet returns a response of the pod by calling it through the proxy.
 // Not a part of client-go https://github.com/kubernetes/kubernetes/issues/90768
 func (client *Client) proxyGet(name, namespace, path string, port int) rest.ResponseWrapper {
+	pathURL, err := url.Parse(path)
+	if err != nil {
+		log.Errorf("failed to parse path %s: %v", path, err)
+		pathURL = &url.URL{Path: path}
+	}
 	request := client.RESTClient.Get().
 		Namespace(namespace).
 		Resource("pods").
 		SubResource("proxy").
 		Name(fmt.Sprintf("%s:%d", name, port)).
-		Suffix(path)
+		Suffix(pathURL.Path)
+	for key, vals := range pathURL.Query() {
+		for _, val := range vals {
+			request = request.Param(key, val)
+		}
+	}
 	return request
 }
 
