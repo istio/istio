@@ -414,6 +414,9 @@ spec:
             enabled: true
           useAdapterCRDs: false
 
+    istiodRemote:
+      injectionURL: ""
+      
     gateways:
       istio-egressgateway:
         zvpn: {}
@@ -466,7 +469,6 @@ spec:
       objectSelector:
         enabled: false
         autoInject: true
-      injectionURL: ""
 
     prometheus:
       hub: docker.io/prom
