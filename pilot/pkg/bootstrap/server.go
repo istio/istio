@@ -49,7 +49,6 @@ import (
 	"istio.io/pkg/version"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -895,15 +894,10 @@ func (s *Server) initControllers(args *PilotArgs) error {
 // initNamespaceController initializes namespace controller to sync config map.
 func (s *Server) initNamespaceController(args *PilotArgs) {
 	if s.ca != nil && s.kubeClient != nil {
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient).
-				AddRunFunction(func(stop <-chan struct{}) {
-					log.Infof("Starting namespace controller")
-					nc := kubecontroller.NewNamespaceController(s.fetchCARoot, args.Config.ControllerOptions, s.kubeClient)
-					nc.Run(stop)
-				}).
-				Run(stop)
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			log.Infof("Starting namespace controller")
+			nc := kubecontroller.NewNamespaceController(s.fetchCARoot, args.Config.ControllerOptions, s.kubeClient)
+			nc.Run(stop)
 			return nil
 		})
 	}

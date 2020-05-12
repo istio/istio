@@ -22,6 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"istio.io/pkg/log"
 )
 
 // InsertDataToConfigMap inserts a data to a configmap in a namespace.
@@ -42,7 +44,22 @@ func InsertDataToConfigMap(client corev1.ConfigMapsGetter, meta metav1.ObjectMet
 			Data:       data,
 		}
 		if _, err = client.ConfigMaps(meta.Namespace).Create(context.TODO(), configmap, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("error when creating configmap %v: %v", meta.Name, err)
+			if errors.IsNotFound(err) {
+				// Namespace not found, ignore
+				return nil
+			}
+			if errors.IsForbidden(err) {
+				// This may happen if the namespace is deleting, or if we do not have RBAC permissions
+				// In both cases, this is not retryable.
+				// Warn here for visibility; if they get RBAC permissions later it will be handled by the resync
+				log.Warnf("failed to create namespace in %v: %v", meta.Namespace, err)
+				return nil
+			}
+			if errors.IsAlreadyExists(err) {
+				// Another instance may have created this
+				return nil
+			}
+			return fmt.Errorf("error when creating configmap %v: %+v", meta.Name, err)
 		}
 	} else {
 		// Otherwise, update the config map if changes are required
@@ -78,6 +95,10 @@ func UpdateDataInConfigMap(client corev1.ConfigMapsGetter, cm *v1.ConfigMap, dat
 		return nil
 	}
 	if _, err := client.ConfigMaps(cm.Namespace).Update(context.TODO(), cm, metav1.UpdateOptions{}); err != nil {
+		if errors.IsConflict(err) {
+			log.Warnf("conflict updating configmap for %v", cm.Namespace)
+			return nil
+		}
 		return fmt.Errorf("error when updating configmap %v: %v", cm.Name, err)
 	}
 	return nil
