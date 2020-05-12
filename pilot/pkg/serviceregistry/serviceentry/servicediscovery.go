@@ -276,7 +276,7 @@ func (s *ServiceEntryStore) ForeignServiceInstanceHandler(si *model.ServiceInsta
 		if old, exists := s.foreignRegistryInstancesByIP[si.Endpoint.Address]; exists {
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
-			if model.CompareForeignServiceInstances(old, si) {
+			if model.ForeignSeviceInstancesEqual(old, si) {
 				// ignore the udpate as nothing has changed
 				redundantEventForPod = true
 			}

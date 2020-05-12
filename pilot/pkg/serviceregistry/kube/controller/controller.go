@@ -212,7 +212,7 @@ type Controller struct {
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
 
-	// service instances from workload entries  - map of ip -> service instance]=
+	// service instances from workload entries  - map of ip -> service instance
 	foreignRegistryInstancesByIP map[string]*model.ServiceInstance
 }
 
@@ -729,7 +729,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 }
 
 func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvcPort int) ([]*model.ServiceInstance, error) {
-	// Run through all the foreign instances, select ones that match these labels
+	// Run through all the foreign instances, select ones that match the service labels
 	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
 	// as InstancesByPort is called by the aggregate controller. We dont want to include
 	// foreign instances for any other registry
@@ -750,7 +750,7 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 
 	k8sService := item.(*v1.Service)
 	if k8sService.Spec.Selector == nil {
-		// this shouldn't be possible as we already check for resolution above. But just in case
+		// services with nil selectors match nothing, not everything.
 		return nil, nil
 	}
 	selector := klabels.Set(k8sService.Spec.Selector).AsSelectorPreValidated()
@@ -854,13 +854,6 @@ func (c *Controller) ForeignServiceInstanceHandler(si *model.ServiceInstance, ev
 	case model.EventDelete:
 		delete(c.foreignRegistryInstancesByIP, si.Endpoint.Address)
 	default: // add or update
-		if old, exists := c.foreignRegistryInstancesByIP[si.Endpoint.Address]; exists {
-			// ignore spurious updates
-			if model.CompareForeignServiceInstances(old, si) {
-				// ignore the udpate as nothing has changed
-				redundantEventForInstance = true
-			}
-		}
 		c.foreignRegistryInstancesByIP[si.Endpoint.Address] = si
 	}
 	c.Unlock()

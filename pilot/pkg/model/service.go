@@ -236,14 +236,14 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 
 // a custom comparison of foreign service instances based on the fields that we need
 // i.e. excluding the ports. Returns true if equal, false otherwise.
-func CompareForeignServiceInstances(first, second *ServiceInstance) bool {
-	if first.Endpoint == nil && second.Endpoint == nil {
-		return true
-	}
+func ForeignSeviceInstancesEqual(first, second *ServiceInstance) bool {
 	if first.Endpoint == nil || second.Endpoint == nil {
-		return false
+		return first.Endpoint == second.Endpoint
 	}
 	if first.Endpoint.Address != second.Endpoint.Address {
+		return false
+	}
+	if first.Endpoint.Network != second.Endpoint.Network {
 		return false
 	}
 	if first.Endpoint.TLSMode != second.Endpoint.TLSMode {
