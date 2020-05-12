@@ -32,11 +32,6 @@ func TestConfigWriter_Prime(t *testing.T) {
 		wantErr     bool
 	}{
 		{
-			name:        "load in the config dump",
-			wantConfigs: 4,
-			inputFile:   "testdata/configdump.json",
-		},
-		{
 			name:        "errors if unable to unmarshal bytes",
 			inputFile:   "",
 			wantConfigs: 0,
