@@ -204,6 +204,10 @@ spec:
     # Istio CNI feature
     cni:
       enabled: false
+    
+    # istiod remote configuration wwhen istiod isn't installed on the cluster
+    istiodRemote:
+      enabled: false
 
   addonComponents:
     prometheus:
@@ -462,6 +466,7 @@ spec:
       objectSelector:
         enabled: false
         autoInject: true
+      injectionURL: ""
 
     prometheus:
       hub: docker.io/prom

@@ -1547,6 +1547,9 @@ message SidecarInjectorConfig {
 
   // Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
   TypeMapStringInterface objectSelector = 21;
+
+  // Configure the injection url for sidecar injector webhook
+  string injectionURL = 22;
 }
 
 // Configuration for stdio adapter in mixer, recommended for debug usage only.
