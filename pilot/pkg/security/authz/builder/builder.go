@@ -64,11 +64,11 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 	var filters []*httppb.HttpFilter
 
 	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
-		false /* forTCP */, true /* forDeny */, b.isIstioVersionGE15); denyConfig != nil {
+		false /* forHTTP */, true /* forDeny */, b.isIstioVersionGE15); denyConfig != nil {
 		filters = append(filters, createHTTPFilter(denyConfig))
 	}
 	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
-		false /* forTCP */, false /* forDeny */, b.isIstioVersionGE15); allowConfig != nil {
+		false /* forHTTP */, false /* forAllow */, b.isIstioVersionGE15); allowConfig != nil {
 		filters = append(filters, createHTTPFilter(allowConfig))
 	}
 
@@ -84,7 +84,7 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 		filters = append(filters, createTCPFilter(denyConfig))
 	}
 	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
-		true /* forTCP */, false /* forDeny */, b.isIstioVersionGE15); allowConfig != nil {
+		true /* forTCP */, false /* forAllow */, b.isIstioVersionGE15); allowConfig != nil {
 		filters = append(filters, createTCPFilter(allowConfig))
 	}
 
