@@ -10,7 +10,7 @@ Adding a label to a test using the integration framework is easy.  Simply call t
 
 ## Adding New Feature Constants
 
-For consistency, feature constants are generated from `features.yaml`.  Each entry in this file will be generated into a dot delimited feature label.  For instance:
+For consistency, features must be registerd in  `features.yaml`, or your test will fail.  Each entry in this file will be equivalent to a dot delimited feature label.  For instance:
 
 ```yaml
     foo:
@@ -19,13 +19,11 @@ For consistency, feature constants are generated from `features.yaml`.  Each ent
         boo
 ```
 
-will generate constants like
+will allow features like
 
 ```go
-    const (
-        foo_bar = "foo.bar"
-        boo_baz_boo = "foo.baz.boo"
-    )
+    "foo.bar"
+    "foo.baz.boo"
 ```
 
 The heirarchical nature of feature labels allows us to aggregate data about related feature sets.  To provide for consistent reporting and aggregation, we have defined the top two layers of heirarchy, and ask that you place your feature under these headings.  For more detail on the purpose of each heading, see Top-Level Feature Headings below.  If you feel that none of the existing headings fit your feature, please check with the Test and Release Working Group before adding a new heading.
