@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go run ../tools/featuresgen/main.go
+package main
 
-package features
+import (
+	"istio.io/istio/pkg/test/framework/tools/featuresgen/cmd"
+)
+
+func main() {
+	cmd.Execute()
+}
