@@ -397,7 +397,7 @@ func translateStrategy(fieldName string, outPath string, value interface{}, cpSp
 // translateHPASpec translates HPA related configurations from helm values.yaml tree.
 // do not translate if autoscaleEnabled is explicitly set to false
 func translateHPASpec(inPath string, outPath string, valueTree map[string]interface{}, cpSpecTree map[string]interface{}) error {
-	m, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
+	m, found, err := tpath.Find(valueTree, util.ToYAMLPath(inPath))
 	if err != nil {
 		return err
 	}
@@ -420,7 +420,7 @@ func translateHPASpec(inPath string, outPath string, valueTree map[string]interf
 	}
 	for key, newVal := range valMap {
 		valPath := newPS + key
-		asVal, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(valPath))
+		asVal, found, err := tpath.Find(valueTree, util.ToYAMLPath(valPath))
 		if found && err == nil {
 			if err := setOutputAndClean(valPath, outPath+newVal, asVal, valueTree, cpSpecTree, true); err != nil {
 				return err
@@ -428,7 +428,7 @@ func translateHPASpec(inPath string, outPath string, valueTree map[string]interf
 		}
 	}
 	valPath := newPS + ".cpu.targetAverageUtilization"
-	asVal, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(valPath))
+	asVal, found, err := tpath.Find(valueTree, util.ToYAMLPath(valPath))
 	if found && err == nil {
 		rs := make([]interface{}, 1)
 		rsVal := `
@@ -481,7 +481,7 @@ func setOutputAndClean(valPath, outPath string, outVal interface{}, valueTree, c
 	if !clean {
 		return nil
 	}
-	if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(valPath), util.ToYAMLPath(valPath)); err != nil {
+	if _, err := tpath.Delete(valueTree, util.ToYAMLPath(valPath)); err != nil {
 		return err
 	}
 	return nil
@@ -524,7 +524,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			}
 			continue
 		}
-		m, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
+		m, found, err := tpath.Find(valueTree, util.ToYAMLPath(inPath))
 		if err != nil {
 			return err
 		}
@@ -566,7 +566,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			}
 		}
 
-		if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(inPath), util.ToYAMLPath(inPath)); err != nil {
+		if _, err := tpath.Delete(valueTree, util.ToYAMLPath(inPath)); err != nil {
 			return err
 		}
 	}
@@ -610,7 +610,7 @@ func (t *ReverseTranslator) translateAPI(valueTree map[string]interface{},
 	cpSpecTree map[string]interface{}) error {
 	for inPath, v := range t.APIMapping {
 		scope.Debugf("Checking for path %s in helm Value.yaml tree", inPath)
-		m, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
+		m, found, err := tpath.Find(valueTree, util.ToYAMLPath(inPath))
 		if err != nil {
 			return err
 		}
@@ -636,7 +636,7 @@ func (t *ReverseTranslator) translateAPI(valueTree map[string]interface{},
 			return err
 		}
 
-		if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(inPath), util.ToYAMLPath(inPath)); err != nil {
+		if _, err := tpath.Delete(valueTree, util.ToYAMLPath(inPath)); err != nil {
 			return err
 		}
 	}

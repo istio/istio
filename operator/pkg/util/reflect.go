@@ -271,6 +271,19 @@ func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) er
 	return nil
 }
 
+// DeleteFromMap deletes an entry with the given key parent, which must be a map.
+func DeleteFromMap(parentMap interface{}, key interface{}) error {
+	scope.Debugf("DeleteFromMap key=%s, parent:\n%s\n", key, pretty.Sprint(parentMap))
+	pv := reflect.ValueOf(parentMap)
+
+	if !IsMap(parentMap) {
+		return fmt.Errorf("deleteFromMap parent type is %T, must be map", parentMap)
+	}
+	pv.SetMapIndex(reflect.ValueOf(key), reflect.Value{})
+
+	return nil
+}
+
 // ToIntValue returns 0, false if val is not a number type, otherwise it returns the int value of val.
 func ToIntValue(val interface{}) (int, bool) {
 	if IsValueNil(val) {
