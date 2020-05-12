@@ -41,6 +41,7 @@ func TestMain(m *testing.M) {
 		Label(label.Multicluster).
 		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
+		Skip("multinetwork WIP").
 		Setup(func(ctx resource.Context) (err error) {
 			clusterLocalNS, controlPlaneValues, err = multicluster.SetupClusterLocalNamespace(ctx)
 			return
