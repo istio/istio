@@ -45,6 +45,14 @@ func TestMain(m *testing.M) {
 		RequireMinClusters(2).
 		Setup(kube.Setup(multicluster.SetupMultinetwork)).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
+		Setup(kube.Setup(func(s *kube.Settings) {
+			// Make all clusters use the same control plane
+			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
+			primaryCluster := resource.ClusterIndex(0)
+			for i := 0; i < len(s.KubeConfig); i++ {
+				s.ControlPlaneTopology[resource.ClusterIndex(i)] = primaryCluster
+			}
+		})).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues

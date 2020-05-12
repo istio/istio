@@ -35,7 +35,6 @@ var (
 	pilots                           []pilot.Instance
 	clusterLocalNS, mcReachabilityNS namespace.Instance
 	controlPlaneValues               string
-	nClusters                        int
 )
 
 func TestMain(m *testing.M) {
@@ -50,7 +49,7 @@ func TestMain(m *testing.M) {
 			// Make all clusters use the same control plane
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
 			primaryCluster := resource.ClusterIndex(0)
-			for i := 0; i < nClusters; i++ {
+			for i := 0; i < len(s.KubeConfig); i++ {
 				s.ControlPlaneTopology[resource.ClusterIndex(i)] = primaryCluster
 			}
 		})).
