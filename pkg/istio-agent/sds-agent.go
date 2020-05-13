@@ -85,10 +85,12 @@ var (
 	// this may be replaced with ./etc/certs, if a root-cert.pem is found, to
 	// handle secrets mounted from non-citadel CAs.
 	CitadelCACertPath = "./var/run/secrets/istio"
+
+	fileMountedCertsEnv = env.RegisterBoolVar(fileMountedCerts, false, "").Get()
 )
 
 const (
-	// name of authentication provider. Specify empty if proxy uses file mounted certs and provisioning is not needed.
+	// name of authentication provider.
 	caProvider = "CA_PROVIDER"
 
 	// CA endpoint.
@@ -132,6 +134,9 @@ const (
 	// The type of Elliptical Signature algorithm to use
 	// when generating private keys. Currently only ECDSA is supported.
 	eccSigAlg = "ECC_SIGNATURE_ALGORITHM"
+
+	// Indicates whether proxy uses file mounted certificates.
+	fileMountedCerts = "FILE_MOUNTED_CERTS"
 )
 
 var (
@@ -206,7 +211,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	a.SDSAddress = "unix:" + LocalSDS
 	a.ClusterID = clusterID
 
-	// If a workload is using file mounted certs i,e, CA Provider is not set, we do not to have to initialize CA.
+	// If a workload is using file mounted certs, we do not to have to initialize CA.
 	if !shouldProvisionCertificates() {
 		log.Info("Workload is using file mounted certificates. Skipping CA initialization")
 		return a
@@ -519,7 +524,7 @@ func applyEnvVars() {
 }
 
 // shouldProvisionCertificates returns true if certs needs to be provisioned for the workload/gateway.
-// Returns flase, when proxy uses file mounted certificates i.e. CA_PROVIDER is empty.
+// Returns flase, when proxy uses file mounted certificates i.e. FILE_MOUNTED_CERTS is true.
 func shouldProvisionCertificates() bool {
-	return len(caProviderEnv) > 0
+	return !fileMountedCertsEnv
 }

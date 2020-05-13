@@ -19,9 +19,9 @@ import (
 )
 
 func TestSDSAgentWithEmptyCAProvider(t *testing.T) {
-	ca := caProviderEnv
-	caProviderEnv = ""
-	defer func() { caProviderEnv = ca }()
+	fm := fileMountedCertsEnv
+	fileMountedCertsEnv = true
+	defer func() { fileMountedCertsEnv = fm }()
 	// Validate that SDS server can start without any error.
 	sa := NewSDSAgent("istiod.istio-system:15012", false, "custom", "", "", "kubernetes")
 	_, err := sa.Start(true, "test")
