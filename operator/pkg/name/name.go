@@ -111,7 +111,6 @@ var (
 		IstiodRemoteComponentName: true,
 	}
 
-	allComponentNamesMap = make(map[ComponentName]bool)
 	// DeprecatedComponentNamesMap defines the names of deprecated istio core components used in old versions,
 	// which would not appear as standalone components in current version. This is used for pruning, and alerting
 	// users to the fact that the components are deprecated.
