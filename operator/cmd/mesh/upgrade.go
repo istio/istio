@@ -137,12 +137,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	ysf, err := yamlFromSetFlags(args.set, args.force, l)
-	if err != nil {
-		return err
-	}
+	setFlags := applyInstallFlagAlias(args.set, "")
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, ysf, args.force, nil, l)
+	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
@@ -202,10 +199,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	} else {
 		currentSets = append(currentSets, "profile="+targetIOPS.Profile)
 	}
-	if ysf, err = yamlFromSetFlags(currentSets, args.force, l); err != nil {
-		return err
-	}
-	currentProfileIOPSYaml, _, err := genIOPSFromProfile(profile, "", ysf, true, nil, l)
+	currentProfileIOPSYaml, _, err := genIOPSFromProfile(profile, "", currentSets, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)

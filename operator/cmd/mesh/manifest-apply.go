@@ -162,15 +162,11 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
 	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l clog.Logger) error {
 
-	ysf, err := yamlFromSetFlags(setOverlay, force, l)
-	if err != nil {
-		return err
-	}
 	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
 	if err != nil {
 		return err
 	}
-	_, iops, err := GenerateConfig(inFilenames, ysf, force, restConfig, l)
+	_, iops, err := GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
 		return err
 	}

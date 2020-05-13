@@ -45,8 +45,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	operatormesh "istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/tpath"
-	util2 "istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
@@ -876,27 +874,23 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate, values := loadInjectionConfigMap(t, "")
+	sidecarTemplate, values := loadInjectionConfigMap(t, nil, "")
 	return createTestWebhook(t, sidecarTemplate, values)
 }
 
 // loadInjectionConfigMap will render the charts using the operator, with given yaml overrides.
 // This allows us to fully simulate what will actually happen at run time.
-func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, values string) {
+func loadInjectionConfigMap(t testing.TB, setFlags []string, inFilePath string) (template *Config, values string) {
 	t.Helper()
 	// add --set installPackagePath=<path to charts snapshot>
-	installPackagePathYAML := "installPackagePath: " + defaultInstallPackageDir()
-	settings, err := util2.OverlayYAML(settings, installPackagePathYAML)
-	if err != nil {
-		t.Fatal(err)
+	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir())
+	var inFilenames []string
+	if inFilePath != "" {
+		inFilenames = []string{"testdata/inject/" + inFilePath}
 	}
 
-	oy, err := tpath.AddSpecRoot(settings)
-	if err != nil {
-		t.Fatal(err)
-	}
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
-	manifests, _, err := operatormesh.GenManifests(nil, oy, false, nil, l)
+	manifests, _, err := operatormesh.GenManifests(inFilenames, setFlags, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
@@ -1205,7 +1199,7 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		cleanup()
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
-	_, values := loadInjectionConfigMap(t, "")
+	_, values := loadInjectionConfigMap(t, nil, "")
 	var (
 		configFile     = filepath.Join(dir, "config-file.yaml")
 		valuesFile     = filepath.Join(dir, "values-file.yaml")
@@ -1530,7 +1524,7 @@ func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
 }
 
 func BenchmarkInjectServe(b *testing.B) {
-	sidecarTemplate, _ := loadInjectionConfigMap(b, "")
+	sidecarTemplate, _ := loadInjectionConfigMap(b, nil, "")
 	wh, cleanup := createWebhook(b, sidecarTemplate)
 	defer cleanup()
 
