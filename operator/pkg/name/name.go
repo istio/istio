@@ -102,6 +102,14 @@ var (
 		CNIComponentName,
 		IstiodRemoteComponentName,
 	}
+	allComponentNamesMap = map[ComponentName]bool{
+		IstioBaseComponentName:    true,
+		PilotComponentName:        true,
+		PolicyComponentName:       true,
+		TelemetryComponentName:    true,
+		CNIComponentName:          true,
+		IstiodRemoteComponentName: true,
+	}
 
 	allComponentNamesMap = make(map[ComponentName]bool)
 	// DeprecatedComponentNamesMap defines the names of deprecated istio core components used in old versions,

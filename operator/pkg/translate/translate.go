@@ -17,7 +17,6 @@ package translate
 
 import (
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -34,7 +33,6 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
-	"istio.io/istio/operator/pkg/vfs"
 	"istio.io/pkg/log"
 )
 
@@ -109,19 +107,138 @@ type Translation struct {
 }
 
 // NewTranslator creates a new translator for minorVersion and returns a ptr to it.
-func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
-	f := filepath.Join(TranslateConfigFolder, TranslateConfigPrefix+minorVersion.String()+".yaml")
-	b, err := vfs.ReadFile(f)
-	if err != nil {
-		return nil, fmt.Errorf("could not read translateConfig file %s: %s", f, err)
+func NewTranslator() *Translator {
+	t := &Translator{
+		Version: oversion.OperatorBinaryVersion.MinorVersion,
+		APIMapping: map[string]*Translation{
+			"Hub":         {OutPath: "global.hub"},
+			"Tag":         {OutPath: "global.tag"},
+			"K8SDefaults": {OutPath: "global.resources"},
+			"Revision":    {OutPath: "revision"},
+			"MeshConfig":  {OutPath: "meshConfig"},
+		},
+		GlobalNamespaces: map[name.ComponentName]string{
+			name.PilotComponentName:     "istioNamespace",
+			name.TelemetryComponentName: "telemetryNamespace",
+			name.PolicyComponentName:    "policyNamespace",
+		},
+		ComponentMaps: map[name.ComponentName]*ComponentMaps{
+			name.IstioBaseComponentName: {
+				HelmSubdir:           "base",
+				ToHelmValuesTreeRoot: "global",
+				SkipReverseTranslate: true,
+			},
+			name.PilotComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istiod",
+				ContainerName:        "discovery",
+				HelmSubdir:           "istio-control/istio-discovery",
+				ToHelmValuesTreeRoot: "pilot",
+			},
+			name.PolicyComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-policy",
+				ContainerName:        "mixer",
+				HelmSubdir:           "istio-policy",
+				ToHelmValuesTreeRoot: "mixer.policy",
+			},
+			name.TelemetryComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-telemetry",
+				ContainerName:        "mixer",
+				HelmSubdir:           "istio-telemetry/mixer-telemetry",
+				ToHelmValuesTreeRoot: "mixer.telemetry",
+			},
+			name.IngressComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-ingressgateway",
+				ContainerName:        "istio-proxy",
+				HelmSubdir:           "gateways/istio-ingress",
+				ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
+			},
+			name.EgressComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-egressgateway",
+				ContainerName:        "istio-proxy",
+				HelmSubdir:           "gateways/istio-egress",
+				ToHelmValuesTreeRoot: "gateways.istio-egressgateway",
+			},
+			name.CNIComponentName: {
+				ResourceType:         "DaemonSet",
+				ResourceName:         "istio-cni-node",
+				ContainerName:        "install-cni",
+				HelmSubdir:           "istio-cni",
+				ToHelmValuesTreeRoot: "cni",
+			},
+			name.IstiodRemoteComponentName: {
+				HelmSubdir:           "istiod-remote",
+				ToHelmValuesTreeRoot: "global",
+				SkipReverseTranslate: true,
+			},
+			name.ComponentName("Istiocoredns"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "istiocoredns",
+				ContainerName:        "coredns",
+				HelmSubdir:           "istiocoredns",
+				ToHelmValuesTreeRoot: "istiocoredns",
+			},
+			name.ComponentName("Tracing"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-tracing",
+				ContainerName:        "jaeger",
+				HelmSubdir:           "istio-telemetry/tracing",
+				ToHelmValuesTreeRoot: "tracing.jaeger",
+			},
+			name.ComponentName("PrometheusOperator"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "prometheus",
+				ContainerName:        "prometheus",
+				HelmSubdir:           "istio-telemetry/prometheusOperator",
+				ToHelmValuesTreeRoot: "prometheus",
+				SkipReverseTranslate: true,
+			},
+			name.ComponentName("Kiali"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "kiali",
+				ContainerName:        "kiali",
+				HelmSubdir:           "istio-telemetry/kiali",
+				ToHelmValuesTreeRoot: "kiali",
+			},
+			name.ComponentName("Grafana"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "grafana",
+				ContainerName:        "grafana",
+				HelmSubdir:           "istio-telemetry/grafana",
+				ToHelmValuesTreeRoot: "grafana",
+			},
+			name.ComponentName("Prometheus"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "prometheus",
+				ContainerName:        "prometheus",
+				HelmSubdir:           "istio-telemetry/prometheus",
+				ToHelmValuesTreeRoot: "prometheus",
+			},
+		},
+		// nolint: lll
+		KubernetesMapping: map[string]*Translation{
+			"Components.{{.ComponentName}}.K8S.Affinity":            {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"},
+			"Components.{{.ComponentName}}.K8S.Env":                 {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env"},
+			"Components.{{.ComponentName}}.K8S.HpaSpec":             {OutPath: "[HorizontalPodAutoscaler:{{.ResourceName}}].spec"},
+			"Components.{{.ComponentName}}.K8S.ImagePullPolicy":     {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy"},
+			"Components.{{.ComponentName}}.K8S.NodeSelector":        {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector"},
+			"Components.{{.ComponentName}}.K8S.PodDisruptionBudget": {OutPath: "[PodDisruptionBudget:{{.ResourceName}}].spec"},
+			"Components.{{.ComponentName}}.K8S.PodAnnotations":      {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations"},
+			"Components.{{.ComponentName}}.K8S.PriorityClassName":   {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName."},
+			"Components.{{.ComponentName}}.K8S.ReadinessProbe":      {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe"},
+			"Components.{{.ComponentName}}.K8S.ReplicaCount":        {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.replicas"},
+			"Components.{{.ComponentName}}.K8S.Resources":           {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources"},
+			"Components.{{.ComponentName}}.K8S.Strategy":            {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.strategy"},
+			"Components.{{.ComponentName}}.K8S.Tolerations":         {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"},
+			"Components.{{.ComponentName}}.K8S.ServiceAnnotations":  {OutPath: "[Service:{{.ResourceName}}].metadata.annotations"},
+			"Components.{{.ComponentName}}.K8S.Service":             {OutPath: "[Service:{{.ResourceName}}].spec"},
+		},
 	}
-	t := &Translator{}
-	err = yaml.Unmarshal(b, t)
-	if err != nil {
-		return nil, fmt.Errorf("could not Unmarshal translateConfig file %s: %s", f, err)
-	}
-	t.Version = minorVersion
-	return t, nil
+	return t
 }
 
 // OverlayK8sSettings overlays k8s settings from iop over the manifest objects, based on t's translation mappings.
