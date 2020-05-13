@@ -2072,9 +2072,9 @@ componentMaps:
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
   IstiodRemote:
-    HelmSubdir:           "istiod-remote",
-    ToHelmValuesTreeRoot: "global",
-    SkipReverseTranslate: true,
+    HelmSubdir:           "istiod-remote"
+    ToHelmValuesTreeRoot: "global"
+    SkipReverseTranslate: true
   Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
