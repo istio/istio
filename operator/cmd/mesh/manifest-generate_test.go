@@ -208,6 +208,38 @@ func TestManifestGenerateGateways(t *testing.T) {
 	checkRoleBindingsReferenceRoles(g, objs)
 }
 
+func TestManifestGenerateIstiodRemote(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	g := NewGomegaWithT(t)
+	m, _, err := generateManifest("istiod_remote", "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs := parseObjectSetFromManifest(t, m)
+	g.Expect(objs.kind(name.CRDStr).size()).Should(Equal(25))
+	g.Expect(objs.kind(name.ClusterRoleStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.ClusterRoleBindingStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.CMStr).size()).Should(Equal(1))
+	g.Expect(objs.kind(name.EndpointStr).size()).Should(Equal(1))
+	g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(1))
+	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(1))
+	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.ValidatingWebhookConfigurationStr).size()).Should(Equal(1))
+
+	mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
+	g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
+	g.Expect(mwc).Should(HavePathValueContain(PathValue{"webhooks.[0].namespaceSelector.matchLabels", toMap("istio-injection:enabled")}))
+
+	vwc := mustGetValidatingWebhookConfiguration(g, objs, "istiod-istio-system").Unstructured()
+	g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/validate"}))
+
+	ep := mustGetEndpoint(g, objs, "istiod").Unstructured()
+	g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
+	g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
+
+	checkClusterRoleBindingsReferenceRoles(g, objs)
+}
+
 func TestManifestGenerateFlags(t *testing.T) {
 	flagOutputDir := createTempDirOrFail(t, "flag-output")
 	flagOutputValuesDir := createTempDirOrFail(t, "flag-output-values")
