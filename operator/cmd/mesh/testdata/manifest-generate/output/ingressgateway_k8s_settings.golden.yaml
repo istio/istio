@@ -29,6 +29,17 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+      securityContext:
+        runAsUser: 1337
+        runAsGroup: 1337
+        runAsNonRoot: true
+        fsGroup: 1337
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
@@ -57,7 +68,7 @@ spec:
             failureThreshold: 30
             httpGet:
               path: /healthz/ready
-              port: 15020
+              port: 15021
               scheme: HTTP
             initialDelaySeconds: 1
             periodSeconds: 2
@@ -106,6 +117,14 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
+          - name: CANONICAL_SERVICE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-name']
+          - name: CANONICAL_REVISION
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: ISTIO_META_WORKLOAD_NAME
             value: istio-ingressgateway
           - name: ISTIO_META_OWNER
@@ -118,6 +137,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
+          - name: istio-envoy
+            mountPath: /etc/istio/proxy
           - name: config-volume
             mountPath: /etc/istio/config
           - mountPath: /var/run/secrets/istio
@@ -148,6 +169,8 @@ spec:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
+      - name: istio-envoy
+        emptyDir: {}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
       - name: istio-token

@@ -108,6 +108,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: ISTIO_META_WORKLOAD_NAME
           value: istio-egressgateway
         - name: ISTIO_META_OWNER
@@ -131,7 +139,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15021
             scheme: HTTP
           initialDelaySeconds: 1
           periodSeconds: 2
@@ -145,6 +153,8 @@ spec:
             cpu: 100m
             memory: 128Mi
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
         - mountPath: /etc/istio/config
           name: config-volume
         - mountPath: /var/run/secrets/istio
@@ -160,6 +170,17 @@ spec:
         - mountPath: /etc/istio/egressgateway-ca-certs
           name: egressgateway-ca-certs
           readOnly: true
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        fsGroup: 1337
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsGroup: 1337
+        runAsNonRoot: true
+        runAsUser: 1337
       serviceAccountName: istio-egressgateway-service-account
       volumes:
       - configMap:
@@ -174,6 +195,8 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: podinfo
+      - emptyDir: {}
+        name: istio-envoy
       - name: istio-token
         projected:
           sources:
