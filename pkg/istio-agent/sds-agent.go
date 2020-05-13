@@ -337,35 +337,78 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 
 	var err error
 
+	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, workloadSdsCacheOptions)
+	sa.WorkloadSecrets = workloadSecretCache
+
 	// If proxy is using file mounted certs, we do not have to connect to CA.
-	if shouldProvisionCertificates() {
-		// TODO: this should all be packaged in a plugin, possibly with optional compilation.
-		log.Infof("serverOptions.CAEndpoint == %v", serverOptions.CAEndpoint)
-		if (serverOptions.CAProviderName == "GoogleCA" || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
-			stsclient.GKEClusterURL != "" {
-			// Use a plugin to an external CA - this has direct support for the K8S JWT token
-			// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
-			// used.
-			caClient, err = gca.NewGoogleCAClient(serverOptions.CAEndpoint, true)
-			serverOptions.PluginNames = []string{"GoogleTokenExchange"}
+	if !shouldProvisionCertificates() {
+		log.Info("Workload is using file mounted certificates. Skipping CA provisioning")
+		return
+	}
+
+	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
+	log.Infof("serverOptions.CAEndpoint == %v", serverOptions.CAEndpoint)
+	if (serverOptions.CAProviderName == "GoogleCA" || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
+		stsclient.GKEClusterURL != "" {
+		// Use a plugin to an external CA - this has direct support for the K8S JWT token
+		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
+		// used.
+		caClient, err = gca.NewGoogleCAClient(serverOptions.CAEndpoint, true)
+		serverOptions.PluginNames = []string{"GoogleTokenExchange"}
+	} else {
+		// Determine the default CA.
+		// If /etc/certs exists - it means Citadel is used (possibly in a mode to only provision the root-cert, not keys)
+		// Otherwise: default to istiod
+		//
+		// If an explicit CA is configured, assume it is mounting /etc/certs
+		var rootCert []byte
+
+		tls := true
+		certReadErr := false
+
+		if serverOptions.CAEndpoint == "" {
+			// When serverOptions.CAEndpoint is nil, the default CA endpoint
+			// will be a hardcoded default value (e.g., the namespace will be hardcoded
+			// as istio-system).
+			log.Info("Istio Agent uses default istiod CA")
+			serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
+
+			if serverOptions.PilotCertProvider == "istiod" {
+				log.Info("istiod uses self-issued certificate")
+				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
+					certReadErr = true
+				} else {
+					log.Infof("the CA cert of istiod is: %v", string(rootCert))
+				}
+			} else if serverOptions.PilotCertProvider == "kubernetes" {
+				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
+				if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
+					certReadErr = true
+				}
+			} else if serverOptions.PilotCertProvider == "custom" {
+				log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
+					cache.DefaultRootCertFilePath)
+				if rootCert, err = ioutil.ReadFile(cache.DefaultRootCertFilePath); err != nil {
+					certReadErr = true
+				}
+			} else {
+				certReadErr = true
+			}
+			if certReadErr {
+				rootCert = nil
+				// for debugging only
+				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
+				serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
+				tls = false
+			}
 		} else {
-			// Determine the default CA.
-			// If /etc/certs exists - it means Citadel is used (possibly in a mode to only provision the root-cert, not keys)
-			// Otherwise: default to istiod
-			//
-			// If an explicit CA is configured, assume it is mounting /etc/certs
-			var rootCert []byte
-
-			tls := true
-			certReadErr := false
-
-			if serverOptions.CAEndpoint == "" {
-				// When serverOptions.CAEndpoint is nil, the default CA endpoint
-				// will be a hardcoded default value (e.g., the namespace will be hardcoded
-				// as istio-system).
-				log.Info("Istio Agent uses default istiod CA")
-				serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
-
+			// Explicitly configured CA
+			log.Infoa("Using user-configured CA ", serverOptions.CAEndpoint)
+			if strings.HasSuffix(serverOptions.CAEndpoint, ":15010") {
+				log.Warna("Debug mode or IP-secure network")
+				tls = false
+			} else if serverOptions.TLSEnabled {
 				if serverOptions.PilotCertProvider == "istiod" {
 					log.Info("istiod uses self-issued certificate")
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
@@ -385,84 +428,45 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 						certReadErr = true
 					}
 				} else {
+					log.Errorf("unknown cert provider %v", serverOptions.PilotCertProvider)
 					certReadErr = true
 				}
 				if certReadErr {
 					rootCert = nil
-					// for debugging only
-					log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
-					serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
-					tls = false
+					log.Fatal("invalid config - port 15012 missing a root certificate")
 				}
 			} else {
-				// Explicitly configured CA
-				log.Infoa("Using user-configured CA ", serverOptions.CAEndpoint)
-				if strings.HasSuffix(serverOptions.CAEndpoint, ":15010") {
-					log.Warna("Debug mode or IP-secure network")
-					tls = false
-				} else if serverOptions.TLSEnabled {
-					if serverOptions.PilotCertProvider == "istiod" {
-						log.Info("istiod uses self-issued certificate")
-						if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
-							certReadErr = true
-						} else {
-							log.Infof("the CA cert of istiod is: %v", string(rootCert))
-						}
-					} else if serverOptions.PilotCertProvider == "kubernetes" {
-						log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
-						if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
-							certReadErr = true
-						}
-					} else if serverOptions.PilotCertProvider == "custom" {
-						log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
-							cache.DefaultRootCertFilePath)
-						if rootCert, err = ioutil.ReadFile(cache.DefaultRootCertFilePath); err != nil {
-							certReadErr = true
-						}
-					} else {
-						log.Errorf("unknown cert provider %v", serverOptions.PilotCertProvider)
-						certReadErr = true
-					}
-					if certReadErr {
-						rootCert = nil
-						log.Fatal("invalid config - port 15012 missing a root certificate")
-					}
+				rootCertPath := path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
+				if rootCert, err = ioutil.ReadFile(rootCertPath); err != nil {
+					// We may not provide root cert, and can just use public system certificate pool
+					log.Infof("no certs found at %v, using system certs", rootCertPath)
 				} else {
-					rootCertPath := path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
-					if rootCert, err = ioutil.ReadFile(rootCertPath); err != nil {
-						// We may not provide root cert, and can just use public system certificate pool
-						log.Infof("no certs found at %v, using system certs", rootCertPath)
-					} else {
-						log.Infof("the CA cert of istiod is: %v", string(rootCert))
-					}
+					log.Infof("the CA cert of istiod is: %v", string(rootCert))
 				}
 			}
-
-			sa.RootCert = rootCert
-			// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
-			// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
-			// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-			caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert, serverOptions.ClusterID)
-			if err == nil {
-				sa.CitadelClient = caClient
-			}
 		}
 
-		if err != nil {
-			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
-			os.Exit(1)
+		sa.RootCert = rootCert
+		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
+		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
+		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
+		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert, serverOptions.ClusterID)
+		if err == nil {
+			sa.CitadelClient = caClient
 		}
-		fetcher.UseCaClient = true
-		fetcher.CaClient = caClient
-
-		workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
-		workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
-		workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 	}
 
-	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
-	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, workloadSdsCacheOptions)
-	sa.WorkloadSecrets = workloadSecretCache
+	if err != nil {
+		log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
+		os.Exit(1)
+	}
+	fetcher.UseCaClient = true
+	fetcher.CaClient = caClient
+
+	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
+	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
+	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
+
 	return
 }
 
