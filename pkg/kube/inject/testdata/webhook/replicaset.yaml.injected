@@ -149,8 +149,6 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
-        - mountPath: /var/lib/istio/data
-          name: istio-data
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
@@ -203,8 +201,6 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - emptyDir: {}
-        name: istio-data
       - downwardAPI:
           items:
           - fieldRef:

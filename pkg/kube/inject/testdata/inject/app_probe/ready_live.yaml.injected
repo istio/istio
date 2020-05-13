@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"e08631b4e66c43820d5cd81e1dda38bc2358f700e66513986917e8bab7d82747","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"fca84600f9d5ec316cf1cf577da902f38bac258ab0fd595ee208ec0203dc0c6d","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: 80,90
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -184,8 +184,6 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
-        - mountPath: /var/lib/istio/data
-          name: istio-data
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
@@ -238,8 +236,6 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - emptyDir: {}
-        name: istio-data
       - downwardAPI:
           items:
           - fieldRef:
