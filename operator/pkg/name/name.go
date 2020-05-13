@@ -96,12 +96,12 @@ var (
 		IstiodRemoteComponentName,
 	}
 	allComponentNamesMap = map[ComponentName]bool{
-		IstioBaseComponentName: 		true,
-		PilotComponentName:     		true,
-		PolicyComponentName:    		true,
-		TelemetryComponentName: 		true,
-		CNIComponentName:       		true,
-		IstiodRemoteComponentName:      true,
+		IstioBaseComponentName:    true,
+		PilotComponentName:        true,
+		PolicyComponentName:       true,
+		TelemetryComponentName:    true,
+		CNIComponentName:          true,
+		IstiodRemoteComponentName: true,
 	}
 
 	// BundledAddonComponentNamesMap is a map of component names of addons which have helm charts bundled with Istio
@@ -128,7 +128,7 @@ var (
 		AddonComponentName:              "Addons",
 		IstioOperatorComponentName:      "Istio operator",
 		IstioOperatorCustomResourceName: "Istio operator CRDs",
-		IstiodRemoteComponentName:		 "Istiod remote",
+		IstiodRemoteComponentName:       "Istiod remote",
 	}
 	scanAddons sync.Once
 )
