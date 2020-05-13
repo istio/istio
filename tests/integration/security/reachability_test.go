@@ -131,7 +131,7 @@ func TestReachability(t *testing.T) {
 							return rctx.IsNaked(opts.Target) || (opts.Target == rctx.B && opts.PortName != "http")
 
 						}
-						// Headless service with sidecar injected, autoMtls does not apply.
+						// headless with sidecar injected, global mTLS enabled, no client side transport socket or transport_socket_matches since it's headless service.
 						if src != rctx.Headless && opts.Target == rctx.Headless {
 							return false
 						}
@@ -141,12 +141,12 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					// test access headless service with sidecar injected
+					// test access headless service with mTLS off to simulate without sidecar.
 					ConfigFile:          "beta-mtls-off-headless.yaml",
 					Namespace:           rctx.Namespace,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return opts.Target == rctx.Headless
+						return rctx.IsHeadless(opts.Target)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
