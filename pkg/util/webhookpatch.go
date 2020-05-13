@@ -33,9 +33,9 @@ import (
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/webhooks/validation/controller"
+
+	"istio.io/pkg/log"
 )
 
 // PatchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
@@ -82,12 +82,12 @@ const delayedRetryTime = time.Second
 // - pass the existing k8s client
 // - use the K8S root instead of citadel root CA
 // - removed the watcher - the k8s CA is already mounted at startup, no more delay waiting for it
-func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string, client kubernetes.Interface, stopCh <-chan struct{}) error {
+func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string, client kubernetes.Interface, stopCh <-chan struct{}) {
 	// K8S own CA
 	caCertPem, err := ioutil.ReadFile(caBundlePath)
 	if err != nil {
-		log.Warna("Skipping webhook patch, missing CA path ", caBundlePath)
-		return err
+		log.Errorf("Skipping webhook patch, missing CA path ", caBundlePath)
+		return
 	}
 
 	var retry bool
@@ -154,8 +154,6 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 			}
 		}
 	}()
-
-	return nil
 }
 
 func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caCertPem []byte) (retry bool) {
@@ -176,6 +174,9 @@ func CreateValidationWebhookController(client kubernetes.Interface, dynamicInter
 		WebhookConfigName: webhookConfigName,
 		ServiceName:       "istiod",
 	}
-	whController, _ := controller.New(o, client, dynamicInterface)
+	whController, err := controller.New(o, client, dynamicInterface)
+	if err != nil {
+		log.Errorf("failed to create validationWebhookController controller: %v", err)
+	}
 	return whController
 }

@@ -19,11 +19,10 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/client-go/dynamic"
-
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/util"
 	"istio.io/pkg/log"
-
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 
@@ -35,8 +34,7 @@ import (
 
 const (
 	// Name of the webhook config in the config - no need to change it.
-	webhookName                = "sidecar-injector.istio.io"
-	injectionWebhookConfigName = "istio-sidecar-injector"
+	webhookName = "sidecar-injector.istio.io"
 )
 
 var (
@@ -132,6 +130,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 
 	_ = kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
 	_ = kubectl.AppendInstanceHandler(func(si *model.ServiceInstance, ev model.Event) { m.updateHandler(si.Service) })
+
 	go kubectl.Run(stopCh)
 	opts := Options{
 		ResyncPeriod: m.ResyncPeriod,
@@ -141,7 +140,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 	if m.fetchCaRoot != nil {
 		nc := NewNamespaceController(m.fetchCaRoot, opts, clientset)
 		go nc.Run(stopCh)
-		go util.PatchCertLoop(injectionWebhookConfigName, webhookName, m.caBundlePath, clientset, stopCh)
+		go util.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clientset, stopCh)
 		valicationWebhookController := util.CreateValidationWebhookController(clientset, dynamicClient, webhookConfigName,
 			m.secretNamespace, m.caBundlePath)
 		if valicationWebhookController != nil {

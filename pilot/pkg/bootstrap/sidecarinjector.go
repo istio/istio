@@ -19,16 +19,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	"istio.io/istio/pkg/util"
-	"istio.io/pkg/env"
 
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
-)
-
-var (
-	injectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
-		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
 )
 
 const (
@@ -70,16 +66,14 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 	// Patch cert if a webhook config name is provided.
 	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 	// operator or CI/CD
-	if injectionWebhookConfigName.Get() != "" {
+	if features.InjectionWebhookConfigName.Get() != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			// No leader election - different istiod revisions will patch their own cert.
 			caBundlePath := s.caBundlePath
 			if hasCustomTLSCerts(args.TLSOptions) {
 				caBundlePath = args.TLSOptions.CaCertFile
 			}
-			if err := util.PatchCertLoop(injectionWebhookConfigName.Get(), webhookName, caBundlePath, s.kubeClient, stop); err != nil {
-				log.Errorf("failed to start patch cert loop: %v", err)
-			}
+			util.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, caBundlePath, s.kubeClient, stop)
 			return nil
 		})
 	}
