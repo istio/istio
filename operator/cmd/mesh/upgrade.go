@@ -68,7 +68,7 @@ type upgradeArgs struct {
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
 	context string
-	// wait is flag that indicates whether to wait resources ready before exiting.
+	// Deprecated: wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
 	// readinessTimeout is maximum time to wait for all Istio resources to be ready.
 	readinessTimeout time.Duration
@@ -93,9 +93,9 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 		"The name of the kubeconfig context to use")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false,
 		"If skip-confirmation is set, skips the prompting confirmation for value changes in this upgrade")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
+	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", true,
 		"Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
-			"of a Deployment are in a ready state before the command exits. ")
+			"of a Deployment are in a ready state before the command exits. DEPRECATED, will always be set to true in 1.7+.")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
 		"Maximum time to wait for Istio resources in each component to be ready."+
 			" The --wait flag must be set for this flag to apply")

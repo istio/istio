@@ -45,7 +45,7 @@ type manifestApplyArgs struct {
 	kubeConfigPath string
 	// context is the cluster context in the kube config
 	context string
-	// wait is flag that indicates whether to wait resources ready before exiting.
+	// Deprecated: wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
 	// readinessTimeout is maximum time to wait for all Istio resources to be ready. wait must be true for this setting
 	// to take effect.
@@ -66,9 +66,9 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use.")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
+	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", true,
 		"Wait until all Pods, Services, and minimum number of Pods "+
-			"of a Deployment are in a ready state before the exiting.")
+			"of a Deployment are in a ready state before the exiting. DEPRECATED, will always be set to true in 1.7+.")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
 		"Maximum time to wait for Istio resources in each component to be ready."+
 			" The --wait flag must be set for this flag to apply.")
