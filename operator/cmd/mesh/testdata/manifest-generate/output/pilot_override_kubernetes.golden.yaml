@@ -7,7 +7,7 @@ metadata:
     istio.io/rev: default
     release: istio
   name: istiod
-  namespace: istio-control
+  namespace: istio-system
 spec:
   selector:
     matchLabels:
@@ -62,9 +62,9 @@ spec:
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
-          value: istio-sidecar-injector-istio-control
+          value: istio-sidecar-injector
         - name: ISTIOD_ADDR
-          value: istiod.istio-control.svc:15012
+          value: istiod.istio-system.svc:15012
         - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
@@ -138,7 +138,7 @@ metadata:
     istio.io/rev: default
     release: istio
   name: istiod
-  namespace: istio-control
+  namespace: istio-system
 spec:
   ports:
   - name: grpc-xds

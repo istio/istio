@@ -9,7 +9,6 @@ spec:
   components:
     pilot:
       enabled: true
-      namespace: istio-control
       k8s:
         resources:
           requests:
