@@ -211,9 +211,9 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	a.SDSAddress = "unix:" + LocalSDS
 	a.ClusterID = clusterID
 
-	// If a workload is using file mounted certs, we do not to have to initialize CA.
+	// If a workload is using file mounted certs, we do not to have to process CA relaated configuration.
 	if !shouldProvisionCertificates() {
-		log.Info("Workload is using file mounted certificates. Skipping CA initialization")
+		log.Info("Workload is using file mounted certificates. Skipping setting CA related configuration")
 		return a
 	}
 
@@ -348,7 +348,7 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
 	if !shouldProvisionCertificates() {
-		log.Info("Workload is using file mounted certificates. Skipping CA provisioning")
+		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
 		return
 	}
 
