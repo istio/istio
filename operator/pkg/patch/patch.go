@@ -151,7 +151,7 @@ func YAMLManifestPatch(baseYAML string, defaultNamespace string, overlays []*v1a
 			errs = util.AppendErr(errs, fmt.Errorf("overlay for %s:%s does not match any object in output manifest. Available objects are:\n%s",
 				overlay.Kind, overlay.Name, strings.Join(objs.Keys(), "\n")))
 		case len(matches[overlay]) > 1:
-			errs = util.AppendErr(errs, fmt.Errorf("overlay for %s:%s matches multiple objects in output manifest:\n%s\n\n",
+			errs = util.AppendErr(errs, fmt.Errorf("overlay for %s:%s matches multiple objects in output manifest:\n%s",
 				overlay.Kind, overlay.Name, strings.Join(objs.Keys(), "\n")))
 		}
 	}
