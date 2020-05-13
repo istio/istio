@@ -29,9 +29,6 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
-	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -481,41 +478,6 @@ func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
 	return c, nil
 }
 
-func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
-	if m == nil || m.Metadata == nil {
-		return &model.Config{}, nil
-	}
-	c := &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			ResourceVersion: m.Metadata.Version,
-			Labels:          m.Metadata.Labels,
-			Annotations:     m.Metadata.Annotations,
-		},
-	}
-	nsn := strings.Split(m.Metadata.Name, "/")
-	if len(nsn) != 2 {
-		return nil, fmt.Errorf("invalid name %s", m.Metadata.Name)
-	}
-	c.Namespace = nsn[0]
-	c.Name = nsn[1]
-	var err error
-	c.CreationTimestamp, err = types.TimestampFromProto(m.Metadata.CreateTime)
-	if err != nil {
-		return nil, err
-	}
-
-	pb, err := types.EmptyAny(m.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = types.UnmarshalAny(m.Body, pb)
-	if err != nil {
-		return nil, err
-	}
-	c.Spec = pb
-	return c, nil
-}
-
 // nolint: staticcheck
 func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	lh := map[string]*xdsapi.Listener{}
@@ -849,9 +811,9 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 			switch t {
 			case ListenerType:
 				delete(want, "lds")
-			case ClusterType:
+			case v2.ClusterTypeV3:
 				delete(want, "cds")
-			case endpointType:
+			case v2.EndpointTypeV3:
 				delete(want, "eds")
 			case routeType:
 				delete(want, "rds")
@@ -913,25 +875,8 @@ func (a *ADSC) Watch() {
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
-		TypeUrl:       ClusterType,
+		TypeUrl:       v2.ClusterType,
 	})
-}
-
-// WatchConfig will use the new experimental API watching, similar with MCP.
-func (a *ADSC) WatchConfig() {
-	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node:          a.node(),
-		TypeUrl:       collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
-	})
-
-	for _, sch := range collections.Pilot.All() {
-		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
-			ResponseNonce: time.Now().String(),
-			Node:          a.node(),
-			TypeUrl:       sch.Resource().GroupVersionKind().String(),
-		})
-	}
 }
 
 // WatchConfig will use the new experimental API watching, similar with MCP.
