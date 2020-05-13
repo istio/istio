@@ -895,6 +895,8 @@ metadata:
     release: istio
 ---
 
+# IstiodRemote component is disabled.
+
 # Pilot istiod component is disabled.
 
 # Policy component is disabled.

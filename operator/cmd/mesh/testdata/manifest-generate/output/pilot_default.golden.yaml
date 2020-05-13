@@ -18,6 +18,8 @@
 
 # EgressGateways istio-egressgateway component is disabled.
 
+# IstiodRemote component is disabled.
+
 # Resources for Pilot component
 
 apiVersion: autoscaling/v2beta1
