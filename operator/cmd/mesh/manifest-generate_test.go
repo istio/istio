@@ -146,7 +146,7 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		},
 		{
 			deploymentName: "kiali",
-			want:           "docker.io/testing/kiali:v1.15",
+			want:           "docker.io/testing/kiali:v1.18",
 		},
 	}
 
@@ -223,6 +223,8 @@ func TestManifestGenerateFlags(t *testing.T) {
 		{
 			desc:       "gateways",
 			diffIgnore: "ConfigMap:*:istio",
+			flags: "-s components.ingressGateways.[0].k8s.resources.requests.cpu=999m " +
+				"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m",
 		},
 		{
 			desc:       "gateways_override_default",
@@ -582,11 +584,7 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, installerScope)
-	ysf, err := yamlFromSetFlags([]string{"installPackagePath=" + liveInstallPackageDir}, false, l)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, iops, err := GenerateConfig(nil, ysf, true, nil, l)
+	_, iops, err := GenerateConfig(nil, []string{"installPackagePath=" + liveInstallPackageDir}, true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -261,14 +261,6 @@ var (
 			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
 	).Get()
 
-	// IstiodService controls the istiod address - used for injection and as default value injected into pods
-	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
-	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
-	// istio-pilot or istiod) plus namespace and .svc.
-	// The 15010 port is used with plain text, 15011 with Spiffe certs - we need a different port for DNS cert.
-	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
-		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
-
 	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
 	// for examples: istiod.mycompany.com
 	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
@@ -277,7 +269,7 @@ var (
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.")
 
-	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
 
 	// Default request timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero

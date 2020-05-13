@@ -153,8 +153,14 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	pe := remainPath[0]
 
 	if nc.Node == nil {
-		// Otherwise we panic on bad input
-		return nil, false, fmt.Errorf("node %s is zero", pe)
+		if !createMissing {
+			return nil, false, fmt.Errorf("node %s is zero", pe)
+		}
+		if util.IsNPathElement(pe) || util.IsKVPathElement(pe) {
+			nc.Node = []interface{}{}
+		} else {
+			nc.Node = make(map[string]interface{})
+		}
 	}
 
 	v := reflect.ValueOf(nc.Node)

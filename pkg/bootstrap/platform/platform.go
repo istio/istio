@@ -15,7 +15,7 @@
 package platform
 
 import (
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 // Environment provides information for the platform on which the bootstrapping
@@ -29,7 +29,7 @@ type Environment interface {
 
 	// Locality returns the run location for the bootstrap transformed from the
 	// platform-specific representation into the Envoy Locality schema.
-	Locality() *core.Locality
+	Locality() *corev3.Locality
 }
 
 // Unknown provides a default platform environment for cases in which the platform
@@ -42,6 +42,6 @@ func (*Unknown) Metadata() map[string]string {
 }
 
 // Locality returns an empty core.Locality struct.
-func (*Unknown) Locality() *core.Locality {
-	return &core.Locality{}
+func (*Unknown) Locality() *corev3.Locality {
+	return &corev3.Locality{}
 }

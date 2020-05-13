@@ -23,6 +23,8 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -75,7 +77,7 @@ type XdsConnection struct {
 
 	LDSListeners []*xdsapi.Listener                    `json:"-"`
 	RouteConfigs map[string]*xdsapi.RouteConfiguration `json:"-"`
-	CDSClusters  []*xdsapi.Cluster
+	CDSClusters  []*cluster.Cluster
 
 	// Last nonce sent and ack'd (timestamps) used for debugging
 	ClusterNonceSent, ClusterNonceAcked   string
@@ -519,7 +521,11 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 	// can still help provide some client-side Envoy context when load balancing based on location.
 	if util.IsLocalityEmpty(proxy.Locality) {
-		proxy.Locality = node.Locality
+		proxy.Locality = &corev3.Locality{
+			Region:  node.Locality.GetRegion(),
+			Zone:    node.Locality.GetZone(),
+			SubZone: node.Locality.GetSubZone(),
+		}
 	}
 
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.

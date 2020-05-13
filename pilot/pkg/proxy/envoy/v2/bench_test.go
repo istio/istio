@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/test"
 
@@ -340,7 +342,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				// This should correlate to pushEds()
 				// TODO directly call pushEeds, but mock/skip the grpc send
 
-				loadAssignments := make([]*envoy_api_v2.ClusterLoadAssignment, 0)
+				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 				for svc := 0; svc < tt.services; svc++ {
 					l := s.loadAssignmentsForClusterIsolated(proxy, push, fmt.Sprintf("outbound|80||foo-%d.com", svc))
 

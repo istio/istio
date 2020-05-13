@@ -54,7 +54,7 @@ func createConfigs(configs []*model.Config, store model.IstioConfigStore, t *tes
 func callInstanceHandlers(instances []*model.ServiceInstance, sd *ServiceEntryStore, ev model.Event, t *testing.T) {
 	t.Helper()
 	for _, instance := range instances {
-		sd.GetForeignServiceInstanceHandler()(instance, ev)
+		sd.ForeignServiceInstanceHandler(instance, ev)
 	}
 }
 

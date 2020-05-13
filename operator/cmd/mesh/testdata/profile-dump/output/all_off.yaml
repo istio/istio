@@ -21,13 +21,6 @@ spec:
   components:
     base:
       enabled: true
-    citadel:
-      enabled: false
-      k8s:
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
     cni:
       enabled: false
     egressGateways:
@@ -163,8 +156,6 @@ spec:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
-    proxy:
-      enabled: false
     telemetry:
       enabled: false
       k8s:
@@ -408,7 +399,7 @@ spec:
         private_key_file: /kiali-cert/key.pem
       service:
         annotations: {}
-      tag: v1.15
+      tag: v1.18
     mixer:
       adapters:
         kubernetesenv:

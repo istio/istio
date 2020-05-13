@@ -41,6 +41,7 @@ const (
    No Traffic Policy
 7070 VirtualService: a\..*
    when headers are end-user=jason
+7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
@@ -59,6 +60,7 @@ Service: a\..*
    No Traffic Policy
 7070 VirtualService: a\..*
    when headers are end-user=jason
+7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
@@ -288,4 +290,81 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 		t.Fatalf("Could not unmarshal %s response %s", context, s)
 	}
 	return val
+}
+
+func TestProxyStatus(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "istioctl-ps",
+				Inject: true,
+			})
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			podID, err := getPodID(a)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			args = []string{"proxy-status"}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			// Just verify pod A is known to Pilot; implicitly this verifies that
+			// the printing code printed it.
+			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, ns.Name())))
+
+			args = []string{
+				"proxy-status", fmt.Sprintf("%s.%s", podID, ns.Name())}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
+			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
+			g.Expect(output).To(gomega.ContainSubstring("Routes Match"))
+		})
+}
+
+func TestAuthZCheck(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "istioctl-authz",
+				Inject: true,
+			})
+
+			authPol := file.AsStringOrFail(t, "../istioctl/testdata/authz-a.yaml")
+			ctx.ApplyConfigOrFail(t, ns.Name(), authPol)
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			podID, err := getPodID(a)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			args = []string{"experimental", "authz", "check",
+				fmt.Sprintf("%s.%s", podID, ns.Name())}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			// Verify the output includes a policy "integ-test", which is the policy
+			// loaded above from authz-a.yaml
+			g.Expect(output).To(gomega.MatchRegexp("noneSDS: default.*\\[integ-test\\]"))
+		})
 }

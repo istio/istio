@@ -36,8 +36,6 @@ spec:
         - --keepaliveMaxServerConnectionAge
         - 60m
         env:
-        - name: REVISION
-          value: default
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
@@ -89,13 +87,6 @@ spec:
           requests:
             cpu: 123m
             memory: 2048Mi
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume

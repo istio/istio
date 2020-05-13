@@ -21,7 +21,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/config/schema/collection"

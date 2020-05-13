@@ -107,15 +107,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-    # Security feature
-    citadel:
-      enabled: false
-      k8s:
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -572,7 +563,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.15
+      tag: v1.18
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []

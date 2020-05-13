@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
@@ -87,16 +87,20 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 	return nil
 }
 
-func (e *Environment) GetDiscoveryHost() (host.Name, error) {
+// GetDiscoveryAddress parses the DiscoveryAddress specified via MeshConfig.
+func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	proxyConfig := mesh.DefaultProxyConfig()
 	if e.Mesh().DefaultConfig != nil {
 		proxyConfig = *e.Mesh().DefaultConfig
 	}
-	hostname, _, err := net.SplitHostPort(proxyConfig.DiscoveryAddress)
+	hostname, port, err := net.SplitHostPort(proxyConfig.DiscoveryAddress)
 	if err != nil {
-		return "", err
+		return "", "", fmt.Errorf("invalid Istiod Address: %s, %v", proxyConfig.DiscoveryAddress, err)
 	}
-	return host.Name(hostname), nil
+	if _, err := strconv.Atoi(port); err != nil {
+		return "", "", fmt.Errorf("invalid Istiod Port: %s, %s, %v", port, proxyConfig.DiscoveryAddress, err)
+	}
+	return host.Name(hostname), port, nil
 }
 
 func (e *Environment) AddMeshHandler(h func()) {
@@ -166,7 +170,7 @@ type Proxy struct {
 	// Locality is the location of where Envoy proxy runs. This is extracted from
 	// the registry where possible. If the registry doesn't provide a locality for the
 	// proxy it will use the one sent via ADS that can be configured in the Envoy bootstrap
-	Locality *core.Locality
+	Locality *corev3.Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
