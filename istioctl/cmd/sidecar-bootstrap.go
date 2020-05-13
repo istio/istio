@@ -534,8 +534,8 @@ func deriveSSHMethod() error {
 func vmBootstrapCommand() *cobra.Command {
 	vmBSCommand := &cobra.Command{
 		Use:   "sidecar-bootstrap <workloadEntry>.<namespace>",
-		Short: "bootstraps a non-kubernetes workload (e.g. VM, Baremetal) onto an Istio mesh",
-		Long: `Takes in one or more WorkloadEntries generates identities for them, and copies to
+		Short: "(experimental) bootstraps a non-kubernetes workload (e.g. VM, Baremetal) onto an Istio mesh",
+		Long: `(experimental) Takes in one or more WorkloadEntries generates identities for them, and copies to
 the particular identities to the workloads over SSH. Optionally allowing for saving the certificates locally
 for use in CI like environments, and starting istio-proxy where no special configuration is needed.
 This allows for workloads to participate in the Istio mesh.
