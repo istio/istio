@@ -15,22 +15,14 @@
 package bootstrap
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -64,12 +56,8 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	}
 
 	// Config file either wasn't specified or failed to load - use a default mesh.
-	meshConfig, err := getMeshConfig(s.kubeClient, kubecontroller.IstioNamespace, kubecontroller.IstioConfigMap)
-	if err != nil {
-		log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace",
-			err, kubecontroller.IstioConfigMap, kubecontroller.IstioNamespace)
-		return err
-	}
+	mc := mesh.DefaultMeshConfig()
+	meshConfig := &mc
 
 	// Allow some overrides for testing purposes.
 	if args.Mesh.MixerAddress != "" {
@@ -95,37 +83,4 @@ func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileW
 		log.Info("mesh networks configuration not provided")
 		s.environment.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
-}
-
-// getMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
-// Deprecated - does not watch !
-func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*meshconfig.MeshConfig, error) {
-	if kube == nil {
-		defaultMesh := mesh.DefaultMeshConfig()
-		return &defaultMesh, nil
-	}
-
-	cfg, err := kube.CoreV1().ConfigMaps(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			defaultMesh := mesh.DefaultMeshConfig()
-			return &defaultMesh, nil
-		}
-		return nil, err
-	}
-
-	// values in the data are strings, while proto might use a different data type.
-	// therefore, we have to get a value by a key
-	cfgYaml, exists := cfg.Data[configMapKey]
-	if !exists {
-		return nil, fmt.Errorf("missing configuration map key %q", configMapKey)
-	}
-
-	meshConfig, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
-	if err != nil {
-		return nil, fmt.Errorf("failed reading mesh config: %v. YAML:\n%s", err, cfgYaml)
-	}
-
-	log.Warn("Loading default mesh config from K8S, no reload support.")
-	return meshConfig, nil
 }
