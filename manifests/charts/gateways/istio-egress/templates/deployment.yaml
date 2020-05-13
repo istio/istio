@@ -35,6 +35,8 @@ spec:
 {{- else}}
         service.istio.io/canonical-revision: latest
 {{- end }}
+        # required to do auto mtls from sidecar to gateways when explicitly referenced
+        security.istio.io/tlsMode: istio
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15090"
