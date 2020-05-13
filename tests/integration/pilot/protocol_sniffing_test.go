@@ -82,14 +82,12 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 			Namespace: ns,
 			Ports:     ports,
 			Subsets:   []echo.SubsetConfig{{}},
-			Galley:    g,
 			Pilot:     p,
 		}).
 		With(&fromWithoutSidecar, echo.Config{
 			Service:   "from-without-sidecar",
 			Namespace: ns,
 			Ports:     ports,
-			Galley:    g,
 			Pilot:     p,
 			Subsets: []echo.SubsetConfig{
 				{
@@ -105,7 +103,6 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 			Namespace: ns,
 			Subsets:   []echo.SubsetConfig{{}},
 			Ports:     ports,
-			Galley:    g,
 			Pilot:     p,
 		}).
 		BuildOrFail(ctx)

@@ -108,7 +108,7 @@ func validateFeatures(values *valuesv1alpha1.Values, _ *v1alpha1.IstioOperatorSp
 	if m == nil {
 		return nil
 	}
-	if m.GetAuto().Value && !g.GetControlPlaneSecurityEnabled().Value {
+	if m.GetAuto().GetValue() && !g.GetControlPlaneSecurityEnabled().GetValue() {
 		return []error{fmt.Errorf("security: auto mtls is enabled, but control plane security is not enabled")}
 	}
 	return nil

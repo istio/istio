@@ -15,11 +15,15 @@
 package controller
 
 import (
+	"strings"
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/util"
 	"istio.io/pkg/log"
 
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 
@@ -27,6 +31,18 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube/secretcontroller"
+)
+
+const (
+	// Name of the webhook config in the config - no need to change it.
+	webhookName = "sidecar-injector.istio.io"
+)
+
+var (
+	validationWebhookConfigNameTemplateVar = "${namespace}"
+	// These should be an invalid DNS-1123 label to ensure the user
+	// doesn't specific a valid name that matches out template.
+	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
 )
 
 type kubeController struct {
@@ -48,7 +64,9 @@ type Multicluster struct {
 	networksWatcher       mesh.NetworksWatcher
 
 	// fetchCaRoot maps the certificate name to the certificate
-	fetchCaRoot func() map[string]string
+	fetchCaRoot     func() map[string]string
+	caBundlePath    string
+	secretNamespace string
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -72,21 +90,24 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		networksWatcher:       networksWatcher,
 		metrics:               opts.Metrics,
 		fetchCaRoot:           opts.FetchCaRoot,
+		caBundlePath:          opts.CABundlePath,
+		secretNamespace:       secretNamespace,
 	}
 
-	err := secretcontroller.StartSecretController(
+	_ = secretcontroller.StartSecretController(
 		kc,
 		mc.AddMemberCluster,
 		mc.UpdateMemberCluster,
 		mc.DeleteMemberCluster,
 		secretNamespace)
-	return mc, err
+	return mc, nil
 }
 
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadataClient metadata.Interface, clusterID string) error {
+func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadataClient metadata.Interface,
+	dynamicClient dynamic.Interface, clusterID string) error {
 	// stopCh to stop controller created here when cluster removed.
 	stopCh := make(chan struct{})
 	var remoteKubeController kubeController
@@ -110,23 +131,32 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 
 	_ = kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
 	_ = kubectl.AppendInstanceHandler(func(si *model.ServiceInstance, ev model.Event) { m.updateHandler(si.Service) })
+
 	go kubectl.Run(stopCh)
 	opts := Options{
 		ResyncPeriod: m.ResyncPeriod,
 		DomainSuffix: m.DomainSuffix,
 	}
+	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
 	if m.fetchCaRoot != nil {
 		nc := NewNamespaceController(m.fetchCaRoot, opts, clientset)
 		go nc.Run(stopCh)
+		go util.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clientset, stopCh)
+		valicationWebhookController := util.CreateValidationWebhookController(clientset, dynamicClient, webhookConfigName,
+			m.secretNamespace, m.caBundlePath)
+		if valicationWebhookController != nil {
+			go valicationWebhookController.Start(stopCh)
+		}
 	}
 	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clientset kubernetes.Interface, metadataClient metadata.Interface, clusterID string) error {
+func (m *Multicluster) UpdateMemberCluster(clientset kubernetes.Interface, metadataClient metadata.Interface,
+	dynamicClient dynamic.Interface, clusterID string) error {
 	if err := m.DeleteMemberCluster(clusterID); err != nil {
 		return err
 	}
-	return m.AddMemberCluster(clientset, metadataClient, clusterID)
+	return m.AddMemberCluster(clientset, metadataClient, dynamicClient, clusterID)
 }
 
 // DeleteMemberCluster is passed to the secret controller as a callback to be called

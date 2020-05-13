@@ -26,6 +26,12 @@ import (
 	"sync"
 	"time"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+
+	"istio.io/istio/pilot/pkg/networking/util"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -92,16 +98,16 @@ type ADSC struct {
 	tcpListeners map[string]*xdsapi.Listener
 
 	// All received clusters of type eds, keyed by name
-	edsClusters map[string]*xdsapi.Cluster
+	edsClusters map[string]*cluster.Cluster
 
 	// All received clusters of no-eds type, keyed by name
-	clusters map[string]*xdsapi.Cluster
+	clusters map[string]*cluster.Cluster
 
 	// All received routes, keyed by route name
 	routes map[string]*xdsapi.RouteConfiguration
 
 	// All received endpoints, keyed by cluster name
-	eds map[string]*xdsapi.ClusterLoadAssignment
+	eds map[string]*endpoint.ClusterLoadAssignment
 
 	// Metadata has the node metadata to send to pilot.
 	// If nil, the defaults will be used.
@@ -135,12 +141,6 @@ type ADSC struct {
 const (
 	typePrefix = "type.googleapis.com/envoy.api.v2."
 
-	// Constants used for XDS
-
-	// ClusterType is used for cluster discovery. Typically first request received
-	ClusterType = typePrefix + "Cluster"
-	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
-	endpointType = typePrefix + "ClusterLoadAssignment"
 	// ListenerType is sent after clusters and endpoints.
 	ListenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
@@ -311,36 +311,35 @@ func (a *ADSC) handleRecv() {
 		}
 
 		listeners := []*xdsapi.Listener{}
-		clusters := []*xdsapi.Cluster{}
+		clusters := []*cluster.Cluster{}
 		routes := []*xdsapi.RouteConfiguration{}
-		eds := []*xdsapi.ClusterLoadAssignment{}
-		log.Infoa("Update for ", gvk, len(msg.Resources))
+		eds := []*endpoint.ClusterLoadAssignment{}
 		for _, rsc := range msg.Resources { // Any
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
-			case ListenerType:
+			case v2.ListenerType:
 				{
 					ll := &xdsapi.Listener{}
 					_ = proto.Unmarshal(valBytes, ll)
 					listeners = append(listeners, ll)
 				}
 
-			case ClusterType:
+			case v2.ClusterTypeV3:
 				{
-					cl := &xdsapi.Cluster{}
+					cl := &cluster.Cluster{}
 					_ = proto.Unmarshal(valBytes, cl)
 					clusters = append(clusters, cl)
 				}
 
-			case endpointType:
+			case v2.EndpointTypeV3:
 				{
-					el := &xdsapi.ClusterLoadAssignment{}
+					el := &endpoint.ClusterLoadAssignment{}
 					_ = proto.Unmarshal(valBytes, el)
 					eds = append(eds, el)
 				}
 
-			case routeType:
+			case v2.RouteType:
 				{
 					rl := &xdsapi.RouteConfiguration{}
 					_ = proto.Unmarshal(valBytes, rl)
@@ -445,6 +444,41 @@ func (a *ADSC) handleRecv() {
 		default:
 		}
 	}
+}
+
+func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
+	if m == nil || m.Metadata == nil {
+		return &model.Config{}, nil
+	}
+	c := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			ResourceVersion: m.Metadata.Version,
+			Labels:          m.Metadata.Labels,
+			Annotations:     m.Metadata.Annotations,
+		},
+	}
+	nsn := strings.Split(m.Metadata.Name, "/")
+	if len(nsn) != 2 {
+		return nil, fmt.Errorf("invalid name %s", m.Metadata.Name)
+	}
+	c.Namespace = nsn[0]
+	c.Name = nsn[1]
+	var err error
+	c.CreationTimestamp, err = types.TimestampFromProto(m.Metadata.CreateTime)
+	if err != nil {
+		return nil, err
+	}
+
+	pb, err := types.EmptyAny(m.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = types.UnmarshalAny(m.Body, pb)
+	if err != nil {
+		return nil, err
+	}
+	c.Spec = pb
+	return c, nil
 }
 
 func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
@@ -642,17 +676,17 @@ func (a *ADSC) Save(base string) error {
 	return err
 }
 
-func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
+func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 
 	cn := []string{}
 	cdsSize := 0
-	edscds := map[string]*xdsapi.Cluster{}
-	cds := map[string]*xdsapi.Cluster{}
+	edscds := map[string]*cluster.Cluster{}
+	cds := map[string]*cluster.Cluster{}
 	for _, c := range ll {
 		cdsSize += proto.Size(c)
 		switch v := c.ClusterDiscoveryType.(type) {
-		case *xdsapi.Cluster_Type:
-			if v.Type != xdsapi.Cluster_EDS {
+		case *cluster.Cluster_Type:
+			if v.Type != cluster.Cluster_EDS {
 				cds[c.Name] = c
 				continue
 			}
@@ -664,7 +698,7 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 	adscLog.Infof("CDS: %d size=%d", len(cn), cdsSize)
 
 	if len(cn) > 0 {
-		a.sendRsc(endpointType, cn)
+		a.sendRsc(v2.EndpointTypeV3, cn)
 	}
 	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(ll, " ", " ")
@@ -706,8 +740,8 @@ func (a *ADSC) Send(req *xdsapi.DiscoveryRequest) error {
 	return a.stream.Send(req)
 }
 
-func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
-	la := map[string]*xdsapi.ClusterLoadAssignment{}
+func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
+	la := map[string]*endpoint.ClusterLoadAssignment{}
 	edsSize := 0
 	ep := 0
 	for _, cla := range eds {
@@ -900,6 +934,23 @@ func (a *ADSC) WatchConfig() {
 	}
 }
 
+// WatchConfig will use the new experimental API watching, similar with MCP.
+func (a *ADSC) WatchConfig() {
+	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node:          a.node(),
+		TypeUrl:       collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
+	})
+
+	for _, sch := range collections.Pilot.All() {
+		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
+			ResponseNonce: time.Now().String(),
+			Node:          a.node(),
+			TypeUrl:       sch.Resource().GroupVersionKind().String(),
+		})
+	}
+}
+
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: "",
@@ -933,14 +984,14 @@ func (a *ADSC) GetTCPListeners() map[string]*xdsapi.Listener {
 }
 
 // GetEdsClusters returns all the eds type clusters.
-func (a *ADSC) GetEdsClusters() map[string]*xdsapi.Cluster {
+func (a *ADSC) GetEdsClusters() map[string]*cluster.Cluster {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	return a.edsClusters
 }
 
 // GetClusters returns all the non-eds type clusters.
-func (a *ADSC) GetClusters() map[string]*xdsapi.Cluster {
+func (a *ADSC) GetClusters() map[string]*cluster.Cluster {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	return a.clusters
@@ -954,7 +1005,7 @@ func (a *ADSC) GetRoutes() map[string]*xdsapi.RouteConfiguration {
 }
 
 // GetEndpoints returns all the routes.
-func (a *ADSC) GetEndpoints() map[string]*xdsapi.ClusterLoadAssignment {
+func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	return a.eds

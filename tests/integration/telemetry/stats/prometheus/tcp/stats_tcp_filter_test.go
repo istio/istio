@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -42,7 +41,6 @@ const (
 var (
 	ist        istio.Instance
 	bookinfoNs namespace.Instance
-	g          galley.Instance
 	ing        ingress.Instance
 	prom       prometheus.Instance
 )
@@ -54,14 +52,14 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 		Run(func(ctx framework.TestContext) {
 			addr := ing.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
-			g.ApplyConfigOrFail(
+			ctx.ApplyConfigOrFail(
 				t,
-				bookinfoNs,
+				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
-			defer g.DeleteConfig(
-				bookinfoNs,
+			defer ctx.DeleteConfig(
+				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
@@ -72,13 +70,13 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 				t.Errorf("unable to load config %s, err:%v", cleanupFilterConfig, err)
 			}
 
-			g.ApplyConfigOrFail(
+			ctx.ApplyConfigOrFail(
 				t,
-				systemNM,
+				systemNM.Name(),
 				cleanup,
 			)
-			defer g.DeleteConfig(
-				systemNM,
+			defer ctx.DeleteConfig(
+				systemNM.Name(),
 				cleanup,
 			)
 
@@ -137,10 +135,6 @@ func testsetup(ctx resource.Context) (err error) {
 	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDB}); err != nil {
 		return err
 	}
-	g, err = galley.New(ctx, galley.Config{})
-	if err != nil {
-		return err
-	}
 	ing, err = ingress.New(ctx, ingress.Config{Istio: ist})
 	if err != nil {
 		return err
@@ -153,7 +147,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	err = g.ApplyConfig(bookinfoNs, yamlText)
+	err = ctx.ApplyConfig(bookinfoNs.Name(), yamlText)
 	if err != nil {
 		return err
 	}

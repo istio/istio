@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 95
+number_of_entries: 96
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -5417,6 +5417,17 @@ No
 No
 </td>
 </tr>
+<tr id="SidecarInjectorConfig-injectionURL">
+<td><code>injectionURL</code></td>
+<td><code>string</code></td>
+<td>
+<p>Configure the injection url for sidecar injector webhook</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -6817,6 +6828,43 @@ No
 No
 </td>
 </tr>
+<tr id="BaseConfig-validationURL">
+<td><code>validationURL</code></td>
+<td><code>string</code></td>
+<td>
+<p>URL to use for validating webhook.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IstiodRemoteConfig">IstiodRemoteConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstiodRemoteConfig-injectionURL">
+<td><code>injectionURL</code></td>
+<td><code>string</code></td>
+<td>
+<p>URL to use for sidecar injector webhook.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -7014,6 +7062,15 @@ No
 <tr id="Values-base">
 <td><code>base</code></td>
 <td><code><a href="#BaseConfig">BaseConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-istiodRemote">
+<td><code>istiodRemote</code></td>
+<td><code><a href="#IstiodRemoteConfig">IstiodRemoteConfig</a></code></td>
 <td>
 </td>
 <td>

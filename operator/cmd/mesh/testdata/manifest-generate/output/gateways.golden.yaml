@@ -164,6 +164,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: ISTIO_META_WORKLOAD_NAME
           value: istio-ingressgateway
         - name: ISTIO_META_OWNER
@@ -177,7 +185,7 @@ spec:
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
-        - containerPort: 15020
+        - containerPort: 15021
         - containerPort: 8080
         - containerPort: 8443
         - containerPort: 15443
@@ -192,7 +200,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15021
             scheme: HTTP
           initialDelaySeconds: 1
           periodSeconds: 2
@@ -203,9 +211,11 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 111m
+            cpu: 999m
             memory: 128Mi
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
         - mountPath: /etc/istio/config
           name: config-volume
         - mountPath: /var/run/secrets/istio
@@ -223,6 +233,17 @@ spec:
         - mountPath: /etc/istio/ingressgateway-ca-certs
           name: ingressgateway-ca-certs
           readOnly: true
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        fsGroup: 1337
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsGroup: 1337
+        runAsNonRoot: true
+        runAsUser: 1337
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
       - configMap:
@@ -237,6 +258,8 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: podinfo
+      - emptyDir: {}
+        name: istio-envoy
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token
@@ -281,7 +304,6 @@ spec:
       app: istio-ingressgateway
       bbb: bbb-val
       istio: ingressgateway
-      release: istio
 ---
 
 
@@ -338,8 +360,8 @@ spec:
   ports:
     -
       name: status-port
-      port: 15020
-      targetPort: 15020
+      port: 15021
+      targetPort: 15021
     -
       name: http2
       port: 80
@@ -515,6 +537,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: ISTIO_META_WORKLOAD_NAME
           value: user-ingressgateway
         - name: ISTIO_META_OWNER
@@ -528,7 +558,7 @@ spec:
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
-        - containerPort: 15020
+        - containerPort: 15021
         - containerPort: 8080
         - containerPort: 8443
         - containerPort: 15443
@@ -543,7 +573,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15021
             scheme: HTTP
           initialDelaySeconds: 1
           periodSeconds: 2
@@ -554,9 +584,11 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 222m
+            cpu: 555m
             memory: 128Mi
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
         - mountPath: /etc/istio/config
           name: config-volume
         - mountPath: /var/run/secrets/istio
@@ -574,6 +606,17 @@ spec:
         - mountPath: /etc/istio/ingressgateway-ca-certs
           name: ingressgateway-ca-certs
           readOnly: true
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        fsGroup: 1337
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsGroup: 1337
+        runAsNonRoot: true
+        runAsUser: 1337
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
       - configMap:
@@ -588,6 +631,8 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: podinfo
+      - emptyDir: {}
+        name: istio-envoy
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token
@@ -632,14 +677,13 @@ spec:
       ccc: ccc-val
       ddd: ddd-val
       istio: ingressgateway
-      release: istio
 ---
 
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: istio-ingressgateway-sds
+  name: user-ingressgateway-sds
   namespace: istio-system
   labels:
     release: istio
@@ -653,17 +697,17 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: istio-ingressgateway-sds
+  name: user-ingressgateway-sds
   namespace: istio-system
   labels:
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: istio-ingressgateway-sds
+  name: user-ingressgateway-sds
 subjects:
 - kind: ServiceAccount
-  name: istio-ingressgateway-service-account
+  name: user-ingressgateway-service-account
 ---
 
 
@@ -689,8 +733,8 @@ spec:
   ports:
     -
       name: status-port
-      port: 15020
-      targetPort: 15020
+      port: 15021
+      targetPort: 15021
     -
       name: http2
       port: 80
@@ -709,7 +753,7 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: user-ingressgateway-service-account
   namespace: istio-system
   labels:
     app: istio-ingressgateway
@@ -829,6 +873,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: ISTIO_META_WORKLOAD_NAME
           value: ilb-gateway
         - name: ISTIO_META_OWNER
@@ -856,7 +908,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15021
             scheme: HTTP
           initialDelaySeconds: 1
           periodSeconds: 2
@@ -870,6 +922,8 @@ spec:
             cpu: 333m
             memory: 128Mi
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
         - mountPath: /etc/istio/config
           name: config-volume
         - mountPath: /var/run/secrets/istio
@@ -887,6 +941,17 @@ spec:
         - mountPath: /etc/istio/ingressgateway-ca-certs
           name: ingressgateway-ca-certs
           readOnly: true
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        fsGroup: 1337
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsGroup: 1337
+        runAsNonRoot: true
+        runAsUser: 1337
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
       - configMap:
@@ -901,6 +966,8 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: podinfo
+      - emptyDir: {}
+        name: istio-envoy
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token
@@ -961,12 +1028,11 @@ spec:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
-      release: istio
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: istio-ingressgateway-sds
+  name: ilb-gateway-sds
   namespace: user-ingressgateway-ns
   labels:
     release: istio
@@ -978,17 +1044,17 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: istio-ingressgateway-sds
+  name: ilb-gateway-sds
   namespace: user-ingressgateway-ns
   labels:
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: istio-ingressgateway-sds
+  name: ilb-gateway-sds
 subjects:
 - kind: ServiceAccount
-  name: istio-ingressgateway-service-account
+  name: ilb-gateway-service-account
 ---
 apiVersion: v1
 kind: Service
@@ -1018,13 +1084,15 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: ilb-gateway-service-account
   namespace: user-ingressgateway-ns
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
     release: istio
 ---
+
+# IstiodRemote component is disabled.
 
 # Pilot istiod component is disabled.
 

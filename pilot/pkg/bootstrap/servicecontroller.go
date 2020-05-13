@@ -24,9 +24,9 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -62,12 +62,12 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	s.serviceEntryStore = external.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.EnvoyXdsServer)
+	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.EnvoyXdsServer)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
-	if s.kubeRegistry != nil {
+	if features.EnableServiceEntrySelectPods && s.kubeRegistry != nil {
 		// Add an instance handler in the service entry store to handle pod events from kubernetes registry
-		_ = s.kubeRegistry.AppendInstanceHandler(s.serviceEntryStore.GetForeignServiceInstanceHandler())
+		_ = s.kubeRegistry.AppendInstanceHandler(s.serviceEntryStore.ForeignServiceInstanceHandler)
 	}
 
 	// Defer running of the service controllers.

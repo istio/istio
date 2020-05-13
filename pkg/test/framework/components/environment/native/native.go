@@ -21,16 +21,16 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/docker"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/pkg/test/util/reserveport"
 )
 
 const (
 	systemNamespace = "istio-system"
-	domain          = "cluster.local"
+	domain          = constants.DefaultKubernetesDomain
 
 	networkLabelKey   = "app"
 	networkLabelValue = "istio-test"
@@ -51,29 +51,26 @@ type Environment struct {
 	// Domain used by components in the native environment.
 	Domain string
 
-	// PortManager provides free ports on-demand.
-	PortManager reserveport.PortManager
-
 	// Docker resources, Lazy-initialized.
 	dockerClient *client.Client
 	network      *docker.Network
 	mux          sync.Mutex
+	Cluster      resource.Cluster
 }
 
 var _ resource.Environment = &Environment{}
 
 // New returns a new native environment.
 func New(ctx resource.Context) (resource.Environment, error) {
-	portMgr, err := reserveport.NewPortManager()
+	cluster, err := NewCluster(ctx)
 	if err != nil {
 		return nil, err
 	}
-
 	e := &Environment{
 		ctx:             ctx,
 		SystemNamespace: systemNamespace,
 		Domain:          domain,
-		PortManager:     portMgr,
+		Cluster:         cluster,
 	}
 	e.id = ctx.TrackResource(e)
 
@@ -101,7 +98,7 @@ func (e *Environment) IsMulticluster() bool {
 }
 
 func (e *Environment) Clusters() []resource.Cluster {
-	return []resource.Cluster{Cluster}
+	return []resource.Cluster{e.Cluster}
 }
 
 // ID implements resource.Instance
@@ -156,11 +153,6 @@ func (e *Environment) Network() (*docker.Network, error) {
 func (e *Environment) Close() (err error) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
-
-	if e.PortManager != nil {
-		err = multierror.Append(err, e.PortManager.Close()).ErrorOrNil()
-	}
-	e.PortManager = nil
 
 	if e.network != nil {
 		err = multierror.Append(err, e.network.Close()).ErrorOrNil()

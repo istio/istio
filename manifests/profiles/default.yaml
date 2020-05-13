@@ -107,15 +107,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-    # Security feature
-    citadel:
-      enabled: false
-      k8s:
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -203,6 +194,10 @@ spec:
             maxUnavailable: "25%"
     # Istio CNI feature
     cni:
+      enabled: false
+    
+    # istiod remote configuration wwhen istiod isn't installed on the cluster
+    istiodRemote:
       enabled: false
 
   addonComponents:
@@ -325,6 +320,7 @@ spec:
       mountMtlsCerts: false
     base:
       enableCRDTemplates: false
+      validationURL: ""
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -409,6 +405,9 @@ spec:
             enabled: true
           useAdapterCRDs: false
 
+    istiodRemote:
+      injectionURL: ""
+      
     gateways:
       istio-egressgateway:
         zvpn: {}
@@ -574,7 +573,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.15
+      tag: v1.18
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []

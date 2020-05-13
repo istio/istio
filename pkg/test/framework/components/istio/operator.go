@@ -18,21 +18,23 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/cert/ca"
-	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
@@ -85,6 +87,14 @@ func (i *operatorComponent) Close() (err error) {
 			if e := cluster.DeleteContents("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
 				err = multierror.Append(err, e)
 			}
+			if i.environment.IsMulticluster() {
+				if e := cluster.DeleteNamespace(i.settings.SystemNamespace); e != nil {
+					err = multierror.Append(err, e)
+				}
+				if e := cluster.WaitForNamespaceDeletion(i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
+					err = multierror.Append(err, e)
+				}
+			}
 		}
 	}
 	return
@@ -99,32 +109,7 @@ func (i *operatorComponent) Dump() {
 			scopes.CI.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 			return
 		}
-
-		deployment.DumpPodState(d, i.settings.SystemNamespace, cluster.Accessor)
-		deployment.DumpPodEvents(d, i.settings.SystemNamespace, cluster.Accessor)
-
-		pods, err := cluster.GetPods(i.settings.SystemNamespace)
-		if err != nil {
-			scopes.CI.Errorf("Unable to get pods from the system namespace in cluster %s: %v", cluster.Name(), err)
-			return
-		}
-
-		for _, pod := range pods {
-			for _, container := range pod.Spec.Containers {
-				l, err := i.environment.KubeClusters[0].Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
-				if err != nil {
-					scopes.CI.Errorf("Unable to get logs for pod/container in cluster %s: %s/%s/%s", cluster.Name(),
-						pod.Namespace, pod.Name, container.Name)
-					continue
-				}
-
-				fname := path.Join(d, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
-				if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
-					scopes.CI.Errorf("Unable to write logs for pod/container in cluster %s: %s/%s/%s", cluster.Name(),
-						pod.Namespace, pod.Name, container.Name)
-				}
-			}
-		}
+		cluster.DumpPods(d, i.settings.SystemNamespace)
 	}
 }
 
@@ -169,6 +154,23 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Deploy the Istio control plane(s)
 	for _, cluster := range env.KubeClusters {
 		if env.IsControlPlaneCluster(cluster) {
+			if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
+				return nil, fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
+			}
+		}
+	}
+	// Wait for all of the control planes to be started before deploying remote clusters
+	for _, cluster := range env.KubeClusters {
+		if env.IsControlPlaneCluster(cluster) {
+			if err := waitForControlPlane(i, cluster, cfg); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// Deploy Istio to remote clusters
+	for _, cluster := range env.KubeClusters {
+		if !env.IsControlPlaneCluster(cluster) {
 			if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
 				return nil, fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
 			}
@@ -221,10 +223,31 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	for k, v := range cfg.Values {
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 	}
+
 	if c.environment.IsMulticluster() {
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
+
+		if c.environment.IsControlPlaneCluster(cluster) {
+			// Expose Istiod through ingress to allow remote clusters to connect
+			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
+		} else {
+			installSettings = append(installSettings, "--set", "profile=remote")
+			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
+			if err != nil {
+				return fmt.Errorf("failed getting control plane cluster for cluster %d: %v", cluster.Index(), err)
+			}
+			var remoteIstiodAddress net.TCPAddr
+			if err := retry.UntilSuccess(func() error {
+				var err error
+				remoteIstiodAddress, err = getRemoteDiscoveryAddress(cfg, controlPlaneCluster.(kube.Cluster))
+				return err
+			}, retry.Timeout(1*time.Minute)); err != nil {
+				return fmt.Errorf("failed getting the istiod address for cluster %d: %v", controlPlaneCluster.Index(), err)
+			}
+			installSettings = append(installSettings, "--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
+		}
 	}
 
 	// Save the manifest generate output so we can later cleanup
@@ -240,7 +263,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	cmd := []string{
 		"manifest", "apply",
 		"--skip-confirmation",
-		"--wait",
 	}
 	cmd = append(cmd, installSettings...)
 	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)

@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -29,7 +28,6 @@ import (
 
 var (
 	i    istio.Instance
-	g    galley.Instance
 	p    pilot.Instance
 	ingr ingress.Instance
 )
@@ -75,12 +73,7 @@ values:
     enabled: true`
 		})).
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
+			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
 			if ingr, err = ingress.New(ctx, ingress.Config{

@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -60,8 +59,7 @@ func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.E
 
 	// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
 	if features.EnableHeadlessService {
-		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(name, namespace)); obj != nil {
-			svc := obj.(*v1.Service)
+		if svc, _ := e.c.serviceLister.Services(namespace).Get(name); svc != nil {
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
 				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{

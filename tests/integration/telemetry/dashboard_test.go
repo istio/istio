@@ -284,7 +284,7 @@ func setupDashboardTest(t framework.TestContext) {
 		Prefix: "dashboard",
 		Inject: true,
 	})
-	g.ApplyConfigOrFail(t, ns, fmt.Sprintf(gatewayConfig, ns.Name()))
+	t.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(gatewayConfig, ns.Name()))
 
 	var instance echo.Instance
 	echoboot.
@@ -292,7 +292,6 @@ func setupDashboardTest(t framework.TestContext) {
 		With(&instance, echo.Config{
 			Service:   "server",
 			Pilot:     p,
-			Galley:    g,
 			Namespace: ns,
 			Subsets:   []echo.SubsetConfig{{}},
 			Ports: []echo.Port{

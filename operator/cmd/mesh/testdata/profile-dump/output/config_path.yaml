@@ -1,12 +1,5 @@
 base:
   enabled: true
-citadel:
-  enabled: false
-  k8s:
-    strategy:
-      rollingUpdate:
-        maxSurge: 100%
-        maxUnavailable: 25%
 cni:
   enabled: false
 egressGateways:
@@ -76,8 +69,8 @@ ingressGateways:
     service:
       ports:
       - name: status-port
-        port: 15020
-        targetPort: 15020
+        port: 15021
+        targetPort: 15021
       - name: http2
         port: 80
         targetPort: 8080
@@ -92,6 +85,8 @@ ingressGateways:
         maxSurge: 100%
         maxUnavailable: 25%
   name: istio-ingressgateway
+istiodRemote:
+  enabled: false
 pilot:
   enabled: false
   k8s:
@@ -142,10 +137,6 @@ policy:
       rollingUpdate:
         maxSurge: 100%
         maxUnavailable: 25%
-proxy:
-  enabled: false
-sidecarInjector:
-  enabled: false
 telemetry:
   enabled: false
   k8s:

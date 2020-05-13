@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate go run ../tools/featuresgen/main.go
+
 package features
-
-// TODO: this file should be generated from YAML to make it more easy to modify.
-
-// WARNING: changes to existing elements in this file will cause corruption of test coverage data.
-// don't change existing entries unless absolutely necessary
-
-type Feature string
-
-const (
-	UsabilityObservabilityStatus              Feature = "Usability.Observability.Status"
-	UsabilityObservabilityStatusDefaultExists Feature = "Usability.Observability.Status.DefaultExists"
-)

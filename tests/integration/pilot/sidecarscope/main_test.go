@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -200,8 +199,7 @@ type Config struct {
 }
 
 func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{})
 
 	includedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "included",
@@ -224,13 +222,13 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	})
 
 	// Apply all configs
-	createConfig(t, g, config, SidecarConfig, appNamespace)
-	createConfig(t, g, config, AppConfig, appNamespace)
-	createConfig(t, g, config, AppConfigListener, appNamespace)
-	createConfig(t, g, config, ExcludedConfig, excludedNamespace)
-	createConfig(t, g, config, IncludedConfig, includedNamespace)
-	createConfig(t, g, config, IncludedConfigListener, includedNamespace)
-	createConfig(t, g, config, ExcludedConfigListener, excludedNamespace)
+	createConfig(t, ctx, config, SidecarConfig, appNamespace)
+	createConfig(t, ctx, config, AppConfig, appNamespace)
+	createConfig(t, ctx, config, AppConfigListener, appNamespace)
+	createConfig(t, ctx, config, ExcludedConfig, excludedNamespace)
+	createConfig(t, ctx, config, IncludedConfig, includedNamespace)
+	createConfig(t, ctx, config, IncludedConfigListener, includedNamespace)
+	createConfig(t, ctx, config, ExcludedConfigListener, excludedNamespace)
 
 	time.Sleep(time.Second * 2)
 
@@ -245,7 +243,7 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	return p, nodeID
 }
 
-func createConfig(t *testing.T, g galley.Instance, config Config, yaml string, namespace namespace.Instance) {
+func createConfig(t *testing.T, ctx resource.Context, config Config, yaml string, namespace namespace.Instance) {
 	tmpl, err := template.New("Config").Parse(yaml)
 	if err != nil {
 		t.Errorf("failed to create template: %v", err)
@@ -254,7 +252,7 @@ func createConfig(t *testing.T, g galley.Instance, config Config, yaml string, n
 	if err := tmpl.Execute(&buf, config); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := g.ApplyConfig(namespace, buf.String()); err != nil {
+	if err := ctx.ApplyConfig(namespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply config: %v. Config: %v", err, buf.String())
 	}
 }

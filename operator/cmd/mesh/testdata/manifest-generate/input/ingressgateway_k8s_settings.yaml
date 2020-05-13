@@ -6,10 +6,6 @@ spec:
       enabled: false
     policy:
       enabled: false
-    citadel:
-      enabled: false
-    sidecarInjector:
-      enabled: false
     ingressGateways:
     - namespace: istio-system
       name: istio-ingressgateway

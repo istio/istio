@@ -9,10 +9,14 @@ metadata:
 webhooks:
   - name: validation.istio.io
     clientConfig:
+      {{- if .Values.base.validationURL }}
+      url: {{ .Values.base.validationURL }}
+      {{- else }}
       service:
         name: istiod
         namespace: {{ .Values.global.istioNamespace }}
         path: "/validate"
+      {{- end }}
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:

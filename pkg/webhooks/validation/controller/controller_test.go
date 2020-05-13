@@ -39,7 +39,7 @@ import (
 
 	"istio.io/pkg/filewatcher"
 
-	"istio.io/istio/pkg/mcp/testing/testcerts"
+	"istio.io/istio/pkg/testcerts"
 )
 
 var (

@@ -201,8 +201,6 @@ type applyOptions struct {
 	Context string
 	// DryRun performs all steps except actually applying the manifests or creating output dirs/files.
 	DryRun bool
-	// Wait for resources to be ready after install.
-	Wait bool
 	// Maximum amount of time to wait for resources to be ready after install when Wait=true.
 	WaitTimeout time.Duration
 }
@@ -220,7 +218,7 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr st
 		Name:    componentName,
 		Content: manifestStr,
 	}
-	_, _, err = reconciler.ApplyManifest(ms, true)
+	_, _, err = reconciler.ApplyManifest(ms)
 	return err
 }
 
@@ -230,7 +228,7 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 		return "", "", nil
 	}
 
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, "", false, nil, l)
+	_, mergedIOPS, err := GenerateConfig([]string{filePath}, nil, false, nil, l)
 	if err != nil {
 		return "", "", err
 	}

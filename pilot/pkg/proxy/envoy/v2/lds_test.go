@@ -21,8 +21,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/istio/pkg/config/mesh"
-
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 
@@ -450,7 +448,6 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
-	mesh.TestMode = true
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"

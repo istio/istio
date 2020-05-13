@@ -141,7 +141,7 @@ func TestRootCertRotatorKeepCertFieldsUnchanged(t *testing.T) {
 	// Update CASecret with a new root cert generated from custom cert options. The
 	// cert options differ from default cert options used by rotator.
 	oldCertOrg := "old cert org"
-	oldCertRSAKeySize := 512
+	oldCertRSAKeySize := 2048
 	customCertOptions := util.CertOptions{
 		TTL:          rotator.config.caCertTTL,
 		Org:          oldCertOrg,

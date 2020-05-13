@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	md "cloud.google.com/go/compute/metadata"
-	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"istio.io/istio/pkg/config/constants"
 
@@ -281,7 +281,7 @@ func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interfa
 }
 
 func getLocalityOptions(meta *model.NodeMetadata, platEnv platform.Environment) []option.Instance {
-	var l *envoy_api_v2_core.Locality
+	var l *corev3.Locality
 	if meta.Labels[model.LocalityLabel] == "" {
 		l = platEnv.Locality()
 		// The locality string was not set, try to get locality from platform

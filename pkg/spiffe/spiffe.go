@@ -20,6 +20,8 @@ import (
 	"sync"
 
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 const (
@@ -28,7 +30,7 @@ const (
 	URIPrefix = Scheme + "://"
 
 	// The default SPIFFE URL value for trust domain
-	defaultTrustDomain = "cluster.local"
+	defaultTrustDomain = constants.DefaultKubernetesDomain
 )
 
 var (

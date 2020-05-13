@@ -233,9 +233,7 @@ func TestMyLogic(t *testing.T) {
         Run(func(ctx framework.TestContext) {
             // Create the components.
             g := galley.NewOrFail(ctx, ctx, galley.Config{})
-            p := pilot.NewOrFail(ctx, ctx, pilot.Config {
-                Galley: g,
-            })
+            p := pilot.NewOrFail(ctx, ctx, pilot.Config {})
 
             // Apply configuration via Galley.
             g.ApplyConfigOrFail(ctx, nil, mycfg)

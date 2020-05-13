@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -38,6 +39,7 @@ import (
 
 	"istio.io/api/label"
 
+	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -141,12 +143,22 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 // ProxyGet returns a response of the pod by calling it through the proxy.
 // Not a part of client-go https://github.com/kubernetes/kubernetes/issues/90768
 func (client *Client) proxyGet(name, namespace, path string, port int) rest.ResponseWrapper {
+	pathURL, err := url.Parse(path)
+	if err != nil {
+		log.Errorf("failed to parse path %s: %v", path, err)
+		pathURL = &url.URL{Path: path}
+	}
 	request := client.RESTClient.Get().
 		Namespace(namespace).
 		Resource("pods").
 		SubResource("proxy").
 		Name(fmt.Sprintf("%s:%d", name, port)).
-		Suffix(path)
+		Suffix(pathURL.Path)
+	for key, vals := range pathURL.Query() {
+		for _, val := range vals {
+			request = request.Param(key, val)
+		}
+	}
 	return request
 }
 
@@ -177,7 +189,7 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[str
 
 // EnvoyDo makes an http request to the Envoy in the specified pod
 func (client *Client) EnvoyDo(podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
-	fw, err := client.BuildPortForwarder(podName, podNamespace, "", 0, 15000)
+	fw, err := client.BuildPortForwarder(podName, podNamespace, "127.0.0.1", 0, 15000)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +352,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 func (client *Client) BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*PortForward, error) {
 	var err error
 	if localPort == 0 {
-		localPort, err = availablePort()
+		localPort, err = availablePort(localAddr)
 		if err != nil {
 			return nil, fmt.Errorf("failure allocating port: %v", err)
 		}
@@ -387,8 +399,8 @@ func (client *Client) BuildPortForwarder(podName string, ns string, localAddr st
 	}, nil
 }
 
-func availablePort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", ":0")
+func availablePort(localAddr string) (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", localAddr+":0")
 	if err != nil {
 		return 0, err
 	}
@@ -401,6 +413,7 @@ func availablePort() (int, error) {
 	return port, l.Close()
 }
 
+// PodsForSelector finds pods matching selector
 func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
 	podGet := client.Get().Resource("pods").Namespace(namespace).Param("labelSelector", labelSelector)
 	obj, err := podGet.Do(context.TODO()).Get()
@@ -410,6 +423,7 @@ func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodL
 	return obj.(*v1.PodList), nil
 }
 
+// RunPortForwarder runs a port forwarder
 func RunPortForwarder(fw *PortForward, readyFunc func(fw *PortForward) error) error {
 
 	errCh := make(chan error, 1)

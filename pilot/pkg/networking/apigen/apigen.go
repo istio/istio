@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,14 +20,19 @@ import (
 	gogotypes "github.com/gogo/protobuf/types"
 	golangany "github.com/golang/protobuf/ptypes/any"
 
+	"istio.io/istio/pilot/pkg/serviceregistry"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/pkg/log"
 )
 
+// Experimental/WIP: this is not yet ready for production use.
+// You can continue to use 1.5 Galley until this is ready.
+//
 // APIGenerator supports generation of high-level API resources, similar with the MCP
 // protocol. This is a replacement for MCP, using XDS (and in future UDPA) as a transport.
 // Based on lessons from MCP, the protocol allows incremental updates by
@@ -62,6 +67,9 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	// We use: networking.istio.io/v1alpha3/EnvoyFilter
 	gvk := strings.SplitN(w.TypeUrl, "/", 3)
 	if len(gvk) == 3 {
+		// TODO: extra validation may be needed - at least logging that a resource
+		// of unknown type was requested. This should not be an error - maybe client asks
+		// for a valid CRD we just don't know about. An empty set indicates we have no such config.
 		rgvk := resource.GroupVersionKind{
 			Group:   gvk[0],
 			Version: gvk[1],
@@ -71,7 +79,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			meshAny, err := gogotypes.MarshalAny(push.Mesh)
 			if err == nil {
 				resp = append(resp, &golangany.Any{
-					TypeUrl: w.TypeUrl,
+					TypeUrl: meshAny.TypeUrl,
 					Value:   meshAny.Value,
 				})
 			}
@@ -115,7 +123,11 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			// EDS is pass-through.
 			svcs := push.Services(proxy)
 			for _, s := range svcs {
-				c := external.ServiceToServiceEntry(s)
+				// Ignore services that are result of conversion from ServiceEntry.
+				if s.Attributes.ServiceRegistry == serviceregistry.External {
+					continue
+				}
+				c := serviceentry.ServiceToServiceEntry(s)
 				b, err := configToResource(c)
 				if err != nil {
 					log.Warna("Resource error ", err, " ", c.Namespace, "/", c.Name)

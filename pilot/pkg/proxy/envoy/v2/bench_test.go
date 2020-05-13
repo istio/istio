@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/test"
 
@@ -47,7 +49,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -65,7 +67,7 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	configController := memory.NewController(store)
 	istioConfigStore := model.MakeIstioStore(configController)
 	serviceControllers := aggregate.NewController()
-	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore, s)
+	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, istioConfigStore, s)
 	go configController.Run(make(chan struct{}))
 	serviceEntryRegistry := serviceregistry.Simple{
 		ProviderID:       "External",
@@ -340,7 +342,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				// This should correlate to pushEds()
 				// TODO directly call pushEeds, but mock/skip the grpc send
 
-				loadAssignments := make([]*envoy_api_v2.ClusterLoadAssignment, 0)
+				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 				for svc := 0; svc < tt.services; svc++ {
 					l := s.loadAssignmentsForClusterIsolated(proxy, push, fmt.Sprintf("outbound|80||foo-%d.com", svc))
 

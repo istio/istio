@@ -20,7 +20,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
@@ -316,7 +316,7 @@ func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr ads.A
 			Id:       node,
 			Metadata: metadata,
 		},
-		TypeUrl: v2.ClusterType})
+		TypeUrl: v2.ClusterTypeV3})
 	if err != nil {
 		return fmt.Errorf("CDS request failed: %s", err)
 	}
@@ -332,7 +332,7 @@ func sendEDSReqWithMetadata(clusters []string, node string, metadata *structpb.S
 			Id:       node,
 			Metadata: metadata,
 		},
-		TypeUrl:       v2.EndpointType,
+		TypeUrl:       v2.EndpointTypeV3,
 		ResourceNames: clusters,
 	})
 	if err != nil {

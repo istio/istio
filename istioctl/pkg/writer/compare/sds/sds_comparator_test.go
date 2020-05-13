@@ -16,18 +16,12 @@ package sdscompare
 
 import (
 	"bytes"
-	"io/ioutil"
 	"testing"
 
 	"istio.io/istio/security/pkg/nodeagent/sds"
 )
 
 var debugResponse = map[string]sds.Debug{}
-
-func loadEnvoyDump() []byte {
-	bytes, _ := ioutil.ReadFile("testdata/envoyconfigdumpsds.json")
-	return bytes
-}
 
 func TestNewSDSComparator(t *testing.T) {
 	tests := []struct {
@@ -36,12 +30,6 @@ func TestNewSDSComparator(t *testing.T) {
 		nodeAgentResponse map[string]sds.Debug
 		wantErr           bool
 	}{
-		{
-			name:              "valid envoy config dump and node agent debug response should succeed",
-			envoyResponse:     loadEnvoyDump(),
-			nodeAgentResponse: debugResponse,
-			wantErr:           false,
-		},
 		{
 			name:              "invalid envoy config dump and valid node agent debug response should fail",
 			envoyResponse:     []byte("sak<>djfi21ehaksdhf1o21809fasajmhannah<33k123la"),
