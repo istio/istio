@@ -965,7 +965,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 
 	// Disable transport socket when cluster type is `Cluster_ORIGINAL_DST` and mtls is autoDetected
 	// We don't know whether headless service instance has sidecar injected or not.
-	if cluster.GetType() == apiv2.Cluster_ORIGINAL_DST {
+	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
 			return
 		}
