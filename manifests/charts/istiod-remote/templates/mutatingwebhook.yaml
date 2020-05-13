@@ -15,8 +15,8 @@ metadata:
 webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
-      {{- if .Values.injectionURL }}
-      url: {{ .Values.injectionURL }}
+      {{- if .Values.istiodRemote.injectionURL }}
+      url: {{ .Values.istiodRemote.injectionURL }}
       {{- else }}
       service:
         name: istiod
