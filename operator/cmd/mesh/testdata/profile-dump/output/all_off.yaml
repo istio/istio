@@ -113,6 +113,8 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
       name: istio-ingressgateway
+    istiodRemote:
+      enabled: false
     pilot:
       enabled: false
       k8s:
@@ -206,6 +208,8 @@ spec:
   profile: default
   tag: latest
   values:
+    base:
+      validationURL: ""
     clusterResources: true
     gateways:
       istio-egressgateway:
@@ -385,6 +389,8 @@ spec:
       coreDNSImage: coredns/coredns
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       coreDNSTag: 1.6.2
+    istiodRemote:
+      injectionURL: ""
     kiali:
       contextPath: /kiali
       createDemoSecret: false
@@ -407,7 +413,7 @@ spec:
         private_key_file: /kiali-cert/key.pem
       service:
         annotations: {}
-      tag: v1.15
+      tag: v1.18
     mixer:
       adapters:
         kubernetesenv:

@@ -488,6 +488,10 @@ spec:
     # Istio CNI feature
     cni:
       enabled: false
+    
+    # istiod remote configuration wwhen istiod isn't installed on the cluster
+    istiodRemote:
+      enabled: false
 
   addonComponents:
     prometheus:
@@ -607,6 +611,8 @@ spec:
       meshNetworks: {}
       enableHelmTest: false
       mountMtlsCerts: false
+    base:
+      validationURL: ""
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -691,6 +697,9 @@ spec:
             enabled: true
           useAdapterCRDs: false
 
+    istiodRemote:
+      injectionURL: ""
+      
     gateways:
       istio-egressgateway:
         zvpn: {}
@@ -856,7 +865,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.15
+      tag: v1.18
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -2062,6 +2071,10 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
+  IstiodRemote:
+    HelmSubdir:           "istiod-remote"
+    ToHelmValuesTreeRoot: "global"
+    SkipReverseTranslate: true
   Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"

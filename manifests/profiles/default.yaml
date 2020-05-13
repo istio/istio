@@ -204,6 +204,10 @@ spec:
     # Istio CNI feature
     cni:
       enabled: false
+    
+    # istiod remote configuration wwhen istiod isn't installed on the cluster
+    istiodRemote:
+      enabled: false
 
   addonComponents:
     prometheus:
@@ -409,6 +413,9 @@ spec:
             enabled: true
           useAdapterCRDs: false
 
+    istiodRemote:
+      injectionURL: ""
+      
     gateways:
       istio-egressgateway:
         zvpn: {}

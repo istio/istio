@@ -73,6 +73,9 @@ const (
 
 	CNIComponentName ComponentName = "Cni"
 
+	// istiod remote component
+	IstiodRemoteComponentName ComponentName = "IstiodRemote"
+
 	// Gateway components
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
@@ -97,7 +100,9 @@ var (
 		PolicyComponentName,
 		TelemetryComponentName,
 		CNIComponentName,
+		IstiodRemoteComponentName,
 	}
+
 	allComponentNamesMap = make(map[ComponentName]bool)
 	// DeprecatedComponentNamesMap defines the names of deprecated istio core components used in old versions,
 	// which would not appear as standalone components in current version. This is used for pruning, and alerting
@@ -128,6 +133,7 @@ var (
 		AddonComponentName:              "Addons",
 		IstioOperatorComponentName:      "Istio operator",
 		IstioOperatorCustomResourceName: "Istio operator CRDs",
+		IstiodRemoteComponentName:       "Istiod remote",
 	}
 	scanAddons sync.Once
 )
