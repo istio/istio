@@ -38,3 +38,10 @@ spec:
             patches:
               - path: spec.ports.[name:https-dns].port
                 value: 11111 # OVERRIDDEN
+          # Cluster scope resource
+          - kind: MutatingWebhookConfiguration
+            name: istio-sidecar-injector
+            patches:
+              - path: webhooks.[name:sidecar-injector\.istio\.io].clientConfig.service.name
+                value: foo
+
