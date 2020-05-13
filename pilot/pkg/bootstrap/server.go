@@ -225,6 +225,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// common https server for webhooks (e.g. injection, validation)
 	s.initHTTPSWebhookServer(args)
 
+	args.Config.ControllerOptions.CABundlePath = s.caBundlePath
 	// Only operates if /var/lib/istio/inject exists
 	if err := s.initSidecarInjector(args); err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
