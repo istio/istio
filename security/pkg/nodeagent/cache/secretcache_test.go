@@ -996,12 +996,12 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 // TestWorkloadAgentGenerateSecretFromFileOverSds tests generating secrets from existing files on a
 // secretcache instance, specified over SDS.
 func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
+	fetcher := &secretfetcher.SecretFetcher{}
+
 	opt := Options{
-		RotationInterval: 1 * time.Millisecond,
+		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
 	}
-
-	fetcher := &secretfetcher.SecretFetcher{}
 
 	var wgAddedWatch sync.WaitGroup
 	var notifyEvent sync.WaitGroup
@@ -1046,6 +1046,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 	conID := "proxy1-id"
 	ctx := context.Background()
 
+	// Since we do not have rotation enabled, we do not get secret notification.
 	wgAddedWatch.Add(1) // Watch should be added for cert file.
 
 	gotSecret, err := sc.GenerateSecret(ctx, conID, resource, "jwtToken1")

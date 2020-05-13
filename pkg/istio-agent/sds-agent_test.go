@@ -18,7 +18,8 @@ import (
 	"testing"
 )
 
-func TestSDSAgentWithEmptyCAProvider(t *testing.T) {
+// Validate that SDSAgent comes up without errors when configured with file mounted certs.
+func TestSDSAgentWithFileMountedCerts(t *testing.T) {
 	fm := fileMountedCertsEnv
 	fileMountedCertsEnv = true
 	defer func() { fileMountedCertsEnv = fm }()
