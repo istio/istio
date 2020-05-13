@@ -290,7 +290,6 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 			errs = multierror.Append(errs, err)
 		} else if len(instances) > 0 {
 			out = append(out, instances...)
-			node.ClusterID = instances[0].Endpoint.Locality.ClusterID
 			break
 		}
 	}
