@@ -69,8 +69,8 @@ ingressGateways:
     service:
       ports:
       - name: status-port
-        port: 15020
-        targetPort: 15020
+        port: 15021
+        targetPort: 15021
       - name: http2
         port: 80
         targetPort: 8080
@@ -85,6 +85,8 @@ ingressGateways:
         maxSurge: 100%
         maxUnavailable: 25%
   name: istio-ingressgateway
+istiodRemote:
+  enabled: false
 pilot:
   enabled: false
   k8s:
