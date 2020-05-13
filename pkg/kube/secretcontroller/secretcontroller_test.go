@@ -32,6 +32,8 @@ import (
 	metafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/tools/cache"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 )
 
 const secretNamespace string = "istio-system"
@@ -52,6 +54,11 @@ func mockCreateMetadataInterfaceFromClusterConfig(_ *clientcmdapi.Config) (metad
 	scheme := runtime.NewScheme()
 	metav1.AddMetaToScheme(scheme)
 	return metafake.NewSimpleMetadataClient(scheme), nil
+}
+
+func mockCreateDynamicInterfaceFromClusterConfig(_ *clientcmdapi.Config) (dynamic.Interface, error) {
+	scheme := runtime.NewScheme()
+	return dynamicfake.NewSimpleDynamicClient(scheme), nil
 }
 
 func makeSecret(secret, clusterID string, kubeconfig []byte) *v1.Secret {
@@ -107,6 +114,7 @@ func Test_SecretController(t *testing.T) {
 	ValidateClientConfig = mockValidateClientConfig
 	CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
 	CreateMetadataInterfaceFromClusterConfig = mockCreateMetadataInterfaceFromClusterConfig
+	CreateDynamicInterfaceFromClusterConfig = mockCreateDynamicInterfaceFromClusterConfig
 
 	clientset := fake.NewSimpleClientset()
 

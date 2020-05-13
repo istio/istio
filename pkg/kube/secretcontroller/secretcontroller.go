@@ -60,7 +60,7 @@ var CreateInterfaceFromClusterConfig = kube.CreateInterfaceFromClusterConfig
 // DO NOT USE - TEST ONLY.
 var CreateMetadataInterfaceFromClusterConfig = kube.CreateMetadataInterfaceFromClusterConfig
 
-//CreateDynamicInterfaceFromClusterConfig is helper function to create dynamic interace
+//CreateDynamicInterfaceFromClusterConfig is helper function to create dynamic interface
 var CreateDynamicInterfaceFromClusterConfig = kube.CreateDynamicInterfaceFromClusterConfig
 
 // addSecretCallback prototype for the add secret callback function.
