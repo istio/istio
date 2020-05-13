@@ -29,6 +29,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
@@ -59,11 +60,14 @@ var CreateInterfaceFromClusterConfig = kube.CreateInterfaceFromClusterConfig
 // DO NOT USE - TEST ONLY.
 var CreateMetadataInterfaceFromClusterConfig = kube.CreateMetadataInterfaceFromClusterConfig
 
+//CreateDynamicInterfaceFromClusterConfig is helper function to create dynamic interface
+var CreateDynamicInterfaceFromClusterConfig = kube.CreateDynamicInterfaceFromClusterConfig
+
 // addSecretCallback prototype for the add secret callback function.
-type addSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface, dataKey string) error
+type addSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface, dynamicClient dynamic.Interface, dataKey string) error
 
 // updateSecretCallback prototype for the update secret callback function.
-type updateSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface, dataKey string) error
+type updateSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface, dynamicClient dynamic.Interface, dataKey string) error
 
 // removeSecretCallback prototype for the remove secret callback function.
 type removeSecretCallback func(dataKey string) error
@@ -85,6 +89,7 @@ type RemoteCluster struct {
 	secretName     string
 	client         kubernetes.Interface
 	metadataClient metadata.Interface
+	dynamicClient  dynamic.Interface
 	kubeConfigSha  [sha256.Size]byte
 }
 
@@ -271,10 +276,15 @@ func createRemoteCluster(kubeConfig []byte, secretName string) (*RemoteCluster, 
 		return nil, fmt.Errorf("couldn't create metadata client interface: %v", err)
 	}
 
+	dynamicClient, err := CreateDynamicInterfaceFromClusterConfig(clientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create dynamic client interface: %v", err)
+	}
 	return &RemoteCluster{
 		secretName:     secretName,
 		client:         client,
 		metadataClient: metadataClient,
+		dynamicClient:  dynamicClient,
 		kubeConfigSha:  sha256.Sum256(kubeConfig),
 	}, nil
 }
@@ -293,7 +303,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 			}
 
 			c.cs.remoteClusters[clusterID] = remoteCluster
-			if err := c.addCallback(remoteCluster.client, remoteCluster.metadataClient, clusterID); err != nil {
+			if err := c.addCallback(remoteCluster.client, remoteCluster.metadataClient, remoteCluster.dynamicClient, clusterID); err != nil {
 				log.Errorf("Error creating cluster_id=%s from secret %v: %v",
 					clusterID, secretName, err)
 			}
@@ -317,7 +327,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 					continue
 				}
 				c.cs.remoteClusters[clusterID] = remoteCluster
-				if err := c.updateCallback(remoteCluster.client, remoteCluster.metadataClient, clusterID); err != nil {
+				if err := c.updateCallback(remoteCluster.client, remoteCluster.metadataClient, remoteCluster.dynamicClient, clusterID); err != nil {
 					log.Errorf("Error updating cluster_id from secret=%v: %s %v",
 						clusterID, secretName, err)
 				}

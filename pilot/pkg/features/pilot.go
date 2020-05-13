@@ -329,4 +329,6 @@ var (
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
+	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
+		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
 )

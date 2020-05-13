@@ -242,7 +242,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		// This typically happens if certs are missing.
 		log.Errorf("error initializing injection webhook server: %v", err)
 	}
-	// Will run the sidecar injector in pilot.
+
+	args.Config.ControllerOptions.CABundlePath = s.caBundlePath
 	// Only operates if /var/lib/istio/inject exists
 	if err := s.initSidecarInjector(args); err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
