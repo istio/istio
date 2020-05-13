@@ -185,9 +185,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
-	if err := s.initMeshConfiguration(args, s.fileWatcher); err != nil {
-		return nil, fmt.Errorf("error initializing mesh config: %v", err)
-	}
+	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
 
 	// Parse and validate Istiod Address.
