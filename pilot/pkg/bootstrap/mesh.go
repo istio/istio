@@ -26,13 +26,8 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 )
 
-const (
-	// configMapKey should match the expected MeshConfig file name
-	configMapKey = "mesh"
-)
-
 // initMeshConfiguration creates the mesh in the pilotConfig from the input arguments.
-func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) error {
+func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
 	defer func() {
 		if s.environment.Watcher != nil {
 			meshdump, _ := gogoprotomarshal.ToJSONWithIndent(s.environment.Mesh(), "    ")
@@ -46,13 +41,13 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	// If a config file was specified, use it.
 	if args.MeshConfig != nil {
 		s.environment.Watcher = mesh.NewFixedWatcher(args.MeshConfig)
-		return nil
+		return
 	}
 
 	var err error
 	s.environment.Watcher, err = mesh.NewWatcher(fileWatcher, args.Mesh.ConfigFile)
 	if err == nil {
-		return nil
+		return
 	}
 
 	// Config file either wasn't specified or failed to load - use a default mesh.
@@ -65,7 +60,6 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 		meshConfig.MixerReportServer = args.Mesh.MixerAddress
 	}
 	s.environment.Watcher = mesh.NewFixedWatcher(meshConfig)
-	return nil
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided
