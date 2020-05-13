@@ -323,9 +323,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		}
 		c.Lock()
 		c.servicesMap[svcConv.Hostname] = svcConv
-		if instances == nil {
-			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
-		} else {
+		if len(instances) > 0 {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
 		c.Unlock()
@@ -695,7 +693,13 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
+	res, err := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	// return when instances found or an error occurs
+	if len(res) > 0 || err != nil {
+		return res, err
+	}
 
+	// Fall back to external name service
 	c.RLock()
 	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
@@ -706,11 +710,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 				inScopeInstances = append(inScopeInstances, i)
 			}
 		}
-
 		return inScopeInstances, nil
 	}
-
-	return c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	return nil, nil
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
