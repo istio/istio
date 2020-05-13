@@ -720,6 +720,28 @@ metadata:
 ---
 
 ---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ilb-gateway
+  namespace: user-ingressgateway-ns
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    release: istio
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ilb-gateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -923,28 +945,6 @@ spec:
           optional: true
           secretName: istio-ingressgateway-ca-certs
 
----
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: ilb-gateway
-  namespace: user-ingressgateway-ns
-  labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
-    release: istio
-spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: ilb-gateway
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
 ---
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
