@@ -49,6 +49,9 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
+		if s.internalGen != nil {
+			s.internalGen.OnNack(con.node, discReq)
+		}
 		return w, true
 	}
 
