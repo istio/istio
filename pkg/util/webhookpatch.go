@@ -86,7 +86,7 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 	// K8S own CA
 	caCertPem, err := ioutil.ReadFile(caBundlePath)
 	if err != nil {
-		log.Errorf("Skipping webhook patch, missing CA path ", caBundlePath)
+		log.Errorf("Skipping webhook patch, missing CA path %v", caBundlePath)
 		return
 	}
 
