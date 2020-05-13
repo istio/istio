@@ -132,7 +132,6 @@ type DiscoveryServer struct {
 	adsClients      map[string]*XdsConnection
 	adsClientsMutex sync.RWMutex
 
-	internalGen *InternalGen
 	StatusReporter DistributionEventHandler
 }
 

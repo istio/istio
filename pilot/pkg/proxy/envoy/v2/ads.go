@@ -111,10 +111,6 @@ type XdsConnection struct {
 		RDS string
 		LDS string
 	}
-
-	// Original node metadata, to avoid unmarshall/marshall. This is included
-	// in internal events.
-	meta *core.Node
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -241,12 +237,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if err := s.initConnection(discReq.Node, con); err != nil {
 					return err
 				}
-				defer func() {
-					s.removeCon(con.ConID)
-					if s.internalGen != nil {
-						s.internalGen.OnDisconnect(discReq.Node)
-					}
-				}()
+				defer s.removeCon(con.ConID)
 			}
 			if s.StatusReporter != nil {
 				s.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
@@ -336,9 +327,6 @@ func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *xdsapi.Discover
 			errCode := codes.Code(discReq.ErrorDetail.Code)
 			adsLog.Warnf("ADS:LDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 			incrementXDSRejects(ldsReject, con.node.ID, errCode.String())
-			if s.internalGen != nil {
-				s.internalGen.OnNack(con.node, discReq)
-			}
 		} else if discReq.ResponseNonce != "" {
 			con.ListenerNonceAcked = discReq.ResponseNonce
 		}
@@ -361,10 +349,6 @@ func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *xdsapi.Discover
 			errCode := codes.Code(discReq.ErrorDetail.Code)
 			adsLog.Warnf("ADS:CDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 			incrementXDSRejects(cdsReject, con.node.ID, errCode.String())
-			if s.internalGen != nil {
-				s.internalGen.OnNack(con.node, discReq)
-			}
-
 		} else if discReq.ResponseNonce != "" {
 			con.ClusterNonceAcked = discReq.ResponseNonce
 		}
@@ -388,9 +372,6 @@ func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *xdsapi.Discover
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS:EDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 		incrementXDSRejects(edsReject, con.node.ID, errCode.String())
-		if s.internalGen != nil {
-			s.internalGen.OnNack(con.node, discReq)
-		}
 		return nil
 	}
 	clusters := discReq.GetResourceNames()
@@ -432,9 +413,6 @@ func (s *DiscoveryServer) handleRds(con *XdsConnection, discReq *xdsapi.Discover
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS:RDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 		incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
-		if s.internalGen != nil {
-			s.internalGen.OnNack(con.node, discReq)
-		}
 		return nil
 	}
 	routes := discReq.GetResourceNames()
@@ -510,13 +488,9 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) er
 	con.mu.Lock()
 	con.node = proxy
 	con.ConID = connectionID(node.Id)
-	con.meta = node
 	s.addCon(con.ConID, con)
 	con.mu.Unlock()
 
-	if s.internalGen != nil {
-		s.internalGen.OnConnect(node)
-	}
 	return nil
 }
 
