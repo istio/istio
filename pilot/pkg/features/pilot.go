@@ -318,6 +318,6 @@ var (
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
 
-	EnableProxyDynamicStats = env.RegisterBoolVar("PROXY_DYNAMIC_STATS", true,
+	EnableProxyDynamicStats = env.RegisterBoolVar("PILOT_ENABLE_PROXY_DYNAMIC_STATS", true,
 		"If enabled, proxy generates dynamic cluster statistics. Can be disabled in high performance scenarios.").Get()
 )
