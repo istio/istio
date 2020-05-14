@@ -111,6 +111,7 @@ func (i *operatorComponent) Dump() {
 		}
 		cluster.DumpPods(d, i.settings.SystemNamespace)
 		cluster.DumpServices(d, i.settings.SystemNamespace)
+		cluster.DumpConfigMap(d, i.settings.SystemNamespace, "istio")
 	}
 }
 

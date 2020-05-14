@@ -204,3 +204,26 @@ func (a *Accessor) DumpServices(workDir, namespace string) {
 		}
 	}
 }
+
+func (a *Accessor) DumpConfigMap(workDir, namespace string, name string) {
+	cm, err := a.GetConfigMap(name, namespace)
+	if err != nil {
+		scopes.CI.Errorf("Error getting ConfigMap via kubectl: %v", err)
+		return
+	}
+
+	marshaler := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+	outPath := path.Join(workDir, fmt.Sprintf("configmap_%s_%s.json", namespace, name))
+
+	str, err := marshaler.MarshalToString(cm)
+	if err != nil {
+		scopes.CI.Errorf("Error marshaling configmap state for output: %v", err)
+		return
+	}
+	if err := ioutil.WriteFile(outPath, []byte(str), os.ModePerm); err != nil {
+		scopes.CI.Infof("Error writing out configmap state to file: %v", err)
+	}
+
+}
