@@ -26,7 +26,9 @@ import (
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
@@ -50,7 +52,9 @@ var (
 	routerFilter = &http_conn.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &http_conn.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&router.Router{}),
+			TypedConfig: util.MessageToAny(&router.Router{
+				DynamicStats: &wrappers.BoolValue{Value: features.EnableProxyDynamicStats},
+			}),
 		},
 	}
 	grpcWebFilter = &http_conn.HttpFilter{
