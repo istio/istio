@@ -271,7 +271,7 @@ func buildLocalityLbEndpoints(proxy *model.Proxy, push *model.PushContext, proxy
 		}
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (proxy.ClusterID != instance.Endpoint.Locality.ClusterID) {
+		if isClusterLocal && (proxy.Metadata.ClusterID != instance.Endpoint.Locality.ClusterID) {
 			continue
 		}
 		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
