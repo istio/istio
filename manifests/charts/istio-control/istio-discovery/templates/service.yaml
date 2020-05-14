@@ -12,10 +12,8 @@ spec:
   ports:
     - port: 15010
       name: grpc-xds # plaintext
-    {{- if not .Values.global.remotePilotAddress }}
     - port: 15012
       name: https-dns # mTLS with k8s-signed cert
-    {{- end }}
     - port: 443
       name: https-webhook # validation and injection
       targetPort: 15017
