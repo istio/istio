@@ -53,7 +53,7 @@ var (
 		Name: wellknown.Router,
 		ConfigType: &http_conn.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&router.Router{
-				DynamicStats: &wrappers.BoolValue{Value: features.EnableProxyDynamicStats},
+				DynamicStats: &wrappers.BoolValue{Value: features.EnableClusterDynamicStats},
 			}),
 		},
 	}
