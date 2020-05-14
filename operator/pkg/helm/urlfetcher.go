@@ -123,13 +123,19 @@ func DownloadTo(srcURL, dest string) (string, error) {
 func URLToDirname(url string) (string, *version.Version, error) {
 	fn := path.Base(url)
 	fv := strings.Split(fn, "-")
-	if len(fv) < 2 || fv[0] != "istio" {
+	fvl := len(fv)
+	if fvl < 2 || fv[0] != "istio" {
 		return "", nil, fmt.Errorf("wrong format for release tar name, got: %s, expect https://.../istio-{version}-{platform}.tar.gz", url)
 	}
 	ver, err := version.NewVersionFromString(fv[1])
 	if err != nil {
 		return "", nil, err
 	}
-	// get rid of the suffix
-	return fn[:strings.LastIndex(fn, "-")], ver, nil
+	// get rid of the suffix like -linux-arch or -osx
+	if fv[fvl-2] == "linux" {
+		// linux names also have arch appended, trim this off
+		fv = fv[:fvl-1]
+	}
+
+	return strings.Join(fv[:len(fv)-1], "-"), ver, nil
 }
