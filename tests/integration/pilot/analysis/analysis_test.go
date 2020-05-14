@@ -16,6 +16,7 @@ package analysis
 
 import (
 	"fmt"
+	"istio.io/pkg/log"
 	"strings"
 	"testing"
 	"time"

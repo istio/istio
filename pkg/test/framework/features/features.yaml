@@ -16,26 +16,26 @@
 #"values" is a keyword and must contains a list of strings. "values" is omitted when building the label name
 #   This is used when a map needs direct leaf nodes but also other maps
 features:
-  values: 
-    - observability
+  observability:
   traffic:
     circuit-breakers:
-        - fail-gracefully
+        fail-gracefully:
   usability:
     observability:
-      values: status
-      status: default-exists
+      status:
+        default-exists:
     introspection:
       status:
         distribution:
-          - immediately-false
-          - eventually-true
+          immediately-false:
+          eventually-true:
         analysis:
-          - contains-message-when-false
-          - true-when-warn-only
+          contains-message-when-false:
+          true-when-warn-only:
   security:
     certificates:
-      - citadel
-      - lets-encrypt
-      - spire
-    mTLS: on-by-default
+      citadel:
+      lets-encrypt:
+      spire:
+    mTLS:
+      on-by-default:

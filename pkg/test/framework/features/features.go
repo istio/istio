@@ -12,6 +12,55 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go run ../tools/featuresgen/main.go
-
 package features
+
+import (
+	"github.com/ghodss/yaml"
+	"io/ioutil"
+	"istio.io/pkg/log"
+	"strings"
+)
+
+type Feature string
+
+type Checker interface {
+	Check(feature Feature) bool
+}
+
+type checkerImpl struct {
+	m map[string]interface{}
+}
+
+func BuildChecker(yamlPath string) (Checker, error) {
+	data, err := ioutil.ReadFile(yamlPath)
+	if err != nil {
+		log.Errorf("Error reading feature file: %s", yamlPath)
+		return nil, err
+	}
+	m := make(map[string]interface{})
+
+	err = yaml.Unmarshal(data, &m)
+	if err != nil {
+		log.Errorf("Error parsing features file: %s", err)
+		return nil, err
+	}
+	return &checkerImpl{m}, nil
+}
+
+// returns true if the feature is defined in features.yaml,
+// false if not
+func (c *checkerImpl) Check(feature Feature) bool {
+	return checkPathSegment(c.m, strings.Split(string(feature), "."))
+}
+
+func checkPathSegment(m map[string]interface{}, path []string) bool {
+	segment := path[0]
+	if val, ok := m[segment]; ok {
+		if valmap, ok := val.(map[string]interface{}); ok {
+			return checkPathSegment(valmap, path[1:])
+		} else if val == nil {
+			return true
+		}
+	}
+	return false
+}
