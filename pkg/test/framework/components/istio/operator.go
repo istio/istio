@@ -206,6 +206,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 }
 
 func createCrossNetworkGateway(cluster kube.Cluster, cfg Config) error {
+	scopes.CI.Infof("Setting up cross-network-gateway in cluster: %s namespace: %s", cluster.Name(), cfg.SystemNamespace)
 	_, err := cluster.ApplyContents(cfg.SystemNamespace, fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
