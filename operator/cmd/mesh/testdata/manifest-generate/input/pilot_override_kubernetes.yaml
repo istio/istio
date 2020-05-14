@@ -9,6 +9,7 @@ spec:
   components:
     pilot:
       enabled: true
+      namespace: istio-control
       k8s:
         resources:
           requests:
@@ -40,7 +41,7 @@ spec:
                 value: 11111 # OVERRIDDEN
           # Cluster scope resource
           - kind: MutatingWebhookConfiguration
-            name: istio-sidecar-injector
+            name: istio-sidecar-injector-istio-control
             patches:
               - path: webhooks.[name:sidecar-injector\.istio\.io].clientConfig.service.name
                 value: foo

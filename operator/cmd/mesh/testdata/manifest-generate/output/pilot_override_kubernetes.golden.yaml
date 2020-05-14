@@ -5,13 +5,13 @@ metadata:
     app: sidecar-injector
     istio.io/rev: default
     release: istio
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector-istio-control
 webhooks:
 - clientConfig:
     caBundle: ""
     service:
       name: foo
-      namespace: istio-system
+      namespace: istio-control
       path: /inject
   failurePolicy: Fail
   name: sidecar-injector.istio.io
@@ -39,7 +39,7 @@ metadata:
     istio.io/rev: default
     release: istio
   name: istiod
-  namespace: istio-system
+  namespace: istio-control
 spec:
   selector:
     matchLabels:
@@ -94,9 +94,9 @@ spec:
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
-          value: istio-sidecar-injector
+          value: istio-sidecar-injector-istio-control
         - name: ISTIOD_ADDR
-          value: istiod.istio-system.svc:15012
+          value: istiod.istio-control.svc:15012
         - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
@@ -170,7 +170,7 @@ metadata:
     istio.io/rev: default
     release: istio
   name: istiod
-  namespace: istio-system
+  namespace: istio-control
 spec:
   ports:
   - name: grpc-xds
