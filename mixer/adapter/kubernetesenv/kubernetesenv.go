@@ -33,6 +33,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/dynamic"
 	k8s "k8s.io/client-go/kubernetes"
 	kubemeta "k8s.io/client-go/metadata"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // needed for auth
@@ -371,7 +372,7 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 	return k8s.NewForConfig(config)
 }
 
-func (b *builder) createCacheController(k8sInterface k8s.Interface, _ kubemeta.Interface, clusterID string) error {
+func (b *builder) createCacheController(k8sInterface k8s.Interface, _ kubemeta.Interface, _ dynamic.Interface, clusterID string) error {
 	controller, err := runNewController(b, k8sInterface, b.kubeHandler.env)
 	if err == nil {
 		b.Lock()
@@ -389,11 +390,11 @@ func (b *builder) createCacheController(k8sInterface k8s.Interface, _ kubemeta.I
 	return b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
 }
 
-func (b *builder) updateCacheController(k8sInterface k8s.Interface, _ kubemeta.Interface, clusterID string) error {
+func (b *builder) updateCacheController(k8sInterface k8s.Interface, _ kubemeta.Interface, _ dynamic.Interface, clusterID string) error {
 	if err := b.deleteCacheController(clusterID); err != nil {
 		return err
 	}
-	return b.createCacheController(k8sInterface, nil, clusterID)
+	return b.createCacheController(k8sInterface, nil, nil, clusterID)
 }
 
 func (b *builder) deleteCacheController(clusterID string) error {
@@ -425,12 +426,8 @@ func initMultiClusterSecretController(b *builder, kubeconfig string, env adapter
 	if err != nil {
 		return fmt.Errorf("could not create K8s client: %v", err)
 	}
-
-	err = secretcontroller.StartSecretController(kubeClient, b.createCacheController,
+	_ = secretcontroller.StartSecretController(kubeClient, b.createCacheController,
 		b.updateCacheController, b.deleteCacheController, clusterNs)
-	if err != nil {
-		return fmt.Errorf("could not start secret controller: %v", err)
-	}
 
 	return nil
 }

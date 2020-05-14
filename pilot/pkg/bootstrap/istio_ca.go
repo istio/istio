@@ -26,11 +26,10 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 
 	"istio.io/istio/pkg/jwt"
-
-	"istio.io/istio/pilot/pkg/features"
 
 	"github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
@@ -136,6 +135,9 @@ type CAOptions struct {
 // to have a central consistent endpoint to get whether CA functionality is
 // enabled in istiod. EnableCA() is called in multiple places.
 func (s *Server) EnableCA() bool {
+	if !features.EnableCAServer {
+		return false
+	}
 	if s.kubeClient == nil {
 		// No k8s - no self-signed certs.
 		// TODO: implement it using a local directory, for non-k8s env.
