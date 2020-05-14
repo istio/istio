@@ -128,6 +128,14 @@ func (e *Environment) GetNetworkName(cluster Cluster) string {
 	return e.s.NetworkTopology[cluster.Index()]
 }
 
+func (e *Environment) ClustersByNetwork() map[string][]resource.ClusterIndex {
+	out := make(map[string][]resource.ClusterIndex)
+	for clusterIdx, networkName := range e.s.NetworkTopology {
+		out[networkName] = append(out[networkName], clusterIdx)
+	}
+	return out
+}
+
 func (e *Environment) Case(name environment.Name, fn func()) {
 	if name == e.EnvironmentName() {
 		fn()

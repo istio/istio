@@ -262,12 +262,16 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 
 		if networkName := c.environment.GetNetworkName(cluster); networkName != "" {
+			installSettings = append(installSettings, "--set", "values.global.meshID=testmesh0")
 			installSettings = append(installSettings, "--set", "values.global.network="+networkName)
 		}
 
 		if c.environment.IsControlPlaneCluster(cluster) {
 			// Expose Istiod through ingress to allow remote clusters to connect
 			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
+			if c.environment.IsMultinetwork() {
+				installSettings = append(installSettings, meshNetworkSettings(cfg, c.environment)...)
+			}
 		} else {
 			installSettings = append(installSettings, "--set", "profile=remote")
 			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
@@ -307,6 +311,25 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	}
 
 	return nil
+}
+
+// meshNetworkSettings builds the values for meshNetworks with an endpoint in each network per-cluster.
+// Assumes that the registry service is always istio-ingressgateway.
+func meshNetworkSettings(cfg Config, environment *kube.Environment) []string {
+	registrySvcName := "istio-ingressgateway." + cfg.IngressNamespace + ".svc.cluster.local"
+	settings := make([]string, 0)
+	for network, clusters := range environment.ClustersByNetwork() {
+		prefix := "values.global.meshNetworks." + network
+		settings = append(settings,
+			"--set", prefix+".gateways[0].port=443",
+			"--set", prefix+".gateways[0].registryServiceName="+registrySvcName)
+		for i, cluster := range clusters {
+			clusterName := environment.KubeClusters[cluster].Name()
+			fromRegistryValue := fmt.Sprintf("%s.endpoints[%d].fromRegistry=%s", prefix, i, clusterName)
+			settings = append(settings, fromRegistryValue)
+		}
+	}
+	return settings
 }
 
 func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {
