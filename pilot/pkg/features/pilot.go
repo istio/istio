@@ -17,10 +17,10 @@ package features
 import (
 	"time"
 
-	"istio.io/istio/pkg/jwt"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
+
+	"istio.io/istio/pkg/jwt"
 
 	"istio.io/pkg/env"
 )
@@ -325,7 +325,6 @@ var (
 
 	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
-
 
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
 		"If this is set to false, will not create CA server in istiod.").Get()

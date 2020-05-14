@@ -242,7 +242,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		// This typically happens if certs are missing.
 		log.Errorf("error initializing injection webhook server: %v", err)
 	}
-        args.Config.ControllerOptions.CABundlePath = s.caBundlePath
+	args.Config.ControllerOptions.CABundlePath = s.caBundlePath
 	// Will run the sidecar injector in pilot.
 	// Only operates if /var/lib/istio/inject exists
 	if err := s.initSidecarInjector(args); err != nil {
@@ -259,7 +259,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
 		return nil, fmt.Errorf("error initializing monitor: %v", err)
 	}
-        // TODO(irisdingbj):add integration test after centralIstiod finished
+	// TODO(irisdingbj):add integration test after centralIstiod finished
 	args.Config.ControllerOptions.FetchCaRoot = nil
 	if features.CentralIstioD && s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
 		args.Config.ControllerOptions.FetchCaRoot = s.fetchCARoot

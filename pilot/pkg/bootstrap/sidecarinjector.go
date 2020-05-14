@@ -19,7 +19,7 @@ import (
 	"os"
 	"path/filepath"
 
-       "istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model"
 
 	"istio.io/istio/pilot/pkg/features"
 
@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
 )
-
 
 const (
 	// Name of the webhook config in the config - no need to change it.
