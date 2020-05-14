@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
@@ -115,4 +116,14 @@ func CreateMetadataInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config
 		return nil, err
 	}
 	return metadata.NewForConfig(restConfig)
+}
+
+// CreateDynamicInterfaceFromClusterConfig is a helper function to create Kubernetes dynamic interface from in memory cluster config struct
+func CreateDynamicInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (dynamic.Interface, error) {
+	clientConfig := clientcmd.NewDefaultClientConfig(*clusterConfig, &clientcmd.ConfigOverrides{})
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return dynamic.NewForConfig(restConfig)
 }

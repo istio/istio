@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -184,9 +185,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
-	if err := s.initMeshConfiguration(args, s.fileWatcher); err != nil {
-		return nil, fmt.Errorf("error initializing mesh config: %v", err)
-	}
+	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
 
 	// Parse and validate Istiod Address.
@@ -226,6 +225,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// common https server for webhooks (e.g. injection, validation)
 	s.initHTTPSWebhookServer(args)
 
+	args.Config.ControllerOptions.CABundlePath = s.caBundlePath
 	// Only operates if /var/lib/istio/inject exists
 	if err := s.initSidecarInjector(args); err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
@@ -912,7 +912,10 @@ func (s *Server) initNamespaceController(args *PilotArgs) {
 // initGenerators initializes generators to be used by XdsServer.
 func (s *Server) initGenerators() {
 	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = &envoyv2.EdsGenerator{Server: s.EnvoyXdsServer}
+	epGen := &envoyv2.EdsGenerator{Server: s.EnvoyXdsServer}
+	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
+	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
+	s.EnvoyXdsServer.Generators["api/"+envoyv2.EndpointType] = epGen
 }
 
 // initJwtPolicy initializes JwtPolicy.

@@ -1,0 +1,21 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  components:
+    base:
+      enabled: true
+    istiodRemote:
+      enabled: true
+  values:
+    global:
+      multiCluster:
+        clusterName: remote0
+      network: network2
+      centralIstiod: true
+      remotePilotAddress: 169.10.112.88
+    istiodRemote:
+      injectionURL: https://xxx:15017/inject
+    base:
+      validationURL: https://xxx:15017/validate
+

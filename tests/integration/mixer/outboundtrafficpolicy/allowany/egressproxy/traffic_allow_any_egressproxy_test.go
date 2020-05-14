@@ -96,7 +96,7 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	time.Sleep(time.Second * 2)
 
 	nodeID := &model.Proxy{
-		ClusterID:       "integration-test",
+		Metadata:        &model.NodeMetadata{ClusterID: "integration-test"},
 		ID:              fmt.Sprintf("httpbin.%s", appNamespace.Name()),
 		DNSDomain:       appNamespace.Name() + ".cluster.local",
 		Type:            model.SidecarProxy,

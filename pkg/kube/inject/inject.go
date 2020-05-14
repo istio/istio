@@ -911,8 +911,8 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if pc.StatusPort == defaults.StatusPort {
 		pc.StatusPort = 0
 	}
-	if pc.Concurrency == defaults.Concurrency {
-		pc.Concurrency = 0
+	if reflect.DeepEqual(pc.Concurrency, defaults.Concurrency) {
+		pc.Concurrency = nil
 	}
 	return proto.Message(&pc)
 }

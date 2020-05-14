@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gogo/protobuf/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/api/annotation"
@@ -91,7 +93,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		proxyConfig = *meshConfig.DefaultConfig
 	}
 
-	proxyConfig.Concurrency = int32(concurrency)
+	proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
 	proxyConfig.ServiceCluster = serviceCluster
 	// resolve statsd address
 	if proxyConfig.StatsdUdpAddress != "" {
