@@ -15,7 +15,6 @@
 package validation
 
 import (
-	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"reflect"
 	"testing"
 
@@ -48,39 +47,6 @@ func TestValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		err := validateSubTypes(reflect.ValueOf(tt.toValidate).Elem(), false, tt.toValidate, nil)
-		if len(err) != 0 && tt.validated {
-			t.Fatalf("Test %s failed with errors: %+v but supposed to succeed", tt.name, err)
-		}
-		if len(err) == 0 && !tt.validated {
-			t.Fatalf("Test %s failed as it is supposed to fail but succeeded", tt.name)
-		}
-	}
-}
-
-func TestValidateFeatures(t *testing.T) {
-	tests := []struct {
-		name           string
-		toValidateVals *v1alpha1.Values
-		toValidateIOP  *v1alpha12.IstioOperatorSpec
-		validated      bool
-	}{
-		{
-			name: "automtls checks control plane security",
-			toValidateVals: &v1alpha1.Values{
-				Global: &v1alpha1.GlobalConfig{
-					ControlPlaneSecurityEnabled: &types.BoolValue{Value: false},
-				},
-			},
-			toValidateIOP: &v1alpha12.IstioOperatorSpec{
-				MeshConfig: map[string]interface{}{
-					"enableAutoMtls": true,
-				},
-			},
-			validated: false,
-		},
-	}
-	for _, tt := range tests {
-		err := validateFeatures(tt.toValidateVals, tt.toValidateIOP)
 		if len(err) != 0 && tt.validated {
 			t.Fatalf("Test %s failed with errors: %+v but supposed to succeed", tt.name, err)
 		}

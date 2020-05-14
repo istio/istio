@@ -98,20 +98,7 @@ func deprecatedSettingsMessage(values *valuesv1alpha1.Values) string {
 }
 
 // validateFeatures check whether the config sematically make sense. For example, feature X and feature Y can't be enabled together.
-func validateFeatures(values *valuesv1alpha1.Values, iopSpec *v1alpha1.IstioOperatorSpec) util.Errors {
-	// When automatic mutual TLS is enabled, we check control plane security must also be enabled.
-	g := values.GetGlobal()
-	if g == nil {
-		return nil
-	}
-	mc := iopSpec.MeshConfig
-	val := true
-	if mc != nil && mc["enableAutoMtls"] != nil {
-		val = mc["enableAutoMtls"].(bool)
-	}
-	if val && !g.GetControlPlaneSecurityEnabled().GetValue() {
-		return []error{fmt.Errorf("security: auto mtls is enabled, but control plane security is not enabled")}
-	}
+func validateFeatures(_ *valuesv1alpha1.Values, _ *v1alpha1.IstioOperatorSpec) util.Errors {
 	return nil
 }
 
