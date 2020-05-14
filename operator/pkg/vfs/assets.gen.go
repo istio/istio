@@ -17257,6 +17257,8 @@ spec:
         - --log_as_json
       {{- end }}
         env:
+        - name: JWT_POLICY
+          value: {{ .Values.global.jwtPolicy }}
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -34984,6 +34986,8 @@ spec:
         - --log_as_json
       {{- end }}
         env:
+        - name: JWT_POLICY
+          value: {{ .Values.global.jwtPolicy }}
         - name: POD_NAME
           valueFrom:
             fieldRef:
