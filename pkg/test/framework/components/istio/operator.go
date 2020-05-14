@@ -110,6 +110,7 @@ func (i *operatorComponent) Dump() {
 			return
 		}
 		cluster.DumpPods(d, i.settings.SystemNamespace)
+		cluster.DumpServices(d, i.settings.SystemNamespace)
 	}
 }
 

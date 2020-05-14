@@ -178,3 +178,29 @@ func (a *Accessor) DumpPodProxies(workDir, namespace string, pods ...kubeApiCore
 		}
 	}
 }
+
+func (a *Accessor) DumpServices(workDir, namespace string) {
+	svcs, err := a.GetServices(namespace)
+	if err != nil {
+		scopes.CI.Errorf("Error getting services list via kubectl: %v", err)
+		return
+	}
+
+	marshaler := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+
+	for _, svc := range svcs {
+		str, err := marshaler.MarshalToString(&svc)
+		if err != nil {
+			scopes.CI.Errorf("Error marshaling service state for output: %v", err)
+			continue
+		}
+
+		outPath := path.Join(workDir, fmt.Sprintf("service_%s_%s.yaml", namespace, svc.Name))
+
+		if err := ioutil.WriteFile(outPath, []byte(str), os.ModePerm); err != nil {
+			scopes.CI.Infof("Error writing out service state to file: %v", err)
+		}
+	}
+}
