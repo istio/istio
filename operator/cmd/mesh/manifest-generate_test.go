@@ -216,15 +216,23 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		t.Fatal(err)
 	}
 	objs := parseObjectSetFromManifest(t, m)
-	g.Expect(objs.kind(name.CRDStr).size()).Should(Equal(25))
-	g.Expect(objs.kind(name.ClusterRoleStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(name.ClusterRoleBindingStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(name.CMStr).size()).Should(Equal(1))
-	g.Expect(objs.kind(name.EndpointStr).size()).Should(Equal(1))
-	g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(1))
-	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(1))
-	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(name.ValidatingWebhookConfigurationStr).size()).Should(Equal(1))
+
+	// check core CRDs exists
+	g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
+
+	g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istiod-pilot-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.SAStr).nameEquals("istiod-service-account")).Should(Not(BeNil()))
 
 	mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
 	g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
