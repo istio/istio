@@ -262,8 +262,8 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 
 		if networkName := c.environment.GetNetworkName(cluster); networkName != "" {
-			installSettings = append(installSettings, "--set", "values.global.meshID=testmesh0")
-			installSettings = append(installSettings, "--set", "values.global.network="+networkName)
+			installSettings = append(installSettings, "--set", "values.global.meshID=testmesh0",
+				"--set", "values.global.network="+networkName)
 		}
 
 		if c.environment.IsControlPlaneCluster(cluster) {
@@ -320,13 +320,12 @@ func meshNetworkSettings(cfg Config, environment *kube.Environment) []string {
 	settings := make([]string, 0)
 	for network, clusters := range environment.ClustersByNetwork() {
 		prefix := "values.global.meshNetworks." + network
-		settings = append(settings,
-			"--set", prefix+".gateways[0].port=443",
+		settings = append(settings, "--set", prefix+".gateways[0].port=443",
 			"--set", prefix+".gateways[0].registryServiceName="+registrySvcName)
 		for i, cluster := range clusters {
 			clusterName := environment.KubeClusters[cluster].Name()
 			fromRegistryValue := fmt.Sprintf("%s.endpoints[%d].fromRegistry=%s", prefix, i, clusterName)
-			settings = append(settings, fromRegistryValue)
+			settings = append(settings, "--set", fromRegistryValue)
 		}
 	}
 	return settings
