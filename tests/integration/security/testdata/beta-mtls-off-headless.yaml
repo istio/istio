@@ -1,0 +1,9 @@
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: "default"
+  annotations:
+    test-suite: "beta-mtls-off-headless"
+spec:
+  mtls:
+    mode: DISABLE  # This is to simulate a headless service without proxy

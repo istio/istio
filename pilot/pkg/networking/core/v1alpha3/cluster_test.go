@@ -2282,7 +2282,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_ORIGINAL_DST,
 			tls:                        tlsSettings,
-			expectTransportSocket:      true,
+			expectTransportSocket:      false,
 			expectTransportSocketMatch: false,
 		},
 	}
