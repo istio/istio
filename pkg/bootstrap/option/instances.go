@@ -189,7 +189,7 @@ func EnvoyMetricsServiceAddress(value string) Instance {
 
 func EnvoyMetricsServiceTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata) Instance {
 	return newOptionOrSkipIfZero("envoy_metrics_service_tls", value).
-		withConvert(tlsConverter(value, "envoy_metrics_service", metadata))
+		withConvert(transportSocketConverter(value, "envoy_metrics_service", metadata, true))
 }
 
 func EnvoyMetricsServiceTCPKeepalive(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) Instance {
@@ -202,7 +202,7 @@ func EnvoyAccessLogServiceAddress(value string) Instance {
 
 func EnvoyAccessLogServiceTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata) Instance {
 	return newOptionOrSkipIfZero("envoy_accesslog_service_tls", value).
-		withConvert(tlsConverter(value, "envoy_accesslog_service", metadata))
+		withConvert(transportSocketConverter(value, "envoy_accesslog_service", metadata, true))
 }
 
 func EnvoyAccessLogServiceTCPKeepalive(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) Instance {
