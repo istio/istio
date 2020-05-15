@@ -29,6 +29,7 @@ set -u
 # Print commands
 set -x
 
+
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
@@ -79,8 +80,14 @@ while (( "$#" )); do
   esac
 done
 
+# TODO(landow): remove this, just making sure this works before creating a separate Prow job
+if [[ "${TOPOLOGY}" == "MULTICLUSTER_SINGLE_NETWORK" ]]; then
+  echo "Hacking TOPOLOGY var to be multinetwork"
+  TOPOLOGY="MULTICLUSTER_MULTINETWORK"
+fi
+
 if [[ "${TOPOLOGY}" == "MULTICLUSTER_MULTINETWORK" ]]; then
-  PARAMS+=("--istio.test.kube.networkTopology=0:test-network-0,1:test-network-1,2:test-network-2")
+  INTEGRATION_TEST_FLAGS+=("--istio.test.kube.networkTopology=0:test-network-0,1:test-network-1,2:test-network-2")
 fi
 
 
@@ -102,6 +109,8 @@ export T="${T:-"-v"}"
 export CI="true"
 
 make init
+
+declare -a INTEGRATION_TEST_FLAGS
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
@@ -130,4 +139,4 @@ if [[ "${VARIANT:-}" != "" ]]; then
   export TAG="${TAG}-${VARIANT}"
 fi
 
-make "${PARAMS[*]}"
+INTEGRATION_TEST_FLAGS=$INTEGRATION_TEST_FLAGS make "${PARAMS[*]}"
