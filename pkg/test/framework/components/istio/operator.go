@@ -154,6 +154,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	operatorYaml := cfg.IstioOperatorConfigYAML()
 	if env.IsMultinetwork() {
 		meshNetworksYaml := meshNetworkSettings(cfg, env)
+		operatorYaml += Indent("global:\n", "    ")
 		operatorYaml += Indent(meshNetworksYaml, "      ")
 	}
 	if err := ioutil.WriteFile(iopFile, []byte(operatorYaml), os.ModePerm); err != nil {
