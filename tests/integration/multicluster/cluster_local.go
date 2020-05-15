@@ -42,17 +42,18 @@ func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []
 							remotes := getRemoteClusters(clusters, i)
 
 							// Deploy a only in local, but b in all clusters.
-							var a1, b1 echo.Instance
+							srcName, dstName := fmt.Sprintf("src-%d", i), fmt.Sprintf("dst-%d", i)
+							var src, dst echo.Instance
 							builder := echoboot.NewBuilderOrFail(ctx, ctx).
-								With(&a1, newEchoConfig("a", clusterLocalNS, local, pilots)).
-								With(&b1, newEchoConfig("b", clusterLocalNS, local, pilots))
+								With(&src, newEchoConfig(srcName, clusterLocalNS, local, pilots)).
+								With(&dst, newEchoConfig(dstName, clusterLocalNS, local, pilots))
 							for _, remoteCluster := range remotes {
 								var ref echo.Instance
-								builder = builder.With(&ref, newEchoConfig("b", clusterLocalNS, remoteCluster, pilots))
+								builder = builder.With(&ref, newEchoConfig(dstName, clusterLocalNS, remoteCluster, pilots))
 							}
 							builder.BuildOrFail(ctx)
 
-							results := callOrFail(ctx, a1, b1)
+							results := callOrFail(ctx, src, dst)
 
 							// Ensure that all requests went to the local cluster.
 							results.CheckClusterOrFail(ctx, fmt.Sprintf("%d", local.Index()))
