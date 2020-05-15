@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const mcReachabilitySvcPerCluster = 3
@@ -39,14 +40,15 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 					// There are multiple instances in each cluster to tease out cases where remote proxies inconsistently
 					// use different discovery servers (see https://github.com/istio/istio/issues/23591).
 					clusters := ctx.Environment().Clusters()
-					services := map[int][]echo.Instance{}
+					services := map[resource.ClusterIndex][]*echo.Instance{}
 					builder := echoboot.NewBuilderOrFail(ctx, ctx)
-					for i, cluster := range clusters {
-						for j := 0; j < mcReachabilitySvcPerCluster; j++ {
+					for _, cluster := range clusters {
+						for i := 0; i < mcReachabilitySvcPerCluster; i++ {
 							var instance echo.Instance
-							svcName := fmt.Sprintf("echo-%d-%d", i, j)
+							ref := &instance
+							svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
 							builder = builder.With(&instance, newEchoConfig(svcName, ns, cluster, pilots))
-							services[i] = append(services[i], instance)
+							services[cluster.Index()] = append(services[cluster.Index()], ref)
 						}
 					}
 					builder.BuildOrFail(ctx)
@@ -57,8 +59,8 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 					for _, srcServices := range services {
 						for _, src := range srcServices {
 							for _, dstServices := range services {
-								src := src
-								dest := dstServices[0]
+								src := *src
+								dest := *dstServices[0]
 								subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
 									src.Config().Service,
 									"http",
