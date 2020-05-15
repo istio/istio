@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
@@ -59,16 +57,6 @@ values:
 `, (*clusterLocalNS).Name())
 
 		return
-	}
-}
-
-// SetupMultinetwork puts every cluster in the environment on it's own network unless otherwise specified.
-func SetupMultinetwork(s *kube.Settings) {
-	for i := 0; i < len(s.KubeConfig); i++ {
-		idx := resource.ClusterIndex(i)
-		if _, ok := s.NetworkTopology[idx]; !ok {
-			s.NetworkTopology[idx] = fmt.Sprintf("test-network-%d", i)
-		}
 	}
 }
 

@@ -41,7 +41,6 @@ func TestMain(m *testing.M) {
 		Label(label.Multicluster).
 		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
-		Skip("multinetwork WIP").
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.

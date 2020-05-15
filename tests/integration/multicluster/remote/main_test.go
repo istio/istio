@@ -43,7 +43,6 @@ func TestMain(m *testing.M) {
 		Label(label.Multicluster).
 		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
-		Skip("multinetwork WIP").
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
 		Setup(kube.Setup(func(s *kube.Settings) {
 			// Make all clusters use the same control plane
