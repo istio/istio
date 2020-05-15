@@ -87,7 +87,7 @@ if [[ "${TOPOLOGY}" == "MULTICLUSTER_SINGLE_NETWORK" ]]; then
 fi
 
 if [[ "${TOPOLOGY}" == "MULTICLUSTER_MULTINETWORK" ]]; then
-  INTEGRATION_TEST_FLAGS+=("--istio.test.kube.networkTopology=0:test-network-0,1:test-network-1,2:test-network-2")
+  INTEGRATION_TEST_FLAGS+=("--istio.test.kube.networkTopology=0:test-network-0,1:test-network-1")
 fi
 
 

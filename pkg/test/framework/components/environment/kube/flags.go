@@ -59,7 +59,7 @@ func newSettingsFromCommandline() (*Settings, error) {
 		return nil, err
 	}
 
-	s.NetworkTopology, err = parseNetworkTopology()
+	s.NetworkTopology, err = parseNetworkTopology(s.KubeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -110,11 +110,11 @@ func newControlPlaneTopology(kubeConfigs []string) (map[resource.ClusterIndex]re
 	// Verify that all of the specified clusters are valid.
 	numClusters := len(kubeConfigs)
 	for cIndex, cpIndex := range topology {
-		if int(cIndex) > numClusters {
+		if int(cIndex) >= numClusters {
 			return nil, fmt.Errorf("failed parsing control plane topology: cluster index %d "+
 				"exceeds number of available clusters %d", cIndex, numClusters)
 		}
-		if int(cpIndex) > numClusters {
+		if int(cpIndex) >= numClusters {
 			return nil, fmt.Errorf("failed parsing control plane topology: control plane cluster index %d "+""+
 				"exceeds number of available clusters %d", cpIndex, numClusters)
 		}
@@ -147,12 +147,12 @@ func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterInde
 	return out, nil
 }
 
-func parseNetworkTopology() (map[resource.ClusterIndex]string, error) {
+func parseNetworkTopology(kubeConfigs []string) (map[resource.ClusterIndex]string, error) {
 	out := make(map[resource.ClusterIndex]string)
 	if networkTopology == "" {
 		return out, nil
 	}
-
+	numClusters := len(kubeConfigs)
 	values := strings.Split(networkTopology, ",")
 	for _, v := range values {
 		parts := strings.Split(v, ":")
@@ -162,6 +162,10 @@ func parseNetworkTopology() (map[resource.ClusterIndex]string, error) {
 		clusterIndex, err := strconv.Atoi(parts[0])
 		if err != nil || clusterIndex < 0 {
 			return nil, fmt.Errorf("failed parsing network mapping entry %s: failed parsing cluster index", v)
+		}
+		if clusterIndex >= numClusters {
+			return nil, fmt.Errorf("failed parsin network topology: cluster index: %d "+
+				"exceeds number of available clusters %d", clusterIndex, numClusters)
 		}
 		if len(parts[1]) == 0 {
 			return nil, fmt.Errorf("failed parsing network mapping entry %s: failed parsing network name", v)
