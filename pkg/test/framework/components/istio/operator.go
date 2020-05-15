@@ -16,8 +16,10 @@ package istio
 
 import (
 	"fmt"
+	yaml2 "gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
+	"istio.io/api/mesh/v1alpha1"
 	"net"
 	"os"
 	"path"
@@ -149,6 +151,13 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Generate the istioctl config file
 	iopFile := filepath.Join(workDir, "iop.yaml")
 	operatorYaml := cfg.IstioOperatorConfigYAML()
+	if env.IsMultinetwork() {
+		meshNetworksYaml, err := meshNetworkSettings(cfg, env)
+		if err != nil {
+			return nil, err
+		}
+		operatorYaml += Indent(meshNetworksYaml, "      ")
+	}
 	if err := ioutil.WriteFile(iopFile, []byte(operatorYaml), os.ModePerm); err != nil {
 		return nil, fmt.Errorf("failed to write iop: %v", err)
 	}
@@ -272,9 +281,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		if c.environment.IsControlPlaneCluster(cluster) {
 			// Expose Istiod through ingress to allow remote clusters to connect
 			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
-			if c.environment.IsMultinetwork() {
-				installSettings = append(installSettings, meshNetworkSettings(cfg, c.environment)...)
-			}
 		} else {
 			installSettings = append(installSettings, "--set", "profile=remote")
 			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
@@ -318,20 +324,31 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 
 // meshNetworkSettings builds the values for meshNetworks with an endpoint in each network per-cluster.
 // Assumes that the registry service is always istio-ingressgateway.
-func meshNetworkSettings(cfg Config, environment *kube.Environment) []string {
-	registrySvcName := "istio-ingressgateway." + cfg.IngressNamespace + ".svc.cluster.local"
-	settings := make([]string, 0)
-	for network, clusters := range environment.ClustersByNetwork() {
-		prefix := "values.global.meshNetworks." + network
-		settings = append(settings, "--set", prefix+".gateways[0].port=443",
-			"--set", prefix+".gateways[0].registryServiceName="+registrySvcName)
-		for i, cluster := range clusters {
-			clusterName := environment.KubeClusters[cluster].Name()
-			fromRegistryValue := fmt.Sprintf("%s.endpoints[%d].fromRegistry=%s", prefix, i, clusterName)
-			settings = append(settings, "--set", fromRegistryValue)
+func meshNetworkSettings(cfg Config, environment *kube.Environment) (string, error) {
+	meshNetworks := v1alpha1.MeshNetworks{Networks: make(map[string]*v1alpha1.Network)}
+	defaultGateways := []*v1alpha1.Network_IstioNetworkGateway{{
+		Gw: &v1alpha1.Network_IstioNetworkGateway_RegistryServiceName{
+			RegistryServiceName: "istio-ingressgateway." + cfg.IngressNamespace + ".svc.cluster.local",
+		},
+		Port: 443,
+	}}
+
+	for networkName, clusters := range environment.ClustersByNetwork() {
+		network := &v1alpha1.Network{
+			Endpoints: make([]*v1alpha1.Network_NetworkEndpoints, len(clusters)),
+			Gateways:  defaultGateways,
 		}
+		for i, cluster := range clusters {
+			network.Endpoints[i] = &v1alpha1.Network_NetworkEndpoints{
+				Ne: &v1alpha1.Network_NetworkEndpoints_FromRegistry{
+					FromRegistry: environment.KubeClusters[cluster].Name(),
+				},
+			}
+		}
+		meshNetworks.Networks[networkName] = network
 	}
-	return settings
+	out, err := yaml2.Marshal(&meshNetworks)
+	return string(out), err
 }
 
 func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {
