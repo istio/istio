@@ -1,3 +1,35 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    app: sidecar-injector
+    istio.io/rev: default
+    release: istio
+  name: istio-sidecar-injector-istio-control
+webhooks:
+- clientConfig:
+    caBundle: ""
+    service:
+      name: foo
+      namespace: istio-control
+      path: /inject
+  failurePolicy: Fail
+  name: sidecar-injector.istio.io
+  namespaceSelector:
+    matchLabels:
+      istio-injection: enabled
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+---
+
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -69,6 +101,8 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: CENTRAL_ISTIOD
+          value: "false"
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
@@ -103,7 +137,7 @@ spec:
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory

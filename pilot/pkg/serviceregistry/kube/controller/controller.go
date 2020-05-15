@@ -131,6 +131,9 @@ type Options struct {
 
 	// EndpointMode decides what source to use to get endpoint information
 	EndpointMode EndpointMode
+
+	//CABundlePath defines the caBundle path for istiod Server
+	CABundlePath string
 }
 
 // EndpointMode decides what source to use to get endpoint information

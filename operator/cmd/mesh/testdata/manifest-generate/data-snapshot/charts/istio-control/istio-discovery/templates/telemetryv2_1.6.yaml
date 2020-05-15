@@ -3,8 +3,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
+  {{- if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -27,10 +27,11 @@ spec:
           name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
-                configuration: envoy.wasm.metadata_exchange
+                configuration: |
+                  {}
                 vm_config:
                   {{- if .Values.telemetry.v2.metadataExchange.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
@@ -48,8 +49,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
+  {{- if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -110,8 +111,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
+  {{- if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -136,14 +137,23 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "source_cluster": "node.metadata['CLUSTER_ID']",
+                          "destination_cluster": "upstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -175,14 +185,23 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_inbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "destination_cluster": "node.metadata['CLUSTER_ID']",
+                          "source_cluster": "downstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
                   vm_id: stats_inbound
@@ -214,7 +233,7 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
@@ -222,7 +241,16 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
-                    "disable_host_header_fallback": true,
+                    "disable_host_header_fallback": true{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "source_cluster": "node.metadata['CLUSTER_ID']",
+                          "destination_cluster": "upstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -242,8 +270,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
+  {{- if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -266,17 +294,26 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_inbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "destination_cluster": "node.metadata['CLUSTER_ID']",
+                          "source_cluster": "downstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
@@ -303,17 +340,26 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "source_cluster": "node.metadata['CLUSTER_ID']",
+                          "destination_cluster": "upstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
@@ -340,17 +386,26 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "source_cluster": "node.metadata['CLUSTER_ID']",
+                          "destination_cluster": "upstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
@@ -371,8 +426,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stackdriver-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
+  {{- if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -398,7 +453,7 @@ spec:
           name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stackdriver_outbound
@@ -431,7 +486,7 @@ spec:
           name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stackdriver_inbound
@@ -463,7 +518,7 @@ spec:
           name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stackdriver_outbound
@@ -479,5 +534,49 @@ spec:
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
 ---
+{{- if .Values.telemetry.v2.accessLogPolicy.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stackdriver-sampling-accesslog-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  {{- if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "istio.stackdriver"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.access_log
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            value:
+              config:
+                configuration: |
+                  {
+                    "log_window_duration": {{ .Values.telemetry.v2.accessLogPolicy.logWindowDuration }}
+                  }
+                vm_config:
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: "envoy.wasm.access_log_policy" }
+---
+{{- end}}
 {{- end}}
 {{- end}}

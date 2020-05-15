@@ -573,7 +573,7 @@ func buildLocalityLbEndpointsFromShards(
 	for clusterID, endpoints := range shards.Shards {
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (clusterID != proxy.ClusterID) {
+		if isClusterLocal && (clusterID != proxy.Metadata.ClusterID) {
 			continue
 		}
 

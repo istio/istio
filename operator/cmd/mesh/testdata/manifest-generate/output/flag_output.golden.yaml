@@ -71,6 +71,8 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: CENTRAL_ISTIOD
+          value: "false"
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
@@ -112,7 +114,7 @@ spec:
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
