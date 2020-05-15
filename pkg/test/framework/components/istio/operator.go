@@ -43,6 +43,9 @@ import (
 	"istio.io/istio/pkg/test/util/yml"
 )
 
+// TODO: dynamically generate meshID to support multi-tenancy tests
+const meshID = "testmesh0"
+
 type operatorComponent struct {
 	id          resource.ID
 	settings    Config
@@ -273,7 +276,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 
 		if networkName := c.environment.GetNetworkName(cluster); networkName != "" {
-			installSettings = append(installSettings, "--set", "values.global.meshID=testmesh0",
+			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
 				"--set", "values.global.network="+networkName)
 		}
 
