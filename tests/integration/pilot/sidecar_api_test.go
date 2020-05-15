@@ -38,7 +38,7 @@ func TestSidecarListeners(t *testing.T) {
 
 			// Simulate proxy identity of a sidecar ...
 			nodeID := &model.Proxy{
-				ClusterID:    "integration-test",
+				Metadata:     &model.NodeMetadata{ClusterID: "integration-test"},
 				Type:         model.SidecarProxy,
 				IPAddresses:  []string{"10.2.0.1"},
 				ID:           "app3.testns",

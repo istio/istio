@@ -404,11 +404,14 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	}
 	env := newTestEnvironment(serviceDiscovery, mesh, configStore)
 
+	if meta.ClusterID == "" {
+		meta.ClusterID = "some-cluster-id"
+	}
+
 	var proxy *model.Proxy
 	switch nodeType {
 	case model.SidecarProxy:
 		proxy = &model.Proxy{
-			ClusterID:    "some-cluster-id",
 			Type:         model.SidecarProxy,
 			IPAddresses:  proxyIps,
 			Locality:     locality,
@@ -418,7 +421,6 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		}
 	case model.Router:
 		proxy = &model.Proxy{
-			ClusterID:    "some-cluster-id",
 			Type:         model.Router,
 			IPAddresses:  []string{"6.6.6.6"},
 			Locality:     locality,
@@ -1437,7 +1439,9 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 func TestBuildLocalityLbEndpoints(t *testing.T) {
 	proxy := &model.Proxy{
-		ClusterID: "cluster-1",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster-1",
+		},
 	}
 	servicePort := &model.Port{
 		Name:     "default",
@@ -2278,7 +2282,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_ORIGINAL_DST,
 			tls:                        tlsSettings,
-			expectTransportSocket:      true,
+			expectTransportSocket:      false,
 			expectTransportSocketMatch: false,
 		},
 	}
@@ -2368,10 +2372,11 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 
 	configStore := &fakes.IstioConfigStore{}
 	proxy := &model.Proxy{
-		ClusterID: "some-cluster-id",
 		Type:      model.SidecarProxy,
 		DNSDomain: "com",
-		Metadata:  &model.NodeMetadata{},
+		Metadata: &model.NodeMetadata{
+			ClusterID: "some-cluster-id",
+		},
 	}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy.SetSidecarScope(env.PushContext)

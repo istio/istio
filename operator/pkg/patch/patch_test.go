@@ -205,7 +205,6 @@ a:
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s for string:\n%s\n", tt.desc, err, oh)
 			}
-			fmt.Printf("Good header: \n%s\n", oh)
 			got, err := YAMLManifestPatch(base, "istio-system", rc.Overlays)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Fatalf("YAMLManifestPatch(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
