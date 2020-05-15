@@ -797,13 +797,13 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	// Default root certificate.
 	case connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile):
 		sdsFromFile = true
-		if sitem, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey); err != nil {
+		if sitem, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey); err == nil {
 			sc.addFileWatcher(sc.existingRootCertFile, token, connKey)
 		}
 	// Default workload certificate.
 	case connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile):
 		sdsFromFile = true
-		if sitem, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey); err != nil {
+		if sitem, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey); err == nil {
 			// Adding cert is sufficient here as key can't change without changing the cert.
 			sc.addFileWatcher(sc.existingCertChainFile, token, connKey)
 		}
@@ -815,11 +815,11 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 		sdsFromFile = ok
 		switch {
 		case ok && cfg.IsRootCertificate() && sc.rootCertificateExist(cfg.CaCertificatePath):
-			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey); err != nil {
+			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey); err == nil {
 				sc.addFileWatcher(cfg.CaCertificatePath, token, connKey)
 			}
 		case ok && cfg.IsKeyCertificate() && sc.keyCertificateExist(cfg.CertificatePath, cfg.PrivateKeyPath):
-			if sitem, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey); err != nil {
+			if sitem, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey); err == nil {
 				// Adding cert is sufficient here as key can't change without changing the cert.
 				sc.addFileWatcher(cfg.CertificatePath, token, connKey)
 			}
@@ -835,8 +835,8 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 		if sitem != nil {
 			cacheLog.Infoa("GenerateSecret from file ", resourceName)
 			sc.secrets.Store(connKey, *sitem)
-			return sdsFromFile, sitem, nil
 		}
+		return sdsFromFile, sitem, nil
 	}
 	return sdsFromFile, nil, nil
 }
