@@ -55,9 +55,6 @@ var (
 // getSettingsFunc is a function used to extract the default settings for the Suite.
 type getSettingsFunc func(string) (*resource.Settings, error)
 
-// SettingsModifier is a function that modifies the suite settings.
-type SettingsModifier func(settings *resource.Settings) error
-
 // mRunFn abstracts testing.M.run, so that the framework itself can be tested.
 type mRunFn func(ctx *suiteContext) int
 
@@ -72,8 +69,8 @@ type Suite struct {
 	requireFns []resource.SetupFn
 	setupFns   []resource.SetupFn
 
-	getSettings       getSettingsFunc
-	settingsModifiers []SettingsModifier
+	getSettings getSettingsFunc
+	envFactory  resource.EnvironmentFactory
 }
 
 // NewSuite returns a new suite instance.
@@ -98,9 +95,12 @@ func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSetti
 	return s
 }
 
-// ModifySettings adds a function that will modify the default settings used to initialize the Suite.
-func (s *Suite) ModifySettings(fn SettingsModifier) *Suite {
-	s.settingsModifiers = append(s.settingsModifiers, fn)
+// EnvironmentFactory sets a custom function used for creating the resource.Environment for this Suite.
+func (s *Suite) EnvironmentFactory(fn resource.EnvironmentFactory) *Suite {
+	if fn != nil && s.envFactory != nil {
+		scopes.CI.Warn("EnvironmentFactory overridden multiple times for Suite")
+	}
+	s.envFactory = fn
 	return s
 }
 
@@ -391,14 +391,11 @@ func initRuntime(s *Suite) error {
 		return err
 	}
 
-	// Allow a user-configured override for the settings.
-	for _, modifySettings := range s.settingsModifiers {
-		if err := modifySettings(settings); err != nil {
-			return err
-		}
+	// Get the EnvironmentFactory.
+	environmentFactory := s.envFactory
+	if environmentFactory == nil {
+		environmentFactory = settings.EnvironmentFactory
 	}
-
-	environmentFactory := settings.EnvironmentFactory
 	if environmentFactory == nil {
 		environmentFactory = newEnvironment
 	}
