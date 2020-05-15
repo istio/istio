@@ -275,7 +275,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 
-		if networkName := c.environment.GetNetworkName(cluster); networkName != "" {
+		if networkName := cluster.NetworkName(); networkName != "" {
 			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
 				"--set", "values.global.network="+networkName)
 		}
@@ -343,7 +343,7 @@ func meshNetworkSettings(cfg Config, environment *kube.Environment) string {
 		for i, cluster := range clusters {
 			network.Endpoints[i] = &v1alpha1.Network_NetworkEndpoints{
 				Ne: &v1alpha1.Network_NetworkEndpoints_FromRegistry{
-					FromRegistry: environment.KubeClusters[cluster].Name(),
+					FromRegistry: cluster.Name(),
 				},
 			}
 		}

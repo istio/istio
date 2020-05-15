@@ -59,7 +59,7 @@ func newSettingsFromCommandline() (*Settings, error) {
 		return nil, err
 	}
 
-	s.NetworkTopology, err = parseNetworkTopology(s.KubeConfig)
+	s.networkTopology, err = parseNetworkTopology(s.KubeConfig)
 	if err != nil {
 		return nil, err
 	}
