@@ -149,22 +149,22 @@ func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterInde
 
 func parseNetworkTopology() (map[resource.ClusterIndex]string, error) {
 	out := make(map[resource.ClusterIndex]string)
-	if controlPlaneTopology == "" {
+	if networkTopology == "" {
 		return out, nil
 	}
 
-	values := strings.Split(controlPlaneTopology, ",")
+	values := strings.Split(networkTopology, ",")
 	for _, v := range values {
 		parts := strings.Split(v, ":")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("failed parsing control plane mapping entry %s", v)
+			return nil, fmt.Errorf("failed parsing network mapping mapping entry %s", v)
 		}
 		clusterIndex, err := strconv.Atoi(parts[0])
 		if err != nil || clusterIndex < 0 {
-			return nil, fmt.Errorf("failed parsing control plane mapping entry %s: failed parsing cluster index", v)
+			return nil, fmt.Errorf("failed parsing network mapping entry %s: failed parsing cluster index", v)
 		}
 		if len(parts[1]) == 0 {
-			return nil, fmt.Errorf("failed parsing control plane mapping entry %s: failed parsing network name", v)
+			return nil, fmt.Errorf("failed parsing network mapping entry %s: failed parsing network name", v)
 		}
 		out[resource.ClusterIndex(clusterIndex)] = parts[1]
 	}
