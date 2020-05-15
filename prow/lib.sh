@@ -105,8 +105,13 @@ function kind_load_images() {
 
 # Loads images into all clusters.
 function kind_load_images_on_clusters() {
+  declare -a LOAD_IMAGE_JOBS
   for c in "${CLUSTER_NAMES[@]}"; do
-     time kind_load_images "${c}"
+    kind_load_images "${c}" &
+    LOAD_IMAGE_JOBS+=("${!}")
+  done
+  for pid in "${LOAD_IMAGE_JOBS[@]}"; do
+    wait "${pid}" || return 1
   done
 }
 
