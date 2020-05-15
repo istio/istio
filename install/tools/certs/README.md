@@ -1,4 +1,5 @@
-## Generating Certificates for Bootstrapping Multicluster Chain of Trust
+# Generating Certificates for Bootstrapping Multicluster / Mesh Expansion Chain of Trust
+
 The directory contains a `Makefile` for generating new root and intermediate certificates.
 The following `make` targets are defined:
 
