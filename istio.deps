@@ -1,4 +1,4 @@
-[
+	[
   {
     "_comment": "",
     "name": "PROXY_REPO_SHA",
@@ -11,6 +11,6 @@
     "name": "CNI_REPO_SHA",
     "repoName": "cni",
     "file": "",
-    "lastStableSHA": "7767c251bca6f9843b9ab3c4f89cc5eaa3ffcb67"
+    "lastStableSHA": "91098811677a523bd6b52540ec6584139355f7c1"
   }
 ]
