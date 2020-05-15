@@ -232,9 +232,7 @@ EOF
   export CLUSTER3_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER3_NAME}"
   CLUSTER_KUBECONFIGS=("$CLUSTER1_KUBECONFIG" "$CLUSTER2_KUBECONFIG" "$CLUSTER3_KUBECONFIG")
 
-  if [[ "${TOPOLOGY}" == "MULTICLUSTER_SINGLE_NETWORK" ]]; then
-
-    # Allow direct access between all clusters.
+  if [[ "${TOPOLOGY}" != "SINGLE_CLUSTER" ]]; then
     for i in "${!CLUSTER_NAMES[@]}"; do
       CLUSTERI_NAME="${CLUSTER_NAMES[$i]}"
       CLUSTERI_KUBECONFIG="${CLUSTER_KUBECONFIGS[$i]}"
@@ -244,15 +242,16 @@ EOF
         CLUSTERJ_KUBECONFIG="${CLUSTER_KUBECONFIGS[$j]}"
 
         if [ "$j" -gt "$i" ]; then
-          connect_kind_clusters "${CLUSTERI_NAME}" "${CLUSTERI_KUBECONFIG}" "${CLUSTERJ_NAME}" "${CLUSTERJ_KUBECONFIG}"
+          DIRECT_ACCESS=0
+          if [[ "${TOPOLOGY}" == "MULTICLUSTER_SINGLE_NETWORK" ]]; then
+            DIRECT_ACCESS=1
+          fi
+
+          connect_kind_clusters "${CLUSTERI_NAME}" "${CLUSTERI_KUBECONFIG}" "${CLUSTERJ_NAME}" "${CLUSTERJ_KUBECONFIG}" "${DIRECT_ACCESS}"
         fi
       done
     done
-  else
-    # Connect clusters 1 and 2, but leave cluster 3 on a separate network.
-    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}"
   fi
-
 }
 
 function connect_kind_clusters() {
@@ -260,20 +259,23 @@ function connect_kind_clusters() {
   C1_KUBECONFIG="${2}"
   C2="${3}"
   C2_KUBECONFIG="${4}"
+  DIRECT="${5}"
 
-  # Set up routing rules for inter-cluster direct pod to pod & service communication
   C1_NODE="${C1}-control-plane"
   C2_NODE="${C2}-control-plane"
   C1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.Networks.kind.IPAddress }}" "${C1_NODE}")
   C2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.Networks.kind.IPAddress }}" "${C2_NODE}")
-  C1_POD_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
-  C2_POD_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
-  C1_SVC_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl cluster-info dump | sed -n 's/^.*--service-cluster-ip-range=\([^"]*\).*$/\1/p' | head -n 1)
-  C2_SVC_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl cluster-info dump | sed -n 's/^.*--service-cluster-ip-range=\([^"]*\).*$/\1/p' | head -n 1)
-  docker exec "${C1_NODE}" ip route add "${C2_POD_CIDR}" via "${C2_DOCKER_IP}"
-  docker exec "${C1_NODE}" ip route add "${C2_SVC_CIDR}" via "${C2_DOCKER_IP}"
-  docker exec "${C2_NODE}" ip route add "${C1_POD_CIDR}" via "${C1_DOCKER_IP}"
-  docker exec "${C2_NODE}" ip route add "${C1_SVC_CIDR}" via "${C1_DOCKER_IP}"
+  if [ "${DIRECT}" -eq 1 ]; then
+    # Set up routing rules for inter-cluster direct pod to pod & service communication
+    C1_POD_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+    C2_POD_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+    C1_SVC_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl cluster-info dump | sed -n 's/^.*--service-cluster-ip-range=\([^"]*\).*$/\1/p' | head -n 1)
+    C2_SVC_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl cluster-info dump | sed -n 's/^.*--service-cluster-ip-range=\([^"]*\).*$/\1/p' | head -n 1)
+    docker exec "${C1_NODE}" ip route add "${C2_POD_CIDR}" via "${C2_DOCKER_IP}"
+    docker exec "${C1_NODE}" ip route add "${C2_SVC_CIDR}" via "${C2_DOCKER_IP}"
+    docker exec "${C2_NODE}" ip route add "${C1_POD_CIDR}" via "${C1_DOCKER_IP}"
+    docker exec "${C2_NODE}" ip route add "${C1_SVC_CIDR}" via "${C1_DOCKER_IP}"
+  fi
 
   # Set up routing rules for inter-cluster pod to MetalLB LoadBalancer communication
   connect_metallb "$C1_NODE" "$C2_KUBECONFIG" "$C2_DOCKER_IP"

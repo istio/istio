@@ -79,6 +79,10 @@ while (( "$#" )); do
   esac
 done
 
+if [[ "${TOPOLOGY}" == "MULTICLUSTER_MULTINETWORK" ]]; then
+  PARAMS+=("--istio.test.kube.networkTopology=0:test-network-0,1:test-network-1,2:test-network-2")
+fi
+
 
 # KinD will not have a LoadBalancer, so we need to disable it
 export TEST_ENV=kind
