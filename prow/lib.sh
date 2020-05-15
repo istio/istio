@@ -230,27 +230,13 @@ EOF
   export CLUSTER1_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER1_NAME}"
   export CLUSTER2_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER2_NAME}"
   export CLUSTER3_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER3_NAME}"
-  CLUSTER_KUBECONFIGS=("$CLUSTER1_KUBECONFIG" "$CLUSTER2_KUBECONFIG" "$CLUSTER3_KUBECONFIG")
 
   if [[ "${TOPOLOGY}" != "SINGLE_CLUSTER" ]]; then
-    for i in "${!CLUSTER_NAMES[@]}"; do
-      CLUSTERI_NAME="${CLUSTER_NAMES[$i]}"
-      CLUSTERI_KUBECONFIG="${CLUSTER_KUBECONFIGS[$i]}"
-
-      for j in "${!CLUSTER_NAMES[@]}"; do
-        CLUSTERJ_NAME="${CLUSTER_NAMES[$j]}"
-        CLUSTERJ_KUBECONFIG="${CLUSTER_KUBECONFIGS[$j]}"
-
-        if [ "$j" -gt "$i" ]; then
-          DIRECT_ACCESS=0
-          if [[ "${TOPOLOGY}" == "MULTICLUSTER_SINGLE_NETWORK" ]]; then
-            DIRECT_ACCESS=1
-          fi
-
-          connect_kind_clusters "${CLUSTERI_NAME}" "${CLUSTERI_KUBECONFIG}" "${CLUSTERJ_NAME}" "${CLUSTERJ_KUBECONFIG}" "${DIRECT_ACCESS}"
-        fi
-      done
-    done
+    # Clusters 1 and 2 are on the same network
+    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}" 1
+    # Cluster 3 is on a different network but we still need to set up routing for MetalLB addresses
+    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER3_NAME}" "${CLUSTER3_KUBECONFIG}" 0
+    connect_kind_clusters "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}" "${CLUSTER3_NAME}" "${CLUSTER3_KUBECONFIG}" 0
   fi
 }
 
