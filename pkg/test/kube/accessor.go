@@ -432,19 +432,6 @@ func (a *Accessor) GetService(ns string, name string) (*kubeApiCore.Service, err
 	return a.set.CoreV1().Services(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 }
 
-// GetServices returns services in the given namespace, based on the selectors. If no selectors are given, then
-// all services are returned.
-func (a *Accessor) GetServices(namespace string, selectors ...string) ([]kubeApiCore.Service, error) {
-	s := strings.Join(selectors, ",")
-	list, err := a.set.CoreV1().Services(namespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: s})
-
-	if err != nil {
-		return []kubeApiCore.Service{}, err
-	}
-
-	return list.Items, nil
-}
-
 // GetDeployment returns the deployment with the given name/namespace.
 func (a *Accessor) GetDeployment(ns string, name string) (*appsv1.Deployment, error) {
 	return a.set.AppsV1().Deployments(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})

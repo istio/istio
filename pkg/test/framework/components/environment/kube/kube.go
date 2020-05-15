@@ -80,8 +80,9 @@ func (e *Environment) IsMulticluster() bool {
 	return len(e.KubeClusters) > 1
 }
 
+// IsMultinetwork returns true if there is more than one network name in NetworkTopology.
 func (e *Environment) IsMultinetwork() bool {
-	return len(e.s.NetworkTopology) > 1
+	return len(e.ClustersByNetwork()) > 1
 }
 
 func (e *Environment) Clusters() []resource.Cluster {
@@ -124,10 +125,12 @@ func (e *Environment) GetControlPlaneCluster(cluster resource.Cluster) (resource
 	return nil, fmt.Errorf("no control plane cluster found in topology for cluster %d", cluster.Index())
 }
 
+// GetNetworkName returns the network that the given cluster is in.
 func (e *Environment) GetNetworkName(cluster Cluster) string {
 	return e.s.NetworkTopology[cluster.Index()]
 }
 
+// ClustersByNetwork returns an inverse mapping of the network topolgoy to list clusters in a given network.
 func (e *Environment) ClustersByNetwork() map[string][]resource.ClusterIndex {
 	out := make(map[string][]resource.ClusterIndex)
 	for clusterIdx, networkName := range e.s.NetworkTopology {

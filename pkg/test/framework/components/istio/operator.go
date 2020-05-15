@@ -16,16 +16,19 @@ package istio
 
 import (
 	"fmt"
-	yaml2 "gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
-	"istio.io/api/mesh/v1alpha1"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
+
+	"istio.io/istio/operator/pkg/util"
+
+	"istio.io/api/mesh/v1alpha1"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -112,8 +115,6 @@ func (i *operatorComponent) Dump() {
 			return
 		}
 		cluster.DumpPods(d, i.settings.SystemNamespace)
-		cluster.DumpServices(d, i.settings.SystemNamespace)
-		cluster.DumpConfigMap(d, i.settings.SystemNamespace, "istio")
 	}
 }
 
@@ -152,10 +153,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	iopFile := filepath.Join(workDir, "iop.yaml")
 	operatorYaml := cfg.IstioOperatorConfigYAML()
 	if env.IsMultinetwork() {
-		meshNetworksYaml, err := meshNetworkSettings(cfg, env)
-		if err != nil {
-			return nil, err
-		}
+		meshNetworksYaml := meshNetworkSettings(cfg, env)
 		operatorYaml += Indent(meshNetworksYaml, "      ")
 	}
 	if err := ioutil.WriteFile(iopFile, []byte(operatorYaml), os.ModePerm); err != nil {
@@ -324,7 +322,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 
 // meshNetworkSettings builds the values for meshNetworks with an endpoint in each network per-cluster.
 // Assumes that the registry service is always istio-ingressgateway.
-func meshNetworkSettings(cfg Config, environment *kube.Environment) (string, error) {
+func meshNetworkSettings(cfg Config, environment *kube.Environment) string {
 	meshNetworks := v1alpha1.MeshNetworks{Networks: make(map[string]*v1alpha1.Network)}
 	defaultGateways := []*v1alpha1.Network_IstioNetworkGateway{{
 		Gw: &v1alpha1.Network_IstioNetworkGateway_RegistryServiceName{
@@ -347,8 +345,7 @@ func meshNetworkSettings(cfg Config, environment *kube.Environment) (string, err
 		}
 		meshNetworks.Networks[networkName] = network
 	}
-	out, err := yaml2.Marshal(&meshNetworks)
-	return string(out), err
+	return strings.Replace(util.ToYAMLWithJSONPB(&meshNetworks), "networks:", "meshNetworks:", 1)
 }
 
 func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {
