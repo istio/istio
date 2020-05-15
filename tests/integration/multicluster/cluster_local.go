@@ -36,12 +36,13 @@ func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []
 			ctx.NewSubTest("respect-cluster-local-config").Run(func(ctx framework.TestContext) {
 				clusters := ctx.Environment().Clusters()
 				for i := range clusters {
+					i := i
 					ctx.NewSubTest(fmt.Sprintf("cluster-%d cluster local", i)).
 						RunParallel(func(ctx framework.TestContext) {
 							local := clusters[i]
 							remotes := getRemoteClusters(clusters, i)
 
-							// Deploy a only in local, but b in all clusters.
+							// Deploy src only in local, but dst in all clusters. dst in remote clusters shouldn't be hit
 							srcName, dstName := fmt.Sprintf("src-%d", i), fmt.Sprintf("dst-%d", i)
 							var src, dst echo.Instance
 							builder := echoboot.NewBuilderOrFail(ctx, ctx).
