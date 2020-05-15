@@ -38,8 +38,9 @@ var (
 	controlPlaneTopology string
 )
 
-// newSettingsFromCommandline returns Settings obtained from command-line flags. flag.Parse must be called before calling this function.
-func newSettingsFromCommandline() (*Settings, error) {
+// NewSettingsFromCommandLine returns Settings obtained from command-line flags.
+// flag.Parse must be called before calling this function.
+func NewSettingsFromCommandLine() (*Settings, error) {
 	if !flag.Parsed() {
 		panic("flag.Parse must be called before this function")
 	}
