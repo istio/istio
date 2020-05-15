@@ -16,7 +16,6 @@ package analysis
 
 import (
 	"fmt"
-	"istio.io/pkg/log"
 	"strings"
 	"testing"
 	"time"
@@ -47,7 +46,7 @@ func TestStatusExistsByDefault(t *testing.T) {
 
 func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).
-		Features(features.Usability_Observability_Status).
+		Features("newphonewhodis").
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
 		Run(func(ctx framework.TestContext) {

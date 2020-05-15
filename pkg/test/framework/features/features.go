@@ -15,10 +15,12 @@
 package features
 
 import (
-	"github.com/ghodss/yaml"
 	"io/ioutil"
-	"istio.io/pkg/log"
 	"strings"
+
+	"github.com/ghodss/yaml"
+
+	"istio.io/pkg/log"
 )
 
 type Feature string

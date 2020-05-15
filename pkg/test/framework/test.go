@@ -16,10 +16,11 @@ package framework
 
 import (
 	"fmt"
-	"istio.io/pkg/log"
 	"os"
 	"testing"
 	"time"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/test/framework/features"
 

@@ -1,0 +1,28 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"networking.istio.io/v1alpha3","kind":"VirtualService","metadata":{"annotations":{},"name":"reviews","namespace":"default-1-93354"},"spec":{"gateways":["missing-gw"],"hosts":["reviews"],"http":[{"route":[{"destination":{"host":"reviews"}}]}]}}
+  creationTimestamp: "2020-04-19T04:36:52Z"
+  generation: 2
+  name: reviews
+  namespace: default-1-93354
+  resourceVersion: "408062"
+  selfLink: /apis/networking.istio.io/v1beta1/namespaces/default-1-93354/virtualservices/reviews
+  uid: 641526fc-81f7-11ea-9ef0-42010a80000f
+spec:
+  gateways:
+  - missing-gws
+  hosts:
+  - reviews
+  http:
+  - route:
+    - destination:
+        host: reviews
+status:
+  validationMessages:
+  - code: IST0101
+    documentation_url: https://istio.io/docs/reference/config/analysis/IST0101?ref=status-controller
+    level: Error
+    message: 'Referenced gateway not found: "missing-gws"'

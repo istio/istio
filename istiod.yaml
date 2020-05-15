@@ -1,0 +1,188 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+  labels:
+    app: istiod
+    istio: pilot
+    istio.io/rev: default
+    operator.istio.io/component: Pilot
+    operator.istio.io/managed: Reconcile
+    operator.istio.io/version: 1.6.0
+    release: istio
+  name: istiod
+  namespace: istio-system
+  selfLink: /apis/extensions/v1beta1/namespaces/istio-system/deployments/istiod
+  uid: 51b34c75-81ec-11ea-9ef0-42010a80000f
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      istio: pilot
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      creationTimestamp: null
+      labels:
+        app: istiod
+        istio: pilot
+        istio.io/rev: default
+    spec:
+      containers:
+      - args:
+        - discovery
+        - --monitoringAddr=:15014
+        - --log_output_level=default:info
+        - --domain
+        - cluster.local
+        - --trust-domain=cluster.local
+        - --keepaliveMaxServerConnectionAge
+        - 30m
+        env:
+        - name: REVISION
+          value: default
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: istiod
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.serviceAccountName
+        - name: PILOT_ENABLE_STATUS
+          value: "true"
+        - name: PILOT_TRACE_SAMPLING
+          value: "1"
+        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+          value: "true"
+        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+          value: "true"
+        - name: INJECTION_WEBHOOK_CONFIG_NAME
+          value: istio-sidecar-injector
+        - name: ISTIOD_ADDR
+          value: istiod.istio-system.svc:15012
+        - name: PILOT_ENABLE_ANALYSIS
+          value: "false"
+        - name: CLUSTER_ID
+          value: Kubernetes
+        image: docker.io/therealmitchconnors/pilot:therealmitchconnors
+        imagePullPolicy: Always
+        name: discovery
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 15010
+          protocol: TCP
+        - containerPort: 15017
+          protocol: TCP
+        - containerPort: 15053
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ready
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 1
+          periodSeconds: 3
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+          readOnly: true
+        - mountPath: /var/run/secrets/istio-dns
+          name: local-certs
+        - mountPath: /etc/cacerts
+          name: cacerts
+          readOnly: true
+        - mountPath: /var/lib/istio/inject
+          name: inject
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1337
+      serviceAccount: istio-pilot-service-account
+      serviceAccountName: istio-pilot-service-account
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: local-certs
+      - name: istio-token
+        projected:
+          defaultMode: 420
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - name: cacerts
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: cacerts
+      - configMap:
+          defaultMode: 420
+          name: istio-sidecar-injector
+          optional: true
+        name: inject
+      - configMap:
+          defaultMode: 420
+          name: istio
+        name: config-volume
+status:
+  conditions:
+  - lastTransitionTime: "2020-04-19T03:17:37Z"
+    lastUpdateTime: "2020-04-19T03:17:37Z"
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  - lastTransitionTime: "2020-04-19T03:17:37Z"
+    lastUpdateTime: "2020-04-19T03:17:37Z"
+    message: ReplicaSet "istiod-66fb5f76c8" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  observedGeneration: 1
+  replicas: 1
+  unavailableReplicas: 1
+  updatedReplicas: 1
