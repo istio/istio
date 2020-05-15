@@ -791,35 +791,38 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	// a well known path, they are used in the SDS response.
 	sdsFromFile := false
 	var err error
-	var ns *model.SecretItem
+	var sitem *model.SecretItem
 
 	switch {
 	// Default root certificate.
 	case connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile):
 		sdsFromFile = true
-		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey)
-		sc.addFileWatcher(sc.existingRootCertFile, token, connKey)
+		if sitem, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey); err != nil {
+			sc.addFileWatcher(sc.existingRootCertFile, token, connKey)
+		}
 	// Default workload certificate.
 	case connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile):
 		sdsFromFile = true
-		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
-		// Adding cert is sufficient here as key can't change without changing the cert.
-		sc.addFileWatcher(sc.existingCertChainFile, token, connKey)
+		if sitem, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey); err != nil {
+			// Adding cert is sufficient here as key can't change without changing the cert.
+			sc.addFileWatcher(sc.existingCertChainFile, token, connKey)
+		}
 	default:
 		// Check if the resource name refers to a file mounted certificate.
 		// Currently used in destination rules and server certs (via metadata).
 		// Based on the resource name, we need to read the secret from a file encoded in the resource name.
 		cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName)
+		sdsFromFile = ok
 		switch {
 		case ok && cfg.IsRootCertificate() && sc.rootCertificateExist(cfg.CaCertificatePath):
-			sdsFromFile = true
-			ns, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey)
-			sc.addFileWatcher(cfg.CaCertificatePath, token, connKey)
+			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey); err != nil {
+				sc.addFileWatcher(cfg.CaCertificatePath, token, connKey)
+			}
 		case ok && cfg.IsKeyCertificate() && sc.keyCertificateExist(cfg.CertificatePath, cfg.PrivateKeyPath):
-			sdsFromFile = true
-			ns, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey)
-			// Adding cert is sufficient here as key can't change without changing the cert.
-			sc.addFileWatcher(cfg.CertificatePath, token, connKey)
+			if sitem, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey); err != nil {
+				// Adding cert is sufficient here as key can't change without changing the cert.
+				sc.addFileWatcher(cfg.CertificatePath, token, connKey)
+			}
 		}
 	}
 
@@ -829,9 +832,11 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 				logPrefix, err)
 			return sdsFromFile, nil, err
 		}
-		cacheLog.Infoa("GenerateSecret from file ", resourceName)
-		sc.secrets.Store(connKey, *ns)
-		return sdsFromFile, ns, nil
+		if sitem != nil {
+			cacheLog.Infoa("GenerateSecret from file ", resourceName)
+			sc.secrets.Store(connKey, *sitem)
+			return sdsFromFile, sitem, nil
+		}
 	}
 	return sdsFromFile, nil, nil
 }

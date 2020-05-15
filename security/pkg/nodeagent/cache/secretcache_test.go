@@ -1116,6 +1116,55 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 	notifyEvent.Wait()
 }
 
+func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) {
+	fetcher := &secretfetcher.SecretFetcher{}
+
+	opt := Options{
+		RotationInterval: 1 * time.Millisecond,
+		EvictionDuration: 0,
+	}
+
+	sc := NewSecretCache(fetcher, notifyCb, opt)
+	defer func() {
+		sc.Close()
+	}()
+	rootCertPath, _ := filepath.Abs("./testdata/root-cert-bogus.pem")
+	keyPath, _ := filepath.Abs("./testdata/key-bogus.pem")
+	certChainPath, _ := filepath.Abs("./testdata/cert-chain-bogus.pem")
+
+	resource := fmt.Sprintf("file-cert:%s~%s", certChainPath, keyPath)
+	conID := "proxy1-id"
+	ctx := context.Background()
+
+	gotSecret, err := sc.GenerateSecret(ctx, conID, resource, "jwtToken1")
+
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+
+	if gotSecret != nil {
+		t.Fatalf("Expected to get nil secret but got %v", gotSecret)
+	}
+
+	rootResource := "file-root:" + rootCertPath
+	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, rootResource, "jwtToken1")
+
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	if gotSecretRoot != nil {
+		t.Fatalf("Expected to get nil secret but got %v", gotSecret)
+	}
+	length := 0
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		length++
+		return true
+	})
+	if length > 0 {
+		t.Fatalf("Expected zero secrets in cache, but got %v", length)
+	}
+}
+
 func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem) error {
 	if expectedSecret.ResourceName != gotSecret.ResourceName {
 		return fmt.Errorf("resource name verification error: expected %s but got %s", expectedSecret.ResourceName,
