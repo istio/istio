@@ -24,27 +24,53 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // ClusterLocalTest tests that traffic works within a local cluster while in a multicluster configuration
+// clusterLocalNS have been configured in meshConfig.serviceSettings to be clusterLocal.
 func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []pilot.Instance) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Run(func(ctx framework.TestContext) {
-			cluster1 := ctx.Environment().Clusters()[0]
-			cluster2 := ctx.Environment().Clusters()[1]
+			ctx.NewSubTest("respect-cluster-local-config").Run(func(ctx framework.TestContext) {
+				clusters := ctx.Environment().Clusters()
+				for i := range clusters {
+					ctx.NewSubTest(fmt.Sprintf("cluster-%d cluster local", i)).
+						RunParallel(func(ctx framework.TestContext) {
+							local := clusters[i]
+							remotes := getRemoteClusters(clusters, i)
 
-			// Deploy a only in cluster1, but b in both clusters.
-			var a1, b1, b2 echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a1, newEchoConfig("a", clusterLocalNS, cluster1, pilots)).
-				With(&b1, newEchoConfig("b", clusterLocalNS, cluster1, pilots)).
-				With(&b2, newEchoConfig("b", clusterLocalNS, cluster2, pilots)).
-				BuildOrFail(ctx)
+							// Deploy a only in local, but b in all clusters.
+							var a1, b1 echo.Instance
+							builder := echoboot.NewBuilderOrFail(ctx, ctx).
+								With(&a1, newEchoConfig("a", clusterLocalNS, local, pilots)).
+								With(&b1, newEchoConfig("b", clusterLocalNS, local, pilots))
+							for _, remoteCluster := range remotes {
+								var ref echo.Instance
+								builder = builder.With(&ref, newEchoConfig("b", clusterLocalNS, remoteCluster, pilots))
+							}
+							builder.BuildOrFail(ctx)
 
-			results := callOrFail(ctx, a1, b1)
+							results := callOrFail(ctx, a1, b1)
 
-			// Ensure that all requests went to cluster 1.
-			results.CheckClusterOrFail(ctx, fmt.Sprintf("%d", cluster1.Index()))
+							// Ensure that all requests went to the local cluster.
+							results.CheckClusterOrFail(ctx, fmt.Sprintf("%d", local.Index()))
+						})
+				}
+			})
 		})
+}
+
+func getRemoteClusters(clusters []resource.Cluster, local int) []resource.Cluster {
+	i := 0
+	remotes := make([]resource.Cluster, len(clusters)-1)
+	for j := range clusters {
+		if j == local {
+			continue
+		}
+		remotes[i] = clusters[j]
+		i++
+	}
+	return remotes
 }
