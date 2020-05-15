@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -36,12 +35,7 @@ type Environment struct {
 var _ resource.Environment = &Environment{}
 
 // New returns a new Kubernetes environment
-func New(ctx resource.Context) (resource.Environment, error) {
-	s, err := newSettingsFromCommandline()
-	if err != nil {
-		return nil, err
-	}
-
+func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	scopes.CI.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
 
 	workDir, err := ctx.CreateTmpDirectory("env-kube")
@@ -55,9 +49,10 @@ func New(ctx resource.Context) (resource.Environment, error) {
 	}
 	e.id = ctx.TrackResource(e)
 
+	newAccessor := s.AccessorFactoryFuncOrDefault()
 	e.KubeClusters = make([]Cluster, 0, len(s.KubeConfig))
 	for i := range s.KubeConfig {
-		a, err := kube.NewAccessor(s.KubeConfig[i], workDir)
+		a, err := newAccessor(s.KubeConfig[i], workDir)
 		if err != nil {
 			return nil, err
 		}
