@@ -19,12 +19,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/vault/api"
 
-	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -32,55 +34,97 @@ var (
 	vaultClientLog = log.RegisterScope("vault", "Vault client debugging", 0)
 )
 
-type vaultClient struct {
-	enableTLS   bool
-	tlsRootCert []byte
+// VaultClient is a client for interaction with Vault.
+type VaultClient struct {
+	enableTLS       bool
+	vaultAddr       string
+	jwtPath         string
+	tlsRootCertPath string
+	loginRole       string
+	loginPath       string
+	signCsrPath     string
+	caCertPath      string
 
-	vaultAddr        string
-	vaultLoginRole   string
-	vaultLoginPath   string
-	vaultSignCsrPath string
-
-	client *api.Client
+	client    *api.Client
+	jwtLoader *util.JwtLoader
 }
 
-// NewVaultClient create a CA client for the Vault provider 1.
-func NewVaultClient(tls bool, tlsRootCert []byte,
-	vaultAddr, vaultLoginRole, vaultLoginPath, vaultSignCsrPath string) (caClientInterface.Client, error) {
-	c := &vaultClient{
-		enableTLS:        tls,
-		tlsRootCert:      tlsRootCert,
-		vaultAddr:        vaultAddr,
-		vaultLoginRole:   vaultLoginRole,
-		vaultLoginPath:   vaultLoginPath,
-		vaultSignCsrPath: vaultSignCsrPath,
+// NewVaultClientWithConfig creates a CA client for the Vault PKI. It takes a single format config string.
+func NewVaultClientWithConfig(config string) (*VaultClient, error) {
+	params := strings.Split(config, ";")
+	if len(params) != 7 {
+		return nil, fmt.Errorf(
+			"unexpected config format for Vault. Expected 'backend_ca_addr;token_path;tls_cert_path;role;"+
+				"auth_path;sign_csr_path; ca_cert_path', but got %s", config)
 	}
+	vaultAddr := params[0]
+	jwtPath := params[1]
+	tlsRootCertPath := params[2]
+	vaultLoginRole := params[3]
+	vaultLoginPath := params[4]
+	vaultSignCsrPath := params[5]
+	vaultCACertPath := params[6]
+
+	return NewVaultClient(
+		vaultAddr, jwtPath, tlsRootCertPath, vaultLoginRole, vaultLoginPath, vaultSignCsrPath, vaultCACertPath)
+}
+
+// NewVaultClient creates a CA client for the Vault PKI.
+func NewVaultClient(vaultAddr, jwtPath, tlsRootCertPath, loginRole, loginPath,
+	signCsrPath, caCertPath string) (*VaultClient, error) {
+	c := &VaultClient{
+		enableTLS:       true,
+		vaultAddr:       vaultAddr,
+		jwtPath:         jwtPath,
+		tlsRootCertPath: tlsRootCertPath,
+		loginRole:       loginRole,
+		loginPath:       loginPath,
+		signCsrPath:     signCsrPath,
+		caCertPath:      caCertPath,
+	}
+	if strings.HasPrefix(c.vaultAddr, "http:") {
+		c.enableTLS = false
+	}
+
+	jwtLoader, tlErr := util.NewJwtLoader(c.jwtPath)
+	if tlErr != nil {
+		return nil, fmt.Errorf("failed to create token loader to load the tokens: %v", tlErr)
+	}
+	c.jwtLoader = jwtLoader
 
 	var client *api.Client
 	var err error
-	if tls {
-		client, err = createVaultTLSClient(vaultAddr, tlsRootCert)
+	if c.enableTLS {
+		client, err = createVaultTLSClient(c.vaultAddr, c.tlsRootCertPath)
 	} else {
-		client, err = createVaultClient(vaultAddr)
+		client, err = createVaultClient(c.vaultAddr)
 	}
 	if err != nil {
 		return nil, err
 	}
 	c.client = client
-	vaultClientLog.Infof("created Vault client for Vault address: %s, TLS: %v", vaultAddr, tls)
 
-	return c, nil
-}
-
-// CSR Sign calls Vault to sign a CSR.
-func (c *vaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, saToken string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	token, err := loginVaultK8sAuthMethod(c.client, c.vaultLoginPath, c.vaultLoginRole, saToken)
+	token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, jwtLoader.Jwt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
 	}
 	c.client.SetToken(token)
-	certChain, err := signCsrByVault(c.client, c.vaultSignCsrPath, certValidTTLInSec, csrPEM)
+
+	vaultClientLog.Infof("created Vault client for Vault address: %s, TLS: %v", c.vaultAddr, c.enableTLS)
+	return c, nil
+}
+
+// CSRSign calls Vault to sign a CSR.
+func (c *VaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, jwt string,
+	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+	if len(jwt) != 0 {
+		token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, jwt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
+		}
+		c.client.SetToken(token)
+	}
+	certChain, err := signCsrByVault(c.client, c.signCsrPath, certValidTTLInSec, csrPEM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign CSR: %v", err)
 	}
@@ -91,6 +135,26 @@ func (c *vaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, 
 	}
 
 	return certChain, nil
+}
+
+// GetCACertPem returns the CA certificate in PEM format.
+func (c *VaultClient) GetCACertPem() (string, error) {
+	resp, err := c.client.Logical().Read(c.caCertPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve CA cert: %v", err)
+	}
+	if resp == nil || resp.Data == nil {
+		return "", fmt.Errorf("failed to retrieve CA cert: Got nil data")
+	}
+	certData, ok := resp.Data["certificate"]
+	if !ok {
+		return "", fmt.Errorf("no certificate in the CA cert response")
+	}
+	cert, ok := certData.(string)
+	if !ok {
+		return "", fmt.Errorf("the certificate in the CA cert response is not a string")
+	}
+	return cert, nil
 }
 
 // createVaultClient creates a client to a Vault server
@@ -110,16 +174,19 @@ func createVaultClient(vaultAddr string) (*api.Client, error) {
 
 // createVaultTLSClient creates a client to a Vault server
 // vaultAddr: the address of the Vault server (e.g., "https://127.0.0.1:8200").
-func createVaultTLSClient(vaultAddr string, tlsRootCert []byte) (*api.Client, error) {
+func createVaultTLSClient(vaultAddr string, tlsRootCertPath string) (*api.Client, error) {
 	// Load the system default root certificates.
 	pool, err := x509.SystemCertPool()
 	if err != nil {
-		vaultClientLog.Errorf("could not get SystemCertPool: %v", err)
 		return nil, fmt.Errorf("could not get SystemCertPool: %v", err)
 	}
 	if pool == nil {
 		log.Info("system cert pool is nil, create a new cert pool")
 		pool = x509.NewCertPool()
+	}
+	tlsRootCert, err := ioutil.ReadFile(tlsRootCertPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load TLS cert from file [%s]: %v", tlsRootCertPath, err)
 	}
 	if len(tlsRootCert) > 0 {
 		ok := pool.AppendCertsFromPEM(tlsRootCert)
@@ -165,11 +232,9 @@ func loginVaultK8sAuthMethod(client *api.Client, loginPath, role, sa string) (st
 		return "", err
 	}
 	if resp == nil {
-		vaultClientLog.Errorf("login response is nil")
 		return "", fmt.Errorf("login response is nil")
 	}
 	if resp.Auth == nil {
-		vaultClientLog.Errorf("login response auth field is nil")
 		return "", fmt.Errorf("login response auth field is nil")
 	}
 	return resp.Auth.ClientToken, nil
@@ -187,49 +252,52 @@ func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int6
 		"ttl":                  strconv.FormatInt(certTTLInSec, 10) + "s",
 		"exclude_cn_from_sans": true,
 	}
-	res, err := client.Logical().Write(csrSigningPath, m)
+	resp, err := client.Logical().Write(csrSigningPath, m)
 	if err != nil {
-		vaultClientLog.Errorf("failed to post to %v: %v", csrSigningPath, err)
 		return nil, fmt.Errorf("failed to post to %v: %v", csrSigningPath, err)
 	}
-	if res == nil {
-		vaultClientLog.Error("sign response is nil")
+	if resp == nil {
 		return nil, fmt.Errorf("sign response is nil")
 	}
-	if res.Data == nil {
-		vaultClientLog.Error("sign response has a nil Data field")
+	if resp.Data == nil {
 		return nil, fmt.Errorf("sign response has a nil Data field")
 	}
 	//Extract the certificate and the certificate chain
-	certificate, ok := res.Data["certificate"]
-	if !ok {
-		vaultClientLog.Error("no certificate in the CSR response")
+	certificateData, certOK := resp.Data["certificate"]
+	if !certOK {
 		return nil, fmt.Errorf("no certificate in the CSR response")
 	}
-	cert, ok := certificate.(string)
+	cert, ok := certificateData.(string)
 	if !ok {
-		vaultClientLog.Error("the certificate in the CSR response is not a string")
 		return nil, fmt.Errorf("the certificate in the CSR response is not a string")
-	}
-	caChain, ok := res.Data["ca_chain"]
-	if !ok {
-		vaultClientLog.Error("no certificate chain in the CSR response")
-		return nil, fmt.Errorf("no certificate chain in the CSR response")
-	}
-	chain, ok := caChain.([]interface{})
-	if !ok {
-		vaultClientLog.Error("the certificate chain in the CSR response is of unexpected format")
-		return nil, fmt.Errorf("the certificate chain in the CSR response is of unexpected format")
 	}
 	var certChain []string
 	certChain = append(certChain, cert+"\n")
-	for idx, c := range chain {
-		_, ok := c.(string)
+
+	caChainData, caChainOK := resp.Data["ca_chain"]
+	if caChainOK {
+		chain, ok := caChainData.([]interface{})
 		if !ok {
-			vaultClientLog.Errorf("the certificate in the certificate chain %v is not a string", idx)
-			return nil, fmt.Errorf("the certificate in the certificate chain %v is not a string", idx)
+			return nil, fmt.Errorf("the certificate chain in the CSR response is of unexpected format")
 		}
-		certChain = append(certChain, c.(string)+"\n")
+		for idx, c := range chain {
+			_, ok := c.(string)
+			if !ok {
+				return nil, fmt.Errorf("the certificate in the certificate chain %v is not a string", idx)
+			}
+			certChain = append(certChain, c.(string)+"\n")
+		}
+	} else {
+		// In case cert chain is empty, attach the issuing CA. [TODO] Add test.
+		issuingCAData, issuingCAOK := resp.Data["issuing_ca"]
+		if !issuingCAOK {
+			return nil, fmt.Errorf("no issuing CA in the CSR response")
+		}
+		issuingCA, ok := issuingCAData.(string)
+		if !ok {
+			return nil, fmt.Errorf("the issuing CA cert in the CSR response is not a string")
+		}
+		certChain = append(certChain, issuingCA+"\n")
 	}
 
 	return certChain, nil
