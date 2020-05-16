@@ -164,7 +164,7 @@ func parseNetworkTopology(kubeConfigs []string) (map[resource.ClusterIndex]strin
 			return nil, fmt.Errorf("failed parsing network mapping entry %s: failed parsing cluster index", v)
 		}
 		if clusterIndex >= numClusters {
-			return nil, fmt.Errorf("failed parsin network topology: cluster index: %d "+
+			return nil, fmt.Errorf("failed parsing network topology: cluster index: %d "+
 				"exceeds number of available clusters %d", clusterIndex, numClusters)
 		}
 		if len(parts[1]) == 0 {
@@ -217,5 +217,5 @@ func init() {
 	flag.StringVar(&networkTopology, "istio.test.kube.networkTopology",
 		"", "Specifies the mapping for each cluster to it's network name, for multi-network scenarios. The value is a "+
 			"comma-separated list of the form <clusterIndex>:<networkName>, where the indexes refer to the order in which "+
-			"a given cluster appears in the 'istio.test.kube.config' flag. If not specified, values.global.network will be left unset")
+			"a given cluster appears in the 'istio.test.kube.config' flag. If not specified, network name will be left unset")
 }
