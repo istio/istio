@@ -56,16 +56,6 @@ func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_
 	}
 }
 
-func tlsConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata) convertFunc {
-	return func(*instance) (interface{}, error) {
-		tlsContext := tlsContextConvert(tls, sniName, metadata)
-		if tlsContext == nil {
-			return "", nil
-		}
-		return convertToJSON(tlsContext), nil
-	}
-}
-
 func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata, isH2 bool) convertFunc {
 
 	return func(*instance) (interface{}, error) {
