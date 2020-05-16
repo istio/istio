@@ -267,7 +267,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 
 	// First try to generate secret from file.
 	sdsFromFile, ns, err := sc.generateFileSecret(connKey, token)
-	fmt.Println(sdsFromFile)
 
 	if sdsFromFile {
 		if err != nil {
