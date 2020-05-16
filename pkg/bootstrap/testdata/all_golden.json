@@ -415,9 +415,9 @@
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
-      
-        "tls_context": {"common_tls_context":{"tls_certificates":[{"certificate_chain":{"filename":"/etc/istio/ms/client.pem"},"private_key":{"filename":"/etc/istio/ms/key.pem"}}],"validation_context":{"trusted_ca":{"filename":"/etc/istio/ms/ca.pem"}},"alpn_protocols":["h2"]}},
-      
+
+        "transport_socket": {"name":"tls","typed_config":{"@type":"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext","common_tls_context":{"tls_certificates":[{"certificate_chain":{"filename":"/etc/istio/ms/client.pem"},"private_key":{"filename":"/etc/istio/ms/key.pem"}}],"validation_context":{"trusted_ca":{"filename":"/etc/istio/ms/ca.pem"}},"alpn_protocols":["istio","h2"]}}},
+
       
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",

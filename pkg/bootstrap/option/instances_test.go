@@ -16,6 +16,7 @@ package option_test
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -718,6 +719,9 @@ func TestOptions(t *testing.T) {
 					g.Expect(ok).To(BeFalse())
 				} else {
 					g.Expect(ok).To(BeTrue())
+					if c.testName == "envoy metrics tls" {
+						fmt.Println(actual)
+					}
 					g.Expect(actual).To(Equal(c.expected))
 				}
 			}
