@@ -14,6 +14,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -359,7 +360,7 @@ func TestGolden(t *testing.T) {
 			if !reflect.DeepEqual(realM, goldenM) {
 				s, _ := diff.PrettyDiff(goldenM, realM)
 				t.Logf("difference: %s", s)
-				t.Fatalf("\n got: %v\nwant: %v", realM, goldenM)
+				t.Fatalf("\n got: %s\nwant: %s", prettyPrint(jreal), prettyPrint(jgolden))
 			}
 
 			// Check if the LightStep access token file exists
@@ -379,6 +380,12 @@ func TestGolden(t *testing.T) {
 			}
 		})
 	}
+}
+
+func prettyPrint(b []byte) []byte {
+	var out bytes.Buffer
+	_ = json.Indent(&out, b, "", "  ")
+	return out.Bytes()
 }
 
 func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want string, typ string) {

@@ -517,7 +517,7 @@ func TestOptions(t *testing.T) {
 			option: option.EnvoyMetricsServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.NodeMetadata{}),
-			expected: "{\"name\":\"tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\",\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}}", //nolit
+			expected: "{\"name\":\"tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\",\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}}", // nolint: lll
 		},
 		{
 			testName: "envoy metrics keepalive nil",
