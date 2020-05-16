@@ -39,26 +39,6 @@ import (
 
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
-	if TestMode {
-		return meshconfig.ProxyConfig{
-			ConfigPath:             constants.ConfigPathDir,
-			BinaryPath:             constants.BinaryPathFilename,
-			ServiceCluster:         constants.ServiceClusterName,
-			DrainDuration:          types.DurationProto(45 * time.Second),
-			ParentShutdownDuration: types.DurationProto(60 * time.Second),
-			DiscoveryAddress:       constants.DiscoveryPlainAddress,
-			StatsdUdpAddress:       "",
-			EnvoyMetricsService:    &meshconfig.RemoteService{Address: ""},
-			EnvoyAccessLogService:  &meshconfig.RemoteService{Address: ""},
-			ProxyAdminPort:         15000,
-			ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
-			CustomConfigFile:       "",
-			Concurrency:            0,
-			StatNameLength:         189,
-			Tracing:                nil,
-			StatusPort:             15020,
-		}
-	}
 	// TODO: include revision based on REVISION env
 	// TODO: set default namespace based on POD_NAMESPACE env
 	return meshconfig.ProxyConfig{
@@ -68,7 +48,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		DrainDuration:          types.DurationProto(45 * time.Second),
 		ParentShutdownDuration: types.DurationProto(60 * time.Second),
 		ProxyAdminPort:         15000,
-		Concurrency:            2,
+		Concurrency:            &types.Int32Value{Value: 2},
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		DiscoveryAddress:       "istiod.istio-system.svc:15012",
 		Tracing: &meshconfig.Tracing{
@@ -90,50 +70,11 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 	}
 }
 
-var (
-	TestMode = false
-)
-
 // DefaultMeshConfig returns the default mesh config.
 // This is merged with values from the mesh config map.
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	proxyConfig := DefaultProxyConfig()
-	if TestMode {
-		return meshconfig.MeshConfig{
-			IngressClass:                      "istio",
-			IngressControllerMode:             meshconfig.MeshConfig_STRICT,
-			ReportBatchMaxTime:                types.DurationProto(1 * time.Second),
-			ReportBatchMaxEntries:             100,
-			MixerCheckServer:                  "",
-			MixerReportServer:                 "",
-			DisablePolicyChecks:               true,
-			PolicyCheckFailOpen:               false,
-			SidecarToTelemetrySessionAffinity: false,
-			RootNamespace:                     constants.IstioSystemNamespace,
-			ProxyListenPort:                   15001,
-			ConnectTimeout:                    types.DurationProto(10 * time.Second),
-			IngressService:                    "istio-ingressgateway",
-			EnableTracing:                     true,
-			AccessLogFile:                     "/dev/stdout",
-			AccessLogEncoding:                 meshconfig.MeshConfig_TEXT,
-			DefaultConfig:                     &proxyConfig,
-			SdsUdsPath:                        "",
-			EnableSdsTokenMount:               false,
-			TrustDomain:                       "cluster.local",
-			TrustDomainAliases:                []string{},
-			Certificates:                      []*meshconfig.Certificate{},
-			DefaultServiceExportTo:            []string{"*"},
-			DefaultVirtualServiceExportTo:     []string{"*"},
-			DefaultDestinationRuleExportTo:    []string{"*"},
-			OutboundTrafficPolicy:             &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
-			DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
-			ProtocolDetectionTimeout:          types.DurationProto(100 * time.Millisecond),
-			EnableAutoMtls:                    &types.BoolValue{Value: false},
-			ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
-			LocalityLbSetting:                 &v1alpha3.LocalityLoadBalancerSetting{},
-			ServiceSettings:                   []*meshconfig.MeshConfig_ServiceSettings{},
-		}
-	}
+
 	// Defaults matching the standard install
 	// order matches the generated mesh config.
 	return meshconfig.MeshConfig{
@@ -242,10 +183,9 @@ func ParseMeshNetworks(yaml string) (*meshconfig.MeshNetworks, error) {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
-	// TODO validate the loaded MeshNetworks
-	// if err := ValidateMeshNetworks(&out); err != nil {
-	// 	return nil, err
-	// }
+	if err := validation.ValidateMeshNetworks(&out); err != nil {
+		return nil, err
+	}
 	return &out, nil
 }
 

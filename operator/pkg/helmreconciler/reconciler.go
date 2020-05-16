@@ -17,6 +17,7 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -29,16 +30,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
-
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/version"
-
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/pkg/version"
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts.
@@ -81,6 +80,18 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 	}
 	if opts.ProgressLog == nil {
 		opts.ProgressLog = progress.NewLog()
+	}
+	if waitForResourcesTimeoutStr, found := os.LookupEnv("WAIT_FOR_RESOURCES_TIMEOUT"); found {
+		if waitForResourcesTimeout, err := time.ParseDuration(waitForResourcesTimeoutStr); err == nil {
+			opts.WaitTimeout = waitForResourcesTimeout
+		} else {
+			scope.Warnf("invalid env variable value: %s for 'WAIT_FOR_RESOURCES_TIMEOUT'! falling back to default value...", waitForResourcesTimeoutStr)
+			// fallback to default wait resource timeout
+			opts.WaitTimeout = defaultWaitResourceTimeout
+		}
+	} else {
+		// fallback to default wait resource timeout
+		opts.WaitTimeout = defaultWaitResourceTimeout
 	}
 	if iop == nil {
 		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).
@@ -154,7 +165,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 					Name:    c,
 					Content: name.MergeManifestSlices(ms),
 				}
-				processedObjs, deployedObjects, err = h.ApplyManifest(m, len(ComponentDependencies[c]) > 0)
+				processedObjs, deployedObjects, err = h.ApplyManifest(m)
 				if err != nil {
 					status = v1alpha1.InstallStatus_ERROR
 				} else if len(processedObjs) != 0 || deployedObjects > 0 {
@@ -282,10 +293,15 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	crNamespace, err := h.getCRNamespace()
+	if err != nil {
+		return nil, err
+	}
 	labels := make(map[string]string)
 
 	labels[operatorLabelStr] = operatorReconcileStr
-	labels[owningResourceKey] = crName
+	labels[OwningResourceName] = crName
+	labels[OwningResourceNamespace] = crNamespace
 	labels[istioVersionLabelStr] = version.Info.Version
 
 	return labels, nil
@@ -374,7 +390,7 @@ func (h *HelmReconciler) getCRNamespace() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return objAccessor.GetName(), nil
+	return objAccessor.GetNamespace(), nil
 }
 
 // getClient returns the kubernetes client associated with this HelmReconciler

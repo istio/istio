@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -38,17 +39,11 @@ import (
 
 	"istio.io/api/label"
 
+	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pkg/kube"
-)
-
-var (
-	proxyContainer     = "istio-proxy"
-	discoveryContainer = "discovery"
-	pilotDiscoveryPath = "/usr/local/bin/pilot-discovery"
-	pilotAgentPath     = "/usr/local/bin/pilot-agent"
 )
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
@@ -61,9 +56,8 @@ type Client struct {
 // ExecClient is an interface for remote execution
 type ExecClient interface {
 	EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error)
-	AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error)
+	AllPilotsDiscoveryDo(pilotNamespace, path string) (map[string][]byte, error)
 	GetIstioVersions(namespace string) (*version.MeshInfo, error)
-	PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error)
 	PodsForSelector(namespace, labelSelector string) (*v1.PodList, error)
 	BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*PortForward, error)
 }
@@ -146,8 +140,30 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 	return &stdout, &stderr, err
 }
 
+// ProxyGet returns a response of the pod by calling it through the proxy.
+// Not a part of client-go https://github.com/kubernetes/kubernetes/issues/90768
+func (client *Client) proxyGet(name, namespace, path string, port int) rest.ResponseWrapper {
+	pathURL, err := url.Parse(path)
+	if err != nil {
+		log.Errorf("failed to parse path %s: %v", path, err)
+		pathURL = &url.URL{Path: path}
+	}
+	request := client.RESTClient.Get().
+		Namespace(namespace).
+		Resource("pods").
+		SubResource("proxy").
+		Name(fmt.Sprintf("%s:%d", name, port)).
+		Suffix(pathURL.Path)
+	for key, vals := range pathURL.Query() {
+		for _, val := range vals {
+			request = request.Param(key, val)
+		}
+	}
+	return request
+}
+
 // AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
-func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
+func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[string][]byte, error) {
 	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
 		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
@@ -158,10 +174,9 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 	if len(pilots) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
-	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
 	result := map[string][]byte{}
 	for _, pilot := range pilots {
-		res, err := client.ExtractExecResult(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
+		res, err := client.proxyGet(pilot.Name, pilot.Namespace, path, 8080).DoRaw(context.Background())
 		if err != nil {
 			return nil, err
 		}
@@ -172,30 +187,33 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 	return result, err
 }
 
-// PilotDiscoveryDo makes an http request to a single Pilot discovery instance
-func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
-	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
-		"labelSelector": "app=istiod",
-		"fieldSelector": "status.phase=Running",
-	})
+// EnvoyDo makes an http request to the Envoy in the specified pod
+func (client *Client) EnvoyDo(podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
+	fw, err := client.BuildPortForwarder(podName, podNamespace, "127.0.0.1", 0, 15000)
 	if err != nil {
 		return nil, err
 	}
-	if len(pilots) == 0 {
-		return nil, errors.New("unable to find any Pilot instances")
-	}
-	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
-	return client.ExtractExecResult(pilots[0].Name, pilots[0].Namespace, discoveryContainer, cmd)
-}
+	var bytes []byte
+	if err = RunPortForwarder(fw, func(fw *PortForward) error {
+		req, err := http.NewRequest(method, fmt.Sprintf("http://localhost:%d/%s", fw.LocalPort, path), nil)
+		if err != nil {
+			return err
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if bytes, err = ioutil.ReadAll(resp.Body); err != nil {
+			return err
+		}
 
-// EnvoyDo makes an http request to the Envoy in the specified pod
-func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
-	container, err := client.GetPilotAgentContainer(podName, podNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve proxy container name: %v", err)
+		close(fw.StopChannel)
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failure running port forward process: %v", err)
 	}
-	cmd := []string{pilotAgentPath, "request", method, path, string(body)}
-	return client.ExtractExecResult(podName, podNamespace, container, cmd)
+	return bytes, nil
 }
 
 // ExtractExecResult wraps PodExec and return the execution result and error if has any.
@@ -237,30 +255,6 @@ func (client *Client) GetIstioPods(namespace string, params map[string]string) (
 		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
 	}
 	return list.Items, nil
-}
-
-// GetPilotAgentContainer retrieves the pilot-agent container name for the specified pod
-func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (string, error) {
-	req := client.Get().
-		Resource("pods").
-		Namespace(podNamespace).
-		Name(podName)
-
-	res := req.Do(context.TODO())
-	if res.Error() != nil {
-		return "", fmt.Errorf("unable to retrieve Pod: %v", res.Error())
-	}
-	pod := &v1.Pod{}
-	if err := res.Into(pod); err != nil {
-		return "", fmt.Errorf("unable to parse Pod: %v", res.Error())
-	}
-	for _, c := range pod.Spec.Containers {
-		switch c.Name {
-		case "egressgateway", "ingress", "ingressgateway":
-			return c.Name, nil
-		}
-	}
-	return proxyContainer, nil
 }
 
 type podDetail struct {
@@ -358,7 +352,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 func (client *Client) BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*PortForward, error) {
 	var err error
 	if localPort == 0 {
-		localPort, err = availablePort()
+		localPort, err = availablePort(localAddr)
 		if err != nil {
 			return nil, fmt.Errorf("failure allocating port: %v", err)
 		}
@@ -405,8 +399,8 @@ func (client *Client) BuildPortForwarder(podName string, ns string, localAddr st
 	}, nil
 }
 
-func availablePort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", ":0")
+func availablePort(localAddr string) (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", localAddr+":0")
 	if err != nil {
 		return 0, err
 	}
@@ -419,6 +413,7 @@ func availablePort() (int, error) {
 	return port, l.Close()
 }
 
+// PodsForSelector finds pods matching selector
 func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
 	podGet := client.Get().Resource("pods").Namespace(namespace).Param("labelSelector", labelSelector)
 	obj, err := podGet.Do(context.TODO()).Get()
@@ -428,6 +423,7 @@ func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodL
 	return obj.(*v1.PodList), nil
 }
 
+// RunPortForwarder runs a port forwarder
 func RunPortForwarder(fw *PortForward, readyFunc func(fw *PortForward) error) error {
 
 	errCh := make(chan error, 1)

@@ -26,7 +26,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/fake"
 
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
+	"istio.io/istio/pkg/testcerts"
 )
 
 func TestProcessing_StartErrors(t *testing.T) {
@@ -135,7 +135,7 @@ func TestProcessing_Basic(t *testing.T) {
 	mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()
 	}
-	meshcfgNewFS = func(path string) (event.Source, error) { return meshcfg.NewInmemory(), nil }
+	meshcfgNewFS = func(path string) (event.Source, error) { return mesh.NewInmemoryMeshCfg(), nil }
 
 	args := settings.DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"

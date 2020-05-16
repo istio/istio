@@ -68,7 +68,7 @@ func TestDistribute(t *testing.T) {
 			fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
 
 			// First, deploy across multiple zones
-			deploy(ctx, ns, serviceConfig{
+			deploy(ctx, ctx, ns, serviceConfig{
 				Name:       "distribute-eds",
 				Host:       fakeHostname,
 				Namespace:  ns.Name(),
@@ -97,7 +97,7 @@ func TestDistribute(t *testing.T) {
 
 			// Set a to no locality, b to matching locality, and c to non-matching.
 			// Expect all to get even traffic after disabling locality lb.
-			deploy(ctx, ns, serviceConfig{
+			deploy(ctx, ctx, ns, serviceConfig{
 				Name:                       "distribute-eds",
 				Host:                       fakeHostname,
 				Namespace:                  ns.Name(),

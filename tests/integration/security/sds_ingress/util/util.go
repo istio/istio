@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/framework"
@@ -263,7 +263,7 @@ func updateSecret(ingressType ingress.CallType, scrt *v1.Secret, ic IngressCrede
 	return scrt
 }
 
-func SetupTest(ctx framework.TestContext, g galley.Instance) namespace.Instance {
+func SetupTest(ctx framework.TestContext) namespace.Instance {
 	serverNs := namespace.NewOrFail(ctx, ctx, namespace.Config{
 		Prefix: "ingress",
 		Inject: true,
@@ -281,7 +281,6 @@ func SetupTest(ctx framework.TestContext, g galley.Instance) namespace.Instance 
 					InstancePort: 8090,
 				},
 			},
-			Galley: g,
 		}).
 		BuildOrFail(ctx)
 	return serverNs
@@ -347,22 +346,21 @@ func runTemplate(t test.Failer, tmpl string, params interface{}) string {
 	return buf.String()
 }
 
-func SetupConfig(t test.Failer, g galley.Instance, ns namespace.Instance, config ...TestConfig) func() {
+func SetupConfig(t test.Failer, ctx resource.Context, ns namespace.Instance, config ...TestConfig) func() {
 	var apply []string
 	for _, c := range config {
 		apply = append(apply, runTemplate(t, vsTemplate, c), runTemplate(t, gwTemplate, c))
 	}
-	g.ApplyConfigOrFail(t, ns, apply...)
+	ctx.ApplyConfigOrFail(t, ns.Name(), apply...)
 	return func() {
-		g.DeleteConfigOrFail(t, ns, apply...)
+		ctx.DeleteConfigOrFail(t, ns.Name(), apply...)
 	}
 }
 
 // RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
 // private key, server certificate and CA certificate for each mTLS gateway. Verifies that all gateways are able to terminate
 // mTLS connections successfully.
-func RunTestMultiMtlsGateways(ctx framework.TestContext,
-	inst istio.Instance, g galley.Instance) { // nolint:interfacer
+func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance) { // nolint:interfacer
 	var credNames []string
 	var tests []TestConfig
 	for i := 1; i < 6; i++ {
@@ -376,8 +374,8 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext,
 	}
 	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA)
 	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
-	ns := SetupTest(ctx, g)
-	SetupConfig(ctx, g, ns, tests...)
+	ns := SetupTest(ctx)
+	SetupConfig(ctx, ctx, ns, tests...)
 	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
 		Istio: inst,
 	})
@@ -402,8 +400,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext,
 // RunTestMultiTLSGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
 // private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
 // SSL connections successfully.
-func RunTestMultiTLSGateways(ctx framework.TestContext,
-	inst istio.Instance, g galley.Instance) { // nolint:interfacer
+func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance) { // nolint:interfacer
 	var credNames []string
 	var tests []TestConfig
 	for i := 1; i < 6; i++ {
@@ -417,8 +414,8 @@ func RunTestMultiTLSGateways(ctx framework.TestContext,
 	}
 	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA)
 	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
-	ns := SetupTest(ctx, g)
-	SetupConfig(ctx, g, ns, tests...)
+	ns := SetupTest(ctx)
+	SetupConfig(ctx, ctx, ns, tests...)
 	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
 		Istio: inst,
 	})

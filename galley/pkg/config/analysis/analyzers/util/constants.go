@@ -16,10 +16,12 @@ package util
 
 import (
 	"regexp"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 const (
-	DefaultKubernetesDomain = "svc.cluster.local"
+	DefaultKubernetesDomain = "svc." + constants.DefaultKubernetesDomain
 	MeshGateway             = "mesh"
 	ExportToNamespaceLocal  = "."
 	ExportToAllNamespaces   = "*"

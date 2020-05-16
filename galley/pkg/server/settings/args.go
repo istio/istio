@@ -28,6 +28,7 @@ import (
 	"istio.io/pkg/probe"
 
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/snapshots"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
@@ -44,7 +45,6 @@ const (
 	defaultMeshConfigFolder = "/etc/mesh-config/"
 	defaultAccessListFile   = defaultConfigMapFolder + "accesslist.yaml"
 	defaultMeshConfigFile   = defaultMeshConfigFolder + "mesh"
-	defaultDomainSuffix     = "cluster.local"
 )
 
 // Args contains the startup arguments to instantiate Galley.
@@ -181,7 +181,7 @@ func DefaultArgs() *Args {
 		EnableServer:                    true,
 		CredentialOptions:               creds.DefaultOptions(),
 		ConfigPath:                      "",
-		DomainSuffix:                    defaultDomainSuffix,
+		DomainSuffix:                    constants.DefaultKubernetesDomain,
 		DisableResourceReadyCheck:       false,
 		ExcludedResourceKinds:           kuberesource.DefaultExcludedResourceKinds(),
 		SinkMeta:                        make([]string, 0),

@@ -146,7 +146,7 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		},
 		{
 			deploymentName: "kiali",
-			want:           "docker.io/testing/kiali:v1.15",
+			want:           "docker.io/testing/kiali:v1.18",
 		},
 	}
 
@@ -171,12 +171,9 @@ func TestManifestGenerateGateways(t *testing.T) {
 	g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(3))
-
-	// Two namespaces so two sets of these.
-	// istio-ingressgateway and user-ingressgateway share these as they are in the same namespace (istio-system).
-	g.Expect(objs.kind(name.RoleStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(name.RoleBindingStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.RoleStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.RoleBindingStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(3))
 
 	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 	d := dobj.Unstructured()
@@ -211,6 +208,46 @@ func TestManifestGenerateGateways(t *testing.T) {
 	checkRoleBindingsReferenceRoles(g, objs)
 }
 
+func TestManifestGenerateIstiodRemote(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	g := NewGomegaWithT(t)
+	m, _, err := generateManifest("istiod_remote", "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs := parseObjectSetFromManifest(t, m)
+
+	// check core CRDs exists
+	g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
+
+	g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istiod-pilot-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.SAStr).nameEquals("istiod-service-account")).Should(Not(BeNil()))
+
+	mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
+	g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
+	g.Expect(mwc).Should(HavePathValueContain(PathValue{"webhooks.[0].namespaceSelector.matchLabels", toMap("istio-injection:enabled")}))
+
+	vwc := mustGetValidatingWebhookConfiguration(g, objs, "istiod-istio-system").Unstructured()
+	g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/validate"}))
+
+	ep := mustGetEndpoint(g, objs, "istiod").Unstructured()
+	g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
+	g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
+
+	checkClusterRoleBindingsReferenceRoles(g, objs)
+}
+
 func TestManifestGenerateFlags(t *testing.T) {
 	flagOutputDir := createTempDirOrFail(t, "flag-output")
 	flagOutputValuesDir := createTempDirOrFail(t, "flag-output-values")
@@ -226,6 +263,8 @@ func TestManifestGenerateFlags(t *testing.T) {
 		{
 			desc:       "gateways",
 			diffIgnore: "ConfigMap:*:istio",
+			flags: "-s components.ingressGateways.[0].k8s.resources.requests.cpu=999m " +
+				"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m",
 		},
 		{
 			desc:       "gateways_override_default",
@@ -293,7 +332,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istiod",
+			diffSelect: "Deployment:*:istiod, Service:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector",
 		},
 		// TODO https://github.com/istio/istio/issues/22347 this is broken for overriding things to default value
 		// This can be seen from REGISTRY_ONLY not applying
@@ -377,6 +416,23 @@ func TestManifestGenerateOrdered(t *testing.T) {
 		t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
 	}
 }
+func TestManifestGenerateFlagAliases(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
+	gotSet, err := runManifestGenerate([]string{inPath}, "--set revision=foo", snapshotCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --charts="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if gotAlias != gotSet {
+		t.Errorf("Flag aliases not producing same output: with --set: \n\n%s\n\nWith alias:\n\n%s\nDiff:\n\n%s\n",
+			gotSet, gotAlias, util.YAMLDiff(gotSet, gotAlias))
+	}
+}
 
 func TestMultiICPSFiles(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
@@ -406,6 +462,24 @@ func TestMultiICPSFiles(t *testing.T) {
 func TestBareSpec(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBareValues(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPathBase := filepath.Join(testDataDir, "input/bare_values.yaml")
+	// As long as the generate doesn't panic, we pass it.  bare_values.yaml doesn't
+	// overlay well because JSON doesn't handle null values, and our charts
+	// don't expect values to be blown away.
+	_, _ = runManifestGenerate([]string{inPathBase}, "", liveCharts)
+}
+
+func TestBogusControlPlaneSec(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	inPathBase := filepath.Join(testDataDir, "input/bogus_cps.yaml")
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
@@ -550,11 +624,7 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, installerScope)
-	ysf, err := yamlFromSetFlags([]string{"installPackagePath=" + liveInstallPackageDir}, false, l)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, iops, err := GenerateConfig(nil, ysf, true, nil, l)
+	_, iops, err := GenerateConfig(nil, []string{"installPackagePath=" + liveInstallPackageDir}, true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -641,7 +711,7 @@ func runManifestGenerate(filenames []string, flags string, chartSource chartSour
 	}
 	switch chartSource {
 	case snapshotCharts:
-		args += " --set installPackagePath=" + filepath.Join(testDataDir, "data-snapshot")
+		args += " --set installPackagePath=" + snapshotInstallPackageDir
 	case liveCharts:
 		args += " --set installPackagePath=" + liveInstallPackageDir
 	case compiledInCharts:
@@ -663,6 +733,7 @@ func createLocalReleaseCharts() (string, error) {
 	return releaseDir, nil
 }
 
+// nolint: unparam
 func generateManifest(inFile, flags string, chartSource chartSourceType) (string, object.K8sObjects, error) {
 	inPath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
 	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource)

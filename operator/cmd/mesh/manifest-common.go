@@ -24,25 +24,7 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/operator/pkg/validate"
 )
-
-// yamlFromSetFlags takes a slice of --set flag key-value pairs and returns a YAML tree representation.
-// If force is set, validation errors cause warning messages to be written to logger rather than causing error.
-func yamlFromSetFlags(setOverlay []string, force bool, l clog.Logger) (string, error) {
-	out, err := makeTreeFromSetList(setOverlay)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
-	}
-	if err := validate.ValidIOPYAML(out); err != nil {
-		if !force {
-			return "", fmt.Errorf("validation errors (use --force to override): \n%s", err)
-		}
-		l.LogAndErrorf("Validation errors (continuing because of --force):\n%s", err)
-	}
-	return out, nil
-}
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
 func makeTreeFromSetList(setOverlay []string) (string, error) {
@@ -88,9 +70,13 @@ func fetchExtractInstallPackageHTTP(releaseTarURL string) (string, error) {
 }
 
 // --charts is an alias for --set installPackagePath=
-func applyInstallFlagAlias(flags []string, charts string) []string {
+// --revision is an alias for --set revision=
+func applyFlagAliases(flags []string, charts, revision string) []string {
 	if charts != "" {
 		flags = append(flags, fmt.Sprintf("installPackagePath=%s", charts))
+	}
+	if revision != "" {
+		flags = append(flags, fmt.Sprintf("revision=%s", revision))
 	}
 	return flags
 }

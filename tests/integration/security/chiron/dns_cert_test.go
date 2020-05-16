@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/chiron"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -98,7 +97,6 @@ func TestDNSCertificate(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			var galleySecret, galleySecret2, sidecarInjectorSecret, sidecarInjectorSecret2 *corev1.Secret
 			istio.DefaultConfigOrFail(t, ctx)
-			c := chiron.NewOrFail(t, ctx, chiron.Config{Istio: inst})
 			cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
 			istioNs := inst.Settings().IstioNamespace
 
@@ -106,8 +104,8 @@ func TestDNSCertificate(t *testing.T) {
 			ctx.NewSubTest("generateDNSCertificates").
 				Run(func(ctx framework.TestContext) {
 					ctx.Log("check that DNS certificates have been generated ...")
-					galleySecret = c.WaitForSecretToExistOrFail(ctx, galleySecretName, secretWaitTime)
-					sidecarInjectorSecret = c.WaitForSecretToExistOrFail(ctx, sidecarInjectorSecretName, secretWaitTime)
+					galleySecret = cluster.WaitForSecretToExistOrFail(ctx, istioNs, galleySecretName, secretWaitTime)
+					sidecarInjectorSecret = cluster.WaitForSecretToExistOrFail(ctx, istioNs, sidecarInjectorSecretName, secretWaitTime)
 					ctx.Log(`checking Galley DNS certificate is valid`)
 					secret.ExamineDNSSecretOrFail(ctx, galleySecret, galleyDNSName)
 					ctx.Log(`checking Sidecar Injector DNS certificate is valid`)
@@ -117,13 +115,13 @@ func TestDNSCertificate(t *testing.T) {
 			// Test certificate regeneration: if a DNS certificate is deleted, Chiron will regenerate it.
 			ctx.NewSubTest("regenerateDNSCertificates").
 				Run(func(ctx framework.TestContext) {
-					cluster.DeleteSecret(istioNs, galleySecretName)
-					cluster.DeleteSecret(istioNs, sidecarInjectorSecretName)
+					_ = cluster.DeleteSecret(istioNs, galleySecretName)
+					_ = cluster.DeleteSecret(istioNs, sidecarInjectorSecretName)
 					// Sleep 5 seconds for the certificate regeneration to take place.
 					ctx.Log(`sleep 5 seconds for the certificate regeneration to take place ...`)
 					time.Sleep(5 * time.Second)
-					galleySecret = c.WaitForSecretToExistOrFail(ctx, galleySecretName, secretWaitTime)
-					sidecarInjectorSecret = c.WaitForSecretToExistOrFail(ctx, sidecarInjectorSecretName, secretWaitTime)
+					galleySecret = cluster.WaitForSecretToExistOrFail(ctx, istioNs, galleySecretName, secretWaitTime)
+					sidecarInjectorSecret = cluster.WaitForSecretToExistOrFail(ctx, istioNs, sidecarInjectorSecretName, secretWaitTime)
 					ctx.Log(`checking regenerated Galley DNS certificate is valid`)
 					secret.ExamineDNSSecretOrFail(ctx, galleySecret, galleyDNSName)
 					ctx.Log(`checking regenerated Sidecar Injector DNS certificate is valid`)
@@ -140,7 +138,7 @@ func TestDNSCertificate(t *testing.T) {
 					// Sleep 5 seconds for the certificate rotation to take place.
 					ctx.Log(`sleep 5 seconds for certificate rotation to take place ...`)
 					time.Sleep(5 * time.Second)
-					galleySecret2 = c.WaitForSecretToExistOrFail(ctx, galleySecretName, secretWaitTime)
+					galleySecret2 = cluster.WaitForSecretToExistOrFail(ctx, istioNs, galleySecretName, secretWaitTime)
 					ctx.Log(`checking rotated Galley DNS certificate is valid`)
 					secret.ExamineDNSSecretOrFail(ctx, galleySecret2, galleyDNSName)
 					if bytes.Equal(galleySecret2.Data[controller.CertChainID], galleySecret.Data[controller.CertChainID]) {
@@ -159,7 +157,7 @@ func TestDNSCertificate(t *testing.T) {
 					// Sleep 5 seconds for the certificate rotation to take place.
 					ctx.Log(`sleep 5 seconds for expired certificate rotation to take place ...`)
 					time.Sleep(5 * time.Second)
-					sidecarInjectorSecret2 = c.WaitForSecretToExistOrFail(ctx, sidecarInjectorSecretName, secretWaitTime)
+					sidecarInjectorSecret2 = cluster.WaitForSecretToExistOrFail(ctx, istioNs, sidecarInjectorSecretName, secretWaitTime)
 					ctx.Log(`checking rotated Sidecar Injector DNS certificate is valid`)
 					secret.ExamineDNSSecretOrFail(ctx, sidecarInjectorSecret2, sidecarInjectorDNSName)
 					if bytes.Equal(sidecarInjectorSecret2.Data[controller.CertChainID],

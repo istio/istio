@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -148,7 +149,7 @@ func init() {
 		"Restrict the applications namespace the controller manages; if not set, controller watches all namespaces")
 	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Config.ControllerOptions.ResyncPeriod, "resync", 60*time.Second,
 		"Controller resync interval")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", "cluster.local",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", constants.DefaultKubernetesDomain,
 		"DNS domain suffix")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.ClusterID, "clusterID", features.ClusterName,
 		"The ID of the cluster that this Istiod instance resides")

@@ -41,12 +41,12 @@ import (
 func TestStatusExistsByDefault(t *testing.T) {
 	// This test is not yet implemented
 	framework.NewTest(t).
-		NotImplementedYet(features.UsabilityObservabilityStatusDefaultExists)
+		NotImplementedYet(features.Usability_Observability_Status_DefaultExists)
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).
-		Features(features.UsabilityObservabilityStatus).
+		Features(features.Usability_Observability_Status).
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
 		Run(func(ctx framework.TestContext) {
@@ -57,7 +57,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 				Labels:   nil,
 			})
 			// Apply bad config (referencing invalid host)
-			g.ApplyConfigOrFail(t, ns, `
+			ctx.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -76,7 +76,7 @@ spec:
 				return expectStatus(t, ctx, ns, true)
 			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
-			g.ApplyConfigOrFail(t, ns, `
+			ctx.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:

@@ -62,16 +62,16 @@ func TestRequestAuthentication(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/e-authn.yaml.tmpl"),
 			)
-			g.ApplyConfigOrFail(t, ns, jwtPolicies...)
-			defer g.DeleteConfigOrFail(t, ns, jwtPolicies...)
+			ctx.ApplyConfigOrFail(t, ns.Name(), jwtPolicies...)
+			defer ctx.DeleteConfigOrFail(t, ns.Name(), jwtPolicies...)
 
 			var a, b, c, d, e echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
-				With(&e, util.EchoConfig("e", ns, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, p)).
+				With(&e, util.EchoConfig("e", ns, false, nil, p)).
 				BuildOrFail(t)
 
 			testCases := []authn.TestCase{
@@ -299,20 +299,20 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
-				g.ApplyConfigOrFail(t, ns, policy...)
+				ctx.ApplyConfigOrFail(t, ns.Name(), policy...)
 				return policy
 			}
 
 			securityPolicies := applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
 			ingressCfgs := applyPolicy("testdata/requestauthn/ingress.yaml.tmpl", ns)
 
-			defer g.DeleteConfigOrFail(t, rootNS{}, securityPolicies...)
-			defer g.DeleteConfigOrFail(t, ns, ingressCfgs...)
+			defer ctx.DeleteConfigOrFail(t, rootNS{}.Name(), securityPolicies...)
+			defer ctx.DeleteConfigOrFail(t, ns.Name(), ingressCfgs...)
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, p)).
 				BuildOrFail(t)
 
 			// These test cases verify in-mesh traffic doesn't need tokens.

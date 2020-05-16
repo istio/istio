@@ -15,7 +15,11 @@
 package util
 
 import (
+	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"reflect"
@@ -309,6 +313,31 @@ func TestGetRSAKeySize(t *testing.T) {
 			t.Errorf(`%s: Unexpected error: "%s"`, id, err)
 		} else if size != c.size {
 			t.Errorf(`%s: Unmatched key size: expected %v but got "%v"`, id, c.size, size)
+		}
+	}
+}
+
+func TestIsSupportedECPrivateKey(t *testing.T) {
+	_, ed25519PrivKey, _ := ed25519.GenerateKey(nil)
+	ecdsaPrivKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	cases := map[string]struct {
+		key         crypto.PrivateKey
+		isSupported bool
+	}{
+		"ECDSA": {
+			key:         ecdsaPrivKey,
+			isSupported: true,
+		},
+		"ED25519": {
+			key:         ed25519PrivKey,
+			isSupported: false,
+		},
+	}
+
+	for id, tc := range cases {
+		if IsSupportedECPrivateKey(&tc.key) != tc.isSupported {
+			t.Errorf("%s: does not match expected support level for EC signature algorithms", id)
 		}
 	}
 }

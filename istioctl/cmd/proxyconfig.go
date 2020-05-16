@@ -159,9 +159,13 @@ func setupPodConfigdumpWriter(podName, podNamespace string, out io.Writer) (*con
 }
 
 func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.ConfigWriter, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
+	file := os.Stdin
+	if filename != "-" {
+		var err error
+		file, err = os.Open(filename)
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer func() {
 		if err := file.Close(); err != nil {

@@ -154,7 +154,7 @@ func (s *Server) EnableCA() bool {
 		// for debug we may want to override this by setting trustedIssuer explicitly.
 		// If TOKEN_ISSUER is set, we ignore the lack of mounted JWT token, it means user is using
 		// an external OIDC provider to validate the tokens, and istiod lack of a JWT doesn't indicate a problem.
-		if features.JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT && trustedIssuer.Get() == "" {
+		if features.JwtPolicy.Get() == jwt.PolicyThirdParty && trustedIssuer.Get() == "" {
 			log.Warnf("istiod running without access to K8S tokens (jwt path %v). CA will run to support VMs ",
 				s.jwtPath)
 			return true
@@ -194,11 +194,13 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 			}
 		}
 	}
+
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
-	caServer, startErr := caserver.NewWithGRPC(s.multicluster, grpc, ca, maxWorkloadCertTTL.Get(),
+	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
-		true, features.JwtPolicy.Get(), s.clusterID)
+		true, features.JwtPolicy.Get(), s.clusterID, s.kubeClient,
+		s.multicluster.GetRemoteKubeClient)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
@@ -407,7 +409,7 @@ func (s *Server) initPublicKey() error {
 	return nil
 }
 
-func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.IstioCA, error) {
+func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.IstioCA, error) {
 	var caOpts *ca.IstioCAOptions
 	var err error
 

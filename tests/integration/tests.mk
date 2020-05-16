@@ -76,6 +76,10 @@ test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
+# Dummy target - can be removed once the job is deleted
+test.integration.conformance.kube.presubmit:
+	echo "skipped"
+
 # Presubmit integration tests targeting Kubernetes environment.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT)

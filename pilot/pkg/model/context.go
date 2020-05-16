@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
@@ -34,12 +34,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/monitoring"
 
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-)
-
-const (
-	defaultDomainSuffix = "cluster.local"
 )
 
 var _ mesh.Holder = &Environment{}
@@ -79,7 +77,7 @@ func (e *Environment) GetDomainSuffix() string {
 	if len(e.DomainSuffix) > 0 {
 		return e.DomainSuffix
 	}
-	return defaultDomainSuffix
+	return constants.DefaultKubernetesDomain
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -87,6 +85,22 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 		return e.Watcher.Mesh()
 	}
 	return nil
+}
+
+// GetDiscoveryAddress parses the DiscoveryAddress specified via MeshConfig.
+func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
+	proxyConfig := mesh.DefaultProxyConfig()
+	if e.Mesh().DefaultConfig != nil {
+		proxyConfig = *e.Mesh().DefaultConfig
+	}
+	hostname, port, err := net.SplitHostPort(proxyConfig.DiscoveryAddress)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid Istiod Address: %s, %v", proxyConfig.DiscoveryAddress, err)
+	}
+	if _, err := strconv.Atoi(port); err != nil {
+		return "", "", fmt.Errorf("invalid Istiod Port: %s, %s, %v", port, proxyConfig.DiscoveryAddress, err)
+	}
+	return host.Name(hostname), port, nil
 }
 
 func (e *Environment) AddMeshHandler(h func()) {
@@ -136,10 +150,6 @@ type XdsResourceGenerator interface {
 // In current Istio implementation nodes use a 4-parts '~' delimited ID.
 // Type~IPAddress~ID~Domain
 type Proxy struct {
-	// ClusterID specifies the cluster where the proxy resides.
-	// TODO: clarify if this is needed in the new 'network' model, likely needs to
-	// be renamed to 'network'
-	ClusterID string
 
 	// Type specifies the node type. First part of the ID.
 	Type NodeType
@@ -156,7 +166,7 @@ type Proxy struct {
 	// Locality is the location of where Envoy proxy runs. This is extracted from
 	// the registry where possible. If the registry doesn't provide a locality for the
 	// proxy it will use the one sent via ADS that can be configured in the Envoy bootstrap
-	Locality *core.Locality
+	Locality *corev3.Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")

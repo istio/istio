@@ -356,18 +356,25 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto gen-kustomize update-golden
+gen: go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden
 
 check-no-modify:
 	@bin/check_no_modify.sh
 
 gen-check: check-no-modify gen check-clean-repo
 
+# Copy the injection template file and configmap from istiod chart to istiod-remote chart
+sync-configs-from-istiod:
+	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files/
+	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
+
 # Generate kustomize templates.
 gen-kustomize:
 	helm3 template istio --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
 	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
 		-f manifests/charts/global.yaml > manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
+	helm3 template istiod-remote manifests/charts/istiod-remote \
+		-f manifests/charts/global.yaml > manifests/charts/istiod-remote/files/gen-istiod-remote.yaml
 
 #-----------------------------------------------------------------------------
 # Target: go build

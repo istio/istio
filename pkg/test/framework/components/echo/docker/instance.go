@@ -98,14 +98,10 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}()
 
 	// Validate the configuration.
-	if cfg.Galley == nil {
-		// Galley is not actually required currently, but it will be once Pilot gets
-		// all resources from Galley. Requiring now for forward-compatibility.
-		return nil, errors.New("galley must be provided")
-	}
 	if cfg.Pilot == nil {
 		return nil, errors.New("pilot must be provided")
 	}
+	cfg.Cluster = native.ClusterOrDefault(cfg.Cluster, ctx.Environment())
 
 	w, err := newWorkload(e, cfg, dumpDir)
 	if err != nil {
@@ -114,7 +110,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	i.workloads = append(i.workloads, w)
 
 	// Apply the configuration for the service to Galley.
-	i.se, err = newServiceEntry(cfg.Galley, w.Address(), cfg)
+	i.se, err = newServiceEntry(w.Address(), cfg)
 	if err != nil {
 		return nil, err
 	}

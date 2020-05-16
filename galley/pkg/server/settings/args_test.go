@@ -14,7 +14,11 @@
 
 package settings
 
-import "testing"
+import (
+	"testing"
+
+	"istio.io/istio/pkg/config/constants"
+)
 
 func TestDefaultArgs(t *testing.T) {
 	a := DefaultArgs()
@@ -36,7 +40,7 @@ func TestDefaultArgs(t *testing.T) {
 		t.Fatalf("unexpected MeshConfigFile: %s", a.MeshConfigFile)
 	}
 
-	if a.DomainSuffix != defaultDomainSuffix {
+	if a.DomainSuffix != constants.DefaultKubernetesDomain {
 		t.Fatalf("unexpected DomainSuffix: %s", a.DomainSuffix)
 	}
 

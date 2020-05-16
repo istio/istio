@@ -31,7 +31,7 @@ import (
 	"sync"
 	"time"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/api/label"
@@ -578,8 +578,8 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
-	if node.ClusterID != "" && s.ClusterVIPs[node.ClusterID] != "" {
-		return s.ClusterVIPs[node.ClusterID]
+	if node.Metadata != nil && node.Metadata.ClusterID != "" && s.ClusterVIPs[node.Metadata.ClusterID] != "" {
+		return s.ClusterVIPs[node.Metadata.ClusterID]
 	}
 	return s.Address
 }

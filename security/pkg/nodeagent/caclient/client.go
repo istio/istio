@@ -61,7 +61,7 @@ func NewCAClient(endpoint, caProviderName string, tlsFlag bool, config string) (
 		if err != nil {
 			return nil, err
 		}
-		return citadel.NewCitadelClient(endpoint, tlsFlag, rootCert)
+		return citadel.NewCitadelClient(endpoint, tlsFlag, rootCert, "")
 	default:
 		return nil, fmt.Errorf(
 			"CA provider %q isn't supported. Currently Istio supports %q", caProviderName,

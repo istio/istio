@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -167,7 +166,7 @@ func (t TrafficPolicy) String() string {
 
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
 // we can import only the service namespace, so the apps are not known
-func createSidecarScope(t *testing.T, tPolicy TrafficPolicy, appsNamespace namespace.Instance, serviceNamespace namespace.Instance, g galley.Instance) {
+func createSidecarScope(t *testing.T, ctx resource.Context, tPolicy TrafficPolicy, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	tmpl, err := template.New("SidecarScope").Parse(SidecarScope)
 	if err != nil {
 		t.Errorf("failed to create template: %v", err)
@@ -177,7 +176,7 @@ func createSidecarScope(t *testing.T, tPolicy TrafficPolicy, appsNamespace names
 	if err := tmpl.Execute(&buf, map[string]string{"ImportNamespace": serviceNamespace.Name(), "TrafficPolicyMode": tPolicy.String()}); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := g.ApplyConfig(appsNamespace, buf.String()); err != nil {
+	if err := ctx.ApplyConfig(appsNamespace.Name(), buf.String()); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 }
@@ -192,7 +191,7 @@ func mustReadCert(t *testing.T, f string) string {
 
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
 // we can import only the service namespace, so the apps are not known
-func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamespace namespace.Instance, g galley.Instance) {
+func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	tmpl, err := template.New("Gateway").Parse(Gateway)
 	if err != nil {
 		t.Fatalf("failed to create template: %v", err)
@@ -202,7 +201,7 @@ func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamesp
 	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := g.ApplyConfig(serviceNamespace, buf.String()); err != nil {
+	if err := ctx.ApplyConfig(serviceNamespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
 	}
 }
@@ -301,8 +300,7 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 }
 
 func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Instance, echo.Instance) {
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{})
 
 	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "app",
@@ -320,14 +318,12 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 			Namespace: appsNamespace,
 			Subsets:   []echo.SubsetConfig{{}},
 			Pilot:     p,
-			Galley:    g,
 		}).
 		With(&dest, echo.Config{
 			Service:   "destination",
 			Namespace: appsNamespace,
 			Subsets:   []echo.SubsetConfig{{}},
 			Pilot:     p,
-			Galley:    g,
 			Ports: []echo.Port{
 				{
 					// Plain HTTP port, will match no listeners and fall through
@@ -373,13 +369,13 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 		}).BuildOrFail(t)
 
 	// External traffic should work even if we have service entries on the same ports
-	createSidecarScope(t, mode, appsNamespace, serviceNamespace, g)
-	if err := g.ApplyConfig(serviceNamespace, ServiceEntry); err != nil {
+	createSidecarScope(t, ctx, mode, appsNamespace, serviceNamespace)
+	if err := ctx.ApplyConfig(serviceNamespace.Name(), ServiceEntry); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 
 	if _, kube := ctx.Environment().(*kube.Environment); kube {
-		createGateway(t, appsNamespace, serviceNamespace, g)
+		createGateway(t, ctx, appsNamespace, serviceNamespace)
 	}
 	if err := WaitUntilNotCallable(client, dest); err != nil {
 		t.Fatalf("failed to apply sidecar, %v", err)

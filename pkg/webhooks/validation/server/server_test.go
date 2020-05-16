@@ -16,7 +16,6 @@ package server
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,7 +29,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
 	kubeApiAdmission "k8s.io/api/admission/v1beta1"
 	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,8 +37,8 @@ import (
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
 	"istio.io/istio/pkg/test/config"
+	"istio.io/istio/pkg/testcerts"
 )
 
 const (
@@ -94,12 +92,11 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	}
 
 	options := Options{
-		CertFile:       certFile,
-		KeyFile:        keyFile,
 		Port:           port,
 		DomainSuffix:   testDomainSuffix,
 		Schemas:        collections.Mocks,
 		MixerValidator: &fakeValidator{},
+		Mux:            http.NewServeMux(),
 	}
 	wh, err := New(options)
 	if err != nil {
@@ -539,41 +536,6 @@ func TestServe(t *testing.T) {
 	}
 }
 
-func checkCert(t *testing.T, whc *Webhook, cert, key []byte) bool {
-	t.Helper()
-	actual, _ := whc.getCert(nil)
-	expected, err := tls.X509KeyPair(cert, key)
-	if err != nil {
-		t.Fatalf("fail to load test certs.")
-	}
-	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
-}
-
-func TestReloadCert(t *testing.T) {
-	wh, cleanup := createTestWebhook(t)
-	defer cleanup()
-	stop := make(chan struct{})
-	defer func() {
-		close(stop)
-	}()
-	go wh.Run(stop)
-
-	checkCert(t, wh, testcerts.ServerCert, testcerts.ServerKey)
-	// Update cert/key files.
-	if err := ioutil.WriteFile(wh.certFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", wh.certFile, err)
-	}
-	if err := ioutil.WriteFile(wh.keyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
-	}
-	g := gomega.NewGomegaWithT(t)
-	g.Eventually(func() bool {
-		return checkCert(t, wh, testcerts.RotatedCert, testcerts.RotatedKey)
-	}, "10s", "100ms").Should(gomega.BeTrue())
-}
-
 // scenario is a common struct used by many tests in this context.
 type scenario struct {
 	wrapFunc      func(*Options)
@@ -585,14 +547,6 @@ func TestValidate(t *testing.T) {
 		"valid": {
 			wrapFunc:      func(args *Options) {},
 			expectedError: "",
-		},
-		"cert unset": {
-			wrapFunc:      func(args *Options) { args.CertFile = "" },
-			expectedError: "cert file not specified",
-		},
-		"key unset": {
-			wrapFunc:      func(args *Options) { args.KeyFile = "" },
-			expectedError: "key file not specified",
 		},
 		"invalid port": {
 			wrapFunc:      func(args *Options) { args.Port = 100000 },

@@ -5,9 +5,11 @@ gateways:
     name: istio-egressgateway
     ports:
     - port: 80
+      targetPort: 8080
       name: http2
     - port: 443
       name: https
+      targetPort: 8443
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
@@ -28,8 +30,7 @@ gateways:
       app: istio-egressgateway
       istio: egressgateway
 
-
-    # Scalability tunning
+    # Scalability tuning
     # replicaCount: 1
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
@@ -102,6 +103,9 @@ gateways:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+
+    # whether to run the gateway in a privileged container
+    runAsRoot: false
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""

@@ -16,6 +16,8 @@ package resource
 
 // Context is the core context interface that is used by resources.
 type Context interface {
+	ConfigManager
+
 	// TrackResource tracks a resource in this context. If the context is closed, then the resource will be
 	// cleaned up.
 	TrackResource(r Resource) ID

@@ -121,18 +121,12 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		return fmt.Errorf("unknown output format: %v", pdArgs.outputFormat)
 	}
 
-	setFlagYAML, err := yamlFromSetFlags(applyInstallFlagAlias(make([]string, 0), pdArgs.charts), false, l)
-	if err != nil {
-		return err
-	}
+	setFlags := applyFlagAliases(make([]string, 0), pdArgs.charts, "")
 	if len(args) == 1 {
-		var err error
-		if setFlagYAML, err = tpath.AddSpecRoot("profile: " + args[0]); err != nil {
-			return err
-		}
+		setFlags = append(setFlags, "profile="+args[0])
 	}
 
-	y, _, err := GenerateConfig(pdArgs.inFilenames, setFlagYAML, true, nil, l)
+	y, _, err := GenerateConfig(pdArgs.inFilenames, setFlags, true, nil, l)
 	if err != nil {
 		return err
 	}

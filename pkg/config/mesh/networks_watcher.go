@@ -76,7 +76,7 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 		// Reload the config file
 		meshNetworks, err := ReadMeshNetworks(filename)
 		if err != nil {
-			log.Warnf("failed to read mesh networks configuration from %q", filename)
+			log.Warnf("failed to read mesh networks configuration from %q: %v", filename, err)
 			return
 		}
 

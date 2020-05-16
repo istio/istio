@@ -996,18 +996,11 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 // TestWorkloadAgentGenerateSecretFromFileOverSds tests generating secrets from existing files on a
 // secretcache instance, specified over SDS.
 func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
-	fakeCACli, err := mock.NewMockCAClient(0, time.Hour)
-	if err != nil {
-		t.Fatalf("Error creating Mock CA client: %v", err)
-	}
+	fetcher := &secretfetcher.SecretFetcher{}
+
 	opt := Options{
 		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
-	}
-
-	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    fakeCACli,
 	}
 
 	var wgAddedWatch sync.WaitGroup
@@ -1053,13 +1046,12 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 	conID := "proxy1-id"
 	ctx := context.Background()
 
+	// Since we do not have rotation enabled, we do not get secret notification.
 	wgAddedWatch.Add(1) // Watch should be added for cert file.
-	notifyEvent.Add(1)  // Nofify should be called once.
 
 	gotSecret, err := sc.GenerateSecret(ctx, conID, resource, "jwtToken1")
 
 	wgAddedWatch.Wait()
-	notifyEvent.Wait()
 
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
@@ -1077,12 +1069,10 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 	rootResource := "file-root:" + rootCertPath
 
 	wgAddedWatch.Add(1) // Watch should be added for root file.
-	notifyEvent.Add(1)  // Notify should be called once.
 
 	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, rootResource, "jwtToken1")
 
 	wgAddedWatch.Wait()
-	notifyEvent.Wait()
 
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)

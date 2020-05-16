@@ -233,11 +233,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, port int,
 		var err error
 		tmpInstances, err = r.InstancesByPort(svc, port, labels)
 		if err != nil {
+			log.Warnf("get service %s instance from registry %s/%s failed: %v", svc.Hostname, r.Provider(), r.Cluster(), err)
 			errs = multierror.Append(errs, err)
 		} else if len(tmpInstances) > 0 {
-			if errs != nil {
-				log.Warnf("Instances() found match but encountered an error: %v", errs)
-			}
 			instances = append(instances, tmpInstances...)
 		}
 	}
@@ -292,7 +290,6 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 			errs = multierror.Append(errs, err)
 		} else if len(instances) > 0 {
 			out = append(out, instances...)
-			node.ClusterID = instances[0].Endpoint.Locality.ClusterID
 			break
 		}
 	}

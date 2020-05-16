@@ -23,19 +23,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
 
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	caerror "istio.io/istio/security/pkg/pki/error"
-	pkiutil "istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
@@ -102,55 +98,6 @@ func (authz *mockAuthorizer) authorize(requester *authenticate.Caller, requested
 		return fmt.Errorf("%v", authz.errMsg)
 	}
 	return nil
-}
-
-// Test the root cert expiry timestamp can be extracted correctly.
-func TestExtractRootCertExpiryTimestamp(t *testing.T) {
-	cert, key, err := pkiutil.GenCertKeyFromOptions(pkiutil.CertOptions{
-		Host:         "citadel.testing.istio.io",
-		NotBefore:    time.Now(),
-		TTL:          time.Second * 5,
-		Org:          "MyOrg",
-		IsCA:         true,
-		IsSelfSigned: true,
-		IsServer:     true,
-		RSAKeySize:   512,
-	})
-	if err != nil {
-		t.Errorf("failed to gen cert for Citadel self signed cert %v", err)
-	}
-	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
-	if err != nil {
-		t.Errorf("failed to create key cert bundle %v", err)
-	}
-	ca := &mockca.FakeCA{
-		KeyCertBundle: kb,
-	}
-	testCases := []struct {
-		name     string
-		ttlRange []float64
-		sleep    int
-	}{
-		{
-			name:     "ttl-valid",
-			ttlRange: []float64{3, 5},
-			sleep:    3,
-		},
-		{
-			name:     "ttl-valid-3s-less",
-			ttlRange: []float64{0, 2},
-			sleep:    3,
-		},
-	}
-	for _, tc := range testCases {
-		sec := extractRootCertExpiryTimestamp(ca) - float64(time.Now().Unix())
-		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
-			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
-		}
-		if tc.sleep != 0 {
-			time.Sleep(time.Duration(tc.sleep) * time.Second)
-		}
-	}
 }
 
 func TestCreateCertificate(t *testing.T) {
@@ -427,7 +374,7 @@ func TestRun(t *testing.T) {
 			hostname:                  []string{"localhost"},
 			port:                      0,
 			expectedErr:               "",
-			expectedAuthenticatorsLen: 1, // 2 when ID token authenticators are enabled.
+			expectedAuthenticatorsLen: 2, // 2 when ID token authenticators are enabled.
 			getServerCertificateError: "cannot sign",
 		},
 		"Bad signed cert": {
@@ -435,7 +382,7 @@ func TestRun(t *testing.T) {
 			hostname:                  []string{"localhost"},
 			port:                      0,
 			expectedErr:               "",
-			expectedAuthenticatorsLen: 1, // 2 when ID token authenticators are enabled.
+			expectedAuthenticatorsLen: 2, // 2 when ID token authenticators are enabled.
 			getServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
@@ -443,7 +390,7 @@ func TestRun(t *testing.T) {
 			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
 			hostname:                  []string{"localhost", "fancyhost"},
 			port:                      0,
-			expectedAuthenticatorsLen: 1, // 3 when ID token authenticators are enabled.
+			expectedAuthenticatorsLen: 2, // 3 when ID token authenticators are enabled.
 			getServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
@@ -460,7 +407,7 @@ func TestRun(t *testing.T) {
 			tc.expectedAuthenticatorsLen++
 		}
 		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true,
-			jwt.JWTPolicyThirdPartyJWT, "kubernetes")
+			jwt.PolicyThirdParty, "kubernetes")
 		if err == nil {
 			err = server.Run()
 		}
@@ -506,165 +453,58 @@ func TestRun(t *testing.T) {
 }
 
 func TestGetServerCertificate(t *testing.T) {
-	rootCertFile := "../../pki/testdata/multilevelpki/root-cert.pem"
-	certChainFile := "../../pki/testdata/multilevelpki/int2-cert-chain.pem"
-	signingCertFile := "../../pki/testdata/multilevelpki/int2-cert.pem"
-	signingKeyFile := "../../pki/testdata/multilevelpki/int2-key.pem"
+	cases := map[string]struct {
+		rootCertFile    string
+		certChainFile   string
+		signingCertFile string
+		signingKeyFile  string
+	}{
+		"RSA server cert": {
+			rootCertFile:    "../../pki/testdata/multilevelpki/root-cert.pem",
+			certChainFile:   "../../pki/testdata/multilevelpki/int2-cert-chain.pem",
+			signingCertFile: "../../pki/testdata/multilevelpki/int2-cert.pem",
+			signingKeyFile:  "../../pki/testdata/multilevelpki/int2-key.pem",
+		},
+		"ECC server cert": {
+			rootCertFile:    "../../pki/testdata/multilevelpki/ecc-root-cert.pem",
+			certChainFile:   "../../pki/testdata/multilevelpki/ecc-int2-cert-chain.pem",
+			signingCertFile: "../../pki/testdata/multilevelpki/ecc-int2-cert.pem",
+			signingKeyFile:  "../../pki/testdata/multilevelpki/ecc-int2-key.pem",
+		},
+	}
 	caNamespace := "default"
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
 
-	client := fake.NewSimpleClientset()
+	for id, tc := range cases {
+		client := fake.NewSimpleClientset()
 
-	caopts, err := ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
-		defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
-	if err != nil {
-		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
-	}
+		caopts, err := ca.NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+		if err != nil {
+			t.Fatalf("%s: Failed to create a plugged-cert CA Options: %v", id, err)
+		}
 
-	ca, err := ca.NewIstioCA(caopts)
-	if err != nil {
-		t.Errorf("Got error while creating plugged-cert CA: %v", err)
-	}
-	if ca == nil {
-		t.Fatalf("Failed to create a plugged-cert CA.")
-	}
+		ca, err := ca.NewIstioCA(caopts)
+		if err != nil {
+			t.Errorf("%s: Got error while creating plugged-cert CA: %v", id, err)
+		}
+		if ca == nil {
+			t.Fatalf("Failed to create a plugged-cert CA.")
+		}
 
-	server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
-		"testdomain.com", true, jwt.JWTPolicyThirdPartyJWT, "kubernetes")
-	if err != nil {
-		t.Errorf("Cannot crete server: %v", err)
-	}
-	cert, err := server.getServerCertificate()
-	if err != nil {
-		t.Errorf("getServerCertificate error: %v", err)
-	}
-	if len(cert.Certificate) != 4 {
-		t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
-	}
-}
-
-func TestGetKubeJWTAuthenticator(t *testing.T) {
-	type want struct {
-		k8sAPIServerURL string
-		caCertPath      string
-		jwtPath         string
-	}
-	tests := []struct {
-		name          string
-		failFirst     bool
-		config        *rest.Config
-		configErr     error
-		want          want
-		wantErr       bool
-		jwtCalled     int
-		clusterCalled int
-	}{
-		{
-			name: "default method works",
-			want: want{
-				k8sAPIServerURL: "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews",
-				caCertPath:      caCertPath,
-				jwtPath:         jwtPath,
-			},
-			jwtCalled:     1,
-			clusterCalled: 0,
-		},
-		{
-			name: "default method works with valid clusterconfig",
-			config: &rest.Config{
-				Host: "a",
-				TLSClientConfig: rest.TLSClientConfig{
-					CAFile: "b",
-				},
-				BearerTokenFile: "c",
-			},
-			want: want{
-				k8sAPIServerURL: "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews",
-				caCertPath:      caCertPath,
-				jwtPath:         jwtPath,
-			},
-			jwtCalled:     1,
-			clusterCalled: 0,
-		},
-		{
-			name:      "default method works with invalid clusterconfig",
-			configErr: fmt.Errorf("clusterconfig err"),
-			want: want{
-				k8sAPIServerURL: "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews",
-				caCertPath:      caCertPath,
-				jwtPath:         jwtPath,
-			},
-			jwtCalled:     1,
-			clusterCalled: 0,
-		},
-		{
-			name:      "fallback on clusterconfig",
-			failFirst: true,
-			config: &rest.Config{
-				Host: "a",
-				TLSClientConfig: rest.TLSClientConfig{
-					CAFile: "b",
-				},
-				BearerTokenFile: "c",
-			},
-			want: want{
-				k8sAPIServerURL: "a/apis/authentication.k8s.io/v1/tokenreviews",
-				caCertPath:      "b",
-				jwtPath:         "c",
-			},
-			jwtCalled:     2,
-			clusterCalled: 1,
-		},
-		{
-			name:          "clusterconfig fails",
-			failFirst:     true,
-			configErr:     fmt.Errorf("foo"),
-			wantErr:       true,
-			jwtCalled:     1,
-			clusterCalled: 1,
-		},
-	}
-
-	defer func() {
-		newKubeJWTAuthenticator = authenticate.NewKubeJWTAuthenticator
-		inClusterConfig = rest.InClusterConfig
-	}()
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			first := true
-			newKubeJWTAuthenticator = func(mc *kubecontroller.Multicluster, k8sAPIServerURL, caCertPath,
-				jwtPath, _, _, _ string) (*authenticate.KubeJWTAuthenticator, error) {
-				tt.jwtCalled--
-				if tt.failFirst && first {
-					first = false
-					return nil, fmt.Errorf("jwt err")
-				}
-
-				assert.Equal(t, tt.want.k8sAPIServerURL, k8sAPIServerURL)
-				assert.Equal(t, tt.want.caCertPath, caCertPath)
-				assert.Equal(t, tt.want.jwtPath, jwtPath)
-				assert.Equal(t, tt.want.k8sAPIServerURL, k8sAPIServerURL)
-
-				return new(authenticate.KubeJWTAuthenticator), nil
-			}
-
-			inClusterConfig = func() (*rest.Config, error) {
-				tt.clusterCalled--
-				return tt.config, tt.configErr
-			}
-
-			_, err := getKubeJWTAuthenticator(nil, "", "", "")
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-
-			assert.Equal(t, 0, tt.clusterCalled)
-			assert.Equal(t, 0, tt.jwtCalled)
-		})
+		server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
+			"testdomain.com", true, jwt.PolicyThirdParty, "kubernetes")
+		if err != nil {
+			t.Errorf("%s: Cannot crete server: %v", id, err)
+		}
+		cert, err := server.getServerCertificate()
+		if err != nil {
+			t.Errorf("%s: getServerCertificate error: %v", id, err)
+		}
+		if len(cert.Certificate) != 4 {
+			t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
+		}
 	}
 }

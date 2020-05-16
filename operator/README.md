@@ -18,11 +18,11 @@ architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 The operator uses the [IstioOperator API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto), which has
 three main components:
 
-- [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/operator.proto) for runtime config consumed directly by Istio
+- [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/config.proto) for runtime config consumed directly by Istio
 control plane components.
 - [Component configuration API](https://github.com/istio/api/blob/master/operator/v1alpha1/component.proto), for managing
 K8s settings like resources, auto scaling, pod disruption budgets and others defined in the
-[KubernetesResourceSpec](https://github.com/istio/api/blob/master/blob/7791470ecc4c5e123589ff2b781f47b1bcae6ddd/operator/v1alpha1/component.proto)
+[KubernetesResourceSpec](https://github.com/istio/api/blob/master/operator/v1alpha1/component.proto)
 for Istio core and addon components.
 - The legacy
 [Helm installation API](https://istio.io/docs/reference/config/installation-options/) for backwards
@@ -88,7 +88,7 @@ Ensure the created binary is in your PATH to run the examples below.
 Building a custom controller requires a Dockerhub (or similar) account. To build using the container based build:
 
 ```bash
-HUB=docker.io/<your-account> TAG=latest make docker.all
+HUB=docker.io/<your-account> TAG=latest make docker.operator
 ```
 
 This builds the controller binary and docker file, and pushes the image to the specified hub with the `latest` tag.
@@ -121,11 +121,18 @@ the Istio control plane into the istio-system namespace by default.
 
 1. Set env $WATCH_NAMESPACE (default value is "istio-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
 
-1. From the operator repo root directory, run `go run ./cmd/manager/*.go server`
+1. Create the `WATCH_NAMESPACE` and `LEADER_ELECTION_NAMESPACE` if they are not created yet.
+
+```bash
+kubectl create ns $WATCH_NAMESPACE --dry-run -o yaml | kubectl apply -f -
+kubectl create ns $LEADER_ELECTION_NAMESPACE --dry-run -o yaml | kubectl apply -f -
+```
+
+1. From the istio repo root directory, run `go run ./operator/cmd/operator/*.go server`
 
 To use Remote debugging with IntelliJ, replace above step 2 with following:
 
-1. From ./cmd/manager path run
+1. From `./operator/cmd/operator` path run
 `
 dlv debug --headless --listen=:2345 --api-version=2 -- server
 `.
