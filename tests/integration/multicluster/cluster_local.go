@@ -50,7 +50,8 @@ func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []
 								if i == j {
 									continue
 								}
-								builder = builder.With(nil, newEchoConfig(dstName, clusterLocalNS, remoteCluster, pilots))
+								var ref echo.Instance
+								builder = builder.With(&ref, newEchoConfig(dstName, clusterLocalNS, remoteCluster, pilots))
 							}
 							builder.BuildOrFail(ctx)
 
