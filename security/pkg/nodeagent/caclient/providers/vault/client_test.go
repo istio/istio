@@ -438,14 +438,22 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 				return
 			}
 			var objmap map[string]json.RawMessage
-			err = json.Unmarshal(body, &objmap)
-			if err != nil {
+			if err := json.Unmarshal(body, &objmap); err != nil {
 				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("Unable to unmarchal the message body."))
 				return
 			}
 			var role, jwt string
-			err = json.Unmarshal(objmap["role"], &role)
-			err = json.Unmarshal(objmap["jwt"], &jwt)
+			if err := json.Unmarshal(objmap["role"], &role); err != nil {
+				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("Unable to unmarchal the role field."))
+				return
+			}
+			if err := json.Unmarshal(objmap["jwt"], &jwt); err != nil {
+				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("Unable to unmarchal the jwt field."))
+				return
+			}
 
 			if vaultServer.loginRole != role {
 				resp.WriteHeader(http.StatusBadRequest)
@@ -477,17 +485,19 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 				return
 			}
 			signReq := signRequest{}
-			err = json.Unmarshal(body, &signReq)
-			if err != nil {
+			if err := json.Unmarshal(body, &signReq); err != nil {
 				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("Unable to unmarchal the message body."))
 				return
 			}
 			if signReq.Format != "pem" {
 				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("Message body format is not pem."))
 				return
 			}
 			if len(signReq.Csr) == 0 {
 				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("CSR length is zero."))
 				return
 			}
 			resp.Header().Set("Content-Type", "application/json")
@@ -504,17 +514,19 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 				return
 			}
 			signReq := signRequest{}
-			err = json.Unmarshal(body, &signReq)
-			if err != nil {
+			if err := json.Unmarshal(body, &signReq); err != nil {
 				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("Unable to unmarchal the message body."))
 				return
 			}
 			if signReq.Format != "pem" {
 				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("Message body format is not pem."))
 				return
 			}
 			if len(signReq.Csr) == 0 {
 				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("CSR length is zero."))
 				return
 			}
 			resp.Header().Set("Content-Type", "application/json")
