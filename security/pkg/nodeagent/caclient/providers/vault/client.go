@@ -38,8 +38,8 @@ var (
 type VaultClient struct {
 	enableTLS       bool
 	vaultAddr       string
-	jwtPath         string
 	tlsRootCertPath string
+	jwtPath         string
 	loginRole       string
 	loginPath       string
 	signCsrPath     string
@@ -54,29 +54,29 @@ func NewVaultClientWithConfig(config string) (*VaultClient, error) {
 	params := strings.Split(config, ";")
 	if len(params) != 7 {
 		return nil, fmt.Errorf(
-			"unexpected config format for Vault. Expected 'backend_ca_addr;token_path;tls_cert_path;role;"+
-				"auth_path;sign_csr_path; ca_cert_path', but got %s", config)
+			"error processing config for Vault. Expected 'backend_ca_addr;tls_cert_path;jwt_path;role;"+
+				"auth_path;sign_csr_path;ca_cert_path', but got '%s' which has %d segments", config, len(params))
 	}
 	vaultAddr := params[0]
-	jwtPath := params[1]
-	tlsRootCertPath := params[2]
+	tlsRootCertPath := params[1]
+	jwtPath := params[2]
 	vaultLoginRole := params[3]
 	vaultLoginPath := params[4]
 	vaultSignCsrPath := params[5]
 	vaultCACertPath := params[6]
 
 	return NewVaultClient(
-		vaultAddr, jwtPath, tlsRootCertPath, vaultLoginRole, vaultLoginPath, vaultSignCsrPath, vaultCACertPath)
+		vaultAddr, tlsRootCertPath, jwtPath, vaultLoginRole, vaultLoginPath, vaultSignCsrPath, vaultCACertPath)
 }
 
 // NewVaultClient creates a CA client for the Vault PKI.
-func NewVaultClient(vaultAddr, jwtPath, tlsRootCertPath, loginRole, loginPath,
+func NewVaultClient(vaultAddr, tlsRootCertPath, jwtPath, loginRole, loginPath,
 	signCsrPath, caCertPath string) (*VaultClient, error) {
 	c := &VaultClient{
 		enableTLS:       true,
 		vaultAddr:       vaultAddr,
-		jwtPath:         jwtPath,
 		tlsRootCertPath: tlsRootCertPath,
+		jwtPath:         jwtPath,
 		loginRole:       loginRole,
 		loginPath:       loginPath,
 		signCsrPath:     signCsrPath,
