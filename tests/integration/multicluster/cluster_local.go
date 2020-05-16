@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // ClusterLocalTest tests that traffic works within a local cluster while in a multicluster configuration
@@ -40,7 +39,6 @@ func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []
 					ctx.NewSubTest(fmt.Sprintf("cluster-%d cluster local", i)).
 						RunParallel(func(ctx framework.TestContext) {
 							local := clusters[i]
-							remotes := getRemoteClusters(clusters, i)
 
 							// Deploy src only in local, but dst in all clusters. dst in remote clusters shouldn't be hit
 							srcName, dstName := fmt.Sprintf("src-%d", i), fmt.Sprintf("dst-%d", i)
@@ -48,9 +46,11 @@ func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []
 							builder := echoboot.NewBuilderOrFail(ctx, ctx).
 								With(&src, newEchoConfig(srcName, clusterLocalNS, local, pilots)).
 								With(&dst, newEchoConfig(dstName, clusterLocalNS, local, pilots))
-							for _, remoteCluster := range remotes {
-								var ref echo.Instance
-								builder = builder.With(&ref, newEchoConfig(dstName, clusterLocalNS, remoteCluster, pilots))
+							for j, remoteCluster := range clusters {
+								if i == j {
+									continue
+								}
+								builder = builder.With(nil, newEchoConfig(dstName, clusterLocalNS, remoteCluster, pilots))
 							}
 							builder.BuildOrFail(ctx)
 
@@ -62,17 +62,4 @@ func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []
 				}
 			})
 		})
-}
-
-func getRemoteClusters(clusters []resource.Cluster, local int) []resource.Cluster {
-	i := 0
-	remotes := make([]resource.Cluster, len(clusters)-1)
-	for j := range clusters {
-		if j == local {
-			continue
-		}
-		remotes[i] = clusters[j]
-		i++
-	}
-	return remotes
 }

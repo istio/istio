@@ -47,7 +47,7 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 							var instance echo.Instance
 							ref := &instance
 							svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
-							builder = builder.With(&instance, newEchoConfig(svcName, ns, cluster, pilots))
+							builder = builder.With(ref, newEchoConfig(svcName, ns, cluster, pilots))
 							services[cluster.Index()] = append(services[cluster.Index()], ref)
 						}
 					}
