@@ -252,6 +252,10 @@ template: |
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}
+    {{- range $key, $val := .Values.global.proxy.env }}
+    - name: {{ $key }}
+      value: {{ $val }}
+    {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
     {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
     readinessProbe:
