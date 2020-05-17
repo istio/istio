@@ -112,54 +112,53 @@ type Server struct {
 	clusterID   string
 	environment *model.Environment
 
-	kubeConfig       *rest.Config
-	configController model.ConfigStoreCache
-	kubeClient       kubernetes.Interface
-	metadataClient   metadata.Interface
+	kubeConfig   *rest.Config
+	kubeClient   kubernetes.Interface
+	kubeRegistry *kubecontroller.Controller
+	multicluster *kubecontroller.Multicluster
 
-	startFuncs       []startFunc
-	multicluster     *kubecontroller.Multicluster
-	httpServer       *http.Server // debug HTTP Server.
+	configController  model.ConfigStoreCache
+	metadataClient    metadata.Interface
+	ConfigStores      []model.ConfigStoreCache
+	serviceEntryStore *serviceentry.ServiceEntryStore
+
+	debugServer      *http.Server // debug HTTP Server.
 	httpsServer      *http.Server // webhooks HTTPS Server.
 	httpsReadyClient *http.Client
+
 	grpcServer       *grpc.Server
 	secureGrpcServer *grpc.Server
-	mux              *http.ServeMux // debug
-	httpsMux         *http.ServeMux // webhooks
-	kubeRegistry     *kubecontroller.Controller
-	certController   *chiron.WebhookController
-	ca               *ca.IstioCA
-	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
-	// TODO: Unify this path with TLSOptions in PilotArgs.
-	caBundlePath string
 
-	ConfigStores []model.ConfigStoreCache
-
-	serviceEntryStore *serviceentry.ServiceEntryStore
+	debugMux *http.ServeMux // debug
+	httpsMux *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
 	GRPCListener       net.Listener
 	SecureGrpcListener net.Listener
 	DNSListener        net.Listener
 
-	// for test
-	forceStop bool
-
-	// nil if injection disabled
-	injectionWebhook *inject.Webhook
-
 	// fileWatcher used to watch mesh config, networks and certificates.
 	fileWatcher filewatcher.FileWatcher
 
-	certMu     sync.Mutex
-	istiodCert *tls.Certificate
-	jwtPath    string
+	certController *chiron.WebhookController
+	ca             *ca.IstioCA
+	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
+	// TODO: Unify this path with TLSOptions in PilotArgs.
+	caBundlePath string
+	certMu       sync.Mutex
+	istiodCert   *tls.Certificate
+	jwtPath      string
 
-	// requiredTerminations keeps track of components that should block server exit if they are not stopped
-	// This allows important cleanup tasks to be completed.
+	// startFuncs keeps track of functions that need to be executed when Istiod starts.
+	startFuncs []startFunc
+	// requiredTerminations keeps track of components that should block server exit
+	// if they are not stopped. This allows important cleanup tasks to be completed.
 	// Note: this is still best effort; a process can die at any time.
 	requiredTerminations sync.WaitGroup
 	statusReporter       *status.Reporter
+
+	// for test
+	forceStop bool
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -176,7 +175,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
 		fileWatcher:    filewatcher.NewWatcher(),
 		forceStop:      args.ForceStop,
-		mux:            http.NewServeMux(),
+		debugMux:       http.NewServeMux(),
 	}
 
 	prometheus.EnableHandlingTimeHistogram()
@@ -185,8 +184,12 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
+
 	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
+	if err := s.initHandlers(); err != nil {
+		return nil, fmt.Errorf("error initalizing handlers: %v", err)
+	}
 
 	// Parse and validate Istiod Address.
 	istiodHost, istiodPort, err := e.GetDiscoveryAddress()
@@ -225,9 +228,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// common https server for webhooks (e.g. injection, validation)
 	s.initHTTPSWebhookServer(args)
 
-	args.Config.ControllerOptions.CABundlePath = s.caBundlePath
-	// Only operates if /var/lib/istio/inject exists
-	if err := s.initSidecarInjector(args); err != nil {
+	wh, err := s.initSidecarInjector(args)
+	if err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 	}
 
@@ -235,6 +237,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initConfigValidation(args); err != nil {
 		return nil, fmt.Errorf("error initializing config validator: %v", err)
 	}
+	s.initDebugHandlers(args, wh)
 	if err := s.initDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing discovery service: %v", err)
 	}
@@ -244,6 +247,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// TODO(irisdingbj):add integration test after centralIstiod finished
 	args.Config.ControllerOptions.FetchCaRoot = nil
+	args.Config.ControllerOptions.CABundlePath = s.caBundlePath
 	if features.CentralIstioD && s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
 		args.Config.ControllerOptions.FetchCaRoot = s.fetchCARoot
 	}
@@ -323,7 +327,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
 		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
-		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
+		if err := s.debugServer.Serve(s.HTTPListener); err != nil {
 			log.Warna(err)
 		}
 	}()
@@ -389,32 +393,14 @@ func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
+// initDebugHandlers initializes debug end points.
+func (s *Server) initDebugHandlers(args *PilotArgs, wh *inject.Webhook) {
+	s.debugMux.HandleFunc("/ready", s.httpServerReadyHandler)
+	s.EnvoyXdsServer.InitDebug(s.debugMux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, wh)
+}
+
+// initDiscoveryService intializes discovery server on plain text port.
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	s.mux.HandleFunc("/ready", s.httpServerReadyHandler)
-
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, s.injectionWebhook)
-
-	// When the mesh config or networks change, do a full push.
-	s.environment.AddMeshHandler(func() {
-		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
-		s.EnvoyXdsServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
-		})
-	})
-	s.environment.AddNetworksHandler(func() {
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
-		})
-	})
-
-	if err := s.initEventHandlers(); err != nil {
-		return err
-	}
-
-	// Implement EnvoyXdsServer grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		s.EnvoyXdsServer.Start(stop)
 		return nil
@@ -422,9 +408,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
-	s.httpServer = &http.Server{
+	s.debugServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
-		Handler: s.mux,
+		Handler: s.debugMux,
 	}
 
 	// create http listener
@@ -449,17 +435,16 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		s.fileWatcher.Close()
-
 		model.JwtKeyResolver.Close()
 
 		if s.forceStop {
 			s.grpcServer.Stop()
-			_ = s.httpServer.Close()
+			_ = s.debugServer.Close()
 		} else {
 			s.grpcServer.GracefulStop()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			if err := s.httpServer.Shutdown(ctx); err != nil {
+			if err := s.debugServer.Shutdown(ctx); err != nil {
 				log.Warna(err)
 			}
 			if err := s.httpsServer.Shutdown(ctx); err != nil {
@@ -968,4 +953,28 @@ func (s *Server) fetchCARoot() map[string]string {
 	return map[string]string{
 		constants.CACertNamespaceConfigMapDataName: string(s.ca.GetCAKeyCertBundle().GetRootCertPem()),
 	}
+}
+
+// initHandlers initializes mesh, network and event handlers.
+func (s *Server) initHandlers() error {
+	// When the mesh config or networks change, do a full push.
+	s.environment.AddMeshHandler(func() {
+		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
+		s.EnvoyXdsServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: []model.TriggerReason{model.GlobalUpdate},
+		})
+	})
+	s.environment.AddNetworksHandler(func() {
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: []model.TriggerReason{model.GlobalUpdate},
+		})
+	})
+
+	if err := s.initEventHandlers(); err != nil {
+		return err
+	}
+	return nil
 }
