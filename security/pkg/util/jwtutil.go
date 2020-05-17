@@ -24,6 +24,12 @@ import (
 	"time"
 
 	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
+)
+
+var (
+	jwtFileReloadInitialTimeout = time.Second      // Fail quickly during start.
+	jwtFileReloadTimeout        = time.Second * 10 // 10 second tolerance for file read retries.
 )
 
 // JwtLoader loads a JWT from a file and refreshes when the file changes.
@@ -33,10 +39,11 @@ type JwtLoader struct {
 	watcher filewatcher.FileWatcher
 }
 
+var jwtutilLog = log.RegisterScope("jwtutil", "JWT util", 0)
+
 // NewJwtLoader creates a new JwtLoader instance.
 func NewJwtLoader(jwtPath string) (*JwtLoader, error) {
 	watcher := filewatcher.NewWatcher()
-	fmt.Printf("Add file watcher for: %s", jwtPath)
 	if err := watcher.Add(jwtPath); err != nil {
 		return nil, fmt.Errorf("error adding watcher for file [%s]: %v", jwtPath, err)
 	}
@@ -45,21 +52,22 @@ func NewJwtLoader(jwtPath string) (*JwtLoader, error) {
 		Jwt:     "",
 		watcher: watcher,
 	}
-	if err := loader.loadJwt(); err != nil {
+	if err := loader.loadJwtWithTimeout(jwtFileReloadInitialTimeout); err != nil {
 		return nil, err
 	}
-	go loader.watchAndLoadJwtFile()
+	jwtutilLog.Infof("JWT loader created for file [%s]", jwtPath)
 	return loader, nil
 }
 
-func (l *JwtLoader) watchAndLoadJwtFile() {
+// Run receives notification from the watcher.
+func (l *JwtLoader) Run(stopCh chan struct{}) {
 	var timerC <-chan time.Time
 	for {
 		select {
 		case <-timerC:
 			timerC = nil
-			if err := l.loadJwt(); err != nil {
-				fmt.Errorf("failed to load JWT: %v", err)
+			if err := l.loadJwtWithTimeout(jwtFileReloadTimeout); err != nil {
+				jwtutilLog.Errorf("Failed to load JWT from file: %v", err)
 			}
 		case e := <-l.watcher.Events(l.JwtPath):
 			if len(e.Op.String()) > 0 { // To avoid spurious events, use a timer to debounce watch updates.
@@ -67,8 +75,38 @@ func (l *JwtLoader) watchAndLoadJwtFile() {
 					timerC = time.After(500 * time.Millisecond)
 				}
 			}
+		case <-stopCh:
+			jwtutilLog.Info("Received stop message. Exit...")
+			return
 		}
 	}
+}
+
+// loadJwtWithTimeout can tolerate file read errors and conduct retries until timeout.
+func (l *JwtLoader) loadJwtWithTimeout(timeout time.Duration) error {
+	timeoutCh := time.After(timeout)
+	interval := time.Millisecond * 100
+	ticker := time.NewTicker(interval)
+	for {
+		select {
+		case <-timeoutCh:
+			ticker.Stop()
+			return fmt.Errorf("exhausted retries after %v", jwtFileReloadTimeout)
+		case <-ticker.C:
+			err := l.loadJwt()
+			if err == nil {
+				ticker.Stop()
+				return nil
+			} else {
+				ticker.Stop()
+				interval *= 2
+				jwtutilLog.Errorf("failed to read JWT [%s]: %v. Will retry in %v", l.JwtPath, err, interval)
+				ticker = time.NewTicker(interval)
+			}
+		}
+	}
+	ticker.Stop()
+	return nil
 }
 
 func (l *JwtLoader) loadJwt() error {
@@ -84,6 +122,7 @@ func (l *JwtLoader) loadJwt() error {
 	if expired {
 		return fmt.Errorf("loaded JWT is expired [%s]", l.JwtPath)
 	}
+	jwtutilLog.Infof("Loaded new JWT content from file [%s]", l.JwtPath)
 	l.Jwt = token
 	return nil
 }

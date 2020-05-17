@@ -24,8 +24,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/vault/api"
-
+	vaultapi "github.com/hashicorp/vault/api"
 	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -45,7 +44,7 @@ type VaultClient struct {
 	signCsrPath     string
 	caCertPath      string
 
-	client    *api.Client
+	client    *vaultapi.Client
 	jwtLoader *util.JwtLoader
 }
 
@@ -90,9 +89,11 @@ func NewVaultClient(vaultAddr, tlsRootCertPath, jwtPath, loginRole, loginPath,
 	if tlErr != nil {
 		return nil, fmt.Errorf("failed to create token loader to load the tokens: %v", tlErr)
 	}
+	stopCh := make(chan struct{})
+	go jwtLoader.Run(stopCh)
 	c.jwtLoader = jwtLoader
 
-	var client *api.Client
+	var client *vaultapi.Client
 	var err error
 	if c.enableTLS {
 		client, err = createVaultTLSClient(c.vaultAddr, c.tlsRootCertPath)
@@ -144,11 +145,11 @@ func (c *VaultClient) GetCACertPem() (string, error) {
 		return "", fmt.Errorf("failed to retrieve CA cert: %v", err)
 	}
 	if resp == nil || resp.Data == nil {
-		return "", fmt.Errorf("failed to retrieve CA cert: Got nil data")
+		return "", fmt.Errorf("failed to retrieve CA cert: Got nil data [%v]", resp)
 	}
 	certData, ok := resp.Data["certificate"]
 	if !ok {
-		return "", fmt.Errorf("no certificate in the CA cert response")
+		return "", fmt.Errorf("no certificate in the CA cert response [%v]", resp.Data)
 	}
 	cert, ok := certData.(string)
 	if !ok {
@@ -159,11 +160,11 @@ func (c *VaultClient) GetCACertPem() (string, error) {
 
 // createVaultClient creates a client to a Vault server
 // vaultAddr: the address of the Vault server (e.g., "http://127.0.0.1:8200").
-func createVaultClient(vaultAddr string) (*api.Client, error) {
-	config := api.DefaultConfig()
+func createVaultClient(vaultAddr string) (*vaultapi.Client, error) {
+	config := vaultapi.DefaultConfig()
 	config.Address = vaultAddr
 
-	client, err := api.NewClient(config)
+	client, err := vaultapi.NewClient(config)
 	if err != nil {
 		vaultClientLog.Errorf("failed to create a Vault client: %v", err)
 		return nil, err
@@ -174,7 +175,7 @@ func createVaultClient(vaultAddr string) (*api.Client, error) {
 
 // createVaultTLSClient creates a client to a Vault server
 // vaultAddr: the address of the Vault server (e.g., "https://127.0.0.1:8200").
-func createVaultTLSClient(vaultAddr string, tlsRootCertPath string) (*api.Client, error) {
+func createVaultTLSClient(vaultAddr string, tlsRootCertPath string) (*vaultapi.Client, error) {
 	// Load the system default root certificates.
 	pool, err := x509.SystemCertPool()
 	if err != nil {
@@ -191,7 +192,7 @@ func createVaultTLSClient(vaultAddr string, tlsRootCertPath string) (*api.Client
 	if len(tlsRootCert) > 0 {
 		ok := pool.AppendCertsFromPEM(tlsRootCert)
 		if !ok {
-			return nil, fmt.Errorf("failed to append a certificate (%v) to the certificate pool", string(tlsRootCert))
+			return nil, fmt.Errorf("failed to append certificate [%v] to the certificate pool", string(tlsRootCert))
 		}
 	}
 	tlsConfig := &tls.Config{
@@ -201,11 +202,11 @@ func createVaultTLSClient(vaultAddr string, tlsRootCertPath string) (*api.Client
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
 	httpClient := &http.Client{Transport: transport}
 
-	config := api.DefaultConfig()
+	config := vaultapi.DefaultConfig()
 	config.Address = vaultAddr
 	config.HttpClient = httpClient
 
-	client, err := api.NewClient(config)
+	client, err := vaultapi.NewClient(config)
 	if err != nil {
 		vaultClientLog.Errorf("failed to create a Vault client: %v", err)
 		return nil, err
@@ -219,7 +220,7 @@ func createVaultTLSClient(vaultAddr string, tlsRootCertPath string) (*api.Client
 // loginPath: the path of the login
 // role: the login role
 // jwt: the service account used for login
-func loginVaultK8sAuthMethod(client *api.Client, loginPath, role, sa string) (string, error) {
+func loginVaultK8sAuthMethod(client *vaultapi.Client, loginPath, role, sa string) (string, error) {
 	resp, err := client.Logical().Write(
 		loginPath,
 		map[string]interface{}{
@@ -245,7 +246,7 @@ func loginVaultK8sAuthMethod(client *api.Client, loginPath, role, sa string) (st
 // client: the Vault client
 // csrSigningPath: the path for signing a CSR
 // csr: the CSR to be signed, in pem format
-func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int64, csr []byte) ([]string, error) {
+func signCsrByVault(client *vaultapi.Client, csrSigningPath string, certTTLInSec int64, csr []byte) ([]string, error) {
 	m := map[string]interface{}{
 		"format":               "pem",
 		"csr":                  string(csr),
@@ -265,7 +266,7 @@ func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int6
 	//Extract the certificate and the certificate chain
 	certificateData, certOK := resp.Data["certificate"]
 	if !certOK {
-		return nil, fmt.Errorf("no certificate in the CSR response")
+		return nil, fmt.Errorf("no certificate in the CSR response [%v]", resp.Data)
 	}
 	cert, ok := certificateData.(string)
 	if !ok {
@@ -281,14 +282,13 @@ func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int6
 			return nil, fmt.Errorf("the certificate chain in the CSR response is of unexpected format")
 		}
 		for idx, c := range chain {
-			_, ok := c.(string)
+			cert, ok := c.(string)
 			if !ok {
-				return nil, fmt.Errorf("the certificate in the certificate chain %v is not a string", idx)
+				return nil, fmt.Errorf("the certificate in the certificate chain position %v is not a string", idx)
 			}
-			certChain = append(certChain, c.(string)+"\n")
+			certChain = append(certChain, cert+"\n")
 		}
 	} else {
-		// In case cert chain is empty, attach the issuing CA. [TODO] Add test.
 		issuingCAData, issuingCAOK := resp.Data["issuing_ca"]
 		if !issuingCAOK {
 			return nil, fmt.Errorf("no issuing CA in the CSR response")

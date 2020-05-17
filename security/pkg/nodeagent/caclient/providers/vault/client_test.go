@@ -34,6 +34,7 @@ const (
 )
 
 var (
+	// A sample JWT without expiration.
 	validJWT = "eyJhbGciOiJSUzI1NiIsImtpZCI6IlNsQ282WGxzUmtUZFFlTlFjb3ZCaTI3RmpPTFRuS1NsMEdwS0luLVFMdlEifQ.eyJpc3MiO" +
 		"iJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJpc3Rpby1zeXN0" +
 		"ZW0iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiaXN0aW8tcGlsb3Qtc2VydmljZS1hY2NvdW50LXRva2V" +
@@ -45,6 +46,7 @@ var (
 		"BwAzImdFw198YLDxrNzXMfAPQ_PnJYFBXnin-BrGVEd2HknamUuG9XNvBhIpI-o-oXgUEEEm_zTQd_qbpOCZd0utvKhknTzjb92kUVRjxG1" +
 		"3vscVKNHqBVOYu1M69uHlx53Bt3o903oAB6rA"
 
+	// A sample JWT without expiration.
 	invalidJWT = "eyJhbGciOiJSUzI1NiIsImtpZCI6IlNsQ282WGxzUmtUZFFlTlFjb3ZCaTI3RmpPTFRuS1NsMEdwS0luLVFMdlEifQ.eyJpc3M" +
 		"iOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJpc3Rpby1zeX" +
 		"N0ZW0iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiaXN0aW8taW5ncmVzc2dhdGV3YXktc2VydmljZS1hY" +
@@ -56,6 +58,7 @@ var (
 		"3sMxhqwdU1iMf6zja5TilC_87aB99pcTtty6NMtcIqmgy3T9wj1HDEHZMyg-6rOKkMz-_8KSME-5a8WyfjqQY_3_uhXqvJvIenQdIG9p29k" +
 		"aKq4UKYzHmhn9B6U5ZMeGXYQI2CsGxsXEJLrwRFlArIYggQhcJHlWyYgTLXmNuAWrpymXuWSsZQ"
 
+	// A sample CSR.
 	validCSR = `-----BEGIN CERTIFICATE REQUEST-----
 MIICgjCCAWoCAQAwPTEcMBoGA1UEAwwTaHR0cGJpbi5leGFtcGxlLmNvbTEdMBsG
 A1UECgwUaHR0cGJpbiBvcmdhbml6YXRpb24wggEiMA0GCSqGSIb3DQEBAQUAA4IB
@@ -139,7 +142,7 @@ type TestSetup struct {
 }
 
 func TestNewVaultClient(t *testing.T) {
-	setup := CreateTestSetup(t)
+	setup := PrepareTest(t)
 	defer setup.CleanUp()
 
 	testCases := map[string]struct {
@@ -248,7 +251,7 @@ func TestNewVaultClient(t *testing.T) {
 }
 
 func TestCSRSign(t *testing.T) {
-	setup := CreateTestSetup(t)
+	setup := PrepareTest(t)
 	defer setup.CleanUp()
 
 	testCases := map[string]struct {
@@ -320,7 +323,7 @@ func TestCSRSign(t *testing.T) {
 }
 
 func TestGetCACertPem(t *testing.T) {
-	setup := CreateTestSetup(t)
+	setup := PrepareTest(t)
 	defer setup.CleanUp()
 
 	testCases := map[string]struct {
@@ -365,7 +368,7 @@ func TestGetCACertPem(t *testing.T) {
 	}
 }
 
-func CreateTestSetup(t *testing.T) *TestSetup {
+func PrepareTest(t *testing.T) *TestSetup {
 	ch := make(chan *mockVaultServer)
 	go func() {
 		// create a test TLS Vault server
