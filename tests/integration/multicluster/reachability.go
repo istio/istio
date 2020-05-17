@@ -37,8 +37,10 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 			ctx.NewSubTest("reachability").
 				Run(func(ctx framework.TestContext) {
 					// Deploy services in different clusters.
-					// There are multiple instances in each cluster to tease out cases where remote proxies inconsistently
-					// use different discovery servers (see https://github.com/istio/istio/issues/23591).
+					// There are multiple instances in each cluster to tease out cases where proxies inconsistently
+					// use different discovery server. Spinning up more services and therefore more proxies increases
+					// the odds of a proxy getting bad configuration and not being able to reach a service in another cluster.
+					// (see https://github.com/istio/istio/issues/23591).
 					clusters := ctx.Environment().Clusters()
 					services := map[resource.ClusterIndex][]*echo.Instance{}
 					builder := echoboot.NewBuilderOrFail(ctx, ctx)
@@ -54,7 +56,7 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 					builder.BuildOrFail(ctx)
 
 					// Now verify that all services in each cluster can hit one service in each cluster.
-					// Reaching 1 service per remote cluster makes the number linear rather than quadratic with
+					// Calling 1 service per remote cluster makes the number linear rather than quadratic with
 					// respect to len(clusters) * svcPerCluster.
 					for _, srcServices := range services {
 						for _, src := range srcServices {
