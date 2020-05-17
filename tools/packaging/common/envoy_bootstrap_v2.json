@@ -368,7 +368,7 @@
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
       {{ if .envoy_metrics_service_tls }}
-        "tls_context": {{ .envoy_metrics_service_tls }},
+        "transport_socket": {{ .envoy_metrics_service_tls }},
       {{ end }}
       {{ if .envoy_metrics_service_tcp_keepalive }}
         "upstream_connection_options": {{ .envoy_metrics_service_tcp_keepalive }},
@@ -398,7 +398,7 @@
         "name": "envoy_accesslog_service",
         "type": "STRICT_DNS",
       {{ if .envoy_accesslog_service_tls }}
-        "tls_context": {{ .envoy_accesslog_service_tls }},
+        "transport_socket": {{ .envoy_accesslog_service_tls }},
       {{ end }}
       {{ if .envoy_accesslog_service_tcp_keepalive }}
         "upstream_connection_options": {{ .envoy_accesslog_service_tcp_keepalive }},
