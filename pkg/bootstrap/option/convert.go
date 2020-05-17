@@ -23,6 +23,7 @@ import (
 
 	envoyAPI "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoyAPICore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -68,7 +69,7 @@ func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName stri
 		}
 		tlsContext.Type = "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext"
 		transportSocket := &auth.TransportSocket{
-			Name:        "tls",
+			Name:        wellknown.TransportSocketTls,
 			TypedConfig: tlsContext,
 		}
 		return convertToJSON(transportSocket), nil

@@ -29,6 +29,7 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
@@ -81,11 +82,11 @@ const (
 
 	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
 	// which determines the endpoint level transport socket configuration.
-	EnvoyTransportSocketMetadataKey = "envoy.transport_socket_match"
+	EnvoyTransportSocketMetadataKey = wellknown.TransportSocketTls
 
 	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
 	// endpoint level plantext transport socket configuration
-	EnvoyRawBufferSocketName = "envoy.transport_sockets.raw_buffer"
+	EnvoyRawBufferSocketName = wellknown.TransportSocketRawBuffer
 
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
