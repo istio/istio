@@ -88,8 +88,8 @@ func TestJwtLoaderWithFileContentUpdate(t *testing.T) {
 	go jwtLoader.Run(stopCh)
 	defer close(stopCh)
 
-	if jwtLoader.Jwt != firstPartyJwt {
-		t.Errorf("Unexpected JWT loaded: '%s', expected '%s'", jwtLoader.Jwt, firstPartyJwt)
+	if jwtLoader.GetJwt() != firstPartyJwt {
+		t.Errorf("Unexpected JWT loaded: '%s', expected '%s'", jwtLoader.GetJwt(), firstPartyJwt)
 	}
 
 	if err := jwtFile.Truncate(0); err != nil {
@@ -105,7 +105,7 @@ func TestJwtLoaderWithFileContentUpdate(t *testing.T) {
 	}
 
 	retry.UntilSuccessOrFail(t, func() error {
-		if strings.Compare(jwtLoader.Jwt, newFirstPartyJwt) != 0 {
+		if strings.Compare(jwtLoader.GetJwt(), newFirstPartyJwt) != 0 {
 			return fmt.Errorf("updated JWT file not loaded")
 		}
 		return nil
@@ -132,8 +132,8 @@ func TestJwtLoaderWithFileRecreation(t *testing.T) {
 	go jwtLoader.Run(stopCh)
 	defer close(stopCh)
 
-	if jwtLoader.Jwt != firstPartyJwt {
-		t.Errorf("Unexpected JWT loaded: '%s', expected '%s'", jwtLoader.Jwt, firstPartyJwt)
+	if jwtLoader.GetJwt() != firstPartyJwt {
+		t.Errorf("Unexpected JWT loaded: '%s', expected '%s'", jwtLoader.GetJwt(), firstPartyJwt)
 	}
 	jwtFile.Close()
 	os.Remove(fileName)
@@ -149,7 +149,7 @@ func TestJwtLoaderWithFileRecreation(t *testing.T) {
 	}
 
 	retry.UntilSuccessOrFail(t, func() error {
-		if strings.Compare(jwtLoader.Jwt, newFirstPartyJwt) != 0 {
+		if strings.Compare(jwtLoader.GetJwt(), newFirstPartyJwt) != 0 {
 			return fmt.Errorf("updated JWT file not loaded")
 		}
 		return nil

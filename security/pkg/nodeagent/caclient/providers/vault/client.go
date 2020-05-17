@@ -115,7 +115,7 @@ func NewVaultClient(vaultAddr, tlsRootCertPath, jwtPath, loginRole, loginPath,
 	}
 	c.client = client
 
-	token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, jwtLoader.Jwt)
+	token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, jwtLoader.GetJwt())
 	if err != nil {
 		return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
 	}

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+	"sync"
 	"time"
 
 	"istio.io/pkg/filewatcher"
@@ -34,9 +35,10 @@ var (
 
 // JwtLoader loads a JWT from a file and refreshes when the file changes.
 type JwtLoader struct {
-	JwtPath string
-	Jwt     string
-	watcher filewatcher.FileWatcher
+	JwtPath  string
+	jwt      string
+	jwtMutex sync.RWMutex
+	watcher  filewatcher.FileWatcher
 }
 
 var jwtutilLog = log.RegisterScope("jwtutil", "JWT util", 0)
@@ -49,7 +51,7 @@ func NewJwtLoader(jwtPath string) (*JwtLoader, error) {
 	}
 	loader := &JwtLoader{
 		JwtPath: jwtPath,
-		Jwt:     "",
+		jwt:     "",
 		watcher: watcher,
 	}
 	if err := loader.loadJwtWithTimeout(jwtFileReloadInitialTimeout); err != nil {
@@ -80,6 +82,13 @@ func (l *JwtLoader) Run(stopCh chan struct{}) {
 			return
 		}
 	}
+}
+
+// GetJwt returns the JWT currently loaded.
+func (l *JwtLoader) GetJwt() string {
+	l.jwtMutex.RLock()
+	defer l.jwtMutex.RUnlock()
+	return l.jwt
 }
 
 // loadJwtWithTimeout can tolerate file read errors and conduct retries until timeout.
@@ -120,7 +129,9 @@ func (l *JwtLoader) loadJwt() error {
 		return fmt.Errorf("loaded JWT is expired [%s]", l.JwtPath)
 	}
 	jwtutilLog.Infof("Loaded new JWT content from file [%s]", l.JwtPath)
-	l.Jwt = token
+	l.jwtMutex.Lock()
+	l.jwt = token
+	l.jwtMutex.Unlock()
 	return nil
 }
 
