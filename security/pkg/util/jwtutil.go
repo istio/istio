@@ -97,16 +97,13 @@ func (l *JwtLoader) loadJwtWithTimeout(timeout time.Duration) error {
 			if err == nil {
 				ticker.Stop()
 				return nil
-			} else {
-				ticker.Stop()
-				interval *= 2
-				jwtutilLog.Errorf("failed to read JWT [%s]: %v. Will retry in %v", l.JwtPath, err, interval)
-				ticker = time.NewTicker(interval)
 			}
+			ticker.Stop()
+			interval *= 2
+			jwtutilLog.Errorf("failed to read JWT [%s]: %v. Will retry in %v", l.JwtPath, err, interval)
+			ticker = time.NewTicker(interval)
 		}
 	}
-	ticker.Stop()
-	return nil
 }
 
 func (l *JwtLoader) loadJwt() error {

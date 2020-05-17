@@ -25,8 +25,18 @@ import (
 	"strings"
 
 	vaultapi "github.com/hashicorp/vault/api"
+
 	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
+)
+
+const (
+	certKeyInCACertResp        = "certificate"
+	certKeyInCertSignResp      = "certificate"
+	caChainKeyInCertSignResp   = "ca_chain"
+	issuingCAKeyInCertSignResp = "issuing_ca"
+	jwtKeyInLoginReq           = "jwt"
+	roleKeyInLoginReq          = "role"
 )
 
 var (
@@ -115,9 +125,9 @@ func NewVaultClient(vaultAddr, tlsRootCertPath, jwtPath, loginRole, loginPath,
 	return c, nil
 }
 
-// CSRSign calls Vault to sign a CSR.
+// CSRSign calls Vault to sign a CSR. It returns a PEM-encoded cert chain or error.
 func (c *VaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, jwt string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+	certValidTTLInSec int64) ([]string, error) {
 	if len(jwt) != 0 {
 		token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, jwt)
 		if err != nil {
@@ -147,7 +157,7 @@ func (c *VaultClient) GetCACertPem() (string, error) {
 	if resp == nil || resp.Data == nil {
 		return "", fmt.Errorf("failed to retrieve CA cert: Got nil data [%v]", resp)
 	}
-	certData, ok := resp.Data["certificate"]
+	certData, ok := resp.Data[certKeyInCACertResp]
 	if !ok {
 		return "", fmt.Errorf("no certificate in the CA cert response [%v]", resp.Data)
 	}
@@ -220,12 +230,12 @@ func createVaultTLSClient(vaultAddr string, tlsRootCertPath string) (*vaultapi.C
 // loginPath: the path of the login
 // role: the login role
 // jwt: the service account used for login
-func loginVaultK8sAuthMethod(client *vaultapi.Client, loginPath, role, sa string) (string, error) {
+func loginVaultK8sAuthMethod(client *vaultapi.Client, loginPath, role, jwt string) (string, error) {
 	resp, err := client.Logical().Write(
 		loginPath,
 		map[string]interface{}{
-			"jwt":  sa,
-			"role": role,
+			jwtKeyInLoginReq:  jwt,
+			roleKeyInLoginReq: role,
 		})
 
 	if err != nil {
@@ -264,7 +274,7 @@ func signCsrByVault(client *vaultapi.Client, csrSigningPath string, certTTLInSec
 		return nil, fmt.Errorf("sign response has a nil Data field")
 	}
 	//Extract the certificate and the certificate chain
-	certificateData, certOK := resp.Data["certificate"]
+	certificateData, certOK := resp.Data[certKeyInCertSignResp]
 	if !certOK {
 		return nil, fmt.Errorf("no certificate in the CSR response [%v]", resp.Data)
 	}
@@ -275,7 +285,7 @@ func signCsrByVault(client *vaultapi.Client, csrSigningPath string, certTTLInSec
 	var certChain []string
 	certChain = append(certChain, cert+"\n")
 
-	caChainData, caChainOK := resp.Data["ca_chain"]
+	caChainData, caChainOK := resp.Data[caChainKeyInCertSignResp]
 	if caChainOK {
 		chain, ok := caChainData.([]interface{})
 		if !ok {
@@ -289,9 +299,9 @@ func signCsrByVault(client *vaultapi.Client, csrSigningPath string, certTTLInSec
 			certChain = append(certChain, cert+"\n")
 		}
 	} else {
-		issuingCAData, issuingCAOK := resp.Data["issuing_ca"]
+		issuingCAData, issuingCAOK := resp.Data[issuingCAKeyInCertSignResp]
 		if !issuingCAOK {
-			return nil, fmt.Errorf("no issuing CA in the CSR response")
+			return nil, fmt.Errorf("no cert chain or issuing CA in the CSR response")
 		}
 		issuingCA, ok := issuingCAData.(string)
 		if !ok {
