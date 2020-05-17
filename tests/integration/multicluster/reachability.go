@@ -24,49 +24,57 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
+const mcReachabilitySvcPerCluster = 3
+
 // ReachabilityTest tests that services in 2 different clusters can talk to each other.
-func ReachabilityTest(t *testing.T, pilots []pilot.Instance) {
+func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("reachability").
 				Run(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
-						Prefix: "mc-reachability",
-						Inject: true,
-					})
-
 					// Deploy services in different clusters.
-					// There are more in the remote cluster to tease out cases where remote proxies inconsistently
-					// use different discovery servers.
-					var a, b, c, d, e, f echo.Instance
-					echoboot.NewBuilderOrFail(ctx, ctx).
-						With(&a, newEchoConfig("a", ns, ctx.Environment().Clusters()[0], pilots)).
-						With(&b, newEchoConfig("b", ns, ctx.Environment().Clusters()[1], pilots)).
-						With(&c, newEchoConfig("c", ns, ctx.Environment().Clusters()[1], pilots)).
-						With(&d, newEchoConfig("d", ns, ctx.Environment().Clusters()[1], pilots)).
-						With(&e, newEchoConfig("e", ns, ctx.Environment().Clusters()[1], pilots)).
-						With(&f, newEchoConfig("f", ns, ctx.Environment().Clusters()[1], pilots)).
-						BuildOrFail(ctx)
+					// There are multiple instances in each cluster to tease out cases where proxies inconsistently
+					// use different discovery server. Spinning up more services and therefore more proxies increases
+					// the odds of a proxy getting bad configuration and not being able to reach a service in another cluster.
+					// (see https://github.com/istio/istio/issues/23591).
+					clusters := ctx.Environment().Clusters()
+					services := map[resource.ClusterIndex][]*echo.Instance{}
+					builder := echoboot.NewBuilderOrFail(ctx, ctx)
+					for _, cluster := range clusters {
+						for i := 0; i < mcReachabilitySvcPerCluster; i++ {
+							var instance echo.Instance
+							ref := &instance
+							svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
+							builder = builder.With(ref, newEchoConfig(svcName, ns, cluster, pilots))
+							services[cluster.Index()] = append(services[cluster.Index()], ref)
+						}
+					}
+					builder.BuildOrFail(ctx)
 
-					// Now verify that they can talk to each other.
-					for _, src := range []echo.Instance{a, b, c, d, e, f} {
-						for _, dest := range []echo.Instance{a, b} {
-							src := src
-							dest := dest
-							subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
-								src.Config().Service,
-								"http",
-								dest.Config().Service,
-								"http",
-								"/")
+					// Now verify that all services in each cluster can hit one service in each cluster.
+					// Calling 1 service per remote cluster makes the number linear rather than quadratic with
+					// respect to len(clusters) * svcPerCluster.
+					for _, srcServices := range services {
+						for _, src := range srcServices {
+							for _, dstServices := range services {
+								src := *src
+								dest := *dstServices[0]
+								subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
+									src.Config().Service,
+									"http",
+									dest.Config().Service,
+									"http",
+									"/")
 
-							ctx.NewSubTest(subTestName).
-								RunParallel(func(ctx framework.TestContext) {
-									_ = callOrFail(ctx, src, dest)
-								})
+								ctx.NewSubTest(subTestName).
+									RunParallel(func(ctx framework.TestContext) {
+										_ = callOrFail(ctx, src, dest)
+									})
+							}
 						}
 					}
 				})
