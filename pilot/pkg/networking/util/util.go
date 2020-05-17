@@ -81,7 +81,7 @@ const (
 
 	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
 	// which determines the endpoint level transport socket configuration.
-	EnvoyTransportSocketMetadataKey = wellknown.TransportSocketTls
+	EnvoyTransportSocketMetadataKey = "envoy.transport_socket_match"
 
 	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
 	// endpoint level plantext transport socket configuration
@@ -89,7 +89,7 @@ const (
 
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
-	EnvoyTLSSocketName = "envoy.transport_sockets.tls"
+	EnvoyTLSSocketName = wellknown.TransportSocketTls
 
 	// StatName patterns
 	serviceStatPattern         = "%SERVICE%"
