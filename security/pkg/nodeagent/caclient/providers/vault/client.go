@@ -135,9 +135,19 @@ func (c *VaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, 
 		}
 		c.client.SetToken(token)
 	}
-	certChain, err := signCsrByVault(c.client, c.signCsrPath, certValidTTLInSec, csrPEM)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign CSR: %v", err)
+	certChain, signErr := signCsrByVault(c.client, c.signCsrPath, certValidTTLInSec, csrPEM)
+	if signErr != nil && strings.Contains(signErr.Error(), "permission denied") && len(jwt) == 0 {
+		// In this case, the token may be expired. Re-authenticate.
+		token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, c.jwtLoader.GetJwt())
+		if err != nil {
+			return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
+		}
+		c.client.SetToken(token)
+		vaultClientLog.Infof("Reauthenticate using token %s", token)
+		certChain, signErr = signCsrByVault(c.client, c.signCsrPath, certValidTTLInSec, csrPEM)
+	}
+	if signErr != nil {
+		return nil, fmt.Errorf("failed to sign CSR: %v", signErr)
 	}
 
 	if len(certChain) <= 1 {
@@ -150,9 +160,19 @@ func (c *VaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, 
 
 // GetCACertPem returns the CA certificate in PEM format.
 func (c *VaultClient) GetCACertPem() (string, error) {
-	resp, err := c.client.Logical().Read(c.caCertPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to retrieve CA cert: %v", err)
+	resp, getCaErr := c.client.Logical().Read(c.caCertPath)
+	if getCaErr != nil && strings.Contains(getCaErr.Error(), "permission denied") {
+		// In this case, the token may be expired. Re-authenticate.
+		token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, c.jwtLoader.GetJwt())
+		if err != nil {
+			return "", fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
+		}
+		c.client.SetToken(token)
+		vaultClientLog.Infof("Reauthenticate using token %s", token)
+		resp, getCaErr = c.client.Logical().Read(c.caCertPath)
+	}
+	if getCaErr != nil {
+		return "", fmt.Errorf("failed to retrieve CA cert: %v", getCaErr)
 	}
 	if resp == nil || resp.Data == nil {
 		return "", fmt.Errorf("failed to retrieve CA cert: Got nil data [%v]", resp)

@@ -100,7 +100,7 @@ func (l *JwtLoader) loadJwtWithTimeout(timeout time.Duration) error {
 		select {
 		case <-timeoutCh:
 			ticker.Stop()
-			return fmt.Errorf("exhausted retries after %v", jwtFileReloadTimeout)
+			return fmt.Errorf("exhausted retries after %v", timeout)
 		case <-ticker.C:
 			err := l.loadJwt()
 			if err == nil {

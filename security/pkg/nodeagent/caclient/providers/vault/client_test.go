@@ -85,6 +85,13 @@ B8e+lMJGkuDQRCKZo0qQMHTB7C8XCQ==
 	  }
 	}
   `
+	loginResp2 = `
+	{
+	  "auth": {
+		  "client_token": "fake-vault-token2"
+	  }
+	}
+  `
 	signResp = `
 	{
 	  "data": {
@@ -114,6 +121,7 @@ B8e+lMJGkuDQRCKZo0qQMHTB7C8XCQ==
 	caCert        = "fake-ca2"
 
 	validLoginPath    = "auth/kubernetes/login"
+	validLoginPath2   = "auth/kubernetes2/login"
 	validCSRSignPath  = "pki/sign-verbatim/test"
 	validCSRSignPath2 = "pki2/sign-verbatim/test"
 	validCACertPath   = "pki/cert/ca"
@@ -124,6 +132,7 @@ type mockVaultServer struct {
 	loginRole  string
 	token      string
 	loginResp  string
+	loginResp2 string
 	signResp   string
 	signResp2  string
 	caCertResp string
@@ -368,11 +377,74 @@ func TestGetCACertPem(t *testing.T) {
 	}
 }
 
+func TestReauthentication(t *testing.T) {
+	setup := PrepareTest(t)
+	defer setup.CleanUp()
+
+	testCases := map[string]struct {
+		testCSR          bool
+		updateLoginPath  bool
+		expectedErrRegEx string
+	}{
+		"CSR reauthentication succeed": {
+			testCSR:          true,
+			updateLoginPath:  true,
+			expectedErrRegEx: "",
+		},
+		"CSR reauthentication failure": {
+			testCSR:          true,
+			updateLoginPath:  false,
+			expectedErrRegEx: "failed to sign CSR.+",
+		},
+		"Get CA cert reauthentication succeed": {
+			testCSR:          false,
+			updateLoginPath:  true,
+			expectedErrRegEx: "",
+		},
+		"Get CA cert reauthentication failure": {
+			testCSR:          false,
+			updateLoginPath:  false,
+			expectedErrRegEx: "failed to retrieve CA cert.+",
+		},
+	}
+
+	for id, tc := range testCases {
+		cli, err := NewVaultClient(setup.Server.httpServer.URL, setup.certFile.Name(), setup.jwtFile.Name(), validRole,
+			validLoginPath2, validCSRSignPath, validCACertPath)
+		if err != nil {
+			t.Fatalf("Test case [%s]: failed to create ca client: %v", id, err)
+		}
+
+		// Update the login path so that the test can retrieve the correct token.
+		if tc.updateLoginPath {
+			cli.loginPath = validLoginPath
+		}
+
+		if tc.testCSR {
+			_, err = cli.CSRSign(context.Background(), "", []byte(validCSR), "", 3600)
+		} else {
+			_, err = cli.GetCACertPem()
+		}
+
+		if err != nil {
+			if len(tc.expectedErrRegEx) == 0 {
+				t.Errorf("Test case [%s]: received error while not expected: %v", id, err)
+			}
+			match, _ := regexp.MatchString(tc.expectedErrRegEx, err.Error())
+			if !match {
+				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErrRegEx)
+			}
+		} else if tc.expectedErrRegEx != "" {
+			t.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErrRegEx)
+		}
+	}
+}
+
 func PrepareTest(t *testing.T) *TestSetup {
 	ch := make(chan *mockVaultServer)
 	go func() {
 		// create a test TLS Vault server
-		server := newMockVaultServer(t, true, validRole, validJWT, loginResp, signResp, signResp2, caCertResp)
+		server := newMockVaultServer(t, true, validRole, validJWT, loginResp, loginResp2, signResp, signResp2, caCertResp)
 		ch <- server
 	}()
 	tlsServer := <-ch
@@ -421,12 +493,13 @@ func (s *TestSetup) CleanUp() {
 
 // newMockVaultServer creates a mock Vault server for testing purpose.
 // token: required access token
-func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, signResp, signResp2,
+func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, loginResp2, signResp, signResp2,
 	caCertResp string) *mockVaultServer {
 	vaultServer := &mockVaultServer{
 		loginRole:  loginRole,
 		token:      token,
 		loginResp:  loginResp,
+		loginResp2: loginResp2,
 		signResp:   signResp,
 		signResp2:  signResp2,
 		caCertResp: caCertResp,
@@ -469,9 +542,45 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 			resp.Header().Set("Content-Type", "application/json")
 			resp.Write([]byte(vaultServer.loginResp))
 
+		case "/v1/" + validLoginPath2:
+			body, err := ioutil.ReadAll(req.Body)
+			if err != nil {
+				resp.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			var objmap map[string]json.RawMessage
+			if err := json.Unmarshal(body, &objmap); err != nil {
+				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("Unable to unmarchal the message body."))
+				return
+			}
+			var role, jwt string
+			if err := json.Unmarshal(objmap["role"], &role); err != nil {
+				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("Unable to unmarchal the role field."))
+				return
+			}
+			if err := json.Unmarshal(objmap["jwt"], &jwt); err != nil {
+				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write([]byte("Unable to unmarchal the jwt field."))
+				return
+			}
+
+			if vaultServer.loginRole != role {
+				resp.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			if vaultServer.token != jwt {
+				resp.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			resp.Header().Set("Content-Type", "application/json")
+			resp.Write([]byte(vaultServer.loginResp2))
+
 		case "/v1/" + validCACertPath:
 			if req.Header.Get(vaultAuthHeaderName) != "fake-vault-token" {
-				resp.WriteHeader(http.StatusBadRequest)
+				resp.WriteHeader(http.StatusForbidden)
+				resp.Write([]byte("permission denied"))
 				return
 			}
 			resp.Header().Set("Content-Type", "application/json")
@@ -479,7 +588,8 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 
 		case "/v1/" + validCSRSignPath:
 			if req.Header.Get(vaultAuthHeaderName) != "fake-vault-token" {
-				resp.WriteHeader(http.StatusBadRequest)
+				resp.WriteHeader(http.StatusForbidden)
+				resp.Write([]byte("permission denied"))
 				return
 			}
 			body, err := ioutil.ReadAll(req.Body)
@@ -508,8 +618,8 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 
 		case "/v1/" + validCSRSignPath2:
 			if req.Header.Get(vaultAuthHeaderName) != "fake-vault-token" {
-				resp.WriteHeader(http.StatusBadRequest)
-				return
+				resp.WriteHeader(http.StatusForbidden)
+				resp.Write([]byte("permission denied"))
 			}
 			body, err := ioutil.ReadAll(req.Body)
 			if err != nil {
