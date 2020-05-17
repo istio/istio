@@ -34,6 +34,32 @@ var (
 	retryDelay   = time.Millisecond * 100
 )
 
+func Setup(controlPlaneValues *string, clusterLocalNS, mcReachabilityNS *namespace.Instance) func(ctx resource.Context) error {
+	return func(ctx resource.Context) (err error) {
+		// Create a cluster-local namespace.
+		if *clusterLocalNS, err = namespace.New(ctx, namespace.Config{Prefix: "local", Inject: true}); err != nil {
+			return err
+		}
+		// Create a cluster-local namespace.
+		if *mcReachabilityNS, err = namespace.New(ctx, namespace.Config{Prefix: "mc-reachability", Inject: true}); err != nil {
+			return err
+		}
+
+		// Set the cluster-local namespaces in the mesh config.
+		*controlPlaneValues = fmt.Sprintf(`
+values:
+  meshConfig:
+    serviceSettings: 
+      - settings:
+          clusterLocal: true
+        hosts:
+          - "*.%s.svc.cluster.local"
+`, (*clusterLocalNS).Name())
+
+		return
+	}
+}
+
 func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster, pilots []pilot.Instance) echo.Config {
 	return echo.Config{
 		Pilot:          pilots[cluster.Index()],
