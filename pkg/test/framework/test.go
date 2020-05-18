@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/env"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/test/framework/features"
@@ -81,7 +83,7 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 func (t *Test) Features(features ...features.Feature) *Test {
 	pwd, _ := os.Getwd()
 	log.Error(pwd)
-	c, err := features2.BuildChecker("pkg/test/framework/features/features.yaml")
+	c, err := features2.BuildChecker(env.IstioSrc + "pkg/test/framework/features/features.yaml")
 	if err != nil {
 		log.Errorf("Unable to build feature checker: %s", err)
 		t.goTest.FailNow()
