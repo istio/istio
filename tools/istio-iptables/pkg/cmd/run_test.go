@@ -620,8 +620,8 @@ func TestHandleOutboundPortsIncludeWithOutboundPorts(t *testing.T) {
 	}
 	expectedIpv4Rules := []string{
 		"iptables -t nat -N ISTIO_OUTPUT",
-		"iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 32000 -j ISTIO_IN_REDIRECT",
-		"iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 31000 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 32000 -j ISTIO_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 31000 -j ISTIO_REDIRECT",
 	}
 	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {
 		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv4Rules, ip4Rules)

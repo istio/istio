@@ -443,7 +443,7 @@ func (iptConfigurator *IptablesConfigurator) handleOutboundPortsInclude() {
 	if iptConfigurator.cfg.OutboundPortsInclude != "" {
 		for _, port := range split(iptConfigurator.cfg.OutboundPortsInclude) {
 			iptConfigurator.iptables.AppendRuleV4(
-				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOINREDIRECT)
+				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
 		}
 	}
 }
