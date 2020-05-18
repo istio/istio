@@ -192,7 +192,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
 	if err := s.initHandlers(); err != nil {
-		return nil, fmt.Errorf("error initalizing handlers: %v", err)
+		return nil, fmt.Errorf("error initializing handlers: %v", err)
 	}
 
 	// Parse and validate Istiod Address.
@@ -448,7 +448,9 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		stopped := make(chan struct{})
 		go func() {
 			s.grpcServer.GracefulStop()
-			s.secureGrpcServer.GracefulStop()
+			if s.secureGrpcServer != nil {
+				s.secureGrpcServer.GracefulStop()
+			}
 			close(stopped)
 		}()
 
@@ -456,7 +458,9 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		select {
 		case <-t.C:
 			s.grpcServer.Stop()
-			s.secureGrpcServer.Stop()
+			if s.secureGrpcServer != nil {
+				s.secureGrpcServer.Stop()
+			}
 		case <-stopped:
 			t.Stop()
 		}

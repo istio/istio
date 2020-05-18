@@ -368,10 +368,14 @@ func (h *IstioDNS) Close() {
 	}
 	h.m.Unlock()
 	if h.server != nil {
-		h.server.Shutdown()
+		if err := h.server.Shutdown(); err != nil {
+			log.Errorf("error in shutting down dns server :%v", err)
+		}
 	}
 	if h.tlsServer != nil {
-		h.tlsServer.Shutdown()
+		if err := h.tlsServer.Shutdown(); err != nil {
+			log.Errorf("error in shutting down tls dns server :%v", err)
+		}
 	}
 }
 
