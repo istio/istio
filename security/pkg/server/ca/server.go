@@ -47,11 +47,6 @@ const (
 
 var serverCaLog = log.RegisterScope("serverca", "Citadel server log", 0)
 
-type authenticator interface {
-	Authenticate(ctx context.Context) (*authenticate.Caller, error)
-	AuthenticatorType() string
-}
-
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
@@ -67,7 +62,7 @@ type CertificateAuthority interface {
 // specified port.
 type Server struct {
 	monitoring     monitoringMetrics
-	Authenticators []authenticator
+	Authenticators []authenticate.Authenticator
 	hostnames      []string
 	authorizer     authorizer
 	ca             CertificateAuthority
@@ -242,7 +237,7 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
-	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
+	authenticators := []authenticate.Authenticator{&authenticate.ClientCertAuthenticator{}}
 	serverCaLog.Info("added client certificate authenticator")
 
 	// Only add k8s jwt authenticator if SDS is enabled.

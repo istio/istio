@@ -16,11 +16,9 @@ package authenticate
 
 import (
 	"fmt"
-	"strings"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
 	"istio.io/istio/security/pkg/pki/util"
@@ -43,14 +41,10 @@ const (
 	AuthSourceIDToken
 )
 
-// Caller carries the identity and authentication source of a caller.
-type Caller struct {
-	AuthSource AuthSource
-	Identities []string
-}
-
 // ClientCertAuthenticator extracts identities from client certificate.
 type ClientCertAuthenticator struct{}
+
+var _ Authenticator = &ClientCertAuthenticator{}
 
 func (cca *ClientCertAuthenticator) AuthenticatorType() string {
 	return ClientCertAuthenticatorType
@@ -85,41 +79,4 @@ func (cca *ClientCertAuthenticator) Authenticate(ctx context.Context) (*Caller, 
 		AuthSource: AuthSourceClientCertificate,
 		Identities: ids,
 	}, nil
-}
-
-func extractBearerToken(ctx context.Context) (string, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return "", fmt.Errorf("no metadata is attached")
-	}
-
-	authHeader, exists := md[authorizationMeta]
-	if !exists {
-		return "", fmt.Errorf("no HTTP authorization header exists")
-	}
-
-	for _, value := range authHeader {
-		if strings.HasPrefix(value, bearerTokenPrefix) {
-			return strings.TrimPrefix(value, bearerTokenPrefix), nil
-		}
-	}
-
-	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
-}
-
-func extractClusterID(ctx context.Context) string {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return ""
-	}
-
-	clusterIDHeader, exists := md[clusterIDMeta]
-	if !exists {
-		return ""
-	}
-
-	if len(clusterIDHeader) == 1 {
-		return clusterIDHeader[0]
-	}
-	return ""
 }
