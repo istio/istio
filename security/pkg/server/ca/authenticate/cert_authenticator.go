@@ -30,7 +30,6 @@ const (
 	clusterIDMeta     = "clusterid"
 
 	ClientCertAuthenticatorType = "ClientCertAuthenticator"
-	IDTokenAuthenticatorType    = "IDTokenAuthenticator"
 )
 
 // AuthSource represents where authentication result is derived from.
