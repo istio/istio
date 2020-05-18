@@ -478,7 +478,9 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		}
 
 		// Stop DNS Server.
-		s.IstioDNSServer.Close()
+		if s.IstioDNSServer != nil {
+			s.IstioDNSServer.Close()
+		}
 	}()
 }
 
