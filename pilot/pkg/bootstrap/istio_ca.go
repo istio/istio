@@ -233,7 +233,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	log.Info("Istiod CA has started")
 }
 
-
 // detectAuthEnv will use the JWT token that is mounted in istiod to set the default audience
 // and trust domain for Istiod, if not explicitly defined.
 // K8S will use the same kind of tokens for the pods, and the value in istiod's own token is
