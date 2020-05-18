@@ -82,6 +82,7 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to initialize the Kubernetes client: %v", err))
 		fmt.Fprintf(writer, "Failed to initialize the Kubernetes client: %v.\n", err)
+		return errs
 	} else {
 		fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
 	}
