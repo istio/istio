@@ -451,6 +451,61 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 	g.Expect(errCode2).NotTo(Equal(0))
 }
 
+func TestSuite_GetResource(t *testing.T) {
+	defer cleanupRT()
+
+	act := func(refPtr interface{}, trackedResource resource.Resource) error {
+		var err error
+		runFn := func(ctx *suiteContext) int {
+			err = ctx.GetResource(refPtr)
+			return 0
+		}
+		s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+		s.Setup(func(c resource.Context) error {
+			c.TrackResource(trackedResource)
+			return nil
+		})
+		s.Run()
+		return err
+	}
+
+	t.Run("struct reference", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		var ref *fakeCluster
+		tracked := &fakeCluster{index: 1}
+		// notice that we pass **fakeCluster:
+		// GetResource requires *T where T implements resource.Resource.
+		// *fakeCluster implements it but fakeCluster does not.
+		err := act(&ref, tracked)
+		g.Expect(err).To(BeNil())
+		g.Expect(tracked).To(Equal(ref))
+	})
+	t.Run("interface reference", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		var ref resource.Cluster
+		tracked := &fakeCluster{index: 1}
+		err := act(&ref, tracked)
+		g.Expect(err).To(BeNil())
+		g.Expect(tracked).To(Equal(ref))
+	})
+	t.Run("slice reference", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		existing := &fakeCluster{index: 1}
+		tracked := &fakeCluster{index: 2}
+		ref := []resource.Cluster{existing}
+		err := act(&ref, tracked)
+		g.Expect(err).To(BeNil())
+		g.Expect(ref).To(HaveLen(2))
+		g.Expect(existing).To(Equal(ref[0]))
+		g.Expect(tracked).To(Equal(ref[1]))
+	})
+	t.Run("non pointer ref", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		err := act(fakeCluster{}, &fakeCluster{})
+		g.Expect(err).NotTo(BeNil())
+	})
+}
+
 func newFakeEnvironmentFactory(numClusters int) resource.EnvironmentFactory {
 	e := fakeEnvironment{numClusters: numClusters}
 	return func(name string, ctx resource.Context) (resource.Environment, error) {
@@ -479,7 +534,7 @@ func (f fakeEnvironment) EnvironmentName() environment.Name {
 func (f fakeEnvironment) Clusters() []resource.Cluster {
 	out := make([]resource.Cluster, f.numClusters)
 	for i := 0; i < f.numClusters; i++ {
-		out[i] = fakeCluster{index: i}
+		out[i] = &fakeCluster{index: i}
 	}
 	return out
 }
@@ -494,7 +549,8 @@ func (id fakeID) String() string {
 	return string(id)
 }
 
-var _ resource.Cluster = fakeCluster{}
+var _ resource.Resource = &fakeCluster{}
+var _ resource.Cluster = &fakeCluster{}
 
 type fakeCluster struct {
 	index int
@@ -524,10 +580,14 @@ func (f fakeCluster) DeleteConfigDir(ns string, configDir string) error {
 	panic("implement me")
 }
 
-func (f fakeCluster) Index() resource.ClusterIndex {
+func (f *fakeCluster) Index() resource.ClusterIndex {
 	return resource.ClusterIndex(f.index)
 }
 
-func (f fakeCluster) String() string {
+func (f *fakeCluster) String() string {
 	return fmt.Sprintf("fake_cluster_%d", f.index)
+}
+
+func (f *fakeCluster) ID() resource.ID {
+	return fakeID("fake")
 }
