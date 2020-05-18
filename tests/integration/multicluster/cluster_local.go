@@ -27,24 +27,40 @@ import (
 )
 
 // ClusterLocalTest tests that traffic works within a local cluster while in a multicluster configuration
+// clusterLocalNS have been configured in meshConfig.serviceSettings to be clusterLocal.
 func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []pilot.Instance) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Run(func(ctx framework.TestContext) {
-			cluster1 := ctx.Environment().Clusters()[0]
-			cluster2 := ctx.Environment().Clusters()[1]
+			ctx.NewSubTest("respect-cluster-local-config").Run(func(ctx framework.TestContext) {
+				clusters := ctx.Environment().Clusters()
+				for i := range clusters {
+					i := i
+					ctx.NewSubTest(fmt.Sprintf("cluster-%d cluster local", i)).
+						RunParallel(func(ctx framework.TestContext) {
+							local := clusters[i]
 
-			// Deploy a only in cluster1, but b in both clusters.
-			var a1, b1, b2 echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a1, newEchoConfig("a", clusterLocalNS, cluster1, pilots)).
-				With(&b1, newEchoConfig("b", clusterLocalNS, cluster1, pilots)).
-				With(&b2, newEchoConfig("b", clusterLocalNS, cluster2, pilots)).
-				BuildOrFail(ctx)
+							// Deploy src only in local, but dst in all clusters. dst in remote clusters shouldn't be hit
+							srcName, dstName := fmt.Sprintf("src-%d", i), fmt.Sprintf("dst-%d", i)
+							var src, dst echo.Instance
+							builder := echoboot.NewBuilderOrFail(ctx, ctx).
+								With(&src, newEchoConfig(srcName, clusterLocalNS, local, pilots)).
+								With(&dst, newEchoConfig(dstName, clusterLocalNS, local, pilots))
+							for j, remoteCluster := range clusters {
+								if i == j {
+									continue
+								}
+								var ref echo.Instance
+								builder = builder.With(&ref, newEchoConfig(dstName, clusterLocalNS, remoteCluster, pilots))
+							}
+							builder.BuildOrFail(ctx)
 
-			results := callOrFail(ctx, a1, b1)
+							results := callOrFail(ctx, src, dst)
 
-			// Ensure that all requests went to cluster 1.
-			results.CheckClusterOrFail(ctx, fmt.Sprintf("%d", cluster1.Index()))
+							// Ensure that all requests went to the local cluster.
+							results.CheckClusterOrFail(ctx, fmt.Sprintf("%d", local.Index()))
+						})
+				}
+			})
 		})
 }

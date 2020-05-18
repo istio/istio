@@ -15,7 +15,6 @@ spec:
       # Provides dns resolution for global services
       podDNSSearchNamespaces:
         - global
-        - "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
 
       multiCluster:
         enabled: true
