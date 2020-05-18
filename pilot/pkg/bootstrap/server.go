@@ -471,8 +471,10 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		if err := s.debugServer.Shutdown(ctx); err != nil {
 			log.Warna(err)
 		}
-		if err := s.httpsServer.Shutdown(ctx); err != nil {
-			log.Warna(err)
+		if s.httpsServer != nil {
+			if err := s.httpsServer.Shutdown(ctx); err != nil {
+				log.Warna(err)
+			}
 		}
 
 		// Stop DNS Server.
