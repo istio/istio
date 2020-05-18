@@ -46,7 +46,7 @@ func BuildChecker(yamlPath string) (Checker, error) {
 		log.Errorf("Error parsing features file: %s", err)
 		return nil, err
 	}
-	return &checkerImpl{m}, nil
+	return &checkerImpl{m["features"].(map[string]interface{})}, nil
 }
 
 // returns true if the feature is defined in features.yaml,
