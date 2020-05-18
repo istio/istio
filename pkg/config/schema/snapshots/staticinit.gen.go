@@ -1,3 +1,4 @@
+
 // GENERATED FILE -- DO NOT EDIT
 //
 
@@ -5,6 +6,7 @@ package snapshots
 
 import (
 	// Pull in all the known proto types to ensure we get their types registered.
+
 
 	// Register protos in "github.com/gogo/protobuf/types"
 	_ "github.com/gogo/protobuf/types"
@@ -41,4 +43,5 @@ import (
 
 	// Register protos in "sigs.k8s.io/service-apis/api/v1alpha1"
 	_ "sigs.k8s.io/service-apis/api/v1alpha1"
+
 )

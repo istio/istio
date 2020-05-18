@@ -425,8 +425,6 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
-    proxy:
-      enabled: false
     pilot:
       k8s:
         overlays:
