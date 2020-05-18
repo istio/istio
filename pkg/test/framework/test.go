@@ -25,8 +25,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/test/framework/features"
-
-	features2 "istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
@@ -80,16 +78,16 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 }
 
 // Label applies the given labels to this test.
-func (t *Test) Features(features ...features.Feature) *Test {
+func (t *Test) Features(feats ...features.Feature) *Test {
 	pwd, _ := os.Getwd()
 	log.Error(pwd)
-	c, err := features2.BuildChecker(env.IstioSrc + "pkg/test/framework/features/features.yaml")
+	c, err := features.BuildChecker(env.IstioSrc + "/pkg/test/framework/features/features.yaml")
 	if err != nil {
 		log.Errorf("Unable to build feature checker: %s", err)
 		t.goTest.FailNow()
 		return nil
 	}
-	for _, f := range features {
+	for _, f := range feats {
 		if !c.Check(f) {
 			t.goTest.FailNow()
 			return nil
