@@ -18,6 +18,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
+const (
+	// DefaultLocalClusterID is the clusterID where pilot/istiod is running when not otherwise specified.
+	DefaultLocalClusterID = "default-local-istiod-cluster"
+)
+
 // Instance of a service registry. A single service registry combines the capabilities of service discovery
 // and the controller for managing asynchronous events.
 type Instance interface {

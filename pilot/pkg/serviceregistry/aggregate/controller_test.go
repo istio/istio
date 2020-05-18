@@ -540,24 +540,21 @@ func TestSkipSearchingRegistryForProxy(t *testing.T) {
 	cases := []struct {
 		node     string
 		registry string
-		self     string
 		want     bool
 	}{
-		{"main", "remote", "main", true},
-		{"remote", "main", "main", true},
-		{"remote", "Kubernetes", "main", true},
+		{"main", "remote", true},
+		{"remote", "main", true},
 
-		{"main", "Kubernetes", "main", false},
-		{"main", "main", "main", false},
-		{"remote", "remote", "main", false},
-		{"", "main", "main", false},
-		{"main", "", "main", false},
-		{"main", "Kubernetes", "", false},
-		{"", "", "", false},
+		{"main", "main", false},
+		{"remote", "remote", false},
+		{"", "main", false},
+		{"main", "", false},
+
+		{"", "", false},
 	}
 
 	for i, c := range cases {
-		got := skipSearchingRegistryForProxy(c.node, c.registry, c.self)
+		got := skipSearchingRegistryForProxy(c.node, c.registry)
 		if got != c.want {
 			t.Errorf("%s: got %v want %v",
 				fmt.Sprintf("[%v] registry=%v node=%v", i, c.registry, c.node),

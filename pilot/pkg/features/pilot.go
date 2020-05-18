@@ -295,8 +295,8 @@ var (
 			"By default, this is false, and virtualService with delegate will be ignored",
 	).Get()
 
-	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
-		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
+	ClusterName = env.RegisterStringVar("CLUSTER_ID", "default-local-istiod-cluster",
+		"Defines the cluster and service registry that this Istiod instance is belongs to if not otherwise specified").Get()
 
 	EnableIncrementalMCP = env.RegisterBoolVar(
 		"PILOT_ENABLE_INCREMENTAL_MCP",

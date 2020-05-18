@@ -17,8 +17,6 @@ package aggregate
 import (
 	"sync"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/pkg/log"
@@ -254,15 +252,7 @@ func nodeClusterID(node *model.Proxy) string {
 
 // Skip the service registry when there won't be a match
 // because the proxy is in a different cluster.
-func skipSearchingRegistryForProxy(nodeClusterID, registryClusterID, selfClusterID string) bool {
-	// We can't trust the default service registry because its always
-	// named `Kubernetes`. Use the `CLUSTER_ID` envvar to find the
-	// local cluster name in these cases.
-	// TODO(https://github.com/istio/istio/issues/22093)
-	if registryClusterID == string(serviceregistry.Kubernetes) {
-		registryClusterID = selfClusterID
-	}
-
+func skipSearchingRegistryForProxy(nodeClusterID, registryClusterID string) bool {
 	// We can't be certain either way
 	if registryClusterID == "" || nodeClusterID == "" {
 		return false
@@ -279,7 +269,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
 		nodeClusterID := nodeClusterID(node)
-		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster(), features.ClusterName) {
+		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster()) {
 			log.Debugf("GetProxyServiceInstances(): not searching registry %v: proxy %v CLUSTER_ID is %v",
 				r.Cluster(), node.ID, nodeClusterID)
 			continue

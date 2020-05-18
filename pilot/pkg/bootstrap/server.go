@@ -271,7 +271,7 @@ func getClusterID(args *PilotArgs) string {
 	clusterID := args.Config.ControllerOptions.ClusterID
 	if clusterID == "" {
 		if hasKubeRegistry(args.Service.Registries) {
-			clusterID = string(serviceregistry.Kubernetes)
+			clusterID = serviceregistry.DefaultLocalClusterID
 		}
 	}
 	return clusterID
