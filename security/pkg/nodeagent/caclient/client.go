@@ -45,12 +45,12 @@ type configMap interface {
 }
 
 // NewCAClient create an CA client.
-func NewCAClient(endpoint, caProviderName string, tlsFlag bool, config string) (caClientInterface.Client, error) {
+func NewCAClient(endpoint, caProviderName string, tlsFlag bool) (caClientInterface.Client, error) {
 	switch caProviderName {
 	case googleCAName:
 		return gca.NewGoogleCAClient(endpoint, tlsFlag)
 	case vaultCAName:
-		return vault.NewVaultClientWithConfig(config)
+		return vault.NewVaultClient() // Vault client loads configuration from ENV variables.
 	case citadelName:
 		cs, err := kube.CreateClientset("", "")
 		if err != nil {

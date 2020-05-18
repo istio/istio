@@ -24,7 +24,6 @@ import (
 	"os"
 	"reflect"
 	"regexp"
-	"strings"
 	"testing"
 )
 
@@ -160,16 +159,22 @@ func TestNewVaultClient(t *testing.T) {
 		jwtPath          string
 		loginRole        string
 		loginPath        string
-		configInput      string
 		expectedErrRegEx string
 	}{
+		"Missing ENV variable": {
+			vaultAddr:        setup.Server.httpServer.URL,
+			tlsRootCertPath:  "",
+			jwtPath:          setup.jwtFile.Name(),
+			loginRole:        validRole,
+			loginPath:        validLoginPath,
+			expectedErrRegEx: envVaultTLSCertPath + " is not configured",
+		},
 		"Valid login": {
 			vaultAddr:        setup.Server.httpServer.URL,
 			tlsRootCertPath:  setup.certFile.Name(),
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
-			configInput:      "",
 			expectedErrRegEx: "",
 		},
 		"Invalid TLS root cert path": {
@@ -178,7 +183,6 @@ func TestNewVaultClient(t *testing.T) {
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
-			configInput:      "",
 			expectedErrRegEx: "failed to load TLS cert from file.+",
 		},
 		"Wrong TLS root cert": {
@@ -187,7 +191,6 @@ func TestNewVaultClient(t *testing.T) {
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
-			configInput:      "",
 			expectedErrRegEx: "failed to login Vault.+certificate signed by unknown authority",
 		},
 		"Wrong login path": {
@@ -196,7 +199,6 @@ func TestNewVaultClient(t *testing.T) {
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        "auth/wrongpath/login",
-			configInput:      "",
 			expectedErrRegEx: "failed to login Vault at .+",
 		},
 		"Non-exist JWT file": {
@@ -205,7 +207,6 @@ func TestNewVaultClient(t *testing.T) {
 			jwtPath:          "/non/exist/jwt/path",
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
-			configInput:      "",
 			expectedErrRegEx: "failed to create token loader to load the tokens.+",
 		},
 		"Invalid JWT": {
@@ -214,7 +215,6 @@ func TestNewVaultClient(t *testing.T) {
 			jwtPath:          setup.invalidJwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
-			configInput:      "",
 			expectedErrRegEx: "failed to login Vault at .+",
 		},
 		"Invalid role": {
@@ -223,28 +223,18 @@ func TestNewVaultClient(t *testing.T) {
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        "invalidrole",
 			loginPath:        validLoginPath,
-			configInput:      "",
 			expectedErrRegEx: "failed to login Vault at .+",
-		},
-		"Valid config input": {
-			configInput: strings.Join([]string{setup.Server.httpServer.URL, setup.certFile.Name(),
-				setup.jwtFile.Name(), validRole, validLoginPath, validCSRSignPath, validCACertPath}, ";"),
-			expectedErrRegEx: "",
-		},
-		"wrong number of segments in config": {
-			configInput:      "a;b;c;d;e;f",
-			expectedErrRegEx: "error processing config for Vault.+",
 		},
 	}
 
 	for id, tc := range testCases {
+		os.Setenv(envVaultAddr, tc.vaultAddr)
+		os.Setenv(envVaultTLSCertPath, tc.tlsRootCertPath)
+		os.Setenv(envJwtPath, tc.jwtPath)
+		os.Setenv(envLoginRole, tc.loginRole)
+		os.Setenv(envLoginPath, tc.loginPath)
 		var err error
-		if len(tc.configInput) == 0 {
-			_, err = NewVaultClient(tc.vaultAddr, tc.tlsRootCertPath, tc.jwtPath, tc.loginRole, tc.loginPath,
-				validCSRSignPath, validCACertPath)
-		} else {
-			_, err = NewVaultClientWithConfig(tc.configInput)
-		}
+		_, err = NewVaultClient()
 		if err != nil {
 			if len(tc.expectedErrRegEx) == 0 {
 				t.Errorf("Test case [%s]: received error while not expected: %v", id, err)
@@ -306,13 +296,13 @@ func TestCSRSign(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		cli, err := NewVaultClient(setup.Server.httpServer.URL, setup.certFile.Name(), setup.jwtFile.Name(), validRole,
-			validLoginPath, tc.signCsrPath, validCACertPath)
+		os.Setenv(envSignCsrPath, tc.signCsrPath)
+		client, err := NewVaultClient()
 		if err != nil {
 			t.Fatalf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		resp, err := cli.CSRSign(context.Background(), "", tc.csr, tc.jwt, 3600)
+		resp, err := client.CSRSign(context.Background(), "", tc.csr, tc.jwt, 3600)
 		if err != nil {
 			if len(tc.expectedErrRegEx) == 0 {
 				t.Errorf("Test case [%s]: received error while not expected: %v", id, err)
@@ -352,13 +342,13 @@ func TestGetCACertPem(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		cli, err := NewVaultClient(setup.Server.httpServer.URL, setup.certFile.Name(), setup.jwtFile.Name(), validRole,
-			validLoginPath, "pki/wrongpath/test", tc.caCertPath)
+		os.Setenv(envCaCertPath, tc.caCertPath)
+		client, err := NewVaultClient()
 		if err != nil {
 			t.Fatalf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		cert, err := cli.GetCACertPem()
+		cert, err := client.GetCACertPem()
 		if err != nil {
 			if len(tc.expectedErrRegEx) == 0 {
 				t.Errorf("Test case [%s]: received error while not expected: %v", id, err)
@@ -409,21 +399,21 @@ func TestReauthentication(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		cli, err := NewVaultClient(setup.Server.httpServer.URL, setup.certFile.Name(), setup.jwtFile.Name(), validRole,
-			validLoginPath2, validCSRSignPath, validCACertPath)
+		os.Setenv(envLoginPath, validLoginPath2)
+		client, err := NewVaultClient()
 		if err != nil {
 			t.Fatalf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
 		// Update the login path so that the test can retrieve the correct token.
 		if tc.updateLoginPath {
-			cli.loginPath = validLoginPath
+			client.loginPath = validLoginPath
 		}
 
 		if tc.testCSR {
-			_, err = cli.CSRSign(context.Background(), "", []byte(validCSR), "", 3600)
+			_, err = client.CSRSign(context.Background(), "", []byte(validCSR), "", 3600)
 		} else {
-			_, err = cli.GetCACertPem()
+			_, err = client.GetCACertPem()
 		}
 
 		if err != nil {
@@ -476,6 +466,16 @@ func PrepareTest(t *testing.T) *TestSetup {
 	if _, err := invalidJwtFile.Write([]byte(invalidJWT)); err != nil {
 		t.Fatalf("Failed to write invalid jwt to tmp file: %v", err)
 	}
+
+	// Set default configuration for the tests. Each test can override the configuration.
+	os.Setenv(envVaultAddr, tlsServer.httpServer.URL)
+	os.Setenv(envVaultTLSCertPath, certFile.Name())
+	os.Setenv(envJwtPath, jwtFile.Name())
+	os.Setenv(envLoginRole, validRole)
+	os.Setenv(envLoginPath, validLoginPath)
+	os.Setenv(envSignCsrPath, validCSRSignPath)
+	os.Setenv(envCaCertPath, validCACertPath)
+
 	return &TestSetup{
 		Server:         tlsServer,
 		certFile:       certFile,

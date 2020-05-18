@@ -27,10 +27,19 @@ import (
 	vaultapi "github.com/hashicorp/vault/api"
 
 	"istio.io/istio/security/pkg/util"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
 const (
+	envVaultAddr        = "VAULT_ADDR"
+	envVaultTLSCertPath = "VAULT_AUTH_CERT_PATH"
+	envJwtPath          = "VAULT_AUTH_JWT_PATH"
+	envLoginRole        = "VAULT_LOGIN_ROLE"
+	envLoginPath        = "VAULT_LOGIN_PATH"
+	envSignCsrPath      = "VAULT_SIGN_CSR_PATH"
+	envCaCertPath       = "VAULT_CA_CERT_GET_PATH"
+
 	certKeyInCACertResp        = "certificate"
 	certKeyInCertSignResp      = "certificate"
 	caChainKeyInCertSignResp   = "ca_chain"
@@ -58,29 +67,50 @@ type VaultClient struct {
 	jwtLoader *util.JwtLoader
 }
 
-// NewVaultClientWithConfig creates a CA client for the Vault PKI. It takes a single format config string.
-func NewVaultClientWithConfig(config string) (*VaultClient, error) {
-	params := strings.Split(config, ";")
-	if len(params) != 7 {
-		return nil, fmt.Errorf(
-			"error processing config for Vault. Expected 'backend_ca_addr;tls_cert_path;jwt_path;role;"+
-				"auth_path;sign_csr_path;ca_cert_path', but got '%s' which has %d segments", config, len(params))
-	}
-	vaultAddr := params[0]
-	tlsRootCertPath := params[1]
-	jwtPath := params[2]
-	vaultLoginRole := params[3]
-	vaultLoginPath := params[4]
-	vaultSignCsrPath := params[5]
-	vaultCACertPath := params[6]
-
-	return NewVaultClient(
-		vaultAddr, tlsRootCertPath, jwtPath, vaultLoginRole, vaultLoginPath, vaultSignCsrPath, vaultCACertPath)
-}
-
 // NewVaultClient creates a CA client for the Vault PKI.
-func NewVaultClient(vaultAddr, tlsRootCertPath, jwtPath, loginRole, loginPath,
-	signCsrPath, caCertPath string) (*VaultClient, error) {
+func NewVaultClient() (*VaultClient, error) {
+	vaultAddr := env.RegisterStringVar(envVaultAddr, "", "The address of the Vault server").Get()
+	if len(vaultAddr) == 0 {
+		return nil, fmt.Errorf("%s is not configured", envVaultAddr)
+	}
+	vaultClientLog.Infof("%s = %s", envVaultAddr, vaultAddr)
+
+	tlsRootCertPath := env.RegisterStringVar(envVaultTLSCertPath, "", "The TLS cert to authenticate the Vault server").Get()
+	if len(tlsRootCertPath) == 0 {
+		return nil, fmt.Errorf("%s is not configured", envVaultTLSCertPath)
+	}
+	vaultClientLog.Infof("%s = %s", envVaultTLSCertPath, tlsRootCertPath)
+
+	jwtPath := env.RegisterStringVar(envJwtPath, "", "The JWT path to get authenticated by the Vault server").Get()
+	if len(jwtPath) == 0 {
+		return nil, fmt.Errorf("%s is not configured", envJwtPath)
+	}
+	vaultClientLog.Infof("%s = %s", envJwtPath, jwtPath)
+
+	loginRole := env.RegisterStringVar(envLoginRole, "", "The login role for the Vault server").Get()
+	if len(loginRole) == 0 {
+		return nil, fmt.Errorf("%s is not configured", envLoginRole)
+	}
+	vaultClientLog.Infof("%s = %s", envLoginRole, loginRole)
+
+	loginPath := env.RegisterStringVar(envLoginPath, "", "The login path for the Vault server").Get()
+	if len(loginPath) == 0 {
+		return nil, fmt.Errorf("%s is not configured", envLoginPath)
+	}
+	vaultClientLog.Infof("%s = %s", envLoginPath, loginPath)
+
+	signCsrPath := env.RegisterStringVar(envSignCsrPath, "", "The CSR verbatim-sign path for the Vault server").Get()
+	if len(signCsrPath) == 0 {
+		return nil, fmt.Errorf("%s is not configured", envSignCsrPath)
+	}
+	vaultClientLog.Infof("%s = %s", envSignCsrPath, signCsrPath)
+
+	caCertPath := env.RegisterStringVar(envCaCertPath, "", "The CA cert retrieval path for the Vault server").Get()
+	if len(caCertPath) == 0 {
+		return nil, fmt.Errorf("%s is not configured", envCaCertPath)
+	}
+	vaultClientLog.Infof("%s = %s", envCaCertPath, caCertPath)
+
 	c := &VaultClient{
 		enableTLS:       true,
 		vaultAddr:       vaultAddr,

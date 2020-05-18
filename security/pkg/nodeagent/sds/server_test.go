@@ -167,7 +167,7 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 		WorkloadUDSPath:         socket,
 	}
 	wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, mockMeshCAServer.Address,
-		"GoogleCA", false /* Disable TLS */, "")
+		"GoogleCA", false /* Disable TLS */)
 	if err != nil {
 		t.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 	}

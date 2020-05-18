@@ -51,7 +51,7 @@ func TestNewCAClient(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		_, err := NewCAClient("abc:0", tc.provider, false, "")
+		_, err := NewCAClient("abc:0", tc.provider, false)
 		if tc.expectedErr == "" {
 			if err != nil {
 				t.Errorf("Test case [%s]: Expect no error, got %q",
