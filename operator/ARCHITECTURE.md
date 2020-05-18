@@ -216,7 +216,7 @@ The source may be selected independently for the charts and profiles. The differ
 as follows:
 
 1. The user CR (my_custom.yaml) selects a configuration profile. If no profile is selected, the
-[default profile](data/profiles/default.yaml) is used. Each profile is defined as a
+[default profile](../manifests/profiles/default.yaml) is used. Each profile is defined as a
 set of defaults for `IstioOperatorSpec`, for both the restructured fields (K8s settings, namespaces and enablement)
 and the Helm values (Istio behavior configuration).
 
