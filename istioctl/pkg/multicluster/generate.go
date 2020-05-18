@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -247,17 +246,10 @@ func meshNetworkForCluster(env Environment, mesh *Mesh, current *Cluster) (*v1al
 
 		}
 
-		// Use the cluster clusterName for the registry name so we have consistency across the mesh. Pilot
-		// uses a special name for the local cluster against which it is running.
-		registry := cluster.clusterName
-		if context == current.Context {
-			registry = string(serviceregistry.Kubernetes)
-		}
-
 		mn.Networks[network].Endpoints = append(mn.Networks[network].Endpoints,
 			&v1alpha1.Network_NetworkEndpoints{
 				Ne: &v1alpha1.Network_NetworkEndpoints_FromRegistry{
-					FromRegistry: registry,
+					FromRegistry: cluster.clusterName,
 				},
 			},
 		)
