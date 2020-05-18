@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate sh -c "echo -e 'package xds\n\nimport (' > filter_types.gen.go"
+//go:generate sh -c "echo 'package xds\n\nimport (' > filter_types.gen.go"
 //go:generate sh -c "go list github.com/envoyproxy/go-control-plane/... | grep 'v[2-9]' | xargs -n1 -I{} echo -e '\t_ \"{}\"' >> filter_types.gen.go"
-//go:generate sh -c "echo -e ')' >> filter_types.gen.go"
+//go:generate sh -c "echo ')' >> filter_types.gen.go"
 package xds
 
 // Import all Envoy filter types so they are registered and deserialization does not fail
