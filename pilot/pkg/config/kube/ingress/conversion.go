@@ -190,10 +190,10 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			vs := old.Spec.(*networking.VirtualService)
 			vs.Http = append(vs.Http, httpRoutes...)
 			sort.SliceStable(vs.Http, func(i, j int) bool {
-				r1 := vs.Http[i].Match[0].Uri
-				r2 := vs.Http[j].Match[0].Uri
-				_, r1Ex := r1.MatchType.(*networking.StringMatch_Exact)
-				_, r2Ex := r2.MatchType.(*networking.StringMatch_Exact)
+				r1 := vs.Http[i].Match[0].GetUri()
+				r2 := vs.Http[j].Match[0].GetUri()
+				_, r1Ex := r1.GetMatchType().(*networking.StringMatch_Exact)
+				_, r2Ex := r2.GetMatchType().(*networking.StringMatch_Exact)
 				// TODO: default at the end
 				if r1Ex && !r2Ex {
 					return true
