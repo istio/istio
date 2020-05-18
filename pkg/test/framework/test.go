@@ -89,6 +89,7 @@ func (t *Test) Features(feats ...features.Feature) *Test {
 	}
 	for _, f := range feats {
 		if !c.Check(f) {
+			log.Errorf("feature %s is not present in features.yaml", f)
 			t.goTest.FailNow()
 			return nil
 		}
