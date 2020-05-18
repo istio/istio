@@ -253,19 +253,6 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 		serverCaLog.Info("added K8s JWT authenticator")
 	}
 
-	// Temporarily disable ID token authenticator by resetting the hostlist.
-	// [TODO](myidpt): enable ID token authenticator when the CSR API authz can work correctly.
-	hostlistForJwtAuth := make([]string, 0)
-	for _, host := range hostlistForJwtAuth {
-		aud := fmt.Sprintf("grpc://%s:%d", host, port)
-		if jwtAuthenticator, err := authenticate.NewIDTokenAuthenticator(aud); err != nil {
-			serverCaLog.Errorf("failed to create JWT authenticator (error %v)", err)
-		} else {
-			authenticators = append(authenticators, jwtAuthenticator)
-			serverCaLog.Infof("added general JWT authenticator")
-		}
-	}
-
 	recordCertsExpiry(ca.GetCAKeyCertBundle())
 
 	server := &Server{

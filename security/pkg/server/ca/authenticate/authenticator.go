@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	oidc "github.com/coreos/go-oidc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -31,7 +30,6 @@ const (
 	bearerTokenPrefix = "Bearer "
 	authorizationMeta = "authorization"
 	clusterIDMeta     = "clusterid"
-	idTokenIssuer     = "https://accounts.google.com"
 
 	ClientCertAuthenticatorType = "ClientCertAuthenticator"
 	IDTokenAuthenticatorType    = "IDTokenAuthenticator"
@@ -86,53 +84,6 @@ func (cca *ClientCertAuthenticator) Authenticate(ctx context.Context) (*Caller, 
 	return &Caller{
 		AuthSource: AuthSourceClientCertificate,
 		Identities: ids,
-	}, nil
-}
-
-// IDTokenAuthenticator extracts identity from JWT. The JWT is required to be
-// transmitted using the "Bearer" authentication scheme.
-type IDTokenAuthenticator struct {
-	verifier *oidc.IDTokenVerifier
-}
-
-// NewIDTokenAuthenticator creates a new IDTokenAuthenticator.
-func NewIDTokenAuthenticator(aud string) (*IDTokenAuthenticator, error) {
-	provider, err := oidc.NewProvider(context.Background(), idTokenIssuer)
-	if err != nil {
-		return nil, err
-	}
-
-	verifier := provider.Verifier(&oidc.Config{ClientID: aud})
-	return &IDTokenAuthenticator{verifier}, nil
-}
-
-func (a *IDTokenAuthenticator) AuthenticatorType() string {
-	return IDTokenAuthenticatorType
-}
-
-// Authenticate authenticates a caller using the JWT in the context.
-func (a *IDTokenAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
-	bearerToken, err := extractBearerToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("ID token extraction error: %v", err)
-	}
-
-	idToken, err := a.verifier.Verify(context.Background(), bearerToken)
-	if err != nil {
-		return nil, fmt.Errorf("failed to verify the ID token (error %v)", err)
-	}
-
-	// for GCP-issued JWT, the service account is in the "email" field
-	var sa struct {
-		Email string `json:"email"`
-	}
-	if err := idToken.Claims(&sa); err != nil {
-		return nil, fmt.Errorf("failed to extract email field from ID token: %v", err)
-	}
-
-	return &Caller{
-		AuthSource: AuthSourceIDToken,
-		Identities: []string{sa.Email},
 	}, nil
 }
 
