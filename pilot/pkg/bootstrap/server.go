@@ -135,7 +135,9 @@ type Server struct {
 	HTTPListener       net.Listener
 	GRPCListener       net.Listener
 	SecureGrpcListener net.Listener
-	DNSListener        net.Listener
+
+	DNSListener    net.Listener
+	IstioDNSServer *dns.IstioDNS
 
 	// fileWatcher used to watch mesh config, networks and certificates.
 	fileWatcher filewatcher.FileWatcher
@@ -143,7 +145,6 @@ type Server struct {
 	certController *chiron.WebhookController
 	ca             *ca.IstioCA
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
-	// TODO: Unify this path with TLSOptions in PilotArgs.
 	caBundlePath string
 	certMu       sync.Mutex
 	istiodCert   *tls.Certificate
@@ -157,8 +158,8 @@ type Server struct {
 	requiredTerminations sync.WaitGroup
 	statusReporter       *status.Reporter
 
-	// for test
-	forceStop bool
+	// duration used for graceful shutdown.
+	shutdownDuration time.Duration
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -174,8 +175,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		environment:    e,
 		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
 		fileWatcher:    filewatcher.NewWatcher(),
-		forceStop:      args.ForceStop,
 		debugMux:       http.NewServeMux(),
+	}
+
+	if args.ShutdownDuration == 0 {
+		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
 	}
 
 	prometheus.EnableHandlingTimeHistogram()
@@ -300,7 +304,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 			if !s.waitForCacheSync(stop) {
 				return
 			}
-			log.Infof("starting secure (DNS) gRPC discovery service at %s", s.SecureGrpcListener.Addr())
+			log.Infof("starting secure gRPC discovery service at %s", s.SecureGrpcListener.Addr())
 			if err := s.secureGrpcServer.Serve(s.SecureGrpcListener); err != nil {
 				log.Errorf("error from GRPC server: %v", err)
 			}
@@ -340,7 +344,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}()
 	}
 
-	s.cleanupOnStop(stop)
+	s.waitForShutdown(stop)
 
 	return nil
 }
@@ -431,26 +435,42 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 }
 
 // Wait for the stop, and do cleanups
-func (s *Server) cleanupOnStop(stop <-chan struct{}) {
+func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		s.fileWatcher.Close()
 		model.JwtKeyResolver.Close()
 
-		if s.forceStop {
-			s.grpcServer.Stop()
-			_ = s.debugServer.Close()
-		} else {
+		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
+		// force stop them. This does not happen normally.
+		stopped := make(chan struct{})
+		go func() {
 			s.grpcServer.GracefulStop()
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			if err := s.debugServer.Shutdown(ctx); err != nil {
-				log.Warna(err)
-			}
-			if err := s.httpsServer.Shutdown(ctx); err != nil {
-				log.Warna(err)
-			}
+			s.secureGrpcServer.GracefulStop()
+			close(stopped)
+		}()
+
+		t := time.NewTimer(s.shutdownDuration)
+		select {
+		case <-t.C:
+			s.grpcServer.Stop()
+			s.secureGrpcServer.Stop()
+		case <-stopped:
+			t.Stop()
 		}
+
+		// Stop HTTP services.
+		ctx, cancel := context.WithTimeout(context.Background(), s.shutdownDuration)
+		defer cancel()
+		if err := s.debugServer.Shutdown(ctx); err != nil {
+			log.Warna(err)
+		}
+		if err := s.httpsServer.Shutdown(ctx); err != nil {
+			log.Warna(err)
+		}
+
+		// Stop DNS Server.
+		s.IstioDNSServer.Close()
 	}()
 }
 

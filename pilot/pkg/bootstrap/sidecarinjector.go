@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/util"
 
@@ -34,11 +35,14 @@ const (
 func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	injectPath := args.InjectionOptions.InjectionDirectory
 	if injectPath == "" {
-		return nil, fmt.Errorf("Sidecar injection path is missing")
+		log.Infof("Skipping sidecar injector, injection path is missing")
+		return nil, nil
 	}
 
+	// If the injection path exists, we will set up injection
 	if _, err := os.Stat(filepath.Join(injectPath, "config")); os.IsNotExist(err) {
-		return nil, fmt.Errorf("Sidecar inection template not found")
+		log.Infof("Skipping sidecar injector, template not found")
+		return nil, nil
 	}
 
 	parameters := inject.WebhookParameters{

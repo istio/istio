@@ -62,7 +62,6 @@ type IstioDNS struct {
 	server *dns.Server
 
 	// TODO: add a dns-over-TCP server and capture, for istio-agent.
-
 	// local DNS-TLS server. This is active only in istiod.
 	tlsServer *dns.Server
 
@@ -250,8 +249,6 @@ func (h *IstioDNS) StartDNS(udpAddr string, tlsListener net.Listener) {
 }
 
 // ServerDNS is the implementation of DNS interface
-//
-// -
 func (h *IstioDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	t0 := time.Now()
 	var err error
@@ -370,6 +367,12 @@ func (h *IstioDNS) Close() {
 		h.conn.Close()
 	}
 	h.m.Unlock()
+	if h.server != nil {
+		h.server.Shutdown()
+	}
+	if h.tlsServer != nil {
+		h.tlsServer.Shutdown()
+	}
 }
 
 func (h *IstioDNS) connTLS() *dns.Conn {
