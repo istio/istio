@@ -10,6 +10,8 @@ src/build-services.sh <version> <prefix>
 
 Where `<version>` is the tag and `<prefix>` is the docker registry to tag the images.
 
+For example: `src/build-services.sh 1.1.0 docker.io/istio`.
+
 The bookinfo versions are different from Istio versions since the sample should work with any version of Istio.
 
 ## Update docker images in the yaml files
