@@ -442,7 +442,7 @@ func flippedContains(needle, haystack string) bool {
 
 // InjectionData renders sidecarTemplate with valuesConfig.
 func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
-	metadata *metav1.ObjectMeta, meshConfig *meshconfig.MeshConfig) (
+	metadata *metav1.ObjectMeta, meshConfig *meshconfig.MeshConfig, path string) (
 	*SidecarInjectionSpec, string, error) {
 
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
@@ -537,6 +537,9 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 
 	// set sidecar --concurrency
 	applyConcurrency(sic.Containers)
+
+	// overwrite cluster name and network if needed
+	overwriteClusterInfo(sic.Containers, path)
 
 	status := &SidecarInjectionStatus{Version: version}
 	for _, c := range sic.InitContainers {
@@ -745,7 +748,8 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		deploymentMetadata,
 		podSpec,
 		metadata,
-		meshconfig)
+		meshconfig,
+		"")
 	if err != nil {
 		return nil, err
 	}
@@ -1049,6 +1053,44 @@ func rewriteCniPodSpec(annotations map[string]string, spec *SidecarInjectionSpec
 				continue
 			}
 			annotations[k] = spec.PodRedirectAnnot[k]
+		}
+	}
+}
+
+// overwriteClusterInfo updates cluster name and network from url path
+// This is needed when webconfig config runs on a different cluster than webhook
+func overwriteClusterInfo(containers []corev1.Container, path string) {
+	if strings.HasPrefix(path, "/inject/") {
+		// split path
+		// TODO dynamic read network from cluster name
+		log.Infof("overwriting cluster info based on path: %s\n", path)
+
+		path = strings.TrimPrefix(path, "/inject/")
+		res := strings.Split(path, "/")
+		clusterName, clusterNetwork := "", ""
+		if len(res) == 2 {
+			clusterName = res[0]
+			clusterNetwork = res[1]
+		} else if len(res) == 1 {
+			clusterName = res[0]
+		}
+
+		log.Debugf("overwriting cluster info based on clusterName: %s clusterNetwork: %s\n", clusterName, clusterNetwork)
+
+		for _, c := range containers {
+			if c.Name == ProxyContainerName {
+				for _, e := range c.Env {
+					if e.Name == "ISTIO_META_CLUSTER_ID" && clusterName != "" {
+						e.Value = clusterName
+						log.Debugf("overwriting cluster name based on clusterName: %s\n", clusterName)
+
+					}
+					if e.Name == "ISTIO_META_NETWORK" && clusterNetwork != "" {
+						e.Value = clusterNetwork
+						log.Debugf("overwriting cluster network based on clusterNetwork: %s\n", clusterNetwork)
+					}
+				}
+			}
 		}
 	}
 }
