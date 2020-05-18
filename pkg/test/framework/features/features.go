@@ -56,6 +56,9 @@ func (c *checkerImpl) Check(feature Feature) bool {
 }
 
 func checkPathSegment(m map[string]interface{}, path []string) bool {
+	if len(path) < 1 {
+		return true
+	}
 	segment := path[0]
 	if val, ok := m[segment]; ok {
 		if valmap, ok := val.(map[string]interface{}); ok {
