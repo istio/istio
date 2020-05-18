@@ -241,7 +241,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initConfigValidation(args); err != nil {
 		return nil, fmt.Errorf("error initializing config validator: %v", err)
 	}
-	s.initDebugHandlers(args, wh)
+	if err := s.initDebugServer(args, wh); err != nil {
+		return nil, fmt.Errorf("error initializing debug server: %v", err)
+	}
 	if err := s.initDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing discovery service: %v", err)
 	}
@@ -397,19 +399,10 @@ func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
-// initDebugHandlers initializes debug end points.
-func (s *Server) initDebugHandlers(args *PilotArgs, wh *inject.Webhook) {
+// initDebugServer initializes debug end points.
+func (s *Server) initDebugServer(args *PilotArgs, wh *inject.Webhook) error {
 	s.debugMux.HandleFunc("/ready", s.httpServerReadyHandler)
 	s.EnvoyXdsServer.InitDebug(s.debugMux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, wh)
-}
-
-// initDiscoveryService intializes discovery server on plain text port.
-func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.EnvoyXdsServer.Start(stop)
-		return nil
-	})
-
 	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
 	s.debugServer = &http.Server{
@@ -423,6 +416,15 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		return err
 	}
 	s.HTTPListener = listener
+	return nil
+}
+
+// initDiscoveryService intializes discovery server on plain text port.
+func (s *Server) initDiscoveryService(args *PilotArgs) error {
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.EnvoyXdsServer.Start(stop)
+		return nil
+	})
 
 	// create grpc listener
 	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
