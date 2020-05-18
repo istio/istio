@@ -129,6 +129,8 @@ func NewVaultClient() (*VaultClient, error) {
 	if tlErr != nil {
 		return nil, fmt.Errorf("failed to create token loader to load the tokens: %v", tlErr)
 	}
+
+	// Run the jwtLoader in a separate thread to keep watching the JWT file.
 	stopCh := make(chan struct{})
 	go jwtLoader.Run(stopCh)
 	c.jwtLoader = jwtLoader
@@ -156,15 +158,9 @@ func NewVaultClient() (*VaultClient, error) {
 }
 
 // CSRSign calls Vault to sign a CSR. It returns a PEM-encoded cert chain or error.
+// Note: the `jwt` field in this function is never used. The JWT for authentication should always come from local file.
 func (c *VaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, jwt string,
 	certValidTTLInSec int64) ([]string, error) {
-	if len(jwt) != 0 {
-		token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, jwt)
-		if err != nil {
-			return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
-		}
-		c.client.SetToken(token)
-	}
 	certChain, signErr := signCsrByVault(c.client, c.signCsrPath, certValidTTLInSec, csrPEM)
 	if signErr != nil && strings.Contains(signErr.Error(), "permission denied") && len(jwt) == 0 {
 		// In this case, the token may be expired. Re-authenticate.

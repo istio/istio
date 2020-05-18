@@ -255,35 +255,18 @@ func TestCSRSign(t *testing.T) {
 
 	testCases := map[string]struct {
 		signCsrPath      string
-		jwt              string
 		csr              []byte
 		expectedCert     []string
 		expectedErrRegEx string
 	}{
-		"Valid request no custom JWT": {
+		"Valid request": {
 			signCsrPath:      validCSRSignPath,
-			jwt:              "",
 			csr:              []byte(validCSR),
 			expectedCert:     workloadCert,
 			expectedErrRegEx: "",
-		},
-		"Valid request with custom JWT": {
-			signCsrPath:      validCSRSignPath,
-			jwt:              validJWT,
-			csr:              []byte(validCSR),
-			expectedCert:     workloadCert,
-			expectedErrRegEx: "",
-		},
-		"Invalid request with custom JWT": {
-			signCsrPath:      validCSRSignPath,
-			jwt:              invalidJWT,
-			csr:              []byte(validCSR),
-			expectedCert:     workloadCert,
-			expectedErrRegEx: "failed to login Vault at.+",
 		},
 		"Return no cert chain field": {
 			signCsrPath:      validCSRSignPath2,
-			jwt:              validJWT,
 			csr:              []byte(validCSR),
 			expectedCert:     workloadCert2,
 			expectedErrRegEx: "",
@@ -302,7 +285,7 @@ func TestCSRSign(t *testing.T) {
 			t.Fatalf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		resp, err := client.CSRSign(context.Background(), "", tc.csr, tc.jwt, 3600)
+		resp, err := client.CSRSign(context.Background(), "", tc.csr, "", 3600)
 		if err != nil {
 			if len(tc.expectedErrRegEx) == 0 {
 				t.Errorf("Test case [%s]: received error while not expected: %v", id, err)
