@@ -93,7 +93,7 @@ func (t *Test) Features(feats ...features.Feature) *Test {
 			return nil
 		}
 	}
-	t.featureLabels = append(t.featureLabels, features...)
+	t.featureLabels = append(t.featureLabels, feats...)
 	return t
 }
 
