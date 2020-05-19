@@ -249,7 +249,7 @@ data:
         action: replace
         target_label: pod_name
 
-{{- if .Values.security.enabled }}
+{{- if .Values.prometheus.provisionPrometheusCert }}
     - job_name: 'kubernetes-pods-istio-secure'
       scheme: https
       tls_config:
