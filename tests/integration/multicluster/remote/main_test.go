@@ -29,6 +29,7 @@ import (
 )
 
 var (
+	clustersByNetwork                map[string][]*kube.Cluster
 	ist                              istio.Instance
 	clusterLocalNS, mcReachabilityNS namespace.Instance
 	controlPlaneValues               string
@@ -40,12 +41,18 @@ func TestMain(m *testing.M) {
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
+		Setup(func(ctx resource.Context) error {
+			clustersByNetwork = ctx.Environment().(*kube.Environment).ClustersByNetwork()
+			return nil
+		}).
 		Setup(kube.Setup(func(s *kube.Settings) {
-			// Make all clusters use the same control plane
+			// Make all clusters in a network use the same control plane
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
-			primaryCluster := resource.ClusterIndex(0)
-			for i := 0; i < len(s.KubeConfig); i++ {
-				s.ControlPlaneTopology[resource.ClusterIndex(i)] = primaryCluster
+			for _, clusters := range clustersByNetwork {
+				primary := clusters[0]
+				for _, c := range clusters {
+					s.ControlPlaneTopology[c.Index()] = primary.Index()
+				}
 			}
 		})).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
