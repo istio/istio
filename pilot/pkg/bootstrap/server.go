@@ -191,9 +191,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
-	if err := s.initHandlers(); err != nil {
-		return nil, fmt.Errorf("error initializing handlers: %v", err)
-	}
 
 	// Parse and validate Istiod Address.
 	istiodHost, istiodPort, err := e.GetDiscoveryAddress()
@@ -243,6 +240,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 	if err := s.initDebugServer(args, wh); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
+	}
+	// This should be called only after controllers are initialized.
+	if err := s.initMeshHandlers(); err != nil {
+		return nil, fmt.Errorf("error initializing handlers: %v", err)
 	}
 	if err := s.initDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing discovery service: %v", err)
@@ -403,8 +404,6 @@ func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) 
 func (s *Server) initDebugServer(args *PilotArgs, wh *inject.Webhook) error {
 	s.debugMux.HandleFunc("/ready", s.httpServerReadyHandler)
 	s.EnvoyXdsServer.InitDebug(s.debugMux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, wh)
-	// create grpc/http server
-	s.initGrpcServer(args.KeepaliveOptions)
 	s.debugServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
 		Handler: s.debugMux,
@@ -421,12 +420,13 @@ func (s *Server) initDebugServer(args *PilotArgs, wh *inject.Webhook) error {
 
 // initDiscoveryService intializes discovery server on plain text port.
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
+	// Implement EnvoyXdsServer grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		s.EnvoyXdsServer.Start(stop)
 		return nil
 	})
 
-	// create grpc listener
+	s.initGrpcServer(args.KeepaliveOptions)
 	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
 	if err != nil {
 		return err
@@ -985,8 +985,8 @@ func (s *Server) fetchCARoot() map[string]string {
 	}
 }
 
-// initHandlers initializes mesh, network and event handlers.
-func (s *Server) initHandlers() error {
+// initMeshHandlers initializes mesh, network and event handlers.
+func (s *Server) initMeshHandlers() error {
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
 		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
