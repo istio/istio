@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"istio.io/pkg/log"
 
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -35,12 +36,13 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 var xdsServerLog = log.RegisterScope("xdsServer", "XDS service debugging", 0)
@@ -55,12 +57,12 @@ type DynamicListener struct {
 	Port int
 }
 
-func (l *DynamicListener) makeListener() *api.Listener {
+func (l *DynamicListener) makeListener() *listener.Listener {
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: "http",
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-			RouteConfig: &api.RouteConfiguration{
+			RouteConfig: &route.RouteConfiguration{
 				Name: "testListener",
 				VirtualHosts: []*route.VirtualHost{{
 					Name:    "backend",
@@ -76,12 +78,7 @@ func (l *DynamicListener) makeListener() *api.Listener {
 		}},
 	}
 
-	hTTPConnectionManager, err := conversion.MessageToStruct(manager)
-	if err != nil {
-		panic(err)
-	}
-
-	return &api.Listener{
+	return &listener.Listener{
 		Name: strconv.Itoa(l.Port),
 		Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 			Address:       "127.0.0.1",
@@ -89,7 +86,7 @@ func (l *DynamicListener) makeListener() *api.Listener {
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name:       wellknown.HTTPConnectionManager,
-				ConfigType: &listener.Filter_Config{Config: hTTPConnectionManager},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(manager)},
 			}},
 		}},
 	}
@@ -97,7 +94,7 @@ func (l *DynamicListener) makeListener() *api.Listener {
 
 type hasher struct{}
 
-func (hasher) ID(*core.Node) string {
+func (hasher) ID(*corev2.Node) string {
 	return ""
 }
 

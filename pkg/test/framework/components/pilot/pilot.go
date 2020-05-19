@@ -19,7 +19,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdscore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
 
