@@ -385,7 +385,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value:     buildPatchStruct(`{"config": {"upstream_cluster": "scooby"}}`),
+				Value: buildPatchStruct(`{"typed_config": {
+"@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault",
+"upstream_cluster": "scooby"}}`),
 			},
 		},
 		{

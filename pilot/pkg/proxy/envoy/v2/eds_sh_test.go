@@ -19,7 +19,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -312,7 +312,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
+		Node: &corev2.Node{
 			Id:       node,
 			Metadata: metadata,
 		},
@@ -328,7 +328,7 @@ func sendEDSReqWithMetadata(clusters []string, node string, metadata *structpb.S
 	edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
+		Node: &corev2.Node{
 			Id:       node,
 			Metadata: metadata,
 		},

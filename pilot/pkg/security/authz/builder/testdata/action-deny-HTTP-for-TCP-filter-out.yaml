@@ -1,6 +1,6 @@
 name: envoy.filters.network.rbac
 typedConfig:
-  '@type': type.googleapis.com/envoy.config.filter.network.rbac.v2.RBAC
+  '@type': type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC
   rules:
     action: DENY
     policies:
