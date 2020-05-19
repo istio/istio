@@ -23,10 +23,11 @@ import (
 	"strings"
 
 	envoy_api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	envoy_api_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -622,12 +623,12 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		return nil, err
 	}
 
-	for _, listener := range listeners.DynamicListeners {
-		if listener.ActiveState == nil {
+	for _, l := range listeners.DynamicListeners {
+		if l.ActiveState == nil {
 			continue
 		}
-		listenerTyped := &envoy_api.Listener{}
-		err = ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+		listenerTyped := &listener.Listener{}
+		err = ptypes.UnmarshalAny(l.ActiveState.Listener, listenerTyped)
 		if err != nil {
 			return nil, err
 		}
@@ -673,13 +674,6 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, po
 		return "", "", err
 	}
 
-	if path == "" {
-		path, err = getIstioVirtualServicePathForSvcFromListener(cd, svc, port)
-		if err != nil {
-			return "", "", err
-		}
-	}
-
 	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
 	// nolint: gosimple
 	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
@@ -700,7 +694,7 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 		return "", err
 	}
 	for _, rcd := range rcd.DynamicRouteConfigs {
-		routeTyped := &envoy_api.RouteConfiguration{}
+		routeTyped := &route.RouteConfiguration{}
 		err = ptypes.UnmarshalAny(rcd.RouteConfig, routeTyped)
 		if err != nil {
 			return "", err
@@ -720,14 +714,7 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 	return "", nil
 }
 
-func mixerConfigMatches(ns string, name string, mixer *structpb.Struct, tmixer *any.Any) bool {
-	if mixer != nil {
-		svcName, svcNamespace, err := getMixerDestinationSvc(mixer)
-		if err == nil && svcNamespace == ns && svcName == name {
-			return true
-		}
-	}
-
+func mixerConfigMatches(ns string, name string, tmixer *any.Any) bool {
 	if tmixer != nil {
 		svcName, svcNamespace, err := getTypedMixerDestinationSvc(tmixer)
 		if err == nil && svcNamespace == ns && svcName == name {
@@ -739,7 +726,7 @@ func mixerConfigMatches(ns string, name string, mixer *structpb.Struct, tmixer *
 }
 
 // routeDestinationMatchesSvc determines if there ismixer configuration to use this service as a destination
-func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh *envoy_api_route.VirtualHost, port int32) bool {
+func routeDestinationMatchesSvc(route *route.Route, svc v1.Service, vh *route.VirtualHost, port int32) bool {
 	if route == nil {
 		return false
 	}
@@ -747,8 +734,7 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 	// If Istio was deployed with telemetry or policy we'll have the K8s Service
 	// nicely connected to the Envoy Route.
 	// nolint: staticcheck
-	if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name,
-		route.GetPerFilterConfig()["mixer"], route.GetTypedPerFilterConfig()["mixer"]) {
+	if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name, route.GetTypedPerFilterConfig()["mixer"]) {
 		return true
 	}
 
@@ -756,8 +742,7 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 		if weightedClusters := rte.GetWeightedClusters(); weightedClusters != nil {
 			for _, weightedCluster := range weightedClusters.Clusters {
 				// nolint: staticcheck
-				if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name,
-					weightedCluster.GetPerFilterConfig()["mixer"], weightedCluster.GetTypedPerFilterConfig()["mixer"]) {
+				if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name, weightedCluster.GetTypedPerFilterConfig()["mixer"]) {
 					return true
 				}
 			}
@@ -787,21 +772,6 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 	}
 
 	return false
-}
-
-// getMixerDestinationSvc returns name, namespace, err
-func getMixerDestinationSvc(mixer *structpb.Struct) (string, string, error) {
-	if mixer != nil {
-		attributes := asMyProtoValue(mixer).
-			keyAsStruct("mixer_attributes").
-			keyAsStruct("attributes")
-		svcName := attributes.keyAsStruct("destination.service.name").
-			keyAsString("string_value")
-		svcNamespace := attributes.keyAsStruct("destination.service.namespace").
-			keyAsString("string_value")
-		return svcName, svcNamespace, nil
-	}
-	return "", "", fmt.Errorf("no mixer config")
 }
 
 func getTypedMixerDestinationSvc(tmixer *any.Any) (string, string, error) {
@@ -962,47 +932,6 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 			fmt.Fprintf(writer, "   %d TCP route(s)\n", len(vsSpec.Tcp))
 		}
 	}
-
-}
-
-// getIstioVirtualServicePathForSvcFromListener returns something like "/apis/networking/v1alpha3/namespaces/default/virtual-service/reviews"
-func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1.Service, port int32) (string, error) {
-
-	filter := istio_envoy_configdump.ListenerFilter{
-		Port: uint32(port),
-		Type: "TCP",
-	}
-	listeners, err := cd.GetListenerConfigDump()
-	if err != nil {
-		return "", err
-	}
-
-	// VirtualServices for TCP may appear in the listeners
-	for _, listener := range listeners.DynamicListeners {
-		if listener.ActiveState == nil {
-			continue
-		}
-		listenerTyped := &envoy_api.Listener{}
-		err = ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
-		if err != nil {
-			return "", err
-		}
-		if filter.Verify(listenerTyped) {
-			for _, filterChain := range listenerTyped.FilterChains {
-				for _, filter := range filterChain.Filters {
-					if filter.Name == "mixer" {
-						// nolint: staticcheck
-						svcName, svcNamespace, err := getMixerDestinationSvc(filter.GetConfig())
-						if err == nil && svcName == svc.ObjectMeta.Name && svcNamespace == svc.ObjectMeta.Namespace {
-							return getIstioConfig(filterChain.Metadata)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("listener has no VirtualService")
 }
 
 func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, execClient istioctl_kubernetes.ExecClient) error { // nolint: lll

@@ -63,7 +63,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core1 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"

@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"github.com/golang/protobuf/proto"
@@ -463,7 +463,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	newTimeout := ptypes.DurationProto(5 * time.Minute)
 	userHCM := &http_conn.HttpConnectionManager{
 		AddUserAgent:      proto2.BoolTrue,
-		IdleTimeout:       newTimeout,
 		StreamIdleTimeout: newTimeout,
 		UseRemoteAddress:  proto2.BoolTrue,
 		XffNumTrustedHops: 5,
@@ -477,7 +476,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 
 	expectedHCM := proto.Clone(inHCM).(*http_conn.HttpConnectionManager)
 	expectedHCM.AddUserAgent = userHCM.AddUserAgent
-	expectedHCM.IdleTimeout = userHCM.IdleTimeout
 	expectedHCM.StreamIdleTimeout = userHCM.StreamIdleTimeout
 	expectedHCM.UseRemoteAddress = userHCM.UseRemoteAddress
 	expectedHCM.XffNumTrustedHops = userHCM.XffNumTrustedHops

@@ -30,7 +30,7 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"

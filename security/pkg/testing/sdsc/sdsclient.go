@@ -26,8 +26,8 @@ import (
 	"istio.io/pkg/log"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	authapi "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"

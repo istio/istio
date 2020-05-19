@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	routepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 )
 

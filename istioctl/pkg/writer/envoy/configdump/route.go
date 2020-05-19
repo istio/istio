@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"text/tabwriter"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
@@ -33,7 +33,7 @@ type RouteFilter struct {
 }
 
 // Verify returns true if the passed route matches the filter fields
-func (r *RouteFilter) Verify(route *xdsapi.RouteConfiguration) bool {
+func (r *RouteFilter) Verify(route *route.RouteConfiguration) bool {
 	if r.Name != "" && r.Name != route.Name {
 		return false
 	}
@@ -76,7 +76,7 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
 	return nil
 }
 
-func (c *ConfigWriter) setupRouteConfigWriter() (*tabwriter.Writer, []*xdsapi.RouteConfiguration, error) {
+func (c *ConfigWriter) setupRouteConfigWriter() (*tabwriter.Writer, []*route.RouteConfiguration, error) {
 	routes, err := c.retrieveSortedRouteSlice()
 	if err != nil {
 		return nil, nil, err
@@ -85,7 +85,7 @@ func (c *ConfigWriter) setupRouteConfigWriter() (*tabwriter.Writer, []*xdsapi.Ro
 	return w, routes, nil
 }
 
-func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*xdsapi.RouteConfiguration, error) {
+func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, error) {
 	if c.configDump == nil {
 		return nil, fmt.Errorf("config writer has not been primed")
 	}
@@ -93,21 +93,21 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*xdsapi.RouteConfiguration,
 	if err != nil {
 		return nil, err
 	}
-	routes := make([]*xdsapi.RouteConfiguration, 0)
-	for _, route := range routeDump.DynamicRouteConfigs {
-		if route.RouteConfig != nil {
-			routeTyped := &xdsapi.RouteConfiguration{}
-			err = ptypes.UnmarshalAny(route.RouteConfig, routeTyped)
+	routes := make([]*route.RouteConfiguration, 0)
+	for _, r := range routeDump.DynamicRouteConfigs {
+		if r.RouteConfig != nil {
+			routeTyped := &route.RouteConfiguration{}
+			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
 			if err != nil {
 				return nil, err
 			}
 			routes = append(routes, routeTyped)
 		}
 	}
-	for _, route := range routeDump.StaticRouteConfigs {
-		if route.RouteConfig != nil {
-			routeTyped := &xdsapi.RouteConfiguration{}
-			err = ptypes.UnmarshalAny(route.RouteConfig, routeTyped)
+	for _, r := range routeDump.StaticRouteConfigs {
+		if r.RouteConfig != nil {
+			routeTyped := &route.RouteConfiguration{}
+			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
 			if err != nil {
 				return nil, err
 			}

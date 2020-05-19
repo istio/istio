@@ -19,7 +19,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	structpb "github.com/golang/protobuf/ptypes/struct"
