@@ -1087,7 +1087,8 @@ func updateClusterInfo(container *corev1.Container, clusterName, clusterNetwork 
 	}
 
 	log.Debugf("Appending env ISTIO_META_CLUSTER_ID: %s and ISTIO_META_NETWORK: %s\n", clusterName, clusterNetwork)
-	envVars = append(envVars, corev1.EnvVar{Name: "ISTIO_META_CLUSTER_ID", Value: clusterName, ValueFrom: nil})
-	envVars = append(envVars, corev1.EnvVar{Name: "ISTIO_META_NETWORK", Value: clusterNetwork, ValueFrom: nil})
+	envVars = append(envVars,
+		corev1.EnvVar{Name: "ISTIO_META_CLUSTER_ID", Value: clusterName, ValueFrom: nil},
+		corev1.EnvVar{Name: "ISTIO_META_NETWORK", Value: clusterNetwork, ValueFrom: nil})
 	container.Env = envVars
 }
