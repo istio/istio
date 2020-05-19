@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/util"
+	"istio.io/istio/pkg/webhooks"
 	"istio.io/pkg/log"
 
 	"k8s.io/client-go/dynamic"
@@ -141,9 +141,9 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 	if m.fetchCaRoot != nil {
 		nc := NewNamespaceController(m.fetchCaRoot, opts, clientset)
 		go nc.Run(stopCh)
-		go util.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clientset, stopCh)
-		valicationWebhookController := util.CreateValidationWebhookController(clientset, dynamicClient, webhookConfigName,
-			m.secretNamespace, m.caBundlePath)
+		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clientset, stopCh)
+		valicationWebhookController := webhooks.CreateValidationWebhookController(clientset, dynamicClient, webhookConfigName,
+			m.secretNamespace, m.caBundlePath, true)
 		if valicationWebhookController != nil {
 			go valicationWebhookController.Start(stopCh)
 		}
