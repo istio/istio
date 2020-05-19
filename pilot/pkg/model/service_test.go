@@ -18,6 +18,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 func TestGetByPort(t *testing.T) {
@@ -141,6 +143,164 @@ func TestGetLocalityOrDefault(t *testing.T) {
 			got := GetLocalityLabelOrDefault(testCase.label, testCase.defaultLabel)
 			if got != testCase.expected {
 				t.Errorf("expected locality %s, but got %s", testCase.expected, got)
+			}
+		})
+	}
+}
+
+func TestForeignSeviceInstancesEqual(t *testing.T) {
+	exampleInstance := &ServiceInstance{
+		Service: &Service{},
+		Endpoint: &IstioEndpoint{
+			Labels:          labels.Instance{"app": "prod-app"},
+			Address:         "an-address",
+			ServicePortName: "service-port-name",
+			UID:             "UID",
+			EnvoyEndpoint:   nil,
+			ServiceAccount:  "service-account",
+			Network:         "Network",
+			Locality: Locality{
+				ClusterID: "cluster-id",
+				Label:     "region1/zone1/subzone1",
+			},
+			EndpointPort: 22,
+			LbWeight:     100,
+			TLSMode:      "mutual",
+		},
+		ServicePort: &Port{
+			Name:     "a-faux-ssh-port",
+			Port:     22,
+			Protocol: protocol.UDP,
+		},
+	}
+	differingAddr := exampleInstance.DeepCopy()
+	differingAddr.Endpoint.Address = "another-address"
+	differingNetwork := exampleInstance.DeepCopy()
+	differingNetwork.Endpoint.Network = "AnotherNetwork"
+	differingTLSMode := exampleInstance.DeepCopy()
+	differingTLSMode.Endpoint.TLSMode = "permitted"
+	differingLabels := exampleInstance.DeepCopy()
+	differingLabels.Endpoint.Labels = labels.Instance{
+		"app":         "prod-app",
+		"another-app": "blah",
+	}
+	differingServiceAccount := exampleInstance.DeepCopy()
+	differingServiceAccount.Endpoint.ServiceAccount = "service-account-two"
+	differingLocality := exampleInstance.DeepCopy()
+	differingLocality.Endpoint.Locality = Locality{
+		ClusterID: "cluster-id-two",
+		Label:     "region2/zone2/subzone2",
+	}
+	differingLbWeight := exampleInstance.DeepCopy()
+	differingLbWeight.Endpoint.LbWeight = 0
+	differingUID := exampleInstance.DeepCopy()
+	differingUID.Endpoint.UID = "UID-TWO"
+
+	cases := []struct {
+		comparer *ServiceInstance
+		comparee *ServiceInstance
+		shouldEq bool
+		name     string
+	}{
+		{
+			comparer: &ServiceInstance{},
+			comparee: &ServiceInstance{},
+			shouldEq: true,
+			name:     "two null endpoints",
+		},
+		{
+			comparer: &ServiceInstance{
+				ServicePort: &Port{
+					Name:     "a-faux-ssh-port",
+					Port:     22,
+					Protocol: protocol.UDP,
+				},
+			},
+			comparee: &ServiceInstance{
+				ServicePort: &Port{
+					Name:     "a-faux-non-ssh-port",
+					Port:     80,
+					Protocol: protocol.UDP,
+				},
+			},
+			shouldEq: true,
+			name:     "two null endpoints with different service ports",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: exampleInstance.DeepCopy(),
+			shouldEq: true,
+			name:     "exact same endpoints",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingAddr.DeepCopy(),
+			shouldEq: false,
+			name:     "different Addresses",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingNetwork.DeepCopy(),
+			shouldEq: false,
+			name:     "different Network",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingTLSMode.DeepCopy(),
+			shouldEq: false,
+			name:     "different TLS Mode",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingLabels.DeepCopy(),
+			shouldEq: false,
+			name:     "different Labels",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingServiceAccount.DeepCopy(),
+			shouldEq: false,
+			name:     "different Service Account",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingLocality.DeepCopy(),
+			shouldEq: false,
+			name:     "different Locality",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingLbWeight.DeepCopy(),
+			shouldEq: false,
+			name:     "different LbWeight",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingUID.DeepCopy(),
+			shouldEq: false,
+			name:     "different UID",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run("ForeignSeviceInstancesEqual: "+testCase.name, func(t *testing.T) {
+			isEq := ForeignSeviceInstancesEqual(testCase.comparer, testCase.comparee)
+			isEqReverse := ForeignSeviceInstancesEqual(testCase.comparee, testCase.comparer)
+
+			if isEq != isEqReverse {
+				t.Errorf(
+					"returned different for reversing arguments for structs: %v , and %v",
+					testCase.comparer,
+					testCase.comparee,
+				)
+			}
+			if isEq != testCase.shouldEq {
+				t.Errorf(
+					"equality of %v , and %v do not equal expected %t",
+					testCase.comparer,
+					testCase.comparee,
+					testCase.shouldEq,
+				)
 			}
 		})
 	}

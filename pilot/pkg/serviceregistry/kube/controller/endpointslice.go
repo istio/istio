@@ -115,7 +115,14 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
 
-	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace, esc.endpointCache.Get(hostname))
+	fep, err := esc.c.collectAllForeignEndpoints(svc)
+	if err != nil {
+		log.Debugf("Handle EDS: error collecting foreign endpoints of svc %s in namespace %s", hostname, slice.Namespace)
+	}
+
+	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace,
+		append(esc.endpointCache.Get(hostname), fep...))
+	// fire instance handles for k8s endpoints only
 	for _, handler := range esc.c.instanceHandlers {
 		for _, ep := range endpoints {
 			si := &model.ServiceInstance{
@@ -152,6 +159,9 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 	})
 }
 
+// GetProxyServiceInstances returns service instances co-located with a given proxy
+// TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
+// To tackle this, we need a ip2instance map like what we have in service entry.
 func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
 	eps, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(proxy.Metadata.Namespace).List(klabels.Everything())
 	if err != nil {
