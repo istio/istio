@@ -16,11 +16,15 @@ package framework
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/features"
+	"istio.io/istio/pkg/test/env"
 
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
@@ -74,15 +78,30 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 }
 
 // Label applies the given labels to this test.
-func (t *Test) Features(features ...features.Feature) *Test {
-	t.featureLabels = append(t.featureLabels, features...)
+func (t *Test) Features(feats ...features.Feature) *Test {
+	pwd, _ := os.Getwd()
+	log.Error(pwd)
+	c, err := features.BuildChecker(env.IstioSrc + "/pkg/test/framework/features/features.yaml")
+	if err != nil {
+		log.Errorf("Unable to build feature checker: %s", err)
+		t.goTest.FailNow()
+		return nil
+	}
+	for _, f := range feats {
+		if !c.Check(f) {
+			log.Errorf("feature %s is not present in /pkg/test/framework/features/features.yaml", f)
+			t.goTest.FailNow()
+			return nil
+		}
+	}
+	t.featureLabels = append(t.featureLabels, feats...)
 	return t
 }
 
 func (t *Test) NotImplementedYet(features ...features.Feature) *Test {
 	t.notImplemented = true
 	t.Features(features...).
-		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Impemented") })
+		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Implemented") })
 	return t
 }
 
