@@ -1425,7 +1425,7 @@ func BenchmarkInjectServe(b *testing.B) {
 	go wh.Run(stop)
 
 	body := makeTestData(b, false)
-	req := httptest.NewRequest("POST", "http://sidecar-injector/inject/cluster/x/net/y", bytes.NewReader(body))
+	req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(body))
 	req.Header.Add("Content-Type", "application/json")
 
 	b.ResetTimer()
