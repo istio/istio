@@ -25,15 +25,17 @@ import (
 )
 
 const (
-	rotateInterval = 1500 * time.Millisecond
+	rotateInterval   = 1500 * time.Millisecond
 	proxyRunningTime = 5 * rotateInterval
-	sleepTime = 100 * time.Millisecond
-	retryAttempt = 3
+	sleepTime        = 100 * time.Millisecond
+	retryAttempt     = 3
 )
+
 type void struct{}
+
 var (
 	certSet = make(map[string]void)
-	member void
+	member  void
 )
 
 func TestCertRotation(t *testing.T) {
@@ -42,7 +44,7 @@ func TestCertRotation(t *testing.T) {
 	defer setup.TearDown()
 	setup.StartProxy(t)
 	start := time.Now()
-	numReq:= 0
+	numReq := 0
 	for {
 		code, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", setup.OutboundListenerPort))
 		if err != nil {
@@ -101,7 +103,7 @@ func TestCertRotation(t *testing.T) {
 // get Cert from the InboundListener
 func GetInboundCert(inboundListenerPort int) (string, error) {
 	return openssl("s_client", "-showcerts",
-		"-connect", fmt.Sprintf("127.0.0.1:%d",inboundListenerPort),
+		"-connect", fmt.Sprintf("127.0.0.1:%d", inboundListenerPort),
 	)
 }
 
@@ -110,7 +112,7 @@ func openssl(args ...string) (string, error) {
 	var err error
 	var out []byte
 	for attempt := 0; attempt < retryAttempt; attempt++ {
-		out, err = cmd.Output();
+		out, err = cmd.Output()
 		if err == nil {
 			return string(out), nil
 		}
