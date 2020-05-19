@@ -238,7 +238,6 @@ spec:
         kiali.io/runtimes: go,kiali
         prometheus.io/port: "9090"
         prometheus.io/scrape: "true"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
         sidecar.istio.io/inject: "false"
       labels:
         app: kiali
