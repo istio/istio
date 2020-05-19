@@ -1067,7 +1067,7 @@ func overwriteClusterInfo(containers []corev1.Container, path string) {
 		clusterName = res[len(res)-3]
 		clusterNetwork = res[len(res)-1]
 
-		log.Infof("*linsun* overwriting cluster info based on clusterName: %s clusterNetwork: %s\n", clusterName, clusterNetwork)
+		log.Debugf("Updating cluster info based on clusterName: %s clusterNetwork: %s\n", clusterName, clusterNetwork)
 
 		for i, c := range containers {
 			if c.Name == ProxyContainerName {
@@ -1081,15 +1081,13 @@ func overwriteClusterInfo(containers []corev1.Container, path string) {
 func updateClusterInfo(container *corev1.Container, clusterName, clusterNetwork string) {
 	envVars := make([]corev1.EnvVar, 0)
 	for _, env := range container.Env {
-		log.Infof("*linsun* env is: %s\n", env.Name)
 		if env.Name != "ISTIO_META_CLUSTER_ID" && env.Name != "ISTIO_META_NETWORK" {
 			envVars = append(envVars, env)
 		}
 	}
 
-	log.Infof("*linsun* appending env ISTIO_META_NETWORK: %s and ISTIO_META_CLUSTER_ID %s\n", clusterNetwork, clusterName)
+	log.Debugf("Appending env ISTIO_META_CLUSTER_ID: %s and ISTIO_META_NETWORK: %s\n", clusterName, clusterNetwork)
 	envVars = append(envVars, corev1.EnvVar{Name: "ISTIO_META_CLUSTER_ID", Value: clusterName, ValueFrom: nil})
 	envVars = append(envVars, corev1.EnvVar{Name: "ISTIO_META_NETWORK", Value: clusterNetwork, ValueFrom: nil})
 	container.Env = envVars
-	log.Infof("*linsun container.Env: %v", container.Env)
 }

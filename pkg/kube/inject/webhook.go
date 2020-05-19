@@ -179,6 +179,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		revision:               p.Revision,
 	}
 	p.Mux.HandleFunc("/inject", wh.serveInject)
+	p.Mux.HandleFunc("/inject/", wh.serveInject)
 
 	p.Env.Watcher.AddMeshHandler(func() {
 		wh.mu.Lock()
@@ -772,7 +773,6 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview, path string) *v1beta1.Adm
 }
 
 func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
-	log.Infof("*linsun* serve inject=%s\n", r.URL.Path)
 	totalInjections.Increment()
 	var body []byte
 	if r.Body != nil {
@@ -797,7 +797,6 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	path := ""
 	if r.URL != nil {
 		path = r.URL.Path
-		log.Infof("*linsun* path=%s\n", path)
 	}
 
 	var reviewResponse *v1beta1.AdmissionResponse
@@ -806,7 +805,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
-		log.Infof("*linsun* AdmissionRequest for path=%s\n", path)
+		log.Debugf("AdmissionRequest for path=%s\n", path)
 		reviewResponse = wh.inject(&ar, path)
 	}
 
