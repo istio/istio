@@ -82,7 +82,7 @@ type Options struct {
 	// Deprecated: istiod webhook controller shouldn't use this.
 	UnregisterValidationWebhook bool
 
-	//RemoteWebhookConfig defines whether the webhook config is comming from remote cluster
+	//RemoteWebhookConfig defines whether the webhook config is coming from remote cluster
 	RemoteWebhookConfig bool
 }
 
