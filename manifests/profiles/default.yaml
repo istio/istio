@@ -235,6 +235,17 @@ spec:
         level: "default:info"
       logAsJson: false
       pilotCertProvider: istiod
+      caAddress: ""
+      # Config IstioAgent's CA Provider. Supported: Citadel, GoogleCA, KeyfactorCA
+      caProvider: "Citadel"
+      # Required on caProvider seted to KeyfactorCA
+      keyfactorSecretName: ""
+      keyfactor:
+        caName: ""
+        authToken: ""
+        appKey: ""
+        caTemplate: ""
+        metadata: []
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2

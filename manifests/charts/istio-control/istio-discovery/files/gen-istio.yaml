@@ -99,6 +99,7 @@ data:
           "s390x": 2
         },
         "caAddress": "",
+        "caProvider": "Citadel",
         "centralIstiod": false,
         "certificates": [],
         "configRootNamespace": "istio-system",
@@ -128,6 +129,7 @@ data:
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
+        "keyfactorSecretName": "",
         "localityLbSetting": {
           "enabled": true
         },
@@ -472,6 +474,48 @@ data:
           value: {{ .Values.global.caAddress }}
         {{- else }}
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+        {{- end }}
+        {{- if .Values.global.caProvider }}
+        - name: CA_PROVIDER
+          value: {{ .Values.global.caProvider }}
+        {{- end }}
+        {{- if eq .Values.global.caProvider "KeyfactorCA" }}
+        {{- if ne .Values.global.keyfactorSecretName ""  }}
+        - name: KEYFACTOR_CA
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.keyfactorSecretName }}
+              key: "caName"
+        - name: KEYFACTOR_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.keyfactorSecretName }}
+              key: "authToken"
+        - name: KEYFACTOR_APPKEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.keyfactorSecretName }}
+              key: "appKey"
+        - name: KEYFACTOR_CA_TEMPLATE
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.keyfactorSecretName }}
+              key: "caTemplate"
+        {{- else}}
+        - name: KEYFACTOR_CA
+          value: {{ .Value.global.keyfactor.caName }}
+        - name: KEYFACTOR_AUTH_TOKEN
+          value: {{ .Value.global.keyfactor.authToken }}
+        - name: KEYFACTOR_APPKEY
+          value: {{ .Value.global.keyfactor.appKey }}
+        - name: KEYFACTOR_CA_TEMPLATE
+          value: {{ .Value.global.keyfactor.caTemplate }}
+        {{- end }}
+        {{- if .Value.global.keyfactor.metadata }}
+        - name: "KEYFACTOR_METADATA_JSON"
+          value: |
+                 {{ toJSON .Value.global.keyfactor.metadata}}
+        {{- end }}
         {{- end }}
         - name: POD_NAME
           valueFrom:

@@ -22,16 +22,15 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/config/constants"
-
 	"istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/security/pkg/nodeagent/cache"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	keyfactor "istio.io/istio/security/pkg/nodeagent/caclient/providers/keyfactor"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
-
-	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"istio.io/pkg/env"
@@ -131,7 +130,8 @@ const (
 
 	// The type of Elliptical Signature algorithm to use
 	// when generating private keys. Currently only ECDSA is supported.
-	eccSigAlg = "ECC_SIGNATURE_ALGORITHM"
+	eccSigAlg       = "ECC_SIGNATURE_ALGORITHM"
+	keyfactorCAName = "KeyfactorCA"
 )
 
 var (
@@ -188,6 +188,15 @@ type SDSAgent struct {
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
 
+	// PodNamespace
+	PodNamespace string
+
+	// PodName
+	PodName string
+
+	// PodID
+	PodIP string
+
 	// ClusterID is the cluster where the agent resides
 	ClusterID string
 }
@@ -200,7 +209,8 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir, clusterID string) *SDSAgent {
+func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir string,
+	clusterID string, podNamespace string, podName string, podIP string) *SDSAgent {
 	a := &SDSAgent{}
 
 	a.PilotCertProvider = pilotCertProvider
@@ -261,6 +271,9 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	}
 
 	a.ClusterID = clusterID
+	a.PodNamespace = podNamespace
+	a.PodName = podName
+	a.PodIP = podIP
 
 	return a
 }
@@ -342,6 +355,31 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 		// used.
 		caClient, err = gca.NewGoogleCAClient(serverOptions.CAEndpoint, true)
 		serverOptions.PluginNames = []string{"GoogleTokenExchange"}
+	} else if serverOptions.CAProviderName == keyfactorCAName {
+		// Assume CA from Keyfactor is mounting /etc/certs
+		rootCert, err := ioutil.ReadFile(cache.DefaultRootCertFilePath)
+
+		if err != nil {
+			// We may not provide root cert, and can just use public system certificate pool
+			log.Infof("no certs found at %v, using system certs", cache.DefaultRootCertFilePath)
+		} else {
+			log.Infof("the CA cert of keyfactorCA is: %v", string(rootCert))
+		}
+
+		sa.RootCert = rootCert
+
+		keyfactorMetadata := &keyfactor.KeyfactorCAClientMetadata{
+			TrustDomain:  trustDomainEnv,
+			ClusterID:    sa.ClusterID,
+			PodNamespace: sa.PodNamespace,
+			PodName:      sa.PodName,
+			PodIP:        sa.PodIP,
+		}
+
+		caClient, err = keyfactor.NewKeyFactorCAClient(serverOptions.CAEndpoint, sa.RequireCerts, rootCert, keyfactorMetadata)
+		if err != nil {
+			log.Fatalf("Cannot create new KeyfactorCA Provider. err: %v", err)
+		}
 	} else {
 		// Determine the default CA.
 		// If /etc/certs exists - it means Citadel is used (possibly in a mode to only provision the root-cert, not keys)
