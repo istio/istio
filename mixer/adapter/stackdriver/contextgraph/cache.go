@@ -14,7 +14,10 @@
 
 package contextgraph
 
-import "istio.io/istio/mixer/pkg/adapter"
+import (
+	"istio.io/istio/mixer/pkg/adapter"
+	"sync"
+)
 
 type cacheStatus struct {
 	lastSeen int
@@ -22,12 +25,13 @@ type cacheStatus struct {
 }
 
 // entityCache tracks the entities we've already seen.
-// It is not thread-safe.
+// thread-safe.
 type entityCache struct {
 	// cache maps an entity to the epoch it was last seen in.
 	cache     map[entity]cacheStatus
 	lastFlush int
 	logger    adapter.Logger
+	mutex     *sync.RWMutex
 }
 
 func newEntityCache(logger adapter.Logger) *entityCache {
@@ -35,14 +39,21 @@ func newEntityCache(logger adapter.Logger) *entityCache {
 		cache:     make(map[entity]cacheStatus),
 		logger:    logger,
 		lastFlush: -1,
+		mutex:     &sync.RWMutex{},
 	}
 }
 
 // AssertAndCheck reports the existence of e at epoch, and returns
 // true if the entity needs to be sent immediately.
 func (ec *entityCache) AssertAndCheck(e entity, epoch int) bool {
+	ec.mutex.RLock()
 	cEpoch, ok := ec.cache[e]
-	defer func() { ec.cache[e] = cEpoch }()
+	ec.mutex.RUnlock()
+	defer func() {
+		ec.mutex.Lock()
+		ec.cache[e] = cEpoch
+		ec.mutex.Unlock()
+	}()
 	if cEpoch.lastSeen < epoch {
 		cEpoch.lastSeen = epoch
 	}
@@ -60,6 +71,8 @@ func (ec *entityCache) AssertAndCheck(e entity, epoch int) bool {
 // entries from the cache.
 func (ec *entityCache) Flush(epoch int) []entity {
 	var result []entity
+	ec.mutex.Lock()
+	defer ec.mutex.Unlock()
 	for k, e := range ec.cache {
 		if e.lastSeen <= ec.lastFlush {
 			delete(ec.cache, k)
@@ -78,12 +91,13 @@ func (ec *entityCache) Flush(epoch int) []entity {
 }
 
 // edgeCache tracks the edges we've already seen.
-// It is not thread-safe.
+// thread-safe.
 type edgeCache struct {
 	// cache maps an edge to the epoch it was last seen in.
 	cache     map[edge]cacheStatus
 	lastFlush int
 	logger    adapter.Logger
+	mutex     *sync.RWMutex
 }
 
 func newEdgeCache(logger adapter.Logger) *edgeCache {
@@ -91,14 +105,21 @@ func newEdgeCache(logger adapter.Logger) *edgeCache {
 		cache:     make(map[edge]cacheStatus),
 		logger:    logger,
 		lastFlush: -1,
+		mutex: &sync.RWMutex{},
 	}
 }
 
 // AssertAndCheck reports the existence of e at epoch, and returns
 // true if the edge needs to be sent immediately.
 func (ec *edgeCache) AssertAndCheck(e edge, epoch int) bool {
+	ec.mutex.RLock()
 	cEpoch, ok := ec.cache[e]
-	defer func() { ec.cache[e] = cEpoch }()
+	ec.mutex.RUnlock()
+	defer func() {
+		ec.mutex.Lock()
+		ec.cache[e] = cEpoch
+		ec.mutex.Unlock()
+	}()
 	if cEpoch.lastSeen < epoch {
 		cEpoch.lastSeen = epoch
 	}
@@ -116,6 +137,8 @@ func (ec *edgeCache) AssertAndCheck(e edge, epoch int) bool {
 // entries from the cache.
 func (ec *edgeCache) Flush(epoch int) []edge {
 	var result []edge
+	ec.mutex.Lock()
+	defer ec.mutex.Unlock()
 	for k, e := range ec.cache {
 		if e.lastSeen <= ec.lastFlush {
 			delete(ec.cache, k)
@@ -136,6 +159,8 @@ func (ec *edgeCache) Flush(epoch int) []edge {
 // Invalidate removes all edges with a source of fullName from the
 // cache, so the next assertion will trigger a report.
 func (ec *edgeCache) Invalidate(fullName string) {
+	ec.mutex.Lock()
+	defer ec.mutex.Unlock()
 	for e := range ec.cache {
 		if e.sourceFullName == fullName {
 			delete(ec.cache, e)
