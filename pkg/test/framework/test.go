@@ -89,7 +89,7 @@ func (t *Test) Features(feats ...features.Feature) *Test {
 	}
 	for _, f := range feats {
 		if !c.Check(f) {
-			log.Errorf("feature %s is not present in features.yaml", f)
+			log.Errorf("feature %s is not present in /pkg/test/framework/features/features.yaml", f)
 			t.goTest.FailNow()
 			return nil
 		}
@@ -101,7 +101,7 @@ func (t *Test) Features(feats ...features.Feature) *Test {
 func (t *Test) NotImplementedYet(features ...features.Feature) *Test {
 	t.notImplemented = true
 	t.Features(features...).
-		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Impemented") })
+		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Implemented") })
 	return t
 }
 
