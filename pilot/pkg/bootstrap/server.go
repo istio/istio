@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/reflection"
+
 	"istio.io/istio/pilot/pkg/status"
 
 	"k8s.io/client-go/kubernetes"
@@ -473,6 +475,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.EnvoyXdsServer.Register(s.grpcServer)
+	reflection.Register(s.secureGrpcServer)
 }
 
 // initDNSServer initializes gRPC DNS Server for DNS resolutions.
@@ -565,6 +568,7 @@ func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.EnvoyXdsServer.Register(s.secureGrpcServer)
+	reflection.Register(s.secureGrpcServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
