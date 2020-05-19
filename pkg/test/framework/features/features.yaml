@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#Edit this file to add more feature labels for the testing dashboard
-#"values" is a keyword and must contains a list of strings. "values" is omitted when building the label name
-#   This is used when a map needs direct leaf nodes but also other maps
+# Edit this file to add more feature labels for the testing dashboard
+# Each element must be a map key in order to be valid yaml.
 features:
   observability:
   traffic:
