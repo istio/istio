@@ -21,6 +21,8 @@ import (
 
 	"istio.io/pkg/log"
 	"istio.io/pkg/pool"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestEnv(t *testing.T) {
@@ -32,7 +34,7 @@ func TestEnv(t *testing.T) {
 		o := log.DefaultOptions()
 		_ = log.Configure(o)
 
-		e := NewEnv(0, "Foo", gp)
+		e := NewEnv(0, "Foo", gp, []string{metav1.NamespaceAll})
 		log := e.Logger()
 		log.Infof("Test%s", "ing")
 		log.Warningf("Test%s", "ing")
