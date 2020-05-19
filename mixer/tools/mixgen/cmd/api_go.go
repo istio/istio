@@ -2,7 +2,7 @@ package cmd
 
 // InterfaceTemplate defines the template used to generate the adapter
 // interfaces for Mixer for a given aspect.
-var interfaceTemplate = `// Copyright 2017 Istio Authors
+var interfaceTemplate = `// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
