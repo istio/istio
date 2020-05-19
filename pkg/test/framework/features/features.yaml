@@ -39,3 +39,5 @@ features:
       spire:
     mTLS:
       on-by-default:
+  extensibility:
+  installation:
