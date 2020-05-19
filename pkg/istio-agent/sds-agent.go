@@ -195,6 +195,9 @@ type SDSAgent struct {
 
 	// ClusterID is the cluster where the agent resides
 	ClusterID string
+
+	// FileMountedCerts indicates whether the proxy is using file mounted certs.
+	FileMountedCerts bool
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -214,6 +217,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	// If a workload is using file mounted certs, we do not to have to process CA relaated configuration.
 	if !shouldProvisionCertificates() {
 		log.Info("Workload is using file mounted certificates. Skipping setting CA related configuration")
+		a.FileMountedCerts = true
 		return a
 	}
 
@@ -293,13 +297,19 @@ func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, err
 	serverOptions.PilotCertProvider = sa.PilotCertProvider
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
-	serverOptions.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
 	serverOptions.CertsDir = sa.CertsPath
 	serverOptions.JWTPath = sa.JWTPath
 	serverOptions.OutputKeyCertToDir = sa.OutputKeyCertToDir
 	serverOptions.CAEndpoint = sa.CAEndpoint
 	serverOptions.TLSEnabled = sa.RequireCerts
 	serverOptions.ClusterID = sa.ClusterID
+	serverOptions.FileMountedCerts = sa.FileMountedCerts
+	// If proxy is using file mounted certs, JWT token is not needed.
+	if sa.FileMountedCerts {
+		serverOptions.UseLocalJWT = false
+	} else {
+		serverOptions.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
+	}
 
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := sa.newSecretCache(serverOptions)
