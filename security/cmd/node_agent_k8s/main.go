@@ -65,26 +65,6 @@ const (
 	enableIngressGatewaySDS     = "ENABLE_INGRESS_GATEWAY_SDS"
 	enableIngressGatewaySDSFlag = "enableIngressGatewaySDS"
 
-	// The environmental variable name for Vault CA address.
-	vaultAddress     = "VAULT_ADDR"
-	vaultAddressFlag = "vaultAddress"
-
-	// The environmental variable name for Vault auth path.
-	vaultAuthPath     = "VAULT_AUTH_PATH"
-	vaultAuthPathFlag = "vaultAuthPath"
-
-	// The environmental variable name for Vault role.
-	vaultRole     = "VAULT_ROLE"
-	vaultRoleFlag = "vaultRole"
-
-	// The environmental variable name for Vault sign CSR path.
-	vaultSignCsrPath     = "VAULT_SIGN_CSR_PATH"
-	vaultSignCsrPathFlag = "vaultSignCsrPath"
-
-	// The environmental variable name for Vault TLS root certificate.
-	vaultTLSRootCert     = "VAULT_TLS_ROOT_CERT"
-	vaultTLSRootCertFlag = "vaultTLSRootCert"
-
 	// The environmental variable name for the flag which is used to indicate the token passed
 	// from envoy is always valid(ex, normal 8ks JWT).
 	alwaysValidTokenFlag     = "VALID_TOKEN"
@@ -202,9 +182,7 @@ func exitOnMonitorServerError(errCh <-chan error) {
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
 		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,
-			serverOptions.CAProviderName, true, []byte(serverOptions.VaultTLSRootCert),
-			serverOptions.VaultAddress, serverOptions.VaultRole, serverOptions.VaultAuthPath,
-			serverOptions.VaultSignCsrPath)
+			serverOptions.CAProviderName, true)
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 			os.Exit(1)
@@ -218,7 +196,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 	}
 
 	if serverOptions.EnableIngressGatewaySDS {
-		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, nil, "", "", "", "")
+		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false)
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
@@ -241,11 +219,6 @@ var (
 	caProviderEnv                      = env.RegisterStringVar(caProvider, "", "").Get()
 	caEndpointEnv                      = env.RegisterStringVar(caEndpoint, "", "").Get()
 	trustDomainEnv                     = env.RegisterStringVar(trustDomain, "", "").Get()
-	vaultAddressEnv                    = env.RegisterStringVar(vaultAddress, "", "").Get()
-	vaultRoleEnv                       = env.RegisterStringVar(vaultRole, "", "").Get()
-	vaultAuthPathEnv                   = env.RegisterStringVar(vaultAuthPath, "", "").Get()
-	vaultSignCsrPathEnv                = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
-	vaultTLSRootCertEnv                = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
 	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
 	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 12*time.Hour, "").Get()
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
@@ -287,26 +260,6 @@ func applyEnvVars(cmd *cobra.Command) {
 
 	if !cmd.Flag(trustDomainFlag).Changed {
 		serverOptions.TrustDomain = trustDomainEnv
-	}
-
-	if !cmd.Flag(vaultAddressFlag).Changed {
-		serverOptions.VaultAddress = vaultAddressEnv
-	}
-
-	if !cmd.Flag(vaultRoleFlag).Changed {
-		serverOptions.VaultRole = vaultRoleEnv
-	}
-
-	if !cmd.Flag(vaultAuthPathFlag).Changed {
-		serverOptions.VaultAuthPath = vaultAuthPathEnv
-	}
-
-	if !cmd.Flag(vaultSignCsrPathFlag).Changed {
-		serverOptions.VaultSignCsrPath = vaultSignCsrPathEnv
-	}
-
-	if !cmd.Flag(vaultTLSRootCertFlag).Changed {
-		serverOptions.VaultTLSRootCert = vaultTLSRootCertEnv
 	}
 
 	if !cmd.Flag(secretTTLFlag).Changed {
@@ -403,17 +356,6 @@ func main() {
 	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.SkipValidateCert, skipValidateCertFlag,
 		false,
 		"If true, node agent skip validating format of certificate returned from CA.")
-
-	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultAddress, vaultAddressFlag, "",
-		"Vault address")
-	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultRole, vaultRoleFlag, "",
-		"Vault role")
-	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultAuthPath, vaultAuthPathFlag, "",
-		"Vault auth path")
-	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultSignCsrPath, vaultSignCsrPathFlag, "",
-		"Vault sign CSR path")
-	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultTLSRootCert, vaultTLSRootCertFlag, "",
-		"Vault TLS root certificate")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
