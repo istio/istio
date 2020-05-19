@@ -102,6 +102,9 @@ func init() {
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
 type startFunc func(stop <-chan struct{}) error
 
+// readinessProbe defines a function that will be used indicate whether a server is ready.
+type readinessProbe func() int
+
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
 	MonitorListeningAddr net.Addr
@@ -122,14 +125,14 @@ type Server struct {
 	ConfigStores      []model.ConfigStoreCache
 	serviceEntryStore *serviceentry.ServiceEntryStore
 
-	debugServer      *http.Server // debug HTTP Server.
+	httpServer       *http.Server // debug, monitoring and readiness Server.
 	httpsServer      *http.Server // webhooks HTTPS Server.
 	httpsReadyClient *http.Client
 
 	grpcServer       *grpc.Server
 	secureGrpcServer *grpc.Server
 
-	debugMux *http.ServeMux // debug
+	httpMux  *http.ServeMux // debug, monitoring and readiness.
 	httpsMux *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
@@ -157,6 +160,7 @@ type Server struct {
 	// Note: this is still best effort; a process can die at any time.
 	requiredTerminations sync.WaitGroup
 	statusReporter       *status.Reporter
+	readinessProbes      map[string]readinessProbe
 
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
@@ -171,11 +175,12 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s := &Server{
-		clusterID:      getClusterID(args),
-		environment:    e,
-		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
-		fileWatcher:    filewatcher.NewWatcher(),
-		debugMux:       http.NewServeMux(),
+		clusterID:       getClusterID(args),
+		environment:     e,
+		EnvoyXdsServer:  envoyv2.NewDiscoveryServer(e, args.Plugins),
+		fileWatcher:     filewatcher.NewWatcher(),
+		httpMux:         http.NewServeMux(),
+		readinessProbes: make(map[string]readinessProbe),
 	}
 
 	if args.ShutdownDuration == 0 {
@@ -191,6 +196,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
+	s.initMeshHandlers()
 
 	// Parse and validate Istiod Address.
 	istiodHost, istiodPort, err := e.GetDiscoveryAddress()
@@ -227,7 +233,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// common https server for webhooks (e.g. injection, validation)
-	s.initHTTPSWebhookServer(args)
+	s.initWebhookServer(args)
 
 	wh, err := s.initSidecarInjector(args)
 	if err != nil {
@@ -238,18 +244,15 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initConfigValidation(args); err != nil {
 		return nil, fmt.Errorf("error initializing config validator: %v", err)
 	}
-	if err := s.initDebugServer(args, wh); err != nil {
+	if err := s.initIstiodHttpServer(args, wh); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
 	// This should be called only after controllers are initialized.
-	if err := s.initMeshHandlers(); err != nil {
+	if err := s.initRegistryEventHandlers(); err != nil {
 		return nil, fmt.Errorf("error initializing handlers: %v", err)
 	}
 	if err := s.initDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing discovery service: %v", err)
-	}
-	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
-		return nil, fmt.Errorf("error initializing monitor: %v", err)
 	}
 
 	// TODO(irisdingbj):add integration test after centralIstiod finished
@@ -334,7 +337,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
 		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
-		if err := s.debugServer.Serve(s.HTTPListener); err != nil {
+		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
 			log.Warna(err)
 		}
 	}()
@@ -384,29 +387,24 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	return nil
 }
 
-// A single container can't have two readiness probes. Piggyback the https server readiness
+// A single container can't have two readiness probes. Piggyback the other readiness
 // onto the http server readiness check. The "http" portion of the readiness check is satisfied
 // by the fact we've started listening on this handler and everything has already initialized.
-func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) {
-	if s.kubeClient != nil {
-		if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
-			log.Warnf("https webhook server not ready: %v", status)
-			w.WriteHeader(status)
-			return
+func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
+	for name, fn := range s.readinessProbes {
+		if status := fn(); status != http.StatusOK {
+			log.Warnf("%s is not ready: %v", name, status)
 		}
 	}
-
 	// TODO check readiness of other secure gRPC and HTTP servers.
 	w.WriteHeader(http.StatusOK)
 }
 
-// initDebugServer initializes debug end points.
-func (s *Server) initDebugServer(args *PilotArgs, wh *inject.Webhook) error {
-	s.debugMux.HandleFunc("/ready", s.httpServerReadyHandler)
-	s.EnvoyXdsServer.InitDebug(s.debugMux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, wh)
-	s.debugServer = &http.Server{
+// initIstiodHttpServer initializes monitoring, debug and readiness end points.
+func (s *Server) initIstiodHttpServer(args *PilotArgs, wh *inject.Webhook) error {
+	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
-		Handler: s.debugMux,
+		Handler: s.httpMux,
 	}
 
 	// create http listener
@@ -414,6 +412,18 @@ func (s *Server) initDebugServer(args *PilotArgs, wh *inject.Webhook) error {
 	if err != nil {
 		return err
 	}
+
+	// Debug Server.
+	s.EnvoyXdsServer.InitDebug(s.httpMux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, wh)
+
+	// Monitoring Server.
+	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
+		return fmt.Errorf("error initializing monitor: %v", err)
+	}
+
+	// Readiness Handler.
+	s.httpMux.HandleFunc("/ready", s.istiodReadyHandler)
+
 	s.HTTPListener = listener
 	return nil
 }
@@ -468,7 +478,7 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		// Stop HTTP services.
 		ctx, cancel := context.WithTimeout(context.Background(), s.shutdownDuration)
 		defer cancel()
-		if err := s.debugServer.Shutdown(ctx); err != nil {
+		if err := s.httpServer.Shutdown(ctx); err != nil {
 			log.Warna(err)
 		}
 		if s.httpsServer != nil {
@@ -624,6 +634,11 @@ func (s *Server) addStartFunc(fn startFunc) {
 	s.startFuncs = append(s.startFuncs, fn)
 }
 
+// adds a readiness probe for Istiod Server.
+func (s *Server) addReadinessProbe(name string, fn readinessProbe) {
+	s.readinessProbes[name] = fn
+}
+
 // addRequireStartFunc adds a function that should terminate before the serve shuts down
 // This is useful to do cleanup activities
 // This is does not guarantee they will terminate gracefully - best effort only
@@ -661,8 +676,8 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	return true
 }
 
-// initEventHandlers sets up event handlers for config and service updates
-func (s *Server) initEventHandlers() error {
+// initRegistryEventHandlers sets up event handlers for config and service updates
+func (s *Server) initRegistryEventHandlers() error {
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
@@ -985,8 +1000,8 @@ func (s *Server) fetchCARoot() map[string]string {
 	}
 }
 
-// initMeshHandlers initializes mesh, network and event handlers.
-func (s *Server) initMeshHandlers() error {
+// initMeshHandlers initializes mesh and network handlers.
+func (s *Server) initMeshHandlers() {
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
 		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
@@ -1002,9 +1017,4 @@ func (s *Server) initMeshHandlers() error {
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
-
-	if err := s.initEventHandlers(); err != nil {
-		return err
-	}
-	return nil
 }
