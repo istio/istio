@@ -228,12 +228,12 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureGrpcServer(args, istiodPort); err != nil {
+	if err := s.initSecureDiscoveryService(args, istiodPort); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
 	// common https server for webhooks (e.g. injection, validation)
-	s.initWebhookServer(args)
+	s.initSecureWebhookServer(args)
 
 	wh, err := s.initSidecarInjector(args)
 	if err != nil {
@@ -244,7 +244,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initConfigValidation(args); err != nil {
 		return nil, fmt.Errorf("error initializing config validator: %v", err)
 	}
-	if err := s.initIstiodHttpServer(args, wh); err != nil {
+	// Used for readiness, monitoring and debug handlers.
+	if err := s.initIstiodAdminServer(args, wh); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
 	// This should be called only after controllers are initialized.
@@ -400,8 +401,8 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// initIstiodHttpServer initializes monitoring, debug and readiness end points.
-func (s *Server) initIstiodHttpServer(args *PilotArgs, wh *inject.Webhook) error {
+// initIstiodHTTPServer initializes monitoring, debug and readiness end points.
+func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) error {
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
 		Handler: s.httpMux,
@@ -554,7 +555,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 }
 
 // initialize secureGRPCServer.
-func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
+func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error {
 	if args.TLSOptions.CaCertFile == "" && s.ca == nil {
 		// Running locally without configured certs - no TLS mode
 		return nil
