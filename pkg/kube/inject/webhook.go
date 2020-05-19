@@ -796,6 +796,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	path := ""
 	if r.URL != nil {
 		path = r.URL.Path
+		log.Debugf("*linsun* path=%s\n", path)
 	}
 
 	var reviewResponse *v1beta1.AdmissionResponse
@@ -804,7 +805,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
-		log.Debugf("AdmissionRequest for path=%s\n", path)
+		log.Debugf("*linsun* AdmissionRequest for path=%s\n", path)
 		reviewResponse = wh.inject(&ar, path)
 	}
 

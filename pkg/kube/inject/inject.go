@@ -1060,37 +1060,23 @@ func rewriteCniPodSpec(annotations map[string]string, spec *SidecarInjectionSpec
 // overwriteClusterInfo updates cluster name and network from url path
 // This is needed when webconfig config runs on a different cluster than webhook
 func overwriteClusterInfo(containers []corev1.Container, path string) {
-	if strings.HasPrefix(path, "/inject/") {
-		// split path
-		// TODO dynamic read network from cluster name
-		log.Infof("overwriting cluster info based on path: %s\n", path)
-
-		path = strings.TrimPrefix(path, "/inject/")
-		res := strings.Split(path, "/")
+	res := strings.Split(path, "/")
+	if len(res) < 5 {
+		// not enough length for /cluster/X/net/Y
+		return
+	} else {
 		clusterName, clusterNetwork := "", ""
-		if len(res) == 2 {
-			clusterName = res[0]
-			clusterNetwork = res[1]
-		} else if len(res) == 1 {
-			clusterName = res[0]
-		}
+		clusterName = res[len(res)-3]
+		clusterNetwork = res[len(res)-1]
 
-		log.Debugf("overwriting cluster info based on clusterName: %s clusterNetwork: %s\n", clusterName, clusterNetwork)
+		log.Debugf("*linsun* overwriting cluster info based on clusterName: %s clusterNetwork: %s\n", clusterName, clusterNetwork)
 
 		for _, c := range containers {
 			if c.Name == ProxyContainerName {
-				for _, e := range c.Env {
-					if e.Name == "ISTIO_META_CLUSTER_ID" && clusterName != "" {
-						e.Value = clusterName
-						log.Debugf("overwriting cluster name based on clusterName: %s\n", clusterName)
-
-					}
-					if e.Name == "ISTIO_META_NETWORK" && clusterNetwork != "" {
-						e.Value = clusterNetwork
-						log.Debugf("overwriting cluster network based on clusterNetwork: %s\n", clusterNetwork)
-					}
-				}
+				c.Env = append(c.Env, corev1.EnvVar{Name: "ISTIO_META_CLUSTER_ID", Value: clusterName})
+				c.Env = append(c.Env, corev1.EnvVar{Name: "ISTIO_META_NETWORK", Value: clusterNetwork})
 			}
 		}
 	}
+
 }
