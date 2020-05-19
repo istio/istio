@@ -298,6 +298,8 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 				return fmt.Errorf("failed getting the istiod address for cluster %d: %v", controlPlaneCluster.Index(), err)
 			}
 			installSettings = append(installSettings, "--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
+			// Use the local Istiod for CA
+			installSettings = append(installSettings, "--set", "values.global.caAddress="+"istiod.istio-system.svc:15012")
 		}
 	}
 
