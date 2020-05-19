@@ -22,10 +22,11 @@ import (
 	"testing"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/test/env"
 )
 
 func TestReadLayeredYAMLs(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "pkg/util/testdata/yaml")
+	testDataDir := filepath.Join(env.IstioSrc, "operator/pkg/util/testdata/yaml")
 	tests := []struct {
 		name     string
 		overlays []string
