@@ -1138,8 +1138,8 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 
 	gotSecret, err := sc.GenerateSecret(ctx, conID, resource, "jwtToken1")
 
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
+	if err == nil {
+		t.Fatalf("expected to get error")
 	}
 
 	if gotSecret != nil {
@@ -1149,8 +1149,11 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 	rootResource := "file-root:" + rootCertPath
 	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, rootResource, "jwtToken1")
 
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
+	if err == nil {
+		t.Fatalf("Expected to get error, but did not get")
+	}
+	if !strings.Contains(err.Error(), "no such file or directory") {
+		t.Fatalf("Expected file not found error, but got %v", err)
 	}
 	if gotSecretRoot != nil {
 		t.Fatalf("Expected to get nil secret but got %v", gotSecret)

@@ -814,11 +814,11 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 		cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName)
 		sdsFromFile = ok
 		switch {
-		case ok && cfg.IsRootCertificate() && sc.rootCertificateExist(cfg.CaCertificatePath):
+		case ok && cfg.IsRootCertificate():
 			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey); err == nil {
 				sc.addFileWatcher(cfg.CaCertificatePath, token, connKey)
 			}
-		case ok && cfg.IsKeyCertificate() && sc.keyCertificateExist(cfg.CertificatePath, cfg.PrivateKeyPath):
+		case ok && cfg.IsKeyCertificate():
 			if sitem, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey); err == nil {
 				// Adding cert is sufficient here as key can't change without changing the cert.
 				sc.addFileWatcher(cfg.CertificatePath, token, connKey)
@@ -832,10 +832,8 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 				logPrefix, err)
 			return sdsFromFile, nil, err
 		}
-		if sitem != nil {
-			cacheLog.Infoa("GenerateSecret from file ", resourceName)
-			sc.secrets.Store(connKey, *sitem)
-		}
+		cacheLog.Infoa("GenerateSecret from file ", resourceName)
+		sc.secrets.Store(connKey, *sitem)
 		return sdsFromFile, sitem, nil
 	}
 	return sdsFromFile, nil, nil
