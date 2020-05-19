@@ -17,6 +17,7 @@ package framework
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,7 +38,8 @@ type Test struct {
 	parent              *Test
 	goTest              *testing.T
 	labels              []label.Instance
-	featureLabels       []features.Feature
+	// featureLabels maps features to the scenarios they cover.
+	featureLabels       map[features.Feature][]string
 	notImplemented      bool
 	s                   *suiteContext
 	requiredEnv         environment.Name
@@ -88,13 +90,17 @@ func (t *Test) Features(feats ...features.Feature) *Test {
 		return nil
 	}
 	for _, f := range feats {
-		if !c.Check(f) {
+		check, scenario := c.Check(f)
+		if !check {
 			log.Errorf("feature %s is not present in /pkg/test/framework/features/features.yaml", f)
 			t.goTest.FailNow()
 			return nil
 		}
+		// feats actually contains feature and scenario.  split them here.
+		onlyFeature := features.Feature(strings.Replace(string(f), scenario, "", 1))
+		t.featureLabels[onlyFeature] = append(t.featureLabels[onlyFeature], scenario)
 	}
-	t.featureLabels = append(t.featureLabels, feats...)
+
 	return t
 }
 

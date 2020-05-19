@@ -6,7 +6,7 @@ The features package defines values that are used to track feature coverage at e
 
 ## Labeling a Test
 
-Adding a label to a test using the integration framework is easy.  Simply call the Feature() function on the Test Object, passing any relevant feature constants as parameters.  If you are testing a feature that does not have a constant defined, see the next section for how to define one.
+Labeling a test with a feature and scenario allow release managers and others to understand what value this test case is adding.  To label a test, call the Feature() function on the Test Object, with a string identifying the feature and scenario you are testing.  These parameters should be formatted like featurepath.scenariopath, where both feature path and scenario path are dot delimited heirarchies, and the featurepath is a leaf node in features.yaml.  If you are testing a feature whose path does not yet exist in features,yaml, see the next section for how to define one.
 
 ## Adding New Feature Constants
 
@@ -14,17 +14,19 @@ For consistency, features must be registerd in [features.yaml](features.yaml), o
 
 ```yaml
     foo:
-      bar
+      bar:
       baz:
-        boo
+        boo:
 ```
 
-will allow features like
+will allow parameters like
 
 ```go
-    "foo.bar"
+    "foo.bar.goo.gle"
     "foo.baz.boo"
 ```
+
+where "foo.bar" is the feature, and "goo.gle" is the scenario.
 
 The heirarchical nature of feature labels allows us to aggregate data about related feature sets.  To provide for consistent reporting and aggregation, we have defined the top two layers of heirarchy, and ask that you place your feature under these headings.  For more detail on the purpose of each heading, see Top-Level Feature Headings below.  If you feel that none of the existing headings fit your feature, please check with the Test and Release Working Group before adding a new heading.
 
@@ -39,25 +41,3 @@ To write a stub, simply create a test object and call NotImplementedYet, passing
     framework.NewTest(t).NotImplementedYet("my.feature.string")
   }
 ```
-
-## Top-Level Feature Headings
-
-For reporting purposes, we organize our features under a handful of high level categories, which should change very rarely, so that reports stay consistent.  This section will document the top level categories to help you decide where to place your feature label.
-
-* Observability - features that relate to measuring or exploring your service mesh or the services which comprise it.
-    *  Telemetry
-    *  Tracing
-
-* Security - features that allow users to secure their services and service mesh.
-    * Peer
-        * AuthN
-        * AuthZ
-    * User
-        * AuthN
-        * AuthZ
-    * Control-Plane
-
-* Networking - features relating to controlling the traffic of the service mesh.
-    * Routing
-    * Short-Circuiting
-    * Mirroring

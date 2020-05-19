@@ -15,28 +15,19 @@
 # Edit this file to add more feature labels for the testing dashboard
 # Each element must be a map key in order to be valid yaml.
 features:
-  observability:
-  traffic:
-    circuit-breakers:
-        fail-gracefully:
+  observability: # features that relate to measuring or exploring your service mesh or the services which comprise it.
+    telemetry:
+    tracing:
+  traffic: # features relating to controlling the traffic of the service mesh.
+    routing:
+    short-circuiting:
+    mirroring:
   usability:
     observability:
       status:
-        default-exists:
-    introspection:
-      status:
-        distribution:
-          immediately-false:
-          eventually-true:
-        analysis:
-          contains-message-when-false:
-          true-when-warn-only:
-  security:
-    certificates:
-      citadel:
-      lets-encrypt:
-      spire:
-    mTLS:
-      on-by-default:
-  extensibility:
-  installation:
+  security: # features that allow users to secure their services and service mesh.
+    peer:
+    user:
+    control-plane:
+  extensibility: # features which allow extending or deep integrations with istio and other products
+  installation: # features releated to the lifecycle of istio installations
