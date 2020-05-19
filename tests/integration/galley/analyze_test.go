@@ -77,10 +77,15 @@ func TestFileOnly(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			// Validation error if we have a gateway with invalid selector
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, gatewayFile)
+			// Validation error if we have a virtual service with subset not defined.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, virtualServiceFile)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+
+			// Error goes away if we define the subset in the destination rule.
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, destinationRuleFile)
+			expectNoMessages(t, g, output)
+			g.Expect(err).To(BeNil())
 		})
 }
 
