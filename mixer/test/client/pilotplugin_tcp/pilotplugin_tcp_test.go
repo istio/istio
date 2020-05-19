@@ -20,7 +20,7 @@ import (
 	"net"
 	"testing"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -182,7 +182,7 @@ func TestPilotPluginTCP(t *testing.T) {
 
 type mock struct{}
 
-func (mock) ID(*core.Node) string {
+func (mock) ID(*corev2.Node) string {
 	return id
 }
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
@@ -227,8 +227,8 @@ var (
 	}
 )
 
-func makeListener(port uint16, cluster string) *v2.Listener {
-	return &v2.Listener{
+func makeListener(port uint16, cluster string) *listener.Listener {
+	return &listener.Listener{
 		Name: cluster,
 		Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 			Address:       "127.0.0.1",

@@ -21,7 +21,7 @@ import (
 	"net"
 	"testing"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -190,7 +190,7 @@ func TestGateway(t *testing.T) {
 	go func() {
 		_ = grpcServer.Serve(lis)
 	}()
-	defer grpcServer.GracefulStop()
+	defer grpcServer.Stop()
 
 	s.SetMixerSourceUID("pod.ns")
 
@@ -232,7 +232,7 @@ func TestGateway(t *testing.T) {
 
 type mock struct{}
 
-func (mock) ID(*core.Node) string {
+func (mock) ID(*corev2.Node) string {
 	return id
 }
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
@@ -287,8 +287,8 @@ var (
 	}
 )
 
-func makeRoute(cluster string) *v2.RouteConfiguration {
-	return &v2.RouteConfiguration{
+func makeRoute(cluster string) *route.RouteConfiguration {
+	return &route.RouteConfiguration{
 		Name: cluster,
 		VirtualHosts: []*route.VirtualHost{{
 			Name:    cluster,
@@ -303,8 +303,8 @@ func makeRoute(cluster string) *v2.RouteConfiguration {
 	}
 }
 
-func makeListener(port uint16, route string) (*v2.Listener, *hcm.HttpConnectionManager) {
-	return &v2.Listener{
+func makeListener(port uint16, route string) (*listener.Listener, *hcm.HttpConnectionManager) {
+	return &listener.Listener{
 			Name: route,
 			Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 				Address:       "127.0.0.1",

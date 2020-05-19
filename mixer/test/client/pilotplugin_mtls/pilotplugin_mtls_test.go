@@ -20,12 +20,12 @@ import (
 	"net"
 	"testing"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
@@ -313,7 +313,7 @@ func TestPilotPlugin(t *testing.T) {
 
 type mock struct{}
 
-func (mock) ID(*core.Node) string {
+func (mock) ID(*corev2.Node) string {
 	return id
 }
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
@@ -379,8 +379,8 @@ var (
 	}
 )
 
-func makeRoute(cluster string) *v2.RouteConfiguration {
-	return &v2.RouteConfiguration{
+func makeRoute(cluster string) *route.RouteConfiguration {
+	return &route.RouteConfiguration{
 		Name: cluster,
 		VirtualHosts: []*route.VirtualHost{{
 			Name:    cluster,
@@ -395,8 +395,8 @@ func makeRoute(cluster string) *v2.RouteConfiguration {
 	}
 }
 
-func makeListener(port uint16, route string) (*v2.Listener, *hcm.HttpConnectionManager) {
-	return &v2.Listener{
+func makeListener(port uint16, route string) (*listener.Listener, *hcm.HttpConnectionManager) {
+	return &listener.Listener{
 			Name: route,
 			Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 				Address:       "127.0.0.1",
@@ -435,19 +435,22 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(serverManager)},
 		}},
 		// turn on mTLS on downstream
-		TlsContext: &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{{
-					CertificateChain: &core.DataSource{Specifier: &core.DataSource_Filename{Filename: "testdata/server.cert"}},
-					PrivateKey:       &core.DataSource{Specifier: &core.DataSource_Filename{Filename: "testdata/server-key.cert"}},
-				}},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{Specifier: &core.DataSource_Filename{Filename: "testdata/root.cert"}},
+		TransportSocket: &core.TransportSocket{
+			Name: wellknown.TransportSocketTls,
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: pilotutil.MessageToAny(&auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					TlsCertificates: []*auth.TlsCertificate{{
+						CertificateChain: &core.DataSource{Specifier: &core.DataSource_Filename{Filename: "testdata/server.cert"}},
+						PrivateKey:       &core.DataSource{Specifier: &core.DataSource_Filename{Filename: "testdata/server-key.cert"}},
+					}},
+					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+						ValidationContext: &auth.CertificateValidationContext{
+							TrustedCa: &core.DataSource{Specifier: &core.DataSource_Filename{Filename: "testdata/root.cert"}},
+						},
 					},
 				},
-			},
-			RequireClientCertificate: proto.BoolTrue,
+				RequireClientCertificate: proto.BoolTrue,
+			})},
 		},
 	}}
 
