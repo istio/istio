@@ -1061,10 +1061,8 @@ func rewriteCniPodSpec(annotations map[string]string, spec *SidecarInjectionSpec
 // This is needed when webconfig config runs on a different cluster than webhook
 func overwriteClusterInfo(containers []corev1.Container, path string) {
 	res := strings.Split(path, "/")
-	if len(res) < 5 {
-		// not enough length for /cluster/X/net/Y
-		return
-	} else {
+	if len(res) >= 5 {
+		// if len is less than 5, not enough length for /cluster/X/net/Y
 		clusterName, clusterNetwork := "", ""
 		clusterName = res[len(res)-3]
 		clusterNetwork = res[len(res)-1]
@@ -1073,8 +1071,9 @@ func overwriteClusterInfo(containers []corev1.Container, path string) {
 
 		for _, c := range containers {
 			if c.Name == ProxyContainerName {
-				c.Env = append(c.Env, corev1.EnvVar{Name: "ISTIO_META_CLUSTER_ID", Value: clusterName})
-				c.Env = append(c.Env, corev1.EnvVar{Name: "ISTIO_META_NETWORK", Value: clusterNetwork})
+				c.Env = append(c.Env,
+					corev1.EnvVar{Name: "ISTIO_META_NETWORK", Value: clusterNetwork},
+					corev1.EnvVar{Name: "ISTIO_META_CLUSTER_ID", Value: clusterName})
 			}
 		}
 	}
