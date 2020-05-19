@@ -475,7 +475,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.EnvoyXdsServer.Register(s.grpcServer)
-	reflection.Register(s.secureGrpcServer)
+	reflection.Register(s.grpcServer)
 }
 
 // initDNSServer initializes gRPC DNS Server for DNS resolutions.
