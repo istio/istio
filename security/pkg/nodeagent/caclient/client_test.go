@@ -47,15 +47,11 @@ func TestNewCAClient(t *testing.T) {
 			provider:    googleCAName,
 			expectedErr: "",
 		},
-		"Vault CA": {
-			provider:    vaultCAName,
-			expectedErr: "",
-		},
 		// TODO: Unit-test Citadel CA (need to bypass kube.CreateClientset).
 	}
 
 	for id, tc := range testCases {
-		_, err := NewCAClient("abc:0", tc.provider, false, nil, "", "", "", "")
+		_, err := NewCAClient("abc:0", tc.provider, false)
 		if tc.expectedErr == "" {
 			if err != nil {
 				t.Errorf("Test case [%s]: Expect no error, got %q",
