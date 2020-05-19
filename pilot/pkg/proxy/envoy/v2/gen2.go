@@ -49,8 +49,8 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
-		if s.internalGen != nil {
-			s.internalGen.OnNack(con.node, discReq)
+		if s.InternalGen != nil {
+			s.InternalGen.OnNack(con.node, discReq)
 		}
 		return w, true
 	}
@@ -100,6 +100,9 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 		TypeUrl:     w.TypeUrl,
 		VersionInfo: push.Version, // TODO: we can now generate per-type version !
 		Nonce:       nonce(push.Version),
+	}
+	if push.Version == "" { // Usually in tests.
+		resp.VersionInfo = resp.Nonce
 	}
 
 	// XdsResourceGenerator is the default generator for this connection. We want to allow

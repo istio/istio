@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	TypeURLConnect = "istio.io/connect"
-	TypeURLDisconnect = "istio.io/disconnect"
+	TypeURLConnections = "istio.io/connections"
+	TypeURLDisconnect  = "istio.io/disconnect"
 
 	// TODO: TypeURLReady - readiness events for endpoints, agent can propagate
 
@@ -45,7 +45,7 @@ type InternalGen struct {
 }
 
 func (sg *InternalGen) OnConnect(node *core.Node) {
-	sg.startPush(TypeURLConnect, []*any.Any{util.MessageToAny(node)})
+	sg.startPush(TypeURLConnections, []*any.Any{util.MessageToAny(node)})
 }
 
 func (sg *InternalGen) OnDisconnect(node *core.Node) {
@@ -93,7 +93,7 @@ func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
 func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	res := []*any.Any{}
 	switch w.TypeUrl {
-	case TypeURLConnect:
+	case TypeURLConnections:
 		sg.Server.adsClientsMutex.RLock()
 		// Create a temp map to avoid locking the add/remove
 		for _, v := range sg.Server.adsClients {

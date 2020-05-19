@@ -916,6 +916,10 @@ func (s *Server) initGenerators() {
 	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
 	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
 	s.EnvoyXdsServer.Generators["api/"+envoyv2.EndpointType] = epGen
+	s.EnvoyXdsServer.InternalGen = &envoyv2.InternalGen{
+		Server: s.EnvoyXdsServer,
+	}
+	s.EnvoyXdsServer.Generators["event"] = s.EnvoyXdsServer.InternalGen
 }
 
 // initJwtPolicy initializes JwtPolicy.

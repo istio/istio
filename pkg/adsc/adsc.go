@@ -67,6 +67,20 @@ type Config struct {
 	// IP is currently the primary key used to locate inbound configs. It is sent by client,
 	// must match a known endpoint IP. Tests can use a ServiceEntry to register fake IPs.
 	IP string
+
+	// CertDir is the directory where mTLS certs are configured.
+	// If emtpy, an insecure connection will be used.
+	// TODO: also allow passing in-memory certs.
+	CertDir string
+
+	// Watch is a list of resources to watch, represented as URLs (for new XDS resource naming)
+	// or type URLs.
+	Watch []string
+
+	// InitialReconnectDelay is the time to wait before attempting to reconnect.
+	// If empty reconnect will not be attempted.
+	// TODO: client will use exponential backoff to reconnect.
+	InitialReconnectDelay time.Duration
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -134,6 +148,11 @@ type ADSC struct {
 	// TODO: also load at startup - so we can support warm up in init-container, and survive
 	// restarts.
 	LocalCacheDir string
+
+	cfg *Config
+
+	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
+	sendNodeMeta bool
 }
 
 const (
@@ -151,6 +170,9 @@ var (
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
+	if opts == nil {
+		opts = &Config{}
+	}
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),
 		XDSUpdates:  make(chan *xdsapi.DiscoveryResponse, 100),
@@ -158,6 +180,10 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		certDir:     certDir,
 		url:         url,
 		Received:    map[string]*xdsapi.DiscoveryResponse{},
+		cfg:				 opts,
+	}
+	if certDir != "" {
+		opts.CertDir = certDir
 	}
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
@@ -229,11 +255,12 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 // Close the stream.
 func (a *ADSC) Close() {
 	a.mutex.Lock()
-	a.conn.Close()
+	_ = a.stream.CloseSend()
+	_ = a.conn.Close()
 	a.mutex.Unlock()
 }
 
-// Run will run the ADS client.
+// Run will run one connection to the ADS client.
 func (a *ADSC) Run() error {
 
 	// TODO: pass version info, nonce properly
@@ -266,6 +293,15 @@ func (a *ADSC) Run() error {
 		return err
 	}
 	a.stream = edsstr
+	a.sendNodeMeta = true
+
+	// Send the initial requests
+	for _, r := range a.cfg.Watch {
+		a.Send(&xdsapi.DiscoveryRequest{
+			TypeUrl: r,
+		})
+	}
+
 	go a.handleRecv()
 	return nil
 }
@@ -422,7 +458,6 @@ func (a *ADSC) handleRecv() {
 		default:
 		}
 	}
-
 }
 
 func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
@@ -671,12 +706,19 @@ func (a *ADSC) node() *core.Node {
 			}}
 	} else {
 		n.Metadata = a.Metadata
+		if a.Metadata.Fields["ISTIO_VERSION"] == nil {
+			a.Metadata.Fields["ISTIO_VERSION"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}}
+		}
 	}
 	return n
 }
 
+// Raw send of a request.
 func (a *ADSC) Send(req *xdsapi.DiscoveryRequest) error {
-	req.Node = a.node()
+	if a.sendNodeMeta {
+		req.Node = a.node()
+		a.sendNodeMeta = false
+	}
 	req.ResponseNonce = time.Now().String()
 	return a.stream.Send(req)
 }
@@ -782,7 +824,22 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	for {
 		select {
 		case t := <-a.Updates:
-			delete(want, t)
+			if t == "" {
+				return got, fmt.Errorf("closed")
+			}
+			toDelete := t
+			// legacy names, still used in tests.
+			switch t {
+			case ListenerType:
+				delete(want, "lds")
+			case v2.ClusterTypeV3:
+				delete(want, "cds")
+			case v2.EndpointTypeV3:
+				delete(want, "eds")
+			case routeType:
+				delete(want, "rds")
+			}
+			delete(want, toDelete)
 			got = append(got, t)
 			if len(want) == 0 {
 				return got, nil
