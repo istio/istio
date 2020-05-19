@@ -51,8 +51,16 @@ func getTLSCerts(pc meshconfig.ProxyConfig) []string {
 		if rs.TlsSettings.Mode == networking.ClientTLSSettings_DISABLE {
 			return
 		}
-		certs = append(certs, rs.TlsSettings.CaCertificates, rs.TlsSettings.ClientCertificate,
-			rs.TlsSettings.PrivateKey)
+		//append only if the elements are not null.
+		if rs.TlsSettings.CaCertificates != "" {
+			certs = append(certs, rs.TlsSettings.CaCertificates)
+		}
+		if rs.TlsSettings.ClientCertificate != "" {
+			certs = append(certs, rs.TlsSettings.ClientCertificate)
+		}
+		if rs.TlsSettings.PrivateKey != "" {
+			certs = append(certs, rs.TlsSettings.PrivateKey)
+		}
 	}
 	if pc.EnvoyMetricsService != nil {
 		appendTLSCerts(pc.EnvoyMetricsService)

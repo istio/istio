@@ -578,8 +578,8 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
-	if node.ClusterID != "" && s.ClusterVIPs[node.ClusterID] != "" {
-		return s.ClusterVIPs[node.ClusterID]
+	if node.Metadata != nil && node.Metadata.ClusterID != "" && s.ClusterVIPs[node.Metadata.ClusterID] != "" {
+		return s.ClusterVIPs[node.Metadata.ClusterID]
 	}
 	return s.Address
 }
