@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	enrollPath = ""
+	enrollPath = "KeyfactorAPI/Enrollment/CSR"
 )
 
 var (
@@ -77,13 +77,13 @@ func LoadKeyfactorConfigFromENV() (*KeyfactorConfig, error) {
 		CaTemplate: caTemplateENV.Get(),
 		EnrollPath: enrollPath,
 	}
+
 	metadataJSON := []byte(metadataENV.Get())
 	metadatas := make([]FieldAlias, 0)
 
 	configLog.Infof("Load metadata config for keyfactor")
 	if err := json.Unmarshal(metadataJSON, &metadatas); err != nil {
-		configLog.Errorf("Cannot parse data from KEYFACTOR_METADATA_JSON (.keyfactor.metadata)")
-		return nil, fmt.Errorf("Cannot parse data from KEYFACTOR_METADATA_JSON (.keyfactor.metadata): %v", err)
+		configLog.Warn("Cannot parse data from KEYFACTOR_METADATA_JSON (.keyfactor.metadata). Metadata is ignore now.")
 	}
 	conf.CustomMetadatas = metadatas
 	configLog.Infof("Validate Keyfactor config\n%v", conf)

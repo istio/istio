@@ -539,35 +539,34 @@ message GlobalConfig {
   // Controls whether one central istiod is enabled.
   google.protobuf.BoolValue centralIstiod = 62;
   
-
   // The name of the CA Provider for customize provider to sign CSR. Eg: Citadel, GoogleCA, KeyfactorCA
   string caProvider = 63;
 
-  // Name of secret contains config of keyfactor, just in case using the secret instead of yaml file
-  string keyfactorSecretName = 64;
-
   // Object contains KeyfactorCA configuration
-  KeyfactorConfiguration keyfactor = 65;
+  KeyfactorConfiguration keyfactor = 64;
 
-  // The next available key is 66
+  // The next available key is 65
 }
 
 // Configure the external CA Provider by Keyfactor.
 message KeyfactorConfiguration {
+  // Name of secret contains config of keyfactor, just in case using the secret instead of yaml file
+  string secretName = 1;
+
   // Name of certificate authorization
-  string caName = 1;
+  string caName = 2;
   
   // Use for authentication header
-  string authToken = 2;
+  string authToken = 3;
 
   // ApiKey from Api Setting
-  string appKey = 3;
+  string appKey = 4;
 
   // Name of template to enroll new certificate
-  string caTemplate = 4;
+  string caTemplate = 5;
 
   // Custom metadata to use on SignCSR request (support: Cluster, Service, PodName, PodNamespace, TrustDomain)
-  repeated KeyfactorMetadataConfig metadata = 5;
+  repeated KeyfactorMetadataConfig metadata = 6;
   
 }
 

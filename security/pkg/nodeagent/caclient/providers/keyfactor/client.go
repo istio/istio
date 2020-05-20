@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -44,11 +46,12 @@ type KeyfactorCAClientMetadata struct {
 
 // KeyFactorCAClient struct to define http client for KeyfactorCA
 type KeyFactorCAClient struct {
-	CaEndpoint    string
-	EnableTLS     bool
-	Client        *http.Client
-	Metadata      *KeyfactorCAClientMetadata
-	ClientOptions *KeyfactorConfig
+	CaEndpoint      string
+	EnableTLS       bool
+	Client          *http.Client
+	CustomMetadatas map[string]string
+	Metadata        *KeyfactorCAClientMetadata
+	ClientOptions   *KeyfactorConfig
 }
 
 type san struct {
@@ -56,21 +59,14 @@ type san struct {
 	DNS []string `json:"dns"`
 }
 
-type metadata struct {
-	Cluster      string `json:"Cluster"`
-	Service      string `json:"Service"`
-	PodName      string `json:"PodName"`
-	PodNamespace string `json:"PodNamespace"`
-}
-
 type keyfactorRequestPayload struct {
-	CSR                  string   `json:"CSR"`
-	CertificateAuthority string   `json:"CertificateAuthority"`
-	IncludeChain         bool     `json:"IncludeChain"`
-	TimeStamp            string   `json:"TimeStamp"`
-	Template             string   `json:"Template"`
-	SANs                 san      `json:"SANs"`
-	Metadata             metadata `json:"Metadata"`
+	CSR                  string            `json:"CSR"`
+	CertificateAuthority string            `json:"CertificateAuthority"`
+	IncludeChain         bool              `json:"IncludeChain"`
+	TimeStamp            string            `json:"TimeStamp"`
+	Template             string            `json:"Template"`
+	SANs                 san               `json:"SANs"`
+	Metadata             map[string]string `json:"Metadata"`
 }
 
 // CertificateInformation response structure for keyfactor server
@@ -100,11 +96,45 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 		return nil, fmt.Errorf("Cannot load keyfactor config: %v", err)
 	}
 
+	keyFactorCAClientLog.Infof("Create keyfactor metadatas: %v", keyfactorConfig.CustomMetadatas)
+
+	customMetadatas := make(map[string]string)
+
+	for _, field := range keyfactorConfig.CustomMetadatas {
+		switch field.Name {
+		case "Cluster":
+			customMetadatas[field.Alias] = metadata.ClusterID
+
+		case "Service":
+			serviceName := metadata.PodName
+			if splitPodName := strings.Split(metadata.PodName, "-"); len(splitPodName) > 2 {
+				// example: service-name-A-v1-roiwe0239-24jfef9 => service-name-A-v1
+				arrayOfServiceNames := splitPodName[0 : len(splitPodName)-2]
+				serviceName = strings.Join(arrayOfServiceNames, "-")
+			}
+			customMetadatas[field.Alias] = serviceName
+
+		case "PodName":
+			customMetadatas[field.Alias] = metadata.PodName
+
+		case "PodNamespace":
+			customMetadatas[field.Alias] = metadata.PodNamespace
+
+		case "PodIP":
+			customMetadatas[field.Alias] = metadata.PodIP
+
+		case "TrustDomain":
+			customMetadatas[field.Alias] = metadata.TrustDomain
+
+		}
+	}
+
 	c := &KeyFactorCAClient{
-		CaEndpoint:    endpoint,
-		EnableTLS:     enableTLS,
-		Metadata:      metadata,
-		ClientOptions: keyfactorConfig,
+		CaEndpoint:      endpoint,
+		EnableTLS:       enableTLS,
+		CustomMetadatas: customMetadatas,
+		Metadata:        metadata,
+		ClientOptions:   keyfactorConfig,
 	}
 
 	if !enableTLS {
@@ -123,12 +153,12 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 		// Load the system default root certificates.
 		pool, err := x509.SystemCertPool()
 		if err != nil {
-			keyFactorCAClientLog.Errorf("could not get SystemCertPool: %v", err)
-			return nil, fmt.Errorf("could not get SystemCertPool: %v", err)
+			keyFactorCAClientLog.Errorf("Could not get SystemCertPool: %v", err)
+			return nil, fmt.Errorf("Could not get SystemCertPool: %v", err)
 		}
 
 		if pool == nil {
-			log.Info("system cert pool is nil, create a new cert pool")
+			log.Info("System cert pool is nil, create a new cert pool")
 			pool = x509.NewCertPool()
 		}
 
@@ -158,16 +188,7 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 func (cl *KeyFactorCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, subjectID string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 
-	serviceName := cl.Metadata.PodName
-
-	if splitPodName := strings.Split(cl.Metadata.PodName, "-"); len(splitPodName) > 2 {
-
-		// example: service-name-A-v1-roiwe0239-24jfef9 => service-name-A-v1
-		arrayOfServiceNames := splitPodName[0 : len(splitPodName)-2]
-		serviceName = strings.Join(arrayOfServiceNames, "-")
-	}
-
-	keyFactorCAClientLog.Infof("- Start sign CSR for service: (%s), in namespace: (%s)", serviceName, cl.Metadata.PodNamespace)
+	keyFactorCAClientLog.Infof("Start sign Keyfactor CSR request:")
 
 	bytesRepresentation, err := json.Marshal(keyfactorRequestPayload{
 		CSR:                  string(csrPEM),
@@ -175,24 +196,26 @@ func (cl *KeyFactorCAClient) CSRSign(ctx context.Context, reqID string, csrPEM [
 		IncludeChain:         true,
 		Template:             cl.ClientOptions.CaTemplate,
 		TimeStamp:            time.Now().Format(time.RFC3339),
+		Metadata:             cl.CustomMetadatas,
 		SANs: san{
-			DNS: []string{cl.Metadata.TrustDomain},
+			DNS: []string{cl.Metadata.ClusterID},
 			IP4: []string{cl.Metadata.PodIP},
-		},
-		Metadata: metadata{
-			Cluster:      cl.Metadata.ClusterID,
-			Service:      serviceName,
-			PodName:      cl.Metadata.PodName,
-			PodNamespace: cl.Metadata.PodNamespace,
 		},
 	})
 
-	enrollCSRPath := cl.ClientOptions.EnrollPath
-
-	requestCSR, err := http.NewRequest("POST", cl.CaEndpoint+enrollCSRPath, bytes.NewBuffer(bytesRepresentation))
+	u, err := url.Parse(cl.CaEndpoint)
 
 	if err != nil {
-		return nil, fmt.Errorf("Cannot create request with url: %v", cl.CaEndpoint+enrollCSRPath)
+		return nil, fmt.Errorf("Invalid caAddress: %v (%v)", cl.CaEndpoint, err)
+	}
+
+	u.Path = path.Join(u.Path, cl.ClientOptions.EnrollPath)
+	enrollCSRPath := u.String()
+
+	requestCSR, err := http.NewRequest("POST", enrollCSRPath, bytes.NewBuffer(bytesRepresentation))
+
+	if err != nil {
+		return nil, fmt.Errorf("Cannot create request with url: %v", enrollCSRPath)
 	}
 
 	requestCSR.Header.Set("authorization", cl.ClientOptions.AuthToken)
@@ -208,7 +231,7 @@ func (cl *KeyFactorCAClient) CSRSign(ctx context.Context, reqID string, csrPEM [
 
 	res, err := cl.Client.Do(requestCSR)
 	if err != nil {
-		return nil, fmt.Errorf("Could not request to KeyfactorCA server: %v", cl.CaEndpoint)
+		return nil, fmt.Errorf("Could not request to KeyfactorCA server: %v %v", cl.CaEndpoint, err)
 	}
 	defer res.Body.Close()
 	status := res.StatusCode
@@ -235,7 +258,7 @@ func getCertFromResponse(jsonResponse *KeyfactorResponse) []string {
 		certChains = append(certChains, fmt.Sprintf(template, i))
 	}
 
-	keyFactorCAClientLog.Infof("- Keyfactor response %v certificates in certchain.", len(certChains))
+	keyFactorCAClientLog.Infof("Keyfactor response %v certificates in certchain.", len(certChains))
 
 	return certChains
 }

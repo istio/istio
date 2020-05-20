@@ -49,7 +49,14 @@ data:
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "keyfactorSecretName": "",
+        "keyfactor": {
+          "appKey": "",
+          "authToken": "",
+          "caName": "",
+          "caTemplate": "",
+          "metadata": [],
+          "secretName": ""
+        },
         "localityLbSetting": {
           "enabled": true
         },
@@ -403,41 +410,41 @@ data:
           value: {{ .Values.global.caProvider }}
         {{- end }}
         {{- if eq .Values.global.caProvider "KeyfactorCA" }}
-        {{- if ne .Values.global.keyfactorSecretName ""  }}
+        {{- if ne .Values.global.keyfactor.secretName ""  }}
         - name: KEYFACTOR_CA
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.global.keyfactorSecretName }}
+              name: {{ .Values.global.keyfactor.secretName }}
               key: "caName"
         - name: KEYFACTOR_AUTH_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.global.keyfactorSecretName }}
+              name: {{ .Values.global.keyfactor.secretName }}
               key: "authToken"
         - name: KEYFACTOR_APPKEY
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.global.keyfactorSecretName }}
+              name: {{ .Values.global.keyfactor.secretName }}
               key: "appKey"
         - name: KEYFACTOR_CA_TEMPLATE
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.global.keyfactorSecretName }}
+              name: {{ .Values.global.keyfactor.secretName }}
               key: "caTemplate"
         {{- else}}
         - name: KEYFACTOR_CA
-          value: {{ .Value.global.keyfactor.caName }}
+          value: {{ .Values.global.keyfactor.caName }}
         - name: KEYFACTOR_AUTH_TOKEN
-          value: {{ .Value.global.keyfactor.authToken }}
+          value: {{ .Values.global.keyfactor.authToken }}
         - name: KEYFACTOR_APPKEY
-          value: {{ .Value.global.keyfactor.appKey }}
+          value: {{ .Values.global.keyfactor.appKey }}
         - name: KEYFACTOR_CA_TEMPLATE
-          value: {{ .Value.global.keyfactor.caTemplate }}
+          value: {{ .Values.global.keyfactor.caTemplate }}
         {{- end }}
-        {{- if .Value.global.keyfactor.metadata }}
+        {{- if .Values.global.keyfactor.metadata }}
         - name: "KEYFACTOR_METADATA_JSON"
           value: |
-                  {{ toJSON .Value.global.keyfactor.metadata}}
+                 {{ toJson .Values.global.keyfactor.metadata}}
         {{- end }}
         {{- end }}
         - name: POD_NAME
