@@ -100,7 +100,7 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 			case <-ctx.Done():
 				if r.cm != nil {
 					// TODO: is the use of a cancelled context here a problem?  Maybe set a short timeout context?
-					if err := r.client.Delete(ctx, r.cm.Name, metav1.DeleteOptions{}); err != nil {
+					if err := r.client.Delete(context.Background(), r.cm.Name, metav1.DeleteOptions{}); err != nil {
 						scope.Errorf("failed to properly clean up distribution report: %v", err)
 					}
 				}
@@ -239,6 +239,13 @@ type distributionEvent struct {
 	conID   string
 	xdsType string
 	nonce   string
+}
+
+func (r *Reporter) QueryLastNonce(conID string, xdsType string) string {
+	key := conID + xdsType
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.status[key]
 }
 
 // Register that a dataplane has acknowledged a new version of the config.
