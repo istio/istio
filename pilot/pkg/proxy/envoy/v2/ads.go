@@ -114,7 +114,7 @@ type XdsConnection struct {
 
 	// Original node metadata, to avoid unmarshall/marshall. This is included
 	// in internal events.
-	meta *core.Node
+	xdsNode *core.Node
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -510,7 +510,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) er
 	con.mu.Lock()
 	con.node = proxy
 	con.ConID = connectionID(node.Id)
-	con.meta = node
+	con.xdsNode = node
 	s.addCon(con.ConID, con)
 	con.mu.Unlock()
 

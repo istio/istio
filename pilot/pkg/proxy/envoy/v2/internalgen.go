@@ -97,7 +97,7 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		sg.Server.adsClientsMutex.RLock()
 		// Create a temp map to avoid locking the add/remove
 		for _, v := range sg.Server.adsClients {
-				res = append(res, util.MessageToAny(v.meta))
+				res = append(res, util.MessageToAny(v.xdsNode))
 		}
 		sg.Server.adsClientsMutex.RUnlock()
 	}
