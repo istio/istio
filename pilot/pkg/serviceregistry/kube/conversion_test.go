@@ -156,6 +156,7 @@ func TestServiceConversion(t *testing.T) {
 		},
 		Spec: coreV1.ServiceSpec{
 			ClusterIP: ip,
+			Selector: map[string]string{"foo":"bar"},
 			Ports: []coreV1.ServicePort{
 				{
 					Name:     "http",
@@ -196,6 +197,11 @@ func TestServiceConversion(t *testing.T) {
 
 	if service.Address != ip {
 		t.Fatalf("service IP incorrect => %q, want %q", service.Address, ip)
+	}
+
+	if !reflect.DeepEqual(service.Attributes.LabelSelectors, localSvc.Spec.Selector) {
+		t.Fatalf("service label selectors incorrect => %q, want %q",service.Attributes.LabelSelectors,
+			localSvc.Spec.Selector)
 	}
 
 	sa := service.ServiceAccounts

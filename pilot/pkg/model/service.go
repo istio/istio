@@ -363,6 +363,10 @@ type ServiceAttributes struct {
 	// a namespace when the namespace is imported.
 	ExportTo map[visibility.Instance]bool
 
+	// LabelSelectors are the labels used by the service to select workloads.
+	// Applicable to both Kubernetes and ServiceEntries.
+	LabelSelectors map[string]string
+
 	// For Kubernetes platform
 
 	// ClusterExternalAddresses is a mapping between a cluster name and the external
