@@ -24,6 +24,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"istio.io/istio/pkg/adsc"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -89,8 +90,7 @@ func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedReso
 // sending a more realistic mode metadata.
 func connectADSC(url string, cfg *adsc.Config) (*adsc.ADSC, util.TearDownFunc, error) {
 	if cfg == nil {
-		cfg = &adsc.Config{
-		}
+		cfg = &adsc.Config{}
 	}
 
 	if cfg.IP == "" {

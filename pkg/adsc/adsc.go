@@ -69,7 +69,7 @@ type Config struct {
 	IP string
 
 	// CertDir is the directory where mTLS certs are configured.
-	// If emtpy, an insecure connection will be used.
+	// If empty, an insecure connection will be used.
 	// TODO: also allow passing in-memory certs.
 	CertDir string
 
@@ -180,7 +180,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		certDir:     certDir,
 		url:         url,
 		Received:    map[string]*xdsapi.DiscoveryResponse{},
-		cfg:				 opts,
+		cfg:         opts,
 	}
 	if certDir != "" {
 		opts.CertDir = certDir
@@ -297,7 +297,7 @@ func (a *ADSC) Run() error {
 
 	// Send the initial requests
 	for _, r := range a.cfg.Watch {
-		a.Send(&xdsapi.DiscoveryRequest{
+		_ = a.Send(&xdsapi.DiscoveryRequest{
 			TypeUrl: r,
 		})
 	}

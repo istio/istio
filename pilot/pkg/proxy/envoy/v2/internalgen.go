@@ -15,12 +15,12 @@
 package v2
 
 import (
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"istio.io/istio/pilot/pkg/networking/util"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 const (
@@ -33,7 +33,6 @@ const (
 	// the 'NACK' from envoy on rejected configs. Only ID is set in metadata.
 	// This includes all the info that envoy (client) provides.
 	TypeURLNACK = "istio.io/nack"
-
 )
 
 // InternalGen is a Generator for XDS status updates: connect, disconnect, nacks, acks
@@ -44,11 +43,11 @@ type InternalGen struct {
 	// On new connect, use version to send recent events since last update.
 }
 
-func (sg *InternalGen) OnConnect(node *core.Node) {
+func (sg *InternalGen) OnConnect(node gogoproto.Message) {
 	sg.startPush(TypeURLConnections, []*any.Any{util.MessageToAny(node)})
 }
 
-func (sg *InternalGen) OnDisconnect(node *core.Node) {
+func (sg *InternalGen) OnDisconnect(node gogoproto.Message) {
 	sg.startPush(TypeURLDisconnect, []*any.Any{util.MessageToAny(node)})
 }
 
@@ -63,7 +62,7 @@ func (sg *InternalGen) OnNack(node *model.Proxy, dr *xdsapi.DiscoveryRequest) {
 // We also want connection events to be dispatched as soon as possible,
 // they may be consumed by other instances of Istiod to update internal state.
 func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
-// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
+	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
 	sg.Server.adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
@@ -76,12 +75,22 @@ func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
 	sg.Server.adsClientsMutex.RUnlock()
 
 	dr := &xdsapi.DiscoveryResponse{
-		TypeUrl: typeURL,
+		TypeUrl:   typeURL,
 		Resources: data,
 	}
 
 	for _, p := range pending {
-		p.send(dr)
+		// p.send() waits for an ACK - which is reasonable for normal push,
+		// but in this case we want to sync fast and not bother with stuck connections.
+		// This is expecting a relatively small number of watchers - each other istiod
+		// plus few admin tools or bridges to real message brokers. The normal
+		// push expects 1000s of envoy connections.
+		go func() {
+			err := p.stream.Send(dr)
+			if err != nil {
+				adsLog.Infoa("Failed to send internal event ", p.ConID, " ", err)
+			}
+		}()
 	}
 }
 
@@ -97,7 +106,7 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		sg.Server.adsClientsMutex.RLock()
 		// Create a temp map to avoid locking the add/remove
 		for _, v := range sg.Server.adsClients {
-				res = append(res, util.MessageToAny(v.xdsNode))
+			res = append(res, util.MessageToAny(v.xdsNode))
 		}
 		sg.Server.adsClientsMutex.RUnlock()
 	}

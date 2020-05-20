@@ -21,6 +21,7 @@ import (
 
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/golang/protobuf/proto"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/adsc"
 
@@ -46,8 +47,8 @@ func TestInternalEvents(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	ldsr, close, err := connectADSC(util.MockPilotGrpcAddr, &adsc.Config{
-		Watch: []string {v2.TypeURLConnections, v2.TypeURLDisconnect},
+	ldsr, close1, err := connectADSC(util.MockPilotGrpcAddr, &adsc.Config{
+		Watch: []string{v2.TypeURLConnections, v2.TypeURLDisconnect},
 		Meta: model.NodeMetadata{
 			Generator: "event",
 		}.ToStruct(),
@@ -55,9 +56,9 @@ func TestInternalEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to connect", err)
 	}
-	defer close()
+	defer close1()
 
-	dr, err := ldsr.WaitVersion(5 * time.Second, v2.TypeURLConnections, "")
+	dr, err := ldsr.WaitVersion(5*time.Second, v2.TypeURLConnections, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +69,7 @@ func TestInternalEvents(t *testing.T) {
 
 	// Create a second connection - we should get an event.
 	_, close2, err := connectADSC(util.MockPilotGrpcAddr, &adsc.Config{
-		Watch: []string {v2.ClusterTypeV3},
+		Watch: []string{v2.ClusterTypeV3},
 	})
 	if err != nil {
 		t.Fatal("Failed to connect", err)
@@ -76,7 +77,7 @@ func TestInternalEvents(t *testing.T) {
 	defer close2()
 
 	//
-	dr, err = ldsr.WaitVersion(5 * time.Second, v2.TypeURLConnections,
+	dr, err = ldsr.WaitVersion(5*time.Second, v2.TypeURLConnections,
 		dr.VersionInfo)
 	if err != nil {
 		t.Fatal(err)
@@ -87,7 +88,6 @@ func TestInternalEvents(t *testing.T) {
 	t.Log(dr.Resources[0])
 
 }
-
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnectWithNonce(t *testing.T) {
