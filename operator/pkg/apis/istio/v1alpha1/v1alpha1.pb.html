@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 97
+number_of_entries: 96
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -1717,28 +1717,6 @@ No
 No
 </td>
 </tr>
-<tr id="GlobalConfig-caProvider">
-<td><code>caProvider</code></td>
-<td><code>string</code></td>
-<td>
-<p>The name of the CA Provider for customize provider to sign CSR. Eg: Citadel, GoogleCA, KeyfactorCA</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GlobalConfig-keyfactor">
-<td><code>keyfactor</code></td>
-<td><code><a href="#KeyfactorConfiguration">KeyfactorConfiguration</a></code></td>
-<td>
-<p>Object contains KeyfactorCA configuration</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="GlobalConfig-defaultNodeSelector" class="deprecated ">
 <td><code>defaultNodeSelector</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -1792,126 +1770,6 @@ No
 <p>Specifies the k8s priorityClassName for the istio control plane components.</p>
 
 <p>See https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="KeyfactorConfiguration">KeyfactorConfiguration</h2>
-<section>
-<p>Configure the external CA Provider by Keyfactor.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KeyfactorConfiguration-secretName">
-<td><code>secretName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Name of secret contains config of keyfactor, just in case using the secret instead of yaml file</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KeyfactorConfiguration-caName">
-<td><code>caName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Name of certificate authorization</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KeyfactorConfiguration-authToken">
-<td><code>authToken</code></td>
-<td><code>string</code></td>
-<td>
-<p>Use for authentication header</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KeyfactorConfiguration-appKey">
-<td><code>appKey</code></td>
-<td><code>string</code></td>
-<td>
-<p>ApiKey from Api Setting</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KeyfactorConfiguration-caTemplate">
-<td><code>caTemplate</code></td>
-<td><code>string</code></td>
-<td>
-<p>Name of template to enroll new certificate</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KeyfactorConfiguration-metadata">
-<td><code>metadata</code></td>
-<td><code><a href="#KeyfactorMetadataConfig">KeyfactorMetadataConfig[]</a></code></td>
-<td>
-<p>Custom metadata to use on SignCSR request (support: Cluster, Service, PodName, PodNamespace, TrustDomain)</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="KeyfactorMetadataConfig">KeyfactorMetadataConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KeyfactorMetadataConfig-name">
-<td><code>name</code></td>
-<td><code>string</code></td>
-<td>
-<p>Name field to get metadata from Istio</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KeyfactorMetadataConfig-alias">
-<td><code>alias</code></td>
-<td><code>string</code></td>
-<td>
-<p>Name alias map to Keyfactor customs metadata name</p>
 
 </td>
 <td>
@@ -5559,6 +5417,17 @@ No
 No
 </td>
 </tr>
+<tr id="SidecarInjectorConfig-injectionURL">
+<td><code>injectionURL</code></td>
+<td><code>string</code></td>
+<td>
+<p>Configure the injection url for sidecar injector webhook</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -6959,6 +6828,43 @@ No
 No
 </td>
 </tr>
+<tr id="BaseConfig-validationURL">
+<td><code>validationURL</code></td>
+<td><code>string</code></td>
+<td>
+<p>URL to use for validating webhook.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IstiodRemoteConfig">IstiodRemoteConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstiodRemoteConfig-injectionURL">
+<td><code>injectionURL</code></td>
+<td><code>string</code></td>
+<td>
+<p>URL to use for sidecar injector webhook.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -7156,6 +7062,15 @@ No
 <tr id="Values-base">
 <td><code>base</code></td>
 <td><code><a href="#BaseConfig">BaseConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-istiodRemote">
+<td><code>istiodRemote</code></td>
+<td><code><a href="#IstiodRemoteConfig">IstiodRemoteConfig</a></code></td>
 <td>
 </td>
 <td>

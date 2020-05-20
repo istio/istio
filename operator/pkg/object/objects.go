@@ -236,6 +236,15 @@ func (os K8sObjects) String() string {
 	return strings.Join(out, helm.YAMLSeparator)
 }
 
+// Keys returns a slice with the keys of os.
+func (os K8sObjects) Keys() []string {
+	var out []string
+	for _, oo := range os {
+		out = append(out, oo.Hash())
+	}
+	return out
+}
+
 // ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest.
 func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 	return ParseK8sObjectsFromYAMLManifestFailOption(manifest, true)

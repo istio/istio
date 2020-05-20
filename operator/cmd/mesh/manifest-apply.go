@@ -45,8 +45,6 @@ type manifestApplyArgs struct {
 	kubeConfigPath string
 	// context is the cluster context in the kube config
 	context string
-	// wait is flag that indicates whether to wait resources ready before exiting.
-	wait bool
 	// readinessTimeout is maximum time to wait for all Istio resources to be ready. wait must be true for this setting
 	// to take effect.
 	readinessTimeout time.Duration
@@ -68,12 +66,8 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use.")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
-		"Wait until all Pods, Services, and minimum number of Pods "+
-			"of a Deployment are in a ready state before the exiting.")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
-		"Maximum time to wait for Istio resources in each component to be ready."+
-			" The --wait flag must be set for this flag to apply.")
+		"Maximum time to wait for Istio resources in each component to be ready.")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
@@ -150,7 +144,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.charts, maArgs.revision), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
-		maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
+		maArgs.kubeConfigPath, maArgs.context, maArgs.readinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
 
@@ -161,19 +155,14 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
-//  wait    block until Services and Deployments are ready, or timeout after waitTimeout
 func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
-	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l clog.Logger) error {
+	kubeConfigPath string, context string, waitTimeout time.Duration, l clog.Logger) error {
 
-	ysf, err := yamlFromSetFlags(setOverlay, force, l)
-	if err != nil {
-		return err
-	}
 	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
 	if err != nil {
 		return err
 	}
-	_, iops, err := GenerateConfig(inFilenames, ysf, force, restConfig, l)
+	_, iops, err := GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
 		return err
 	}
@@ -193,7 +182,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
+	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
 		Force: force}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {

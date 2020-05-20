@@ -52,6 +52,9 @@ var (
 	rtMu sync.Mutex
 )
 
+// getSettingsFunc is a function used to extract the default settings for the Suite.
+type getSettingsFunc func(string) (*resource.Settings, error)
+
 // mRunFn abstracts testing.M.run, so that the framework itself can be tested.
 type mRunFn func(ctx *suiteContext) int
 
@@ -66,7 +69,8 @@ type Suite struct {
 	requireFns []resource.SetupFn
 	setupFns   []resource.SetupFn
 
-	getSettingsFn func(string) (*resource.Settings, error)
+	getSettings getSettingsFunc
+	envFactory  resource.EnvironmentFactory
 }
 
 // NewSuite returns a new suite instance.
@@ -79,15 +83,24 @@ func NewSuite(testID string, m *testing.M) *Suite {
 		getSettings)
 }
 
-func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn func(string) (*resource.Settings, error)) *Suite {
+func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *Suite {
 	s := &Suite{
-		testID:        testID,
-		mRun:          fn,
-		osExit:        osExit,
-		getSettingsFn: getSettingsFn,
-		labels:        label.NewSet(),
+		testID:      testID,
+		mRun:        fn,
+		osExit:      osExit,
+		getSettings: getSettingsFn,
+		labels:      label.NewSet(),
 	}
 
+	return s
+}
+
+// EnvironmentFactory sets a custom function used for creating the resource.Environment for this Suite.
+func (s *Suite) EnvironmentFactory(fn resource.EnvironmentFactory) *Suite {
+	if fn != nil && s.envFactory != nil {
+		scopes.CI.Warn("EnvironmentFactory overridden multiple times for Suite")
+	}
+	s.envFactory = fn
 	return s
 }
 
@@ -237,7 +250,7 @@ func (s *Suite) doSkip(ctx *suiteContext) int {
 }
 
 func (s *Suite) run() (errLevel int) {
-	if err := initRuntime(s.testID, s.labels, s.getSettingsFn); err != nil {
+	if err := initRuntime(s); err != nil {
 		scopes.Framework.Errorf("Error during test framework init: %v", err)
 		return exitCodeInitError
 	}
@@ -365,7 +378,7 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 	return nil
 }
 
-func initRuntime(testID string, labels label.Set, getSettingsFn func(string) (*resource.Settings, error)) error {
+func initRuntime(s *Suite) error {
 	rtMu.Lock()
 	defer rtMu.Unlock()
 
@@ -373,30 +386,35 @@ func initRuntime(testID string, labels label.Set, getSettingsFn func(string) (*r
 		return errors.New("framework is already initialized")
 	}
 
-	s, err := getSettingsFn(testID)
+	settings, err := s.getSettings(s.testID)
 	if err != nil {
 		return err
 	}
-	environmentFactory := s.EnvironmentFactory
+
+	// Get the EnvironmentFactory.
+	environmentFactory := s.envFactory
+	if environmentFactory == nil {
+		environmentFactory = settings.EnvironmentFactory
+	}
 	if environmentFactory == nil {
 		environmentFactory = newEnvironment
 	}
 
-	if err := configureLogging(s.CIMode); err != nil {
+	if err := configureLogging(settings.CIMode); err != nil {
 		return err
 	}
 
 	scopes.CI.Infof("=== Test Framework Settings ===")
-	scopes.CI.Info(s.String())
+	scopes.CI.Info(settings.String())
 	scopes.CI.Infof("===============================")
 
 	// Ensure that the work dir is set.
-	if err := os.MkdirAll(s.RunDir(), os.ModePerm); err != nil {
-		return fmt.Errorf("error creating rundir %q: %v", s.RunDir(), err)
+	if err := os.MkdirAll(settings.RunDir(), os.ModePerm); err != nil {
+		return fmt.Errorf("error creating rundir %q: %v", settings.RunDir(), err)
 	}
-	scopes.Framework.Infof("Test run dir: %v", s.RunDir())
+	scopes.Framework.Infof("Test run dir: %v", settings.RunDir())
 
-	rt, err = newRuntime(s, environmentFactory, labels)
+	rt, err = newRuntime(settings, environmentFactory, s.labels)
 	return err
 }
 
@@ -405,7 +423,11 @@ func newEnvironment(name string, ctx resource.Context) (resource.Environment, er
 	case environment.Native.String():
 		return native.New(ctx)
 	case environment.Kube.String():
-		return kube.New(ctx)
+		s, err := kube.NewSettingsFromCommandLine()
+		if err != nil {
+			return nil, err
+		}
+		return kube.New(ctx, s)
 	default:
 		return nil, fmt.Errorf("unknown environment: %q", name)
 	}

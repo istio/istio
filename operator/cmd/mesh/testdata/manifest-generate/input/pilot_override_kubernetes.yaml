@@ -18,17 +18,31 @@ spec:
           - kind: Deployment
             name: istiod
             patches:
+              # Select list item by value
               - path: spec.template.spec.containers.[name:discovery].args.[30m]
                 value: "60m" # OVERRIDDEN
+              # Select list item by key:value
               - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
                 value: 1234 # OVERRIDDEN
+              # Override with object (note | on value: first line)
               - path: spec.template.spec.containers.[name:discovery].env.[name:POD_NAMESPACE].valueFrom
                 value: |
                   fieldRef:
                     apiVersion: v2
                     fieldPath: metadata.myPath
+              # Deletion of list item
+              - path: spec.template.spec.containers.[name:discovery].env.[name:REVISION]
+              # Deletion of map item
+              - path: spec.template.spec.containers.[name:discovery].securityContext
           - kind: Service
             name: istiod
             patches:
               - path: spec.ports.[name:https-dns].port
                 value: 11111 # OVERRIDDEN
+          # Cluster scope resource
+          - kind: MutatingWebhookConfiguration
+            name: istio-sidecar-injector-istio-control
+            patches:
+              - path: webhooks.[name:sidecar-injector\.istio\.io].clientConfig.service.name
+                value: foo
+

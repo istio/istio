@@ -54,9 +54,11 @@ type KeyCertBundle interface {
 	CertOptions() (*CertOptions, error)
 
 	// ExtractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
+	// An error indicates the certificate is expired.
 	ExtractRootCertExpiryTimestamp() (float64, error)
 
 	// ExtractCACertExpiryTimestamp returns the unix timestamp when the CA cert becomes expires.
+	// An error indicates the certificate is expired.
 	ExtractCACertExpiryTimestamp() (float64, error)
 }
 

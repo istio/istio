@@ -34,7 +34,7 @@ import (
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {
 	trustDomain := "testdomain.com"
-	jwtPolicy := jwt.JWTPolicyThirdPartyJWT
+	jwtPolicy := jwt.PolicyThirdParty
 
 	authenticator := NewKubeJWTAuthenticator(nil, "kubernetes", nil, trustDomain, jwtPolicy)
 	expectedAuthenticator := &KubeJWTAuthenticator{
@@ -98,7 +98,7 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			jwtPolicy:      jwt.JWTPolicyFirstPartyJWT,
+			jwtPolicy:      jwt.PolicyFirstParty,
 			expectedErrMsg: "failed to validate the JWT: the token is not authenticated",
 		},
 		"token authenticated": {
@@ -109,7 +109,7 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			jwtPolicy:      jwt.JWTPolicyFirstPartyJWT,
+			jwtPolicy:      jwt.PolicyFirstParty,
 			expectedID:     fmt.Sprintf(identityTemplate, "example.com", "default", "example-pod-sa"),
 			expectedErrMsg: "",
 		},
@@ -122,7 +122,7 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			jwtPolicy:      jwt.JWTPolicyFirstPartyJWT,
+			jwtPolicy:      jwt.PolicyFirstParty,
 			expectedID:     fmt.Sprintf(identityTemplate, "example.com", "default", "example-pod-sa"),
 			expectedErrMsg: "",
 		},
@@ -144,7 +144,7 @@ func TestAuthenticate(t *testing.T) {
 					Token: tc.token,
 				},
 			}
-			if tc.jwtPolicy == jwt.JWTPolicyThirdPartyJWT {
+			if tc.jwtPolicy == jwt.PolicyThirdParty {
 				tokenReview.Spec.Audiences = []string{tokenreview.DefaultAudience}
 			}
 

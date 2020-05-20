@@ -234,6 +234,39 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	}
 }
 
+// a custom comparison of foreign service instances based on the fields that we need
+// i.e. excluding the ports. Returns true if equal, false otherwise.
+func ForeignSeviceInstancesEqual(first, second *ServiceInstance) bool {
+	if first.Endpoint == nil || second.Endpoint == nil {
+		return first.Endpoint == second.Endpoint
+	}
+	if first.Endpoint.Address != second.Endpoint.Address {
+		return false
+	}
+	if first.Endpoint.Network != second.Endpoint.Network {
+		return false
+	}
+	if first.Endpoint.TLSMode != second.Endpoint.TLSMode {
+		return false
+	}
+	if !first.Endpoint.Labels.Equals(second.Endpoint.Labels) {
+		return false
+	}
+	if first.Endpoint.ServiceAccount != second.Endpoint.ServiceAccount {
+		return false
+	}
+	if first.Endpoint.Locality != second.Endpoint.Locality {
+		return false
+	}
+	if first.Endpoint.LbWeight != second.Endpoint.LbWeight {
+		return false
+	}
+	if first.Endpoint.UID != second.Endpoint.UID {
+		return false
+	}
+	return true
+}
+
 // GetLocalityLabelOrDefault returns the locality from the supplied label, or falls back to
 // the supplied default locality if the supplied label is empty. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
@@ -578,8 +611,8 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
-	if node.ClusterID != "" && s.ClusterVIPs[node.ClusterID] != "" {
-		return s.ClusterVIPs[node.ClusterID]
+	if node.Metadata != nil && node.Metadata.ClusterID != "" && s.ClusterVIPs[node.Metadata.ClusterID] != "" {
+		return s.ClusterVIPs[node.Metadata.ClusterID]
 	}
 	return s.Address
 }

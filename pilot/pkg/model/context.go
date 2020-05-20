@@ -87,16 +87,20 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 	return nil
 }
 
-func (e *Environment) GetDiscoveryHost() (host.Name, error) {
+// GetDiscoveryAddress parses the DiscoveryAddress specified via MeshConfig.
+func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	proxyConfig := mesh.DefaultProxyConfig()
 	if e.Mesh().DefaultConfig != nil {
 		proxyConfig = *e.Mesh().DefaultConfig
 	}
-	hostname, _, err := net.SplitHostPort(proxyConfig.DiscoveryAddress)
+	hostname, port, err := net.SplitHostPort(proxyConfig.DiscoveryAddress)
 	if err != nil {
-		return "", err
+		return "", "", fmt.Errorf("invalid Istiod Address: %s, %v", proxyConfig.DiscoveryAddress, err)
 	}
-	return host.Name(hostname), nil
+	if _, err := strconv.Atoi(port); err != nil {
+		return "", "", fmt.Errorf("invalid Istiod Port: %s, %s, %v", port, proxyConfig.DiscoveryAddress, err)
+	}
+	return host.Name(hostname), port, nil
 }
 
 func (e *Environment) AddMeshHandler(h func()) {
@@ -146,10 +150,6 @@ type XdsResourceGenerator interface {
 // In current Istio implementation nodes use a 4-parts '~' delimited ID.
 // Type~IPAddress~ID~Domain
 type Proxy struct {
-	// ClusterID specifies the cluster where the proxy resides.
-	// TODO: clarify if this is needed in the new 'network' model, likely needs to
-	// be renamed to 'network'
-	ClusterID string
 
 	// Type specifies the node type. First part of the ID.
 	Type NodeType

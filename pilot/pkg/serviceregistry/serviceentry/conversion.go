@@ -20,6 +20,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/schema/collections"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -30,6 +31,8 @@ import (
 	"istio.io/istio/pkg/spiffe"
 )
 
+// TODO: rename 'external' to service_entries or other specific name, the term 'external' is too broad
+
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
@@ -38,6 +41,104 @@ func convertPort(port *networking.Port) *model.Port {
 	}
 }
 
+// ServiceToServiceEntry converts from internal Service representation to ServiceEntry
+// This does not include endpoints - they'll be represented as EndpointSlice or EDS.
+//
+// See convertServices() for the reverse conversion, used by Istio to handle ServiceEntry configs.
+// See kube.ConvertService for the conversion from K8S to internal Service.
+func ServiceToServiceEntry(svc *model.Service) *model.Config {
+	gvk := collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
+	se := &networking.ServiceEntry{
+		// Host is fully qualified: name, namespace, domainSuffix
+		Hosts: []string{string(svc.Hostname)},
+
+		// Internal Service and K8S Service have a single Address.
+		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
+		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
+		//
+		Addresses: []string{svc.Address},
+
+		//Location:             0,
+
+		// Internal resolution:
+		//  - Passthrough - for ClusterIP=None and no ExternalName
+		//  - ClientSideLB - regular ClusterIP clusters (VIP, resolved via EDS)
+		//  - DNSLB - if ExternalName is specified. Also meshExternal is set.
+
+		//WorkloadSelector:     nil,
+
+		// This is based on alpha.istio.io/canonical-serviceaccounts and
+		//  alpha.istio.io/kubernetes-serviceaccounts.
+		SubjectAltNames: svc.ServiceAccounts,
+	}
+
+	// Based on networking.istio.io/exportTo annotation
+	for k, v := range svc.Attributes.ExportTo {
+		if v {
+			// k is Private or Public
+			se.ExportTo = append(se.ExportTo, string(k))
+		}
+	}
+
+	if svc.MeshExternal {
+		se.Location = networking.ServiceEntry_MESH_EXTERNAL // 0 - default
+	} else {
+		se.Location = networking.ServiceEntry_MESH_INTERNAL
+	}
+
+	// Reverse in convertServices. Note that enum values are different
+	// TODO: make the enum match, should be safe (as long as they're used as enum)
+	var resolution networking.ServiceEntry_Resolution
+	switch svc.Resolution {
+	case model.Passthrough: // 2
+		resolution = networking.ServiceEntry_NONE // 0
+	case model.DNSLB: // 1
+		resolution = networking.ServiceEntry_DNS // 2
+	case model.ClientSideLB: // 0
+		resolution = networking.ServiceEntry_STATIC // 1
+	}
+	se.Resolution = resolution
+
+	// Port is mapped from ServicePort
+	for _, p := range svc.Ports {
+		se.Ports = append(se.Ports, &networking.Port{
+			Number: uint32(p.Port),
+			Name:   p.Name,
+			// Protocol is converted to protocol.Instance - reverse conversion will use the name.
+			Protocol: string(p.Protocol),
+		})
+	}
+
+	cfg := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      gvk.Kind,
+			Group:     gvk.Group,
+			Version:   gvk.Version,
+			Name:      "synthetic-" + svc.Attributes.Name,
+			Namespace: svc.Attributes.Namespace,
+			//Domain:            "",
+			//Labels:            nil,
+			//Annotations:       nil,
+			//ResourceVersion:   "",
+			CreationTimestamp: svc.CreationTime,
+		},
+		Spec: se,
+	}
+
+	// TODO: WorkloadSelector
+
+	// TODO: preserve ServiceRegistry. The reverse conversion sets it to 'external'
+	// TODO: preserve UID ? It seems MCP didn't preserve it - but that code path was not used much.
+
+	// TODO: ClusterExternalPorts map - for NodePort services, with "traffic.istio.io/nodeSelector" ann
+	// It's a per-cluster map
+
+	// TODO: ClusterExternalAddresses - for LB types, per cluster. Populated from K8S, missing
+	// in SE. Used for multi-network support.
+	return cfg
+}
+
+// convertServices transforms a ServiceEntry config to a list of internal Service objects.
 func convertServices(cfg model.Config) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	creationTime := cfg.CreationTimestamp
@@ -232,6 +333,9 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 
 // The foreign service instance has pointer to the foreign service and its service port.
 // We need to create our own but we can retain the endpoint already created.
+// TODO(rshriram): we currently ignore the pod(endpoint) ports and setup 1-1 mapping
+// from service port to endpoint port. Need to figure out a way to map k8s pod port to
+// appropriate service entry port
 func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serviceEntryServices []*model.Service,
 	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
@@ -239,6 +343,8 @@ func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serv
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			ep := *foreignInstance.Endpoint
 			ep.ServicePortName = serviceEntryPort.Name
+			ep.EndpointPort = serviceEntryPort.Number
+			ep.EnvoyEndpoint = nil
 			out = append(out, &model.ServiceInstance{
 				Endpoint:    &ep,
 				Service:     service,
@@ -247,4 +353,41 @@ func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serv
 		}
 	}
 	return out
+}
+
+// Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
+// port names) and the namespace - k8s will consume this service instance when selecting workload entries
+// TODO(rshriram): we currently ignore the workload entry (endpoint) ports. K8S will setup 1-1 mapping
+// from service port to endpoint port. Need to figure out a way to map workload entry port to
+// appropriate k8s service port
+func convertWorkloadEntryToServiceInstanceForK8S(namespace string,
+	we *networking.WorkloadEntry) *model.ServiceInstance {
+	addr := we.GetAddress()
+	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
+		// k8s can't use uds for service objects
+		return nil
+	}
+	tlsMode := getTLSModeFromWorkloadEntry(we)
+	sa := ""
+	if we.ServiceAccount != "" {
+		sa = spiffe.MustGenSpiffeURI(namespace, we.ServiceAccount)
+	}
+	return &model.ServiceInstance{
+		Endpoint: &model.IstioEndpoint{
+			Address: addr,
+			Network: we.Network,
+			Locality: model.Locality{
+				Label: we.Locality,
+			},
+			LbWeight:       we.Weight,
+			Labels:         we.Labels,
+			TLSMode:        tlsMode,
+			ServiceAccount: sa,
+		},
+		Service: &model.Service{
+			Attributes: model.ServiceAttributes{
+				Namespace: namespace,
+			},
+		},
+	}
 }

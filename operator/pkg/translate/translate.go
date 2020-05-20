@@ -167,6 +167,11 @@ func NewTranslator() *Translator {
 				HelmSubdir:           "istio-cni",
 				ToHelmValuesTreeRoot: "cni",
 			},
+			name.IstiodRemoteComponentName: {
+				HelmSubdir:           "istiod-remote",
+				ToHelmValuesTreeRoot: "global",
+				SkipReverseTranslate: true,
+			},
 			name.ComponentName("Istiocoredns"): {
 				ResourceType:         "Deployment",
 				ResourceName:         "istiocoredns",

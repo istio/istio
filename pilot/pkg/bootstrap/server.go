@@ -23,7 +23,6 @@ import (
 	"net"
 	"net/http"
 	"path"
-	"strconv"
 	"sync"
 	"time"
 
@@ -35,6 +34,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -181,20 +181,18 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	prometheus.EnableHandlingTimeHistogram()
 
-	// Parse and validate Istiod Address.
-	host, port, err := s.parseIstiodAddress()
-	if err != nil {
-		return nil, fmt.Errorf("error parsing Istiod address: %v", err)
-	}
-
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
-	if err := s.initMeshConfiguration(args, s.fileWatcher); err != nil {
-		return nil, fmt.Errorf("error initializing mesh config: %v", err)
-	}
+	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
+
+	// Parse and validate Istiod Address.
+	istiodHost, istiodPort, err := e.GetDiscoveryAddress()
+	if err != nil {
+		return nil, err
+	}
 
 	if err := s.initControllers(args); err != nil {
 		return nil, err
@@ -210,23 +208,24 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// CA signing certificate must be created first if needed.
-	if err := s.maybeCreateCA(args, caOpts); err != nil {
+	if err := s.maybeCreateCA(caOpts); err != nil {
 		return nil, err
 	}
 
 	// Create Istiod certs and setup watches.
-	if err := s.initIstiodCerts(args, host); err != nil {
+	if err := s.initIstiodCerts(args, string(istiodHost)); err != nil {
 		return nil, err
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureGrpcServer(args, port); err != nil {
+	if err := s.initSecureGrpcServer(args, istiodPort); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
 	// common https server for webhooks (e.g. injection, validation)
 	s.initHTTPSWebhookServer(args)
 
+	args.Config.ControllerOptions.CABundlePath = s.caBundlePath
 	// Only operates if /var/lib/istio/inject exists
 	if err := s.initSidecarInjector(args); err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
@@ -378,7 +377,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 // onto the http server readiness check. The "http" portion of the readiness check is satisfied
 // by the fact we've started listening on this handler and everything has already initialized.
 func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) {
-	if features.IstiodService.Get() != "" {
+	if s.kubeClient != nil {
 		if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
 			log.Warnf("https webhook server not ready: %v", status)
 			w.WriteHeader(status)
@@ -456,9 +455,6 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 		if s.forceStop {
 			s.grpcServer.Stop()
 			_ = s.httpServer.Close()
-			if features.IstiodService.Get() != "" {
-				_ = s.httpsServer.Close()
-			}
 		} else {
 			s.grpcServer.GracefulStop()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -466,10 +462,8 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 			if err := s.httpServer.Shutdown(ctx); err != nil {
 				log.Warna(err)
 			}
-			if features.IstiodService.Get() != "" {
-				if err := s.httpsServer.Shutdown(ctx); err != nil {
-					log.Warna(err)
-				}
+			if err := s.httpsServer.Shutdown(ctx); err != nil {
+				log.Warna(err)
 			}
 		}
 	}()
@@ -536,10 +530,6 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer.
 func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
-	if features.IstiodService.Get() == "" {
-		return nil
-	}
-
 	if args.TLSOptions.CaCertFile == "" && s.ca == nil {
 		// Running locally without configured certs - no TLS mode
 		return nil
@@ -560,6 +550,7 @@ func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
 	tlsCreds := credentials.NewTLS(cfg)
 
 	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect.
+	// TODO(ramaraochavali): clean up istio-agent startup to remove the dependency of "15012" port.
 	secureGrpc := fmt.Sprintf(":%s", port)
 
 	// create secure grpc listener
@@ -757,13 +748,8 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 // maybeInitDNSCerts initializes DNS certs if needed.
 func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
-	// Tests will have empty host - we should just ignore.
-	if host == "" {
-		return nil
-	}
-
 	// Generate DNS certificates only if custom certs are not provided via args.
-	if !hasCustomTLSCerts(args.TLSOptions) {
+	if !hasCustomTLSCerts(args.TLSOptions) && s.EnableCA() {
 		// Create DNS certificates. This allows injector, validation to work without Citadel, and
 		// allows secure SDS connections to Istiod.
 		if err := s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace); err != nil {
@@ -890,26 +876,6 @@ func (s *Server) getIstiodCertificate(info *tls.ClientHelloInfo) (*tls.Certifica
 	return s.istiodCert, nil
 }
 
-// parseIstiodAddress parses the Istiod address and validates it.
-func (s *Server) parseIstiodAddress() (string, string, error) {
-	istiodAddr := features.IstiodService.Get()
-	if istiodAddr == "" {
-		// Feature disabled
-		return "", "", nil
-	}
-
-	// validate
-	host, port, err := net.SplitHostPort(istiodAddr)
-	if err != nil {
-		return "", "", fmt.Errorf("invalid ISTIOD_ADDR(%s): %v", istiodAddr, err)
-	}
-	if _, err := strconv.Atoi(port); err != nil {
-		return "", "", fmt.Errorf("invalid port(%s) in ISTIOD_ADDR(%s): %v", port, istiodAddr, err)
-	}
-
-	return host, port, nil
-}
-
 // initControllers initializes the controllers.
 func (s *Server) initControllers(args *PilotArgs) error {
 	// Certificate controller is created before MCP controller in case MCP server pod
@@ -946,19 +912,22 @@ func (s *Server) initNamespaceController(args *PilotArgs) {
 // initGenerators initializes generators to be used by XdsServer.
 func (s *Server) initGenerators() {
 	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = &envoyv2.EdsGenerator{Server: s.EnvoyXdsServer}
+	epGen := &envoyv2.EdsGenerator{Server: s.EnvoyXdsServer}
+	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
+	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
+	s.EnvoyXdsServer.Generators["api/"+envoyv2.EndpointType] = epGen
 }
 
 // initJwtPolicy initializes JwtPolicy.
 func (s *Server) initJwtPolicy() {
-	if features.JwtPolicy.Get() != jwt.JWTPolicyThirdPartyJWT {
+	if features.JwtPolicy.Get() != jwt.PolicyThirdParty {
 		log.Infoa("JWT policy is ", features.JwtPolicy.Get())
 	}
 
 	switch features.JwtPolicy.Get() {
-	case jwt.JWTPolicyThirdPartyJWT:
+	case jwt.PolicyThirdParty:
 		s.jwtPath = ThirdPartyJWTPath
-	case jwt.JWTPolicyFirstPartyJWT:
+	case jwt.PolicyFirstParty:
 		s.jwtPath = securityModel.K8sSAJwtFileName
 	default:
 		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
@@ -966,9 +935,9 @@ func (s *Server) initJwtPolicy() {
 }
 
 // maybeCreateCA creates and initializes CA Key if needed.
-func (s *Server) maybeCreateCA(args *PilotArgs, caOpts *CAOptions) error {
-	// CA signing certificate must be created only if custom TLS certs are not provided.
-	if !hasCustomTLSCerts(args.TLSOptions) && s.EnableCA() {
+func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
+	// CA signing certificate must be created only if CA is enabled.
+	if s.EnableCA() {
 		var err error
 		var corev1 v1.CoreV1Interface
 		if s.kubeClient != nil {

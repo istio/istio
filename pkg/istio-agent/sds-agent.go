@@ -84,6 +84,8 @@ var (
 	// this may be replaced with ./etc/certs, if a root-cert.pem is found, to
 	// handle secrets mounted from non-citadel CAs.
 	CitadelCACertPath = "./var/run/secrets/istio"
+
+	fileMountedCertsEnv = env.RegisterBoolVar(fileMountedCerts, false, "").Get()
 )
 
 const (
@@ -132,6 +134,9 @@ const (
 	// when generating private keys. Currently only ECDSA is supported.
 	eccSigAlg       = "ECC_SIGNATURE_ALGORITHM"
 	keyfactorCAName = "KeyfactorCA"
+
+	// Indicates whether proxy uses file mounted certificates.
+	fileMountedCerts = "FILE_MOUNTED_CERTS"
 )
 
 var (
@@ -199,6 +204,9 @@ type SDSAgent struct {
 
 	// ClusterID is the cluster where the agent resides
 	ClusterID string
+
+	// FileMountedCerts indicates whether the proxy is using file mounted certs.
+	FileMountedCerts bool
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -212,6 +220,19 @@ type SDSAgent struct {
 func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir string,
 	clusterID string, podNamespace string, podName string, podIP string) *SDSAgent {
 	a := &SDSAgent{}
+
+	a.SDSAddress = "unix:" + LocalSDS
+	a.ClusterID = clusterID
+	a.PodIP = podIP
+	a.PodName = podName
+	a.podNamespace = podNamespace
+
+	// If a workload is using file mounted certs, we do not to have to process CA relaated configuration.
+	if !shouldProvisionCertificates() {
+		log.Info("Workload is using file mounted certificates. Skipping setting CA related configuration")
+		a.FileMountedCerts = true
+		return a
+	}
 
 	a.PilotCertProvider = pilotCertProvider
 	a.OutputKeyCertToDir = outputKeyCertToDir
@@ -252,8 +273,6 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 		}
 	}
 
-	a.SDSAddress = "unix:" + LocalSDS
-
 	a.CAEndpoint = caEndpointEnv
 	if caEndpointEnv == "" {
 		// if not set, we will fallback to the discovery address
@@ -269,11 +288,6 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	if discPort == "15012" {
 		a.RequireCerts = true
 	}
-
-	a.ClusterID = clusterID
-	a.PodNamespace = podNamespace
-	a.PodName = podName
-	a.PodIP = podIP
 
 	return a
 }
@@ -297,13 +311,19 @@ func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, err
 	serverOptions.PilotCertProvider = sa.PilotCertProvider
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
-	serverOptions.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
 	serverOptions.CertsDir = sa.CertsPath
 	serverOptions.JWTPath = sa.JWTPath
 	serverOptions.OutputKeyCertToDir = sa.OutputKeyCertToDir
 	serverOptions.CAEndpoint = sa.CAEndpoint
 	serverOptions.TLSEnabled = sa.RequireCerts
 	serverOptions.ClusterID = sa.ClusterID
+	serverOptions.FileMountedCerts = sa.FileMountedCerts
+	// If proxy is using file mounted certs, JWT token is not needed.
+	if sa.FileMountedCerts {
+		serverOptions.UseLocalJWT = false
+	} else {
+		serverOptions.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
+	}
 
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := sa.newSecretCache(serverOptions)
@@ -338,13 +358,23 @@ func ingressSdsExists() bool {
 
 // newSecretCache creates the cache for workload secrets and/or gateway secrets.
 func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
-	ret := &secretfetcher.SecretFetcher{}
+	fetcher := &secretfetcher.SecretFetcher{}
 
 	// TODO: get the MC public keys from pilot.
 	// In node agent, a controller is used getting 'istio-security.istio-system' config map
 	// Single caTLSRootCert inside.
 
 	var err error
+
+	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, workloadSdsCacheOptions)
+	sa.WorkloadSecrets = workloadSecretCache
+
+	// If proxy is using file mounted certs, we do not have to connect to CA.
+	if !shouldProvisionCertificates() {
+		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
+		return
+	}
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
 	log.Infof("serverOptions.CAEndpoint == %v", serverOptions.CAEndpoint)
@@ -484,16 +514,14 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 		log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 		os.Exit(1)
 	}
-	ret.UseCaClient = true
-	ret.CaClient = caClient
+	fetcher.UseCaClient = true
+	fetcher.CaClient = caClient
 
 	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
 	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
 	workloadSdsCacheOptions.ECCSigAlg = serverOptions.ECCSigAlg
-	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
-	workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
-	sa.WorkloadSecrets = workloadSecretCache
+
 	return
 }
 
@@ -502,19 +530,21 @@ func newIngressSecretCache(namespace string) (gatewaySecretCache *cache.SecretCa
 	gSecretFetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
+	// If gateway is using file mounted certs, we do not have to setup secret fetcher.
+	if shouldProvisionCertificates() {
+		cs, err := kube.CreateClientset("", "")
 
-	cs, err := kube.CreateClientset("", "")
+		if err != nil {
+			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+			os.Exit(1)
+		}
+		gSecretFetcher.FallbackSecretName = "gateway-fallback"
 
-	if err != nil {
-		log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-		os.Exit(1)
+		gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
+
+		gatewaySecretChan = make(chan struct{})
+		gSecretFetcher.Run(gatewaySecretChan)
 	}
-	gSecretFetcher.FallbackSecretName = "gateway-fallback"
-
-	gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
-
-	gatewaySecretChan = make(chan struct{})
-	gSecretFetcher.Run(gatewaySecretChan)
 	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, gatewaySdsCacheOptions)
 	return gatewaySecretCache
 }
@@ -540,4 +570,10 @@ func applyEnvVars() {
 		workloadSdsCacheOptions.AlwaysValidTokenFlag = true
 	}
 	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
+}
+
+// shouldProvisionCertificates returns true if certs needs to be provisioned for the workload/gateway.
+// Returns flase, when proxy uses file mounted certificates i.e. FILE_MOUNTED_CERTS is true.
+func shouldProvisionCertificates() bool {
+	return !fileMountedCertsEnv
 }

@@ -66,8 +66,6 @@ type upgradeArgs struct {
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
 	context string
-	// wait is flag that indicates whether to wait resources ready before exiting.
-	wait bool
 	// readinessTimeout is maximum time to wait for all Istio resources to be ready.
 	readinessTimeout time.Duration
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
@@ -91,12 +89,8 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 		"The name of the kubeconfig context to use")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false,
 		"If skip-confirmation is set, skips the prompting confirmation for value changes in this upgrade")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
-		"Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
-			"of a Deployment are in a ready state before the command exits. ")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
-		"Maximum time to wait for Istio resources in each component to be ready."+
-			" The --wait flag must be set for this flag to apply")
+		"Maximum time to wait for Istio resources in each component to be ready.")
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
@@ -136,12 +130,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	ysf, err := yamlFromSetFlags(applyFlagAliases(args.set, args.charts, ""), args.force, l)
-	if err != nil {
-		return err
-	}
+	setFlags := applyFlagAliases(args.set, args.charts, "")
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, ysf, args.force, nil, l)
+	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
@@ -201,10 +192,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	} else {
 		currentSets = append(currentSets, "profile="+targetIOPS.Profile)
 	}
-	if ysf, err = yamlFromSetFlags(currentSets, args.force, l); err != nil {
-		return err
-	}
-	currentProfileIOPSYaml, _, err := genIOPSFromProfile(profile, "", ysf, true, nil, l)
+	currentProfileIOPSYaml, _, err := genIOPSFromProfile(profile, "", currentSets, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
@@ -215,15 +203,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
 	err = ApplyManifests(applyFlagAliases(args.set, args.charts, ""), args.inFilenames, args.force, rootArgs.dryRun,
-		args.kubeConfigPath, args.context, args.wait, args.readinessTimeout, l)
+		args.kubeConfigPath, args.context, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
-	}
-
-	if !args.wait {
-		l.LogAndPrintf("Upgrade submitted. Please use `istioctl version` to check the current versions.")
-		l.LogAndPrintf(upgradeSidecarMessage)
-		return nil
 	}
 
 	// Waits for the upgrade to complete by periodically comparing the each
@@ -585,7 +567,9 @@ func (client *Client) CheckUnsupportedAlphaSecurityCRD() error {
 	if len(foundResources) != 0 {
 		return fmt.Errorf("found %d unsupported v1alpha1 security policy: %v. "+
 			"The v1alpha1 security policy is no longer supported starting 1.6. To continue the upgrade, "+
-			"Please migrate to the v1beta1 security policy and delete all the v1alpha1 security policy",
+			"Please migrate to the v1beta1 security policy and delete all the v1alpha1 security policy, "+
+			"See https://istio.io/news/releases/1.5.x/announcing-1.5/upgrade-notes/#authentication-policy and "+
+			"https://istio.io/blog/2019/v1beta1-authorization-policy/#migration-from-the-v1alpha1-policy",
 			len(foundResources), foundResources)
 	}
 	return nil

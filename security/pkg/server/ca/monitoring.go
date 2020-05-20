@@ -59,12 +59,12 @@ var (
 	rootCertExpiryTimestamp = monitoring.NewGauge(
 		"citadel_server_root_cert_expiry_timestamp",
 		"The unix timestamp, in seconds, when Citadel root cert will expire. "+
-			"We set it to negative in case of internal error.",
+			"A negative time indicates the cert is expired.",
 	)
 	certChainExpiryTimestamp = monitoring.NewGauge(
 		"citadel_server_cert_chain_expiry_timestamp",
 		"The unix timestamp, in seconds, when Citadel cert chain will expire. "+
-			"We set it to negative in case of internal error.",
+			"A negative time indicates the cert is expired.",
 	)
 )
 

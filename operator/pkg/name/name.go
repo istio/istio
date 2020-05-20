@@ -28,20 +28,26 @@ import (
 
 // Kubernetes Kind strings.
 const (
-	CRDStr                   = "CustomResourceDefinition"
-	DaemonSetStr             = "DaemonSet"
-	DeploymentStr            = "Deployment"
-	HPAStr                   = "HorizontalPodAutoscaler"
-	NamespaceStr             = "Namespace"
-	PodStr                   = "Pod"
-	PDBStr                   = "PodDisruptionBudget"
-	ReplicationControllerStr = "ReplicationController"
-	ReplicaSetStr            = "ReplicaSet"
-	RoleStr                  = "Role"
-	RoleBindingStr           = "RoleBinding"
-	SAStr                    = "ServiceAccount"
-	ServiceStr               = "Service"
-	StatefulSetStr           = "StatefulSet"
+	CRDStr                            = "CustomResourceDefinition"
+	ClusterRoleStr                    = "ClusterRole"
+	ClusterRoleBindingStr             = "ClusterRoleBinding"
+	CMStr                             = "ConfigMap"
+	DaemonSetStr                      = "DaemonSet"
+	DeploymentStr                     = "Deployment"
+	EndpointStr                       = "Endpoints"
+	HPAStr                            = "HorizontalPodAutoscaler"
+	MutatingWebhookConfigurationStr   = "MutatingWebhookConfiguration"
+	NamespaceStr                      = "Namespace"
+	PodStr                            = "Pod"
+	PDBStr                            = "PodDisruptionBudget"
+	ReplicationControllerStr          = "ReplicationController"
+	ReplicaSetStr                     = "ReplicaSet"
+	RoleStr                           = "Role"
+	RoleBindingStr                    = "RoleBinding"
+	SAStr                             = "ServiceAccount"
+	ServiceStr                        = "Service"
+	StatefulSetStr                    = "StatefulSet"
+	ValidatingWebhookConfigurationStr = "ValidatingWebhookConfiguration"
 )
 
 const (
@@ -65,6 +71,9 @@ const (
 	TelemetryComponentName ComponentName = "Telemetry"
 
 	CNIComponentName ComponentName = "Cni"
+
+	// istiod remote component
+	IstiodRemoteComponentName ComponentName = "IstiodRemote"
 
 	// Gateway components
 	IngressComponentName ComponentName = "IngressGateways"
@@ -90,13 +99,15 @@ var (
 		PolicyComponentName,
 		TelemetryComponentName,
 		CNIComponentName,
+		IstiodRemoteComponentName,
 	}
 	allComponentNamesMap = map[ComponentName]bool{
-		IstioBaseComponentName: true,
-		PilotComponentName:     true,
-		PolicyComponentName:    true,
-		TelemetryComponentName: true,
-		CNIComponentName:       true,
+		IstioBaseComponentName:    true,
+		PilotComponentName:        true,
+		PolicyComponentName:       true,
+		TelemetryComponentName:    true,
+		CNIComponentName:          true,
+		IstiodRemoteComponentName: true,
 	}
 
 	// BundledAddonComponentNamesMap is a map of component names of addons which have helm charts bundled with Istio
@@ -123,6 +134,7 @@ var (
 		AddonComponentName:              "Addons",
 		IstioOperatorComponentName:      "Istio operator",
 		IstioOperatorCustomResourceName: "Istio operator CRDs",
+		IstiodRemoteComponentName:       "Istiod remote",
 	}
 	scanAddons sync.Once
 )

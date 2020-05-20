@@ -404,11 +404,14 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	}
 	env := newTestEnvironment(serviceDiscovery, mesh, configStore)
 
+	if meta.ClusterID == "" {
+		meta.ClusterID = "some-cluster-id"
+	}
+
 	var proxy *model.Proxy
 	switch nodeType {
 	case model.SidecarProxy:
 		proxy = &model.Proxy{
-			ClusterID:    "some-cluster-id",
 			Type:         model.SidecarProxy,
 			IPAddresses:  proxyIps,
 			Locality:     locality,
@@ -418,7 +421,6 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		}
 	case model.Router:
 		proxy = &model.Proxy{
-			ClusterID:    "some-cluster-id",
 			Type:         model.Router,
 			IPAddresses:  []string{"6.6.6.6"},
 			Locality:     locality,
@@ -796,8 +798,8 @@ func TestClusterMetadata(t *testing.T) {
 			clustersWithMetadata++
 			g.Expect(cluster.Metadata).NotTo(BeNil())
 			md := cluster.Metadata
-			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
-			istio := md.FilterMetadata["istio"]
+			g.Expect(md.FilterMetadata[util.IstioMetadataKey]).NotTo(BeNil())
+			istio := md.FilterMetadata[util.IstioMetadataKey]
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
 			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
@@ -825,8 +827,8 @@ func TestClusterMetadata(t *testing.T) {
 		if strings.HasPrefix(cluster.Name, "outbound") {
 			g.Expect(cluster.Metadata).NotTo(BeNil())
 			md := cluster.Metadata
-			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
-			istio := md.FilterMetadata["istio"]
+			g.Expect(md.FilterMetadata[util.IstioMetadataKey]).NotTo(BeNil())
+			istio := md.FilterMetadata[util.IstioMetadataKey]
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
 			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
@@ -1437,7 +1439,9 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 func TestBuildLocalityLbEndpoints(t *testing.T) {
 	proxy := &model.Proxy{
-		ClusterID: "cluster-1",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster-1",
+		},
 	}
 	servicePort := &model.Port{
 		Name:     "default",
@@ -2278,7 +2282,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_ORIGINAL_DST,
 			tls:                        tlsSettings,
-			expectTransportSocket:      true,
+			expectTransportSocket:      false,
 			expectTransportSocketMatch: false,
 		},
 	}
@@ -2368,10 +2372,11 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 
 	configStore := &fakes.IstioConfigStore{}
 	proxy := &model.Proxy{
-		ClusterID: "some-cluster-id",
 		Type:      model.SidecarProxy,
 		DNSDomain: "com",
-		Metadata:  &model.NodeMetadata{},
+		Metadata: &model.NodeMetadata{
+			ClusterID: "some-cluster-id",
+		},
 	}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy.SetSidecarScope(env.PushContext)

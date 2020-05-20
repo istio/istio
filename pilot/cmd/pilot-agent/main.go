@@ -68,7 +68,6 @@ var (
 	proxyIP            string
 	registryID         serviceregistry.ProviderID
 	trustDomain        string
-	pilotIdentity      string
 	mixerIdentity      string
 	stsPort            int
 	tokenManagerPlugin string
@@ -94,7 +93,7 @@ var (
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
-	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
@@ -201,10 +200,10 @@ var (
 			log.Infof("Proxy role: %#v", role)
 
 			var jwtPath string
-			if jwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
+			if jwtPolicy.Get() == jwt.PolicyThirdParty {
 				log.Info("JWT policy is third-party-jwt")
 				jwtPath = trustworthyJWTPath
-			} else if jwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
+			} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
 				log.Info("JWT policy is first-party-jwt")
 				jwtPath = securityModel.K8sSAJwtFileName
 			} else {
@@ -420,8 +419,6 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
 		"The domain to use for identities")
-	proxyCmd.PersistentFlags().StringVar(&pilotIdentity, "pilotIdentity", "",
-		"The identity used as the suffix for pilot's spiffe SAN ")
 	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 

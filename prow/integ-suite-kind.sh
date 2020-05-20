@@ -29,6 +29,7 @@ set -u
 # Print commands
 set -x
 
+
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
@@ -57,7 +58,8 @@ while (( "$#" )); do
     ;;
     --topology)
       case $2 in
-        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK | MULTICLUSTER_MULTINETWORK)
+        # TODO(landow) get rid of MULTICLUSTER_SINGLE_NETWORK after updating Prow job
+        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK | MULTICLUSTER )
           TOPOLOGY=$2
           echo "Running with topology ${TOPOLOGY}"
           ;;
@@ -78,7 +80,6 @@ while (( "$#" )); do
       ;;
   esac
 done
-
 
 # KinD will not have a LoadBalancer, so we need to disable it
 export TEST_ENV=kind
@@ -107,7 +108,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
 
     # Set the kube configs to point to the clusters.
-    export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG}"
+    export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG}"
+    export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-1"
   fi
 fi
 
