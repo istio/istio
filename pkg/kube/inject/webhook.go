@@ -225,7 +225,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		}
 		mux = http.NewServeMux()
 		mux.HandleFunc("/inject", wh.serveInject)
-		p.Mux.HandleFunc("/inject/", wh.serveInject)
+		mux.HandleFunc("/inject/", wh.serveInject)
 		wh.server.Handler = mux
 	}
 
