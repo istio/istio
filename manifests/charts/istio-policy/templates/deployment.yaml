@@ -277,8 +277,16 @@ spec:
         {{- end }}
         {{- if .Values.global.keyfactor.metadata }}
         - name: "KEYFACTOR_METADATA_JSON"
-          value: |
-                 {{ toJson .Values.global.keyfactor.metadata}}
+          value: |-
+            [
+              {{- range $index, $fieldMetadata := .Values.global.keyfactor.metadata }}
+                {{- if ne $index 0}},{{- end}}
+                {
+                  "name": "{{ $fieldMetadata.name }}",
+                  "alias": "{{ $fieldMetadata.alias }}"
+                }
+              {{- end}}
+            ]
         {{- end }}
         {{- end }}
         resources:

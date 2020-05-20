@@ -565,7 +565,7 @@ message KeyfactorConfiguration {
   // Name of template to enroll new certificate
   string caTemplate = 5;
 
-  // Custom metadata to use on SignCSR request (support: Cluster, Service, PodName, PodNamespace, TrustDomain)
+  // Custom metadata to use on SignCSR request (supported: Cluster, Service, PodName, PodNamespace, TrustDomain)
   repeated KeyfactorMetadataConfig metadata = 6;
   
 }
