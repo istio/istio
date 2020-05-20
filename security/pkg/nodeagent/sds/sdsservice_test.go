@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -67,6 +68,35 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
+}
+
+// Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
+func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
+	arg := Options{
+		EnableWorkloadSDS:     true,
+		RecycleInterval:       30 * time.Second,
+		IngressGatewayUDSPath: "",
+		WorkloadUDSPath:       fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		FileMountedCerts:      true,
+		UseLocalJWT:           false,
+	}
+	wst := &mockSecretStore{
+		checkToken: false,
+	}
+	server, err := NewServer(arg, wst, nil)
+	defer server.Stop()
+	if err != nil {
+		t.Fatalf("failed to start grpc server for sds: %v", err)
+	}
+
+	proxyID := "sidecar~127.0.0.1~id1~local"
+
+	// Request for root certificate from file and verify response.
+	rootResourceName := sendRequestForFileRootCertAndVerifyResponse(t, sdsRequestStream, arg.WorkloadUDSPath, proxyID)
+
+	recycleConnection(getClientConID(proxyID), rootResourceName)
+	// Check to make sure number of staled connections is 0.
+	checkStaledConnCount(t)
 }
 
 func TestStreamSecretsForGatewaySds(t *testing.T) {
@@ -193,6 +223,24 @@ func sendRequestForRootCertAndVerifyResponse(t *testing.T, cb secretCallback, so
 		t.Fatalf("failed to get root cert through SDS")
 	}
 	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
+}
+
+func sendRequestForFileRootCertAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string) string {
+	rootCertPath, _ := filepath.Abs("./testdata/root-cert.pem")
+	rootResource := "file-root:" + rootCertPath
+
+	rootCertReq := &api.DiscoveryRequest{
+		ResourceNames: []string{rootResource},
+		Node: &core.Node{
+			Id: proxyID,
+		},
+	}
+	resp, err := cb(socket, rootCertReq)
+	if err != nil {
+		t.Fatalf("failed to get root cert through SDS")
+	}
+	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
+	return rootResource
 }
 
 func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string, testInvalidResourceNames bool) {
@@ -916,7 +964,7 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceNa
 		return s, nil
 	}
 
-	if resourceName == cache.RootCertReqResourceName {
+	if resourceName == cache.RootCertReqResourceName || strings.HasPrefix(resourceName, "file-root:") {
 		s := &model.SecretItem{
 			RootCert:     fakeRootCert,
 			ResourceName: cache.RootCertReqResourceName,

@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/reflection"
+
 	"istio.io/istio/pilot/pkg/status"
 
 	"k8s.io/client-go/kubernetes"
@@ -102,6 +104,9 @@ func init() {
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
 type startFunc func(stop <-chan struct{}) error
 
+// readinessProbe defines a function that will be used indicate whether a server is ready.
+type readinessProbe func() int
+
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
 	MonitorListeningAddr net.Addr
@@ -112,54 +117,55 @@ type Server struct {
 	clusterID   string
 	environment *model.Environment
 
-	kubeConfig       *rest.Config
-	configController model.ConfigStoreCache
-	kubeClient       kubernetes.Interface
-	metadataClient   metadata.Interface
+	kubeConfig   *rest.Config
+	kubeClient   kubernetes.Interface
+	kubeRegistry *kubecontroller.Controller
+	multicluster *kubecontroller.Multicluster
 
-	startFuncs       []startFunc
-	multicluster     *kubecontroller.Multicluster
-	httpServer       *http.Server // debug HTTP Server.
+	configController  model.ConfigStoreCache
+	metadataClient    metadata.Interface
+	ConfigStores      []model.ConfigStoreCache
+	serviceEntryStore *serviceentry.ServiceEntryStore
+
+	httpServer       *http.Server // debug, monitoring and readiness Server.
 	httpsServer      *http.Server // webhooks HTTPS Server.
 	httpsReadyClient *http.Client
+
 	grpcServer       *grpc.Server
 	secureGrpcServer *grpc.Server
-	mux              *http.ServeMux // debug
-	httpsMux         *http.ServeMux // webhooks
-	kubeRegistry     *kubecontroller.Controller
-	certController   *chiron.WebhookController
-	ca               *ca.IstioCA
-	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
-	// TODO: Unify this path with TLSOptions in PilotArgs.
-	caBundlePath string
 
-	ConfigStores []model.ConfigStoreCache
-
-	serviceEntryStore *serviceentry.ServiceEntryStore
+	httpMux  *http.ServeMux // debug, monitoring and readiness.
+	httpsMux *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
 	GRPCListener       net.Listener
 	SecureGrpcListener net.Listener
-	DNSListener        net.Listener
 
-	// for test
-	forceStop bool
-
-	// nil if injection disabled
-	injectionWebhook *inject.Webhook
+	DNSListener    net.Listener
+	IstioDNSServer *dns.IstioDNS
 
 	// fileWatcher used to watch mesh config, networks and certificates.
 	fileWatcher filewatcher.FileWatcher
 
-	certMu     sync.Mutex
-	istiodCert *tls.Certificate
-	jwtPath    string
+	certController *chiron.WebhookController
+	ca             *ca.IstioCA
+	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
+	caBundlePath string
+	certMu       sync.Mutex
+	istiodCert   *tls.Certificate
+	jwtPath      string
 
-	// requiredTerminations keeps track of components that should block server exit if they are not stopped
-	// This allows important cleanup tasks to be completed.
+	// startFuncs keeps track of functions that need to be executed when Istiod starts.
+	startFuncs []startFunc
+	// requiredTerminations keeps track of components that should block server exit
+	// if they are not stopped. This allows important cleanup tasks to be completed.
 	// Note: this is still best effort; a process can die at any time.
 	requiredTerminations sync.WaitGroup
 	statusReporter       *status.Reporter
+	readinessProbes      map[string]readinessProbe
+
+	// duration used for graceful shutdown.
+	shutdownDuration time.Duration
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -171,12 +177,16 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s := &Server{
-		clusterID:      getClusterID(args),
-		environment:    e,
-		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
-		fileWatcher:    filewatcher.NewWatcher(),
-		forceStop:      args.ForceStop,
-		mux:            http.NewServeMux(),
+		clusterID:       getClusterID(args),
+		environment:     e,
+		EnvoyXdsServer:  envoyv2.NewDiscoveryServer(e, args.Plugins),
+		fileWatcher:     filewatcher.NewWatcher(),
+		httpMux:         http.NewServeMux(),
+		readinessProbes: make(map[string]readinessProbe),
+	}
+
+	if args.ShutdownDuration == 0 {
+		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
 	}
 
 	prometheus.EnableHandlingTimeHistogram()
@@ -185,8 +195,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
+
 	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
+	s.initMeshHandlers()
 
 	// Parse and validate Istiod Address.
 	istiodHost, istiodPort, err := e.GetDiscoveryAddress()
@@ -218,16 +230,15 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureGrpcServer(args, istiodPort); err != nil {
+	if err := s.initSecureDiscoveryService(args, istiodPort); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
 	// common https server for webhooks (e.g. injection, validation)
-	s.initHTTPSWebhookServer(args)
+	s.initSecureWebhookServer(args)
 
-	args.Config.ControllerOptions.CABundlePath = s.caBundlePath
-	// Only operates if /var/lib/istio/inject exists
-	if err := s.initSidecarInjector(args); err != nil {
+	wh, err := s.initSidecarInjector(args)
+	if err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 	}
 
@@ -235,15 +246,21 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initConfigValidation(args); err != nil {
 		return nil, fmt.Errorf("error initializing config validator: %v", err)
 	}
+	// Used for readiness, monitoring and debug handlers.
+	if err := s.initIstiodAdminServer(args, wh); err != nil {
+		return nil, fmt.Errorf("error initializing debug server: %v", err)
+	}
+	// This should be called only after controllers are initialized.
+	if err := s.initRegistryEventHandlers(); err != nil {
+		return nil, fmt.Errorf("error initializing handlers: %v", err)
+	}
 	if err := s.initDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing discovery service: %v", err)
-	}
-	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
-		return nil, fmt.Errorf("error initializing monitor: %v", err)
 	}
 
 	// TODO(irisdingbj):add integration test after centralIstiod finished
 	args.Config.ControllerOptions.FetchCaRoot = nil
+	args.Config.ControllerOptions.CABundlePath = s.caBundlePath
 	if features.CentralIstioD && s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
 		args.Config.ControllerOptions.FetchCaRoot = s.fetchCARoot
 	}
@@ -296,7 +313,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 			if !s.waitForCacheSync(stop) {
 				return
 			}
-			log.Infof("starting secure (DNS) gRPC discovery service at %s", s.SecureGrpcListener.Addr())
+			log.Infof("starting secure gRPC discovery service at %s", s.SecureGrpcListener.Addr())
 			if err := s.secureGrpcServer.Serve(s.SecureGrpcListener); err != nil {
 				log.Errorf("error from GRPC server: %v", err)
 			}
@@ -336,7 +353,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}()
 	}
 
-	s.cleanupOnStop(stop)
+	s.waitForShutdown(stop)
 
 	return nil
 }
@@ -373,58 +390,25 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	return nil
 }
 
-// A single container can't have two readiness probes. Piggyback the https server readiness
-// onto the http server readiness check. The "http" portion of the readiness check is satisfied
-// by the fact we've started listening on this handler and everything has already initialized.
-func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) {
-	if s.kubeClient != nil {
-		if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
-			log.Warnf("https webhook server not ready: %v", status)
-			w.WriteHeader(status)
-			return
+// A single container can't have two readiness probes. Make this readiness probe a generic one
+// that can handle all istiod related readiness checks including webhook, gRPC etc.
+// The "http" portion of the readiness check is satisfied by the fact we've started listening on
+// this handler and everything has already initialized.
+func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
+	for name, fn := range s.readinessProbes {
+		if status := fn(); status != http.StatusOK {
+			log.Warnf("%s is not ready: %v", name, status)
 		}
 	}
-
 	// TODO check readiness of other secure gRPC and HTTP servers.
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	s.mux.HandleFunc("/ready", s.httpServerReadyHandler)
-
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, s.injectionWebhook)
-
-	// When the mesh config or networks change, do a full push.
-	s.environment.AddMeshHandler(func() {
-		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
-		s.EnvoyXdsServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
-		})
-	})
-	s.environment.AddNetworksHandler(func() {
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
-		})
-	})
-
-	if err := s.initEventHandlers(); err != nil {
-		return err
-	}
-
-	// Implement EnvoyXdsServer grace shutdown
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.EnvoyXdsServer.Start(stop)
-		return nil
-	})
-
-	// create grpc/http server
-	s.initGrpcServer(args.KeepaliveOptions)
+// initIstiodHTTPServer initializes monitoring, debug and readiness end points.
+func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) error {
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
-		Handler: s.mux,
+		Handler: s.httpMux,
 	}
 
 	// create http listener
@@ -432,9 +416,31 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.HTTPListener = listener
 
-	// create grpc listener
+	// Debug Server.
+	s.EnvoyXdsServer.InitDebug(s.httpMux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, wh)
+
+	// Monitoring Server.
+	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
+		return fmt.Errorf("error initializing monitor: %v", err)
+	}
+
+	// Readiness Handler.
+	s.httpMux.HandleFunc("/ready", s.istiodReadyHandler)
+
+	s.HTTPListener = listener
+	return nil
+}
+
+// initDiscoveryService intializes discovery server on plain text port.
+func (s *Server) initDiscoveryService(args *PilotArgs) error {
+	// Implement EnvoyXdsServer grace shutdown
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.EnvoyXdsServer.Start(stop)
+		return nil
+	})
+
+	s.initGrpcServer(args.KeepaliveOptions)
 	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
 	if err != nil {
 		return err
@@ -445,26 +451,49 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 }
 
 // Wait for the stop, and do cleanups
-func (s *Server) cleanupOnStop(stop <-chan struct{}) {
+func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		s.fileWatcher.Close()
-
 		model.JwtKeyResolver.Close()
 
-		if s.forceStop {
-			s.grpcServer.Stop()
-			_ = s.httpServer.Close()
-		} else {
+		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
+		// force stop them. This does not happen normally.
+		stopped := make(chan struct{})
+		go func() {
 			s.grpcServer.GracefulStop()
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			if err := s.httpServer.Shutdown(ctx); err != nil {
-				log.Warna(err)
+			if s.secureGrpcServer != nil {
+				s.secureGrpcServer.GracefulStop()
 			}
+			close(stopped)
+		}()
+
+		t := time.NewTimer(s.shutdownDuration)
+		select {
+		case <-t.C:
+			s.grpcServer.Stop()
+			if s.secureGrpcServer != nil {
+				s.secureGrpcServer.Stop()
+			}
+		case <-stopped:
+			t.Stop()
+		}
+
+		// Stop HTTP services.
+		ctx, cancel := context.WithTimeout(context.Background(), s.shutdownDuration)
+		defer cancel()
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			log.Warna(err)
+		}
+		if s.httpsServer != nil {
 			if err := s.httpsServer.Shutdown(ctx); err != nil {
 				log.Warna(err)
 			}
+		}
+
+		// Stop DNS Server.
+		if s.IstioDNSServer != nil {
+			s.IstioDNSServer.Close()
 		}
 	}()
 }
@@ -473,6 +502,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.EnvoyXdsServer.Register(s.grpcServer)
+	reflection.Register(s.grpcServer)
 }
 
 // initDNSServer initializes gRPC DNS Server for DNS resolutions.
@@ -529,7 +559,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 }
 
 // initialize secureGRPCServer.
-func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
+func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error {
 	if args.TLSOptions.CaCertFile == "" && s.ca == nil {
 		// Running locally without configured certs - no TLS mode
 		return nil
@@ -565,6 +595,7 @@ func (s *Server) initSecureGrpcServer(args *PilotArgs, port string) error {
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.EnvoyXdsServer.Register(s.secureGrpcServer)
+	reflection.Register(s.secureGrpcServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
@@ -609,6 +640,11 @@ func (s *Server) addStartFunc(fn startFunc) {
 	s.startFuncs = append(s.startFuncs, fn)
 }
 
+// adds a readiness probe for Istiod Server.
+func (s *Server) addReadinessProbe(name string, fn readinessProbe) {
+	s.readinessProbes[name] = fn
+}
+
 // addRequireStartFunc adds a function that should terminate before the serve shuts down
 // This is useful to do cleanup activities
 // This is does not guarantee they will terminate gracefully - best effort only
@@ -646,8 +682,8 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	return true
 }
 
-// initEventHandlers sets up event handlers for config and service updates
-func (s *Server) initEventHandlers() error {
+// initRegistryEventHandlers sets up event handlers for config and service updates
+func (s *Server) initRegistryEventHandlers() error {
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
@@ -972,4 +1008,23 @@ func (s *Server) fetchCARoot() map[string]string {
 	return map[string]string{
 		constants.CACertNamespaceConfigMapDataName: string(s.ca.GetCAKeyCertBundle().GetRootCertPem()),
 	}
+}
+
+// initMeshHandlers initializes mesh and network handlers.
+func (s *Server) initMeshHandlers() {
+	// When the mesh config or networks change, do a full push.
+	s.environment.AddMeshHandler(func() {
+		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
+		s.EnvoyXdsServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: []model.TriggerReason{model.GlobalUpdate},
+		})
+	})
+	s.environment.AddNetworksHandler(func() {
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: []model.TriggerReason{model.GlobalUpdate},
+		})
+	})
 }

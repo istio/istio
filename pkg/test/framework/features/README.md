@@ -10,7 +10,7 @@ Adding a label to a test using the integration framework is easy.  Simply call t
 
 ## Adding New Feature Constants
 
-For consistency, features must be registerd in  `features.yaml`, or your test will fail.  Each entry in this file will be equivalent to a dot delimited feature label.  For instance:
+For consistency, features must be registerd in [features.yaml](features.yaml), or your test will fail.  Each entry in this file will be equivalent to a dot delimited feature label.  For instance:
 
 ```yaml
     foo:
@@ -32,7 +32,13 @@ The heirarchical nature of feature labels allows us to aggregate data about rela
 
 Test stubs are a valuable way to indicate that a feature should be tested, but isn't yet.  When writing a design doc, a set of test stubs can represent your Test Plan.  You can also use stubs to document features whose lack of testing needs to be visible in our feature coverage dashboard.
 
-To write a stub, simply create a test object and call NotImplementedYet, passing the label of any features this test should cover.  This test gap will now appear in our feature coverage dashboards, which give release managers a better understanding of what is and isn't tested in a given release.  If you are implementing a test stub with no immediate plans to implement the test, it's a best practice to create a tracking issue as well.
+To write a stub, simply create a test object and call NotImplementedYet, passing the label of any features this test should cover.  This test gap will now appear in our feature coverage dashboards, which give release managers a better understanding of what is and isn't tested in a given release.  If you are implementing a test stub with no immediate plans to implement the test, it's a best practice to create a tracking issue as well.  If your test stub uses a new feature constant, be sure to follow the instructions above to update our list of features.
+
+```go
+  func TestExample(t *testing.T) {
+    framework.NewTest(t).NotImplementedYet("my.feature.string")
+  }
+```
 
 ## Top-Level Feature Headings
 

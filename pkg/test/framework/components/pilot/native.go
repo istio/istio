@@ -104,7 +104,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 
 		// Include all of the default plugins for integration with Mixer, etc.
 		p.Plugins = bootstrap.DefaultPlugins
-		p.ForceStop = true
+		p.ShutdownDuration = 1 * time.Millisecond
 	})
 
 	if bootstrapArgs.MeshConfig == nil {

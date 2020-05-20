@@ -609,7 +609,7 @@ func TestWebhookInject(t *testing.T) {
 						Raw: podJSON,
 					},
 				},
-			})
+			}, "")
 			var prettyPatch bytes.Buffer
 			if err := json.Indent(&prettyPatch, got.Patch, "", "  "); err != nil {
 				t.Fatalf(err.Error())
@@ -755,7 +755,7 @@ func TestHelmInject(t *testing.T) {
 								Raw: templateJSON,
 							},
 						},
-					})
+					}, "")
 
 					// Apply the generated patch to the template.
 					patch := prettyJSON(got.Patch, t)

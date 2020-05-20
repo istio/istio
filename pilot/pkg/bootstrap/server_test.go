@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -151,7 +152,7 @@ func TestNewServer(t *testing.T) {
 
 				// Include all of the default plugins for integration with Mixer, etc.
 				p.Plugins = DefaultPlugins
-				p.ForceStop = true
+				p.ShutdownDuration = 1 * time.Millisecond
 			})
 
 			g := NewGomegaWithT(t)
