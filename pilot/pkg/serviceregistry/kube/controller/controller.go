@@ -994,11 +994,11 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	// Find the Service associated with the pod.
 	services, err := getPodServices(c.serviceLister, dummyPod)
 	if err != nil {
-		return nil, fmt.Errorf("error getting instances: %v", err)
+		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
 
 	}
 	if len(services) == 0 {
-		return nil, fmt.Errorf("no instances found: %v ", err)
+		return nil, fmt.Errorf("no instances found for %s: %v", proxy.ID, err)
 	}
 
 	out := make([]*model.ServiceInstance, 0)
