@@ -359,7 +359,7 @@
       {
         "name": "zipkin",
         
-        "transport_socket": {"name":"tls","typed_config":{"@type":"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext","common_tls_context":{"validation_context":{"trusted_ca":{"filename":"/etc/zipkin/ca.pem"}}}}},
+        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext","common_tls_context":{"validation_context":{"trusted_ca":{"filename":"/etc/zipkin/ca.pem"}}}}},
         
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,

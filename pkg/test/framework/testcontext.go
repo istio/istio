@@ -142,6 +142,13 @@ func (c *testContext) TrackResource(r resource.Resource) resource.ID {
 	return rid
 }
 
+func (c *testContext) GetResource(ref interface{}) error {
+	if err := c.scope.get(ref); err != nil {
+		return c.suite.GetResource(ref)
+	}
+	return nil
+}
+
 func (c *testContext) WorkDir() string {
 	return c.workDir
 }

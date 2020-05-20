@@ -20,11 +20,9 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pkg/util"
-
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/webhooks"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -69,7 +67,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 			if hasCustomTLSCerts(args.TLSOptions) {
 				caBundlePath = args.TLSOptions.CaCertFile
 			}
-			util.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, caBundlePath, s.kubeClient, stop)
+			webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, caBundlePath, s.kubeClient, stop)
 			return nil
 		})
 	}

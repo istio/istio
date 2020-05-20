@@ -333,6 +333,9 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 
 // The foreign service instance has pointer to the foreign service and its service port.
 // We need to create our own but we can retain the endpoint already created.
+// TODO(rshriram): we currently ignore the pod(endpoint) ports and setup 1-1 mapping
+// from service port to endpoint port. Need to figure out a way to map k8s pod port to
+// appropriate service entry port
 func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serviceEntryServices []*model.Service,
 	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
@@ -340,6 +343,8 @@ func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serv
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			ep := *foreignInstance.Endpoint
 			ep.ServicePortName = serviceEntryPort.Name
+			ep.EndpointPort = serviceEntryPort.Number
+			ep.EnvoyEndpoint = nil
 			out = append(out, &model.ServiceInstance{
 				Endpoint:    &ep,
 				Service:     service,
@@ -348,4 +353,41 @@ func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serv
 		}
 	}
 	return out
+}
+
+// Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
+// port names) and the namespace - k8s will consume this service instance when selecting workload entries
+// TODO(rshriram): we currently ignore the workload entry (endpoint) ports. K8S will setup 1-1 mapping
+// from service port to endpoint port. Need to figure out a way to map workload entry port to
+// appropriate k8s service port
+func convertWorkloadEntryToServiceInstanceForK8S(namespace string,
+	we *networking.WorkloadEntry) *model.ServiceInstance {
+	addr := we.GetAddress()
+	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
+		// k8s can't use uds for service objects
+		return nil
+	}
+	tlsMode := getTLSModeFromWorkloadEntry(we)
+	sa := ""
+	if we.ServiceAccount != "" {
+		sa = spiffe.MustGenSpiffeURI(namespace, we.ServiceAccount)
+	}
+	return &model.ServiceInstance{
+		Endpoint: &model.IstioEndpoint{
+			Address: addr,
+			Network: we.Network,
+			Locality: model.Locality{
+				Label: we.Locality,
+			},
+			LbWeight:       we.Weight,
+			Labels:         we.Labels,
+			TLSMode:        tlsMode,
+			ServiceAccount: sa,
+		},
+		Service: &model.Service{
+			Attributes: model.ServiceAttributes{
+				Namespace: namespace,
+			},
+		},
+	}
 }

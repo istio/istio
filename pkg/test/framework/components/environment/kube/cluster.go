@@ -32,8 +32,9 @@ var _ resource.Cluster = Cluster{}
 // Cluster for a Kubernetes cluster. Provides access via a kube.Accessor.
 type Cluster struct {
 	*kube.Accessor
-	filename string
-	index    resource.ClusterIndex
+	filename    string
+	networkName string
+	index       resource.ClusterIndex
 }
 
 func (c Cluster) ApplyConfig(ns string, yamlText ...string) error {
@@ -120,6 +121,11 @@ func (c Cluster) String() string {
 // Filename of the kubeconfig file for this cluster.
 func (c Cluster) Filename() string {
 	return c.filename
+}
+
+// NetworkName the cluster is on
+func (c Cluster) NetworkName() string {
+	return c.networkName
 }
 
 // Name provides the name this cluster used by Istio.

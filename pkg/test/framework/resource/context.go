@@ -22,6 +22,12 @@ type Context interface {
 	// cleaned up.
 	TrackResource(r Resource) ID
 
+	// GetResource accepts either a *T or *[]*T where T implements Resource.
+	// For a non-slice pointer, the value will be assigned to the first matching resource.
+	// For a slice pointer, the matching resources will be appended.
+	// If ref is not a pointer, an error will be returned.
+	GetResource(ref interface{}) error
+
 	// The Environment in which the tests run
 	Environment() Environment
 
