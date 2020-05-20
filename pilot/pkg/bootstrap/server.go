@@ -388,9 +388,10 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	return nil
 }
 
-// A single container can't have two readiness probes. Piggyback the other readiness
-// onto the http server readiness check. The "http" portion of the readiness check is satisfied
-// by the fact we've started listening on this handler and everything has already initialized.
+// A single container can't have two readiness probes. Make this readiness probe a generic one
+// that can handle all istiod related readiness checks including webhook, gRPC etc.
+// The "http" portion of the readiness check is satisfied by the fact we've started listening on
+// this handler and everything has already initialized.
 func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	for name, fn := range s.readinessProbes {
 		if status := fn(); status != http.StatusOK {
