@@ -24,7 +24,7 @@ func TestSDSAgentWithFileMountedCerts(t *testing.T) {
 	fileMountedCertsEnv = true
 	defer func() { fileMountedCertsEnv = fm }()
 	// Validate that SDS server can start without any error.
-	sa := NewSDSAgent("istiod.istio-system:15012", false, "custom", "", "", "kubernetes")
+	sa := NewSDSAgent("istiod.istio-system:15012", false, "custom", "", "", "kubernetes", "podNamespace", "podName", "10.10.10.10")
 	_, err := sa.Start(true, "test")
 	if err != nil {
 		t.Fatalf("Unexpected error starting SDSAgent %v", err)

@@ -225,7 +225,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	a.ClusterID = clusterID
 	a.PodIP = podIP
 	a.PodName = podName
-	a.podNamespace = podNamespace
+	a.PodNamespace = podNamespace
 
 	// If a workload is using file mounted certs, we do not to have to process CA relaated configuration.
 	if !shouldProvisionCertificates() {
