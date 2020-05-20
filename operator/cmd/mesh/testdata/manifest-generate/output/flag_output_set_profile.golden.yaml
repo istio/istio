@@ -39,7 +39,7 @@ rules:
     resources: ["gateways"]
 
   # istio configuration
-  - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
     verbs: ["get", "watch", "list"]
     resources: ["*"]
 
@@ -116,7 +116,6 @@ metadata:
 rules:
   - apiGroups:
       - "config.istio.io"
-      - "rbac.istio.io"
       - "security.istio.io"
       - "networking.istio.io"
       - "authentication.istio.io"
@@ -211,7 +210,6 @@ webhooks:
         - UPDATE
         apiGroups:
         - config.istio.io
-        - rbac.istio.io
         - security.istio.io
         - authentication.istio.io
         - networking.istio.io

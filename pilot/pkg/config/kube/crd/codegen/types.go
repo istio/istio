@@ -14,7 +14,7 @@
 
 // Tool to generate pilot/pkg/config/kube/types.go
 // Example run command:
-// go run pilot/tools/generate_config_crd_types.go --template pilot/tools/types.go.tmpl --output pilot/pkg/config/kube/crd/types.gen.go
+// go run pilot/pkg/config/kube/crd/codegen/types.go --template pilot/pkg/config/kube/crd/codegen/types.go.tmpl --output pilot/pkg/config/kube/crd/types.gen.go
 package main
 
 import (

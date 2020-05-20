@@ -24,7 +24,6 @@ webhooks:
         - UPDATE
         apiGroups:
         - config.istio.io
-        - rbac.istio.io
         - security.istio.io
         - authentication.istio.io
         - networking.istio.io
