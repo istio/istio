@@ -34,10 +34,10 @@ import (
 // Test allows the test author to specify test-related metadata in a fluent-style, before commencing execution.
 type Test struct {
 	// name to be used when creating a Golang test. Only used for subtests.
-	name                string
-	parent              *Test
-	goTest              *testing.T
-	labels              []label.Instance
+	name   string
+	parent *Test
+	goTest *testing.T
+	labels []label.Instance
 	// featureLabels maps features to the scenarios they cover.
 	featureLabels       map[features.Feature][]string
 	notImplemented      bool
@@ -66,8 +66,8 @@ func NewTest(t *testing.T) *Test {
 	}
 
 	runner := &Test{
-		s:      rt.suiteContext(),
-		goTest: t,
+		s:             rt.suiteContext(),
+		goTest:        t,
 		featureLabels: make(map[features.Feature][]string),
 	}
 
