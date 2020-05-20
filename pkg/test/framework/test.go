@@ -68,6 +68,7 @@ func NewTest(t *testing.T) *Test {
 	runner := &Test{
 		s:      rt.suiteContext(),
 		goTest: t,
+		featureLabels: make(map[features.Feature][]string),
 	}
 
 	return runner
