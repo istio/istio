@@ -1023,7 +1023,9 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 }
 
 func (ms *mockSecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
-	return false
+	// Return true here for file mounted cert resource name to validate that file mounted certs would
+	// not depend on this result and proceed with generating secret.
+	return strings.HasPrefix(resourceName, "file-root:")
 }
 
 func TestDebugEndpoints(t *testing.T) {
