@@ -27,13 +27,12 @@ const (
 	HTTPSHandlerReadyPath = "/httpsReady"
 )
 
-func (s *Server) initHTTPSWebhookServer(args *PilotArgs) {
+func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
 
 	log.Info("Setting up HTTPS webhook server for istiod webhooks")
-
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	s.httpsMux = http.NewServeMux()
 	s.httpsServer = &http.Server{
@@ -56,9 +55,10 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) {
 			},
 		},
 	}
+	s.addReadinessProbe("Secure Webhook Server", s.webhookReadyHandler)
 }
 
-func (s *Server) checkHTTPSWebhookServerReadiness() int {
+func (s *Server) webhookReadyHandler() int {
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL: &url.URL{
