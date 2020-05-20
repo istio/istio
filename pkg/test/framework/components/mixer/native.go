@@ -30,7 +30,6 @@ import (
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -44,7 +43,6 @@ type nativeComponent struct {
 	id     resource.ID
 	ctx    resource.Context
 	env    *native.Environment
-	galley galley.Instance
 
 	*client
 }
@@ -56,7 +54,6 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 	n := &nativeComponent{
 		ctx:    ctx,
 		env:    ctx.Environment().(*native.Environment),
-		galley: config.Galley,
 	}
 	n.id = ctx.TrackResource(n)
 
@@ -84,7 +81,6 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 	n.client.args = server.DefaultArgs()
 	n.client.args.APIPort = 0
 	n.client.args.MonitoringPort = 0
-	n.client.args.ConfigStoreURL = "mcp://" + config.Galley.Address()[6:]
 	n.client.args.Templates = generatedTmplRepo.SupportedTmplInfo
 	n.client.args.Adapters = adapter.Inventory()
 
