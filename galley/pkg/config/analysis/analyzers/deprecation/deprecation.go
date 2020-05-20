@@ -18,8 +18,6 @@ import (
 	"fmt"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/api/rbac/v1alpha1"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
@@ -41,7 +39,6 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks for deprecated Istio types and fields",
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
 		},
 	}
 }
@@ -50,10 +47,6 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		fa.analyzeVirtualService(r, ctx)
-		return true
-	})
-	ctx.ForEach(collections.IstioRbacV1Alpha1Servicerolebindings.Name(), func(r *resource.Instance) bool {
-		fa.analyzeServiceRoleBinding(r, ctx)
 		return true
 	})
 }
@@ -74,24 +67,6 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.C
 	}
 }
 
-func (*FieldAnalyzer) analyzeServiceRoleBinding(r *resource.Instance, ctx analysis.Context) {
-
-	srb := r.Message.(*v1alpha1.ServiceRoleBinding)
-
-	for _, subject := range srb.Subjects {
-		if subject.Group != "" {
-			ctx.Report(collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
-				msg.NewDeprecated(r, uncertainFixMessage("ServiceRoleBinding.subjects.group")))
-		}
-	}
-}
-
 func replacedMessage(deprecated, replacement string) string {
 	return fmt.Sprintf("%s is deprecated; use %s", deprecated, replacement)
-}
-
-// uncertainFixMessage() should be used for fields we don't have a suggested replacement for.
-// It is preferable to avoid calling it and find out the replacement suggestion instead.
-func uncertainFixMessage(field string) string {
-	return fmt.Sprintf("%s is deprecated", field)
 }
