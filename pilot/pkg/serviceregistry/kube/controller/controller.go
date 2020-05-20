@@ -767,11 +767,20 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 	selector := klabels.Set(k8sService.Spec.Selector).AsSelectorPreValidated()
 
 	// Get the service port name so that we can construct the service instance
-	var servicePort *model.Port
-	for _, p := range svc.Ports {
-		if p.Port == reqSvcPort {
-			servicePort = p
-			break
+	servicePort, exists := svc.Ports.GetByPort(reqSvcPort)
+	if !exists {
+		return nil, nil
+	}
+
+	var targetPort uint32
+	for _, kp := range k8sService.Spec.Ports {
+		// Found the matching port
+		if servicePort.Name == kp.Name && servicePort.Port == int(kp.Port) {
+			if kp.TargetPort.Type == intstr.Int {
+				// Named port is not permitted
+				// TODO we can probably permit named ports, but requires some more changes
+				targetPort = uint32(kp.TargetPort.IntVal)
+			}
 		}
 	}
 
@@ -788,7 +797,7 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 			// from service port to endpoint port. Need to figure out a way to map workload entry port to
 			// appropriate k8s service port
 			istioEndpoint := *fi.Endpoint
-			istioEndpoint.EndpointPort = uint32(reqSvcPort)
+			istioEndpoint.EndpointPort = targetPort
 			istioEndpoint.ServicePortName = servicePort.Name
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
@@ -919,7 +928,7 @@ func (c *Controller) ForeignServiceInstanceHandler(si *model.ServiceInstance, ev
 			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.domainSuffix)]
 			c.RUnlock()
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
-			if service.Resolution != model.ClientSideLB {
+			if service == nil || service.Resolution != model.ClientSideLB {
 				// may be a headless service
 				continue
 			}
