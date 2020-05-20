@@ -211,12 +211,11 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		env:                    p.Env,
 		revision:               p.Revision,
 	}
-	p.Mux.HandleFunc("/inject", wh.serveInject)
-	p.Mux.HandleFunc("/inject/", wh.serveInject)
 
 	var mux *http.ServeMux
 	if p.Mux != nil {
 		p.Mux.HandleFunc("/inject", wh.serveInject)
+		p.Mux.HandleFunc("/inject/", wh.serveInject)
 		mux = p.Mux
 	} else {
 		wh.server = &http.Server{
@@ -226,6 +225,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		}
 		mux = http.NewServeMux()
 		mux.HandleFunc("/inject", wh.serveInject)
+		p.Mux.HandleFunc("/inject/", wh.serveInject)
 		wh.server.Handler = mux
 	}
 
