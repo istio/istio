@@ -41,9 +41,6 @@ var (
 	istioVsResource = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 	istioGwResource = collections.IstioNetworkingV1Alpha3Gateways.Resource()
 
-	k8sHttpResource = collections.K8SServiceApisV1Alpha1Httproutes.Resource()
-	k8sTcpResource  = collections.K8SServiceApisV1Alpha1Tcproutes.Resource()
-
 	k8sServiceResource = collections.K8SCoreV1Services.Resource()
 )
 
@@ -56,7 +53,7 @@ type KubernetesResources struct {
 	Namespaces   map[string]*corev1.Namespace
 }
 
-func (r *KubernetesResources) fetchHttpRoutes(routes k8s.RouteBindingSelector) []*k8s.HTTPRouteSpec {
+func (r *KubernetesResources) fetchHTTPRoutes(routes k8s.RouteBindingSelector) []*k8s.HTTPRouteSpec {
 	ls, err := metav1.LabelSelectorAsSelector(routes.RouteSelector)
 	if err != nil {
 		log.Errorf("failed to create route selector: %v", err)
@@ -187,12 +184,12 @@ func createRoute(action *k8s.HTTPRouteAction, ns string) []*istio.HTTPRouteDesti
 
 	// TODO this is really bad. What types does object point to?
 	return []*istio.HTTPRouteDestination{{
-		Destination: buildHttpDestination(action.ForwardTo, ns),
+		Destination: buildHTTPDestination(action.ForwardTo, ns),
 	}}
 
 }
 
-func buildHttpDestination(to *k8s.ForwardToTarget, ns string) *istio.Destination {
+func buildHTTPDestination(to *k8s.ForwardToTarget, ns string) *istio.Destination {
 	res := &istio.Destination{}
 	if to.TargetPort != nil {
 		res.Port = &istio.PortSelector{Number: uint32(*to.TargetPort)}
@@ -323,14 +320,14 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 		}
 		// TODO support TCP Route
 		// TODO support VirtualService
-		for _, http := range r.fetchHttpRoutes(kgw.Routes) {
+		for _, http := range r.fetchHTTPRoutes(kgw.Routes) {
 			routeToGateway[http] = append(routeToGateway[http], name)
 		}
 		gatewayConfig := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(),
-				Group:     collections.IstioNetworkingV1Alpha3Gateways.Resource().Group(),
-				Version:   collections.IstioNetworkingV1Alpha3Gateways.Resource().Version(),
+				Type:      istioGwResource.Kind(),
+				Group:     istioGwResource.Group(),
+				Version:   istioGwResource.Version(),
 				Name:      name,
 				Namespace: obj.Namespace,
 				Domain:    "", // TODO hardcoded
