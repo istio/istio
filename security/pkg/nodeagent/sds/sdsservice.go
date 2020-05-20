@@ -120,6 +120,8 @@ type sdsservice struct {
 	// skipToken indicates whether token is required.
 	skipToken bool
 
+	fileMountedCerts bool
+
 	localJWT bool
 
 	jwtPath string
@@ -146,7 +148,7 @@ type Debug struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool,
+func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT, fileMountedCerts bool,
 	recycleInterval time.Duration, jwtPath, outputKeyCertToDir string) *sdsservice {
 	if st == nil {
 		return nil
@@ -155,6 +157,7 @@ func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool,
 	ret := &sdsservice{
 		st:                 st,
 		skipToken:          skipTokenVerification,
+		fileMountedCerts:   fileMountedCerts,
 		tickerInterval:     recycleInterval,
 		closing:            make(chan bool),
 		localJWT:           localJWT,
@@ -325,9 +328,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// In ingress gateway agent mode, if the first SDS request is received but kubernetes secret is not ready,
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
 			// for a new kubernetes secret before sending SDS response.
-			if s.st.ShouldWaitForIngressGatewaySecret(conID, resourceName, token) {
-				sdsServiceLog.Warnf("%s waiting for ingress gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
-				continue
+			if !s.fileMountedCerts {
+				if s.st.ShouldWaitForIngressGatewaySecret(conID, resourceName, token) {
+					sdsServiceLog.Warnf("%s waiting for ingress gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
+					continue
+				}
+			} else {
+				sdsServiceLog.Infof("Workload is using file mounted certificates. Skipping waiting for ingress gateway secret")
 			}
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
