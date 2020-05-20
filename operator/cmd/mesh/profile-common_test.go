@@ -51,8 +51,9 @@ spec:
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if gotOverlay, gotProfile, err := parseYAMLFiles(tt.inYAML, tt.inForce, tt.inLogger); tt.expectedProfile != gotProfile || tt.expectedOverlay != gotOverlay || ((tt.expectedErr != nil && err == nil) || (tt.expectedErr == nil && err != nil)) {
-				t.Errorf("%s: expected overlay, profile, and err %v %v %v, got %v %v %v", tt.desc, tt.expectedOverlay, tt.expectedProfile, tt.expectedErr, gotOverlay, gotProfile, err)
+			if gotOverlay, gotProfile, err := parseYAMLFiles(tt.inYAML, tt.inForce, tt.inLogger); tt.expectedProfile != gotProfile || tt.expectedOverlay != gotOverlay ||
+				((tt.expectedErr != nil && err == nil) || (tt.expectedErr == nil && err != nil)) {
+				t.Errorf("%s: expect overlay, profile,&err %v %v %v, got %v %v %v", tt.desc, tt.expectedOverlay, tt.expectedProfile, tt.expectedErr, gotOverlay, gotProfile, err)
 			}
 		})
 	}
