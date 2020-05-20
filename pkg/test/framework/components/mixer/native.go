@@ -40,9 +40,9 @@ var (
 )
 
 type nativeComponent struct {
-	id     resource.ID
-	ctx    resource.Context
-	env    *native.Environment
+	id  resource.ID
+	ctx resource.Context
+	env *native.Environment
 
 	*client
 }
@@ -50,10 +50,10 @@ type nativeComponent struct {
 var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
 
-func newNative(ctx resource.Context, config Config) (Instance, error) {
+func newNative(ctx resource.Context, _ Config) (Instance, error) {
 	n := &nativeComponent{
-		ctx:    ctx,
-		env:    ctx.Environment().(*native.Environment),
+		ctx: ctx,
+		env: ctx.Environment().(*native.Environment),
 	}
 	n.id = ctx.TrackResource(n)
 
