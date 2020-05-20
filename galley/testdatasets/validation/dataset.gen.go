@@ -44,14 +44,6 @@
 // dataset/networking-v1beta-VirtualService-valid.yaml
 // dataset/networking-v1beta-WorkloadEntry-invalid.yaml
 // dataset/networking-v1beta-WorkloadEntry-valid.yaml
-// dataset/rbac-v1alpha1-ClusterRbacConfig-invalid.yaml
-// dataset/rbac-v1alpha1-ClusterRbacConfig-valid.yaml
-// dataset/rbac-v1alpha1-RBacConfig-invalid.yaml
-// dataset/rbac-v1alpha1-RBacConfig-valid.yaml
-// dataset/rbac-v1alpha1-ServiceRole-invalid.yaml
-// dataset/rbac-v1alpha1-ServiceRole-valid.yaml
-// dataset/rbac-v1alpha1-ServiceRoleBinding-invalid.yaml
-// dataset/rbac-v1alpha1-ServiceRoleBinding-valid.yaml
 // dataset/security-v1beta1-AuthorizationPolicy-invalid.yaml
 // dataset/security-v1beta1-AuthorizationPolicy-valid.yaml
 // dataset/security-v1beta1-PeerAuthentication-invalid.yaml
@@ -1487,209 +1479,6 @@ func datasetNetworkingV1betaWorkloadentryValidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _datasetRbacV1alpha1ClusterrbacconfigInvalidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
-kind: ClusterRbacConfig
-metadata:
-  name: default
-spec:
-  mode: 'ON_WITH_EXCLUSION'
-`)
-
-func datasetRbacV1alpha1ClusterrbacconfigInvalidYamlBytes() ([]byte, error) {
-	return _datasetRbacV1alpha1ClusterrbacconfigInvalidYaml, nil
-}
-
-func datasetRbacV1alpha1ClusterrbacconfigInvalidYaml() (*asset, error) {
-	bytes, err := datasetRbacV1alpha1ClusterrbacconfigInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/rbac-v1alpha1-ClusterRbacConfig-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetRbacV1alpha1ClusterrbacconfigValidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
-kind: ClusterRbacConfig
-metadata:
-  name: default
-spec:
-  mode: 'ON_WITH_INCLUSION'
-  inclusion:
-    services: ["mongodb.default.svc.cluster.local"]
-`)
-
-func datasetRbacV1alpha1ClusterrbacconfigValidYamlBytes() ([]byte, error) {
-	return _datasetRbacV1alpha1ClusterrbacconfigValidYaml, nil
-}
-
-func datasetRbacV1alpha1ClusterrbacconfigValidYaml() (*asset, error) {
-	bytes, err := datasetRbacV1alpha1ClusterrbacconfigValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/rbac-v1alpha1-ClusterRbacConfig-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetRbacV1alpha1RbacconfigInvalidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
-kind: RbacConfig
-metadata:
-  name: default
-spec:
-  mode: 'ON_WITH_EXCLUSION'
-`)
-
-func datasetRbacV1alpha1RbacconfigInvalidYamlBytes() ([]byte, error) {
-	return _datasetRbacV1alpha1RbacconfigInvalidYaml, nil
-}
-
-func datasetRbacV1alpha1RbacconfigInvalidYaml() (*asset, error) {
-	bytes, err := datasetRbacV1alpha1RbacconfigInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/rbac-v1alpha1-RBacConfig-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetRbacV1alpha1RbacconfigValidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
-kind: RbacConfig
-metadata:
-  name: default
-spec:
-  mode: 'ON_WITH_INCLUSION'
-  inclusion:
-    services: ["mongodb.default.svc.cluster.local"]`)
-
-func datasetRbacV1alpha1RbacconfigValidYamlBytes() ([]byte, error) {
-	return _datasetRbacV1alpha1RbacconfigValidYaml, nil
-}
-
-func datasetRbacV1alpha1RbacconfigValidYaml() (*asset, error) {
-	bytes, err := datasetRbacV1alpha1RbacconfigValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/rbac-v1alpha1-RBacConfig-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetRbacV1alpha1ServiceroleInvalidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRole
-metadata:
-  name: products-viewer
-spec:
-  rules:
-
-`)
-
-func datasetRbacV1alpha1ServiceroleInvalidYamlBytes() ([]byte, error) {
-	return _datasetRbacV1alpha1ServiceroleInvalidYaml, nil
-}
-
-func datasetRbacV1alpha1ServiceroleInvalidYaml() (*asset, error) {
-	bytes, err := datasetRbacV1alpha1ServiceroleInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/rbac-v1alpha1-ServiceRole-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetRbacV1alpha1ServiceroleValidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRole
-metadata:
-  name: products-viewer
-spec:
-  rules:
-  - services: ["products.svc.cluster.local"]
-    methods: ["GET", "HEAD"]
-    constraints:
-    - key: "version"
-      values: ["v1", "v2"]
-
-`)
-
-func datasetRbacV1alpha1ServiceroleValidYamlBytes() ([]byte, error) {
-	return _datasetRbacV1alpha1ServiceroleValidYaml, nil
-}
-
-func datasetRbacV1alpha1ServiceroleValidYaml() (*asset, error) {
-	bytes, err := datasetRbacV1alpha1ServiceroleValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/rbac-v1alpha1-ServiceRole-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetRbacV1alpha1ServicerolebindingInvalidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRoleBinding
-metadata:
-  name: test-binding-products
-spec:
-  subjects:
-
-`)
-
-func datasetRbacV1alpha1ServicerolebindingInvalidYamlBytes() ([]byte, error) {
-	return _datasetRbacV1alpha1ServicerolebindingInvalidYaml, nil
-}
-
-func datasetRbacV1alpha1ServicerolebindingInvalidYaml() (*asset, error) {
-	bytes, err := datasetRbacV1alpha1ServicerolebindingInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/rbac-v1alpha1-ServiceRoleBinding-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetRbacV1alpha1ServicerolebindingValidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRoleBinding
-metadata:
-  name: test-binding-products
-spec:
-  subjects:
-  - user: "alice@yahoo.com"
-  - properties:
-      service: "reviews"
-      namespace: "abc"
-  roleRef:
-    kind: ServiceRole
-    name: "products-viewer"
-
-`)
-
-func datasetRbacV1alpha1ServicerolebindingValidYamlBytes() ([]byte, error) {
-	return _datasetRbacV1alpha1ServicerolebindingValidYaml, nil
-}
-
-func datasetRbacV1alpha1ServicerolebindingValidYaml() (*asset, error) {
-	bytes, err := datasetRbacV1alpha1ServicerolebindingValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/rbac-v1alpha1-ServiceRoleBinding-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _datasetSecurityV1beta1AuthorizationpolicyInvalidYaml = []byte(`apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -1973,14 +1762,6 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/networking-v1beta-VirtualService-valid.yaml":         datasetNetworkingV1betaVirtualserviceValidYaml,
 	"dataset/networking-v1beta-WorkloadEntry-invalid.yaml":        datasetNetworkingV1betaWorkloadentryInvalidYaml,
 	"dataset/networking-v1beta-WorkloadEntry-valid.yaml":          datasetNetworkingV1betaWorkloadentryValidYaml,
-	"dataset/rbac-v1alpha1-ClusterRbacConfig-invalid.yaml":        datasetRbacV1alpha1ClusterrbacconfigInvalidYaml,
-	"dataset/rbac-v1alpha1-ClusterRbacConfig-valid.yaml":          datasetRbacV1alpha1ClusterrbacconfigValidYaml,
-	"dataset/rbac-v1alpha1-RBacConfig-invalid.yaml":               datasetRbacV1alpha1RbacconfigInvalidYaml,
-	"dataset/rbac-v1alpha1-RBacConfig-valid.yaml":                 datasetRbacV1alpha1RbacconfigValidYaml,
-	"dataset/rbac-v1alpha1-ServiceRole-invalid.yaml":              datasetRbacV1alpha1ServiceroleInvalidYaml,
-	"dataset/rbac-v1alpha1-ServiceRole-valid.yaml":                datasetRbacV1alpha1ServiceroleValidYaml,
-	"dataset/rbac-v1alpha1-ServiceRoleBinding-invalid.yaml":       datasetRbacV1alpha1ServicerolebindingInvalidYaml,
-	"dataset/rbac-v1alpha1-ServiceRoleBinding-valid.yaml":         datasetRbacV1alpha1ServicerolebindingValidYaml,
 	"dataset/security-v1beta1-AuthorizationPolicy-invalid.yaml":   datasetSecurityV1beta1AuthorizationpolicyInvalidYaml,
 	"dataset/security-v1beta1-AuthorizationPolicy-valid.yaml":     datasetSecurityV1beta1AuthorizationpolicyValidYaml,
 	"dataset/security-v1beta1-PeerAuthentication-invalid.yaml":    datasetSecurityV1beta1PeerauthenticationInvalidYaml,
@@ -2075,14 +1856,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"networking-v1beta-VirtualService-valid.yaml":         &bintree{datasetNetworkingV1betaVirtualserviceValidYaml, map[string]*bintree{}},
 		"networking-v1beta-WorkloadEntry-invalid.yaml":        &bintree{datasetNetworkingV1betaWorkloadentryInvalidYaml, map[string]*bintree{}},
 		"networking-v1beta-WorkloadEntry-valid.yaml":          &bintree{datasetNetworkingV1betaWorkloadentryValidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-ClusterRbacConfig-invalid.yaml":        &bintree{datasetRbacV1alpha1ClusterrbacconfigInvalidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-ClusterRbacConfig-valid.yaml":          &bintree{datasetRbacV1alpha1ClusterrbacconfigValidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-RBacConfig-invalid.yaml":               &bintree{datasetRbacV1alpha1RbacconfigInvalidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-RBacConfig-valid.yaml":                 &bintree{datasetRbacV1alpha1RbacconfigValidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-ServiceRole-invalid.yaml":              &bintree{datasetRbacV1alpha1ServiceroleInvalidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-ServiceRole-valid.yaml":                &bintree{datasetRbacV1alpha1ServiceroleValidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-ServiceRoleBinding-invalid.yaml":       &bintree{datasetRbacV1alpha1ServicerolebindingInvalidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-ServiceRoleBinding-valid.yaml":         &bintree{datasetRbacV1alpha1ServicerolebindingValidYaml, map[string]*bintree{}},
 		"security-v1beta1-AuthorizationPolicy-invalid.yaml":   &bintree{datasetSecurityV1beta1AuthorizationpolicyInvalidYaml, map[string]*bintree{}},
 		"security-v1beta1-AuthorizationPolicy-valid.yaml":     &bintree{datasetSecurityV1beta1AuthorizationpolicyValidYaml, map[string]*bintree{}},
 		"security-v1beta1-PeerAuthentication-invalid.yaml":    &bintree{datasetSecurityV1beta1PeerauthenticationInvalidYaml, map[string]*bintree{}},
