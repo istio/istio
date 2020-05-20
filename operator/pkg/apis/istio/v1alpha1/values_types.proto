@@ -1974,9 +1974,6 @@ message TypeSliceOfMapStringInterface {}
 // GOTYPE: *IntOrStringForPB
 message TypeIntOrStringForPB {}
 
-// GOTYPE: []string
-message TypeSliceString {}
-
 // ZeroVPNConfig enables cross-cluster access using SNI matching.
 message ZeroVPNConfig {
   // Controls whether ZeroVPN is enabled.
