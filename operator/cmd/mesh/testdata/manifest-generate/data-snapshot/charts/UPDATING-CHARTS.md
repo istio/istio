@@ -16,10 +16,10 @@ Exceptions to this rule are configuration items that affect K8s level settings (
 
 ## Step 1. Make changes in charts and values.yaml in `manifests` directory
 
-## Step 2. Make corresponding values changes in [operator/data/profiles/default.yaml](../operator/data/profiles/default.yaml)
+## Step 2. Make corresponding values changes in [manifests/profiles/default.yaml](../../../../../../../manifests/profiles/default.yaml)
 
 The values.yaml in `manifests` are only used for direct Helm based installations, which is being deprecated.
-If any values.yaml changes are being made, the same changes must be made in the `operator/data/profiles/default.yaml`
+If any values.yaml changes are being made, the same changes must be made in the `manifests/profiles/default.yaml`
 file, which must be in sync with the Helm values in `manifests`.
 
 ## Step 3. Update the validation schema

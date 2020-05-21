@@ -28,7 +28,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -274,18 +273,6 @@ type IstioConfigStore interface {
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
 	QuotaSpecByDestination(hostname host.Name) []Config
-
-	// ServiceRoles selects ServiceRoles in the specified namespace.
-	ServiceRoles(namespace string) []Config
-
-	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
-	ServiceRoleBindings(namespace string) []Config
-
-	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
-	RbacConfig() *Config
-
-	// ClusterRbacConfig selects the ClusterRbacConfig of name DefaultRbacConfigName.
-	ClusterRbacConfig() *Config
 
 	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
 	AuthorizationPolicies(namespace string) []Config
@@ -588,57 +575,6 @@ func (store *istioConfigStore) QuotaSpecByDestination(hostname host.Name) []Conf
 	log.Debugf("QuotaSpecByDestination specs[%d] %v", len(specs), specs)
 
 	return filterQuotaSpecsByDestination(hostname, bindings, specs)
-}
-
-func (store *istioConfigStore) ServiceRoles(namespace string) []Config {
-	roles, err := store.List(collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(), namespace)
-	if err != nil {
-		log.Errorf("failed to get ServiceRoles in namespace %s: %v", namespace, err)
-		return nil
-	}
-
-	return roles
-}
-
-func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
-	bindings, err := store.List(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(), namespace)
-	if err != nil {
-		log.Errorf("failed to get ServiceRoleBinding in namespace %s: %v", namespace, err)
-		return nil
-	}
-
-	return bindings
-}
-
-func (store *istioConfigStore) ClusterRbacConfig() *Config {
-	clusterRbacConfig, err := store.List(collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(), "")
-	if err != nil {
-		log.Errorf("failed to get ClusterRbacConfig: %v", err)
-	}
-	for _, rc := range clusterRbacConfig {
-		if rc.Name == constants.DefaultRbacConfigName {
-			return &rc
-		}
-	}
-	return nil
-}
-
-func (store *istioConfigStore) RbacConfig() *Config {
-	rbacConfigs, err := store.List(collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(), "")
-	if err != nil {
-		return nil
-	}
-
-	if len(rbacConfigs) > 1 {
-		log.Errorf("found %d RbacConfigs, expecting only 1.", len(rbacConfigs))
-	}
-	for _, rc := range rbacConfigs {
-		if rc.Name == constants.DefaultRbacConfigName {
-			log.Warnf("RbacConfig is deprecated, Use ClusterRbacConfig instead.")
-			return &rc
-		}
-	}
-	return nil
 }
 
 func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {

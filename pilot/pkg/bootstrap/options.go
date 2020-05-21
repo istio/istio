@@ -81,8 +81,7 @@ type PilotArgs struct {
 	Plugins            []string
 	MCPOptions         MCPOptions
 	KeepaliveOptions   *istiokeepalive.Options
-	// ForceStop is set as true when used for testing to make the server stop quickly
-	ForceStop bool
+	ShutdownDuration   time.Duration
 	// Optional TLS configuration
 	TLSOptions TLSOptions
 }
@@ -120,7 +119,7 @@ type MCPOptions struct {
 	InitialConnWindowSize int
 }
 
-// Optional TLS parameters for the server.
+// Optional TLS parameters for Istiod server.
 type TLSOptions struct {
 	CaCertFile string
 	CertFile   string

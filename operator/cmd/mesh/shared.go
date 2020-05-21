@@ -47,10 +47,6 @@ import (
 var (
 	// installerScope is the scope for all commands in the mesh package.
 	installerScope = log.RegisterScope("installer", "installer", 0)
-
-	// Path to the operator install base dir in the snapshot. This symbol is required here because it's referenced
-	// in "operator dump" e2e command tests and there's no other way to inject a path into the snapshot into the command.
-	snapshotInstallPackageDir string
 )
 
 func initLogsOrExit(_ *rootArgs) {

@@ -433,7 +433,6 @@ func (o *K8sObject) Equal(other *K8sObject) bool {
 func istioCustomResources(group string) bool {
 	switch group {
 	case "config.istio.io",
-		"rbac.istio.io",
 		"security.istio.io",
 		"authentication.istio.io",
 		"networking.istio.io":
