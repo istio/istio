@@ -29,6 +29,7 @@ import (
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
+	// Import all XDS config types
 	_ "istio.io/istio/pkg/config/xds"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -547,6 +548,7 @@ func (s *TestSetup) DrainMixerAllChannels() {
 }
 
 // go-control-plane requires v2 XDS types, when we are using v3 internally
+// nolint: interfacer
 func CastRouteToV2(r *route.RouteConfiguration) *v2.RouteConfiguration {
 	s, err := (&jsonpb.Marshaler{OrigName: true}).MarshalToString(r)
 	if err != nil {
@@ -561,6 +563,7 @@ func CastRouteToV2(r *route.RouteConfiguration) *v2.RouteConfiguration {
 }
 
 // go-control-plane requires v2 XDS types, when we are using v3 internally
+// nolint: interfacer
 func CastListenerToV2(r *listener.Listener) *v2.Listener {
 	s, err := (&jsonpb.Marshaler{OrigName: true}).MarshalToString(r)
 	if err != nil {

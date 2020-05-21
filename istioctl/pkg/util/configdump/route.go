@@ -21,6 +21,8 @@ import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
+
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 )
 
 // GetLastUpdatedDynamicRouteTime retrieves the LastUpdated timestamp of the
@@ -56,17 +58,20 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 	}
 	drc := routeDump.GetDynamicRouteConfigs()
 	sort.Slice(drc, func(i, j int) bool {
-		route := &route.RouteConfiguration{}
-		err = ptypes.UnmarshalAny(drc[i].RouteConfig, route)
+		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+		r := &route.RouteConfiguration{}
+		drc[i].RouteConfig.TypeUrl = v3.RouteType
+		drc[j].RouteConfig.TypeUrl = v3.RouteType
+		err = ptypes.UnmarshalAny(drc[i].RouteConfig, r)
 		if err != nil {
 			return false
 		}
-		name := route.Name
-		err = ptypes.UnmarshalAny(drc[j].RouteConfig, route)
+		name := r.Name
+		err = ptypes.UnmarshalAny(drc[j].RouteConfig, r)
 		if err != nil {
 			return false
 		}
-		return name < route.Name
+		return name < r.Name
 	})
 
 	// In Istio 1.5, it is not enough just to sort the routes.  The virtual hosts
