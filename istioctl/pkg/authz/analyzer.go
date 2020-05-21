@@ -31,6 +31,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 )
 
 // Analyzer that can be used to check authentication and authorization policy status.
@@ -70,6 +71,8 @@ func (a *Analyzer) getParsedListeners() []*ParsedListener {
 	ret := make([]*ParsedListener, 0)
 	for _, l := range a.listenerDump.DynamicListeners {
 		listenerTyped := &listener.Listener{}
+		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+		l.ActiveState.Listener.TypeUrl = v3.ListenerType
 		err := ptypes.UnmarshalAny(l.ActiveState.Listener, listenerTyped)
 		if err != nil {
 			return nil

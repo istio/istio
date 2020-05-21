@@ -34,6 +34,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
+	"istio.io/pkg/log"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
@@ -50,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	pilot_v1alpha3 "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -833,6 +836,8 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 	for _, dac := range dump.DynamicActiveClusters {
 		clusterTyped := &cluster.Cluster{}
+		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+		dac.Cluster.TypeUrl = v3.ClusterType
 		err = ptypes.UnmarshalAny(dac.Cluster, clusterTyped)
 		if err != nil {
 			return "", err
@@ -1207,6 +1212,9 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 			matchingSubsets := []string{}
 			nonmatchingSubsets := []string{}
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
+			if err != nil {
+				log.Errorf("fetch destination rule for %v: %v", svc.Name, err)
+			}
 			var dr *model.Config
 			if err == nil && drName != "" && drNamespace != "" {
 				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), drName, drNamespace)

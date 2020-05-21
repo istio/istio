@@ -22,11 +22,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/util"
 
-	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
-	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
-	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
+	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -101,7 +101,7 @@ func ParseListener(listener *listener.Listener) *ParsedListener {
 		tlsContext := &tls.DownstreamTlsContext{}
 		if fc.TransportSocket != nil && fc.TransportSocket.Name == util.EnvoyTLSSocketName {
 			if err := ptypes.UnmarshalAny(fc.TransportSocket.GetTypedConfig(), tlsContext); err != nil {
-				continue
+				log.Warnf("failed to unmarshal tls settings: %v", err)
 			}
 		}
 		parsedFC := &filterChain{tlsContext: tlsContext}
