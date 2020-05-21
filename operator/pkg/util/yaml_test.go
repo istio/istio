@@ -2,16 +2,18 @@ package util
 
 import (
 	"errors"
-	"github.com/gogo/protobuf/proto"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"reflect"
 	"testing"
+
+	"github.com/gogo/protobuf/proto"
+
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 func TestToYAML(t *testing.T) {
-	tests := []struct{
-		desc string
-		inVals interface{}
+	tests := []struct {
+		desc        string
+		inVals      interface{}
 		expectedOut string
 	}{
 		{
@@ -38,8 +40,8 @@ foo: yaml
 `,
 		},
 		{
-			desc: "expected-err-nil",
-			inVals: nil,
+			desc:        "expected-err-nil",
+			inVals:      nil,
 			expectedOut: "null\n",
 		},
 	}
@@ -53,16 +55,16 @@ foo: yaml
 }
 
 func TestToYAMLWithJSONPB(t *testing.T) {
-	tests := []struct{
-		desc string
-		in proto.Message
+	tests := []struct {
+		desc        string
+		in          proto.Message
 		expectedOut string
 	}{
 		{
 			desc: "valid-istio-op-with-missing-fields",
 			in: &v1alpha1.IstioOperator{
 				ApiVersion: "v1",
-				Kind: "operator",
+				Kind:       "operator",
 			},
 			expectedOut: `apiVersion: v1
 kind: operator
@@ -142,12 +144,12 @@ func TestOverlayTrees(t *testing.T) {
 	}
 }
 func TestOverlayYAML(t *testing.T) {
-	tests := []struct{
-		desc string
-		base string
+	tests := []struct {
+		desc    string
+		base    string
 		overlay string
-		expect string
-		err error
+		expect  string
+		err     error
 	}{
 		{
 			desc: "overlay-yaml",
@@ -161,8 +163,8 @@ yo: go
 			err: nil,
 		},
 		{
-			desc: "combine-yaml",
-			base: `foo: bar`,
+			desc:    "combine-yaml",
+			base:    `foo: bar`,
 			overlay: `baz: razmatazz`,
 			expect: `baz: razmatazz
 foo: bar
@@ -170,11 +172,11 @@ foo: bar
 			err: nil,
 		},
 		{
-			desc: "blank",
-			base: `R#)*J#FN`,
+			desc:    "blank",
+			base:    `R#)*J#FN`,
 			overlay: `FM#)M#F(*#M`,
-			expect: "",
-			err: errors.New("invalid json"),
+			expect:  "",
+			err:     errors.New("invalid json"),
 		},
 	}
 	for _, tt := range tests {
@@ -187,10 +189,10 @@ foo: bar
 }
 
 func TestYAMLDiff(t *testing.T) {
-	tests := []struct{
-		desc string
-		diff1 string
-		diff2 string
+	tests := []struct {
+		desc   string
+		diff1  string
+		diff2  string
 		expect string
 	}{
 		{
@@ -210,15 +212,15 @@ notgoo: nottar
  `,
 		},
 		{
-			desc: "no-diff",
-			diff1: `foo: bar`,
-			diff2: `foo: bar`,
+			desc:   "no-diff",
+			diff1:  `foo: bar`,
+			diff2:  `foo: bar`,
 			expect: ``,
 		},
 		{
-			desc: "invalid-yaml",
-			diff1: `Ij#**#f#`,
-			diff2: `fm*##)n`,
+			desc:   "invalid-yaml",
+			diff1:  `Ij#**#f#`,
+			diff2:  `fm*##)n`,
 			expect: "error unmarshaling JSON: while decoding JSON: json: cannot unmarshal string into Go value of type map[string]interface {}",
 		},
 	}
@@ -232,28 +234,28 @@ notgoo: nottar
 }
 
 func TestIsYAMLEqual(t *testing.T) {
-	tests := []struct{
-		desc string
-		in1 string
-		in2 string
+	tests := []struct {
+		desc   string
+		in1    string
+		in2    string
 		expect bool
 	}{
 		{
-			desc: "yaml-equal",
-			in1: `foo: bar`,
-			in2: `foo: bar`,
+			desc:   "yaml-equal",
+			in1:    `foo: bar`,
+			in2:    `foo: bar`,
 			expect: true,
 		},
 		{
-			desc: "bad-yaml-1",
-			in1: "O#JF*()#",
-			in2: `foo: bar`,
+			desc:   "bad-yaml-1",
+			in1:    "O#JF*()#",
+			in2:    `foo: bar`,
 			expect: false,
 		},
 		{
-			desc: "bad-yaml-2",
-			in1: `foo: bar`,
-			in2: "#OHJ*#()F",
+			desc:   "bad-yaml-2",
+			in1:    `foo: bar`,
+			in2:    "#OHJ*#()F",
 			expect: false,
 		},
 		{
@@ -277,14 +279,14 @@ definitely-not: in1
 }
 
 func TestIsYAMLEmpty(t *testing.T) {
-	tests := []struct{
-		desc string
-		in string
+	tests := []struct {
+		desc   string
+		in     string
 		expect bool
 	}{
 		{
-			desc: "completely-empty",
-			in: "",
+			desc:   "completely-empty",
+			in:     "",
 			expect: true,
 		},
 		{
@@ -296,8 +298,8 @@ func TestIsYAMLEmpty(t *testing.T) {
 			expect: true,
 		},
 		{
-			desc: "start-yaml",
-			in: `--- I dont mean anything`,
+			desc:   "start-yaml",
+			in:     `--- I dont mean anything`,
 			expect: true,
 		},
 		{
@@ -309,8 +311,8 @@ foo: bar
 			expect: false,
 		},
 		{
-			desc: "yaml-not-empty",
-			in: `foo: bar`,
+			desc:   "yaml-not-empty",
+			in:     `foo: bar`,
 			expect: false,
 		},
 	}
