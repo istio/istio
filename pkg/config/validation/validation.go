@@ -2104,7 +2104,7 @@ func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
 		return nil
 	}
 
-	return fmt.Errorf("%s regexp invalid: %w", where, err)
+	return fmt.Errorf("%q: %w; Istio uses RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax)", where, err)
 }
 
 func validateGatewayNames(gatewayNames []string) (errs error) {
