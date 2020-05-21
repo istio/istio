@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"istio.io/api/annotation"
-	"istio.io/istio/security/pkg/listwatch"
+	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/pkg/log"
 
