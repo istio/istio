@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 )
 
 // RouteFilter is used to pass filter information into route based config writer print functions
@@ -97,6 +98,8 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 	for _, r := range routeDump.DynamicRouteConfigs {
 		if r.RouteConfig != nil {
 			routeTyped := &route.RouteConfiguration{}
+			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+			r.RouteConfig.TypeUrl = v3.RouteType
 			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
 			if err != nil {
 				return nil, err
@@ -107,6 +110,8 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 	for _, r := range routeDump.StaticRouteConfigs {
 		if r.RouteConfig != nil {
 			routeTyped := &route.RouteConfiguration{}
+			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+			r.RouteConfig.TypeUrl = v3.RouteType
 			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
 			if err != nil {
 				return nil, err

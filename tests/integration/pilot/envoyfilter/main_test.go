@@ -23,7 +23,8 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdscore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"

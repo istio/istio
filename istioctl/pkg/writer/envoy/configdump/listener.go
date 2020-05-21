@@ -25,6 +25,7 @@ import (
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 )
 
 const (
@@ -127,7 +128,7 @@ func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter) error {
 	}
 	out, err := json.MarshalIndent(filteredListeners, "", "    ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal listeners: %v", err)
 	}
 	fmt.Fprintln(c.Stdout, string(out))
 	return nil
@@ -148,15 +149,17 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*listener.Listener, erro
 	}
 	listenerDump, err := c.configDump.GetListenerConfigDump()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listener dump: %v", err)
 	}
 	listeners := make([]*listener.Listener, 0)
 	for _, l := range listenerDump.DynamicListeners {
 		if l.ActiveState != nil && l.ActiveState.Listener != nil {
 			listenerTyped := &listener.Listener{}
+			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+			l.ActiveState.Listener.TypeUrl = v3.ListenerType
 			err = ptypes.UnmarshalAny(l.ActiveState.Listener, listenerTyped)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("unmarshal listener: %v", err)
 			}
 			listeners = append(listeners, listenerTyped)
 		}
@@ -165,9 +168,11 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*listener.Listener, erro
 	for _, l := range listenerDump.StaticListeners {
 		if l.Listener != nil {
 			listenerTyped := &listener.Listener{}
+			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+			l.Listener.TypeUrl = v3.ListenerType
 			err = ptypes.UnmarshalAny(l.Listener, listenerTyped)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("unmarshal listener: %v", err)
 			}
 			listeners = append(listeners, listenerTyped)
 		}

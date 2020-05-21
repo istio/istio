@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	envoy_api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -832,7 +832,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 	}
 
 	for _, dac := range dump.DynamicActiveClusters {
-		clusterTyped := &envoy_api.Cluster{}
+		clusterTyped := &cluster.Cluster{}
 		err = ptypes.UnmarshalAny(dac.Cluster, clusterTyped)
 		if err != nil {
 			return "", err

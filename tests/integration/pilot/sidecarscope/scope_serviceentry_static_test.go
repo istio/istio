@@ -22,7 +22,8 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdscore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/gogo/protobuf/proto"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
