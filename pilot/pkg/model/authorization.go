@@ -60,7 +60,7 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 			Spec:      config.Spec.(*authpb.AuthorizationPolicy),
 		}
 		policy.NamespaceToPolicies[config.Namespace] =
-				append(policy.NamespaceToPolicies[config.Namespace], authzConfig)
+			append(policy.NamespaceToPolicies[config.Namespace], authzConfig)
 	}
 
 	return policy, nil
