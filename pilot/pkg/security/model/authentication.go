@@ -176,7 +176,7 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 	} else {
 		// TODO(ramaraochavali): Clean this codepath later as we default to SDS.
 		// SDS disabled, fall back on using mounted certificates
-		base := metadata.SdsBase + constants.AuthCertsPath
+		base := metadata.CertBaseDir + constants.AuthCertsPath
 		tlsServerRootCert := model.GetOrDefault(metadata.TLSServerRootCert, base+constants.RootCertFilename)
 
 		tlsContext.ValidationContextType = ConstructValidationContext(tlsServerRootCert, subjectAltNames)

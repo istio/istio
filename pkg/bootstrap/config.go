@@ -499,12 +499,6 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	// sds is enabled by default
 	meta.SdsEnabled = true
-	meta.SdsTrustJwt = true
-
-	// Add STS port into node metadata if it is not 0.
-	if stsPort != 0 {
-		meta.StsPort = strconv.Itoa(stsPort)
-	}
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(pc)
 
