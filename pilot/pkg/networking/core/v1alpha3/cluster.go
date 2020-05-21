@@ -22,7 +22,6 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -77,7 +76,7 @@ var (
 	defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
 		Name:  "tlsMode-disabled",
 		Match: &structpb.Struct{},
-		TransportSocket: &corev3.TransportSocket{
+		TransportSocket: &core.TransportSocket{
 			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
@@ -699,7 +698,7 @@ func setH2Options(cluster *cluster.Cluster) {
 	if cluster == nil || cluster.Http2ProtocolOptions != nil {
 		return
 	}
-	cluster.Http2ProtocolOptions = &corev3.Http2ProtocolOptions{
+	cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		// Envoy default value of 100 is too low for data path.
 		MaxConcurrentStreams: &wrappers.UInt32Value{
 			Value: 1073741824,
@@ -773,7 +772,7 @@ func applyConnectionPool(push *model.PushContext, c *cluster.Cluster, settings *
 
 	if idleTimeout != nil {
 		idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
-		c.CommonHttpProtocolOptions = &corev3.HttpProtocolOptions{IdleTimeout: idleTimeoutDuration}
+		c.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: idleTimeoutDuration}
 	}
 }
 
@@ -783,7 +782,7 @@ func applyTCPKeepalive(push *model.PushContext, c *cluster.Cluster, settings *ne
 
 		// Start with empty tcp_keepalive, which would set SO_KEEPALIVE on the socket with OS default values.
 		c.UpstreamConnectionOptions = &cluster.UpstreamConnectionOptions{
-			TcpKeepalive: &corev3.TcpKeepalive{},
+			TcpKeepalive: &core.TcpKeepalive{},
 		}
 
 		// Apply mesh wide TCP keepalive if available.
@@ -940,7 +939,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 }
 
 func applyLocalityLBSetting(
-	locality *corev3.Locality,
+	locality *core.Locality,
 	cluster *cluster.Cluster,
 	localityLB *networking.LocalityLoadBalancerSetting,
 ) {
@@ -1086,9 +1085,9 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 	}
 
 	if tlsContext != nil {
-		c.TransportSocket = &corev3.TransportSocket{
+		c.TransportSocket = &core.TransportSocket{
 			Name:       util.EnvoyTLSSocketName,
-			ConfigType: &corev3.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
 		}
 	}
 

@@ -468,7 +468,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	p.OnOutboundRouteConfiguration(&clientParams, clientRoute)
 
 	snapshot := cache.Snapshot{}
-	snapshot.Resources[types.Route] = cache.NewResources("http", []types.Resource{clientRoute, serverRoute})
-	snapshot.Resources[types.Listener] = cache.NewResources("http", []types.Resource{clientListener, serverListener})
+	snapshot.Resources[types.Route] = cache.NewResources("http", []types.Resource{env.CastRouteToV2(clientRoute), env.CastRouteToV2(serverRoute)})
+	snapshot.Resources[types.Listener] = cache.NewResources("http", []types.Resource{env.CastListenerToV2(clientListener), env.CastListenerToV2(serverListener)})
 	return snapshot
 }

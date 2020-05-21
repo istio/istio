@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pkg/config/labels"
@@ -532,7 +531,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 
 func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 	if l != nil {
-		var chain *xdsapi_listener.FilterChain
+		var chain *listener.FilterChain
 		for _, fc := range l.FilterChains {
 			if len(fc.Filters) == 1 && fc.Filters[0].Name == "envoy.http_connection_manager" {
 				chain = fc
@@ -548,7 +547,7 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 		if filter.Name != "envoy.http_connection_manager" {
 			t.Fatalf("Expected HTTP connection, found %v", chain.Filters[0].Name)
 		}
-		httpCfg, ok := filter.ConfigType.(*xdsapi_listener.Filter_TypedConfig)
+		httpCfg, ok := filter.ConfigType.(*listener.Filter_TypedConfig)
 		if !ok {
 			t.Fatalf("Expected Http Connection Manager Config Filter_TypedConfig, found %T", filter.ConfigType)
 		}

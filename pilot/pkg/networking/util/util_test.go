@@ -20,7 +20,6 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -116,25 +115,25 @@ func TestConvertLocality(t *testing.T) {
 	tests := []struct {
 		name     string
 		locality string
-		want     *corev3.Locality
+		want     *core.Locality
 		reverse  string
 	}{
 		{
 			name:     "nil locality",
 			locality: "",
-			want:     &corev3.Locality{},
+			want:     &core.Locality{},
 		},
 		{
 			name:     "locality with only region",
 			locality: "region",
-			want: &corev3.Locality{
+			want: &core.Locality{
 				Region: "region",
 			},
 		},
 		{
 			name:     "locality with region and zone",
 			locality: "region/zone",
-			want: &corev3.Locality{
+			want: &core.Locality{
 				Region: "region",
 				Zone:   "zone",
 			},
@@ -142,7 +141,7 @@ func TestConvertLocality(t *testing.T) {
 		{
 			name:     "locality with region zone and subzone",
 			locality: "region/zone/subzone",
-			want: &corev3.Locality{
+			want: &core.Locality{
 				Region:  "region",
 				Zone:    "zone",
 				SubZone: "subzone",
@@ -151,7 +150,7 @@ func TestConvertLocality(t *testing.T) {
 		{
 			name:     "locality with region zone subzone and rack",
 			locality: "region/zone/subzone/rack",
-			want: &corev3.Locality{
+			want: &core.Locality{
 				Region:  "region",
 				Zone:    "zone",
 				SubZone: "subzone",
@@ -183,13 +182,13 @@ func TestConvertLocality(t *testing.T) {
 func TestLocalityMatch(t *testing.T) {
 	tests := []struct {
 		name     string
-		locality *corev3.Locality
+		locality *core.Locality
 		rule     string
 		match    bool
 	}{
 		{
 			name: "wildcard matching",
-			locality: &corev3.Locality{
+			locality: &core.Locality{
 				Region:  "region1",
 				Zone:    "zone1",
 				SubZone: "subzone1",
@@ -199,7 +198,7 @@ func TestLocalityMatch(t *testing.T) {
 		},
 		{
 			name: "wildcard matching",
-			locality: &corev3.Locality{
+			locality: &core.Locality{
 				Region:  "region1",
 				Zone:    "zone1",
 				SubZone: "subzone1",
@@ -209,7 +208,7 @@ func TestLocalityMatch(t *testing.T) {
 		},
 		{
 			name: "wildcard matching",
-			locality: &corev3.Locality{
+			locality: &core.Locality{
 				Region:  "region1",
 				Zone:    "zone1",
 				SubZone: "subzone1",
@@ -219,7 +218,7 @@ func TestLocalityMatch(t *testing.T) {
 		},
 		{
 			name: "wildcard not matching",
-			locality: &corev3.Locality{
+			locality: &core.Locality{
 				Region:  "region1",
 				Zone:    "zone1",
 				SubZone: "subzone1",
@@ -229,7 +228,7 @@ func TestLocalityMatch(t *testing.T) {
 		},
 		{
 			name: "region matching",
-			locality: &corev3.Locality{
+			locality: &core.Locality{
 				Region:  "region1",
 				Zone:    "zone1",
 				SubZone: "subzone1",
@@ -239,7 +238,7 @@ func TestLocalityMatch(t *testing.T) {
 		},
 		{
 			name: "region and zone matching",
-			locality: &corev3.Locality{
+			locality: &core.Locality{
 				Region:  "region1",
 				Zone:    "zone1",
 				SubZone: "subzone1",
@@ -249,7 +248,7 @@ func TestLocalityMatch(t *testing.T) {
 		},
 		{
 			name: "zubzone wildcard matching",
-			locality: &corev3.Locality{
+			locality: &core.Locality{
 				Region: "region1",
 				Zone:   "zone1",
 			},
@@ -258,7 +257,7 @@ func TestLocalityMatch(t *testing.T) {
 		},
 		{
 			name: "subzone mismatching",
-			locality: &corev3.Locality{
+			locality: &core.Locality{
 				Region: "region1",
 				Zone:   "zone1",
 			},
@@ -280,19 +279,19 @@ func TestLocalityMatch(t *testing.T) {
 func TestIsLocalityEmpty(t *testing.T) {
 	tests := []struct {
 		name     string
-		locality *corev3.Locality
+		locality *core.Locality
 		want     bool
 	}{
 		{
 			"non empty locality",
-			&corev3.Locality{
+			&core.Locality{
 				Region: "region",
 			},
 			false,
 		},
 		{
 			"empty locality",
-			&corev3.Locality{
+			&core.Locality{
 				Region: "",
 			},
 			true,
@@ -318,7 +317,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 	cases := []struct {
 		name string
 		in   model.ConfigMeta
-		want *corev3.Metadata
+		want *core.Metadata
 	}{
 		{
 			"destination-rule",
@@ -330,7 +329,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 				Domain:    "svc.cluster.local",
 				Type:      "destination-rule",
 			},
-			&corev3.Metadata{
+			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
@@ -359,13 +358,13 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 func TestAddSubsetToMetadata(t *testing.T) {
 	cases := []struct {
 		name   string
-		in     *corev3.Metadata
+		in     *core.Metadata
 		subset string
-		want   *corev3.Metadata
+		want   *core.Metadata
 	}{
 		{
 			"simple subset",
-			&corev3.Metadata{
+			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
@@ -379,7 +378,7 @@ func TestAddSubsetToMetadata(t *testing.T) {
 				},
 			},
 			"test-subset",
-			&corev3.Metadata{
+			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
@@ -400,9 +399,9 @@ func TestAddSubsetToMetadata(t *testing.T) {
 		},
 		{
 			"no metadata",
-			&corev3.Metadata{},
+			&core.Metadata{},
 			"test-subset",
-			&corev3.Metadata{},
+			&core.Metadata{},
 		},
 	}
 
