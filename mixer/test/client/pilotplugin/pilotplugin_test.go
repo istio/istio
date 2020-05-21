@@ -280,9 +280,7 @@ func TestPilotPlugin(t *testing.T) {
 	}
 	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
-	go func() {
-		t.Logf("server exit: %v", grpcServer.Serve(lis))
-	}()
+	go grpcServer.Serve(lis)
 	defer func() {
 		grpcServer.Stop()
 	}()
