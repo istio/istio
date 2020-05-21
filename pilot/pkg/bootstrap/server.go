@@ -770,7 +770,7 @@ func (s *Server) initEventHandlers() error {
 				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
-			if s.statusReporter != nil {
+			if features.EnableStatus {
 				if event != model.EventDelete {
 					s.statusReporter.AddInProgressResource(curr)
 				} else {
