@@ -15,13 +15,17 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/spf13/cobra"
+	"istio.io/istio/pkg/envoy"
 
 	"istio.io/istio/pilot/pkg/request"
 )
+
+const ConfigPath = "/etc/istio/proxy/envoy-rev0.json"
 
 // NB: extra standard output in addition to what's returned from envoy
 // must not be added in this command. Otherwise, it'd break istioctl proxy-config,
@@ -32,8 +36,16 @@ var (
 		Short: "Makes an HTTP request to the Envoy admin API",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
+			host, adminPort, err := envoy.GetAdminHostAndPort(ConfigPath)
+			if err != nil {
+				adminPort = 15000
+				host = "localhost"
+			}
+			if host == "0.0.0.0" {
+				host = "localhost"
+			}
 			command := &request.Command{
-				Address: "localhost:15000",
+				Address: fmt.Sprintf("%s:%d", host, adminPort),
 				Client: &http.Client{
 					Timeout: 60 * time.Second,
 				},

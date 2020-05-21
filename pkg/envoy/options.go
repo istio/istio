@@ -745,3 +745,41 @@ func (o *genericOption) validate(ctx *configContext) error {
 	}
 	return nil
 }
+
+func GetAdminHostAndPort(configPath string) (string, uint32, error) {
+	content, e := ioutil.ReadFile(configPath)
+	if e != nil {
+		return "", 0, fmt.Errorf("failed reading config-path file %s: %v", configPath, e)
+	}
+
+	host, port, e := getAdminHostAndPortFromYaml(string(content))
+	if e != nil {
+		return "", 0, fmt.Errorf("failed to locate admin port in envoy config-yaml: %v", e)
+	}
+	return host, port, nil
+}
+
+func getAdminHostAndPortFromYaml(yamlData string) (string, uint32, error) {
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlData))
+	if err != nil {
+		return "", 0, fmt.Errorf("error converting envoy bootstrap YAML to JSON: %v", err)
+	}
+
+	bootstrap := &envoyBootstrap.Bootstrap{}
+	if err := unmarshal(string(jsonData), bootstrap); err != nil {
+		return "", 0, fmt.Errorf("error parsing Envoy bootstrap JSON: %v", err)
+	}
+	if bootstrap.GetAdmin() == nil {
+		return "", 0, errors.New("unable to locate admin in envoy bootstrap")
+	}
+	if bootstrap.GetAdmin().GetAddress() == nil {
+		return "", 0, errors.New("unable to locate admin/address in envoy bootstrap")
+	}
+	if bootstrap.GetAdmin().GetAddress().GetSocketAddress() == nil {
+		return "", 0, errors.New("unable to locate admin/address/socket_address in envoy bootstrap")
+	}
+	if bootstrap.GetAdmin().GetAddress().GetSocketAddress().GetPortValue() == 0 {
+		return "", 0, errors.New("unable to locate admin/address/socket_address/port_value in envoy bootstrap")
+	}
+	return bootstrap.GetAdmin().GetAddress().GetSocketAddress().GetAddress(), bootstrap.GetAdmin().GetAddress().GetSocketAddress().GetPortValue(), nil
+}
