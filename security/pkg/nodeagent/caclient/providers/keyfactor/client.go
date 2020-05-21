@@ -113,19 +113,14 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 				serviceName = strings.Join(arrayOfServiceNames, "-")
 			}
 			customMetadatas[field.Alias] = serviceName
-
 		case "PodName":
 			customMetadatas[field.Alias] = metadata.PodName
-
 		case "PodNamespace":
 			customMetadatas[field.Alias] = metadata.PodNamespace
-
 		case "PodIP":
 			customMetadatas[field.Alias] = metadata.PodIP
-
 		case "TrustDomain":
 			customMetadatas[field.Alias] = metadata.TrustDomain
-
 		}
 	}
 

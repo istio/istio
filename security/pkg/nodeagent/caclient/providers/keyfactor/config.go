@@ -57,7 +57,10 @@ type KeyfactorConfig struct {
 	// AppKey ApiKey from Api Setting
 	AppKey string
 
-	EnrollPath      string
+	// EnrollPath api path to Enroll CSR Request
+	EnrollPath string
+
+	// CustomMetadatas configure enable of name of metadata fields
 	CustomMetadatas []FieldAlias
 }
 
@@ -97,23 +100,23 @@ func LoadKeyfactorConfigFromENV() (*KeyfactorConfig, error) {
 func (kc *KeyfactorConfig) Validate() error {
 
 	if kc.CaName == "" {
-		return fmt.Errorf("Missing caName")
+		return fmt.Errorf("Missing caName (KEYFATOR_CA) in ENV")
 	}
 
 	if kc.AuthToken == "" {
-		return fmt.Errorf("Missing authToken")
+		return fmt.Errorf("Missing authToken (KEYFATOR_AUTH_TOKEN) in ENV")
 	}
 
 	if kc.AppKey == "" {
-		return fmt.Errorf("Missing appKey")
+		return fmt.Errorf("Missing appKey (KEYFATOR_APPKEY) in ENV")
 	}
 
 	if kc.CaTemplate == "" {
-		return fmt.Errorf("Missing caTemplate")
+		return fmt.Errorf("Missing caTemplate (KEYFATOR_CA_TEMPLATE) in ENV")
 	}
 
 	if kc.EnrollPath == "" {
-		return fmt.Errorf("Missing enrollPath")
+		return fmt.Errorf("Missing enrollPath (KEYFATOR_E) in ENV")
 	}
 
 	for _, value := range kc.CustomMetadatas {
