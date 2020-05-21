@@ -141,11 +141,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				// LDS must be pushed, otherwise RDS is not reloaded
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
-				collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+			case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
 				collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
 				out[LDS] = true
 			case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
@@ -189,11 +185,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
 				collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
 				// do not push for gateway
-			case collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
-				collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+			case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
 				collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
 				out[LDS] = true
 			case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():

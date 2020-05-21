@@ -594,8 +594,7 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 		return []string{}, err
 	}
 
-	// Identify RBAC policies.  Currently there are no "breadcrumbs" so we only
-	// return the policy names, not the ServiceRole and ServiceRoleBinding names.
+	// Identify RBAC policies. Currently there are no "breadcrumbs" so we only return the policy names.
 	for _, httpFilter := range hcm.HttpFilters {
 		if httpFilter.Name == authz_model.RBACHTTPFilterName {
 			rbac := &rbac_http_filter.RBAC{}

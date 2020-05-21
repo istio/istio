@@ -105,7 +105,7 @@ func init() {
 type startFunc func(stop <-chan struct{}) error
 
 // readinessProbe defines a function that will be used indicate whether a server is ready.
-type readinessProbe func() int
+type readinessProbe func() (bool, error)
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
@@ -396,8 +396,10 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 // this handler and everything has already initialized.
 func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	for name, fn := range s.readinessProbes {
-		if status := fn(); status != http.StatusOK {
-			log.Warnf("%s is not ready: %v", name, status)
+		if ready, err := fn(); !ready {
+			log.Warnf("%s is not ready: %v", name, err)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
 		}
 	}
 	// TODO check readiness of other secure gRPC and HTTP servers.
