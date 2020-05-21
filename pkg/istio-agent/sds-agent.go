@@ -208,8 +208,8 @@ type SDSAgent struct {
 	// FileMountedCerts indicates whether the proxy is using file mounted certs.
 	FileMountedCerts bool
 
-	// MeshID is TrustDomain, default: cluster.local
-	MeshID string
+	// TrustDomain default: cluster.local
+	TrustDomain string
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -221,7 +221,7 @@ type SDSAgent struct {
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
 func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir string,
-	clusterID string, podNamespace string, podName string, podIP string, meshID string) *SDSAgent {
+	clusterID string, podNamespace string, podName string, podIP string, trustDomain string) *SDSAgent {
 	a := &SDSAgent{}
 
 	a.SDSAddress = "unix:" + LocalSDS
@@ -229,7 +229,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	a.PodIP = podIP
 	a.PodName = podName
 	a.PodNamespace = podNamespace
-	a.MeshID = meshID
+	a.TrustDomain = trustDomain
 
 	// If a workload is using file mounted certs, we do not to have to process CA relaated configuration.
 	if !shouldProvisionCertificates() {
@@ -403,7 +403,7 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 		sa.RootCert = rootCert
 
 		keyfactorMetadata := &keyfactor.KeyfactorCAClientMetadata{
-			TrustDomain:  sa.MeshID,
+			TrustDomain:  sa.TrustDomain,
 			ClusterID:    sa.ClusterID,
 			PodNamespace: sa.PodNamespace,
 			PodName:      sa.PodName,
