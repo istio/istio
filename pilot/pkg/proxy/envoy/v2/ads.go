@@ -244,7 +244,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				defer func() {
 					s.removeCon(con.ConID)
 					if s.InternalGen != nil {
-						s.InternalGen.OnDisconnect(discReq.Node)
+						s.InternalGen.OnDisconnect(con)
 					}
 				}()
 			}
@@ -515,7 +515,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) er
 	con.mu.Unlock()
 
 	if s.InternalGen != nil {
-		s.InternalGen.OnConnect(node)
+		s.InternalGen.OnConnect(con)
 	}
 	return nil
 }

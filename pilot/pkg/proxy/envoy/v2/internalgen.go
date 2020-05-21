@@ -16,7 +16,6 @@ package v2
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -43,12 +42,12 @@ type InternalGen struct {
 	// On new connect, use version to send recent events since last update.
 }
 
-func (sg *InternalGen) OnConnect(node gogoproto.Message) {
-	sg.startPush(TypeURLConnections, []*any.Any{util.MessageToAny(node)})
+func (sg *InternalGen) OnConnect(con *XdsConnection) {
+	sg.startPush(TypeURLConnections, []*any.Any{util.MessageToAny(con.xdsNode)})
 }
 
-func (sg *InternalGen) OnDisconnect(node gogoproto.Message) {
-	sg.startPush(TypeURLDisconnect, []*any.Any{util.MessageToAny(node)})
+func (sg *InternalGen) OnDisconnect(con *XdsConnection) {
+	sg.startPush(TypeURLDisconnect, []*any.Any{util.MessageToAny(con.xdsNode)})
 }
 
 func (sg *InternalGen) OnNack(node *model.Proxy, dr *xdsapi.DiscoveryRequest) {
