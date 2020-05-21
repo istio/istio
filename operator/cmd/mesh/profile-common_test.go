@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"errors"
 	"testing"
 
 	"istio.io/istio/operator/pkg/util/clog"
@@ -32,7 +33,7 @@ func TestParseYAMLFiles(t *testing.T) {
 	}{
 		{
 			desc:     "array-pilot-plugins",
-			inYAML:   []string{"testdata/profile-dump/input/pilot_plugin.yaml"},
+			inYAML:   []string{"testdata/profile-dump/input/pilot_plugin_valid.yaml"},
 			inForce:  false,
 			inLogger: clog.NewDefaultLogger(),
 			expectedOverlay: `apiVersion: install.istio.io/v1alpha1
@@ -47,6 +48,15 @@ spec:
         - bb`,
 			expectedProfile: "",
 			expectedErr:     nil,
+		},
+		{
+			desc: "invalid-pilot-plugins",
+			inYAML: []string{"testdata/profile-dump/input/pilot_plugin_invalid.yaml"},
+			inForce: false,
+			inLogger: clog.NewDefaultLogger(),
+			expectedOverlay: "",
+			expectedProfile: "",
+			expectedErr: errors.New("json: cannot unmarshal object into Go value of type string"),
 		},
 	}
 	for _, tt := range tests {
