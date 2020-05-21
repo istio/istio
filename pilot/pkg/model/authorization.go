@@ -26,28 +26,26 @@ var (
 	authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)
 )
 
-type AuthorizationPolicyConfig struct {
-	Name                string                      `json:"name"`
-	Namespace           string                      `json:"namespace"`
-	AuthorizationPolicy *authpb.AuthorizationPolicy `json:"authorization_policy"`
+type AuthorizationPolicy struct {
+	Name      string                      `json:"name"`
+	Namespace string                      `json:"namespace"`
+	Spec      *authpb.AuthorizationPolicy `json:"spec"`
 }
 
-// AuthorizationPolicies organizes authorization policies by namespace.
-// TODO(yangminzhu): Rename to avoid confusion from the AuthorizationPolicy CRD.
+// AuthorizationPolicies organizes AuthorizationPolicy by namespace.
 type AuthorizationPolicies struct {
-	// Maps from namespace to the v1beta1 Authorization policies.
-	NamespaceToV1beta1Policies map[string][]AuthorizationPolicyConfig `json:"namespace_to_v1beta1_policies"`
+	// Maps from namespace to the Authorization policies.
+	NamespaceToPolicies map[string][]AuthorizationPolicy `json:"namespace_to_policies"`
 
-	// The name of the root namespace. Policy in the root namespace applies to workloads in all
-	// namespaces. Only used for v1beta1 Authorization policy.
+	// The name of the root namespace. Policy in the root namespace applies to workloads in all namespaces.
 	RootNamespace string `json:"root_namespace"`
 }
 
-// GetAuthorizationPolicies gets the authorization policies in the mesh.
+// GetAuthorizationPolicies returns the AuthorizationPolicies for the given environment.
 func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) {
 	policy := &AuthorizationPolicies{
-		NamespaceToV1beta1Policies: map[string][]AuthorizationPolicyConfig{},
-		RootNamespace:              env.Mesh().GetRootNamespace(),
+		NamespaceToPolicies: map[string][]AuthorizationPolicy{},
+		RootNamespace:       env.Mesh().GetRootNamespace(),
 	}
 
 	policies, err := env.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(), NamespaceAll)
@@ -55,15 +53,22 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 		return nil, err
 	}
 	sortConfigByCreationTime(policies)
-	policy.addAuthorizationPolicies(policies)
+	for _, config := range policies {
+		authzConfig := AuthorizationPolicy{
+			Name:      config.Name,
+			Namespace: config.Namespace,
+			Spec:      config.Spec.(*authpb.AuthorizationPolicy),
+		}
+		policy.NamespaceToPolicies[config.Namespace] =
+				append(policy.NamespaceToPolicies[config.Namespace], authzConfig)
+	}
 
 	return policy, nil
 }
 
-// ListAuthorizationPolicies returns the AuthorizationPolicy for the workload in root namespace and the config namespace.
-// The first one in the returned tuple is the deny policies and the second one is the allow policies.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace string, workloadLabels labels.Collection) (
-	denyPolicies []AuthorizationPolicyConfig, allowPolicies []AuthorizationPolicyConfig) {
+// ListAuthorizationPolicies returns the deny and allow AuthorizationPolicy for the workload in the given namespace.
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workload labels.Collection) (
+	denyPolicies []AuthorizationPolicy, allowPolicies []AuthorizationPolicy) {
 	if policy == nil {
 		return
 	}
@@ -73,42 +78,27 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace s
 		namespaces = append(namespaces, policy.RootNamespace)
 	}
 	// To prevent duplicate policies in case root namespace equals proxy's namespace.
-	if configNamespace != policy.RootNamespace {
-		namespaces = append(namespaces, configNamespace)
+	if namespace != policy.RootNamespace {
+		namespaces = append(namespaces, namespace)
 	}
 
 	for _, ns := range namespaces {
-		for _, config := range policy.NamespaceToV1beta1Policies[ns] {
-			spec := config.AuthorizationPolicy
+		for _, config := range policy.NamespaceToPolicies[ns] {
+			spec := config.Spec
 			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-			if workloadLabels.IsSupersetOf(selector) {
-				switch config.AuthorizationPolicy.GetAction() {
+			if workload.IsSupersetOf(selector) {
+				switch config.Spec.GetAction() {
 				case authpb.AuthorizationPolicy_ALLOW:
 					allowPolicies = append(allowPolicies, config)
 				case authpb.AuthorizationPolicy_DENY:
 					denyPolicies = append(denyPolicies, config)
 				default:
-					log.Errorf("found authorization policy with unsupported action: %s", config.AuthorizationPolicy.GetAction())
+					log.Errorf("ignored authorization policy %s.%s with unsupported action: %s",
+						config.Namespace, config.Name, config.Spec.GetAction())
 				}
 			}
 		}
 	}
 
 	return
-}
-
-func (policy *AuthorizationPolicies) addAuthorizationPolicies(configs []Config) {
-	if policy == nil {
-		return
-	}
-
-	for _, config := range configs {
-		authzConfig := AuthorizationPolicyConfig{
-			Name:                config.Name,
-			Namespace:           config.Namespace,
-			AuthorizationPolicy: config.Spec.(*authpb.AuthorizationPolicy),
-		}
-		policy.NamespaceToV1beta1Policies[config.Namespace] =
-			append(policy.NamespaceToV1beta1Policies[config.Namespace], authzConfig)
-	}
 }
