@@ -217,6 +217,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	var mux *http.ServeMux
 	if p.Mux != nil {
 		p.Mux.HandleFunc("/inject", wh.serveInject)
+		p.Mux.HandleFunc("/inject/", wh.serveInject)
 		mux = p.Mux
 	} else {
 		wh.server = &http.Server{
@@ -226,6 +227,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		}
 		mux = http.NewServeMux()
 		mux.HandleFunc("/inject", wh.serveInject)
+		mux.HandleFunc("/inject/", wh.serveInject)
 		wh.server.Handler = mux
 	}
 
@@ -723,7 +725,7 @@ func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
 	return &v1beta1.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
 
-func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (wh *Webhook) inject(ar *v1beta1.AdmissionReview, path string) *v1beta1.AdmissionResponse {
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
@@ -806,7 +808,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		deployMeta.Name = pod.Name
 	}
 
-	spec, iStatus, err := InjectionData(wh.Config.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig) // nolint: lll
+	spec, iStatus, err := InjectionData(wh.Config.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig, path) // nolint: lll
 	if err != nil {
 		handleError(fmt.Sprintf("Injection data: err=%v spec=%v\n", err, iStatus))
 		return toAdmissionResponse(err)
@@ -861,13 +863,19 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	path := ""
+	if r.URL != nil {
+		path = r.URL.Path
+	}
+
 	var reviewResponse *v1beta1.AdmissionResponse
 	ar := v1beta1.AdmissionReview{}
 	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
-		reviewResponse = wh.inject(&ar)
+		log.Debugf("AdmissionRequest for path=%s\n", path)
+		reviewResponse = wh.inject(&ar, path)
 	}
 
 	response := v1beta1.AdmissionReview{}
