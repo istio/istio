@@ -18,6 +18,7 @@ import (
 	"net"
 	"strings"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -178,7 +179,7 @@ func convertWorkloadInstances(wle *networking.WorkloadEntry, services []*model.S
 			// * Use security.istio.io/tlsMode if its present
 			// * If not, set TLS mode if ServiceAccount is specified
 			tlsMode := model.DisabledTLSModeLabel
-			if val, exists := wle.Labels[model.TLSModeLabelName]; exists {
+			if val, exists := wle.Labels[label.TLSMode]; exists {
 				tlsMode = val
 			} else if wle.ServiceAccount != "" {
 				tlsMode = model.IstioMutualTLSModeLabel
