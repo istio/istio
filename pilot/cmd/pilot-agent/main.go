@@ -68,7 +68,6 @@ var (
 	proxyIP            string
 	registryID         serviceregistry.ProviderID
 	trustDomain        string
-	pilotIdentity      string
 	mixerIdentity      string
 	stsPort            int
 	tokenManagerPlugin string
@@ -420,8 +419,6 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
 		"The domain to use for identities")
-	proxyCmd.PersistentFlags().StringVar(&pilotIdentity, "pilotIdentity", "",
-		"The identity used as the suffix for pilot's spiffe SAN ")
 	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 

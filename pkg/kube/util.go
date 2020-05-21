@@ -18,8 +18,11 @@ import (
 	"fmt"
 	"os"
 
+	kubeApiCore "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -126,4 +129,31 @@ func CreateDynamicInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config)
 		return nil, err
 	}
 	return dynamic.NewForConfig(restConfig)
+}
+
+// SetRestDefaults is a helper function that sets default values for the given rest.Config.
+func SetRestDefaults(config *rest.Config) *rest.Config {
+	if config.GroupVersion == nil || config.GroupVersion.Empty() {
+		config.GroupVersion = &kubeApiCore.SchemeGroupVersion
+	}
+	if len(config.APIPath) == 0 {
+		if len(config.GroupVersion.Group) == 0 {
+			config.APIPath = "/api"
+		} else {
+			config.APIPath = "/apis"
+		}
+	}
+	if len(config.ContentType) == 0 {
+		config.ContentType = runtime.ContentTypeJSON
+	}
+	if config.NegotiatedSerializer == nil {
+		// This codec factory ensures the resources are not converted. Therefore, resources
+		// will not be round-tripped through internal versions. Defaulting does not happen
+		// on the client.
+		config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	}
+	if len(config.UserAgent) == 0 {
+		config.UserAgent = rest.DefaultKubernetesUserAgent()
+	}
+	return config
 }

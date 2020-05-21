@@ -263,8 +263,8 @@ spec:
         image: proxyv2
         resources:
           limits:
-            cpu: 100m
-            memory: 50Mi
+            cpu: 2000m
+            memory: 1024Mi
           requests:
             cpu: 10m
             memory: 10Mi
@@ -525,7 +525,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.16"
+        tag: "1.18"
         memory:
           max_traces: 50000
         spanStorageType: badger

@@ -76,10 +76,6 @@ const (
 	// policy with this name in the cluster-scoped will be considered.
 	DefaultAuthenticationPolicyName = "default"
 
-	// DefaultRbacConfigName is the name of the mesh global RbacConfig name. Only RbacConfig with this
-	// name will be considered.
-	DefaultRbacConfigName = "default"
-
 	// IstioMeshGateway is the built in gateway for all sidecars
 	IstioMeshGateway = "mesh"
 
