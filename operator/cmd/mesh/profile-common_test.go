@@ -50,13 +50,13 @@ spec:
 			expectedErr:     nil,
 		},
 		{
-			desc: "invalid-pilot-plugins",
-			inYAML: []string{"testdata/profile-dump/input/pilot_plugin_invalid.yaml"},
-			inForce: false,
-			inLogger: clog.NewDefaultLogger(),
+			desc:            "invalid-pilot-plugins",
+			inYAML:          []string{"testdata/profile-dump/input/pilot_plugin_invalid.yaml"},
+			inForce:         false,
+			inLogger:        clog.NewDefaultLogger(),
 			expectedOverlay: "",
 			expectedProfile: "",
-			expectedErr: errors.New("json: cannot unmarshal object into Go value of type string"),
+			expectedErr:     errors.New("json: cannot unmarshal object into Go value of type string"),
 		},
 	}
 	for _, tt := range tests {
