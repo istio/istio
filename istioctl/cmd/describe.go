@@ -24,9 +24,9 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -67,8 +67,7 @@ type myProtoValue struct {
 }
 
 const (
-	k8sSuffix         = ".svc." + constants.DefaultKubernetesDomain
-	noVersionMetadata = "no-metadata"
+	k8sSuffix = ".svc." + constants.DefaultKubernetesDomain
 )
 
 var (
