@@ -218,7 +218,6 @@ type Controller struct {
 
 	// service instances from workload entries  - map of ip -> service instance
 	foreignRegistryInstancesByIP map[string]*model.ServiceInstance
-	foreignIP2K8SInstances       map[string][]*model.ServiceInstance
 }
 
 // NewController creates a new Kubernetes controller
@@ -240,7 +239,6 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		nodeInfoMap:                  make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap:   make(map[host.Name][]*model.ServiceInstance),
 		foreignRegistryInstancesByIP: make(map[string]*model.ServiceInstance),
-		foreignIP2K8SInstances:       make(map[string][]*model.ServiceInstance),
 		networksWatcher:              options.NetworksWatcher,
 		metrics:                      options.Metrics,
 	}
