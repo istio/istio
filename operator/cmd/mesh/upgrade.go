@@ -597,7 +597,9 @@ func (client *Client) CheckUnsupportedAlphaSecurityCRD() error {
 	if len(foundResources) != 0 {
 		return fmt.Errorf("found %d unsupported v1alpha1 security policy: %v. "+
 			"The v1alpha1 security policy is no longer supported starting 1.6. To continue the upgrade, "+
-			"Please migrate to the v1beta1 security policy and delete all the v1alpha1 security policy",
+			"Please migrate to the v1beta1 security policy and delete all the v1alpha1 security policy, "+
+			"See https://istio.io/news/releases/1.5.x/announcing-1.5/upgrade-notes/#authentication-policy and "+
+			"https://istio.io/blog/2019/v1beta1-authorization-policy/#migration-from-the-v1alpha1-policy",
 			len(foundResources), foundResources)
 	}
 	return nil
