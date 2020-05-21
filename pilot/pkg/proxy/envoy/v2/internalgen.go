@@ -84,10 +84,11 @@ func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
 		// This is expecting a relatively small number of watchers - each other istiod
 		// plus few admin tools or bridges to real message brokers. The normal
 		// push expects 1000s of envoy connections.
+		con := p
 		go func() {
-			err := p.stream.Send(dr)
+			err := con.stream.Send(dr)
 			if err != nil {
-				adsLog.Infoa("Failed to send internal event ", p.ConID, " ", err)
+				adsLog.Infoa("Failed to send internal event ", con.ConID, " ", err)
 			}
 		}()
 	}
