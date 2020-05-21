@@ -135,7 +135,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	}
 
 	// Support passing extra info from node environment as metadata
-	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.STSPort, cfg.Proxy)
+	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.Proxy)
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +470,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
 func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
-	stsPort int, pc *meshAPI.ProxyConfig) (*model.NodeMetadata, map[string]interface{}, error) {
+	pc *meshAPI.ProxyConfig) (*model.NodeMetadata, map[string]interface{}, error) {
 	meta := &model.NodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
