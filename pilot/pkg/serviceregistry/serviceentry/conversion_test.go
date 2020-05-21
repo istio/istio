@@ -555,6 +555,18 @@ func TestConvertService(t *testing.T) {
 		},
 	}
 
+	selectorSvc := makeService("selector.com", "selector", "0.0.0.0",
+		map[string]int{"tcp-444": 444, "http-445": 445}, true, model.ClientSideLB)
+	selectorSvc.Attributes.LabelSelectors = map[string]string{"app": "wle"}
+
+	serviceTests = append(serviceTests, struct {
+		externalSvc *model.Config
+		services    []*model.Service
+	}{
+		externalSvc: selector,
+		services:    []*model.Service{selectorSvc},
+	})
+
 	for _, tt := range serviceTests {
 		services := convertServices(*tt.externalSvc)
 		if err := compare(t, services, tt.services); err != nil {
