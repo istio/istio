@@ -20,8 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istioctl"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	status2 "istio.io/istio/pilot/pkg/status"
@@ -44,37 +42,6 @@ func TestStatusExistsByDefault(t *testing.T) {
 	// This test is not yet implemented
 	framework.NewTest(t).
 		NotImplementedYet(features.Usability_Observability_Status_DefaultExists)
-}
-func TestWait(t *testing.T) {
-	framework.NewTest(t).
-		Features(features.Usability_Observability_Status).
-		// TODO: make feature labels heirarchical constants like:
-		// Label(features.Usability.Observability.Status).
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix:   "default",
-				Inject:   true,
-				Revision: "",
-				Labels:   nil,
-			})
-			// Apply bad config (referencing invalid host)
-			ctx.ApplyConfigOrFail(t, ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: reviews
-spec:
-  gateways: [missing-gw]
-  hosts:
-  - reviews
-  http:
-  - route:
-    - destination: 
-        host: reviews
-`)
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			istioCtl.InvokeOrFail(t, []string{"x", "wait", "VirtualService", "reviews." + ns.Name()})
-		})
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {
