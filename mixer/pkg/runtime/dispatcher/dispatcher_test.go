@@ -23,6 +23,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
@@ -1002,7 +1004,7 @@ func TestDispatcher(t *testing.T) {
 			cfg := data.JoinConfigs(tst.config...)
 
 			s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, cfg)
-			h := handler.NewTable(handler.Empty(), s, pool.NewGoroutinePool(1, false))
+			h := handler.NewTable(handler.Empty(), s, pool.NewGoroutinePool(1, false), []string{metav1.NamespaceAll})
 
 			r := routing.BuildTable(h, s, "istio-system", true)
 			_ = dispatcher.ChangeRoute(r)

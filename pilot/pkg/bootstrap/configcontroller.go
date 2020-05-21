@@ -302,6 +302,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 	processingArgs := settings.DefaultArgs()
 	processingArgs.KubeConfig = args.Config.KubeConfig
+	processingArgs.WatchedNamespaces = args.Config.ControllerOptions.WatchedNamespaces
 	processingArgs.EnableValidationController = false
 	processingArgs.EnableValidationServer = false
 	processingArgs.MonitoringPort = 0

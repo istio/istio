@@ -33,5 +33,5 @@ type Options struct {
 
 	StatusController status.Controller
 
-	// TODO: Add target namespaces here when we do namespace specific listeners.
+	WatchedNamespaces string
 }
