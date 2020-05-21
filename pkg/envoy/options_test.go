@@ -262,3 +262,11 @@ func TestParseComponentLogLevels(t *testing.T) {
 	actual := envoy.ParseComponentLogLevels("a:info,b:warning")
 	g.Expect(actual).To(Equal(expected))
 }
+
+func TestGetAdminHostAndPort(t *testing.T) {
+	host, port, err := envoy.GetAdminHostAndPort("pkg/envoy/testdata/envoy-rev0.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("host,%s port: %d", host, port)
+}
