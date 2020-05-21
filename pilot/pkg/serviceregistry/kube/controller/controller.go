@@ -747,22 +747,7 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 		return nil, nil
 	}
 
-	item, exists, err := c.serviceInformer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
-	if err != nil {
-		log.Infof("get foreignServiceInstancesByPort(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return nil, err
-	}
-
-	if !exists {
-		return nil, nil
-	}
-
-	k8sService := item.(*v1.Service)
-	if k8sService.Spec.Selector == nil {
-		// services with nil selectors match nothing, not everything.
-		return nil, nil
-	}
-	selector := klabels.Set(k8sService.Spec.Selector).AsSelectorPreValidated()
+	selector := labels.Instance(svc.Attributes.LabelSelectors)
 
 	// Get the service port name so that we can construct the service instance
 	var servicePort *model.Port
@@ -780,7 +765,7 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 		if fi.Service.Attributes.Namespace != svc.Attributes.Namespace {
 			continue
 		}
-		if selector.Matches(klabels.Set(fi.Endpoint.Labels)) {
+		if selector.SubsetOf(fi.Endpoint.Labels) {
 			// create an instance with endpoint whose service port name matches
 			// TODO(rshriram): we currently ignore the workload entry (endpoint) ports and setup 1-1 mapping
 			// from service port to endpoint port. Need to figure out a way to map workload entry port to
