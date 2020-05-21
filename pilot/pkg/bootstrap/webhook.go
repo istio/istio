@@ -58,7 +58,7 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	s.addReadinessProbe("Secure Webhook Server", s.webhookReadyHandler)
 }
 
-func (s *Server) webhookReadyHandler() int {
+func (s *Server) webhookReadyHandler() (bool, error) {
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL: &url.URL{
@@ -70,9 +70,9 @@ func (s *Server) webhookReadyHandler() int {
 
 	response, err := s.httpsReadyClient.Do(req)
 	if err != nil {
-		return http.StatusInternalServerError
+		return false, err
 	}
 	defer response.Body.Close()
 
-	return response.StatusCode
+	return response.StatusCode == http.StatusOK, nil
 }
