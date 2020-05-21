@@ -24,7 +24,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
+	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -182,22 +182,6 @@ func describe() *cobra.Command {
 	describeCmd.AddCommand(podDescribeCmd())
 	describeCmd.AddCommand(svcDescribeCmd())
 	return describeCmd
-}
-
-// nolint:deadcode
-func getIstioVersion(cd *configdump.Wrapper) string {
-	bootstrapDump, err := cd.GetBootstrapConfigDump()
-	if err == nil {
-		bootstrapNode := bootstrapDump.GetBootstrap().Node
-		if bootstrapNode.Metadata == nil {
-			// Happens if there has been no dynamic config, e.g. on Pilot itself
-			return noVersionMetadata
-		}
-
-		return asMyProtoValue(bootstrapNode.Metadata).keyAsString("ISTIO_VERSION")
-	}
-
-	return "undetected"
 }
 
 func validatePort(port v1.ServicePort, pod *v1.Pod) []string {
@@ -630,6 +614,8 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		if l.ActiveState == nil {
 			continue
 		}
+		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+		l.ActiveState.Listener.TypeUrl = v3.ListenerType
 		listenerTyped := &listener.Listener{}
 		err = ptypes.UnmarshalAny(l.ActiveState.Listener, listenerTyped)
 		if err != nil {
@@ -1248,7 +1234,10 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 				}
 			}
 
-			policies, _ := getIstioRBACPolicies(&cd, port.Port)
+			policies, err := getIstioRBACPolicies(&cd, port.Port)
+			if err != nil {
+				log.Errorf("error getting rbac policies: %v", err)
+			}
 			if len(policies) > 0 {
 				if len(svc.Spec.Ports) > 1 {
 					// If there is more than one port, prefix each DR by the port it applies to
