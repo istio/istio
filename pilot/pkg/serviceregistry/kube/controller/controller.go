@@ -752,7 +752,7 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 
 	if !foreignInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
 		svc.MeshExternal || svc.Resolution != model.ClientSideLB {
-		return nil, nil
+		return nil
 	}
 
 	selector := labels.Instance(svc.Attributes.LabelSelectors)
