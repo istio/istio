@@ -15,10 +15,10 @@
 package model
 
 import (
-	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	routepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 func permissionAny() *rbacpb.Permission {
@@ -57,7 +57,7 @@ func permissionNot(permission *rbacpb.Permission) *rbacpb.Permission {
 	}
 }
 
-func permissionDestinationIP(cidr *corepb.CidrRange) *rbacpb.Permission {
+func permissionDestinationIP(cidr *core.CidrRange) *rbacpb.Permission {
 	return &rbacpb.Permission{
 		Rule: &rbacpb.Permission_DestinationIp{
 			DestinationIp: cidr,

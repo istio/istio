@@ -16,4 +16,4 @@ package components
 
 import "istio.io/pkg/log"
 
-var scope = log.RegisterScope("server", "", 0)
+var scope = log.RegisterScope("server", "Galley server messages", 0)

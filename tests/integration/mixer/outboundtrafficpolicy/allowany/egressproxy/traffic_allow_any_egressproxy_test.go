@@ -24,7 +24,9 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -161,7 +163,7 @@ func TestSidecarConfig(t *testing.T) {
 func checkFallThroughRouteConfig(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
 	for _, res := range resp.Resources {
-		rc := &xdsapi.RouteConfiguration{}
+		rc := &route.RouteConfiguration{}
 		if err := proto.Unmarshal(res.Value, rc); err != nil {
 			return false, err
 		}
@@ -191,10 +193,10 @@ func checkFallThroughNetworkFilter(resp *xdsapi.DiscoveryResponse) (success bool
 	}
 
 	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
-	var listenerToCheck *xdsapi.Listener
+	var listenerToCheck *listener.Listener
 	got := map[string]struct{}{}
 	for _, res := range resp.Resources {
-		c := &xdsapi.Listener{}
+		c := &listener.Listener{}
 		if err := proto.Unmarshal(res.Value, c); err != nil {
 			return false, err
 		}

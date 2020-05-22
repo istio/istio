@@ -81,7 +81,7 @@ type restClientBuilder struct {
 	types          []*crd.SchemaType
 }
 
-var scope = log.RegisterScope("kube", "", 0)
+var scope = log.RegisterScope("kube", "Kubernetes client messages", 0)
 
 func (b *restClientBuilder) build() *restClient {
 	return &restClient{

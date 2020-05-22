@@ -23,6 +23,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/gogo/protobuf/proto"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -185,7 +186,7 @@ func checkResultStaticListener(resp *xdsapi.DiscoveryResponse) (success bool, e 
 
 	got := map[string]struct{}{}
 	for _, res := range resp.Resources {
-		c := &xdsapi.Listener{}
+		c := &listener.Listener{}
 		if err := proto.Unmarshal(res.Value, c); err != nil {
 			return false, err
 		}
@@ -207,7 +208,7 @@ func checkSidecarIngressListener(resp *xdsapi.DiscoveryResponse) (success bool, 
 
 	got := map[string]struct{}{}
 	for _, res := range resp.Resources {
-		c := &xdsapi.Listener{}
+		c := &listener.Listener{}
 		if err := proto.Unmarshal(res.Value, c); err != nil {
 			return false, err
 		}
