@@ -16,7 +16,6 @@ package env
 
 import (
 	"fmt"
-	"go/build"
 	"os"
 	"path"
 	"path/filepath"
@@ -103,10 +102,6 @@ func getDefaultIstioSrc() string {
 		return filepath.Join(current[0:idx], "/src", "istio.io", "istio")
 	}
 	return current // launching from GOTOP (for example in goland)
-}
-
-func getDefaultIstioBin() string {
-	return fmt.Sprintf("%s/bin", build.Default.GOPATH)
 }
 
 func getDefaultIstioOut() string {
