@@ -16,12 +16,11 @@ package util
 
 import (
 	"errors"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"reflect"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
-
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 func TestToYAML(t *testing.T) {
@@ -145,6 +144,15 @@ func TestOverlayTrees(t *testing.T) {
 			},
 			expectedOverlay: map[string]interface{}{},
 			expectedErr:     nil,
+		},
+		{
+			desc: "expected-err",
+			inBase: map[string]interface{}{
+				"foo": nil,
+			},
+			inOverlays: nil,
+			expectedOverlay: nil,
+			expectedErr: errors.New("json merge error (Invalid JSON Patch) for base object"),
 		},
 	}
 	for _, tt := range tests {
