@@ -28,7 +28,6 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
@@ -82,32 +81,11 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "serviceRoleBindings",
-		inputFiles: []string{"testdata/servicerolebindings.yaml"},
-		analyzer:   &auth.ServiceRoleBindingAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "ServiceRoleBinding test-bogus-binding"},
-		},
-	},
-	{
-		name:       "serviceRoleServices",
-		inputFiles: []string{"testdata/serviceroleservices.yaml"},
-		analyzer:   &auth.ServiceRoleServicesAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "ServiceRole bogus-short-name.default"},
-			{msg.ReferencedResourceNotFound, "ServiceRole bogus-fqdn.default"},
-			{msg.ReferencedResourceNotFound, "ServiceRole fqdn.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole short-name.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole fqdn-cross-ns.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole namespace-wide.anothernamespace"},
-		},
-	},
-	{
 		name:       "deprecation",
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
+			{msg.Deprecated, "VirtualService productpage.foo"},
 		},
 	},
 	{
@@ -176,7 +154,6 @@ var testGrid = []testCase{
 			{msg.NamespaceNotInjected, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
-			{msg.NamespaceInvalidInjectorRevision, "Namespace pidgeon-test"},
 		},
 	},
 	{

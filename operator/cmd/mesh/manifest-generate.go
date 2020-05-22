@@ -26,14 +26,13 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/pkg/log"
 )
 
 type manifestGenerateArgs struct {
@@ -97,12 +96,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	ysf, err := yamlFromSetFlags(applyFlagAliases(mgArgs.set, mgArgs.charts, mgArgs.revision), mgArgs.force, l)
-	if err != nil {
-		return err
-	}
-
-	manifests, _, err := GenManifests(mgArgs.inFilename, ysf, mgArgs.force, nil, l)
+	manifests, _, err := GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.charts, mgArgs.revision), mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}
@@ -127,9 +121,9 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 // representation of path-values passed through the --set flag.
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
-func GenManifests(inFilename []string, setOverlayYAML string, force bool,
+func GenManifests(inFilename []string, setFlags []string, force bool,
 	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
-	mergedYAML, _, err := GenerateConfig(inFilename, setOverlayYAML, force, kubeConfig, l)
+	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err
 	}

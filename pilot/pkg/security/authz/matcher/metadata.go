@@ -15,7 +15,7 @@
 package matcher
 
 import (
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 // MetadataStringMatcher creates a metadata string matcher for the given filter, key and the

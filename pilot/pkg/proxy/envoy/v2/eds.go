@@ -20,7 +20,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -308,7 +308,7 @@ func connectionID(node string) string {
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
 // perf tests. The logic to compute is based on the current UpdateClusterInc
 func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, push *model.PushContext,
-	clusterName string) *xdsapi.ClusterLoadAssignment {
+	clusterName string) *endpoint.ClusterLoadAssignment {
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 
 	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
@@ -360,7 +360,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 
 	locEps := buildLocalityLbEndpointsFromShards(proxy, se, svc, svcPort, subsetLabels, clusterName, push)
 
-	return &xdsapi.ClusterLoadAssignment{
+	return &endpoint.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
@@ -368,7 +368,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 
 func (s *DiscoveryServer) generateEndpoints(
 	clusterName string, proxy *model.Proxy, push *model.PushContext, edsUpdatedServices map[string]struct{},
-) *xdsapi.ClusterLoadAssignment {
+) *endpoint.ClusterLoadAssignment {
 	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 	if edsUpdatedServices != nil {
 		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
@@ -387,7 +387,7 @@ func (s *DiscoveryServer) generateEndpoints(
 	// EDS filter on the endpoints
 	if push.Networks != nil && len(push.Networks.Networks) > 0 {
 		endpoints := EndpointsByNetworkFilter(push, proxy.Metadata.Network, l.Endpoints)
-		filteredCLA := &xdsapi.ClusterLoadAssignment{
+		filteredCLA := &endpoint.ClusterLoadAssignment{
 			ClusterName: l.ClusterName,
 			Endpoints:   endpoints,
 			Policy:      l.Policy,
@@ -429,7 +429,9 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 		if l == nil {
 			continue
 		}
-		resp = append(resp, util.MessageToAny(l))
+		msg := util.MessageToAny(l)
+		msg.TypeUrl = w.TypeUrl
+		resp = append(resp, msg)
 	}
 
 	return resp
@@ -439,7 +441,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
 	pushStart := time.Now()
-	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
+	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	endpoints := 0
 	empty := 0
 
@@ -530,7 +532,7 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment, version, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		TypeUrl: typeURL,
 		// Pilot does not really care for versioning. It always supplies what's currently
@@ -571,7 +573,7 @@ func buildLocalityLbEndpointsFromShards(
 	for clusterID, endpoints := range shards.Shards {
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (clusterID != proxy.ClusterID) {
+		if isClusterLocal && (clusterID != proxy.Metadata.ClusterID) {
 			continue
 		}
 
@@ -624,8 +626,8 @@ func buildLocalityLbEndpointsFromShards(
 }
 
 // cluster with no endpoints
-func buildEmptyClusterLoadAssignment(clusterName string) *xdsapi.ClusterLoadAssignment {
-	return &xdsapi.ClusterLoadAssignment{
+func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAssignment {
+	return &endpoint.ClusterLoadAssignment{
 		ClusterName: clusterName,
 	}
 }

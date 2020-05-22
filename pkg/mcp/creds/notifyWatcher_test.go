@@ -28,7 +28,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pkg/mcp/testing/testcerts"
+	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
 )
 

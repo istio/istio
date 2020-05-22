@@ -24,7 +24,9 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -33,7 +35,6 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -80,8 +81,7 @@ func TestMain(m *testing.M) {
 func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
 	meshConfig := mesh.DefaultMeshConfig()
 
-	g := galley.NewOrFail(t, ctx, galley.Config{MeshConfig: MeshConfig})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g, MeshConfig: &meshConfig})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{MeshConfig: &meshConfig})
 
 	appNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "app",
@@ -93,12 +93,12 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	})
 
 	// Apply sidecar config
-	createConfig(t, g, config, Sidecar, appNamespace)
+	createConfig(t, ctx, config, Sidecar, appNamespace)
 
 	time.Sleep(time.Second * 2)
 
 	nodeID := &model.Proxy{
-		ClusterID:       "integration-test",
+		Metadata:        &model.NodeMetadata{ClusterID: "integration-test"},
 		ID:              fmt.Sprintf("httpbin.%s", appNamespace.Name()),
 		DNSDomain:       appNamespace.Name() + ".cluster.local",
 		Type:            model.SidecarProxy,
@@ -108,7 +108,7 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	return p, nodeID
 }
 
-func createConfig(t *testing.T, g galley.Instance, config Config, yaml string, namespace namespace.Instance) {
+func createConfig(t *testing.T, ctx resource.Context, config Config, yaml string, namespace namespace.Instance) {
 	tmpl, err := template.New("Config").Parse(yaml)
 	if err != nil {
 		t.Errorf("failed to create template: %v", err)
@@ -117,7 +117,7 @@ func createConfig(t *testing.T, g galley.Instance, config Config, yaml string, n
 	if err := tmpl.Execute(&buf, config); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := g.ApplyConfig(namespace, buf.String()); err != nil {
+	if err := ctx.ApplyConfig(namespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply config: %v. Config: %v", err, buf.String())
 	}
 }
@@ -163,7 +163,7 @@ func TestSidecarConfig(t *testing.T) {
 func checkFallThroughRouteConfig(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
 	for _, res := range resp.Resources {
-		rc := &xdsapi.RouteConfiguration{}
+		rc := &route.RouteConfiguration{}
 		if err := proto.Unmarshal(res.Value, rc); err != nil {
 			return false, err
 		}
@@ -193,10 +193,10 @@ func checkFallThroughNetworkFilter(resp *xdsapi.DiscoveryResponse) (success bool
 	}
 
 	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
-	var listenerToCheck *xdsapi.Listener
+	var listenerToCheck *listener.Listener
 	got := map[string]struct{}{}
 	for _, res := range resp.Resources {
-		c := &xdsapi.Listener{}
+		c := &listener.Listener{}
 		if err := proto.Unmarshal(res.Value, c); err != nil {
 			return false, err
 		}

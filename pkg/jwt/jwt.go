@@ -15,6 +15,6 @@
 package jwt
 
 const (
-	JWTPolicyThirdPartyJWT = "third-party-jwt"
-	JWTPolicyFirstPartyJWT = "first-party-jwt"
+	PolicyThirdParty = "third-party-jwt"
+	PolicyFirstParty = "first-party-jwt"
 )

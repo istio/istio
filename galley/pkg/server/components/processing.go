@@ -320,10 +320,11 @@ func (p *Processing) createSourceAndStatusUpdater(schemas collection.Schemas) (
 		}
 
 		o := apiserver.Options{
-			Client:           k,
-			ResyncPeriod:     p.args.ResyncPeriod,
-			Schemas:          schemas,
-			StatusController: statusCtl,
+			Client:            k,
+			WatchedNamespaces: p.args.WatchedNamespaces,
+			ResyncPeriod:      p.args.ResyncPeriod,
+			Schemas:           schemas,
+			StatusController:  statusCtl,
 		}
 		s := apiserver.New(o)
 		src = s

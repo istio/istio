@@ -21,14 +21,11 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/istio/pkg/config/mesh"
-
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -450,7 +447,6 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
-	mesh.TestMode = true
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
@@ -533,9 +529,9 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	}
 }
 
-func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {
+func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 	if l != nil {
-		var chain *xdsapi_listener.FilterChain
+		var chain *listener.FilterChain
 		for _, fc := range l.FilterChains {
 			if len(fc.Filters) == 1 && fc.Filters[0].Name == "envoy.http_connection_manager" {
 				chain = fc
@@ -551,7 +547,7 @@ func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {
 		if filter.Name != "envoy.http_connection_manager" {
 			t.Fatalf("Expected HTTP connection, found %v", chain.Filters[0].Name)
 		}
-		httpCfg, ok := filter.ConfigType.(*xdsapi_listener.Filter_TypedConfig)
+		httpCfg, ok := filter.ConfigType.(*listener.Filter_TypedConfig)
 		if !ok {
 			t.Fatalf("Expected Http Connection Manager Config Filter_TypedConfig, found %T", filter.ConfigType)
 		}

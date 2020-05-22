@@ -3,22 +3,7 @@ kind: EnvoyFilter
 metadata:
   name: simple-envoy-filter
 spec:
-  workloadLabels:
-    app: c
-  filters:
-    - listenerMatch:
-        listenerType: SIDECAR_INBOUND
-        listenerProtocol: HTTP
-      insertPosition:
-        index: FIRST
-      filterType: HTTP
-      filterName: envoy.fault
-      filterConfig:
-        abort:
-          percentage:
-            numerator: 100
-            denominator: HUNDRED
-          httpStatus: 444
-        headers:
-          name: envoyfilter-test
-          exactMatch: foobar123
+  workloadSelector:
+    labels:
+      app: c
+

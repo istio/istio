@@ -18,15 +18,24 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+// ClientFactoryFunc is a transformation function that creates the k8s client factories
+// from the provided k8s config files.
+type AccessorFactoryFunc func(kubeConfig string, workDir string) (*kube.Accessor, error)
+
 // Settings provide kube-specific Settings from flags.
 type Settings struct {
 	// An array of paths to kube config files. Required if the environment is kubernetes.
 	KubeConfig []string
+
+	// AccessorFactoryFunc is an optional override for the default behavior for creating a kube.Accessor
+	// for a cluster.
+	AccessorFactoryFunc AccessorFactoryFunc
 
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.
@@ -35,6 +44,10 @@ type Settings struct {
 	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
 	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex
+
+	// networkTopology is used for the initial assignment of networks to each cluster.
+	// The source of truth clusters' networks is the Cluster instances themselves, rather than this field.
+	networkTopology map[resource.ClusterIndex]string
 }
 
 type SetupSettingsFunc func(s *Settings)
@@ -64,6 +77,15 @@ func (s *Settings) GetControlPlaneClusters() map[resource.ClusterIndex]bool {
 		out[controlPlaneClusterIndex] = true
 	}
 	return out
+}
+
+// AccessorFactoryFuncOrDefault returns the AccessorFactoryFunc if set. Otherwise
+// returns default function.
+func (s *Settings) AccessorFactoryFuncOrDefault() AccessorFactoryFunc {
+	if s.AccessorFactoryFunc == nil {
+		return kube.NewAccessor
+	}
+	return s.AccessorFactoryFunc
 }
 
 // String implements fmt.Stringer

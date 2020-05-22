@@ -23,17 +23,20 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/informers"
+	"k8s.io/apimachinery/pkg/watch"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -51,6 +54,8 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -106,9 +111,9 @@ func incrementEvent(kind, event string) {
 // Options stores the configurable attributes of a Controller.
 type Options struct {
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
-	WatchedNamespace string
-	ResyncPeriod     time.Duration
-	DomainSuffix     string
+	WatchedNamespaces string
+	ResyncPeriod      time.Duration
+	DomainSuffix      string
 
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
@@ -130,6 +135,9 @@ type Options struct {
 
 	// EndpointMode decides what source to use to get endpoint information
 	EndpointMode EndpointMode
+
+	//CABundlePath defines the caBundle path for istiod Server
+	CABundlePath string
 }
 
 // EndpointMode decides what source to use to get endpoint information
@@ -167,11 +175,12 @@ type kubernetesNode struct {
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client         kubernetes.Interface
-	metadataClient metadata.Interface
-	queue          queue.Instance
-	services       cache.SharedIndexInformer
-	endpoints      kubeEndpointsController
+	client          kubernetes.Interface
+	metadataClient  metadata.Interface
+	queue           queue.Instance
+	serviceInformer cache.SharedIndexInformer
+	serviceLister   listerv1.ServiceLister
+	endpoints       kubeEndpointsController
 
 	nodeMetadataInformer cache.SharedIndexInformer
 	// Used to watch node accessible from remote cluster.
@@ -209,40 +218,57 @@ type Controller struct {
 
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
+
+	// service instances from workload entries  - map of ip -> service instance
+	foreignRegistryInstancesByIP map[string]*model.ServiceInstance
 }
 
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
 func NewController(client kubernetes.Interface, metadataClient metadata.Interface, options Options) *Controller {
 	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
-		options.WatchedNamespace, options.ResyncPeriod)
+		options.WatchedNamespaces, options.ResyncPeriod)
+
+	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
 
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
-		domainSuffix:               options.DomainSuffix,
-		client:                     client,
-		metadataClient:             metadataClient,
-		queue:                      queue.NewQueue(1 * time.Second),
-		clusterID:                  options.ClusterID,
-		xdsUpdater:                 options.XDSUpdater,
-		servicesMap:                make(map[host.Name]*model.Service),
-		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
-		nodeInfoMap:                make(map[string]kubernetesNode),
-		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
-		networksWatcher:            options.NetworksWatcher,
-		metrics:                    options.Metrics,
+		domainSuffix:                 options.DomainSuffix,
+		client:                       client,
+		metadataClient:               metadataClient,
+		queue:                        queue.NewQueue(1 * time.Second),
+		clusterID:                    options.ClusterID,
+		xdsUpdater:                   options.XDSUpdater,
+		servicesMap:                  make(map[host.Name]*model.Service),
+		nodeSelectorsForServices:     make(map[host.Name]labels.Instance),
+		nodeInfoMap:                  make(map[string]kubernetesNode),
+		externalNameSvcInstanceMap:   make(map[host.Name][]*model.ServiceInstance),
+		foreignRegistryInstancesByIP: make(map[string]*model.ServiceInstance),
+		networksWatcher:              options.NetworksWatcher,
+		metrics:                      options.Metrics,
 	}
 
-	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
+	svcMlw := listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return client.CoreV1().Services(namespace).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return client.CoreV1().Services(namespace).Watch(context.TODO(), opts)
+			},
+		}
+	})
 
-	c.services = sharedInformers.Core().V1().Services().Informer()
-	registerHandlers(c.services, c.queue, "Services", c.onServiceEvent)
+	c.serviceInformer = cache.NewSharedIndexInformer(svcMlw, &v1.Service{}, options.ResyncPeriod,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
+	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
-		c.endpoints = newEndpointsController(c, sharedInformers)
+		c.endpoints = newEndpointsController(c, options)
 	case EndpointSliceOnly:
-		c.endpoints = newEndpointSliceController(c, sharedInformers)
+		c.endpoints = newEndpointSliceController(c, options)
 	}
 
 	// This is for getting the pod to node mapping, so that we can get the pod's locality.
@@ -255,9 +281,8 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		func(options *metav1.ListOptions) {})
 	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", c.onNodeEvent)
 
-	podInformer := sharedInformers.Core().V1().Pods().Informer()
-	c.pods = newPodCache(podInformer, c)
-	registerHandlers(podInformer, c.queue, "Pods", c.pods.onEvent)
+	c.pods = newPodCache(c, options)
+	registerHandlers(c.pods.informer, c.queue, "Pods", c.pods.onEvent)
 
 	return c
 }
@@ -321,9 +346,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		}
 		c.Lock()
 		c.servicesMap[svcConv.Hostname] = svcConv
-		if instances == nil {
-			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
-		} else {
+		if len(instances) > 0 {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
 		c.Unlock()
@@ -396,9 +419,8 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		c.Unlock()
 	}
 
-	if updatedNeeded {
-		// update all related services
-		c.updateServiceExternalAddr()
+	// update all related services
+	if updatedNeeded && c.updateServiceExternalAddr() {
 		c.xdsUpdater.ConfigUpdate(&model.PushRequest{
 			Full: true,
 		})
@@ -461,7 +483,7 @@ func compareEndpoints(a, b *v1.Endpoints) bool {
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	if !c.services.HasSynced() ||
+	if !c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
 		!c.nodeMetadataInformer.HasSynced() ||
@@ -483,7 +505,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 
-	go c.services.Run(stop)
+	go c.serviceInformer.Run(stop)
 	go c.pods.informer.Run(stop)
 	go c.nodeMetadataInformer.Run(stop)
 	go c.filteredNodeInformer.Run(stop)
@@ -491,7 +513,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	// To avoid endpoints without labels or ports, wait for sync.
 	cache.WaitForCacheSync(stop, c.nodeMetadataInformer.HasSynced, c.filteredNodeInformer.HasSynced,
 		c.pods.informer.HasSynced,
-		c.services.HasSynced)
+		c.serviceInformer.HasSynced)
 
 	go c.endpoints.Run(stop)
 
@@ -543,10 +565,14 @@ func (c *Controller) getNodePortGatewayServices() []*model.Service {
 }
 
 // updateServiceExternalAddr updates ClusterExternalAddresses for ingress gateway service of nodePort type
-func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
+func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) bool {
 	// node event, update all nodePort gateway services
 	if len(svcs) == 0 {
 		svcs = c.getNodePortGatewayServices()
+	}
+	// no nodePort gateway service found, no update
+	if len(svcs) == 0 {
+		return false
 	}
 	for _, svc := range svcs {
 		c.RLock()
@@ -571,6 +597,7 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 		}
 		svc.Mutex.Unlock()
 	}
+	return true
 }
 
 // getPodLocality retrieves the locality for a pod.
@@ -689,25 +716,140 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
+	// First get k8s standard service instances and the workload entry instances
+	outInstances, err := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	foreignInstances, err2 := c.getForeignServiceInstancesByPort(svc, reqSvcPort)
 
+	if err2 != nil {
+		err = multierror.Append(err, err2)
+	}
+	outInstances = append(outInstances, foreignInstances...)
+
+	// return when instances found or an error occurs
+	if len(outInstances) > 0 || err != nil {
+		return outInstances, err
+	}
+
+	// Fall back to external name service since we did not find any instances of normal services
 	c.RLock()
-	instances := c.externalNameSvcInstanceMap[svc.Hostname]
+	externalNameInstances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
-	if instances != nil {
+	if externalNameInstances != nil {
 		inScopeInstances := make([]*model.ServiceInstance, 0)
-		for _, i := range instances {
+		for _, i := range externalNameInstances {
 			if i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort {
 				inScopeInstances = append(inScopeInstances, i)
 			}
 		}
-
 		return inScopeInstances, nil
 	}
+	return nil, nil
+}
 
-	return c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvcPort int) ([]*model.ServiceInstance, error) {
+	// Run through all the foreign instances, select ones that match the service labels
+	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
+	// as InstancesByPort is called by the aggregate controller. We dont want to include
+	// foreign instances for any other registry
+	var foreignInstancesExist bool
+	c.RLock()
+	foreignInstancesExist = len(c.foreignRegistryInstancesByIP) > 0
+	c.RUnlock()
+
+	if !foreignInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
+		svc.MeshExternal || svc.Resolution != model.ClientSideLB {
+		return nil, nil
+	}
+
+	item, exists, err := c.serviceInformer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
+	if err != nil {
+		log.Infof("get foreignServiceInstancesByPort(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
+		return nil, err
+	}
+
+	if !exists {
+		return nil, nil
+	}
+
+	k8sService := item.(*v1.Service)
+	if k8sService.Spec.Selector == nil {
+		// services with nil selectors match nothing, not everything.
+		return nil, nil
+	}
+	selector := klabels.Set(k8sService.Spec.Selector).AsSelectorPreValidated()
+
+	// Get the service port name so that we can construct the service instance
+	var servicePort *model.Port
+	for _, p := range svc.Ports {
+		if p.Port == reqSvcPort {
+			servicePort = p
+			break
+		}
+	}
+
+	out := make([]*model.ServiceInstance, 0)
+
+	c.RLock()
+	for _, fi := range c.foreignRegistryInstancesByIP {
+		if fi.Service.Attributes.Namespace != svc.Attributes.Namespace {
+			continue
+		}
+		if selector.Matches(klabels.Set(fi.Endpoint.Labels)) {
+			// create an instance with endpoint whose service port name matches
+			// TODO(rshriram): we currently ignore the workload entry (endpoint) ports and setup 1-1 mapping
+			// from service port to endpoint port. Need to figure out a way to map workload entry port to
+			// appropriate k8s service port
+			istioEndpoint := *fi.Endpoint
+			istioEndpoint.EndpointPort = uint32(reqSvcPort)
+			istioEndpoint.ServicePortName = servicePort.Name
+			out = append(out, &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: servicePort,
+				Endpoint:    &istioEndpoint,
+			})
+		}
+	}
+	c.RUnlock()
+	return out, nil
+}
+
+// convenience function to collect all workload entry endpoints in updateEDS calls.
+func (c *Controller) collectAllForeignEndpoints(svc *model.Service) ([]*model.IstioEndpoint, error) {
+	var foreignInstancesExist bool
+	c.RLock()
+	foreignInstancesExist = len(c.foreignRegistryInstancesByIP) > 0
+	c.RUnlock()
+
+	if !foreignInstancesExist || svc.Resolution != model.ClientSideLB || len(svc.Ports) == 0 {
+		return nil, nil
+	}
+
+	instances, err := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
+	if err != nil {
+		return nil, err
+	}
+	endpoints := make([]*model.IstioEndpoint, 0)
+
+	// all endpoints for ports[0]
+	for _, instance := range instances {
+		endpoints = append(endpoints, instance.Endpoint)
+	}
+
+	// build an endpoint for each remaining service port
+	for i := 1; i < len(svc.Ports); i++ {
+		for _, instance := range instances {
+			ep := *instance.Endpoint
+			ep.EndpointPort = uint32(svc.Ports[i].Port)
+			ep.ServicePortName = svc.Ports[i].Name
+			endpoints = append(endpoints, &ep)
+		}
+	}
+	return endpoints, nil
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
+// TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
+// To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 	if len(proxy.IPAddresses) > 0 {
@@ -725,7 +867,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			}
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
-			if services, err := getPodServices(listerv1.NewServiceLister(c.services.GetIndexer()), pod); err == nil && len(services) > 0 {
+			if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
 				}
@@ -756,6 +898,70 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	return out, nil
 }
 
+// ForeignServiceInstanceHandler defines the handler for service instances generated by other registries
+func (c *Controller) ForeignServiceInstanceHandler(si *model.ServiceInstance, event model.Event) {
+	// ignore malformed workload entries. And ignore any workload entry that does not have a label
+	// as there is no way for us to select them
+	if si.Service == nil || si.Service.Attributes.Namespace == "" || len(si.Endpoint.Labels) == 0 {
+		return
+	}
+
+	// this is from a workload entry. Store it in separate map so that
+	// the InstancesByPort can use these as well as the k8s pods.
+	c.Lock()
+	switch event {
+	case model.EventDelete:
+		delete(c.foreignRegistryInstancesByIP, si.Endpoint.Address)
+	default: // add or update
+		c.foreignRegistryInstancesByIP[si.Endpoint.Address] = si
+	}
+	c.Unlock()
+
+	// find the workload entry's service by label selector
+	// rather than scanning through our internal map of model.services, get the services via the k8s apis
+	dummyPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Namespace: si.Service.Attributes.Namespace, Labels: si.Endpoint.Labels},
+	}
+
+	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
+	if k8sServices, err := getPodServices(listerv1.NewServiceLister(c.serviceInformer.GetIndexer()), dummyPod); err == nil && len(k8sServices) > 0 {
+		for _, k8sSvc := range k8sServices {
+			var service *model.Service
+			c.RLock()
+			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.domainSuffix)]
+			c.RUnlock()
+			// Note that this cannot be an external service because k8s external services do not have label selectors.
+			if service.Resolution != model.ClientSideLB {
+				// may be a headless service
+				continue
+			}
+
+			// Get the updated list of endpoints that includes k8s pods and the workload entries for this service
+			// and then notify the EDS server that endpoints for this service have changed.
+			// We need one endpoint object for each service port
+			endpoints := make([]*model.IstioEndpoint, 0)
+			for _, port := range service.Ports {
+				if port.Protocol == protocol.UDP {
+					continue
+				}
+				// Similar code as UpdateServiceShards in eds.go
+				instances, err := c.InstancesByPort(service, port.Port, labels.Collection{})
+				if err != nil {
+					log.Debugf("Failed to get endpoints for service %s on port %d, in response to foreign instance: %v",
+						service.Hostname, port.Port, err)
+					continue
+				}
+
+				for _, inst := range instances {
+					endpoints = append(endpoints, inst.Endpoint)
+				}
+			}
+			// fire off eds update
+			_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(service.Hostname), service.Attributes.Namespace, endpoints)
+		}
+	}
+}
+
 func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error) {
 	allServices, err := s.Services(pod.Namespace).List(klabels.Everything())
 	if err != nil {
@@ -763,8 +969,7 @@ func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error
 	}
 
 	var services []*v1.Service
-	for i := range allServices {
-		service := allServices[i]
+	for _, service := range allServices {
 		if service.Spec.Selector == nil {
 			// services with nil selectors match nothing, not everything.
 			continue
@@ -799,14 +1004,13 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	}
 
 	// Find the Service associated with the pod.
-	svcLister := listerv1.NewServiceLister(c.services.GetIndexer())
-	services, err := getPodServices(svcLister, dummyPod)
+	services, err := getPodServices(c.serviceLister, dummyPod)
 	if err != nil {
-		return nil, fmt.Errorf("error getting instances: %v", err)
+		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
 
 	}
 	if len(services) == 0 {
-		return nil, fmt.Errorf("no instances found: %v ", err)
+		return nil, fmt.Errorf("no instances found for %s: %v", proxy.ID, err)
 	}
 
 	out := make([]*model.ServiceInstance, 0)
@@ -971,6 +1175,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
+// TODO: This code will return only the k8s pods but we actually need to return k8s pods and workload entries
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
 
@@ -1017,7 +1222,13 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
-	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
+	fep, err := c.collectAllForeignEndpoints(svc)
+	if err != nil {
+		log.Debugf("Handle EDS: error collecting foreign endpoints of svc %s in namespace %s", hostname, ep.Namespace)
+	}
+
+	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, append(endpoints, fep...))
+	// fire instance handles for k8s endpoints only
 	for _, handler := range c.instanceHandlers {
 		for _, ep := range endpoints {
 			si := &model.ServiceInstance{

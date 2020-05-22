@@ -18,11 +18,11 @@ architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 The operator uses the [IstioOperator API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto), which has
 three main components:
 
-- [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/operator.proto) for runtime config consumed directly by Istio
+- [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/config.proto) for runtime config consumed directly by Istio
 control plane components.
 - [Component configuration API](https://github.com/istio/api/blob/master/operator/v1alpha1/component.proto), for managing
 K8s settings like resources, auto scaling, pod disruption budgets and others defined in the
-[KubernetesResourceSpec](https://github.com/istio/api/blob/master/blob/7791470ecc4c5e123589ff2b781f47b1bcae6ddd/operator/v1alpha1/component.proto)
+[KubernetesResourceSpec](https://github.com/istio/api/blob/master/operator/v1alpha1/component.proto)
 for Istio core and addon components.
 - The legacy
 [Helm installation API](https://istio.io/docs/reference/config/installation-options/) for backwards
@@ -35,15 +35,15 @@ for deprecation.
 
 [Profiles](https://istio.io/docs/setup/kubernetes/additional-setup/config-profiles/), are provided as a starting point for
 an Istio install and can be customized by creating customization overlay files or passing parameters through the
---set flag. For example, to select the sds profile:
+--set flag. For example, to select the minimal profile:
 
 ```yaml
-# sds.yaml
+# minimal.yaml
 
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  profile: sds
+  profile: minimal
 ```
 
 See [Select a specific configuration_profile](#select-a-specific-configuration-profile) for more information.
@@ -66,19 +66,12 @@ to execute the following step one time.
 GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@6025e8de665b
 ```
 
-#### Clone the repo
-
-```bash
-git clone https://github.com/istio/operator.git
-cd operator
-```
-
 #### CLI
 
 To build the operator CLI, simply:
 
 ```bash
-make istioctl
+make build
 ```
 
 Ensure the created binary is in your PATH to run the examples below.
@@ -238,23 +231,23 @@ istioctl profile dump --set profile=minimal
 
 #### Select a specific configuration profile
 
-The simplest customization is to select a profile different to `default` e.g. `sds`. See [samples/sds.yaml](samples/sds.yaml):
+The simplest customization is to select a profile different to `default` e.g. `minimal`. See [manifests/profiles/minimal.yaml](../manifests/profiles/minimal.yaml):
 
 ```yaml
-# sds-install.yaml
+# minimal-install.yaml
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  profile: sds
+  profile: minimal
 ```
 
 Use `istioctl` to generate the manifests for the new configuration profile:
 
 ```bash
-istioctl manifest generate -f samples/sds.yaml
+istioctl manifest generate -f manifests/profiles/minimal.yaml
 ```
 
-After running the command, the Helm charts are rendered using `data/profiles/sds.yaml`.
+After running the command, the Helm charts are rendered using `manifests/profiles/minimal.yaml`.
 
 ##### --set syntax
 
@@ -325,15 +318,14 @@ istioctl manifest diff ./out/helm-template/manifest.yaml ./out/mesh-manifest/man
 
 The [new platform level installation API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto)
 defines install time parameters like feature and component enablement and namespace, and K8s settings like resources, HPA spec etc. in a structured way.
-The simplest customization is to turn features and components on and off. For example, to turn off all policy ([samples/sds-policy-off.yaml](samples/sds-policy-off.yaml)):
+The simplest customization is to turn features and components on and off. For example, to turn off proxy ([samples/pilot-advanced-override.yaml](samples/pilot-advanced-override.yaml)):
 
 ```yaml
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  profile: sds
   components:
-    policy:
+    proxy:
       enabled: false
 ```
 
@@ -417,10 +409,8 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   values:
-    mixer:
-      telemetry:
-        loadshedding:
-          latencyThreshold: 200ms
+    pilot:
+      traceSampling: 0.1 # override from 1.0
 ```
 
 ### Advanced K8s resource overlays

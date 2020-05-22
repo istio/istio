@@ -26,6 +26,7 @@
       "ads": {}
      },
     "cds_config": {
+      "resource_api_version": "V3",
       "ads": {}
     },
     "ads_config": {

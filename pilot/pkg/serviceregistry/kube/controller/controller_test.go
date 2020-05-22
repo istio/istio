@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	coreV1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,6 +82,9 @@ type XdsEvent struct {
 
 	// The id of the event
 	ID string
+
+	// The endpoints associated with an EDS push if any
+	Endpoints []*model.IstioEndpoint
 }
 
 // NewFakeXDS creates a XdsUpdater reporting events via a channel.
@@ -94,7 +97,7 @@ func NewFakeXDS() *FakeXdsUpdater {
 func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model.IstioEndpoint) error {
 	if len(entry) > 0 {
 		select {
-		case fx.Events <- XdsEvent{Type: "eds", ID: hostname}:
+		case fx.Events <- XdsEvent{Type: "eds", ID: hostname, Endpoints: entry}:
 		default:
 		}
 
@@ -140,11 +143,12 @@ func (fx *FakeXdsUpdater) Clear() {
 }
 
 type fakeControllerOptions struct {
-	networksWatcher mesh.NetworksWatcher
-	serviceHandler  func(service *model.Service, event model.Event)
-	instanceHandler func(instance *model.ServiceInstance, event model.Event)
-	mode            EndpointMode
-	clusterID       string
+	networksWatcher   mesh.NetworksWatcher
+	serviceHandler    func(service *model.Service, event model.Event)
+	instanceHandler   func(instance *model.ServiceInstance, event model.Event)
+	mode              EndpointMode
+	clusterID         string
+	watchedNamespaces string
 }
 
 func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *FakeXdsUpdater) {
@@ -156,14 +160,14 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	metadataClient := metafake.NewSimpleMetadataClient(scheme)
 
 	c := NewController(clientSet, metadataClient, Options{
-		WatchedNamespace: "", // tests create resources in multiple ns
-		ResyncPeriod:     resync,
-		DomainSuffix:     domainSuffix,
-		XDSUpdater:       fx,
-		Metrics:          &model.Environment{},
-		NetworksWatcher:  opts.networksWatcher,
-		EndpointMode:     opts.mode,
-		ClusterID:        opts.clusterID,
+		WatchedNamespaces: opts.watchedNamespaces, // default is all namespaces
+		ResyncPeriod:      resync,
+		DomainSuffix:      domainSuffix,
+		XDSUpdater:        fx,
+		Metrics:           &model.Environment{},
+		NetworksWatcher:   opts.networksWatcher,
+		EndpointMode:      opts.mode,
+		ClusterID:         opts.clusterID,
 	})
 
 	if opts.instanceHandler != nil {
@@ -178,7 +182,7 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	go c.Run(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
 	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
-		c.services.HasSynced)
+		c.serviceInformer.HasSynced)
 	return c, fx
 }
 
@@ -531,7 +535,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			metaServices, err := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"1.1.1.1"},
-				Locality:        &core.Locality{Region: "r", Zone: "z"},
+				Locality:        &corev3.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
@@ -554,7 +558,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						ServiceRegistry: string(serviceregistry.Kubernetes),
 						Name:            "svc1",
 						Namespace:       "nsa",
-						UID:             "istio://nsa/services/svc1"},
+						UID:             "istio://nsa/services/svc1",
+						LabelSelectors:  map[string]string{"app": "prod-app"},
+					},
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{Labels: labels.Instance{"app": "prod-app"},
@@ -591,7 +597,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			podServices, err := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.1"},
-				Locality:        &core.Locality{Region: "r", Zone: "z"},
+				Locality:        &corev3.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
@@ -614,7 +620,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						ServiceRegistry: string(serviceregistry.Kubernetes),
 						Name:            "svc1",
 						Namespace:       "nsa",
-						UID:             "istio://nsa/services/svc1"},
+						UID:             "istio://nsa/services/svc1",
+						LabelSelectors:  map[string]string{"app": "prod-app"},
+					},
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
@@ -648,7 +656,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			podServices, err = controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.2"},
-				Locality:        &core.Locality{Region: "r", Zone: "z"},
+				Locality:        &corev3.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
@@ -671,7 +679,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						ServiceRegistry: string(serviceregistry.Kubernetes),
 						Name:            "svc1",
 						Namespace:       "nsa",
-						UID:             "istio://nsa/services/svc1"},
+						UID:             "istio://nsa/services/svc1",
+						LabelSelectors:  map[string]string{"app": "prod-app"},
+					},
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
@@ -1863,5 +1873,111 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 				t.Fatalf("Timeout incremental eds")
 			}
 		})
+	}
+}
+
+func TestForeignServiceInstanceHandlerMultipleEndpoints(t *testing.T) {
+	controller, fx := newFakeControllerWithOptions(fakeControllerOptions{})
+	defer controller.Stop()
+
+	// Create an initial pod with a service, and endpoint.
+	pod1 := generatePod("172.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pod2 := generatePod("172.0.1.2", "pod2", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pods := []*coreV1.Pod{pod1, pod2}
+	nodes := []*coreV1.Node{
+		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
+	}
+	addNodes(t, controller, nodes...)
+	addPods(t, controller, pods...)
+	for _, pod := range pods {
+		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+			t.Fatalf("wait for pod err: %v", err)
+		}
+		// pod first time occurrence will trigger proxy push
+		if ev := fx.Wait("proxy"); ev == nil {
+			t.Fatal("Timeout creating pods")
+		}
+	}
+	createService(controller, "svc1", "nsA", nil,
+		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+	if ev := fx.Wait("service"); ev == nil {
+		t.Fatal("Timeout creating service")
+	}
+	pod1Ips := []string{"172.0.1.1"}
+	portNames := []string{"tcp-port"}
+	createEndpoints(controller, "svc1", "nsA", portNames, pod1Ips, t)
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Fatal("Timeout incremental eds")
+	}
+
+	// Simulate adding a workload entry (fired through invocation of ForeignServiceInstanceHandler)
+	controller.ForeignServiceInstanceHandler(&model.ServiceInstance{
+		Service: &model.Service{
+			Attributes: model.ServiceAttributes{Namespace: "nsA"},
+		},
+		Endpoint: &model.IstioEndpoint{Labels: labels.Instance{"app": "prod-app"},
+			ServiceAccount: "account",
+			Address:        "2.2.2.2",
+			EndpointPort:   8080,
+		},
+	}, model.EventAdd)
+
+	expectedEndpointIPs := []string{"172.0.1.1", "2.2.2.2"}
+	// Check if an EDS event is fired
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Fatal("Did not get eds event when workload entry was added")
+	} else {
+		// check if the hostname matches that of k8s service svc1.nsA
+		if ev.ID != "svc1.nsA.svc.company.com" {
+			t.Fatalf("eds event for workload entry addition did not match the expected service. got %s, want %s",
+				ev.ID, "svc1.nsA.svc.company.com")
+		}
+		// we should have the pod IP and the workload Entry's IP in the endpoints..
+		// the first endpoint should be that of the k8s pod and the second one should be the workload entry
+
+		var gotEndpointIPs []string
+		for _, ep := range ev.Endpoints {
+			gotEndpointIPs = append(gotEndpointIPs, ep.Address)
+		}
+		if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
+			t.Fatalf("eds update after adding workload entry did not match expected list. got %v, want %v",
+				gotEndpointIPs, expectedEndpointIPs)
+		}
+	}
+
+	// Check if InstancesByPort returns the same list
+	converted, err := controller.Services()
+	if err != nil || len(converted) != 1 {
+		t.Fatalf("failed to get services (%v): %v", converted, err)
+	}
+	instances, err := controller.InstancesByPort(converted[0], 8080, labels.Collection{{
+		"app": "prod-app",
+	}})
+	if err != nil {
+		t.Fatalf("Failed to getInstancesByPort: %v", err)
+	}
+	var gotEndpointIPs []string
+	for _, instance := range instances {
+		gotEndpointIPs = append(gotEndpointIPs, instance.Endpoint.Address)
+	}
+	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
+		t.Fatalf("InstancesByPort after adding workload entry did not match expected list. got %v, want %v",
+			gotEndpointIPs, expectedEndpointIPs)
+	}
+
+	// Now add a k8s pod to the service and ensure that eds updates contain both pod IPs and workload entry IPs.
+	updateEndpoints(controller, "svc1", "nsA", portNames, []string{"172.0.1.1", "172.0.1.2"}, t)
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Fatal("Timeout incremental eds")
+	} else {
+		var gotEndpointIPs []string
+		for _, ep := range ev.Endpoints {
+			gotEndpointIPs = append(gotEndpointIPs, ep.Address)
+		}
+		expectedEndpointIPs = []string{"172.0.1.1", "172.0.1.2", "2.2.2.2"}
+		if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
+			t.Fatalf("eds update after adding pod did not match expected list. got %v, want %v",
+				gotEndpointIPs, expectedEndpointIPs)
+		}
 	}
 }

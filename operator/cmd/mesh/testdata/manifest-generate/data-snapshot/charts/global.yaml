@@ -1,7 +1,7 @@
 # Global and common settings for installing Istio.
 
 # This file is configured for a small scale production cluster.
-# Use user-values-medium or custom settings to tune up the CPU and scalling.
+# Use user-values-medium or custom settings to tune up the CPU and scaling.
 # Additional values overrides can be used.
 
 # Each individual component will use values from this file, with defaults and 'advanced' settings included in
@@ -53,6 +53,9 @@ global:
   istiod:
     enabled: true
     enableAnalysis: false
+
+  # One central istiod controls all remote clusters: disabled by default
+  centralIstiod: false
 
   proxy:
     image: proxyv2
@@ -351,7 +354,7 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
-  # enable pod distruption budget for the control plane, which is used to
+  # enable pod disruption budget for the control plane, which is used to
   # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
     enabled: true
@@ -559,3 +562,13 @@ version: ""
 
 meshConfig:
   enablePrometheusMerge: false
+  defaultConfig:
+    tracing:
+      tlsSettings:
+        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
+        clientCertificate: # example: /etc/istio/tracer/cert-chain.pem
+        privateKey:        # example: /etc/istio/tracer/key.pem
+        caCertificates:    # example: /etc/istio/tracer/root-cert.pem
+        sni:               # example: tracer.somedomain
+        subjectAltNames: []
+        # - tracer.somedomain

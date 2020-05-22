@@ -19,6 +19,8 @@ import (
 	"strings"
 
 	istiolog "istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 var (
@@ -68,7 +70,7 @@ func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
 		// Only generate configuration if the extracted trust domain from the policy is part of the trust domain list,
 		// or if the extracted/existing trust domain is "cluster.local", which is a pointer to the local trust domain
 		// and its aliases.
-		if stringMatch(trustDomainFromPrincipal, t.TrustDomains) || trustDomainFromPrincipal == "cluster.local" {
+		if stringMatch(trustDomainFromPrincipal, t.TrustDomains) || trustDomainFromPrincipal == constants.DefaultKubernetesDomain {
 			// Generate configuration for trust domain and trust domain aliases.
 			principalsIncludingAliases = append(principalsIncludingAliases, t.replaceTrustDomains(principal, trustDomainFromPrincipal)...)
 		} else {

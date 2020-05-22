@@ -15,12 +15,16 @@
 package controller
 
 import (
+	"context"
+	"strings"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/informers"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
@@ -30,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/listwatch"
 )
 
 type endpointSliceController struct {
@@ -39,8 +44,23 @@ type endpointSliceController struct {
 
 var _ kubeEndpointsController = &endpointSliceController{}
 
-func newEndpointSliceController(c *Controller, sharedInformers informers.SharedInformerFactory) *endpointSliceController {
-	informer := sharedInformers.Discovery().V1alpha1().EndpointSlices().Informer()
+func newEndpointSliceController(c *Controller, options Options) *endpointSliceController {
+	namespaces := strings.Split(options.WatchedNamespaces, ",")
+
+	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return c.client.DiscoveryV1alpha1().EndpointSlices(namespace).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return c.client.DiscoveryV1alpha1().EndpointSlices(namespace).Watch(context.TODO(), opts)
+			},
+		}
+	})
+
+	informer := cache.NewSharedIndexInformer(mlw, &discoveryv1alpha1.EndpointSlice{}, options.ResyncPeriod,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
@@ -115,7 +135,14 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
 
-	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace, esc.endpointCache.Get(hostname))
+	fep, err := esc.c.collectAllForeignEndpoints(svc)
+	if err != nil {
+		log.Debugf("Handle EDS: error collecting foreign endpoints of svc %s in namespace %s", hostname, slice.Namespace)
+	}
+
+	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace,
+		append(esc.endpointCache.Get(hostname), fep...))
+	// fire instance handles for k8s endpoints only
 	for _, handler := range esc.c.instanceHandlers {
 		for _, ep := range endpoints {
 			si := &model.ServiceInstance{
@@ -152,6 +179,9 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 	})
 }
 
+// GetProxyServiceInstances returns service instances co-located with a given proxy
+// TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
+// To tackle this, we need a ip2instance map like what we have in service entry.
 func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
 	eps, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(proxy.Metadata.Namespace).List(klabels.Everything())
 	if err != nil {

@@ -47,10 +47,6 @@ import (
 var (
 	// installerScope is the scope for all commands in the mesh package.
 	installerScope = log.RegisterScope("installer", "installer", 0)
-
-	// Path to the operator install base dir in the snapshot. This symbol is required here because it's referenced
-	// in "operator dump" e2e command tests and there's no other way to inject a path into the snapshot into the command.
-	snapshotInstallPackageDir string
 )
 
 func initLogsOrExit(_ *rootArgs) {
@@ -201,8 +197,6 @@ type applyOptions struct {
 	Context string
 	// DryRun performs all steps except actually applying the manifests or creating output dirs/files.
 	DryRun bool
-	// Wait for resources to be ready after install.
-	Wait bool
 	// Maximum amount of time to wait for resources to be ready after install when Wait=true.
 	WaitTimeout time.Duration
 }
@@ -220,7 +214,7 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr st
 		Name:    componentName,
 		Content: manifestStr,
 	}
-	_, _, err = reconciler.ApplyManifest(ms, true)
+	_, _, err = reconciler.ApplyManifest(ms)
 	return err
 }
 
@@ -230,7 +224,7 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 		return "", "", nil
 	}
 
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, "", false, nil, l)
+	_, mergedIOPS, err := GenerateConfig([]string{filePath}, nil, false, nil, l)
 	if err != nil {
 		return "", "", err
 	}

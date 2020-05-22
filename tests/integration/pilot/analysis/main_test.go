@@ -18,17 +18,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
-)
-
-var (
-	i istio.Instance
-	p pilot.Instance
-	g galley.Instance
 )
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -39,8 +30,7 @@ func TestMain(m *testing.M) {
 		NewSuite("pilot_analysis_test", m).
 		RequireSingleCluster().
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
-
+		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   pilot:
@@ -52,14 +42,5 @@ values:
       enableAnalysis: true
 `
 		})).
-		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Run()
 }

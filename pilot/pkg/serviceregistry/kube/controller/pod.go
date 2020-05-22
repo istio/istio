@@ -17,16 +17,20 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/listwatch"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -45,7 +49,23 @@ type PodCache struct {
 	c *Controller
 }
 
-func newPodCache(informer cache.SharedIndexInformer, c *Controller) *PodCache {
+func newPodCache(c *Controller, options Options) *PodCache {
+	namespaces := strings.Split(options.WatchedNamespaces, ",")
+
+	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return c.client.CoreV1().Pods(namespace).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return c.client.CoreV1().Pods(namespace).Watch(context.TODO(), opts)
+			},
+		}
+	})
+
+	informer := cache.NewSharedIndexInformer(mlw, &v1.Pod{}, options.ResyncPeriod,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
 	out := &PodCache{
 		informer: informer,
 		c:        c,
@@ -79,7 +99,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	// via UpdateStatus.
 
 	if len(ip) > 0 {
-		log.Infof("Handling event %s for pod %s (%v) in namespace %s -> %v", ev, pod.Name, pod.Status.Phase, pod.Namespace, ip)
+		log.Debugf("Handling event %s for pod %s (%v) in namespace %s -> %v", ev, pod.Name, pod.Status.Phase, pod.Namespace, ip)
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
 		switch ev {
 		case model.EventAdd:

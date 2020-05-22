@@ -18,10 +18,9 @@ import (
 	"sort"
 	"strconv"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -58,19 +57,19 @@ var (
 type ListenerBuilder struct {
 	node              *model.Proxy
 	push              *model.PushContext
-	gatewayListeners  []*xdsapi.Listener
-	inboundListeners  []*xdsapi.Listener
-	outboundListeners []*xdsapi.Listener
+	gatewayListeners  []*listener.Listener
+	inboundListeners  []*listener.Listener
+	outboundListeners []*listener.Listener
 	// HttpProxyListener is a specialize outbound listener. See MeshConfig.proxyHttpPort
-	httpProxyListener       *xdsapi.Listener
-	virtualOutboundListener *xdsapi.Listener
-	virtualInboundListener  *xdsapi.Listener
+	httpProxyListener       *listener.Listener
+	virtualOutboundListener *listener.Listener
+	virtualInboundListener  *listener.Listener
 }
 
 // Setup the filter chain match so that the match should work under both
 // - bind_to_port == false listener
 // - virtual inbound listener
-func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xdsapi.Listener, needTLS bool) (*listener.FilterChain, bool) {
+func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *listener.Listener, needTLS bool) (*listener.FilterChain, bool) {
 	if chain.FilterChainMatch == nil {
 		chain.FilterChainMatch = &listener.FilterChainMatch{}
 	}
@@ -94,7 +93,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xd
 	return chain, needTLS
 }
 
-func isBindtoPort(l *xdsapi.Listener) bool {
+func isBindtoPort(l *listener.Listener) bool {
 	v1 := l.GetDeprecatedV1()
 	if v1 == nil {
 		// Default is true
@@ -109,7 +108,7 @@ func isBindtoPort(l *xdsapi.Listener) bool {
 }
 
 // Accumulate the filter chains from per proxy service listeners
-func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*listener.FilterChain, bool) {
+func reduceInboundListenerToFilterChains(listeners []*listener.Listener) ([]*listener.FilterChain, bool) {
 	needTLS := false
 	chains := make([]*listener.FilterChain, 0)
 	for _, l := range listeners {
@@ -132,7 +131,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// 1. filter chains in this listener
 	// 2. explicit original_dst listener filter
 	// UseOriginalDst: proto.BoolTrue,
-	lb.virtualInboundListener.UseOriginalDst = nil
+	lb.virtualInboundListener.HiddenEnvoyDeprecatedUseOriginalDst = nil
 	lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters,
 		originalDestinationFilter,
 	)
@@ -170,7 +169,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 
 	// All listeners except bind_to_port=true listeners are now a part of virtual inbound and not needed
 	// we can filter these ones out.
-	bindToPortInbound := make([]*xdsapi.Listener, 0, len(lb.inboundListeners))
+	bindToPortInbound := make([]*listener.Listener, 0, len(lb.inboundListeners))
 	for _, i := range lb.inboundListeners {
 		if isBindtoPort(i) {
 			bindToPortInbound = append(bindToPortInbound, i)
@@ -222,7 +221,7 @@ func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl
 	if httpProxy == nil {
 		return lb
 	}
-	removeListenerFilterTimeout([]*xdsapi.Listener{httpProxy})
+	removeListenerFilterTimeout([]*listener.Listener{httpProxy})
 	lb.patchOneListener(httpProxy, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.httpProxyListener = httpProxy
 	return lb
@@ -237,13 +236,13 @@ func (lb *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl) *Lis
 	}
 	// Let ServiceDiscovery decide which IP and Port are used for management if
 	// there are multiple IPs
-	mgmtListeners := make([]*xdsapi.Listener, 0)
+	mgmtListeners := make([]*listener.Listener, 0)
 	for _, ip := range lb.node.IPAddresses {
 		managementPorts := lb.push.ManagementPorts(ip)
 		management := buildSidecarInboundMgmtListeners(lb.node, lb.push, managementPorts, ip)
 		mgmtListeners = append(mgmtListeners, management...)
 	}
-	addresses := make(map[string]*xdsapi.Listener)
+	addresses := make(map[string]*listener.Listener)
 	for _, listener := range lb.inboundListeners {
 		if listener != nil {
 			addresses[addressKey(listener.Address)] = listener
@@ -288,13 +287,13 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
-	ipTablesListener := &xdsapi.Listener{
-		Name:             VirtualOutboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
-		Transparent:      isTransparentProxy,
-		UseOriginalDst:   proto.BoolTrue,
-		FilterChains:     filterChains,
-		TrafficDirection: core.TrafficDirection_OUTBOUND,
+	ipTablesListener := &listener.Listener{
+		Name:                                VirtualOutboundListenerName,
+		Address:                             util.BuildAddressV2(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
+		Transparent:                         isTransparentProxy,
+		HiddenEnvoyDeprecatedUseOriginalDst: proto.BoolTrue,
+		FilterChains:                        filterChains,
+		TrafficDirection:                    core.TrafficDirection_OUTBOUND,
 	}
 	configgen.onVirtualOutboundListener(lb.node, lb.push, ipTablesListener)
 	lb.virtualOutboundListener = ipTablesListener
@@ -315,24 +314,24 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	if features.EnableProtocolSniffingForInbound {
 		filterChains = append(filterChains, buildInboundCatchAllHTTPFilterChains(configgen, lb.node, lb.push)...)
 	}
-	lb.virtualInboundListener = &xdsapi.Listener{
-		Name:             VirtualInboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
-		Transparent:      isTransparentProxy,
-		UseOriginalDst:   proto.BoolTrue,
-		TrafficDirection: core.TrafficDirection_INBOUND,
-		FilterChains:     filterChains,
+	lb.virtualInboundListener = &listener.Listener{
+		Name:                                VirtualInboundListenerName,
+		Address:                             util.BuildAddressV2(actualWildcard, ProxyInboundListenPort),
+		Transparent:                         isTransparentProxy,
+		HiddenEnvoyDeprecatedUseOriginalDst: proto.BoolTrue,
+		TrafficDirection:                    core.TrafficDirection_INBOUND,
+		FilterChains:                        filterChains,
 	}
 	lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
 
 	return lb
 }
 
-func (lb *ListenerBuilder) patchOneListener(listener *xdsapi.Listener, ctx networking.EnvoyFilter_PatchContext) *xdsapi.Listener {
-	if listener == nil {
+func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking.EnvoyFilter_PatchContext) *listener.Listener {
+	if l == nil {
 		return nil
 	}
-	tempArray := []*xdsapi.Listener{listener}
+	tempArray := []*listener.Listener{l}
 	tempArray = envoyfilter.ApplyListenerPatches(ctx, lb.node, lb.push, tempArray, true)
 	// temp array will either be empty [if virtual listener was removed] or will have a modified listener
 	if len(tempArray) == 0 {
@@ -354,7 +353,7 @@ func (lb *ListenerBuilder) patchListeners() {
 		lb.push, lb.outboundListeners, false)
 }
 
-func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
+func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	if lb.node.Type == model.SidecarProxy {
 		nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
 		nHTTPProxy, nVirtual, nVirtualInbound := 0, 0, 0
@@ -370,7 +369,7 @@ func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
 
 		nListener := nInbound + nOutbound + nHTTPProxy + nVirtual + nVirtualInbound
 
-		listeners := make([]*xdsapi.Listener, 0, nListener)
+		listeners := make([]*listener.Listener, 0, nListener)
 		listeners = append(listeners, lb.inboundListeners...)
 		listeners = append(listeners, lb.outboundListeners...)
 		if lb.httpProxyListener != nil {

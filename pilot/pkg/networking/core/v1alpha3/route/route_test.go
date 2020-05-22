@@ -20,9 +20,11 @@ import (
 	"testing"
 	"time"
 
-	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/util/gogo"
@@ -1325,18 +1327,38 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 }
 
 func TestCombineVHostRoutes(t *testing.T) {
+	regexEngine := &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+		MaxProgramSize: &wrappers.UInt32Value{
+			Value: uint32(10),
+		},
+	}}
 	first := []*envoyroute.Route{
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: regexEngine,
+				Regex:      ".*?regex1",
+			},
+		}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
 	}
 	second := []*envoyroute.Route{
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: regexEngine,
+				Regex:      ".*?regex12",
+			},
+		}}},
 		{Match: &envoyroute.RouteMatch{
-			PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: "*"},
+			PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: regexEngine,
+					Regex:      "*",
+				},
+			},
 			Headers: []*envoyroute.HeaderMatcher{
 				{
 					Name:                 "foo",
@@ -1350,12 +1372,27 @@ func TestCombineVHostRoutes(t *testing.T) {
 	want := []*envoyroute.Route{
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: regexEngine,
+				Regex:      ".*?regex1",
+			},
+		}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: regexEngine,
+				Regex:      ".*?regex12",
+			},
+		}}},
 		{Match: &envoyroute.RouteMatch{
-			PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: "*"},
+			PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: regexEngine,
+					Regex:      "*",
+				},
+			},
 			Headers: []*envoyroute.HeaderMatcher{
 				{
 					Name:                 "foo",

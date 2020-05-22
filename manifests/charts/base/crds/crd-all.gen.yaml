@@ -20,6 +20,7 @@ spec:
     listKind: HTTPAPISpecList
     plural: httpapispecs
     singular: httpapispec
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -261,6 +262,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -289,6 +293,7 @@ spec:
     listKind: HTTPAPISpecBindingList
     plural: httpapispecbindings
     singular: httpapispecbinding
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -354,6 +359,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -382,6 +390,7 @@ spec:
     listKind: QuotaSpecList
     plural: quotaspecs
     singular: quotaspec
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -447,6 +456,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -475,6 +487,7 @@ spec:
     listKind: QuotaSpecBindingList
     plural: quotaspecbindings
     singular: quotaspecbinding
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -527,6 +540,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -570,6 +586,7 @@ spec:
     shortNames:
     - dr
     singular: destinationrule
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1660,6 +1677,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -1897,6 +1917,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -1927,6 +1950,7 @@ spec:
     shortNames:
     - gw
     singular: gateway
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2045,6 +2069,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -2100,6 +2127,7 @@ spec:
     shortNames:
     - se
     singular: serviceentry
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2205,6 +2233,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -2236,6 +2267,7 @@ spec:
     listKind: SidecarList
     plural: sidecars
     singular: sidecar
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2549,6 +2581,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -2599,6 +2634,7 @@ spec:
     shortNames:
     - vs
     singular: virtualservice
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3360,6 +3396,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3406,6 +3445,7 @@ spec:
     shortNames:
     - we
     singular: workloadentry
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3444,6 +3484,9 @@ spec:
               description: The load balancing weight associated with the endpoint.
               type: integer
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3477,6 +3520,7 @@ spec:
     listKind: attributemanifestList
     plural: attributemanifests
     singular: attributemanifest
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3523,6 +3567,9 @@ spec:
               format: string
               type: string
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -3730,6 +3777,9 @@ spec:
               description: Depends on adapter implementation.
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -3792,6 +3842,9 @@ spec:
               format: string
               type: string
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -3822,6 +3875,7 @@ spec:
     listKind: ruleList
     plural: rules
     singular: rule
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3947,493 +4001,12 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
-    served: true
-    storage: true
-
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    istio: rbac
-    release: istio
-  name: clusterrbacconfigs.rbac.istio.io
-spec:
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: ClusterRbacConfig
-    listKind: ClusterRbacConfigList
-    plural: clusterrbacconfigs
-    singular: clusterrbacconfig
-  scope: Cluster
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            enforcementMode:
-              enum:
-              - ENFORCED
-              - PERMISSIVE
-              type: string
-            exclusion:
-              description: A list of services or namespaces that should not be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            inclusion:
-              description: A list of services or namespaces that should be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            mode:
-              description: Istio RBAC mode.
-              enum:
-              - "OFF"
-              - "ON"
-              - ON_WITH_INCLUSION
-              - ON_WITH_EXCLUSION
-              type: string
-          type: object
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: mixer
-    chart: istio
-    heritage: Tiller
-    istio: rbac
-    package: istio.io.mixer
-    release: istio
-  name: rbacconfigs.rbac.istio.io
-spec:
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: RbacConfig
-    listKind: RbacConfigList
-    plural: rbacconfigs
-    singular: rbacconfig
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            enforcementMode:
-              enum:
-              - ENFORCED
-              - PERMISSIVE
-              type: string
-            exclusion:
-              description: A list of services or namespaces that should not be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            inclusion:
-              description: A list of services or namespaces that should be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            mode:
-              description: Istio RBAC mode.
-              enum:
-              - "OFF"
-              - "ON"
-              - ON_WITH_INCLUSION
-              - ON_WITH_EXCLUSION
-              type: string
-          type: object
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: mixer
-    chart: istio
-    heritage: Tiller
-    istio: rbac
-    package: istio.io.mixer
-    release: istio
-  name: serviceroles.rbac.istio.io
-spec:
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: ServiceRole
-    listKind: ServiceRoleList
-    plural: serviceroles
-    singular: servicerole
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            rules:
-              description: The set of access rules (permissions) that the role has.
-              items:
-                properties:
-                  constraints:
-                    description: Optional.
-                    items:
-                      properties:
-                        key:
-                          description: Key of the constraint.
-                          format: string
-                          type: string
-                        values:
-                          description: List of valid values for the constraint.
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                      type: object
-                    type: array
-                  hosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  methods:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notHosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notMethods:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPaths:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPorts:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  paths:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  ports:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  services:
-                    description: A list of service names.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                type: object
-              type: array
-          type: object
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: mixer
-    chart: istio
-    heritage: Tiller
-    istio: rbac
-    package: istio.io.mixer
-    release: istio
-  name: servicerolebindings.rbac.istio.io
-spec:
-  additionalPrinterColumns:
-  - JSONPath: .spec.roleRef.name
-    description: The name of the ServiceRole object being referenced
-    name: Reference
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    description: 'CreationTimestamp is a timestamp representing the server time when
-      this object was created. It is not guaranteed to be set in happens-before order
-      across separate operations. Clients may not set this value. It is represented
-      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
-      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
-    name: Age
-    type: date
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: ServiceRoleBinding
-    listKind: ServiceRoleBindingList
-    plural: servicerolebindings
-    singular: servicerolebinding
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            actions:
-              items:
-                properties:
-                  constraints:
-                    description: Optional.
-                    items:
-                      properties:
-                        key:
-                          description: Key of the constraint.
-                          format: string
-                          type: string
-                        values:
-                          description: List of valid values for the constraint.
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                      type: object
-                    type: array
-                  hosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  methods:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notHosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notMethods:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPaths:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPorts:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  paths:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  ports:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  services:
-                    description: A list of service names.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                type: object
-              type: array
-            mode:
-              enum:
-              - ENFORCED
-              - PERMISSIVE
-              type: string
-            role:
-              format: string
-              type: string
-            roleRef:
-              description: Reference to the ServiceRole object.
-              properties:
-                kind:
-                  description: The type of the role being referenced.
-                  format: string
-                  type: string
-                name:
-                  description: The name of the ServiceRole object being referenced.
-                  format: string
-                  type: string
-              type: object
-            subjects:
-              description: List of subjects that are assigned the ServiceRole object.
-              items:
-                properties:
-                  group:
-                    format: string
-                    type: string
-                  groups:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  ips:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  names:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  namespaces:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notGroups:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notIps:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notNames:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notNamespaces:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  properties:
-                    additionalProperties:
-                      format: string
-                      type: string
-                    description: Optional.
-                    type: object
-                  user:
-                    description: Optional.
-                    format: string
-                    type: string
-                type: object
-              type: array
-          type: object
-      type: object
-  versions:
-  - name: v1alpha1
     served: true
     storage: true
 
@@ -4460,6 +4033,7 @@ spec:
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
     singular: authorizationpolicy
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4630,6 +4204,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
@@ -4661,6 +4238,7 @@ spec:
     shortNames:
     - pa
     singular: peerauthentication
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4708,6 +4286,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
@@ -4739,6 +4320,7 @@ spec:
     shortNames:
     - ra
     singular: requestauthentication
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4815,6 +4397,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1

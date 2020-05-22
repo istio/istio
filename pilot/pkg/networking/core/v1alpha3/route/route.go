@@ -20,12 +20,12 @@ import (
 	"strconv"
 	"strings"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
-	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
-	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
-	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
+	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -363,7 +363,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 	out := &route.Route{
 		Match:    translateRouteMatch(match),
-		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
+		Metadata: util.BuildConfigInfoMetadataV2(virtualService.ConfigMeta),
 	}
 
 	routeName := in.Name
@@ -421,8 +421,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 		if rewrite := in.Rewrite; rewrite != nil {
 			action.PrefixRewrite = rewrite.Uri
-			action.HostRewriteSpecifier = &route.RouteAction_HostRewrite{
-				HostRewrite: rewrite.Authority,
+			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+				HostRewriteLiteral: rewrite.Authority,
 			}
 		}
 
@@ -441,11 +441,11 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 		if in.Mirror != nil {
 			if mp := mirrorPercent(in); mp != nil {
-				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
+				action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
 					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port),
 					RuntimeFraction: mp,
 					TraceSampled:    &wrappers.BoolValue{Value: false},
-				}
+				}}
 			}
 		}
 
@@ -798,9 +798,6 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 			path = m.GetPrefix() + "*"
 		case *route.RouteMatch_Path:
 			path = m.GetPath()
-		case *route.RouteMatch_Regex:
-			//nolint: staticcheck
-			path = m.GetRegex()
 		case *route.RouteMatch_SafeRegex:
 			path = m.GetSafeRegex().GetRegex()
 		}
@@ -875,7 +872,7 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 
 	out := xdshttpfault.HTTPFault{}
 	if in.Delay != nil {
-		out.Delay = &xdsfault.FaultDelay{Type: xdsfault.FaultDelay_FIXED}
+		out.Delay = &xdsfault.FaultDelay{}
 		if in.Delay.Percentage != nil {
 			out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 		} else {
@@ -1100,8 +1097,6 @@ func isCatchAllRoute(r *route.Route) bool {
 	switch ir := r.Match.PathSpecifier.(type) {
 	case *route.RouteMatch_Prefix:
 		catchall = ir.Prefix == "/"
-	case *route.RouteMatch_Regex:
-		catchall = ir.Regex == "*"
 	case *route.RouteMatch_SafeRegex:
 		catchall = ir.SafeRegex.GetRegex() == "*"
 	}

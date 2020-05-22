@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/config/retry/previous_priorities"

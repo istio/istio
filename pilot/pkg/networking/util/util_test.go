@@ -19,11 +19,10 @@ import (
 	"testing"
 	"time"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"github.com/golang/protobuf/proto"
@@ -416,59 +415,6 @@ func TestAddSubsetToMetadata(t *testing.T) {
 	}
 }
 
-func TestCloneCluster(t *testing.T) {
-	cluster := buildFakeCluster()
-	clone := CloneCluster(cluster)
-	cluster.LoadAssignment.Endpoints[0].LoadBalancingWeight.Value = 10
-	cluster.LoadAssignment.Endpoints[0].Priority = 8
-	cluster.LoadAssignment.Endpoints[0].LbEndpoints = nil
-
-	if clone.LoadAssignment.Endpoints[0].LoadBalancingWeight.GetValue() == 10 {
-		t.Errorf("LoadBalancingWeight mutated")
-	}
-	if clone.LoadAssignment.Endpoints[0].Priority == 8 {
-		t.Errorf("Priority mutated")
-	}
-	if clone.LoadAssignment.Endpoints[0].LbEndpoints == nil {
-		t.Errorf("LbEndpoints mutated")
-	}
-}
-
-func buildFakeCluster() *v2.Cluster {
-	return &v2.Cluster{
-		Name: "outbound|8080||test.example.org",
-		LoadAssignment: &v2.ClusterLoadAssignment{
-			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []*endpoint.LocalityLbEndpoints{
-				{
-					Locality: &core.Locality{
-						Region:  "region1",
-						Zone:    "zone1",
-						SubZone: "subzone1",
-					},
-					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
-				},
-				{
-					Locality: &core.Locality{
-						Region:  "region1",
-						Zone:    "zone1",
-						SubZone: "subzone2",
-					},
-					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
-				},
-			},
-		},
-	}
-}
-
 func TestIsHTTPFilterChain(t *testing.T) {
 	httpFilterChain := &listener.FilterChain{
 		Filters: []*listener.Filter{
@@ -516,7 +462,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	newTimeout := ptypes.DurationProto(5 * time.Minute)
 	userHCM := &http_conn.HttpConnectionManager{
 		AddUserAgent:      proto2.BoolTrue,
-		IdleTimeout:       newTimeout,
 		StreamIdleTimeout: newTimeout,
 		UseRemoteAddress:  proto2.BoolTrue,
 		XffNumTrustedHops: 5,
@@ -530,7 +475,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 
 	expectedHCM := proto.Clone(inHCM).(*http_conn.HttpConnectionManager)
 	expectedHCM.AddUserAgent = userHCM.AddUserAgent
-	expectedHCM.IdleTimeout = userHCM.IdleTimeout
 	expectedHCM.StreamIdleTimeout = userHCM.StreamIdleTimeout
 	expectedHCM.UseRemoteAddress = userHCM.UseRemoteAddress
 	expectedHCM.XffNumTrustedHops = userHCM.XffNumTrustedHops
@@ -874,7 +818,7 @@ func TestBuildAddress(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			addr := BuildAddress(test.addr, test.port)
+			addr := BuildAddressV2(test.addr, test.port)
 			if !reflect.DeepEqual(addr, test.expected) {
 				t.Errorf("expected add %v, but got %v", test.expected, addr)
 			}

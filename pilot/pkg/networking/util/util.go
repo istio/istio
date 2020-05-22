@@ -21,15 +21,14 @@ import (
 	"strconv"
 	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -85,11 +84,11 @@ const (
 
 	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
 	// endpoint level plantext transport socket configuration
-	EnvoyRawBufferSocketName = "envoy.transport_sockets.raw_buffer"
+	EnvoyRawBufferSocketName = wellknown.TransportSocketRawBuffer
 
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
-	EnvoyTLSSocketName = "envoy.transport_sockets.tls"
+	EnvoyTLSSocketName = wellknown.TransportSocketTls
 
 	// StatName patterns
 	serviceStatPattern         = "%SERVICE%"
@@ -169,6 +168,30 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 		cidr.PrefixLen.Value = uint32(prefix)
 	}
 	return cidr
+}
+
+// BuildAddressV2 returns a SocketAddress with the given ip and port or uds.
+func BuildAddressV2(bind string, port uint32) *core.Address {
+	if port != 0 {
+		return &core.Address{
+			Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
+					Address: bind,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: port,
+					},
+				},
+			},
+		}
+	}
+
+	return &core.Address{
+		Address: &core.Address_Pipe{
+			Pipe: &core.Pipe{
+				Path: strings.TrimPrefix(bind, model.UnixAddressPrefix),
+			},
+		},
+	}
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
@@ -352,23 +375,9 @@ func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
 	return 3
 }
 
-// return a shallow copy cluster
-func CloneCluster(cluster *xdsapi.Cluster) xdsapi.Cluster {
-	out := xdsapi.Cluster{}
-	if cluster == nil {
-		return out
-	}
-
-	out = *cluster
-	loadAssignment := CloneClusterLoadAssignment(cluster.LoadAssignment)
-	out.LoadAssignment = &loadAssignment
-
-	return out
-}
-
 // return a shallow copy ClusterLoadAssignment
-func CloneClusterLoadAssignment(original *xdsapi.ClusterLoadAssignment) xdsapi.ClusterLoadAssignment {
-	out := xdsapi.ClusterLoadAssignment{}
+func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) endpoint.ClusterLoadAssignment {
+	out := endpoint.ClusterLoadAssignment{}
 	if original == nil {
 		return out
 	}
@@ -430,6 +439,24 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 	}
 }
 
+func BuildConfigInfoMetadataV2(config model.ConfigMeta) *core.Metadata {
+	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
+	return &core.Metadata{
+		FilterMetadata: map[string]*pstruct.Struct{
+			IstioMetadataKey: {
+				Fields: map[string]*pstruct.Value{
+					"config": {
+						Kind: &pstruct.Value_StringValue{
+							StringValue: s,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 // AddSubsetToMetadata will build a new core.Metadata struct containing the
 // subset name supplied. This is used for telemetry reporting. A new core.Metadata
 // is created to prevent modification to shared base Metadata across subsets, etc.
@@ -452,7 +479,7 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) *core.Metadata {
 // IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
 func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 	for _, f := range filterChain.Filters {
-		if f.Name == xdsutil.HTTPConnectionManager {
+		if f.Name == wellknown.HTTPConnectionManager {
 			return true
 		}
 	}

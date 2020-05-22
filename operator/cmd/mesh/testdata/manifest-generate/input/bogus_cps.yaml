@@ -7,4 +7,4 @@ spec:
     global:
       controlPlaneSecurityEnabled:
       mtls:
-        auto: true
+        auto:

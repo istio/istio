@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -26,7 +27,7 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -86,7 +87,7 @@ func NewXDS() *Server {
 	// Endpoints/Clusters - using the config store for ServiceEntries
 	serviceControllers := aggregate.NewController()
 
-	serviceEntryStore := external.NewServiceDiscovery(configController, s.MemoryConfigStore, ds)
+	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, s.MemoryConfigStore, ds)
 	serviceEntryRegistry := serviceregistry.Simple{
 		ProviderID:       "External",
 		Controller:       serviceEntryStore,
@@ -148,6 +149,7 @@ func (s *Server) StartGRPC(addr string) error {
 	}
 	gs := grpc.NewServer()
 	s.DiscoveryServer.Register(gs)
+	reflection.Register(gs)
 	s.GRPCListener = lis
 	go func() {
 		err = gs.Serve(lis)

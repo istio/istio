@@ -107,15 +107,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-    # Security feature
-    citadel:
-      enabled: false
-      k8s:
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -126,8 +117,8 @@ spec:
             value: "sni-dnat"
         service:
           ports:
-            - port: 15020
-              targetPort: 15020
+            - port: 15021
+              targetPort: 15021
               name: status-port
             - port: 80
               targetPort: 8080
@@ -204,6 +195,10 @@ spec:
     # Istio CNI feature
     cni:
       enabled: false
+    
+    # istiod remote configuration wwhen istiod isn't installed on the cluster
+    istiodRemote:
+      enabled: false
 
   addonComponents:
     prometheus:
@@ -278,8 +273,6 @@ spec:
       imagePullPolicy: ""
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
-      policyCheckFailOpen: false
-      enableTracing: true
       tracer:
         lightstep:
           address: ""                # example: lightstep-satellite:443
@@ -293,8 +286,6 @@ spec:
           maxNumberOfAttributes: 200
           maxNumberOfAnnotations: 200
           maxNumberOfMessageEvents: 200
-      mtls:
-        auto: true
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -319,18 +310,17 @@ spec:
       priorityClassName: ""
       useMCP: false
       trustDomain: "cluster.local"
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
       sds:
         token:
           aud: istio-ca
       sts:
         servicePort: 0
       meshNetworks: {}
-      localityLbSetting:
-        enabled: true
       enableHelmTest: false
       mountMtlsCerts: false
+    base:
+      enableCRDTemplates: false
+      validationURL: ""
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -415,6 +405,9 @@ spec:
             enabled: true
           useAdapterCRDs: false
 
+    istiodRemote:
+      injectionURL: ""
+      
     gateways:
       istio-egressgateway:
         zvpn: {}
@@ -532,7 +525,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.16"
+        tag: "1.18"
         memory:
           max_traces: 50000
         spanStorageType: badger
@@ -580,7 +573,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.15
+      tag: v1.18
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []

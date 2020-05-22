@@ -31,7 +31,7 @@ TODO: remove the need to pass -n istio-system
 
 - 'ingress' to install a Gateway
 
-Helm3 requires namespaces to be created explicitly, currently we don't support insalling multiple gateways in same
+Helm3 requires namespaces to be created explicitly, currently we don't support installing multiple gateways in same
 namespace - nor is it a good practice. Ingress secrets and access should be separated from control plane.
 
 ```shell script

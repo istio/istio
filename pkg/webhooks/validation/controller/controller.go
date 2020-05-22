@@ -81,14 +81,18 @@ type Options struct {
 	// without relying on the user to manually delete configs.
 	// Deprecated: istiod webhook controller shouldn't use this.
 	UnregisterValidationWebhook bool
+
+	//RemoteWebhookConfig defines whether the webhook config is coming from remote cluster
+	RemoteWebhookConfig bool
 }
 
 func DefaultArgs() Options {
 	return Options{
-		WatchedNamespace:  "istio-system",
-		CAPath:            constants.DefaultRootCert,
-		WebhookConfigName: "istio-galley",
-		ServiceName:       "istio-galley",
+		WatchedNamespace:    "istio-system",
+		CAPath:              constants.DefaultRootCert,
+		WebhookConfigName:   "istio-galley",
+		ServiceName:         "istio-galley",
+		RemoteWebhookConfig: false,
 	}
 }
 
@@ -265,8 +269,10 @@ func newController(
 	webhookInformer := c.sharedInformers.Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer()
 	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK, o.WebhookConfigName))
 
-	endpointInformer := c.sharedInformers.Core().V1().Endpoints().Informer()
-	endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
+	if !o.RemoteWebhookConfig {
+		endpointInformer := c.sharedInformers.Core().V1().Endpoints().Informer()
+		endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
+	}
 
 	return c, nil
 }
@@ -343,17 +349,19 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	if c.o.UnregisterValidationWebhook {
 		return c.deleteValidatingWebhookConfiguration()
 	}
-
-	ready, err := c.readyForFailClose()
-	if err != nil {
-		return err
-	}
-
 	failurePolicy := kubeApiAdmission.Ignore
-	if ready {
+	if c.o.RemoteWebhookConfig {
 		failurePolicy = kubeApiAdmission.Fail
-	}
+	} else {
+		ready, err := c.readyForFailClose()
+		if err != nil {
+			return err
+		}
 
+		if ready {
+			failurePolicy = kubeApiAdmission.Fail
+		}
+	}
 	caBundle, err := c.loadCABundle()
 	if err != nil {
 		scope.Errorf("Failed to load CA bundle: %v", err)

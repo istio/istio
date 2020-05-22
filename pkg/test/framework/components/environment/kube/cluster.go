@@ -17,9 +17,14 @@ package kube
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var _ resource.Cluster = Cluster{}
@@ -27,8 +32,81 @@ var _ resource.Cluster = Cluster{}
 // Cluster for a Kubernetes cluster. Provides access via a kube.Accessor.
 type Cluster struct {
 	*kube.Accessor
-	filename string
-	index    resource.ClusterIndex
+	filename    string
+	networkName string
+	index       resource.ClusterIndex
+}
+
+func (c Cluster) ApplyConfig(ns string, yamlText ...string) error {
+	for _, y := range yamlText {
+		_, err := c.ApplyContents(ns, y)
+		if err != nil {
+			return fmt.Errorf("apply: %v", err)
+		}
+		scopes.Framework.Debugf("Applied config: ns: %s\n%s\n", ns, y)
+	}
+	return nil
+}
+
+func (c Cluster) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+	t.Helper()
+	err := c.ApplyConfig(ns, yamlText...)
+	if err != nil {
+		t.Fatalf("ApplyConfigOrFail: %v", err)
+	}
+}
+
+func (c Cluster) DeleteConfig(ns string, yamlText ...string) error {
+	for _, y := range yamlText {
+		err := c.DeleteContents(ns, y)
+		if err != nil {
+			return fmt.Errorf("apply: %v", err)
+		}
+		scopes.Framework.Debugf("Deleted config: ns: %s\n%s\n", ns, y)
+	}
+	return nil
+}
+
+func (c Cluster) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+	t.Helper()
+	err := c.DeleteConfig(ns, yamlText...)
+	if err != nil {
+		t.Fatalf("DeleteConfigOrFail: %v", err)
+	}
+}
+
+func (c Cluster) ApplyConfigDir(ns string, configDir string) error {
+	return filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+
+		scopes.Framework.Debugf("Reading config file to: %v", path)
+		contents, readerr := ioutil.ReadFile(path)
+		if readerr != nil {
+			return readerr
+		}
+
+		return c.ApplyConfig(ns, string(contents))
+	})
+}
+
+func (c Cluster) DeleteConfigDir(ns string, configDir string) error {
+	return filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		contents, readerr := ioutil.ReadFile(path)
+		if readerr != nil {
+			return readerr
+		}
+
+		return c.DeleteConfig(ns, string(contents))
+	})
 }
 
 func (c Cluster) String() string {
@@ -43,6 +121,11 @@ func (c Cluster) String() string {
 // Filename of the kubeconfig file for this cluster.
 func (c Cluster) Filename() string {
 	return c.filename
+}
+
+// NetworkName the cluster is on
+func (c Cluster) NetworkName() string {
+	return c.networkName
 }
 
 // Name provides the name this cluster used by Istio.

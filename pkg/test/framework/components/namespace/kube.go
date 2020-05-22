@@ -17,10 +17,7 @@ package namespace
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
-	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -58,38 +55,7 @@ func (n *kubeNamespace) Dump() {
 	}
 
 	for _, cluster := range n.env.KubeClusters {
-		pods, err := cluster.GetPods(n.name)
-		if err != nil {
-			scopes.CI.Errorf("Unable to get pods from the namespace: %v", err)
-			return
-		}
-
-		for _, pod := range pods {
-			containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
-			for _, container := range containers {
-				l, err := cluster.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
-				if err != nil {
-					scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
-					continue
-				}
-
-				fname := path.Join(d, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
-				if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
-					scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
-				}
-
-				if container.Name == "istio-proxy" {
-					if cfgDump, err := cluster.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET config_dump"); err == nil {
-						fname := path.Join(d, fmt.Sprintf("%s-%s.config.json", pod.Name, container.Name))
-						if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
-							scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
-						}
-					} else {
-						scopes.CI.Errorf("Unable to get istio-proxy config dump for pod: %s/%s", pod.Namespace, pod.Name)
-					}
-				}
-			}
-		}
+		cluster.DumpPods(d, n.name)
 	}
 }
 

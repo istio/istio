@@ -23,18 +23,19 @@ import (
 	"testing"
 	"time"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/test"
 
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-
-	envoy_api_v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	"istio.io/istio/pilot/pkg/networking/core"
 
@@ -47,7 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -65,7 +66,7 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	configController := memory.NewController(store)
 	istioConfigStore := model.MakeIstioStore(configController)
 	serviceControllers := aggregate.NewController()
-	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore, s)
+	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, istioConfigStore, s)
 	go configController.Run(make(chan struct{}))
 	serviceEntryRegistry := serviceregistry.Simple{
 		ProviderID:       "External",
@@ -231,7 +232,7 @@ func setupTest(t test.Failer, testName string) (model.Environment, core.ConfigGe
 	return env, configgen, proxy
 }
 
-func routesFromListeners(ll []*envoy_api_v2.Listener) []string {
+func routesFromListeners(ll []*listener.Listener) []string {
 	routes := []string{}
 	for _, l := range ll {
 		for _, fc := range l.FilterChains {
@@ -340,7 +341,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				// This should correlate to pushEds()
 				// TODO directly call pushEeds, but mock/skip the grpc send
 
-				loadAssignments := make([]*envoy_api_v2.ClusterLoadAssignment, 0)
+				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 				for svc := 0; svc < tt.services; svc++ {
 					l := s.loadAssignmentsForClusterIsolated(proxy, push, fmt.Sprintf("outbound|80||foo-%d.com", svc))
 

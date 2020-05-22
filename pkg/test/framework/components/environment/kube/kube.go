@@ -15,9 +15,10 @@
 package kube
 
 import (
+	"fmt"
+
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -34,12 +35,7 @@ type Environment struct {
 var _ resource.Environment = &Environment{}
 
 // New returns a new Kubernetes environment
-func New(ctx resource.Context) (resource.Environment, error) {
-	s, err := newSettingsFromCommandline()
-	if err != nil {
-		return nil, err
-	}
-
+func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	scopes.CI.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
 
 	workDir, err := ctx.CreateTmpDirectory("env-kube")
@@ -53,17 +49,19 @@ func New(ctx resource.Context) (resource.Environment, error) {
 	}
 	e.id = ctx.TrackResource(e)
 
+	newAccessor := s.AccessorFactoryFuncOrDefault()
 	e.KubeClusters = make([]Cluster, 0, len(s.KubeConfig))
 	for i := range s.KubeConfig {
-		a, err := kube.NewAccessor(s.KubeConfig[i], workDir)
+		a, err := newAccessor(s.KubeConfig[i], workDir)
 		if err != nil {
 			return nil, err
 		}
 		clusterIndex := resource.ClusterIndex(i)
 		e.KubeClusters = append(e.KubeClusters, Cluster{
-			filename: s.KubeConfig[i],
-			index:    clusterIndex,
-			Accessor: a,
+			networkName: s.networkTopology[clusterIndex],
+			filename:    s.KubeConfig[i],
+			index:       clusterIndex,
+			Accessor:    a,
 		})
 	}
 
@@ -76,6 +74,11 @@ func (e *Environment) EnvironmentName() environment.Name {
 
 func (e *Environment) IsMulticluster() bool {
 	return len(e.KubeClusters) > 1
+}
+
+// IsMultinetwork returns true if there is more than one network name in networkTopology.
+func (e *Environment) IsMultinetwork() bool {
+	return len(e.ClustersByNetwork()) > 1
 }
 
 func (e *Environment) Clusters() []resource.Cluster {
@@ -103,6 +106,28 @@ func (e *Environment) IsControlPlaneCluster(cluster resource.Cluster) bool {
 		return controlPlaneIndex == cluster.Index()
 	}
 	return true
+}
+
+// GetControlPlaneCluster returns the cluster running the control plane for the given cluster based on the ControlPlaneTopology.
+// An error is returned if the given cluster isn't present in the topology, or the cluster in the topology isn't in KubeClusters.
+func (e *Environment) GetControlPlaneCluster(cluster resource.Cluster) (resource.Cluster, error) {
+	if controlPlaneIndex, ok := e.Settings().ControlPlaneTopology[cluster.Index()]; ok {
+		if int(controlPlaneIndex) >= len(e.KubeClusters) {
+			err := fmt.Errorf("control plane index %d out of range in %d configured clusters", controlPlaneIndex, len(e.KubeClusters))
+			return nil, err
+		}
+		return e.KubeClusters[controlPlaneIndex], nil
+	}
+	return nil, fmt.Errorf("no control plane cluster found in topology for cluster %d", cluster.Index())
+}
+
+// ClustersByNetwork returns an inverse mapping of the network topolgoy to a slice of clusters in a given network.
+func (e *Environment) ClustersByNetwork() map[string][]*Cluster {
+	out := make(map[string][]*Cluster)
+	for clusterIdx, networkName := range e.s.networkTopology {
+		out[networkName] = append(out[networkName], &e.KubeClusters[clusterIdx])
+	}
+	return out
 }
 
 func (e *Environment) Case(name environment.Name, fn func()) {

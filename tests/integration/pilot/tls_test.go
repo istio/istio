@@ -55,7 +55,7 @@ func TestDestinationRuleTLS(t *testing.T) {
 			})
 
 			// Setup our destination rule, enforcing TLS to "server". These certs will be created/mounted below.
-			g.ApplyConfigOrFail(t, ns, `
+			ctx.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -77,7 +77,6 @@ spec:
 					Service:   "client",
 					Namespace: ns,
 					Ports:     []echo.Port{},
-					Galley:    g,
 					Pilot:     p,
 					Subsets: []echo.SubsetConfig{{
 						Version: "v1",
@@ -112,8 +111,7 @@ spec:
 							TLS:          true,
 						},
 					},
-					Galley: g,
-					Pilot:  p,
+					Pilot: p,
 					// Set up TLS certs on the server. This will make the server listen with these credentials.
 					TLSSettings: &common.TLSSettings{
 						RootCert:   mustReadFile(t, "root-cert.pem"),

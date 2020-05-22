@@ -30,12 +30,6 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - rbac.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
   - security.istio.io
   resources:
   - '*'
@@ -211,6 +205,8 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: operator-test-namespace
+            - name: WAIT_FOR_RESOURCES_TIMEOUT
+              value: 300s
 ---
 apiVersion: v1
 kind: Namespace

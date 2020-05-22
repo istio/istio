@@ -14,6 +14,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -27,8 +28,9 @@ import (
 	"strings"
 	"testing"
 
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	tracev2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
@@ -358,7 +360,7 @@ func TestGolden(t *testing.T) {
 			if !reflect.DeepEqual(realM, goldenM) {
 				s, _ := diff.PrettyDiff(goldenM, realM)
 				t.Logf("difference: %s", s)
-				t.Fatalf("\n got: %v\nwant: %v", realM, goldenM)
+				t.Fatalf("\n got: %s\nwant: %s", prettyPrint(jreal), prettyPrint(jgolden))
 			}
 
 			// Check if the LightStep access token file exists
@@ -378,6 +380,12 @@ func TestGolden(t *testing.T) {
 			}
 		})
 	}
+}
+
+func prettyPrint(b []byte) []byte {
+	var out bytes.Buffer
+	_ = json.Indent(&out, b, "", "  ")
+	return out.Bytes()
 }
 
 func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want string, typ string) {
@@ -628,6 +636,6 @@ func (f *fakePlatform) Metadata() map[string]string {
 	return f.meta
 }
 
-func (f *fakePlatform) Locality() *core.Locality {
-	return &core.Locality{}
+func (f *fakePlatform) Locality() *corev3.Locality {
+	return &corev3.Locality{}
 }

@@ -21,22 +21,18 @@ import (
 	"time"
 
 	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/features"
 )
 
 const (
 	HTTPSHandlerReadyPath = "/httpsReady"
 )
 
-func (s *Server) initHTTPSWebhookServer(args *PilotArgs) {
-	if features.IstiodService.Get() == "" {
-		log.Info("Not starting HTTPS webhook server: istiod address not set")
+func (s *Server) initSecureWebhookServer(args *PilotArgs) {
+	if s.kubeClient == nil {
 		return
 	}
 
 	log.Info("Setting up HTTPS webhook server for istiod webhooks")
-
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	s.httpsMux = http.NewServeMux()
 	s.httpsServer = &http.Server{
@@ -59,9 +55,10 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) {
 			},
 		},
 	}
+	s.addReadinessProbe("Secure Webhook Server", s.webhookReadyHandler)
 }
 
-func (s *Server) checkHTTPSWebhookServerReadiness() int {
+func (s *Server) webhookReadyHandler() (bool, error) {
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL: &url.URL{
@@ -73,9 +70,9 @@ func (s *Server) checkHTTPSWebhookServerReadiness() int {
 
 	response, err := s.httpsReadyClient.Do(req)
 	if err != nil {
-		return http.StatusInternalServerError
+		return false, err
 	}
 	defer response.Body.Close()
 
-	return response.StatusCode
+	return response.StatusCode == http.StatusOK, nil
 }

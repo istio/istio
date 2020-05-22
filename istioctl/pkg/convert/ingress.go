@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 )
 
 // IstioIngresses converts K8s extensions/v1beta1 Ingresses with Istio rules to v1alpha3 gateway and virtual service
@@ -30,7 +31,7 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.
 		return make([]model.Config, 0), nil
 	}
 	if len(domainSuffix) == 0 {
-		domainSuffix = "cluster.local"
+		domainSuffix = constants.DefaultKubernetesDomain
 	}
 
 	ingressByHost := map[string]*model.Config{}

@@ -15,7 +15,7 @@
 package v2
 
 import (
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -119,10 +119,10 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 // within the endpoint metadata. If exists, it will return the value.
 func istioMetadata(ep *endpoint.LbEndpoint, key string) string {
 	if ep.Metadata != nil &&
-		ep.Metadata.FilterMetadata["istio"] != nil &&
-		ep.Metadata.FilterMetadata["istio"].Fields != nil &&
-		ep.Metadata.FilterMetadata["istio"].Fields[key] != nil {
-		return ep.Metadata.FilterMetadata["istio"].Fields[key].GetStringValue()
+		ep.Metadata.FilterMetadata[util.IstioMetadataKey] != nil &&
+		ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields != nil &&
+		ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields[key] != nil {
+		return ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields[key].GetStringValue()
 	}
 	return ""
 }

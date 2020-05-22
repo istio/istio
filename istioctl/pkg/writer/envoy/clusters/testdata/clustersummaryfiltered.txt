@@ -1,2 +1,0 @@
-ENDPOINT              STATUS        OUTLIER CHECK     CLUSTER
-172.17.0.14:15014     UNHEALTHY     OK                outbound|15014||istio-policy.istio-system.svc.cluster.local

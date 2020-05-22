@@ -21,12 +21,12 @@ import (
 	"strings"
 	"testing"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	fault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -385,7 +385,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value:     buildPatchStruct(`{"config": {"upstream_cluster": "scooby"}}`),
+				Value: buildPatchStruct(`{"typed_config": {
+"@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault",
+"upstream_cluster": "scooby"}}`),
 			},
 		},
 		{
@@ -446,7 +448,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundIn := []*xdsapi.Listener{
+	sidecarOutboundIn := []*listener.Listener{
 		{
 			Name: "12345",
 			Address: &core.Address{
@@ -472,7 +474,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundOut := []*xdsapi.Listener{
+	sidecarOutboundOut := []*listener.Listener{
 		{
 			Name: "12345",
 			Address: &core.Address{
@@ -501,7 +503,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundInNoAdd := []*xdsapi.Listener{
+	sidecarOutboundInNoAdd := []*listener.Listener{
 		{
 			Name: "12345",
 			Address: &core.Address{
@@ -527,7 +529,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundOutNoAdd := []*xdsapi.Listener{
+	sidecarOutboundOutNoAdd := []*listener.Listener{
 		{
 			Name: "12345",
 			Address: &core.Address{
@@ -562,7 +564,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		DownstreamNodes: []string{"foo"},
 	}
 	faultFilterOutAny, _ := ptypes.MarshalAny(faultFilterOut)
-	sidecarInboundIn := []*xdsapi.Listener{
+	sidecarInboundIn := []*listener.Listener{
 		{
 			Name: "12345",
 			Address: &core.Address{
@@ -590,8 +592,13 @@ func TestApplyListenerPatches(t *testing.T) {
 			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
-					TlsContext:       &auth.DownstreamTlsContext{},
-					Filters:          []*listener.Filter{{Name: "network-filter"}},
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{}),
+						},
+					},
+					Filters: []*listener.Filter{{Name: "network-filter"}},
 				},
 				{
 					Filters: []*listener.Filter{
@@ -614,7 +621,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarInboundOut := []*xdsapi.Listener{
+	sidecarInboundOut := []*listener.Listener{
 		{
 			Name: "another-listener",
 			Address: &core.Address{
@@ -653,7 +660,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	gatewayIn := []*xdsapi.Listener{
+	gatewayIn := []*listener.Listener{
 		{
 			Name: "80",
 			Address: &core.Address{
@@ -708,7 +715,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	gatewayOut := []*xdsapi.Listener{
+	gatewayOut := []*listener.Listener{
 		{
 			Name: "80",
 			Address: &core.Address{
@@ -765,11 +772,11 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarVirtualInboundIn := []*xdsapi.Listener{
+	sidecarVirtualInboundIn := []*listener.Listener{
 		{
-			Name:             VirtualInboundListenerName,
-			UseOriginalDst:   istio_proto.BoolTrue,
-			TrafficDirection: core.TrafficDirection_INBOUND,
+			Name:                                VirtualInboundListenerName,
+			HiddenEnvoyDeprecatedUseOriginalDst: istio_proto.BoolTrue,
+			TrafficDirection:                    core.TrafficDirection_INBOUND,
 			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
@@ -806,11 +813,11 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarVirtualInboundOut := []*xdsapi.Listener{
+	sidecarVirtualInboundOut := []*listener.Listener{
 		{
-			Name:             VirtualInboundListenerName,
-			UseOriginalDst:   istio_proto.BoolTrue,
-			TrafficDirection: core.TrafficDirection_INBOUND,
+			Name:                                VirtualInboundListenerName,
+			HiddenEnvoyDeprecatedUseOriginalDst: istio_proto.BoolTrue,
+			TrafficDirection:                    core.TrafficDirection_INBOUND,
 			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
@@ -883,13 +890,13 @@ func TestApplyListenerPatches(t *testing.T) {
 		patchContext networking.EnvoyFilter_PatchContext
 		proxy        *model.Proxy
 		push         *model.PushContext
-		listeners    []*xdsapi.Listener
+		listeners    []*listener.Listener
 		skipAdds     bool
 	}
 	tests := []struct {
 		name string
 		args args
-		want []*xdsapi.Listener
+		want []*listener.Listener
 	}{
 		{
 			name: "sidecar inbound lds",
@@ -961,7 +968,7 @@ func TestApplyListenerPatches(t *testing.T) {
 // This benchmark measures the performance of Telemetry V2 EnvoyFilter patches. The intent here is to
 // measure overhead of using EnvoyFilters rather than native code.
 func BenchmarkTelemetryV2Filters(b *testing.B) {
-	l := &xdsapi.Listener{
+	l := &listener.Listener{
 		Name: "another-listener",
 		Address: &core.Address{
 			Address: &core.Address_SocketAddress{
@@ -1040,7 +1047,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		copied := proto.Clone(l)
 		got = ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, sidecarProxy, push,
-			[]*xdsapi.Listener{copied.(*xdsapi.Listener)}, false)
+			[]*listener.Listener{copied.(*listener.Listener)}, false)
 	}
 	_ = got
 }

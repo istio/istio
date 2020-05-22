@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ import (
 	"regexp"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+	"k8s.io/kubectl/pkg/cmd/util"
 )
 
 var (
@@ -83,8 +83,8 @@ func (f *defaultPortForwarder) Close() error {
 	return nil
 }
 
-func newPortForwarder(restConfig *rest.Config, pod v1.Pod, localPort, remotePort uint16) (PortForwarder, error) {
-	restClient, err := rest.RESTClientFor(restConfig)
+func newPortForwarder(clientFactory util.Factory, pod v1.Pod, localPort, remotePort uint16) (PortForwarder, error) {
+	restClient, err := clientFactory.RESTClient()
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +92,10 @@ func newPortForwarder(restConfig *rest.Config, pod v1.Pod, localPort, remotePort
 	req := restClient.Post().Resource("pods").Namespace(pod.Namespace).Name(pod.Name).SubResource("portforward")
 	serverURL := req.URL()
 
+	restConfig, err := clientFactory.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
 	roundTripper, upgrader, err := spdy.RoundTripperFor(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failure creating roundtripper: %v", err)

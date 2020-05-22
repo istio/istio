@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/golang/protobuf/proto"
 
@@ -210,11 +211,11 @@ func TestAdsClusterUpdate(t *testing.T) {
 			t.Fatal("Recv failed", err)
 		}
 
-		if res.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-			t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res.TypeUrl)
+		if res.TypeUrl != v2.EndpointTypeV3 {
+			t.Errorf("Expecting %v got %v", v2.EndpointTypeV3, res.TypeUrl)
 		}
-		if res.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-			t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res.Resources[0].TypeUrl)
+		if res.Resources[0].TypeUrl != v2.EndpointTypeV3 {
+			t.Errorf("Expecting %v got %v", v2.EndpointTypeV3, res.Resources[0].TypeUrl)
 		}
 
 		cla, err := getLoadAssignment(res)
@@ -660,11 +661,11 @@ func TestAdsUpdate(t *testing.T) {
 		t.Fatal("Recv failed", err)
 	}
 
-	if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.TypeUrl)
+	if res1.TypeUrl != v2.EndpointTypeV3 {
+		t.Errorf("Expecting %v got %v", v2.EndpointTypeV3, res1.TypeUrl)
 	}
-	if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.Resources[0].TypeUrl)
+	if res1.Resources[0].TypeUrl != v2.EndpointTypeV3 {
+		t.Errorf("Expecting %v got %v", v2.EndpointTypeV3, res1.Resources[0].TypeUrl)
 	}
 	cla, err := getLoadAssignment(res1)
 	if err != nil {
@@ -870,8 +871,8 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	}
 }
 
-func unmarshallRoute(value []byte) (*xdsapi.RouteConfiguration, error) {
-	route := &xdsapi.RouteConfiguration{}
+func unmarshallRoute(value []byte) (*route.RouteConfiguration, error) {
+	route := &route.RouteConfiguration{}
 
 	err := proto.Unmarshal(value, route)
 	if err != nil {

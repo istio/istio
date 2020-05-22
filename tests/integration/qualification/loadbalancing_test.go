@@ -27,7 +27,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -61,8 +60,6 @@ func TestIngressLoadBalancing(t *testing.T) {
 
 	ctx.RequireOrSkip(environment.Kube)
 
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-
 	bookinfoNs, err := namespace.New(ctx, namespace.Config{
 		Prefix: "istio-bookinfo",
 		Inject: true,
@@ -70,15 +67,16 @@ func TestIngressLoadBalancing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
 	}
-	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
+	undeploy := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
+	defer undeploy()
 
-	g.ApplyConfigOrFail(
+	ctx.ApplyConfigOrFail(
 		t,
-		d.Namespace(),
+		bookinfoNs.Name(),
 		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-	g.ApplyConfigOrFail(
+	ctx.ApplyConfigOrFail(
 		t,
-		d.Namespace(),
+		bookinfoNs.Name(),
 		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)

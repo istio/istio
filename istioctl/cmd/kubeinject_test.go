@@ -20,11 +20,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestKubeInject(t *testing.T) {
-	mesh.TestMode = true
 	cases := []testCase{
 		{ // case 0
 			configs:        []model.Config{},

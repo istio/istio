@@ -104,7 +104,7 @@ func (m *monitor) Close() error {
 // initMonitor initializes the configuration for the pilot monitoring server.
 func (s *Server) initMonitor(addr string) error { //nolint: unparam
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		monitor, err := startMonitor(addr, s.mux)
+		monitor, err := startMonitor(addr, s.httpMux)
 		if err != nil {
 			return err
 		}

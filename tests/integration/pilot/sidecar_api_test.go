@@ -20,7 +20,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	xdscore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
@@ -38,7 +38,7 @@ func TestSidecarListeners(t *testing.T) {
 
 			// Simulate proxy identity of a sidecar ...
 			nodeID := &model.Proxy{
-				ClusterID:    "integration-test",
+				Metadata:     &model.NodeMetadata{ClusterID: "integration-test"},
 				Type:         model.SidecarProxy,
 				IPAddresses:  []string{"10.2.0.1"},
 				ID:           "app3.testns",
@@ -66,12 +66,12 @@ func TestSidecarListeners(t *testing.T) {
 			if err != nil {
 				t.Fatalf("No such directory: %v", err)
 			}
-			err = g.ApplyConfigDir(nil, path)
+			err = ctx.ApplyConfigDir("", path)
 			if err != nil {
 				t.Fatalf("Error applying directory: %v", err)
 			}
 			defer func() {
-				if err := g.DeleteConfigDir(nil, path); err != nil {
+				if err := ctx.DeleteConfigDir("", path); err != nil {
 					scopes.CI.Errorf("failed to delete directory: %v", err)
 				}
 			}()

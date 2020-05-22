@@ -904,11 +904,7 @@ func (ps *PushContext) updateContext(
 			sidecarsChanged = true
 		case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 			envoyFiltersChanged = true
-		case collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
-			collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
-			collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
-			collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
-			collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
+		case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 			authzChanged = true
 		case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
 			collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
@@ -1579,6 +1575,15 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 	defaultClusterLocalHosts := make([]host.Name, 0, len(defaultClusterLocalNamespaces))
 	for _, n := range defaultClusterLocalNamespaces {
 		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
+	}
+
+	if discoveryHost, _, err := e.GetDiscoveryAddress(); err != nil {
+		log.Errorf("failed to make discoveryAddress cluster-local: %v", err)
+	} else {
+		if !strings.HasSuffix(string(discoveryHost), domainSuffix) {
+			discoveryHost += host.Name("." + domainSuffix)
+		}
+		defaultClusterLocalHosts = append(defaultClusterLocalHosts, discoveryHost)
 	}
 
 	// Collect the cluster-local hosts.

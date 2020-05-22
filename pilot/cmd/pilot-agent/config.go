@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gogo/protobuf/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/api/annotation"
@@ -49,8 +51,16 @@ func getTLSCerts(pc meshconfig.ProxyConfig) []string {
 		if rs.TlsSettings.Mode == networking.ClientTLSSettings_DISABLE {
 			return
 		}
-		certs = append(certs, rs.TlsSettings.CaCertificates, rs.TlsSettings.ClientCertificate,
-			rs.TlsSettings.PrivateKey)
+		//append only if the elements are not null.
+		if rs.TlsSettings.CaCertificates != "" {
+			certs = append(certs, rs.TlsSettings.CaCertificates)
+		}
+		if rs.TlsSettings.ClientCertificate != "" {
+			certs = append(certs, rs.TlsSettings.ClientCertificate)
+		}
+		if rs.TlsSettings.PrivateKey != "" {
+			certs = append(certs, rs.TlsSettings.PrivateKey)
+		}
 	}
 	if pc.EnvoyMetricsService != nil {
 		appendTLSCerts(pc.EnvoyMetricsService)
@@ -83,7 +93,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		proxyConfig = *meshConfig.DefaultConfig
 	}
 
-	proxyConfig.Concurrency = int32(concurrency)
+	proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
 	proxyConfig.ServiceCluster = serviceCluster
 	// resolve statsd address
 	if proxyConfig.StatsdUdpAddress != "" {

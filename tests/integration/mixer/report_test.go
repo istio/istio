@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
@@ -35,17 +34,15 @@ func TestMixer_Report_Direct(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-
-			g := galley.NewOrFail(t, ctx, galley.Config{})
-			mxr := mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
+			mxr := mixer.NewOrFail(t, ctx, mixer.Config{})
 			be := policybackend.NewOrFail(t, ctx, policybackend.Config{})
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "mixreport",
 			})
 
-			g.ApplyConfigOrFail(t,
-				ns,
+			ctx.ApplyConfigOrFail(t,
+				ns.Name(),
 				testReportConfig,
 				be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))
 

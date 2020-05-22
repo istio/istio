@@ -142,6 +142,13 @@ func (c *testContext) TrackResource(r resource.Resource) resource.ID {
 	return rid
 }
 
+func (c *testContext) GetResource(ref interface{}) error {
+	if err := c.scope.get(ref); err != nil {
+		return c.suite.GetResource(ref)
+	}
+	return nil
+}
+
 func (c *testContext) WorkDir() string {
 	return c.workDir
 }
@@ -180,6 +187,54 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	}
 
 	return dir, err
+}
+
+func (c *testContext) ApplyConfig(ns string, yamlText ...string) error {
+	for _, cc := range c.Environment().Clusters() {
+		if err := cc.ApplyConfig(ns, yamlText...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *testContext) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+	for _, cc := range c.Environment().Clusters() {
+		cc.ApplyConfigOrFail(t, ns, yamlText...)
+	}
+}
+
+func (c *testContext) DeleteConfig(ns string, yamlText ...string) error {
+	for _, cc := range c.Environment().Clusters() {
+		if err := cc.DeleteConfig(ns, yamlText...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *testContext) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
+	for _, cc := range c.Environment().Clusters() {
+		cc.DeleteConfigOrFail(t, ns, yamlText...)
+	}
+}
+
+func (c *testContext) ApplyConfigDir(ns string, configDir string) error {
+	for _, cc := range c.Environment().Clusters() {
+		if err := cc.ApplyConfigDir(ns, configDir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *testContext) DeleteConfigDir(ns string, configDir string) error {
+	for _, cc := range c.Environment().Clusters() {
+		if err := cc.DeleteConfigDir(ns, configDir); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {
