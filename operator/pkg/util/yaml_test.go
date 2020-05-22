@@ -16,9 +16,10 @@ package util
 
 import (
 	"errors"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 
 	"github.com/gogo/protobuf/proto"
 )
@@ -150,9 +151,9 @@ func TestOverlayTrees(t *testing.T) {
 			inBase: map[string]interface{}{
 				"foo": nil,
 			},
-			inOverlays: nil,
+			inOverlays:      nil,
 			expectedOverlay: nil,
-			expectedErr: errors.New("json merge error (Invalid JSON Patch) for base object"),
+			expectedErr:     errors.New("json merge error (Invalid JSON Patch) for base object"),
 		},
 	}
 	for _, tt := range tests {
