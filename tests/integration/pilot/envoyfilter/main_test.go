@@ -24,7 +24,8 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -262,10 +263,10 @@ func checkHTTPFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 
 	expectedHTTPFilters := []string{"istio_authn", "envoy.lua", "mixer", "envoy.cors", "envoy.fault", "envoy.router"}
 	expectedHTTPAccessLogFilteers := []string{"envoy.file_access_log", "envoy.http_grpc_access_log"}
-	var listenerToCheck *xdsapi.Listener
+	var listenerToCheck *listener.Listener
 	got := map[string]struct{}{}
 	for _, res := range resp.Resources {
-		c := &xdsapi.Listener{}
+		c := &listener.Listener{}
 		if err := proto.Unmarshal(res.Value, c); err != nil {
 			return false, err
 		}

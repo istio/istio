@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
@@ -2233,7 +2233,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
 
-		validateTLSContext func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext)
+		validateTLSContext func(t *testing.T, ctx *tls.UpstreamTlsContext)
 	}{
 		{
 			name:                       "user specified without tls",
@@ -2258,7 +2258,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        mutualTLSSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
-			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
 				rootName := "file-root:" + mutualTLSSettings.CaCertificates
 				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettings.ClientCertificate, mutualTLSSettings.PrivateKey)
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
@@ -2316,7 +2316,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			}
 
 			if test.validateTLSContext != nil {
-				ctx := &envoy_api_v2_auth.UpstreamTlsContext{}
+				ctx := &tls.UpstreamTlsContext{}
 				if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
 					t.Fatal(err)
 				}
@@ -2328,12 +2328,12 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 }
 
 // Helper function to extract TLS context from a cluster
-func getTLSContext(t *testing.T, c *cluster.Cluster) *envoy_api_v2_auth.UpstreamTlsContext {
+func getTLSContext(t *testing.T, c *cluster.Cluster) *tls.UpstreamTlsContext {
 	t.Helper()
 	if c.TransportSocket == nil {
 		return nil
 	}
-	tlsContext := &envoy_api_v2_auth.UpstreamTlsContext{}
+	tlsContext := &tls.UpstreamTlsContext{}
 	err := ptypes.UnmarshalAny(c.TransportSocket.GetTypedConfig(), tlsContext)
 
 	if err != nil {

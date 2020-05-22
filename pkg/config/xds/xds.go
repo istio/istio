@@ -19,11 +19,10 @@ import (
 	"errors"
 	"fmt"
 
-	xdsAPI "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	httpConn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -43,9 +42,9 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 	case networking.EnvoyFilter_CLUSTER:
 		obj = &cluster.Cluster{}
 	case networking.EnvoyFilter_LISTENER:
-		obj = &xdsAPI.Listener{}
+		obj = &listener.Listener{}
 	case networking.EnvoyFilter_ROUTE_CONFIGURATION:
-		obj = &xdsAPI.RouteConfiguration{}
+		obj = &route.RouteConfiguration{}
 	case networking.EnvoyFilter_FILTER_CHAIN:
 		obj = &listener.FilterChain{}
 	case networking.EnvoyFilter_HTTP_FILTER:

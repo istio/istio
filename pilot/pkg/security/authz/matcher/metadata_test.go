@@ -18,13 +18,13 @@ import (
 	"reflect"
 	"testing"
 
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 func TestMetadataStringMatcher(t *testing.T) {
 	matcher := &matcherpb.StringMatcher{
-		MatchPattern: &matcherpb.StringMatcher_Regex{
-			Regex: "regex",
+		MatchPattern: &matcherpb.StringMatcher_Exact{
+			Exact: "exact",
 		},
 	}
 	actual := MetadataStringMatcher("istio_authn", "key", matcher)

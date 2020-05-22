@@ -18,8 +18,8 @@ import (
 	"reflect"
 	"testing"
 
-	routepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 func TestHeaderMatcher(t *testing.T) {

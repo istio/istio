@@ -22,19 +22,18 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/util"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
-	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
-	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
+	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
-	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/pkg/log"
+
+	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 )
 
 type filterChainMatch struct {
@@ -44,7 +43,7 @@ type filterChainMatch struct {
 
 type filterChain struct {
 	match      *filterChainMatch
-	tlsContext *auth.DownstreamTlsContext
+	tlsContext *tls.DownstreamTlsContext
 
 	authN    *authn_filter.FilterConfig
 	envoyJWT *envoy_jwt.JwtAuthentication
@@ -63,10 +62,6 @@ type ParsedListener struct {
 
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
-	case *listener.Filter_Config:
-		if err := conversion.StructToMessage(c.Config, out); err != nil {
-			return err
-		}
 	case *listener.Filter_TypedConfig:
 		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
 			return err
@@ -86,10 +81,6 @@ func getHTTPConnectionManager(filter *listener.Filter) *hcm_filter.HttpConnectio
 
 func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
-	case *hcm_filter.HttpFilter_Config:
-		if err := conversion.StructToMessage(c.Config, out); err != nil {
-			return err
-		}
 	case *hcm_filter.HttpFilter_TypedConfig:
 		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
 			return err
@@ -99,7 +90,7 @@ func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error
 }
 
 // ParseListener parses the envoy listener config by extracting the auth related config.
-func ParseListener(listener *v2.Listener) *ParsedListener {
+func ParseListener(listener *listener.Listener) *ParsedListener {
 	parsedListener := &ParsedListener{
 		name: listener.Name,
 		ip:   listener.Address.GetSocketAddress().Address,
@@ -107,13 +98,11 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 	}
 
 	for _, fc := range listener.FilterChains {
-		tlsContext := &auth.DownstreamTlsContext{}
+		tlsContext := &tls.DownstreamTlsContext{}
 		if fc.TransportSocket != nil && fc.TransportSocket.Name == util.EnvoyTLSSocketName {
 			if err := ptypes.UnmarshalAny(fc.TransportSocket.GetTypedConfig(), tlsContext); err != nil {
-				continue
+				log.Warnf("failed to unmarshal tls settings: %v", err)
 			}
-		} else {
-			tlsContext = fc.TlsContext
 		}
 		parsedFC := &filterChain{tlsContext: tlsContext}
 		for _, filter := range fc.Filters {
@@ -189,9 +178,9 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 
 		cert := "none"
 		mTLSEnabled := "no"
-		if tls := fc.tlsContext; tls != nil {
-			cert = getCertificate(tls.GetCommonTlsContext())
-			if tls.RequireClientCertificate.GetValue() {
+		if tlscontext := fc.tlsContext; tlscontext != nil {
+			cert = getCertificate(tlscontext.GetCommonTlsContext())
+			if tlscontext.RequireClientCertificate.GetValue() {
 				mTLSEnabled = "yes"
 			}
 		}
