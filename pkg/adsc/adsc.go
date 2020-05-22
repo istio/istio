@@ -31,6 +31,9 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
+	"istio.io/istio/pilot/pkg/networking/util"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -47,8 +50,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -69,6 +70,20 @@ type Config struct {
 	// IP is currently the primary key used to locate inbound configs. It is sent by client,
 	// must match a known endpoint IP. Tests can use a ServiceEntry to register fake IPs.
 	IP string
+
+	// CertDir is the directory where mTLS certs are configured.
+	// If emtpy, an insecure connection will be used.
+	// TODO: also allow passing in-memory certs.
+	CertDir string
+
+	// Watch is a list of resources to watch, represented as URLs (for new XDS resource naming)
+	// or type URLs.
+	Watch []string
+
+	// InitialReconnectDelay is the time to wait before attempting to reconnect.
+	// If empty reconnect will not be attempted.
+	// TODO: client will use exponential backoff to reconnect.
+	InitialReconnectDelay time.Duration
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -231,7 +246,8 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 // Close the stream.
 func (a *ADSC) Close() {
 	a.mutex.Lock()
-	a.conn.Close()
+	_ = a.stream.CloseSend()
+	_ = a.conn.Close()
 	a.mutex.Unlock()
 }
 
@@ -875,7 +891,7 @@ func (a *ADSC) Watch() {
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
-		TypeUrl:       v2.ClusterType,
+		TypeUrl:       v2.ClusterTypeV3,
 	})
 }
 
