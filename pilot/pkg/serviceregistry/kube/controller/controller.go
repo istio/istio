@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -704,12 +703,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 	// First get k8s standard service instances and the workload entry instances
 	outInstances, err := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
-	foreignInstances, err2 := c.getForeignServiceInstancesByPort(svc, reqSvcPort)
-
-	if err2 != nil {
-		err = multierror.Append(err, err2)
-	}
-	outInstances = append(outInstances, foreignInstances...)
+	outInstances = append(outInstances, c.getForeignServiceInstancesByPort(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
 	if len(outInstances) > 0 || err != nil {
@@ -732,7 +726,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	return nil, nil
 }
 
-func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvcPort int) ([]*model.ServiceInstance, error) {
+func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// Run through all the foreign instances, select ones that match the service labels
 	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
 	// as InstancesByPort is called by the aggregate controller. We dont want to include
@@ -781,7 +775,7 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 		}
 	}
 	c.RUnlock()
-	return out, nil
+	return out
 }
 
 // convenience function to collect all workload entry endpoints in updateEDS calls.
@@ -795,10 +789,7 @@ func (c *Controller) collectAllForeignEndpoints(svc *model.Service) ([]*model.Is
 		return nil, nil
 	}
 
-	instances, err := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
-	if err != nil {
-		return nil, err
-	}
+	instances := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
 	endpoints := make([]*model.IstioEndpoint, 0)
 
 	// all endpoints for ports[0]
