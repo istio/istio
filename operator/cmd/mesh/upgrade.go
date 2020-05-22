@@ -55,8 +55,9 @@ const (
 		"If you’re using manual injection, you can upgrade the sidecar by executing:\n" +
 		"    kubectl apply -f < (istioctl kube-inject -f <original application deployment yaml>)"
 
-	// installationPathTemplate is used to construct installation url based on version
-	installationPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-linux.tar.gz"
+	// releaseURLPathTemplete is used to construct a download URL for a tar at a given version. The osx tar is
+	// used because it's stable between 1.5->1.6 and only the profiles are used, not binaries.
+	releaseURLPathTemplete = "https://github.com/istio/istio/releases/download/%s/istio-%s-osx.tar.gz"
 )
 
 type upgradeArgs struct {
@@ -184,7 +185,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	// Read the current installation's profile IOPS yaml to check the changed profile settings between versions.
 	currentSets := args.set
 	if currentVersion != "" {
-		currentSets = append(currentSets, "installPackagePath="+installURLFromVersion(currentVersion))
+		currentSets = append(currentSets, "installPackagePath="+releaseURLFromVersion(currentVersion))
 	}
 	profile := targetIOPS.Profile
 	if profile == "" {
@@ -226,9 +227,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	return nil
 }
 
-// installURLFromVersion generates default installation url from version number.
-func installURLFromVersion(version string) string {
-	return fmt.Sprintf(installationPathTemplate, version, version)
+// releaseURLFromVersion generates default installation url from version number.
+func releaseURLFromVersion(version string) string {
+	return fmt.Sprintf(releaseURLPathTemplete, version, version)
 }
 
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
