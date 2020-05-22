@@ -27,8 +27,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 )
 
 const (

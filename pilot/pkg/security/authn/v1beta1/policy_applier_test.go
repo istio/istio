@@ -21,16 +21,16 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	envoy_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
 
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
@@ -1211,9 +1211,9 @@ func TestAuthnFilterConfig(t *testing.T) {
 
 func TestOnInboundFilterChain(t *testing.T) {
 	now := time.Now()
-	tlsContext := &envoy_auth.DownstreamTlsContext{
-		CommonTlsContext: &envoy_auth.CommonTlsContext{
-			TlsCertificates: []*envoy_auth.TlsCertificate{
+	tlsContext := &tls.DownstreamTlsContext{
+		CommonTlsContext: &tls.CommonTlsContext{
+			TlsCertificates: []*tls.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
@@ -1227,8 +1227,8 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			ValidationContextType: &envoy_auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &envoy_auth.CertificateValidationContext{
+			ValidationContextType: &tls.CommonTlsContext_ValidationContext{
+				ValidationContext: &tls.CertificateValidationContext{
 					TrustedCa: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
 							Filename: "/etc/certs/root-cert.pem",
@@ -1257,7 +1257,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 			ListenerFilters: []*listener.ListenerFilter{
 				{
 					Name:       "envoy.listener.tls_inspector",
-					ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
+					ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: pilotutil.MessageToAny(&tlsinspector.TlsInspector{})},
 				},
 			},
 		},

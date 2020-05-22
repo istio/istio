@@ -19,12 +19,11 @@ import (
 	"strings"
 	"testing"
 
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 
 	"istio.io/istio/pilot/pkg/features"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -115,7 +114,7 @@ func setInboundCaptureAllOnThisNode(proxy *model.Proxy, mode model.TrafficInterc
 
 var testServices = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
 
-func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int, mode model.TrafficInterceptionMode) []*v2.Listener {
+func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int, mode model.TrafficInterceptionMode) []*listener.Listener {
 	// prepare
 	ldsEnv := getDefaultLdsEnv()
 
@@ -343,7 +342,7 @@ func expectTCPProxy(t *testing.T, chains []*listener.FilterChain, s string) {
 	}
 }
 
-func expectListener(t *testing.T, listeners []*v2.Listener, name string) *v2.Listener {
+func expectListener(t *testing.T, listeners []*listener.Listener, name string) *listener.Listener {
 	t.Helper()
 	for _, l := range listeners {
 		if l.Name == name {

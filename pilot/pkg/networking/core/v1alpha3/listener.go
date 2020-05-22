@@ -23,19 +23,20 @@ import (
 	"sync"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
-	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	grpc_stats "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/grpc_stats/v2alpha"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
-	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/filter/thrift/rate_limit/v2alpha1"
-	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v2"
-	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
-	envoy_type_tracing_v2 "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	fileaccesslogconfig "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	alsconfig "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/filters/ratelimit/v3"
+	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
+	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -357,7 +358,7 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	fl := &accesslogconfig.FileAccessLog{
+	fl := &fileaccesslogconfig.FileAccessLog{
 		Path: mesh.AccessLogFile,
 	}
 
@@ -367,7 +368,7 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 		if mesh.AccessLogFormat != "" {
 			formatString = mesh.AccessLogFormat
 		}
-		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_Format{
+		fl.AccessLogFormat = &fileaccesslogconfig.FileAccessLog_Format{
 			Format: formatString,
 		}
 	case meshconfig.MeshConfig_JSON:
@@ -389,7 +390,7 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 		if jsonLog == nil {
 			jsonLog = EnvoyJSONLogFormat
 		}
-		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_JsonFormat{
+		fl.AccessLogFormat = &fileaccesslogconfig.FileAccessLog_JsonFormat{
 			JsonFormat: jsonLog,
 		}
 	default:
@@ -406,8 +407,8 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 }
 
 func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
-	fl := &accesslogconfig.HttpGrpcAccessLogConfig{
-		CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
+	fl := &alsconfig.HttpGrpcAccessLogConfig{
+		CommonConfig: &alsconfig.CommonGrpcAccessLogConfig{
 			LogName: httpEnvoyAccessLogFriendlyName,
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -443,7 +444,7 @@ func init() {
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
-	push *model.PushContext) []*xdsapi.Listener {
+	push *model.PushContext) []*listener.Listener {
 	builder := NewListenerBuilder(node, push)
 
 	switch node.Type {
@@ -476,9 +477,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushCont
 // configuration for co-located service proxyInstances.
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 	node *model.Proxy,
-	push *model.PushContext) []*xdsapi.Listener {
+	push *model.PushContext) []*listener.Listener {
 
-	var listeners []*xdsapi.Listener
+	var listeners []*listener.Listener
 	listenerMap := make(map[string]*inboundListenerEntry)
 
 	sidecarScope := node.SidecarScope
@@ -687,7 +688,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
 // for a given port or unix domain socket
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
-	pluginParams *plugin.InputParams, listenerMap map[string]*inboundListenerEntry) *xdsapi.Listener {
+	pluginParams *plugin.InputParams, listenerMap map[string]*inboundListenerEntry) *listener.Listener {
 	// Local service instances can be accessed through one of four addresses:
 	// unix domain socket, localhost, endpoint IP, and service
 	// VIP. Localhost bypasses the proxy and doesn't need any TCP
@@ -856,7 +857,7 @@ type outboundListenerEntry struct {
 	services    []*model.Service
 	servicePort *model.Port
 	bind        string
-	listener    *xdsapi.Listener
+	listener    *listener.Listener
 	locked      bool
 	protocol    protocol.Instance
 }
@@ -904,13 +905,13 @@ func (c outboundListenerConflict) addMetric(node *model.Proxy, metrics model.Met
 // buildSidecarOutboundListeners generates http and tcp listeners for
 // outbound connections from the proxy based on the sidecar scope associated with the proxy.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.Proxy,
-	push *model.PushContext) []*xdsapi.Listener {
+	push *model.PushContext) []*listener.Listener {
 
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
 
-	var tcpListeners, httpListeners []*xdsapi.Listener
+	var tcpListeners, httpListeners []*listener.Listener
 	// For conflict resolution
 	listenerMap := make(map[string]*outboundListenerEntry)
 
@@ -1134,7 +1135,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 }
 
 func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
-	push *model.PushContext) *xdsapi.Listener {
+	push *model.PushContext) *listener.Listener {
 	httpProxyPort := push.Mesh.ProxyHttpPort
 	if httpProxyPort == 0 {
 		return nil
@@ -1721,7 +1722,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 	node *model.Proxy,
 	push *model.PushContext,
-	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
+	ipTablesListener *listener.Listener) *listener.Listener {
 
 	svc := util.FallThroughFilterChainBlackHoleService
 	redirectPort := &model.Port{
@@ -1783,8 +1784,8 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 // the pod.
 // So, if a user wants to use kubernetes probes with Istio, she should ensure
 // that the health check ports are distinct from the service ports.
-func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext, managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
-	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
+func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext, managementPorts model.PortList, managementIP string) []*listener.Listener {
+	listeners := make([]*listener.Listener, 0, len(managementPorts))
 	// assumes that inbound connections/requests are sent to the endpoint address
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
@@ -1842,7 +1843,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext
 
 // httpListenerOpts are options for an HTTP listener
 type httpListenerOpts struct {
-	routeConfig *xdsapi.RouteConfiguration
+	routeConfig *route.RouteConfiguration
 	rds         string
 	// If set, use this as a basis
 	connectionManager *http_conn.HttpConnectionManager
@@ -2056,16 +2057,16 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *http_conn.Ht
 	}
 }
 
-func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*envoy_type_tracing_v2.CustomTag {
-	var tags []*envoy_type_tracing_v2.CustomTag
+func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*tracing.CustomTag {
+	var tags []*tracing.CustomTag
 
 	for tagName, tagInfo := range customTags {
 		switch tag := tagInfo.Type.(type) {
 		case *meshconfig.Tracing_CustomTag_Environment:
-			env := &envoy_type_tracing_v2.CustomTag{
+			env := &tracing.CustomTag{
 				Tag: tagName,
-				Type: &envoy_type_tracing_v2.CustomTag_Environment_{
-					Environment: &envoy_type_tracing_v2.CustomTag_Environment{
+				Type: &tracing.CustomTag_Environment_{
+					Environment: &tracing.CustomTag_Environment{
 						Name:         tag.Environment.Name,
 						DefaultValue: tag.Environment.DefaultValue,
 					},
@@ -2073,10 +2074,10 @@ func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*env
 			}
 			tags = append(tags, env)
 		case *meshconfig.Tracing_CustomTag_Header:
-			header := &envoy_type_tracing_v2.CustomTag{
+			header := &tracing.CustomTag{
 				Tag: tagName,
-				Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
-					RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+				Type: &tracing.CustomTag_RequestHeader{
+					RequestHeader: &tracing.CustomTag_Header{
 						Name:         tag.Header.Name,
 						DefaultValue: tag.Header.DefaultValue,
 					},
@@ -2084,10 +2085,10 @@ func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*env
 			}
 			tags = append(tags, header)
 		case *meshconfig.Tracing_CustomTag_Literal:
-			env := &envoy_type_tracing_v2.CustomTag{
+			env := &tracing.CustomTag{
 				Tag: tagName,
-				Type: &envoy_type_tracing_v2.CustomTag_Literal_{
-					Literal: &envoy_type_tracing_v2.CustomTag_Literal{
+				Type: &tracing.CustomTag_Literal_{
+					Literal: &tracing.CustomTag_Literal{
 						Value: tag.Literal.Value,
 					},
 				},
@@ -2148,7 +2149,7 @@ func buildThriftProxy(thriftOpts *thriftListenerOpts) *thrift_proxy.ThriftProxy 
 }
 
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
-func buildListener(opts buildListenerOpts) *xdsapi.Listener {
+func buildListener(opts buildListenerOpts) *listener.Listener {
 	filterChains := make([]*listener.FilterChain, 0, len(opts.filterChainOpts))
 	listenerFiltersMap := make(map[string]bool)
 	var listenerFilters []*listener.ListenerFilter
@@ -2227,14 +2228,14 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		})
 	}
 
-	var deprecatedV1 *xdsapi.Listener_DeprecatedV1
+	var deprecatedV1 *listener.Listener_DeprecatedV1
 	if !opts.bindToPort {
-		deprecatedV1 = &xdsapi.Listener_DeprecatedV1{
+		deprecatedV1 = &listener.Listener_DeprecatedV1{
 			BindToPort: proto.BoolFalse,
 		}
 	}
 
-	listener := &xdsapi.Listener{
+	listener := &listener.Listener{
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like
 		Name:            opts.bind + "_" + strconv.Itoa(opts.port),
@@ -2257,7 +2258,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // appendListenerFallthroughRoute adds a filter that will match all traffic and direct to the
 // PassthroughCluster. This should be appended as the final filter or it will mask the others.
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
-func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
+func appendListenerFallthroughRoute(l *listener.Listener, opts *buildListenerOpts,
 	node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
 	wildcardMatch := &listener.FilterChainMatch{}
 	for _, fc := range l.FilterChains {
@@ -2662,7 +2663,7 @@ func isFallthroughFilterChain(fc *listener.FilterChain) bool {
 	return false
 }
 
-func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
+func removeListenerFilterTimeout(listeners []*listener.Listener) {
 	for _, l := range listeners {
 		// Remove listener filter timeout for
 		// 	1. outbound listeners AND
