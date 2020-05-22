@@ -82,8 +82,6 @@ func TestWait(t *testing.T) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix:   "default",
 				Inject:   true,
-				Revision: "",
-				Labels:   nil,
 			})
 			ctx.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
@@ -100,7 +98,6 @@ spec:
         host: reviews
 `)
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			fmt.Print("start")
 			istioCtl.InvokeOrFail(t, []string{"x", "wait", "VirtualService", "reviews." + ns.Name()})
 			fmt.Print("end")
 		})
