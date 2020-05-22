@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package webhooks
 
 import (
 	"bytes"
@@ -167,12 +167,13 @@ func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caC
 }
 
 func CreateValidationWebhookController(client kubernetes.Interface, dynamicInterface dynamic.Interface,
-	webhookConfigName, ns, caBundlePath string) *controller.Controller {
+	webhookConfigName, ns, caBundlePath string, remote bool) *controller.Controller {
 	o := controller.Options{
-		WatchedNamespace:  ns,
-		CAPath:            caBundlePath,
-		WebhookConfigName: webhookConfigName,
-		ServiceName:       "istiod",
+		WatchedNamespace:    ns,
+		CAPath:              caBundlePath,
+		WebhookConfigName:   webhookConfigName,
+		ServiceName:         "istiod",
+		RemoteWebhookConfig: remote,
 	}
 	whController, err := controller.New(o, client, dynamicInterface)
 	if err != nil {
