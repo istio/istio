@@ -55,9 +55,6 @@ var (
 	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
 	envoyClientFactory = newEnvoyClient
 
-	// Create a kubernetes.ExecClientSDS
-	clientExecSdsFactory = newSDSExecClient
-
 	loggingOptions = defaultLogOptions()
 )
 
