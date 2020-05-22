@@ -17,6 +17,8 @@ package v2
 import (
 	"time"
 
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+
 	"istio.io/istio/pkg/util/protomarshal"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -52,7 +54,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	return nil
 }
 
-func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
+func routeDiscoveryResponse(rs []*route.RouteConfiguration, version, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     typeURL,
 		VersionInfo: version,

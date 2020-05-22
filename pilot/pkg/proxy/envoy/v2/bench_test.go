@@ -24,19 +24,18 @@ import (
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/test"
 
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-
-	envoy_api_v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	"istio.io/istio/pilot/pkg/networking/core"
 
@@ -233,7 +232,7 @@ func setupTest(t test.Failer, testName string) (model.Environment, core.ConfigGe
 	return env, configgen, proxy
 }
 
-func routesFromListeners(ll []*envoy_api_v2.Listener) []string {
+func routesFromListeners(ll []*listener.Listener) []string {
 	routes := []string{}
 	for _, l := range ll {
 		for _, fc := range l.FilterChains {

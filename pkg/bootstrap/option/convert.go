@@ -21,8 +21,8 @@ import (
 	"net"
 	"strings"
 
-	envoyAPI "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoyAPICore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -38,8 +38,8 @@ import (
 
 func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) convertFunc {
 	return func(*instance) (interface{}, error) {
-		upstreamConnectionOptions := &envoyAPI.UpstreamConnectionOptions{
-			TcpKeepalive: &envoyAPICore.TcpKeepalive{},
+		upstreamConnectionOptions := &cluster.UpstreamConnectionOptions{
+			TcpKeepalive: &core.TcpKeepalive{},
 		}
 
 		if value.Probes > 0 {

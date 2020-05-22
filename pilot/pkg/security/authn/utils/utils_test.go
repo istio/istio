@@ -19,10 +19,10 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -133,7 +133,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					ListenerFilters: []*listener.ListenerFilter{
 						{
 							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
+							ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: util.MessageToAny(&tlsinspector.TlsInspector{})},
 						},
 					},
 				},
