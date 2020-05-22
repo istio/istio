@@ -1,6 +1,8 @@
 .SUFFIXES: .csr .pem .conf
 .PRECIOUS: %/ca-key.pem %/ca-cert.pem %/cert-chain.pem
-.PRECIOUS: root-cert.csr root-ca.conf %/cluster-ca.csr %/intermediate.conf
+.PRECIOUS: %/selfSigned-ca-key.pem %/selfSigned-ca-cert.pem %/selfSigned-ca-cert-chain.pem
+.PRECIOUS: root-cert.csr root-ca.conf %/cluster-ca.csr %/intermediate.conf %/selfSigned-cluster-ca.csr
+.PRECIOUS: %/selfSigned-workload-cert-chain.pem %/selfSigned-workload-cert.pem
 .PRECIOUS: %/workload-cert.pem %/key.pem %/workload-cert-chain.pem %/workload.conf %/workload.csr
 .SECONDARY: root-cert.csr root-ca.conf %/cluster-ca.csr %/intermediate.conf
 
@@ -12,22 +14,22 @@ ROOTCA_DAYS ?= 3650
 ROOTCA_KEYSZ ?= 4096
 ROOTCA_ORG ?= Istio
 ROOTCA_CN ?= Root CA
+KUBECONFIG ?= $(HOME)/.kube/config
 # Additional variables are defined in root-ca.conf target below.
 
 #------------------------------------------------------------------------
-# variables: intermediate CA (Citadel)
-CITADEL_SERIAL ?= $(shell echo $$PPID) 	# certificate serial number (uses current PID)
-CITADEL_DAYS ?= 730
-CITADEL_KEYSZ ?= 4096
-CITADEL_ORG ?= Istio
-CITADEL_CN ?= Intermediate CA
-CITADEL_SAN_DNS ?= localhost
+# variables: intermediate CA
+INTERMEDIATE_SERIAL ?= $(shell echo $$PPID) 	# certificate serial number (uses current PID)
+INTERMEDIATE_DAYS ?= 730
+INTERMEDIATE_KEYSZ ?= 4096
+INTERMEDIATE_ORG ?= Istio
+INTERMEDIATE_CN ?= Intermediate CA
+INTERMEDIATE_SAN_DNS ?= istiod.istio-system.svc
 # Additional variables are defined in %/intermediate.conf target below.
 
 #------------------------------------------------------------------------
 # variables: workload certs: eg VM
-WORKLOAD_DAYS ?= 365
-NAMESPACE ?= vm
+WORKLOAD_DAYS ?= 1
 SERVICE_ACCOUNT ?= default
 
 #------------------------------------------------------------------------
@@ -38,7 +40,27 @@ help: Makefile
 	@sed -n 's/^##//p' $<
 
 #------------------------------------------------------------------------
-##root-ca:	generate root CA files (key and certifcate) in current directory
+##fetch-root-ca:	fetch root CA  and key from a k8s cluster.
+.PHONY: fetch-root-ca
+rawcluster := $(shell kubectl config current-context)
+cluster := $(subst /,-,$(rawcluster))
+pwd := $(shell pwd)
+fetch-root-ca:
+	@echo "fetching root ca from k8s cluster: "$(cluster)""
+	@@mkdir -p $(pwd)/$(cluster)
+	@KUBECONFIG=$(KUBECONFIG) kubectl get secret istio-ca-secret  -n istio-system -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > $(cluster)/k8s-root-cert.pem
+	@KUBECONFIG=$(KUBECONFIG) kubectl get secret istio-ca-secret  -n istio-system -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > $(cluster)/k8s-root-key.pem
+
+
+k8s-root-cert.pem:
+	@cat $(cluster)/k8s-root-cert.pem > $@
+
+k8s-root-key.pem:
+	@cat $(cluster)/k8s-root-key.pem > $@
+
+
+#------------------------------------------------------------------------
+##root-ca:	generate root CA files (key and certifcate) in current directory.
 .PHONY: root-ca
 
 root-ca: root-key.pem root-cert.pem
@@ -75,31 +97,61 @@ root-key.pem:
 	@echo "generating $@"
 	@openssl genrsa -out $@ 4096
 
+
 #------------------------------------------------------------------------
-##<name>-certs:	generate Citadel certificates for <name>. Includes all PEM files needed.
-.PHONY: %-certs
+##<name>-cacerts-k8s:	generate intermediate certificates for a cluster or VM with <name> signed with istio root cert from the specified k8s cluster and store them under <name> directory
+.PHONY: %-cacerts-k8s
 
-%-certs: %/cert-chain.pem root-cert.pem
-	@echo "Citadel inputs stored in $(dir $<)"
-	@cp root-cert.pem $(dir $<)
+%-cacerts-k8s: %/cert-chain.pem k8s-root-cert.pem
+	@echo "Intermediate certs stored in $(dir $<)"
+	@cp k8s-root-cert.pem $(dir $<)/root-cert.pem
 
-%/cert-chain.pem: %/ca-cert.pem root-cert.pem
+%/cert-chain.pem: %/ca-cert.pem k8s-root-cert.pem
 	@echo "generating $@"
 	@cat $^ > $@
 
-%/ca-cert.pem: %/cluster-ca.csr root-key.pem root-cert.pem
+%/ca-cert.pem: %/cluster-ca.csr k8s-root-key.pem k8s-root-cert.pem
 	@echo "generating $@"
-	@openssl x509 -req -days $(CITADEL_DAYS) \
-		-CA root-cert.pem -CAkey root-key.pem -set_serial $(CITADEL_SERIAL) \
+	@openssl x509 -req -days $(INTERMEDIATE_DAYS) \
+		-CA k8s-root-cert.pem -CAkey k8s-root-key.pem -set_serial $(INTERMEDIATE_SERIAL) \
 		-extensions req_ext -extfile $(dir $<)/intermediate.conf \
 		-in $< -out $@
 
 %/cluster-ca.csr: L=$(dir $@)
 %/cluster-ca.csr: %/ca-key.pem %/intermediate.conf
 	@echo "generating $@"
+	@openssl req -new -config $(L)/intermediate.conf -key $< -out $@
+
+%/ca-key.pem: fetch-root-ca
+	@echo "generating $@"
+	@mkdir -p $(dir $@)
+	@openssl genrsa -out $@ 4096
+
+#------------------------------------------------------------------------
+##<name>-cacerts-selfSigned: generate self signed intermediate certificates for <name> and store them under <name> directory.
+.PHONY: %-cacerts-selfSigned
+
+%-cacerts-selfSigned: %/selfSigned-ca-cert-chain.pem root-cert.pem
+	@echo "Intermediate inputs stored in $(dir $<)"
+	@cp root-cert.pem $(dir $<)
+
+%/selfSigned-ca-cert-chain.pem: %/selfSigned-ca-cert.pem root-cert.pem
+	@echo "generating $@"
+	@cat $^ > $@
+
+%/selfSigned-ca-cert.pem: %/selfSigned-cluster-ca.csr root-key.pem root-cert.pem
+	@echo "generating $@"
+	@openssl x509 -req -days $(INTERMEDIATE_DAYS) \
+		-CA root-cert.pem -CAkey root-key.pem -set_serial $(INTERMEDIATE_SERIAL) \
+		-extensions req_ext -extfile $(dir $<)/intermediate.conf \
+		-in $< -out $@
+
+%/selfSigned-cluster-ca.csr: L=$(dir $@)
+%/selfSigned-cluster-ca.csr: %/selfSigned-ca-key.pem %/intermediate.conf
+	@echo "generating $@"
 	@openssl req -new -config $(L)/intermediate.conf -key $< -out $@ 
 
-%/ca-key.pem:
+%/selfSigned-ca-key.pem:
 	@echo "generating $@"
 	@mkdir -p $(dir $@)
 	@openssl genrsa -out $@ 4096
@@ -111,7 +163,7 @@ root-key.pem:
 	@echo "prompt = no" >> $@
 	@echo "utf8 = yes" >> $@
 	@echo "default_md = sha256" >> $@
-	@echo "default_bits = $(CITADEL_KEYSZ)" >> $@
+	@echo "default_bits = $(INTERMEDIATE_KEYSZ)" >> $@
 	@echo "req_extensions = req_ext" >> $@
 	@echo "x509_extensions = req_ext" >> $@
 	@echo "distinguished_name = req_dn" >> $@
@@ -121,30 +173,28 @@ root-key.pem:
 	@echo "keyUsage = critical, digitalSignature, nonRepudiation, keyEncipherment, keyCertSign" >> $@
 	@echo "subjectAltName=@san" >> $@
 	@echo "[ san ]" >> $@
-	@echo "URI.1 = spiffe://cluster.local/ns/istio-system/sa/citadel" >> $@
-	@echo "URI.2 = spiffe://$(L:/=)/ns/istio-system/sa/citadel" >> $@
-	@echo "DNS.1 = $(CITADEL_SAN_DNS)" >> $@
+	@echo "DNS.1 = $(INTERMEDIATE_SAN_DNS)" >> $@
 	@echo "[ req_dn ]" >> $@
-	@echo "O = $(CITADEL_ORG)" >> $@
-	@echo "CN = $(CITADEL_CN)" >> $@
+	@echo "O = $(INTERMEDIATE_ORG)" >> $@
+	@echo "CN = $(INTERMEDIATE_CN)" >> $@
 	@echo "L = $(L:/=)" >> $@
-
 #------------------------------------------------------------------------
-##<name>-certs-wl: generate certificates for a virtual machine connected to the namespace `$NAMESPACE` using serviceAccount `$SERVICE_ACCOUNT` as well as intermediate certificates for K8s cluster `$NAME`
-.PHONY: %-certs-wl
+##<namespace>-certs-selfSigned: generate intermediate certificates and sign certificates for a virtual machine connected to the namespace `<namespace> using serviceAccount `$SERVICE_ACCOUNT` using self signed root certs.
+.PHONY: %-certs-selfSigned
 
-%-certs-wl: %/cert-chain.pem root-cert.pem %/workload-cert-chain.pem
-	@echo "Citadel inputs and workload certs stored in $(dir $<)"
+%-certs-selfSigned:
+%-certs-selfSigned: %/selfSigned-ca-cert-chain.pem  %/selfSigned-workload-cert-chain.pem root-cert.pem
+	@echo "Intermediate and workload certs stored in $(dir $<)"
 	@cp root-cert.pem $(dir $<)
 
-%/workload-cert-chain.pem: %/workload-cert.pem %/ca-cert.pem root-cert.pem
+%/selfSigned-workload-cert-chain.pem: %/selfSigned-workload-cert.pem %/selfSigned-ca-cert.pem root-cert.pem
 	@echo "generating $@"
 	@cat $^ > $@
 
-%/workload-cert.pem: %/workload.csr
+%/selfSigned-workload-cert.pem: %/workload.csr
 	@echo "generating $@"
 	@openssl x509 -req -days $(WORKLOAD_DAYS) \
-		-CA $(dir $<)/ca-cert.pem  -CAkey $(dir $<)/ca-key.pem -set_serial $(CITADEL_SERIAL) \
+		-CA $(dir $<)/selfSigned-ca-cert.pem  -CAkey $(dir $<)/selfSigned-ca-key.pem -set_serial $(INTERMEDIATE_SERIAL) \
 		-extensions req_ext -extfile $(dir $<)/workload.conf \
 		-in $< -out $@
 
@@ -165,7 +215,7 @@ root-key.pem:
 	@echo "prompt = no" >> $@
 	@echo "utf8 = yes" >> $@
 	@echo "default_md = sha256" >> $@
-	@echo "default_bits = $(CITADEL_KEYSZ)" >> $@
+	@echo "default_bits = $(INTERMEDIATE_KEYSZ)" >> $@
 	@echo "req_extensions = req_ext" >> $@
 	@echo "x509_extensions = req_ext" >> $@
 	@echo "distinguished_name = req_dn" >> $@
@@ -176,9 +226,29 @@ root-key.pem:
 	@echo "extendedKeyUsage = serverAuth, clientAuth" >> $@
 	@echo "subjectAltName=@san" >> $@
 	@echo "[ san ]" >> $@
-	@echo "URI.1 = spiffe://cluster.local/ns/$(NAMESPACE)/sa/$(SERVICE_ACCOUNT)" >> $@
-	@echo "DNS.1 = spiffe://cluster.local/ns/$(NAMESPACE)/sa/$(SERVICE_ACCOUNT)" >> $@
+	@echo "URI.1 = spiffe://cluster.local/ns/$(L)/sa/$(SERVICE_ACCOUNT)" >> $@
+	@echo "DNS.1 = spiffe://cluster.local/ns/$(L)/sa/$(SERVICE_ACCOUNT)" >> $@
 	@echo "[ req_dn ]" >> $@
-	@echo "O = $(CITADEL_ORG)" >> $@
-	@echo "CN = $(CITADEL_CN)" >> $@
+	@echo "O = $(INTERMEDIATE_ORG)" >> $@
+	@echo "CN = $(INTERMEDIATE_CN)" >> $@
 	@echo "L = $(L:/=)" >> $@
+
+#------------------------------------------------------------------------
+##<namespace>-certs-k8s: generate intermediate certificates and sign certificates for a virtual machine connected to the namespace `<namespace> using serviceAccount `$SERVICE_ACCOUNT` using root cert from k8s cluster.
+.PHONY: %-certs-k8s
+
+%-certs-k8s: %/cert-chain.pem k8s-root-cert.pem %/workload-cert-chain.pem
+	@echo "Intermediate and workload certs stored in $(dir $<)"
+	@cp k8s-root-cert.pem $(dir $<)/root-cert.pem
+
+%/workload-cert-chain.pem: %/workload-cert.pem %/ca-cert.pem k8s-root-cert.pem k8s-root-key.pem
+	@echo "generating $@"
+	@cat $^ > $@
+
+%/workload-cert.pem: %/workload.csr
+	@echo "generating $@"
+	@openssl x509 -req -days $(WORKLOAD_DAYS) \
+		-CA $(dir $<)/ca-cert.pem  -CAkey $(dir $<)/ca-key.pem -set_serial $(INTERMEDIATE_SERIAL) \
+		-extensions req_ext -extfile $(dir $<)/workload.conf \
+		-in $< -out $@
+
