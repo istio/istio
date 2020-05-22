@@ -78,8 +78,8 @@ func TestWait(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix:   "default",
-				Inject:   true,
+				Prefix: "default",
+				Inject: true,
 			})
 			ctx.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
