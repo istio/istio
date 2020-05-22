@@ -32,13 +32,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 )
 
-// Based on istio-ecosystem/istio-coredns-plugin
-// Changes from original:
-// - runs inside istiod, using Istio main gRPC server
-// - instead of directly reading from K8S, use istiod store.
-// - removed "log" - switching to istio log.
-// - refactored Query, so both DNS native interface and coredns grpc plugin are implemented
-// - added parts of istio-ecosystem/dns-discovery, to provide in process DNS
+// Implements a dns server, forwarding requests to upstream servers
+// or to DNS-over-TLS or local processing.
 
 // TODO:
 // - add metrics, ideally using same names as kubedns/coredns ( Doug ?)
