@@ -39,7 +39,7 @@ import (
 )
 
 var scope = log.RegisterScope("status",
-	"component for writing distribution status to istiio CRDs", 0)
+	"CRD distribution status debugging", 0)
 
 type Progress struct {
 	AckedInstances int

@@ -64,7 +64,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
@@ -186,7 +186,7 @@ func configTypeToTypeURL(configType string) string {
 
 func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 	return &xdsapi.DiscoveryRequest{
-		Node: &core1.Node{
+		Node: &corev2.Node{
 			Id: p.makeNodeID(),
 		},
 		TypeUrl: configTypeToTypeURL(configType)}

@@ -17,15 +17,15 @@ package authz
 import (
 	"strings"
 
-	"istio.io/istio/pilot/pkg/model"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
-	envoy_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // PolicyTypeToConfigs maps policy type (e.g. service-role) to a list of its config.
 type PolicyTypeToConfigs map[string][]model.Config
 
-func getCertificate(ctx *envoy_auth.CommonTlsContext) string {
+func getCertificate(ctx *tls.CommonTlsContext) string {
 	cert := "none"
 	if ctx == nil {
 		return cert

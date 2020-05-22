@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 func TestStringMatcherWithPrefix(t *testing.T) {

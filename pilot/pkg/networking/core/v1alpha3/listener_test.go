@@ -21,16 +21,16 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
-	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
-	envoy_type_tracing_v2 "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
+	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
@@ -447,7 +447,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			proxy.ServiceInstances = proxyInstances
 
 			listeners := configgen.buildSidecarOutboundListeners(&proxy, env.PushContext)
-			listenersToCheck := make([]*xdsapi.Listener, 0)
+			listenersToCheck := make([]*listener.Listener, 0)
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
 					listenersToCheck = append(listenersToCheck, l)
@@ -1366,7 +1366,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	}
 }
 
-func validateAccessLog(t *testing.T, l *xdsapi.Listener, format string) {
+func validateAccessLog(t *testing.T, l *listener.Listener, format string) {
 	t.Helper()
 	fc := &tcp_proxy.TcpProxy{}
 	if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
@@ -1619,11 +1619,11 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &envoy_type.Percent{
 					Value: 100.0,
 				},
-				CustomTags: []*envoy_type_tracing_v2.CustomTag{
+				CustomTags: []*tracing.CustomTag{
 					{
 						Tag: "custom_tag_env",
-						Type: &envoy_type_tracing_v2.CustomTag_Environment_{
-							Environment: &envoy_type_tracing_v2.CustomTag_Environment{
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
 								Name:         "custom_tag_env-var",
 								DefaultValue: "custom-tag-env-default",
 							},
@@ -1631,16 +1631,16 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					},
 					{
 						Tag: "custom_tag_literal",
-						Type: &envoy_type_tracing_v2.CustomTag_Literal_{
-							Literal: &envoy_type_tracing_v2.CustomTag_Literal{
+						Type: &tracing.CustomTag_Literal_{
+							Literal: &tracing.CustomTag_Literal{
 								Value: "literal-value",
 							},
 						},
 					},
 					{
 						Tag: "custom_tag_request_header",
-						Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
-							RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+						Type: &tracing.CustomTag_RequestHeader{
+							RequestHeader: &tracing.CustomTag_Header{
 								Name:         "custom_tag_request_header_name",
 								DefaultValue: "custom-defaulted-value-request-header",
 							},
@@ -1678,11 +1678,11 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: &wrappers.UInt32Value{
 					Value: 100,
 				},
-				CustomTags: []*envoy_type_tracing_v2.CustomTag{
+				CustomTags: []*tracing.CustomTag{
 					{
 						Tag: "custom_tag_request_header",
-						Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
-							RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+						Type: &tracing.CustomTag_RequestHeader{
+							RequestHeader: &tracing.CustomTag_Header{
 								Name:         "custom_tag_request_header_name",
 								DefaultValue: "custom-defaulted-value-request-header",
 							},
@@ -1780,7 +1780,7 @@ func verifyPassThroughTCPFilterChain(t *testing.T, fc *listener.FilterChain) {
 	}
 }
 
-func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname host.Name) {
+func verifyOutboundTCPListenerHostname(t *testing.T, l *listener.Listener, hostname host.Name) {
 	t.Helper()
 	if len(l.FilterChains) != 1 {
 		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
@@ -1798,7 +1798,7 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostnam
 	}
 }
 
-func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
+func verifyInboundHTTPListenerServerName(t *testing.T, l *listener.Listener) {
 	t.Helper()
 	if len(l.FilterChains) != 2 {
 		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
@@ -1816,7 +1816,7 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	}
 }
 
-func verifyInboundHTTPListenerStatPrefix(t *testing.T, l *xdsapi.Listener) {
+func verifyInboundHTTPListenerStatPrefix(t *testing.T, l *listener.Listener) {
 	t.Helper()
 	if len(l.FilterChains) != 2 {
 		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
@@ -1833,7 +1833,7 @@ func verifyInboundHTTPListenerStatPrefix(t *testing.T, l *xdsapi.Listener) {
 
 }
 
-func verifyInboundEnvoyListenerNumber(t *testing.T, l *xdsapi.Listener) {
+func verifyInboundEnvoyListenerNumber(t *testing.T, l *listener.Listener) {
 	t.Helper()
 	if len(l.FilterChains) != 2 {
 		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
@@ -1857,7 +1857,7 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *xdsapi.Listener) {
 	}
 }
 
-func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
+func verifyInboundHTTPListenerCertDetails(t *testing.T, l *listener.Listener) {
 	t.Helper()
 	if len(l.FilterChains) != 2 {
 		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
@@ -1882,7 +1882,7 @@ func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
 	}
 }
 
-func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *xdsapi.Listener) {
+func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *listener.Listener) {
 	t.Helper()
 	if len(l.FilterChains) != 2 {
 		t.Fatalf("expected 2 filter chains, found %d", len(l.FilterChains))
@@ -1899,7 +1899,7 @@ func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *xdsapi.Listener) {
 	}
 }
 
-func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *xdsapi.Listener) {
+func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *listener.Listener) {
 	t.Helper()
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
@@ -1927,7 +1927,7 @@ func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *xdsapi.Listener) 
 	}
 }
 
-func verifyFilterChainMatch(t *testing.T, listener *xdsapi.Listener) {
+func verifyFilterChainMatch(t *testing.T, listener *listener.Listener) {
 	if len(listener.FilterChains) != 5 ||
 		!isHTTPFilterChain(listener.FilterChains[0]) ||
 		!isHTTPFilterChain(listener.FilterChains[1]) ||
@@ -1951,7 +1951,7 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, env model.Environment) []*xdsapi.Listener {
+func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, env model.Environment) []*listener.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
@@ -1970,10 +1970,6 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, env model.E
 
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
-	case *listener.Filter_Config:
-		if err := conversion.StructToMessage(c.Config, out); err != nil {
-			return err
-		}
 	case *listener.Filter_TypedConfig:
 		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
 			return err
@@ -1983,7 +1979,7 @@ func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 }
 
 func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config,
-	virtualService *model.Config, services ...*model.Service) []*xdsapi.Listener {
+	virtualService *model.Config, services ...*model.Service) []*listener.Listener {
 	t.Helper()
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
@@ -2015,7 +2011,7 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 	return listeners
 }
 
-func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
+func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*listener.Listener {
 	t.Helper()
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 	env := buildListenerEnv(services, nil)
@@ -2066,10 +2062,10 @@ func (p *fakePlugin) OnOutboundCluster(in *plugin.InputParams, cluster *cluster.
 func (p *fakePlugin) OnInboundCluster(in *plugin.InputParams, cluster *cluster.Cluster) {
 }
 
-func (p *fakePlugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+func (p *fakePlugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *route.RouteConfiguration) {
 }
 
-func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *route.RouteConfiguration) {
 }
 
 func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []istionetworking.FilterChain {
@@ -2112,7 +2108,7 @@ func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []
 			FilterChainMatch: &listener.FilterChainMatch{
 				ApplicationProtocols: []string{fakePluginFilterChainMatchAlpn},
 			},
-			TLSContext: &auth.DownstreamTlsContext{},
+			TLSContext: &tls.DownstreamTlsContext{},
 			ListenerFilters: []*listener.ListenerFilter{
 				{
 					Name: xdsutil.TlsInspector,
@@ -2124,7 +2120,7 @@ func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []
 	}
 }
 
-func isHTTPListener(listener *xdsapi.Listener) bool {
+func isHTTPListener(listener *listener.Listener) bool {
 	if listener == nil {
 		return false
 	}
@@ -2137,7 +2133,7 @@ func isHTTPListener(listener *xdsapi.Listener) bool {
 	return false
 }
 
-func isMysqlListener(listener *xdsapi.Listener) bool {
+func isMysqlListener(listener *listener.Listener) bool {
 	if len(listener.FilterChains) > 0 && len(listener.FilterChains[0].Filters) > 0 {
 		return listener.FilterChains[0].Filters[0].Name == xdsutil.MySQLProxy
 	}
@@ -2148,7 +2144,7 @@ func isNodeHTTP10(proxy *model.Proxy) bool {
 	return proxy.Metadata.HTTP10 == "1"
 }
 
-func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Listener {
+func findListenerByPort(listeners []*listener.Listener, port uint32) *listener.Listener {
 	for _, l := range listeners {
 		if port == l.Address.GetSocketAddress().GetPortValue() {
 			return l
@@ -2158,7 +2154,7 @@ func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Liste
 	return nil
 }
 
-func findListenerByAddress(listeners []*xdsapi.Listener, address string) *xdsapi.Listener {
+func findListenerByAddress(listeners []*listener.Listener, address string) *listener.Listener {
 	for _, l := range listeners {
 		if address == l.Address.GetSocketAddress().Address {
 			return l
@@ -2295,14 +2291,14 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 	}
 	tests := []struct {
 		name         string
-		listener     *xdsapi.Listener
+		listener     *listener.Listener
 		listenerOpts *buildListenerOpts
 		node         *model.Proxy
 		hostname     string
 	}{
 		{
 			name:     "Registry_Only",
-			listener: &xdsapi.Listener{},
+			listener: &listener.Listener{},
 			listenerOpts: &buildListenerOpts{
 				push: push,
 			},
@@ -2319,7 +2315,7 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 		},
 		{
 			name:     "Allow_Any",
-			listener: &xdsapi.Listener{},
+			listener: &listener.Listener{},
 			listenerOpts: &buildListenerOpts{
 				push: push,
 			},
@@ -2406,7 +2402,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 		Port:     443,
 		Protocol: protocol.HTTPS,
 	}
-	var l xdsapi.Listener
+	var l listener.Listener
 	filterChains := []*listener.FilterChain{
 		{
 			FilterChainMatch: &listener.FilterChainMatch{

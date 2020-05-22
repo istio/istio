@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pkg/util/protomarshal"
