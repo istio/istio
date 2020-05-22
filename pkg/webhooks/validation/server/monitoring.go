@@ -35,9 +35,6 @@ const (
 )
 
 var (
-	// ErrorTag holds the error for the context.
-	ErrorTag tag.Key
-
 	// GroupTag holds the resource group for the context.
 	GroupTag tag.Key
 
@@ -81,9 +78,6 @@ func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregatio
 
 func init() {
 	var err error
-	if ErrorTag, err = tag.NewKey(errorStr); err != nil {
-		panic(err)
-	}
 	if GroupTag, err = tag.NewKey(group); err != nil {
 		panic(err)
 	}
