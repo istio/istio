@@ -74,6 +74,36 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
 
+func TestWait(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix:   "default",
+				Inject:   true,
+				Revision: "",
+				Labels:   nil,
+			})
+			ctx.ApplyConfigOrFail(t, ns.Name(), `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  gateways: [missing-gw]
+  hosts:
+  - reviews
+  http:
+  - route:
+    - destination: 
+        host: reviews
+`)
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			fmt.Print("start")
+			istioCtl.InvokeOrFail(t, []string{"x", "wait", "VirtualService", "reviews." + ns.Name()})
+			fmt.Print("end")
+		})
+}
+
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
 func TestVersion(t *testing.T) {
