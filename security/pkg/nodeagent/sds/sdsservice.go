@@ -329,7 +329,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// provisioned as kubernetes secret is not ready, wait for secret before sending SDS response.
 			// If a kubernetes secret was deleted by operator, wait for a new kubernetes secret before sending SDS response.
 			// If workload uses file mounted certs i.e. "FILE_MOUNTED_CERTS" is set to true, workdload loads certificates from
-			// mounted certificate paths andit does not depend on the presense of ingress gateway secret so
+			// mounted certificate paths and it does not depend on the presense of ingress gateway secret so
 			// we should skip waiting for it in that mode.
 			if s.st.ShouldWaitForIngressGatewaySecret(conID, resourceName, token, s.fileMountedCerts) {
 				sdsServiceLog.Warnf("%s waiting for ingress gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
