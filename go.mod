@@ -33,7 +33,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.3 // indirect
 	github.com/DataDog/datadog-go v2.2.0+incompatible
-	github.com/Masterminds/semver v1.4.2
+	github.com/Masterminds/semver v1.4.2 // indirect
 	github.com/Masterminds/sprig v2.20.0+incompatible
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v2.5.0+incompatible

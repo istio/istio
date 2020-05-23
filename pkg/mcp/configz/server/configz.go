@@ -18,11 +18,11 @@ import (
 	"html/template"
 	"net/http"
 
+	"istio.io/pkg/ctrlz/fw"
+
 	"istio.io/istio/pkg/mcp/configz/server/assets"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/ctrlz/fw"
 )
 
 // configzTopic topic is a Topic fw.implementation that exposes the state info for different snapshots galley is serving.
@@ -39,11 +39,6 @@ type SnapshotTopic interface {
 	GetSnapshotInfo(group string) []snapshot.Info
 	GetGroups() []string
 	GetResource(group string, collection string, name string) *sink.Object
-}
-
-// Register the Configz topic for the snapshots.
-func Register(topic SnapshotTopic) {
-	ctrlz.RegisterTopic(CreateTopic(topic))
 }
 
 // CreateTopic creates and returns a configz topic for the snapshots. It does not do any registration.

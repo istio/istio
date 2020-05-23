@@ -71,12 +71,6 @@ type Translator struct {
 	ComponentMaps map[name.ComponentName]*ComponentMaps `yaml:"componentMaps"`
 }
 
-// FeatureMap is a set of mappings for an Istio feature.
-type FeatureMap struct {
-	// Components contains list of components that belongs to the current feature.
-	Components []name.ComponentName
-}
-
 // ComponentMaps is a set of mappings for an Istio component.
 type ComponentMaps struct {
 	// ResourceType maps a ComponentName to the type of the rendered k8s resource.
