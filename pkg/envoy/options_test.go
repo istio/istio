@@ -264,7 +264,7 @@ func TestParseComponentLogLevels(t *testing.T) {
 }
 
 func TestGetAdminHostAndPort(t *testing.T) {
-	host, port, err := envoy.GetAdminHostAndPort("pkg/envoy/testdata/envoy-rev0.json")
+	host, port, err := envoy.GetAdminHostAndPort("testdata/envoy-rev0.json")
 	if err != nil {
 		t.Fatal(err)
 	}
