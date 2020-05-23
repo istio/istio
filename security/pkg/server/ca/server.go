@@ -33,7 +33,6 @@ import (
 
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 )
@@ -64,7 +63,6 @@ type Server struct {
 	monitoring     monitoringMetrics
 	Authenticators []authenticate.Authenticator
 	hostnames      []string
-	authorizer     authorizer
 	ca             CertificateAuthority
 	serverCertTTL  time.Duration
 	certificate    *tls.Certificate
@@ -252,7 +250,6 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 
 	server := &Server{
 		Authenticators: authenticators,
-		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
 		serverCertTTL:  ttl,
 		ca:             ca,
 		hostnames:      hostlist,
