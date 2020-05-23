@@ -402,10 +402,10 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 
 // ShouldWaitForIngressGatewaySecret returns true if node agent is working in ingress gateway agent mode
 // and needs to wait for ingress gateway secret to be ready.
-func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCerts bool) bool {
+func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
 	// If node agent works as workload agent, node agent does not expect any ingress gateway secret.
 	// If workload is using file mounted certs, we should not wait for ingress secret.
-	if sc.fetcher.UseCaClient || fileMountedCerts {
+	if sc.fetcher.UseCaClient || fileMountedCertsOnly {
 		return false
 	}
 
