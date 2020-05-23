@@ -28,6 +28,8 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -45,9 +47,10 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/log"
 )
 
 // Config for the ADS connection.
@@ -104,10 +107,10 @@ type ADSC struct {
 	InitialLoad time.Duration
 
 	// httpListeners contains received listeners with a http_connection_manager filter.
-	httpListeners map[string]*xdsapi.Listener
+	httpListeners map[string]*listener.Listener
 
 	// tcpListeners contains all listeners of type TCP (not-HTTP)
-	tcpListeners map[string]*xdsapi.Listener
+	tcpListeners map[string]*listener.Listener
 
 	// All received clusters of type eds, keyed by name
 	edsClusters map[string]*cluster.Cluster
@@ -116,7 +119,7 @@ type ADSC struct {
 	clusters map[string]*cluster.Cluster
 
 	// All received routes, keyed by route name
-	routes map[string]*xdsapi.RouteConfiguration
+	routes map[string]*route.RouteConfiguration
 
 	// All received endpoints, keyed by cluster name
 	eds map[string]*endpoint.ClusterLoadAssignment
@@ -344,9 +347,9 @@ func (a *ADSC) handleRecv() {
 			continue
 		}
 
-		listeners := []*xdsapi.Listener{}
+		listeners := []*listener.Listener{}
 		clusters := []*cluster.Cluster{}
-		routes := []*xdsapi.RouteConfiguration{}
+		routes := []*route.RouteConfiguration{}
 		eds := []*endpoint.ClusterLoadAssignment{}
 		for _, rsc := range msg.Resources { // Any
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
@@ -354,7 +357,7 @@ func (a *ADSC) handleRecv() {
 			switch rsc.TypeUrl {
 			case v2.ListenerType:
 				{
-					ll := &xdsapi.Listener{}
+					ll := &listener.Listener{}
 					_ = proto.Unmarshal(valBytes, ll)
 					listeners = append(listeners, ll)
 				}
@@ -375,7 +378,7 @@ func (a *ADSC) handleRecv() {
 
 			case v2.RouteType:
 				{
-					rl := &xdsapi.RouteConfiguration{}
+					rl := &route.RouteConfiguration{}
 					_ = proto.Unmarshal(valBytes, rl)
 					routes = append(routes, rl)
 				}
@@ -496,9 +499,9 @@ func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
 }
 
 // nolint: staticcheck
-func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
-	lh := map[string]*xdsapi.Listener{}
-	lt := map[string]*xdsapi.Listener{}
+func (a *ADSC) handleLDS(ll []*listener.Listener) {
+	lh := map[string]*listener.Listener{}
+	lt := map[string]*listener.Listener{}
 
 	routes := []string{}
 	ldsSize := 0
@@ -524,10 +527,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		}
 		if filter.Name == "envoy.tcp_proxy" {
 			lt[l.Name] = l
-			config := filter.GetConfig()
-			if config == nil {
-				config, _ = conversion.MessageToStruct(filter.GetTypedConfig())
-			}
+			config, _ := conversion.MessageToStruct(filter.GetTypedConfig())
 			c := config.Fields["cluster"].GetStringValue()
 			adscLog.Debugf("TCP: %s -> %s", l.Name, c)
 		} else if filter.Name == "envoy.http_connection_manager" {
@@ -757,13 +757,13 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 	}
 }
 
-func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
+func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
 
 	vh := 0
 	rcount := 0
 	size := 0
 
-	rds := map[string]*xdsapi.RouteConfiguration{}
+	rds := map[string]*route.RouteConfiguration{}
 
 	for _, r := range configurations {
 		for _, h := range r.VirtualHosts {
@@ -936,14 +936,14 @@ func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse) {
 }
 
 // GetHTTPListeners returns all the http listeners.
-func (a *ADSC) GetHTTPListeners() map[string]*xdsapi.Listener {
+func (a *ADSC) GetHTTPListeners() map[string]*listener.Listener {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	return a.httpListeners
 }
 
 // GetTCPListeners returns all the tcp listeners.
-func (a *ADSC) GetTCPListeners() map[string]*xdsapi.Listener {
+func (a *ADSC) GetTCPListeners() map[string]*listener.Listener {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	return a.tcpListeners
@@ -964,7 +964,7 @@ func (a *ADSC) GetClusters() map[string]*cluster.Cluster {
 }
 
 // GetRoutes returns all the routes.
-func (a *ADSC) GetRoutes() map[string]*xdsapi.RouteConfiguration {
+func (a *ADSC) GetRoutes() map[string]*route.RouteConfiguration {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	return a.routes

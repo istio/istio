@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/golang/protobuf/proto"
 
@@ -917,8 +918,8 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	}
 }
 
-func unmarshallRoute(value []byte) (*xdsapi.RouteConfiguration, error) {
-	route := &xdsapi.RouteConfiguration{}
+func unmarshallRoute(value []byte) (*route.RouteConfiguration, error) {
+	route := &route.RouteConfiguration{}
 
 	err := proto.Unmarshal(value, route)
 	if err != nil {

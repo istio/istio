@@ -23,8 +23,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	. "github.com/onsi/gomega"
 
-	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/config/retry/previous_priorities"
+	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"

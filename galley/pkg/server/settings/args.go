@@ -21,6 +21,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -54,6 +55,9 @@ type Args struct { // nolint:maligned
 
 	// KubeInterface has an already created K8S interface, will be reused instead of creating a new one
 	KubeInterface *kubernetes.Clientset
+
+	// List of namespaces watched, separated by comma; if not set, watch all namespaces.
+	WatchedNamespaces string
 
 	// InsecureGRPC is an existing GRPC server, will be used by Galley instead of creating its own
 	InsecureGRPC *grpc.Server
@@ -169,6 +173,7 @@ func DefaultArgs() *Args {
 	return &Args{
 		ResyncPeriod:                    0,
 		KubeConfig:                      "",
+		WatchedNamespaces:               metav1.NamespaceAll,
 		APIAddress:                      "tcp://0.0.0.0:9901",
 		MaxReceivedMessageSize:          1024 * 1024,
 		MaxConcurrentStreams:            1024,
@@ -213,6 +218,7 @@ func (a *Args) String() string {
 	buf := &bytes.Buffer{}
 
 	_, _ = fmt.Fprintf(buf, "KubeConfig: %s\n", a.KubeConfig)
+	_, _ = fmt.Fprintf(buf, "WatchedNamespaces: %s\n", a.WatchedNamespaces)
 	_, _ = fmt.Fprintf(buf, "ResyncPeriod: %v\n", a.ResyncPeriod)
 	_, _ = fmt.Fprintf(buf, "APIAddress: %s\n", a.APIAddress)
 	_, _ = fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.EnableGRPCTracing)

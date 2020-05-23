@@ -32,7 +32,7 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -128,7 +128,7 @@ func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClie
 func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
+		Node: &corev2.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
@@ -151,7 +151,7 @@ func sendEDSNack(_ []string, node string, client ads.AggregatedDiscoveryService_
 // reconnect problems.
 func sendEDSReqReconnect(clusters []string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, res *xdsapi.DiscoveryResponse) error {
 	err := client.Send(&xdsapi.DiscoveryRequest{
-		Node: &core.Node{
+		Node: &corev2.Node{
 			Id:       sidecarID(app3Ip, "app3"),
 			Metadata: nodeMetadata,
 		},
@@ -173,7 +173,7 @@ func sendLDSReq(node string, client ads.AggregatedDiscoveryService_StreamAggrega
 func sendLDSReqWithLabels(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, labels map[string]string) error {
 	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
+		Node: &corev2.Node{
 			Id:       node,
 			Metadata: model.NodeMetadata{Labels: labels}.ToStruct(),
 		},
@@ -192,7 +192,7 @@ func sendLDSNack(node string, client ads.AggregatedDiscoveryService_StreamAggreg
 func sendRDSReq(node string, routes []string, nonce string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: nonce,
-		Node: &core.Node{
+		Node: &corev2.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
@@ -208,7 +208,7 @@ func sendRDSReq(node string, routes []string, nonce string, rdsstr ads.Aggregate
 func sendRDSNack(node string, _ []string, nonce string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: nonce,
-		Node: &core.Node{
+		Node: &corev2.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
@@ -236,7 +236,7 @@ func sendXds(node string, client ads.AggregatedDiscoveryService_StreamAggregated
 	}
 	err := client.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
+		Node: &corev2.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
