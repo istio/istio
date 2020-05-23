@@ -120,7 +120,7 @@ type sdsservice struct {
 	// skipToken indicates whether token is required.
 	skipToken bool
 
-	fileMountedCerts bool
+	fileMountedCertsOnly bool
 
 	localJWT bool
 
@@ -148,21 +148,21 @@ type Debug struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT, fileMountedCerts bool,
+func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT, fileMountedCertsOnly bool,
 	recycleInterval time.Duration, jwtPath, outputKeyCertToDir string) *sdsservice {
 	if st == nil {
 		return nil
 	}
 
 	ret := &sdsservice{
-		st:                 st,
-		skipToken:          skipTokenVerification,
-		fileMountedCerts:   fileMountedCerts,
-		tickerInterval:     recycleInterval,
-		closing:            make(chan bool),
-		localJWT:           localJWT,
-		jwtPath:            jwtPath,
-		outputKeyCertToDir: outputKeyCertToDir,
+		st:                   st,
+		skipToken:            skipTokenVerification,
+		fileMountedCertsOnly: fileMountedCertsOnly,
+		tickerInterval:       recycleInterval,
+		closing:              make(chan bool),
+		localJWT:             localJWT,
+		jwtPath:              jwtPath,
+		outputKeyCertToDir:   outputKeyCertToDir,
 	}
 
 	go ret.clearStaledClientsJob()
@@ -333,11 +333,11 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// we should skip waiting for it in that mode.
 			// File mounted certs for gateways is used in scenarios where an existing PKI infrastuctures delivers certificates
 			// to pods/VMs via files.
-			if s.st.ShouldWaitForIngressGatewaySecret(conID, resourceName, token, s.fileMountedCerts) {
+			if s.st.ShouldWaitForIngressGatewaySecret(conID, resourceName, token, s.fileMountedCertsOnly) {
 				sdsServiceLog.Warnf("%s waiting for ingress gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
 				continue
 			} else {
-				sdsServiceLog.Infof("Workload is using file mounted certificates. Skipping waiting for ingress gateway secret")
+				sdsServiceLog.Infof("Skipping waiting for ingress gateway secret")
 			}
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)

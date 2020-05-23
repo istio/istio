@@ -138,7 +138,7 @@ type SecretManager interface {
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error)
 
 	// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
-	ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCerts bool) bool
+	ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool
 
 	// SecretExist checks if secret already existed.
 	// This API is used for sds server to check if coming request is ack request.
