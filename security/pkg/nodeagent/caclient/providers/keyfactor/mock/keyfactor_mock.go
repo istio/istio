@@ -28,7 +28,7 @@ type CAServer struct {
 
 // CreateServer creates a mocked local KeyfactorCA server and runs it in a separate thread.
 // nolint: interfacer
-func CreateServer(responseError bool, responseData interface{}) *CAServer {
+func CreateServer(responseError bool, responseData interface{}, requestBodyChan chan map[string]interface{}) *CAServer {
 	// create a local https server
 	s := &CAServer{}
 
@@ -40,9 +40,10 @@ func CreateServer(responseError bool, responseData interface{}) *CAServer {
 			return
 		}
 
-		var requestBody interface{}
+		var requestBody map[string]interface{}
 
 		json.NewDecoder(r.Body).Decode(&requestBody)
+		requestBodyChan <- requestBody
 
 		j, _ := json.Marshal(responseData)
 		_, _ = w.Write(j)

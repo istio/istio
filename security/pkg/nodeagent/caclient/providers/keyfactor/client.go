@@ -93,6 +93,7 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 	keyfactorConfig, err := LoadKeyfactorConfigFromENV()
 
 	if err != nil {
+		keyFactorCAClientLog.Errorf("Cannot load keyfactor config from ENV: %v", err)
 		return nil, fmt.Errorf("Cannot load keyfactor config: %v", err)
 	}
 

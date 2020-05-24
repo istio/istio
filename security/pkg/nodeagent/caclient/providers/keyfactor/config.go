@@ -89,6 +89,7 @@ func LoadKeyfactorConfigFromENV() (*KeyfactorConfig, error) {
 		configLog.Warn("Cannot parse data from KEYFACTOR_METADATA_JSON (.keyfactor.metadata). Metadata is ignore now.")
 	}
 	conf.CustomMetadatas = metadatas
+
 	configLog.Infof("Validate Keyfactor config\n%v", conf)
 	if err := conf.Validate(); err != nil {
 		return nil, err
@@ -119,9 +120,17 @@ func (kc *KeyfactorConfig) Validate() error {
 		return fmt.Errorf("Missing enrollPath (KEYFATOR_E) in ENV")
 	}
 
+	configLog.Infof("Validating custom Metadata")
+
 	for _, value := range kc.CustomMetadatas {
-		if _, ok := supportedMetadata[value.Name]; !ok {
+		configLog.Infof("Validating fieldName: %v", value.Name)
+		if _, found := supportedMetadata[value.Name]; !found {
+			configLog.Errorf("Do not support Metadata field name: %v", value.Name)
 			return fmt.Errorf("Do not support Metadata field name: %v", value.Name)
+		}
+
+		if value.Alias == "" {
+			return fmt.Errorf("Invalid alias name for Metadata: %v", value.Name)
 		}
 	}
 	return nil

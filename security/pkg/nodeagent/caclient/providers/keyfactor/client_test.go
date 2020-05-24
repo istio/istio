@@ -15,11 +15,13 @@
 package caclient
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	assert "github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 
 	mockKeyfactor "istio.io/istio/security/pkg/nodeagent/caclient/providers/keyfactor/mock"
@@ -97,8 +99,21 @@ func TestKeyfactorWithTLSEnabled(t *testing.T) {
 	for testID, tc := range testCases {
 		t.Run(testID, func(tsub *testing.T) {
 
-			os.Setenv("KEYFACTOR_CONFIG_PATH", "./testdata/config_for_client.yaml")
-			defer os.Unsetenv("KEYFACTOR_CONFIG_PATH")
+			os.Setenv("KEYFACTOR_CA", "FakeCA")
+			os.Setenv("KEYFACTOR_AUTH_TOKEN", "FakeAuthToken")
+			os.Setenv("KEYFACTOR_APPKEY", "FakeAppKey")
+			os.Setenv("KEYFACTOR_CA_TEMPLATE", "Istio")
+
+			metadataJSON, _ := json.Marshal(&[]FieldAlias{{Name: "Cluster", Alias: "Cluster_Alias"}})
+			os.Setenv("KEYFACTOR_METADATA_JSON", string(metadataJSON))
+
+			defer func() {
+				os.Unsetenv("KEYFACTOR_CA")
+				os.Unsetenv("KEYFACTOR_AUTH_TOKEN")
+				os.Unsetenv("KEYFACTOR_APPKEY")
+				os.Unsetenv("KEYFACTOR_CA_TEMPLATE")
+				os.Unsetenv("KEYFACTOR_METADATA_JSON")
+			}()
 
 			_, err := NewKeyFactorCAClient("", tc.enabledTLS, tc.rootCert, &KeyfactorCAClientMetadata{})
 
@@ -175,7 +190,8 @@ func TestKeyfactorSignCSR(t *testing.T) {
 			os.Setenv("KEYFACTOR_CONFIG_PATH", "./testdata")
 			defer os.Unsetenv("KEYFACTOR_CONFIG_PATH")
 
-			mockServer := mockKeyfactor.CreateServer(tc.serverError, tc.responseData)
+			requestBodyChan := make(chan map[string]interface{})
+			mockServer := mockKeyfactor.CreateServer(tc.serverError, tc.responseData, requestBodyChan)
 
 			defer mockServer.Server.Close()
 
@@ -199,6 +215,152 @@ func TestKeyfactorSignCSR(t *testing.T) {
 					t.Errorf("Expect not error, but got: %v", err)
 				}
 			}
+		})
+	}
+
+}
+
+func TestCustomMetadata(t *testing.T) {
+
+	fakeResponse := KeyfactorResponse{
+		CertificateInformation: CertificateInformation{
+			Certificates: []string{validCert1, validRootCert1},
+		},
+	}
+
+	options := pkiutil.CertOptions{
+		Host:       "spiffe://cluster.local/ns/default/sa/default",
+		RSAKeySize: 2048,
+		Org:        "Istio Test",
+		IsCA:       false,
+		IsDualUse:  false,
+		PKCS8Key:   false,
+		TTL:        24 * time.Hour,
+	}
+
+	// Generate the cert/key, send CSR to CA.
+	csrPEM, _, err := pkiutil.GenCSR(options)
+
+	if err != nil {
+		t.Errorf("Test case: failed to create CSRPem : %v", err)
+	}
+
+	testCases := map[string]struct {
+		customMetadatas   []FieldAlias
+		expectMetadataMap map[string]string
+		expectedErr       string
+	}{
+		"Valid metadata configuration": {
+			customMetadatas:   []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
+			expectMetadataMap: map[string]string{"Fake_Alias_Cluster": "FakeClusterName"},
+			expectedErr:       "",
+		},
+		"Empty metadata configuration": {
+			customMetadatas:   []FieldAlias{},
+			expectMetadataMap: make(map[string]string),
+			expectedErr:       "",
+		},
+		"With full metadata configuration": {
+			customMetadatas: []FieldAlias{
+				{Name: "Cluster", Alias: "Fake_Alias_Cluster"},
+				{Name: "Service", Alias: "Fake_Alias_Service"},
+				{Name: "PodName", Alias: "Fake_Alias_PodName"},
+				{Name: "PodNamespace", Alias: "Fake_Alias_PodNamespace"},
+				{Name: "PodIP", Alias: "Fake_Alias_PodIP"},
+			},
+			expectMetadataMap: map[string]string{
+				"Fake_Alias_Cluster":      "FakeClusterName",
+				"Fake_Alias_Service":      "FakeService",
+				"Fake_Alias_PodName":      "FakeService-v1-PodID",
+				"Fake_Alias_PodNamespace": "FakePodNamespace",
+				"Fake_Alias_PodIP":        "FakePodIP",
+			},
+			expectedErr: "",
+		},
+		"Error with further redundant metadata configurations": {
+			customMetadatas: []FieldAlias{
+				{Name: "Cluster", Alias: "Fake_Alias_Cluster"},
+				{Name: "Service", Alias: "Fake_Alias_Service"},
+				{Name: "PodName", Alias: "Fake_Alias_PodName"},
+				{Name: "PodNamespace", Alias: "Fake_Alias_PodNamespace"},
+				{Name: "PodIP", Alias: "Fake_Alias_PodIP"},
+				{Name: "MoreMoreMore", Alias: "MoreMoreMore"},
+			},
+			expectMetadataMap: map[string]string{
+				"Fake_Alias_Cluster":      "FakeClusterName",
+				"Fake_Alias_Service":      "FakeService",
+				"Fake_Alias_PodName":      "FakeService-v1-PodID",
+				"Fake_Alias_PodNamespace": "FakePodNamespace",
+				"Fake_Alias_PodIP":        "FakePodIP",
+			},
+			expectedErr: "Cannot load keyfactor config: Do not support Metadata field name: MoreMoreMore",
+		},
+	}
+
+	for testID, tc := range testCases {
+		t.Run(testID, func(tsub *testing.T) {
+
+			os.Setenv("KEYFACTOR_CA", "FakeCA")
+			os.Setenv("KEYFACTOR_AUTH_TOKEN", "FakeAuthToken")
+			os.Setenv("KEYFACTOR_APPKEY", "FakeAppKey")
+			os.Setenv("KEYFACTOR_CA_TEMPLATE", "Istio")
+
+			metadataJSON, _ := json.Marshal(tc.customMetadatas)
+			os.Setenv("KEYFACTOR_METADATA_JSON", string(metadataJSON))
+
+			defer func() {
+				os.Unsetenv("KEYFACTOR_CA")
+				os.Unsetenv("KEYFACTOR_AUTH_TOKEN")
+				os.Unsetenv("KEYFACTOR_APPKEY")
+				os.Unsetenv("KEYFACTOR_CA_TEMPLATE")
+				os.Unsetenv("KEYFACTOR_METADATA_JSON")
+			}()
+			requestBodyChan := make(chan map[string]interface{})
+			mockServer := mockKeyfactor.CreateServer(false, fakeResponse, requestBodyChan)
+
+			defer mockServer.Server.Close()
+
+			caEndpoint := mockServer.Address
+
+			cl, err := NewKeyFactorCAClient(caEndpoint, false, nil, &KeyfactorCAClientMetadata{
+				ClusterID:    "FakeClusterName",
+				TrustDomain:  "FakeTrustDomain",
+				PodNamespace: "FakePodNamespace",
+				PodName:      "FakeService-v1-PodID",
+				PodIP:        "FakePodIP",
+			})
+
+			if err != nil {
+				assert.EqualError(tsub, err, tc.expectedErr, "Expect throw error on create keyfactor client")
+				return
+			}
+
+			go func() {
+				time.Sleep(200 * time.Millisecond)
+				_, err = cl.CSRSign(context.TODO(), "", csrPEM, "Istio", 6400)
+				if err != nil {
+					tsub.Errorf("Test case [%s]: got error on call CSRSign: %v", testID, err.Error())
+				}
+			}()
+
+			reqBody := <-requestBodyChan
+
+			if reqBody["Metadata"] == nil {
+				if len(tc.expectMetadataMap) > 0 {
+					tsub.Errorf("Expect have metadata: %v, but got empty", tc.expectMetadataMap)
+				}
+			}
+
+			respMetadata := reqBody["Metadata"].(map[string]interface{})
+
+			if len(tc.expectMetadataMap) > 0 {
+				for k := range tc.expectMetadataMap {
+					assert.NotNilf(tsub, respMetadata[k], "The two map Custom Metadata should be equal - but missing key (%v)", k)
+					assert.Equalf(tsub, respMetadata[k].(string), tc.expectMetadataMap[k], "Custom meta should have value: %v - but got (%v)", tc.expectMetadataMap[k], respMetadata[k].(string))
+				}
+				return
+			}
+			assert.Lenf(tsub, respMetadata, 0, "Metadata should be empty but got %v", respMetadata)
 		})
 	}
 
