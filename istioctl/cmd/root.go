@@ -174,6 +174,8 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
 	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())
 
+	experimentalCmd.AddCommand(newProxyStatusCommand())
+
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
 		Section: "istioctl CLI",
