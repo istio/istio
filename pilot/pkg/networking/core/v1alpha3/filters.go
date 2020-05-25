@@ -15,16 +15,16 @@
 package v1alpha3
 
 import (
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	cors "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/cors/v2"
-	fault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
 	grpcweb "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/grpc_web/v2"
 	router "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/router/v2"
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/http_inspector/v2"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/original_dst/v2"
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/original_src/v2alpha1"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/networking/util"

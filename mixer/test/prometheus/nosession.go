@@ -215,7 +215,7 @@ func NewNoSessionServer(addr uint16, promAddr uint16) (*NoSessionServer, error) 
 	gp := pool.NewGoroutinePool(5, false)
 	inf, srv := prometheus.GetInfoWithAddr(pddr)
 	s := &NoSessionServer{builder: inf.NewBuilder(),
-		env:    handler.NewEnv(0, "prometheus-nosession", gp),
+		env:    handler.NewEnv(0, "prometheus-nosession", gp, []string{""}),
 		rawcfg: []byte{0xff, 0xff},
 	}
 	var err error

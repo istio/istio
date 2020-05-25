@@ -20,11 +20,12 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 )
 
 const (
@@ -43,7 +44,7 @@ type ListenerFilter struct {
 }
 
 // Verify returns true if the passed listener matches the filter fields
-func (l *ListenerFilter) Verify(listener *xdsapi.Listener) bool {
+func (l *ListenerFilter) Verify(listener *listener.Listener) bool {
 	if l.Address == "" && l.Port == 0 && l.Type == "" {
 		return true
 	}
@@ -60,7 +61,7 @@ func (l *ListenerFilter) Verify(listener *xdsapi.Listener) bool {
 }
 
 // retrieveListenerType classifies a Listener as HTTP|TCP|HTTP+TCP|UNKNOWN
-func retrieveListenerType(l *xdsapi.Listener) string {
+func retrieveListenerType(l *listener.Listener) string {
 	nHTTP := 0
 	nTCP := 0
 	for _, filterChain := range l.GetFilterChains() {
@@ -87,11 +88,11 @@ func retrieveListenerType(l *xdsapi.Listener) string {
 	return "UNKNOWN"
 }
 
-func retrieveListenerAddress(l *xdsapi.Listener) string {
+func retrieveListenerAddress(l *listener.Listener) string {
 	return l.Address.GetSocketAddress().Address
 }
 
-func retrieveListenerPort(l *xdsapi.Listener) uint32 {
+func retrieveListenerPort(l *listener.Listener) uint32 {
 	return l.Address.GetSocketAddress().GetPortValue()
 }
 
@@ -127,13 +128,13 @@ func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter) error {
 	}
 	out, err := json.MarshalIndent(filteredListeners, "", "    ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal listeners: %v", err)
 	}
 	fmt.Fprintln(c.Stdout, string(out))
 	return nil
 }
 
-func (c *ConfigWriter) setupListenerConfigWriter() (*tabwriter.Writer, []*xdsapi.Listener, error) {
+func (c *ConfigWriter) setupListenerConfigWriter() (*tabwriter.Writer, []*listener.Listener, error) {
 	listeners, err := c.retrieveSortedListenerSlice()
 	if err != nil {
 		return nil, nil, err
@@ -142,32 +143,36 @@ func (c *ConfigWriter) setupListenerConfigWriter() (*tabwriter.Writer, []*xdsapi
 	return w, listeners, nil
 }
 
-func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*xdsapi.Listener, error) {
+func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*listener.Listener, error) {
 	if c.configDump == nil {
 		return nil, fmt.Errorf("config writer has not been primed")
 	}
 	listenerDump, err := c.configDump.GetListenerConfigDump()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listener dump: %v", err)
 	}
-	listeners := make([]*xdsapi.Listener, 0)
-	for _, listener := range listenerDump.DynamicListeners {
-		if listener.ActiveState != nil && listener.ActiveState.Listener != nil {
-			listenerTyped := &xdsapi.Listener{}
-			err = ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+	listeners := make([]*listener.Listener, 0)
+	for _, l := range listenerDump.DynamicListeners {
+		if l.ActiveState != nil && l.ActiveState.Listener != nil {
+			listenerTyped := &listener.Listener{}
+			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+			l.ActiveState.Listener.TypeUrl = v3.ListenerType
+			err = ptypes.UnmarshalAny(l.ActiveState.Listener, listenerTyped)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("unmarshal listener: %v", err)
 			}
 			listeners = append(listeners, listenerTyped)
 		}
 	}
 
-	for _, listener := range listenerDump.StaticListeners {
-		if listener.Listener != nil {
-			listenerTyped := &xdsapi.Listener{}
-			err = ptypes.UnmarshalAny(listener.Listener, listenerTyped)
+	for _, l := range listenerDump.StaticListeners {
+		if l.Listener != nil {
+			listenerTyped := &listener.Listener{}
+			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+			l.Listener.TypeUrl = v3.ListenerType
+			err = ptypes.UnmarshalAny(l.Listener, listenerTyped)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("unmarshal listener: %v", err)
 			}
 			listeners = append(listeners, listenerTyped)
 		}

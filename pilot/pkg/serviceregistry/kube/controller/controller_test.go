@@ -143,11 +143,12 @@ func (fx *FakeXdsUpdater) Clear() {
 }
 
 type fakeControllerOptions struct {
-	networksWatcher mesh.NetworksWatcher
-	serviceHandler  func(service *model.Service, event model.Event)
-	instanceHandler func(instance *model.ServiceInstance, event model.Event)
-	mode            EndpointMode
-	clusterID       string
+	networksWatcher   mesh.NetworksWatcher
+	serviceHandler    func(service *model.Service, event model.Event)
+	instanceHandler   func(instance *model.ServiceInstance, event model.Event)
+	mode              EndpointMode
+	clusterID         string
+	watchedNamespaces string
 }
 
 func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *FakeXdsUpdater) {
@@ -159,14 +160,14 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	metadataClient := metafake.NewSimpleMetadataClient(scheme)
 
 	c := NewController(clientSet, metadataClient, Options{
-		WatchedNamespace: "", // tests create resources in multiple ns
-		ResyncPeriod:     resync,
-		DomainSuffix:     domainSuffix,
-		XDSUpdater:       fx,
-		Metrics:          &model.Environment{},
-		NetworksWatcher:  opts.networksWatcher,
-		EndpointMode:     opts.mode,
-		ClusterID:        opts.clusterID,
+		WatchedNamespaces: opts.watchedNamespaces, // default is all namespaces
+		ResyncPeriod:      resync,
+		DomainSuffix:      domainSuffix,
+		XDSUpdater:        fx,
+		Metrics:           &model.Environment{},
+		NetworksWatcher:   opts.networksWatcher,
+		EndpointMode:      opts.mode,
+		ClusterID:         opts.clusterID,
 	})
 
 	if opts.instanceHandler != nil {

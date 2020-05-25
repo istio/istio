@@ -22,9 +22,11 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -75,8 +77,8 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
-	LDSListeners []*xdsapi.Listener                    `json:"-"`
-	RouteConfigs map[string]*xdsapi.RouteConfiguration `json:"-"`
+	LDSListeners []*listener.Listener                 `json:"-"`
+	RouteConfigs map[string]*route.RouteConfiguration `json:"-"`
 	CDSClusters  []*cluster.Cluster
 
 	// Last nonce sent and ack'd (timestamps) used for debugging
@@ -139,8 +141,8 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 		Clusters:     []string{},
 		Connect:      time.Now(),
 		stream:       stream,
-		LDSListeners: []*xdsapi.Listener{},
-		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
+		LDSListeners: []*listener.Listener{},
+		RouteConfigs: map[string]*route.RouteConfiguration{},
 	}
 }
 
@@ -471,7 +473,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) error {
+func (s *DiscoveryServer) initConnection(node *corev2.Node, con *XdsConnection) error {
 	proxy, err := s.initProxy(node)
 	if err != nil {
 		return err
@@ -495,7 +497,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) er
 }
 
 // initProxy initializes the Proxy from node.
-func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
+func (s *DiscoveryServer) initProxy(node *corev2.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
