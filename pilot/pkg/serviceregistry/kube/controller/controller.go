@@ -793,14 +793,14 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 }
 
 // convenience function to collect all workload entry endpoints in updateEDS calls.
-func (c *Controller) collectAllForeignEndpoints(svc *model.Service) ([]*model.IstioEndpoint, error) {
+func (c *Controller) collectAllForeignEndpoints(svc *model.Service) []*model.IstioEndpoint {
 	var foreignInstancesExist bool
 	c.RLock()
 	foreignInstancesExist = len(c.foreignRegistryInstancesByIP) > 0
 	c.RUnlock()
 
 	if !foreignInstancesExist || svc.Resolution != model.ClientSideLB || len(svc.Ports) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	instances := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
@@ -820,7 +820,7 @@ func (c *Controller) collectAllForeignEndpoints(svc *model.Service) ([]*model.Is
 			endpoints = append(endpoints, &ep)
 		}
 	}
-	return endpoints, nil
+	return endpoints
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
@@ -1198,10 +1198,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
-	fep, err := c.collectAllForeignEndpoints(svc)
-	if err != nil {
-		log.Debugf("Handle EDS: error collecting foreign endpoints of svc %s in namespace %s", hostname, ep.Namespace)
-	}
+	fep := c.collectAllForeignEndpoints(svc)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, append(endpoints, fep...))
 	// fire instance handles for k8s endpoints only
