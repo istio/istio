@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -718,12 +717,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 	// First get k8s standard service instances and the workload entry instances
 	outInstances, err := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
-	foreignInstances, err2 := c.getForeignServiceInstancesByPort(svc, reqSvcPort)
-
-	if err2 != nil {
-		err = multierror.Append(err, err2)
-	}
-	outInstances = append(outInstances, foreignInstances...)
+	outInstances = append(outInstances, c.getForeignServiceInstancesByPort(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
 	if len(outInstances) > 0 || err != nil {
@@ -746,7 +740,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	return nil, nil
 }
 
-func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvcPort int) ([]*model.ServiceInstance, error) {
+func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// Run through all the foreign instances, select ones that match the service labels
 	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
 	// as InstancesByPort is called by the aggregate controller. We dont want to include
@@ -758,25 +752,10 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 
 	if !foreignInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
 		svc.MeshExternal || svc.Resolution != model.ClientSideLB {
-		return nil, nil
+		return nil
 	}
 
-	item, exists, err := c.serviceInformer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
-	if err != nil {
-		log.Infof("get foreignServiceInstancesByPort(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return nil, err
-	}
-
-	if !exists {
-		return nil, nil
-	}
-
-	k8sService := item.(*v1.Service)
-	if k8sService.Spec.Selector == nil {
-		// services with nil selectors match nothing, not everything.
-		return nil, nil
-	}
-	selector := klabels.Set(k8sService.Spec.Selector).AsSelectorPreValidated()
+	selector := labels.Instance(svc.Attributes.LabelSelectors)
 
 	// Get the service port name so that we can construct the service instance
 	var servicePort *model.Port
@@ -794,7 +773,7 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 		if fi.Service.Attributes.Namespace != svc.Attributes.Namespace {
 			continue
 		}
-		if selector.Matches(klabels.Set(fi.Endpoint.Labels)) {
+		if selector.SubsetOf(fi.Endpoint.Labels) {
 			// create an instance with endpoint whose service port name matches
 			// TODO(rshriram): we currently ignore the workload entry (endpoint) ports and setup 1-1 mapping
 			// from service port to endpoint port. Need to figure out a way to map workload entry port to
@@ -810,24 +789,21 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 		}
 	}
 	c.RUnlock()
-	return out, nil
+	return out
 }
 
 // convenience function to collect all workload entry endpoints in updateEDS calls.
-func (c *Controller) collectAllForeignEndpoints(svc *model.Service) ([]*model.IstioEndpoint, error) {
+func (c *Controller) collectAllForeignEndpoints(svc *model.Service) []*model.IstioEndpoint {
 	var foreignInstancesExist bool
 	c.RLock()
 	foreignInstancesExist = len(c.foreignRegistryInstancesByIP) > 0
 	c.RUnlock()
 
 	if !foreignInstancesExist || svc.Resolution != model.ClientSideLB || len(svc.Ports) == 0 {
-		return nil, nil
+		return nil
 	}
 
-	instances, err := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
-	if err != nil {
-		return nil, err
-	}
+	instances := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
 	endpoints := make([]*model.IstioEndpoint, 0)
 
 	// all endpoints for ports[0]
@@ -844,7 +820,7 @@ func (c *Controller) collectAllForeignEndpoints(svc *model.Service) ([]*model.Is
 			endpoints = append(endpoints, &ep)
 		}
 	}
-	return endpoints, nil
+	return endpoints
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
@@ -1222,10 +1198,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
-	fep, err := c.collectAllForeignEndpoints(svc)
-	if err != nil {
-		log.Debugf("Handle EDS: error collecting foreign endpoints of svc %s in namespace %s", hostname, ep.Namespace)
-	}
+	fep := c.collectAllForeignEndpoints(svc)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, append(endpoints, fep...))
 	// fire instance handles for k8s endpoints only
