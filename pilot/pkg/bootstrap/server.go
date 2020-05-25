@@ -204,7 +204,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
 
-	log.Info("initializing mesh configuration")
 	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
@@ -1030,6 +1029,7 @@ func (s *Server) fetchCARoot() map[string]string {
 
 // initMeshHandlers initializes mesh and network handlers.
 func (s *Server) initMeshHandlers() {
+	log.Info("initializing mesh handlers")
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
 		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
