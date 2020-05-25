@@ -45,6 +45,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return nil
 	}
 
+	log.Info("initializing config validator")
 	// always start the validation server
 	params := server.Options{
 		MixerValidator: validate.NewDefaultValidator(false),
