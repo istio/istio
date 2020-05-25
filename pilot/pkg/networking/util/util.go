@@ -21,13 +21,12 @@ import (
 	"strconv"
 	"strings"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
@@ -106,6 +105,11 @@ var ALPNH2Only = []string{"h2"}
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 // Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
 var ALPNInMeshH2 = []string{"istio", "h2"}
+
+// ALPNInMeshH2WithMxc advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+// The custom "istio-peer-exchange" value indicates, metadata exchange is enabled for TCP.
+var ALPNInMeshH2WithMxc = []string{"istio-peer-exchange", "istio", "h2"}
 
 // ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
@@ -196,13 +200,13 @@ func BuildAddressV2(bind string, port uint32) *core.Address {
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
-func BuildAddress(bind string, port uint32) *corev3.Address {
+func BuildAddress(bind string, port uint32) *core.Address {
 	if port != 0 {
-		return &corev3.Address{
-			Address: &corev3.Address_SocketAddress{
-				SocketAddress: &corev3.SocketAddress{
+		return &core.Address{
+			Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
 					Address: bind,
-					PortSpecifier: &corev3.SocketAddress_PortValue{
+					PortSpecifier: &core.SocketAddress_PortValue{
 						PortValue: port,
 					},
 				},
@@ -210,9 +214,9 @@ func BuildAddress(bind string, port uint32) *corev3.Address {
 		}
 	}
 
-	return &corev3.Address{
-		Address: &corev3.Address_Pipe{
-			Pipe: &corev3.Pipe{
+	return &core.Address{
+		Address: &core.Address_Pipe{
+			Pipe: &core.Pipe{
 				Path: strings.TrimPrefix(bind, model.UnixAddressPrefix),
 			},
 		},
@@ -301,13 +305,13 @@ func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
-func ConvertLocality(locality string) *corev3.Locality {
+func ConvertLocality(locality string) *core.Locality {
 	if locality == "" {
-		return &corev3.Locality{}
+		return &core.Locality{}
 	}
 
 	region, zone, subzone := SplitLocality(locality)
-	return &corev3.Locality{
+	return &core.Locality{
 		Region:  region,
 		Zone:    zone,
 		SubZone: subzone,
@@ -315,7 +319,7 @@ func ConvertLocality(locality string) *corev3.Locality {
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
-func LocalityToString(l *corev3.Locality) string {
+func LocalityToString(l *core.Locality) string {
 	if l == nil {
 		return ""
 	}
@@ -332,14 +336,14 @@ func LocalityToString(l *corev3.Locality) string {
 }
 
 // IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)
-func IsLocalityEmpty(locality *corev3.Locality) bool {
+func IsLocalityEmpty(locality *core.Locality) bool {
 	if locality == nil || (len(locality.GetRegion()) == 0) {
 		return true
 	}
 	return false
 }
 
-func LocalityMatch(proxyLocality *corev3.Locality, ruleLocality string) bool {
+func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
 	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
 	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
 	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
@@ -363,7 +367,7 @@ func SplitLocality(locality string) (region, zone, subzone string) {
 	}
 }
 
-func LbPriority(proxyLocality, endpointsLocality *corev3.Locality) int {
+func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
 	if proxyLocality.GetRegion() == endpointsLocality.GetRegion() {
 		if proxyLocality.GetZone() == endpointsLocality.GetZone() {
 			if proxyLocality.GetSubZone() == endpointsLocality.GetSubZone() {
@@ -422,10 +426,10 @@ func CloneLbEndpoint(endpoint *endpoint.LbEndpoint) *endpoint.LbEndpoint {
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc. Used by Mixer client
 // to generate attributes for policy and telemetry.
-func BuildConfigInfoMetadata(config model.ConfigMeta) *corev3.Metadata {
+func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
 		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
-	return &corev3.Metadata{
+	return &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{
 			IstioMetadataKey: {
 				Fields: map[string]*pstruct.Value{
@@ -464,8 +468,8 @@ func BuildConfigInfoMetadataV2(config model.ConfigMeta) *core.Metadata {
 // This should be called after the initial "istio" metadata has been created for the
 // cluster. If the "istio" metadata field is not already defined, the subset information will
 // not be added (to prevent adding this information where not needed).
-func AddSubsetToMetadata(md *corev3.Metadata, subset string) *corev3.Metadata {
-	updatedMeta := &corev3.Metadata{}
+func AddSubsetToMetadata(md *core.Metadata, subset string) *core.Metadata {
+	updatedMeta := &core.Metadata{}
 	proto.Merge(updatedMeta, md)
 	if istioMeta, ok := updatedMeta.FilterMetadata[IstioMetadataKey]; ok {
 		istioMeta.Fields["subset"] = &pstruct.Value{
@@ -547,7 +551,7 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *model.PushContext) *corev3.Metadata {
+func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *model.PushContext) *core.Metadata {
 	if !push.IsMixerEnabled() {
 		// Only use UIDs when Mixer is enabled.
 		uid = ""
@@ -557,7 +561,7 @@ func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *m
 		return nil
 	}
 
-	metadata := &corev3.Metadata{
+	metadata := &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{},
 	}
 

@@ -17,6 +17,7 @@
 package ingress
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -24,9 +25,11 @@ import (
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/informers/networking/v1beta1"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/informers/networking/v1beta1"
 
 	"istio.io/pkg/ledger"
 
@@ -44,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -128,11 +132,26 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
-	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
-	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
-	informer := sharedInformers.Networking().V1beta1().Ingresses().Informer()
+	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
+
+	mlw := listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return client.NetworkingV1beta1().Ingresses(namespace).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return client.NetworkingV1beta1().Ingresses(namespace).Watch(context.TODO(), opts)
+			},
+		}
+	})
+
+	informer := cache.NewSharedIndexInformer(mlw, &ingress.Ingress{}, options.ResyncPeriod,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespaces)
+
 	var classes *v1beta1.IngressClassInformer
 	if ingressClassSupported(client) {
+		sharedInformers := informers.NewSharedInformerFactory(client, options.ResyncPeriod)
 		i := sharedInformers.Networking().V1beta1().IngressClasses()
 		classes = &i
 	} else {

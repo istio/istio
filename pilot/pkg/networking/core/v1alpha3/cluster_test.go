@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
@@ -2224,6 +2224,11 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 
+	http2ProtocolOptions := &corev3.Http2ProtocolOptions{
+		AllowConnect:  true,
+		AllowMetadata: true,
+	}
+
 	tests := []struct {
 		name          string
 		mtlsCtx       mtlsContextType
@@ -2232,8 +2237,9 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
+		http2ProtocolOptions       *corev3.Http2ProtocolOptions
 
-		validateTLSContext func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext)
+		validateTLSContext func(t *testing.T, ctx *tls.UpstreamTlsContext)
 	}{
 		{
 			name:                       "user specified without tls",
@@ -2244,12 +2250,31 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			expectTransportSocketMatch: false,
 		},
 		{
-			name:                       "user specified with tls",
+			name:                       "user specified with istio_mutual tls",
 			mtlsCtx:                    userSupplied,
 			discoveryType:              cluster.Cluster_EDS,
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
+				}
+			},
+		},
+		{
+			name:                       "user specified with istio_mutual tls with h2",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        tlsSettings,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
+				}
+			},
 		},
 		{
 			name:                       "user specified mutual tls",
@@ -2258,7 +2283,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        mutualTLSSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
-			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
 				rootName := "file-root:" + mutualTLSSettings.CaCertificates
 				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettings.ClientCertificate, mutualTLSSettings.PrivateKey)
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
@@ -2266,6 +2291,31 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				}
 				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
 					t.Fatalf("expected cert name %v got %v", certName, got)
+				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); got != nil {
+					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
+				}
+			},
+		},
+		{
+			name:                       "user specified mutual tls with h2",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        mutualTLSSettings,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTLSSettings.CaCertificates
+				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettings.ClientCertificate, mutualTLSSettings.PrivateKey)
+				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
+					t.Fatalf("expected root name %v got %v", rootName, got)
+				}
+				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
+					t.Fatalf("expected cert name %v got %v", certName, got)
+				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
 				}
 			},
 		},
@@ -2276,6 +2326,25 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        tlsSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
+				}
+			},
+		},
+		{
+			name:                       "auto detect with tls and h2 options",
+			mtlsCtx:                    autoDetected,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        tlsSettings,
+			expectTransportSocket:      false,
+			expectTransportSocketMatch: true,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
+				}
+			},
 		},
 		{
 			name:                       "auto detect with tls",
@@ -2300,6 +2369,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			opts := &buildClusterOpts{
 				cluster: &cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
+					Http2ProtocolOptions: test.http2ProtocolOptions,
 				},
 				proxy: proxy,
 				push:  push,
@@ -2316,9 +2386,15 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			}
 
 			if test.validateTLSContext != nil {
-				ctx := &envoy_api_v2_auth.UpstreamTlsContext{}
-				if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
-					t.Fatal(err)
+				ctx := &tls.UpstreamTlsContext{}
+				if test.expectTransportSocket {
+					if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
+						t.Fatal(err)
+					}
+				} else if test.expectTransportSocketMatch {
+					if err := ptypes.UnmarshalAny(opts.cluster.TransportSocketMatches[0].TransportSocket.GetTypedConfig(), ctx); err != nil {
+						t.Fatal(err)
+					}
 				}
 				test.validateTLSContext(t, ctx)
 			}
@@ -2328,12 +2404,12 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 }
 
 // Helper function to extract TLS context from a cluster
-func getTLSContext(t *testing.T, c *cluster.Cluster) *envoy_api_v2_auth.UpstreamTlsContext {
+func getTLSContext(t *testing.T, c *cluster.Cluster) *tls.UpstreamTlsContext {
 	t.Helper()
 	if c.TransportSocket == nil {
 		return nil
 	}
-	tlsContext := &envoy_api_v2_auth.UpstreamTlsContext{}
+	tlsContext := &tls.UpstreamTlsContext{}
 	err := ptypes.UnmarshalAny(c.TransportSocket.GetTypedConfig(), tlsContext)
 
 	if err != nil {

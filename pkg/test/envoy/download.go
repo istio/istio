@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/test/deps"
-	"istio.io/istio/pkg/test/util"
 )
 
 var (
@@ -50,22 +49,4 @@ func init() {
 	}
 
 	panic(fmt.Errorf("envoy SHA not found in: \n%v", deps.Istio))
-}
-
-// DownloadLinuxRelease downloads the release linux binary to the given directory.
-func DownloadLinuxRelease(dir string) error {
-	req, err := http.NewRequest("GET", LinuxReleaseURL, nil)
-	if err != nil {
-		return err
-	}
-	if AuthHeader != nil {
-		req.Header = *AuthHeader
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	return util.ExtractTarGz(resp.Body, dir)
 }

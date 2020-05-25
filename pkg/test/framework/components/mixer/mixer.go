@@ -22,7 +22,6 @@ import (
 	istioMixerV1 "istio.io/api/mixer/v1"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 )
@@ -41,7 +40,6 @@ type CheckResponse struct {
 }
 
 type Config struct {
-	Galley galley.Instance
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
 }
