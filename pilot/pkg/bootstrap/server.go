@@ -283,6 +283,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// Start CA. This should be called after CA and Istiod certs have been created.
 	s.startCA(caOpts)
 
+	s.initNamespaceController(args)
+
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
 		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
@@ -943,7 +945,6 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	if err := s.initServiceControllers(args); err != nil {
 		return fmt.Errorf("error initializing service controllers: %v", err)
 	}
-	s.initNamespaceController(args)
 	return nil
 }
 
