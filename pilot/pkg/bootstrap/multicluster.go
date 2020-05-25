@@ -24,6 +24,7 @@ import (
 // clusters and initialize the multicluster structures.
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if hasKubeRegistry(args.Service.Registries) {
+		log.Info("initializing Kubernetes cluster registry")
 		mc, err := controller.NewMulticluster(s.kubeClient,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions,

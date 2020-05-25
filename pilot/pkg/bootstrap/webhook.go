@@ -32,7 +32,7 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 		return
 	}
 
-	log.Info("Setting up HTTPS webhook server for istiod webhooks")
+	log.Info("initializing secure webhook server for istiod webhooks")
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	s.httpsMux = http.NewServeMux()
 	s.httpsServer = &http.Server{
