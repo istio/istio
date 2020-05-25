@@ -97,15 +97,6 @@ func reportValidationConfigUpdateError(reason kubeMeta.StatusReason) {
 	}
 }
 
-func reportValidationConfigDeleteError(reason kubeMeta.StatusReason) {
-	ctx, err := tag.New(context.Background(), tag.Insert(reasonTag, string(reason)))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationConfigDeleteError: %v", err)
-	} else {
-		stats.Record(ctx, metricWebhookConfigurationDeleteError.M(1))
-	}
-}
-
 func reportValidationConfigLoadError(reason string) {
 	ctx, err := tag.New(context.Background(), tag.Insert(reasonTag, reason))
 	if err != nil {
