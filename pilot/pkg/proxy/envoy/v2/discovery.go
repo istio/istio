@@ -39,18 +39,7 @@ var (
 
 	periodicRefreshMetrics = 10 * time.Second
 
-	// debounceAfter is the delay added to events to wait
-	// after a registry/config event for debouncing.
-	// This will delay the push by at least this interval, plus
-	// the time getting subsequent events. If no change is
-	// detected the push will happen, otherwise we'll keep
-	// delaying until things settle.
-	debounceAfter time.Duration
-
-	// debounceMax is the maximum time to wait for events
-	// while debouncing. Defaults to 10 seconds. If events keep
-	// showing up with no break for this time, we'll trigger a push.
-	debounceMax time.Duration
+	pushDebouncer debouncer
 
 	// enableEDSDebounce indicates whether EDS pushes should be debounced.
 	enableEDSDebounce bool
@@ -76,8 +65,7 @@ const (
 )
 
 func init() {
-	debounceAfter = features.DebounceAfter
-	debounceMax = features.DebounceMax
+	pushDebouncer = newFixedDebouncer(features.DebounceAfter, features.DebounceMax)
 	enableEDSDebounce = features.EnableEDSDebounce.Get()
 }
 
@@ -297,11 +285,8 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 // The debounce helper function is implemented to enable mocking
 func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(req *model.PushRequest)) {
 	var timeChan <-chan time.Time
-	var startDebounce time.Time
-	var lastConfigUpdateTime time.Time
 
 	pushCounter := 0
-	debouncedEvents := 0
 
 	// Keeps track of the push requests. If updates are debounce they will be merged.
 	var req *model.PushRequest
@@ -315,23 +300,21 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 	}
 
 	pushWorker := func() {
-		eventDelay := time.Since(startDebounce)
-		quietTime := time.Since(lastConfigUpdateTime)
-		// it has been too long or quiet enough
-		if eventDelay >= debounceMax || quietTime >= debounceAfter {
+		debounce, de, debounceAfter := pushDebouncer.debounceRequest()
+
+		if debounce {
 			if req != nil {
 				pushCounter++
 				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-					pushCounter, debouncedEvents,
-					quietTime, eventDelay, req.Full)
+					pushCounter, de,
+					pushDebouncer.quietTime(), pushDebouncer.eventDelay(), req.Full)
 
 				free = false
 				go push(req)
 				req = nil
-				debouncedEvents = 0
 			}
 		} else {
-			timeChan = time.After(debounceAfter - quietTime)
+			timeChan = time.After(debounceAfter)
 		}
 	}
 
