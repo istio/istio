@@ -57,7 +57,7 @@ import (
 var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
 
 type Options struct {
-	// Istio system namespace in which galley and istiod reside.
+	// Istio system namespace where istiod resides.
 	WatchedNamespace string
 
 	// Periodically resync with the kube-apiserver. Set to zero to disable.
@@ -74,15 +74,7 @@ type Options struct {
 	// Name of the service running the webhook server.
 	ServiceName string
 
-	// If true, the controller will run but actively try to remove the
-	// validatingwebhookconfiguration instead of creating it. This is
-	// useful in cases where validation was previously enabled and
-	// subsequently disabled. The controller can clean up after itself
-	// without relying on the user to manually delete configs.
-	// Deprecated: istiod webhook controller shouldn't use this.
-	UnregisterValidationWebhook bool
-
-	//RemoteWebhookConfig defines whether the webhook config is coming from remote cluster
+	// RemoteWebhookConfig defines whether the webhook config is coming from remote cluster
 	RemoteWebhookConfig bool
 }
 
@@ -122,7 +114,6 @@ func (o Options) String() string {
 	_, _ = fmt.Fprintf(buf, "CAPath: %v\n", o.CAPath)
 	_, _ = fmt.Fprintf(buf, "WebhookConfigName: %v\n", o.WebhookConfigName)
 	_, _ = fmt.Fprintf(buf, "ServiceName: %v\n", o.ServiceName)
-	_, _ = fmt.Fprintf(buf, "UnregisterValidationWebhook: %v\n", o.UnregisterValidationWebhook)
 	return buf.String()
 }
 
@@ -346,9 +337,6 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	scope.Infof("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
-	if c.o.UnregisterValidationWebhook {
-		return c.deleteValidatingWebhookConfiguration()
-	}
 	failurePolicy := kubeApiAdmission.Ignore
 	if c.o.RemoteWebhookConfig {
 		failurePolicy = kubeApiAdmission.Fail
@@ -471,18 +459,6 @@ func (c *Controller) galleyPodsRunning() (running bool, err error) {
 		return true, nil
 	}
 	return false, nil
-}
-
-func (c *Controller) deleteValidatingWebhookConfiguration() error {
-	err := c.client.AdmissionregistrationV1beta1().
-		ValidatingWebhookConfigurations().Delete(context.TODO(), c.o.WebhookConfigName, kubeApiMeta.DeleteOptions{})
-	if err != nil {
-		scope.Errorf("Failed to delete validatingwebhookconfiguration: %v", err)
-		reportValidationConfigDeleteError(kubeErrors.ReasonForError(err))
-		return err
-	}
-	scope.Info("Successfully deleted validatingwebhookconfiguration")
-	return nil
 }
 
 func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {

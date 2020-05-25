@@ -38,8 +38,8 @@ import (
 	"istio.io/pkg/log"
 )
 
-// PatchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
-func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.MutatingWebhookConfigurationInterface,
+// patchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
+func patchMutatingWebhookConfig(client admissionregistrationv1beta1client.MutatingWebhookConfigurationInterface,
 	webhookConfigName, webhookName string, caBundle []byte) error {
 	config, err := client.Get(context.TODO(), webhookConfigName, metav1.GetOptions{})
 	if err != nil {
@@ -91,7 +91,7 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 	}
 
 	var retry bool
-	if err = PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+	if err = patchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
 		injectionWebhookConfigName, webhookName, caCertPem); err != nil {
 		log.Warna("Error patching Webhook ", err)
 		retry = true
@@ -158,7 +158,7 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 
 func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caCertPem []byte) (retry bool) {
 	client := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
-	if err := PatchMutatingWebhookConfig(client, webhookConfigName, webhookName, caCertPem); err != nil {
+	if err := patchMutatingWebhookConfig(client, webhookConfigName, webhookName, caCertPem); err != nil {
 		log.Errorf("Patch webhook failed: %v", err)
 		return true
 	}
