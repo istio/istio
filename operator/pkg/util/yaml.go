@@ -219,5 +219,6 @@ func IsYAMLEmpty(y string) bool {
 			yc = append(yc, l)
 		}
 	}
-	return strings.TrimSpace(strings.Join(yc, "\n")) == "{}"
+	res := strings.TrimSpace(strings.Join(yc, "\n"))
+	return res == "{}" || res == ""
 }

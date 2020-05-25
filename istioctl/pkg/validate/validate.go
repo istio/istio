@@ -97,11 +97,17 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
-	schema, exists := collections.Pilot.FindByGroupVersionKind(resource.GroupVersionKind{
+	gvk := resource.GroupVersionKind{
 		Group:   un.GroupVersionKind().Group,
 		Version: un.GroupVersionKind().Version,
 		Kind:    un.GroupVersionKind().Kind,
-	})
+	}
+	// TODO(jasonwzm) remove this when multi-version is supported. v1beta1 shares the same
+	// schema as v1lalpha3. Fake conversion and validate against v1alpha3.
+	if gvk.Group == "networking.istio.io" && gvk.Version == "v1beta1" {
+		gvk.Version = "v1alpha3"
+	}
+	schema, exists := collections.Pilot.FindByGroupVersionKind(gvk)
 	if exists {
 		obj, err := convertObjectFromUnstructured(schema, un, "")
 		if err != nil {
