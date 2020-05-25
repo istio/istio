@@ -746,7 +746,7 @@ func (o *genericOption) validate(ctx *configContext) error {
 	return nil
 }
 
-func GetAdminHostAndPort(configPath string) (string, uint32, error) {
+func GetAdminHostAndPort(configPath string) (string, int32, error) {
 	content, e := ioutil.ReadFile(configPath)
 	if e != nil {
 		return "", 0, fmt.Errorf("failed reading config-path file %s: %v", configPath, e)
@@ -756,7 +756,10 @@ func GetAdminHostAndPort(configPath string) (string, uint32, error) {
 	if e != nil {
 		return "", 0, fmt.Errorf("failed to locate admin port in envoy config-yaml: %v", e)
 	}
-	return host, port, nil
+	if host == "0.0.0.0" {
+		host = "localhost"
+	}
+	return host, int32(port), nil
 }
 
 func getAdminHostAndPortFromYaml(yamlData string) (string, uint32, error) {

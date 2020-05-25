@@ -56,9 +56,10 @@ import (
 )
 
 const (
-	trustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
-	localHostIPv4      = "127.0.0.1"
-	localHostIPv6      = "[::1]"
+	trustworthyJWTPath    = "./var/run/secrets/tokens/istio-token"
+	localHostIPv4         = "127.0.0.1"
+	localHostIPv6         = "[::1]"
+	defaultMeshConfigFile = "./etc/istio/config/mesh"
 )
 
 // TODO: Move most of this to pkg.
@@ -421,7 +422,7 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
-	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
+	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", defaultMeshConfigFile,
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
 			"PROXY_CONFIG environment variable or proxy.istio.io/config annotation.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,

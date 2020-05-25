@@ -22,29 +22,40 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/envoy"
+	"istio.io/pkg/env"
 
 	"istio.io/istio/pilot/pkg/request"
 )
 
-const ConfigPath = "/etc/istio/proxy/envoy-rev0.json"
+const defaultEnvyConfigPath = "/etc/istio/proxy/envoy-rev0.json"
+
+func init() {
+
+	requestCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", defaultMeshConfigFile,
+		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
+			"PROXY_CONFIG environment variable or proxy.istio.io/config annotation.")
+	proxyCmd.PersistentFlags().Int32Var(&envoyAdminPort, "envoyAdminPort", 0,
+		"Port where Envoy listens (on local host) for admin commands. If zero, get from mesh configuration or environment variable.")
+}
 
 // NB: extra standard output in addition to what's returned from envoy
 // must not be added in this command. Otherwise, it'd break istioctl proxy-config,
 // which interprets the output literally as json document.
 var (
+	envoyAdminPort int32
+
+	proxyAdminPortConfigEnv = env.RegisterIntVar(
+		"ISTIO_PROXY_ADMIN_PORT",
+		0,
+		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
+	).Get()
+
 	requestCmd = &cobra.Command{
 		Use:   "request <method> <path> [<body>]",
 		Short: "Makes an HTTP request to the Envoy admin API",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
-			host, adminPort, err := envoy.GetAdminHostAndPort(ConfigPath)
-			if err != nil {
-				adminPort = 15000
-				host = "localhost"
-			}
-			if host == "0.0.0.0" {
-				host = "localhost"
-			}
+			host, adminPort := getEnvoyHostAndAdminPort()
 			command := &request.Command{
 				Address: fmt.Sprintf("%s:%d", host, adminPort),
 				Client: &http.Client{
@@ -62,4 +73,44 @@ var (
 
 func init() {
 	rootCmd.AddCommand(requestCmd)
+}
+
+// get admin port from Istio mesh configuration , This may be overridden by "ISTIO_PROXY_ADMIN_PORT" variable
+// , defaultEnvyConfigPath: /etc/istio/proxy/envoy-rev0.json or envoyAdminPort flags
+func getEnvoyHostAndAdminPort() (string, int32) {
+	var adminHost = "localhost"
+	var adminPort int32 = 15000
+
+	port, err := getPortFromProxyConfig()
+	if err == nil {
+		adminPort = port
+	}
+
+	if proxyAdminPortConfigEnv != 0 {
+		adminPort = int32(proxyAdminPortConfigEnv)
+	}
+
+	host, port, err := envoy.GetAdminHostAndPort(defaultEnvyConfigPath)
+	if err == nil {
+		adminPort = port
+		adminHost = host
+
+	}
+
+	if envoyAdminPort != 0 {
+		adminPort = envoyAdminPort
+	}
+
+	return adminHost, adminPort
+}
+
+// then deafault meshConfigFile path is ./etc/istio/config/mesh
+// File name for Istio mesh configuration in flags. If not specified, a default mesh will be used. This may be overridden by
+// "PROXY_CONFIG environment variable or proxy.istio.io/config annotation.
+func getPortFromProxyConfig() (int32, error) {
+	proxyConfig, err := constructProxyConfig()
+	if err != nil {
+		return 0, err
+	}
+	return proxyConfig.ProxyAdminPort, nil
 }
