@@ -98,7 +98,6 @@ spec:
 `)
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 			istioCtl.InvokeOrFail(t, []string{"x", "wait", "VirtualService", "reviews." + ns.Name()})
-			fmt.Print("end")
 		})
 }
 
