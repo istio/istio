@@ -224,7 +224,7 @@ func TestNewVaultClient(t *testing.T) {
 			jwtPath:          "/non/exist/jwt/path",
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
-			expectedErrRegEx: "failed to create token loader to load the tokens.+",
+			expectedErrRegEx: "failed to read JWT.+",
 		},
 		"Invalid JWT": {
 			vaultAddr:        setup.Server.httpServer.URL,

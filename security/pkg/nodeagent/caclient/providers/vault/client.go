@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -61,14 +61,13 @@ type Client struct {
 	enableTLS     bool
 	vaultAddr     string
 	tlsRootCertCM string
-	jwtPath       string
 	loginRole     string
 	loginPath     string
 	signCsrPath   string
 	rootCertPath  string
 
 	client           *vaultapi.Client
-	jwtLoader        *util.JwtLoader
+	jwt              string
 	rootCertPem      string
 	rootCertPemMutex *sync.RWMutex
 }
@@ -120,11 +119,11 @@ func NewVaultClient(cmGetter corev1.ConfigMapsGetter) (*Client, error) {
 		enableTLS:        true,
 		vaultAddr:        vaultAddr,
 		tlsRootCertCM:    tlsRootCertCM,
-		jwtPath:          jwtPath,
 		loginRole:        loginRole,
 		loginPath:        loginPath,
 		signCsrPath:      signCsrPath,
 		rootCertPath:     rootCertPath,
+		jwt:              "",
 		rootCertPem:      "",
 		rootCertPemMutex: &sync.RWMutex{},
 	}
@@ -132,15 +131,11 @@ func NewVaultClient(cmGetter corev1.ConfigMapsGetter) (*Client, error) {
 		c.enableTLS = false
 	}
 
-	jwtLoader, tlErr := util.NewJwtLoader(c.jwtPath)
-	if tlErr != nil {
-		return nil, fmt.Errorf("failed to create token loader to load the tokens: %v", tlErr)
+	tokenBytes, rErr := ioutil.ReadFile(jwtPath)
+	if rErr != nil {
+		return nil, fmt.Errorf("failed to read JWT [%s]: %v", jwtPath, rErr)
 	}
-
-	// Run the jwtLoader in a separate thread to keep watching the JWT file.
-	stopCh := make(chan struct{})
-	go jwtLoader.Run(stopCh)
-	c.jwtLoader = jwtLoader
+	c.jwt = string(tokenBytes)
 
 	var client *vaultapi.Client
 	var err error
@@ -168,7 +163,7 @@ func NewVaultClient(cmGetter corev1.ConfigMapsGetter) (*Client, error) {
 	}
 	c.client = client
 
-	token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, jwtLoader.GetJwt())
+	token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, c.jwt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
 	}
@@ -190,7 +185,7 @@ func (c *Client) CSRSign(ctx context.Context, reqID string, csrPEM []byte, jwt s
 	certChain, signErr := signCsrByVault(c.client, c.signCsrPath, certValidTTLInSec, csrPEM)
 	if signErr != nil && strings.Contains(signErr.Error(), "permission denied") && len(jwt) == 0 {
 		// In this case, the token may be expired. Re-authenticate.
-		token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, c.jwtLoader.GetJwt())
+		token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, c.jwt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
 		}
@@ -222,7 +217,7 @@ func (c *Client) refreshRootCertPem() error {
 	resp, getCaErr := c.client.Logical().Read(c.rootCertPath)
 	if getCaErr != nil && strings.Contains(getCaErr.Error(), "permission denied") {
 		// In this case, the token may be expired. Re-authenticate.
-		token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, c.jwtLoader.GetJwt())
+		token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, c.jwt)
 		if err != nil {
 			return fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
 		}
