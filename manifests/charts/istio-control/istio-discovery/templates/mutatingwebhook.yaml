@@ -20,7 +20,7 @@ webhooks:
         namespace: {{ .Release.Namespace }}
         path: "/inject"
       caBundle: ""
-    sideEffects: NONE
+    sideEffects: None
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
