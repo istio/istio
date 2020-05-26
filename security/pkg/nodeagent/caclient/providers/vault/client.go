@@ -74,7 +74,7 @@ type Client struct {
 }
 
 // NewVaultClient creates a CA client for the Vault PKI.
-func NewVaultClient(k8sClient corev1.CoreV1Interface) (*Client, error) {
+func NewVaultClient(cmGetter corev1.ConfigMapsGetter) (*Client, error) {
 	vaultAddr := env.RegisterStringVar(envVaultAddr, "", "The address of the Vault server").Get()
 	if len(vaultAddr) == 0 {
 		return nil, fmt.Errorf("%s is not configured", envVaultAddr)
@@ -159,7 +159,7 @@ func NewVaultClient(k8sClient corev1.CoreV1Interface) (*Client, error) {
 			namespace = segments[1]
 		}
 
-		client, err = createVaultTLSClient(c.vaultAddr, name, namespace, k8sClient)
+		client, err = createVaultTLSClient(c.vaultAddr, name, namespace, cmGetter)
 	} else {
 		client, err = createVaultClient(c.vaultAddr)
 	}
