@@ -1691,7 +1691,7 @@ webhooks:
         namespace: istio-system
         path: "/inject"
       caBundle: ""
-    sideEffects: NONE
+    sideEffects: None
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
