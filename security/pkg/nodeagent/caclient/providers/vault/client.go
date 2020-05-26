@@ -56,8 +56,8 @@ var (
 	vaultClientLog = log.RegisterScope("vault", "Vault client debugging", 0)
 )
 
-// VaultClient is a client for interaction with Vault.
-type VaultClient struct {
+// Client is a client for interaction with Vault.
+type Client struct {
 	enableTLS     bool
 	vaultAddr     string
 	tlsRootCertCM string
@@ -74,7 +74,7 @@ type VaultClient struct {
 }
 
 // NewVaultClient creates a CA client for the Vault PKI.
-func NewVaultClient(k8sClient corev1.CoreV1Interface) (*VaultClient, error) {
+func NewVaultClient(k8sClient corev1.CoreV1Interface) (*Client, error) {
 	vaultAddr := env.RegisterStringVar(envVaultAddr, "", "The address of the Vault server").Get()
 	if len(vaultAddr) == 0 {
 		return nil, fmt.Errorf("%s is not configured", envVaultAddr)
@@ -116,7 +116,7 @@ func NewVaultClient(k8sClient corev1.CoreV1Interface) (*VaultClient, error) {
 	}
 	vaultClientLog.Infof("%s = %s", envRootCertPath, rootCertPath)
 
-	c := &VaultClient{
+	c := &Client{
 		enableTLS:        true,
 		vaultAddr:        vaultAddr,
 		tlsRootCertCM:    tlsRootCertCM,
@@ -185,7 +185,7 @@ func NewVaultClient(k8sClient corev1.CoreV1Interface) (*VaultClient, error) {
 
 // CSRSign calls Vault to sign a CSR. It returns a PEM-encoded cert chain or error.
 // Note: the `jwt` field in this function is never used. The JWT for authentication should always come from local file.
-func (c *VaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, jwt string,
+func (c *Client) CSRSign(ctx context.Context, reqID string, csrPEM []byte, jwt string,
 	certValidTTLInSec int64) ([]string, error) {
 	certChain, signErr := signCsrByVault(c.client, c.signCsrPath, certValidTTLInSec, csrPEM)
 	if signErr != nil && strings.Contains(signErr.Error(), "permission denied") && len(jwt) == 0 {
@@ -211,14 +211,14 @@ func (c *VaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, 
 }
 
 // GetRootCertPem returns the root certificate in PEM format.
-func (c *VaultClient) GetRootCertPem() string {
+func (c *Client) GetRootCertPem() string {
 	c.rootCertPemMutex.RLock()
 	defer c.rootCertPemMutex.RUnlock()
 	return c.rootCertPem
 }
 
 // refreshRootCertPem refreshes the root cert pem by calling the Vault server.
-func (c *VaultClient) refreshRootCertPem() error {
+func (c *Client) refreshRootCertPem() error {
 	resp, getCaErr := c.client.Logical().Read(c.rootCertPath)
 	if getCaErr != nil && strings.Contains(getCaErr.Error(), "permission denied") {
 		// In this case, the token may be expired. Re-authenticate.
@@ -267,7 +267,7 @@ func createVaultClient(vaultAddr string) (*vaultapi.Client, error) {
 
 // createVaultTLSClient creates a client to a Vault server
 // vaultAddr: the address of the Vault server (e.g., "https://127.0.0.1:8200").
-func createVaultTLSClient(vaultAddr, cmName, cmNamespace string, k8sClient corev1.CoreV1Interface) (
+func createVaultTLSClient(vaultAddr, cmName, cmNamespace string, cmGetter corev1.ConfigMapsGetter) (
 	*vaultapi.Client, error) {
 	// Load the system default root certificates.
 	pool, err := x509.SystemCertPool()
@@ -280,7 +280,7 @@ func createVaultTLSClient(vaultAddr, cmName, cmNamespace string, k8sClient corev
 	}
 
 	// Read cert from K8s ConfigMap
-	configmap, err := k8sClient.ConfigMaps(cmNamespace).Get(cmName, metav1.GetOptions{})
+	configmap, err := cmGetter.ConfigMaps(cmNamespace).Get(cmName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to load TLS root cert ConfigMap %s in %s to authenticate Vault server: %v", cmName, cmNamespace, err)
 	}
@@ -292,7 +292,7 @@ func createVaultTLSClient(vaultAddr, cmName, cmNamespace string, k8sClient corev
 
 	ok := pool.AppendCertsFromPEM([]byte(tlsRootCert))
 	if !ok {
-		return nil, fmt.Errorf("failed to append certificate [%v] to the certificate pool", string(tlsRootCert))
+		return nil, fmt.Errorf("failed to append certificate [%s] to the certificate pool", tlsRootCert)
 	}
 	tlsConfig := &tls.Config{
 		RootCAs: pool,
