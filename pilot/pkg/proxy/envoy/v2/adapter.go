@@ -29,7 +29,7 @@ import (
 // This allows v2 clients to connect, while keeping the core logic of Pilot in v3 XDS.
 // This comes with a very small performance impact, as most resources are directly copied over - most
 // importantly the actual XDS response objects are untouched.
-// Note: this is just about the transport protocol. The XDS resource versioning is independant of transport
+// Note: this is just about the transport protocol. The XDS resource versioning is independent of transport
 // protocol
 type DiscoveryStreamV2Adapter struct {
 	ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer
