@@ -54,16 +54,6 @@ func (m *Mesh) addCluster(c *Cluster) {
 	m.clustersByClusterName[c.clusterName] = c
 }
 
-func (m *Mesh) ClusterByClusterName(name string) (*Cluster, bool) {
-	c, ok := m.clustersByClusterName[name]
-	return c, ok
-}
-
-func (m *Mesh) ClusterByContext(context string) (*Cluster, bool) {
-	c, ok := m.clustersByContext[context]
-	return c, ok
-}
-
 func (m *Mesh) SortedClusters() []*Cluster {
 	sortedClusters := make([]*Cluster, 0, len(m.clustersByContext))
 	for _, other := range m.clustersByContext {
