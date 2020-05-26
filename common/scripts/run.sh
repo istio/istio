@@ -47,8 +47,8 @@ export REPO_ROOT=/work
     --env-file <(env | grep -v ${ENV_BLOCKLIST}) \
     -e IN_BUILD_CONTAINER=1 \
     -e TZ="${TIMEZONE:-$TZ}" \
-    --mount "type=bind,source=${PWD},destination=/work" \
-    --mount "type=volume,source=go,destination=/go" \
-    --mount "type=volume,source=gocache,destination=/gocache" \
+    --mount "type=bind,source=${PWD},destination=/work,consistency=delegated" \
+    --mount "type=volume,source=go,destination=/go,consistency=delegated" \
+    --mount "type=volume,source=gocache,destination=/gocache,consistency=delegated" \
     ${CONDITIONAL_HOST_MOUNTS} \
     -w /work "${IMG}" "$@"
