@@ -300,13 +300,12 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 	}
 
 	pushWorker := func() {
-		debounce, de, debounceAfter := pushDebouncer.debounceRequest()
-
-		if debounce {
+		debounced, debounceAfter := pushDebouncer.tryDebounce()
+		if !debounced {
 			if req != nil {
 				pushCounter++
 				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-					pushCounter, de,
+					pushCounter, pushDebouncer.events(),
 					pushDebouncer.quietTime(), pushDebouncer.eventDelay(), req.Full)
 
 				free = false
@@ -328,19 +327,13 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			if len(r.Reason) == 0 {
 				r.Reason = []model.TriggerReason{model.UnknownTrigger}
 			}
-			if !enableEDSDebounce && !r.Full {
-				// trigger push now, just for EDS
+			debounced, debounceAfter := pushDebouncer.newRequest()
+			if !enableEDSDebounce && !r.Full || !debounced {
+				// trigger push now, just for EDS or it is not debounced.
 				go pushFn(r)
 				continue
 			}
-
-			lastConfigUpdateTime = time.Now()
-			if debouncedEvents == 0 {
-				timeChan = time.After(debounceAfter)
-				startDebounce = lastConfigUpdateTime
-			}
-			debouncedEvents++
-
+			timeChan = time.After(debounceAfter)
 			req = req.Merge(r)
 		case <-timeChan:
 			if free {

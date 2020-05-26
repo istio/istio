@@ -168,8 +168,8 @@ func TestDebounce(t *testing.T) {
 	// This test tests the timeout and debouncing of config updates
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
-	debounceAfter = time.Millisecond * 50
-	debounceMax = debounceAfter * 2
+	debounceAfter := time.Millisecond * 50
+	debounceMax := debounceAfter * 2
 	syncPushTime := 2 * debounceMax
 	enableEDSDebounce = false
 
@@ -246,65 +246,72 @@ func TestDebounce(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stopCh := make(chan struct{})
-			updateCh := make(chan *model.PushRequest)
-			pushingCh := make(chan struct{}, 1)
-			errCh := make(chan error, 1)
+		for i := 0; i < 2; i++ {
+			t.Run(tt.name, func(t *testing.T) {
+				stopCh := make(chan struct{})
+				updateCh := make(chan *model.PushRequest)
+				pushingCh := make(chan struct{}, 1)
+				errCh := make(chan error, 1)
 
-			var partialPushes int32
-			var fullPushes int32
+				var partialPushes int32
+				var fullPushes int32
 
-			wg := sync.WaitGroup{}
+				wg := sync.WaitGroup{}
 
-			fakePush := func(req *model.PushRequest) {
-				if req.Full {
-					select {
-					case pushingCh <- struct{}{}:
-					default:
-						errCh <- fmt.Errorf("multiple pushes happen simultaneously")
-						return
-					}
-					atomic.AddInt32(&fullPushes, 1)
-					time.Sleep(syncPushTime)
-					<-pushingCh
-				} else {
-					atomic.AddInt32(&partialPushes, 1)
-				}
-			}
-
-			wg.Add(1)
-			go func() {
-				debounce(updateCh, stopCh, fakePush)
-				wg.Done()
-			}()
-
-			expect := func(expectedPartial, expectedFull int32) {
-				t.Helper()
-				err := retry.UntilSuccess(func() error {
-					select {
-					case err := <-errCh:
-						t.Error(err)
-						return err
-					default:
-						partial := atomic.LoadInt32(&partialPushes)
-						full := atomic.LoadInt32(&fullPushes)
-						if partial != expectedPartial || full != expectedFull {
-							return fmt.Errorf("got %v full and %v partial, expected %v full and %v partial", full, partial, expectedFull, expectedPartial)
+				fakePush := func(req *model.PushRequest) {
+					if req.Full {
+						select {
+						case pushingCh <- struct{}{}:
+						default:
+							errCh <- fmt.Errorf("multiple pushes happen simultaneously")
+							return
 						}
-						return nil
+						atomic.AddInt32(&fullPushes, 1)
+						time.Sleep(syncPushTime)
+						<-pushingCh
+					} else {
+						atomic.AddInt32(&partialPushes, 1)
 					}
-				}, retry.Timeout(debounceAfter*8), retry.Delay(debounceAfter/2))
-				if err != nil {
-					t.Error(err)
 				}
-			}
 
-			// Send updates
-			tt.test(updateCh, expect)
+				wg.Add(1)
+				go func() {
+					if i == 0 {
+						pushDebouncer = newBackoffDebouncer(debounceAfter, debounceAfter*2)
+					} else {
+						pushDebouncer = newFixedDebouncer(debounceAfter, debounceAfter*2)
+					}
+					debounce(updateCh, stopCh, fakePush)
+					wg.Done()
+				}()
 
-			close(stopCh)
-			wg.Wait()
-		})
+				expect := func(expectedPartial, expectedFull int32) {
+					t.Helper()
+					err := retry.UntilSuccess(func() error {
+						select {
+						case err := <-errCh:
+							t.Error(err)
+							return err
+						default:
+							partial := atomic.LoadInt32(&partialPushes)
+							full := atomic.LoadInt32(&fullPushes)
+							if partial != expectedPartial || full != expectedFull {
+								return fmt.Errorf("got %v full and %v partial, expected %v full and %v partial", full, partial, expectedFull, expectedPartial)
+							}
+							return nil
+						}
+					}, retry.Timeout(debounceAfter*8), retry.Delay(debounceAfter/2))
+					if err != nil {
+						t.Error(err)
+					}
+				}
+
+				// Send updates
+				tt.test(updateCh, expect)
+
+				close(stopCh)
+				wg.Wait()
+			})
+		}
 	}
 }
