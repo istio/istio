@@ -1054,17 +1054,6 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&cluster.OutlierDetection{},
 		},
 		{
-			"Deprecated consecutive errors is set",
-			&networking.OutlierDetection{
-				ConsecutiveErrors: 3,
-			},
-			&cluster.OutlierDetection{
-				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 0},
-				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
-				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
-			},
-		},
-		{
 			"Consecutive gateway and 5xx errors are set",
 			&networking.OutlierDetection{
 				Consecutive_5XxErrors:    &types.UInt32Value{Value: 4},
@@ -1197,8 +1186,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		})
@@ -1239,8 +1227,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		})
@@ -1288,8 +1275,7 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 				LoadBalancer: &networking.LoadBalancerSettings{LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
 					Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
@@ -1353,8 +1339,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		},
@@ -1403,8 +1388,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		},
@@ -1766,9 +1750,6 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
 					},
 				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-				},
 			},
 		})
 
@@ -1788,9 +1769,6 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
 						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
 					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
 				},
 			},
 		})
