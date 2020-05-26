@@ -856,7 +856,7 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
 	}
 	if outlier.ConsecutiveErrors != 0 {
-		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors is deprecated, should not be used"))
+		scope.Warnf("outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead")
 	}
 	if outlier.Interval != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))
