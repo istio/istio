@@ -12,19 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package caclient
+package vault
 
 import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	vaultapi "github.com/hashicorp/vault/api"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/env"
@@ -32,20 +34,22 @@ import (
 )
 
 const (
-	envVaultAddr        = "VAULT_ADDR"
-	envVaultTLSCertPath = "VAULT_AUTH_CERT_PATH"
-	envJwtPath          = "VAULT_AUTH_JWT_PATH"
-	envLoginRole        = "VAULT_LOGIN_ROLE"
-	envLoginPath        = "VAULT_LOGIN_PATH"
-	envSignCsrPath      = "VAULT_SIGN_CSR_PATH"
-	envCaCertPath       = "VAULT_CA_CERT_GET_PATH"
+	envVaultAddr      = "VAULT_ADDR"
+	envVaultTLSCertCM = "VAULT_AUTH_CERT_CM"
+	envJwtPath        = "VAULT_AUTH_JWT_PATH"
+	envLoginRole      = "VAULT_LOGIN_ROLE"
+	envLoginPath      = "VAULT_LOGIN_PATH"
+	envSignCsrPath    = "VAULT_SIGN_CSR_PATH"
+	envRootCertPath   = "VAULT_ROOT_CERT_GET_PATH"
 
-	certKeyInCACertResp        = "certificate"
+	certKeyInRootCertResp      = "certificate"
 	certKeyInCertSignResp      = "certificate"
 	caChainKeyInCertSignResp   = "ca_chain"
 	issuingCAKeyInCertSignResp = "issuing_ca"
 	jwtKeyInLoginReq           = "jwt"
 	roleKeyInLoginReq          = "role"
+
+	tlsRootCertKey = "cert"
 )
 
 var (
@@ -54,32 +58,33 @@ var (
 
 // VaultClient is a client for interaction with Vault.
 type VaultClient struct {
-	enableTLS       bool
-	vaultAddr       string
-	tlsRootCertPath string
-	jwtPath         string
-	loginRole       string
-	loginPath       string
-	signCsrPath     string
-	caCertPath      string
+	enableTLS     bool
+	vaultAddr     string
+	tlsRootCertCM string
+	jwtPath       string
+	loginRole     string
+	loginPath     string
+	signCsrPath   string
+	rootCertPath  string
 
-	client    *vaultapi.Client
-	jwtLoader *util.JwtLoader
+	client           *vaultapi.Client
+	jwtLoader        *util.JwtLoader
+	rootCertPem      string
+	rootCertPemMutex *sync.RWMutex
 }
 
 // NewVaultClient creates a CA client for the Vault PKI.
-func NewVaultClient() (*VaultClient, error) {
+func NewVaultClient(k8sClient corev1.CoreV1Interface) (*VaultClient, error) {
 	vaultAddr := env.RegisterStringVar(envVaultAddr, "", "The address of the Vault server").Get()
 	if len(vaultAddr) == 0 {
 		return nil, fmt.Errorf("%s is not configured", envVaultAddr)
 	}
 	vaultClientLog.Infof("%s = %s", envVaultAddr, vaultAddr)
 
-	tlsRootCertPath := env.RegisterStringVar(envVaultTLSCertPath, "", "The TLS cert to authenticate the Vault server").Get()
-	if len(tlsRootCertPath) == 0 {
-		return nil, fmt.Errorf("%s is not configured", envVaultTLSCertPath)
-	}
-	vaultClientLog.Infof("%s = %s", envVaultTLSCertPath, tlsRootCertPath)
+	tlsRootCertCM := env.RegisterStringVar(envVaultTLSCertCM, "", "The name of the config map storing the TLS "+
+		"cert to authenticate the Vault server. Key should be 'cert'. If not stored in istio-system, use the "+
+		"format <name>.<namespace>").Get()
+	vaultClientLog.Infof("%s = %s", envVaultTLSCertCM, tlsRootCertCM)
 
 	jwtPath := env.RegisterStringVar(envJwtPath, "", "The JWT path to get authenticated by the Vault server").Get()
 	if len(jwtPath) == 0 {
@@ -93,33 +98,35 @@ func NewVaultClient() (*VaultClient, error) {
 	}
 	vaultClientLog.Infof("%s = %s", envLoginRole, loginRole)
 
-	loginPath := env.RegisterStringVar(envLoginPath, "", "The login path for the Vault server").Get()
+	loginPath := env.RegisterStringVar(envLoginPath, "", "The login path on the Vault server").Get()
 	if len(loginPath) == 0 {
 		return nil, fmt.Errorf("%s is not configured", envLoginPath)
 	}
 	vaultClientLog.Infof("%s = %s", envLoginPath, loginPath)
 
-	signCsrPath := env.RegisterStringVar(envSignCsrPath, "", "The CSR verbatim-sign path for the Vault server").Get()
+	signCsrPath := env.RegisterStringVar(envSignCsrPath, "", "The CSR verbatim-sign path on the Vault server").Get()
 	if len(signCsrPath) == 0 {
 		return nil, fmt.Errorf("%s is not configured", envSignCsrPath)
 	}
 	vaultClientLog.Infof("%s = %s", envSignCsrPath, signCsrPath)
 
-	caCertPath := env.RegisterStringVar(envCaCertPath, "", "The CA cert retrieval path for the Vault server").Get()
-	if len(caCertPath) == 0 {
-		return nil, fmt.Errorf("%s is not configured", envCaCertPath)
+	rootCertPath := env.RegisterStringVar(envRootCertPath, "", "The root cert retrieval path on the Vault server").Get()
+	if len(rootCertPath) == 0 {
+		return nil, fmt.Errorf("%s is not configured", envRootCertPath)
 	}
-	vaultClientLog.Infof("%s = %s", envCaCertPath, caCertPath)
+	vaultClientLog.Infof("%s = %s", envRootCertPath, rootCertPath)
 
 	c := &VaultClient{
-		enableTLS:       true,
-		vaultAddr:       vaultAddr,
-		tlsRootCertPath: tlsRootCertPath,
-		jwtPath:         jwtPath,
-		loginRole:       loginRole,
-		loginPath:       loginPath,
-		signCsrPath:     signCsrPath,
-		caCertPath:      caCertPath,
+		enableTLS:        true,
+		vaultAddr:        vaultAddr,
+		tlsRootCertCM:    tlsRootCertCM,
+		jwtPath:          jwtPath,
+		loginRole:        loginRole,
+		loginPath:        loginPath,
+		signCsrPath:      signCsrPath,
+		rootCertPath:     rootCertPath,
+		rootCertPem:      "",
+		rootCertPemMutex: &sync.RWMutex{},
 	}
 	if strings.HasPrefix(c.vaultAddr, "http:") {
 		c.enableTLS = false
@@ -138,7 +145,21 @@ func NewVaultClient() (*VaultClient, error) {
 	var client *vaultapi.Client
 	var err error
 	if c.enableTLS {
-		client, err = createVaultTLSClient(c.vaultAddr, c.tlsRootCertPath)
+		if len(tlsRootCertCM) == 0 {
+			return nil, fmt.Errorf("%s is not configured", envVaultTLSCertCM)
+		}
+		segments := strings.Split(tlsRootCertCM, ".")
+		var name string
+		namespace := "istio-system"
+		if len(segments) > 2 {
+			return nil, fmt.Errorf("incorrect format of the TLS CA cert configmap name: %s", tlsRootCertCM)
+		}
+		name = segments[0]
+		if len(segments) == 2 {
+			namespace = segments[1]
+		}
+
+		client, err = createVaultTLSClient(c.vaultAddr, name, namespace, k8sClient)
 	} else {
 		client, err = createVaultClient(c.vaultAddr)
 	}
@@ -152,8 +173,13 @@ func NewVaultClient() (*VaultClient, error) {
 		return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
 	}
 	c.client.SetToken(token)
-
 	vaultClientLog.Infof("created Vault client for Vault address: %s, TLS: %v", c.vaultAddr, c.enableTLS)
+
+	if err := c.refreshRootCertPem(); err != nil {
+		return nil, fmt.Errorf("failed to fetch root cert PEM: %v", err)
+	}
+	vaultClientLog.Infof("retrieved root cert PEM: %s", c.GetRootCertPem())
+
 	return c, nil
 }
 
@@ -184,34 +210,44 @@ func (c *VaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, 
 	return certChain, nil
 }
 
-// GetCACertPem returns the CA certificate in PEM format.
-func (c *VaultClient) GetCACertPem() (string, error) {
-	resp, getCaErr := c.client.Logical().Read(c.caCertPath)
+// GetRootCertPem returns the root certificate in PEM format.
+func (c *VaultClient) GetRootCertPem() string {
+	c.rootCertPemMutex.RLock()
+	defer c.rootCertPemMutex.RUnlock()
+	return c.rootCertPem
+}
+
+// refreshRootCertPem refreshes the root cert pem by calling the Vault server.
+func (c *VaultClient) refreshRootCertPem() error {
+	resp, getCaErr := c.client.Logical().Read(c.rootCertPath)
 	if getCaErr != nil && strings.Contains(getCaErr.Error(), "permission denied") {
 		// In this case, the token may be expired. Re-authenticate.
 		token, err := loginVaultK8sAuthMethod(c.client, c.loginPath, c.loginRole, c.jwtLoader.GetJwt())
 		if err != nil {
-			return "", fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
+			return fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
 		}
 		c.client.SetToken(token)
 		vaultClientLog.Infof("Reauthenticate using token %s", token)
-		resp, getCaErr = c.client.Logical().Read(c.caCertPath)
+		resp, getCaErr = c.client.Logical().Read(c.rootCertPath)
 	}
 	if getCaErr != nil {
-		return "", fmt.Errorf("failed to retrieve CA cert: %v", getCaErr)
+		return fmt.Errorf("failed to retrieve CA cert: %v", getCaErr)
 	}
 	if resp == nil || resp.Data == nil {
-		return "", fmt.Errorf("failed to retrieve CA cert: Got nil data [%v]", resp)
+		return fmt.Errorf("failed to retrieve CA cert: Got nil data [%v]", resp)
 	}
-	certData, ok := resp.Data[certKeyInCACertResp]
+	certData, ok := resp.Data[certKeyInRootCertResp]
 	if !ok {
-		return "", fmt.Errorf("no certificate in the CA cert response [%v]", resp.Data)
+		return fmt.Errorf("no certificate in the CA cert response [%v]", resp.Data)
 	}
 	cert, ok := certData.(string)
 	if !ok {
-		return "", fmt.Errorf("the certificate in the CA cert response is not a string")
+		return fmt.Errorf("the certificate in the CA cert response is not a string")
 	}
-	return cert, nil
+	c.rootCertPemMutex.Lock()
+	c.rootCertPem = cert
+	c.rootCertPemMutex.Unlock()
+	return nil
 }
 
 // createVaultClient creates a client to a Vault server
@@ -231,7 +267,8 @@ func createVaultClient(vaultAddr string) (*vaultapi.Client, error) {
 
 // createVaultTLSClient creates a client to a Vault server
 // vaultAddr: the address of the Vault server (e.g., "https://127.0.0.1:8200").
-func createVaultTLSClient(vaultAddr string, tlsRootCertPath string) (*vaultapi.Client, error) {
+func createVaultTLSClient(vaultAddr, cmName, cmNamespace string, k8sClient corev1.CoreV1Interface) (
+	*vaultapi.Client, error) {
 	// Load the system default root certificates.
 	pool, err := x509.SystemCertPool()
 	if err != nil {
@@ -241,15 +278,21 @@ func createVaultTLSClient(vaultAddr string, tlsRootCertPath string) (*vaultapi.C
 		log.Info("system cert pool is nil, create a new cert pool")
 		pool = x509.NewCertPool()
 	}
-	tlsRootCert, err := ioutil.ReadFile(tlsRootCertPath)
+
+	// Read cert from K8s ConfigMap
+	configmap, err := k8sClient.ConfigMaps(cmNamespace).Get(cmName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to load TLS cert from file [%s]: %v", tlsRootCertPath, err)
+		return nil, fmt.Errorf("failed to load TLS root cert ConfigMap %s in %s to authenticate Vault server: %v", cmName, cmNamespace, err)
 	}
-	if len(tlsRootCert) > 0 {
-		ok := pool.AppendCertsFromPEM(tlsRootCert)
-		if !ok {
-			return nil, fmt.Errorf("failed to append certificate [%v] to the certificate pool", string(tlsRootCert))
-		}
+	tlsRootCert := configmap.Data[tlsRootCertKey]
+	if len(tlsRootCert) == 0 {
+		return nil, fmt.Errorf("the TLS root cert in ConfigMap %s.%s does not contain the key: %s",
+			cmName, cmNamespace, tlsRootCertKey)
+	}
+
+	ok := pool.AppendCertsFromPEM([]byte(tlsRootCert))
+	if !ok {
+		return nil, fmt.Errorf("failed to append certificate [%v] to the certificate pool", string(tlsRootCert))
 	}
 	tlsConfig := &tls.Config{
 		RootCAs: pool,

@@ -25,7 +25,6 @@ import (
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
-	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -49,8 +48,6 @@ func NewCAClient(endpoint, caProviderName string, tlsFlag bool) (caClientInterfa
 	switch caProviderName {
 	case googleCAName:
 		return gca.NewGoogleCAClient(endpoint, tlsFlag)
-	case vaultCAName:
-		return vault.NewVaultClient() // Vault client loads configuration from ENV variables.
 	case citadelName:
 		cs, err := kube.CreateClientset("", "")
 		if err != nil {

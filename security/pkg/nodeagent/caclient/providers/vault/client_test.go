@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package caclient
+package vault
 
 import (
 	"context"
@@ -25,6 +25,10 @@ import (
 	"reflect"
 	"regexp"
 	"testing"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 // vaultAuthHeaderName is the name of the header containing the token.
@@ -108,7 +112,7 @@ B8e+lMJGkuDQRCKZo0qQMHTB7C8XCQ==
 	}
   }
 `
-	caCertResp = `
+	rootCertResp = `
 	{
 		"data": {
 			"certificate": "fake-ca2"
@@ -117,24 +121,29 @@ B8e+lMJGkuDQRCKZo0qQMHTB7C8XCQ==
 `
 	workloadCert  = []string{"fake-certificate\n", "fake-ca1\n", "fake-ca2\n"}
 	workloadCert2 = []string{"fake-certificate\n", "fake-ca1\n"}
-	caCert        = "fake-ca2"
+	rootCert      = "fake-ca2"
 
-	validLoginPath    = "auth/kubernetes/login"
-	validLoginPath2   = "auth/kubernetes2/login"
-	validCSRSignPath  = "pki/sign-verbatim/test"
-	validCSRSignPath2 = "pki2/sign-verbatim/test"
-	validCACertPath   = "pki/cert/ca"
+	validLoginPath           = "auth/kubernetes/login"
+	validLoginPath2          = "auth/kubernetes2/login"
+	validCSRSignPath         = "pki/sign-verbatim/test"
+	validCSRSignPath2        = "pki2/sign-verbatim/test"
+	validRootCertPath        = "pki/cert/ca"
+	tlsRootCertCmName        = "vaulttlscert"
+	tlsRootCertCmNs          = "istio-system"
+	tlsRootCertCmName2       = "vaulttlscert2"
+	tlsRootCertCmNs2         = "vault-test"
+	invalidTLSRootCertCmName = "invalidvaulttlscert"
 )
 
 type mockVaultServer struct {
-	httpServer *httptest.Server
-	loginRole  string
-	token      string
-	loginResp  string
-	loginResp2 string
-	signResp   string
-	signResp2  string
-	caCertResp string
+	httpServer   *httptest.Server
+	loginRole    string
+	token        string
+	loginResp    string
+	loginResp2   string
+	signResp     string
+	signResp2    string
+	rootCertResp string
 }
 
 type signRequest struct {
@@ -144,9 +153,9 @@ type signRequest struct {
 
 type TestSetup struct {
 	Server         *mockVaultServer
-	certFile       *os.File
 	jwtFile        *os.File
 	invalidJwtFile *os.File
+	k8sClient      *fake.Clientset
 }
 
 func TestNewVaultClient(t *testing.T) {
@@ -155,7 +164,7 @@ func TestNewVaultClient(t *testing.T) {
 
 	testCases := map[string]struct {
 		vaultAddr        string
-		tlsRootCertPath  string
+		tlsRootCertCM    string
 		jwtPath          string
 		loginRole        string
 		loginPath        string
@@ -163,39 +172,47 @@ func TestNewVaultClient(t *testing.T) {
 	}{
 		"Missing ENV variable": {
 			vaultAddr:        setup.Server.httpServer.URL,
-			tlsRootCertPath:  "",
+			tlsRootCertCM:    "",
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
-			expectedErrRegEx: envVaultTLSCertPath + " is not configured",
+			expectedErrRegEx: envVaultTLSCertCM + " is not configured",
 		},
 		"Valid login": {
 			vaultAddr:        setup.Server.httpServer.URL,
-			tlsRootCertPath:  setup.certFile.Name(),
+			tlsRootCertCM:    tlsRootCertCmName + "." + tlsRootCertCmNs,
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
 			expectedErrRegEx: "",
 		},
-		"Invalid TLS root cert path": {
+		"Load TLS root cert from ConfigMap in customized namespace": {
 			vaultAddr:        setup.Server.httpServer.URL,
-			tlsRootCertPath:  "/invalid/root/cert/path",
+			tlsRootCertCM:    tlsRootCertCmName2 + "." + tlsRootCertCmNs2,
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
-			expectedErrRegEx: "failed to load TLS cert from file.+",
+			expectedErrRegEx: "",
 		},
-		"Wrong TLS root cert": {
+		"Invalid TLS root cert ConfigMap name": {
 			vaultAddr:        setup.Server.httpServer.URL,
-			tlsRootCertPath:  "../../../../pki/testdata/cert.pem",
+			tlsRootCertCM:    "invalidname",
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
-			expectedErrRegEx: "failed to login Vault.+certificate signed by unknown authority",
+			expectedErrRegEx: "failed to load TLS root cert ConfigMap invalidname in istio-system+",
+		},
+		"Invalid TLS root cert in ConfigMap": {
+			vaultAddr:        setup.Server.httpServer.URL,
+			tlsRootCertCM:    invalidTLSRootCertCmName + "." + tlsRootCertCmNs,
+			jwtPath:          setup.jwtFile.Name(),
+			loginRole:        validRole,
+			loginPath:        validLoginPath,
+			expectedErrRegEx: "failed to append certificate .+ to the certificate pool",
 		},
 		"Wrong login path": {
 			vaultAddr:        setup.Server.httpServer.URL,
-			tlsRootCertPath:  setup.certFile.Name(),
+			tlsRootCertCM:    tlsRootCertCmName + "." + tlsRootCertCmNs,
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        "auth/wrongpath/login",
@@ -203,7 +220,7 @@ func TestNewVaultClient(t *testing.T) {
 		},
 		"Non-exist JWT file": {
 			vaultAddr:        setup.Server.httpServer.URL,
-			tlsRootCertPath:  setup.certFile.Name(),
+			tlsRootCertCM:    tlsRootCertCmName + "." + tlsRootCertCmNs,
 			jwtPath:          "/non/exist/jwt/path",
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
@@ -211,7 +228,7 @@ func TestNewVaultClient(t *testing.T) {
 		},
 		"Invalid JWT": {
 			vaultAddr:        setup.Server.httpServer.URL,
-			tlsRootCertPath:  setup.certFile.Name(),
+			tlsRootCertCM:    tlsRootCertCmName + "." + tlsRootCertCmNs,
 			jwtPath:          setup.invalidJwtFile.Name(),
 			loginRole:        validRole,
 			loginPath:        validLoginPath,
@@ -219,7 +236,7 @@ func TestNewVaultClient(t *testing.T) {
 		},
 		"Invalid role": {
 			vaultAddr:        setup.Server.httpServer.URL,
-			tlsRootCertPath:  setup.certFile.Name(),
+			tlsRootCertCM:    tlsRootCertCmName + "." + tlsRootCertCmNs,
 			jwtPath:          setup.jwtFile.Name(),
 			loginRole:        "invalidrole",
 			loginPath:        validLoginPath,
@@ -229,12 +246,12 @@ func TestNewVaultClient(t *testing.T) {
 
 	for id, tc := range testCases {
 		os.Setenv(envVaultAddr, tc.vaultAddr)
-		os.Setenv(envVaultTLSCertPath, tc.tlsRootCertPath)
+		os.Setenv(envVaultTLSCertCM, tc.tlsRootCertCM)
 		os.Setenv(envJwtPath, tc.jwtPath)
 		os.Setenv(envLoginRole, tc.loginRole)
 		os.Setenv(envLoginPath, tc.loginPath)
 		var err error
-		_, err = NewVaultClient()
+		_, err = NewVaultClient(setup.k8sClient.CoreV1())
 		if err != nil {
 			if len(tc.expectedErrRegEx) == 0 {
 				t.Errorf("Test case [%s]: received error while not expected: %v", id, err)
@@ -280,7 +297,7 @@ func TestCSRSign(t *testing.T) {
 
 	for id, tc := range testCases {
 		os.Setenv(envSignCsrPath, tc.signCsrPath)
-		client, err := NewVaultClient()
+		client, err := NewVaultClient(setup.k8sClient.CoreV1())
 		if err != nil {
 			t.Fatalf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
@@ -304,34 +321,29 @@ func TestCSRSign(t *testing.T) {
 	}
 }
 
-func TestGetCACertPem(t *testing.T) {
+func TestRefreshRootCertPem(t *testing.T) {
 	setup := PrepareTest(t)
 	defer setup.CleanUp()
 
 	testCases := map[string]struct {
-		caCertPath       string
+		rootCertPath     string
 		expectedCert     string
 		expectedErrRegEx string
 	}{
 		"Valid": {
-			caCertPath:       validCACertPath,
-			expectedCert:     caCert,
+			rootCertPath:     validRootCertPath,
+			expectedCert:     rootCert,
 			expectedErrRegEx: "",
 		},
 		"Wrong CA Cert path": {
-			caCertPath:       "pki/wrongpath/ca",
+			rootCertPath:     "pki/wrongpath/ca",
 			expectedErrRegEx: "failed to retrieve CA cert: Got nil data",
 		},
 	}
 
 	for id, tc := range testCases {
-		os.Setenv(envCaCertPath, tc.caCertPath)
-		client, err := NewVaultClient()
-		if err != nil {
-			t.Fatalf("Test case [%s]: failed to create ca client: %v", id, err)
-		}
-
-		cert, err := client.GetCACertPem()
+		os.Setenv(envRootCertPath, tc.rootCertPath)
+		client, err := NewVaultClient(setup.k8sClient.CoreV1())
 		if err != nil {
 			if len(tc.expectedErrRegEx) == 0 {
 				t.Errorf("Test case [%s]: received error while not expected: %v", id, err)
@@ -343,8 +355,8 @@ func TestGetCACertPem(t *testing.T) {
 		} else {
 			if tc.expectedErrRegEx != "" {
 				t.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErrRegEx)
-			} else if !reflect.DeepEqual(cert, tc.expectedCert) {
-				t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, cert, tc.expectedCert)
+			} else if !reflect.DeepEqual(client.GetRootCertPem(), tc.expectedCert) {
+				t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, client.GetRootCertPem(), tc.expectedCert)
 			}
 		}
 	}
@@ -355,35 +367,22 @@ func TestReauthentication(t *testing.T) {
 	defer setup.CleanUp()
 
 	testCases := map[string]struct {
-		testCSR          bool
 		updateLoginPath  bool
 		expectedErrRegEx string
 	}{
 		"CSR reauthentication succeed": {
-			testCSR:          true,
 			updateLoginPath:  true,
 			expectedErrRegEx: "",
 		},
 		"CSR reauthentication failure": {
-			testCSR:          true,
 			updateLoginPath:  false,
 			expectedErrRegEx: "failed to sign CSR.+",
-		},
-		"Get CA cert reauthentication succeed": {
-			testCSR:          false,
-			updateLoginPath:  true,
-			expectedErrRegEx: "",
-		},
-		"Get CA cert reauthentication failure": {
-			testCSR:          false,
-			updateLoginPath:  false,
-			expectedErrRegEx: "failed to retrieve CA cert.+",
 		},
 	}
 
 	for id, tc := range testCases {
 		os.Setenv(envLoginPath, validLoginPath2)
-		client, err := NewVaultClient()
+		client, err := NewVaultClient(setup.k8sClient.CoreV1())
 		if err != nil {
 			t.Fatalf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
@@ -393,11 +392,7 @@ func TestReauthentication(t *testing.T) {
 			client.loginPath = validLoginPath
 		}
 
-		if tc.testCSR {
-			_, err = client.CSRSign(context.Background(), "", []byte(validCSR), "", 3600)
-		} else {
-			_, err = client.GetCACertPem()
-		}
+		_, err = client.CSRSign(context.Background(), "", []byte(validCSR), "", 3600)
 
 		if err != nil {
 			if len(tc.expectedErrRegEx) == 0 {
@@ -417,19 +412,42 @@ func PrepareTest(t *testing.T) *TestSetup {
 	ch := make(chan *mockVaultServer)
 	go func() {
 		// create a test TLS Vault server
-		server := newMockVaultServer(t, true, validRole, validJWT, loginResp, loginResp2, signResp, signResp2, caCertResp)
+		server := newMockVaultServer(t, true, validRole, validJWT, loginResp, loginResp2, signResp, signResp2, rootCertResp)
 		ch <- server
 	}()
 	tlsServer := <-ch
 
-	certFile, err := ioutil.TempFile("", "cert")
-	if err != nil {
-		t.Fatalf("Failed to create tmp cert file: %v", err)
+	certMem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: tlsServer.httpServer.Certificate().Raw})
+	client := fake.NewSimpleClientset()
+	cm := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      tlsRootCertCmName,
+			Namespace: tlsRootCertCmNs,
+		},
+		Data: map[string]string{tlsRootCertKey: string(certMem)},
 	}
-	content := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: tlsServer.httpServer.Certificate().Raw})
-
-	if _, err := certFile.Write(content); err != nil {
-		t.Fatalf("Failed to write server cert to tmp file: %v", err)
+	if _, err := client.CoreV1().ConfigMaps(tlsRootCertCmNs).Create(cm); err != nil {
+		t.Errorf("Failed to insert configmap %v", err)
+	}
+	cm2 := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      tlsRootCertCmName2,
+			Namespace: tlsRootCertCmNs2,
+		},
+		Data: map[string]string{tlsRootCertKey: string(certMem)},
+	}
+	if _, err := client.CoreV1().ConfigMaps(tlsRootCertCmNs2).Create(cm2); err != nil {
+		t.Errorf("Failed to insert configmap %v", err)
+	}
+	invalidCM := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      invalidTLSRootCertCmName,
+			Namespace: tlsRootCertCmNs,
+		},
+		Data: map[string]string{tlsRootCertKey: "invalidcertcontent"},
+	}
+	if _, err := client.CoreV1().ConfigMaps(tlsRootCertCmNs).Create(invalidCM); err != nil {
+		t.Errorf("Failed to insert configmap %v", err)
 	}
 
 	jwtFile, err := ioutil.TempFile("", "jwt")
@@ -452,24 +470,23 @@ func PrepareTest(t *testing.T) *TestSetup {
 
 	// Set default configuration for the tests. Each test can override the configuration.
 	os.Setenv(envVaultAddr, tlsServer.httpServer.URL)
-	os.Setenv(envVaultTLSCertPath, certFile.Name())
+	os.Setenv(envVaultTLSCertCM, tlsRootCertCmName+"."+tlsRootCertCmNs)
 	os.Setenv(envJwtPath, jwtFile.Name())
 	os.Setenv(envLoginRole, validRole)
 	os.Setenv(envLoginPath, validLoginPath)
 	os.Setenv(envSignCsrPath, validCSRSignPath)
-	os.Setenv(envCaCertPath, validCACertPath)
+	os.Setenv(envRootCertPath, validRootCertPath)
 
 	return &TestSetup{
 		Server:         tlsServer,
-		certFile:       certFile,
 		jwtFile:        jwtFile,
 		invalidJwtFile: invalidJwtFile,
+		k8sClient:      client,
 	}
 }
 
 func (s *TestSetup) CleanUp() {
 	s.Server.httpServer.Close()
-	os.Remove(s.certFile.Name())
 	os.Remove(s.jwtFile.Name())
 	os.Remove(s.invalidJwtFile.Name())
 }
@@ -477,15 +494,15 @@ func (s *TestSetup) CleanUp() {
 // newMockVaultServer creates a mock Vault server for testing purpose.
 // token: required access token
 func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, loginResp2, signResp, signResp2,
-	caCertResp string) *mockVaultServer {
+	rootCertResp string) *mockVaultServer {
 	vaultServer := &mockVaultServer{
-		loginRole:  loginRole,
-		token:      token,
-		loginResp:  loginResp,
-		loginResp2: loginResp2,
-		signResp:   signResp,
-		signResp2:  signResp2,
-		caCertResp: caCertResp,
+		loginRole:    loginRole,
+		token:        token,
+		loginResp:    loginResp,
+		loginResp2:   loginResp2,
+		signResp:     signResp,
+		signResp2:    signResp2,
+		rootCertResp: rootCertResp,
 	}
 
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
@@ -560,14 +577,9 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, log
 			resp.Header().Set("Content-Type", "application/json")
 			resp.Write([]byte(vaultServer.loginResp2))
 
-		case "/v1/" + validCACertPath:
-			if req.Header.Get(vaultAuthHeaderName) != "fake-vault-token" {
-				resp.WriteHeader(http.StatusForbidden)
-				resp.Write([]byte("permission denied"))
-				return
-			}
+		case "/v1/" + validRootCertPath:
 			resp.Header().Set("Content-Type", "application/json")
-			resp.Write([]byte(vaultServer.caCertResp))
+			resp.Write([]byte(vaultServer.rootCertResp))
 
 		case "/v1/" + validCSRSignPath:
 			if req.Header.Get(vaultAuthHeaderName) != "fake-vault-token" {
