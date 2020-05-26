@@ -2484,8 +2484,7 @@ func TestValidateDestinationRule(t *testing.T) {
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  20,
+					MinHealthPercent: 20,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2504,8 +2503,7 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 				ConnectionPool: &networking.ConnectionPoolSettings{},
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  20,
+					MinHealthPercent: 20,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2529,8 +2527,7 @@ func TestValidateDestinationRule(t *testing.T) {
 							Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 						},
 						OutlierDetection: &networking.OutlierDetection{
-							ConsecutiveErrors: 5,
-							MinHealthPercent:  20,
+							MinHealthPercent: 20,
 						},
 					},
 				},
@@ -2550,8 +2547,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 						ConnectionPool: &networking.ConnectionPoolSettings{},
 						OutlierDetection: &networking.OutlierDetection{
-							ConsecutiveErrors: 5,
-							MinHealthPercent:  20,
+							MinHealthPercent: 20,
 						},
 					},
 				},
@@ -2572,8 +2568,7 @@ func TestValidateDestinationRule(t *testing.T) {
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  20,
+					MinHealthPercent: 20,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2589,8 +2584,7 @@ func TestValidateDestinationRule(t *testing.T) {
 							Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 						},
 						OutlierDetection: &networking.OutlierDetection{
-							ConsecutiveErrors: 5,
-							MinHealthPercent:  30,
+							MinHealthPercent: 30,
 						},
 					},
 				},
@@ -2598,25 +2592,11 @@ func TestValidateDestinationRule(t *testing.T) {
 			},
 		}, valid: true},
 
-		{name: "negative consecutive errors", in: &networking.DestinationRule{
+		{name: "deprecated consecutive errors set", in: &networking.DestinationRule{
 			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
 					ConsecutiveErrors: -1,
-				},
-			},
-			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
-			},
-		}, valid: false},
-
-		{name: "deprecated consecutive errors set together with consecutive 5xx errors", in: &networking.DestinationRule{
-			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors:     3,
-					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2650,8 +2630,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 			},
 			OutlierDetection: &networking.OutlierDetection{
-				ConsecutiveErrors: 5,
-				MinHealthPercent:  20,
+				MinHealthPercent: 20,
 			},
 		},
 			valid: true},
@@ -2671,8 +2650,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 						Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 					},
 					OutlierDetection: &networking.OutlierDetection{
-						ConsecutiveErrors: 5,
-						MinHealthPercent:  20,
+						MinHealthPercent: 20,
 					},
 				},
 			},
@@ -2686,8 +2664,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 			ConnectionPool: &networking.ConnectionPoolSettings{},
 			OutlierDetection: &networking.OutlierDetection{
-				ConsecutiveErrors: 5,
-				MinHealthPercent:  20,
+				MinHealthPercent: 20,
 			},
 		},
 			valid: false},
@@ -2702,8 +2679,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 			},
 			OutlierDetection: &networking.OutlierDetection{
-				ConsecutiveErrors: 5,
-				MinHealthPercent:  -1,
+				MinHealthPercent: -1,
 			},
 		},
 			valid: false},
@@ -2879,13 +2855,12 @@ func TestValidateOutlierDetection(t *testing.T) {
 		valid bool
 	}{
 		{name: "valid outlier detection", in: networking.OutlierDetection{
-			ConsecutiveErrors:  5,
 			Interval:           &types.Duration{Seconds: 2},
 			BaseEjectionTime:   &types.Duration{Seconds: 2},
 			MaxEjectionPercent: 50,
 		}, valid: true},
 
-		{name: "invalid outlier detection, bad consecutive errors", in: networking.OutlierDetection{
+		{name: "invalid outlier detection, deprecated consecutive errors set", in: networking.OutlierDetection{
 			ConsecutiveErrors: -1},
 			valid: false},
 
