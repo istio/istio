@@ -28,7 +28,6 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 
-	"istio.io/pkg/ctrlz/fw"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
@@ -48,7 +47,6 @@ import (
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/snapshots"
-	configz "istio.io/istio/pkg/mcp/configz/server"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcprate "istio.io/istio/pkg/mcp/rate"
@@ -65,7 +63,6 @@ type Processing struct {
 	args *settings.Args
 
 	mcpCache     *snapshot.Cache
-	configzTopic fw.Topic
 
 	k kube.Interfaces
 
@@ -86,7 +83,6 @@ func NewProcessing(a *settings.Args) *Processing {
 	return &Processing{
 		args:         a,
 		mcpCache:     mcpCache,
-		configzTopic: configz.CreateTopic(mcpCache),
 	}
 }
 
@@ -256,11 +252,6 @@ func (p *Processing) Start() (err error) {
 	}
 
 	return nil
-}
-
-// ConfigZTopic returns the ConfigZTopic for the processor.
-func (p *Processing) ConfigZTopic() fw.Topic {
-	return p.configzTopic
 }
 
 func (p *Processing) getServerGrpcOptions() []grpc.ServerOption {

@@ -47,18 +47,3 @@ var (
 	// EnableIncrementalMCP is an option to enable incremental mcp
 	EnableIncrementalMCP = env.RegisterBoolVar("ENABLE_INCREMENTAL_MCP", false, "")
 )
-
-// RegisteredEnvVarNames returns the names of registered environment variables.
-func RegisteredEnvVarNames() []string {
-	return []string{
-		// AuthFailure RateLimiter
-		AuthzFailureLogFreq.Name,
-		AuthzFailureLogBurstSize.Name,
-		// SourceServer RateLimiter
-		SourceServerStreamBurstSize.Name,
-		SourceServerStreamFreq.Name,
-		// MCP Source RateLimiter
-		MCPSourceReqBurstSize.Name,
-		MCPSourceReqFreq.Name,
-	}
-}
