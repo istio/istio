@@ -2366,7 +2366,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			opts := &buildClusterOpts{
 				cluster: &apiv2.Cluster{
 					ClusterDiscoveryType: &apiv2.Cluster_Type{Type: test.discoveryType},
-				    Http2ProtocolOptions: test.http2ProtocolOptions,
+					Http2ProtocolOptions: test.http2ProtocolOptions,
 				},
 				proxy: proxy,
 				push:  push,
