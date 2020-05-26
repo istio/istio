@@ -1,3 +1,35 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    app: sidecar-injector
+    istio.io/rev: default
+    release: istio
+  name: istio-sidecar-injector-istio-control
+webhooks:
+- clientConfig:
+    caBundle: ""
+    service:
+      name: foo
+      namespace: istio-control
+      path: /inject
+  failurePolicy: Fail
+  name: sidecar-injector.istio.io
+  namespaceSelector:
+    matchLabels:
+      istio-injection: enabled
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+---
+
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
