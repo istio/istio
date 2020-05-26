@@ -2591,19 +2591,6 @@ func TestValidateDestinationRule(t *testing.T) {
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: true},
-
-		{name: "deprecated consecutive errors set", in: &networking.DestinationRule{
-			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: -1,
-				},
-			},
-			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
-			},
-		}, valid: false},
 	}
 	for _, c := range cases {
 		if got := ValidateDestinationRule(someName, someNamespace, c.in); (got == nil) != c.valid {
@@ -2859,10 +2846,6 @@ func TestValidateOutlierDetection(t *testing.T) {
 			BaseEjectionTime:   &types.Duration{Seconds: 2},
 			MaxEjectionPercent: 50,
 		}, valid: true},
-
-		{name: "invalid outlier detection, deprecated consecutive errors set", in: networking.OutlierDetection{
-			ConsecutiveErrors: -1},
-			valid: false},
 
 		{name: "invalid outlier detection, bad interval", in: networking.OutlierDetection{
 			Interval: &types.Duration{Seconds: 2, Nanos: 5}},
