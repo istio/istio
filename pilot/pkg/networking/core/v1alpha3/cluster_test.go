@@ -2221,7 +2221,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 
-	http2ProtocolOptions := &corev3.Http2ProtocolOptions{
+	http2ProtocolOptions := &core.Http2ProtocolOptions{
 		AllowConnect:  true,
 		AllowMetadata: true,
 	}
@@ -2234,7 +2234,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
-		http2ProtocolOptions       *corev3.Http2ProtocolOptions
+		http2ProtocolOptions       *core.Http2ProtocolOptions
 
 		validateTLSContext func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext)
 	}{
@@ -2253,7 +2253,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
-			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
 				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
 				}
@@ -2262,12 +2262,12 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "user specified with istio_mutual tls with h2",
 			mtlsCtx:                    userSupplied,
-			discoveryType:              cluster.Cluster_EDS,
+			discoveryType:              apiv2.Cluster_EDS,
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			http2ProtocolOptions:       http2ProtocolOptions,
-			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
 				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
 				}
@@ -2297,12 +2297,12 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "user specified mutual tls with h2",
 			mtlsCtx:                    userSupplied,
-			discoveryType:              cluster.Cluster_EDS,
+			discoveryType:              apiv2.Cluster_EDS,
 			tls:                        mutualTLSSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			http2ProtocolOptions:       http2ProtocolOptions,
-			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
 				rootName := "file-root:" + mutualTLSSettings.CaCertificates
 				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettings.ClientCertificate, mutualTLSSettings.PrivateKey)
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
@@ -2323,7 +2323,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        tlsSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
-			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
 				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
 				}
@@ -2332,12 +2332,12 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "auto detect with tls and h2 options",
 			mtlsCtx:                    autoDetected,
-			discoveryType:              cluster.Cluster_EDS,
+			discoveryType:              apiv2.Cluster_EDS,
 			tls:                        tlsSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
 			http2ProtocolOptions:       http2ProtocolOptions,
-			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
 				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
 				}
