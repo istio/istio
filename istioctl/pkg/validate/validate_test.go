@@ -211,6 +211,14 @@ spec:
           host: c
           subset: v2
         weight: 25`
+	invalidVirtualServiceV1Beta1 = `
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: invalid-virtual-service
+spec:
+  http:
+`
 	validMixerRule = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -255,7 +263,7 @@ metadata:
 unexpected_junk:
    still_more_junk:
 spec:
-	host: productpage`
+  host: productpage`
 	versionLabelMissingDeployment = `
 apiVersion: apps/v1
 kind: Deployment
@@ -293,6 +301,11 @@ func TestValidateResource(t *testing.T) {
 		{
 			name:  "invalid pilot configuration",
 			in:    invalidVirtualService,
+			valid: false,
+		},
+		{
+			name:  "invalid pilot configuration v1beta1",
+			in:    invalidVirtualServiceV1Beta1,
 			valid: false,
 		},
 		{
@@ -516,9 +529,10 @@ $`),
 			wantError: true,
 		},
 		{
-			name:      "invalid top-level key",
-			args:      []string{"--filename", unsupportedKeyFilename},
-			wantError: true,
+			name:           "invalid top-level key",
+			args:           []string{"--filename", unsupportedKeyFilename},
+			expectedRegexp: regexp.MustCompile(`.*unknown field "unexpected_junk"`),
+			wantError:      true,
 		},
 		{
 			name:      "version label missing deployment",
