@@ -20,6 +20,7 @@ import (
 	"time"
 
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -162,7 +163,9 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 
 // Register adds the ADS and EDS handles to the grpc server
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
-	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+	// Register v2 and v3 servers
+	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
