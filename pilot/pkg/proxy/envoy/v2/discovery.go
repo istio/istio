@@ -65,7 +65,11 @@ const (
 )
 
 func init() {
-	pushDebouncer = newFixedDebouncer(features.DebounceAfter, features.DebounceMax)
+	if features.UseBackoffDebouncer {
+		pushDebouncer = newBackoffDebouncer(features.DebounceAfter, features.DebounceMax)
+	} else {
+		pushDebouncer = newFixedDebouncer(features.DebounceAfter, features.DebounceMax)
+	}
 	enableEDSDebounce = features.EnableEDSDebounce.Get()
 }
 
@@ -317,6 +321,8 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 		}
 	}
 
+	var debounceDelay time.Duration
+
 	for {
 		select {
 		case <-freeCh:
@@ -333,7 +339,10 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				go pushFn(r)
 				continue
 			}
-			timeChan = time.After(debounceAfter)
+			if debounceAfter != debounceDelay {
+				timeChan = time.After(debounceAfter)
+				debounceDelay = debounceAfter
+			}
 			req = req.Merge(r)
 		case <-timeChan:
 			if free {

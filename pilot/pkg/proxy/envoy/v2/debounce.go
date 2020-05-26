@@ -19,14 +19,27 @@ import (
 	"time"
 )
 
+// debouncer interface allows to plugin various debouncer implementations while pusning configuration to proxies.
 type debouncer interface {
+	// newRequest handles a new configuration. It returns whether the request should be debounced.
+	// For the requess that needs to be debounced, it also returns the debounce delay.
 	newRequest() (bool, time.Duration)
+
+	// tryDebounce is invoked when the request is about to be processed. It returns whether the request should be debounced.
+	// For the requess that needs to be debounced, it also returns the debounce delay.
 	tryDebounce() (bool, time.Duration)
+
+	// quietTime returns the delay from start i.e. first event till now.
 	quietTime() time.Duration
+
+	// eventDelay returns the delay since last update.
 	eventDelay() time.Duration
+
+	// events returns the number of config requests that were debounced till now.
 	events() int
 }
 
+// fixedDebouncer is an implementation of debouncer, that debounces with a fixed and max delay.
 type fixedDebouncer struct {
 	// debounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
@@ -45,18 +58,10 @@ type fixedDebouncer struct {
 	debouncedEvents      int
 }
 
+// backoffDebouncer is an implementation of debouncer that pushes the first event immediately and
+// applies backoff debouncing logic to subsequent events till a max debounce is reached.
 type backoffDebouncer struct {
-	// debounceAfter is the delay added to events to wait
-	// after a registry/config event for debouncing.
-	// This will delay the push by at least this interval, plus
-	// the time getting subsequent events. If no change is
-	// detected the push will happen, otherwise we'll keep
-	// delaying until things settle.
-	baseDebounceDelay time.Duration
-
-	// debounceMax is the maximum time to wait for events
-	// while debouncing. Defaults to 10 seconds. If events keep
-	// showing up with no break for this time, we'll trigger a push.
+	baseDebounceDelay    time.Duration
 	debounceMax          time.Duration
 	lastConfigUpdateTime time.Time
 
@@ -64,6 +69,7 @@ type backoffDebouncer struct {
 	backOffFactor   int
 }
 
+// newFixedDebouncer builds a fixed debouncer.
 func newFixedDebouncer(debounceAfter, debounceMax time.Duration) debouncer {
 	return &fixedDebouncer{
 		debounceAfter: debounceAfter,
@@ -71,6 +77,7 @@ func newFixedDebouncer(debounceAfter, debounceMax time.Duration) debouncer {
 	}
 }
 
+// newBackoffDebouncer builds a backoff debouncer.
 func newBackoffDebouncer(baseDebounceDelay, debounceMax time.Duration) debouncer {
 	return &backoffDebouncer{
 		baseDebounceDelay: baseDebounceDelay,
