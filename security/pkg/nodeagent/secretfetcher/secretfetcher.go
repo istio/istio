@@ -17,7 +17,6 @@ package secretfetcher
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -31,13 +30,12 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/kube"
-	ca "istio.io/istio/security/pkg/nodeagent/caclient"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -118,34 +116,6 @@ func fatalf(template string, args ...interface{}) {
 		secretFetcherLog.Errorf(template)
 	}
 	os.Exit(-1)
-}
-
-// NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
-func NewSecretFetcher(ingressGatewayAgent bool, endpoint, caProviderName string, tlsFlag bool,
-	tlsRootCert []byte, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath string) (*SecretFetcher, error) {
-	ret := &SecretFetcher{}
-
-	if ingressGatewayAgent {
-		ret.UseCaClient = false
-		cs, err := kube.CreateClientset("", "")
-		if err != nil {
-			fatalf("Could not create k8s clientset: %v", err)
-		}
-		ret.FallbackSecretName = ingressFallbackSecret
-		secretFetcherLog.Debugf("SecretFetcher set fallback secret name %s", ret.FallbackSecretName)
-		ret.InitWithKubeClient(cs.CoreV1())
-	} else {
-		caClient, err := ca.NewCAClient(endpoint, caProviderName, tlsFlag, tlsRootCert,
-			vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
-		if err != nil {
-			secretFetcherLog.Errorf("failed to create caClient: %v", err)
-			return ret, fmt.Errorf("failed to create caClient")
-		}
-		ret.UseCaClient = true
-		ret.CaClient = caClient
-	}
-
-	return ret, nil
 }
 
 // Run starts the SecretFetcher until a value is sent to ch.

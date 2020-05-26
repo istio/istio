@@ -19,42 +19,11 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/security/pkg/caclient/protocol"
-	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/platform"
-	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
-)
 
-// NewKeyCertBundleRotator is constructor for keyCertBundleRotatorImpl based on the provided configuration.
-func NewKeyCertBundleRotator(cfg *Config, keyCertBundle pkiutil.KeyCertBundle) (*KeyCertBundleRotator, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("nil configuration passed")
-	}
-	pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile)
-	if err != nil {
-		return nil, err
-	}
-	dial, err := pc.GetDialOptions()
-	if err != nil {
-		return nil, err
-	}
-	grpcConn, err := protocol.NewGrpcConnection(cfg.CAAddress, dial)
-	if err != nil {
-		return nil, err
-	}
-	cac, err := NewCAClient(pc, grpcConn, cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
-	if err != nil {
-		return nil, err
-	}
-	return &KeyCertBundleRotator{
-		certUtil:  util.NewCertUtil(cfg.CSRGracePeriodPercentage),
-		retriever: cac,
-		keycert:   keyCertBundle,
-		stopCh:    make(chan bool, 1),
-		stopped:   true,
-	}, nil
-}
+	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/util"
+)
 
 // KeyCertRetriever is the interface responsible for retrieve new key and certificate from upstream CA.
 type KeyCertRetriever interface {

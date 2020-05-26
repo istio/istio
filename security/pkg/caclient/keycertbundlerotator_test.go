@@ -40,65 +40,6 @@ func (r *fakeKeyCertRetriever) Retrieve(_ *pkiutil.CertOptions) (newCert, certCh
 	return r.NewCert, r.CertChain, r.PrivateKey, nil
 }
 
-func TestNewKeyCertBundleRotator(t *testing.T) {
-	testCases := map[string]struct {
-		config      *Config
-		expectedErr string
-	}{
-		"null config": {
-			config:      nil,
-			expectedErr: "nil configuration passed",
-		},
-		"No CA address": {
-			config: &Config{
-				RootCertFile:  "../platform/testdata/cert-root-good.pem",
-				KeyFile:       "../platform/testdata/key-from-root-good.pem",
-				CertChainFile: "../platform/testdata/cert-from-root-good.pem",
-				Env:           "onprem",
-				CAAddress:     "",
-			},
-			expectedErr: "istio CA address is empty",
-		},
-		"Successful init with on prem env": {
-			config: &Config{
-				RootCertFile:             "../platform/testdata/cert-root-good.pem",
-				KeyFile:                  "../platform/testdata/key-from-root-good.pem",
-				CertChainFile:            "../platform/testdata/cert-from-root-good.pem",
-				Env:                      "onprem",
-				CAAddress:                "0.0.0.0:8060",
-				CSRGracePeriodPercentage: 50,
-			},
-			expectedErr: "",
-		},
-		"Successful init with unspecified env": {
-			config: &Config{
-				RootCertFile:             "../platform/testdata/cert-root-good.pem",
-				KeyFile:                  "../platform/testdata/key-from-root-good.pem",
-				CertChainFile:            "../platform/testdata/cert-from-root-good.pem",
-				Env:                      "unspecified",
-				CAAddress:                "0.0.0.0:8060",
-				CSRGracePeriodPercentage: 50,
-			},
-			expectedErr: "",
-		},
-	}
-
-	for id, c := range testCases {
-		_, err := NewKeyCertBundleRotator(c.config, &pkimock.FakeKeyCertBundle{})
-
-		if len(c.expectedErr) > 0 {
-			if err == nil {
-				t.Errorf("%s: succeeded, error expected: %v", id, err)
-			} else if err.Error() != c.expectedErr {
-				t.Errorf("%s: incorrect error message: %s VS %s",
-					id, err.Error(), c.expectedErr)
-			}
-		} else if err != nil {
-			t.Errorf("%s: unexpected error: %v", id, err)
-		}
-	}
-}
-
 func TestKeyCertBundleRotator(t *testing.T) {
 	oldCert, oldKey, oldCertChain, oldRootCert :=
 		[]byte("old_cert"), []byte("old_key"), []byte("old_certchain"), []byte("root")
