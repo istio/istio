@@ -16326,7 +16326,7 @@ func chartsIstioOperatorTemplatesDeploymentYaml() (*asset, error) {
 var _chartsIstioOperatorTemplatesNamespaceYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
-  name: istio-operator
+  name: {{.Values.operatorNamespace}}
   labels:
     istio-operator-managed: Reconcile
     istio-injection: disabled
