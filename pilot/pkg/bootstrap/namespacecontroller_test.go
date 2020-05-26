@@ -33,12 +33,10 @@ import (
 func TestNamespaceController(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	testdata := map[string]string{"key": "value"}
-	nc, err := NewNamespaceController(func() map[string]string {
+	nc := NewNamespaceController(func() map[string]string {
 		return testdata
 	}, controller.Options{}, client.CoreV1())
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	stop := make(chan struct{})
 	nc.Run(stop)
 

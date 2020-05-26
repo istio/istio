@@ -64,7 +64,7 @@ type NamespaceController struct {
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(data func() map[string]string, options controller.Options, core corev1.CoreV1Interface) (*NamespaceController, error) {
+func NewNamespaceController(data func() map[string]string, options controller.Options, core corev1.CoreV1Interface) *NamespaceController {
 	c := &NamespaceController{
 		getData: data,
 		core:    core,
@@ -139,7 +139,7 @@ func NewNamespaceController(data func() map[string]string, options controller.Op
 				})
 			},
 		})
-	return c, nil
+	return c
 }
 
 // Run starts the NamespaceController until a value is sent to stopCh.
