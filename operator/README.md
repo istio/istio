@@ -46,8 +46,6 @@ spec:
   profile: minimal
 ```
 
-See [Select a specific configuration_profile](#select-a-specific-configuration-profile) for more information.
-
 If you don't specify a configuration profile, Istio is installed using the `default` configuration profile. All
 profiles listed in istio.io are available by default, or `profile:` can point to a local file path to reference a custom
 profile base to use as a starting point for customization. See the [API reference](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto)
@@ -152,7 +150,6 @@ API rather than command line.
 
 The `istioctl` command supports the following flags:
 
-- `logtostderr`: log to console (by default logs go to ./mesh-cli.log).
 - `dry-run`: console output only, nothing applied to cluster or written to files.
 - `verbose`: display entire manifest contents and other debug info (default is false).
 - `set`: select profile or override profile defaults
@@ -165,7 +162,7 @@ The following command generates a manifest with the compiled-in `default` profil
 istioctl manifest generate
 ```
 
-You can see these sources for the compiled-in profiles and charts in the repo under `data/`. These profiles and charts are also included in the Istio release tar.
+You can see these sources for the compiled-in profiles and charts in the repo under `manifests/`. These profiles and charts are also included in the Istio release tar.
 
 #### Output to dirs
 
@@ -201,7 +198,7 @@ istioctl profile list
 istioctl profile dump demo
 
 # show the values after a customization file is applied
-istioctl profile dump -f samples/policy-off.yaml
+istioctl profile dump -f samples/pilot-k8s.yaml
 
 # show differences between the default and demo profiles
 istioctl profile dump default > 1.yaml
@@ -212,7 +209,6 @@ istioctl profile diff 1.yaml 2.yaml
 istioctl manifest generate > 1.yaml
 istioctl manifest generate -f samples/pilot-k8s.yaml > 2.yaml
 istioctl manifest diff 1.yam1 2.yaml
-
 ```
 
 The profile dump sub-command supports a couple of useful flags:
@@ -223,10 +219,10 @@ The profile dump sub-command supports a couple of useful flags:
 istioctl profile dump --config-path components.pilot
 ```
 
-- `set`: set a value in the configuration before dumping the resulting profile e.g. show the minimal profile:
+- `filename`: set parameters in the configuration file before dumping the resulting profile e.g. show the pilot k8s overlay settings:
 
 ```bash
-istioctl profile dump --set profile=minimal
+istioctl profile dump --filename samples/pilot-k8s.yaml
 ```
 
 #### Select a specific configuration profile
@@ -317,16 +313,16 @@ istioctl manifest diff ./out/helm-template/manifest.yaml ./out/mesh-manifest/man
 ### New API customization
 
 The [new platform level installation API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto)
-defines install time parameters like feature and component enablement and namespace, and K8s settings like resources, HPA spec etc. in a structured way.
-The simplest customization is to turn features and components on and off. For example, to turn off proxy ([samples/pilot-advanced-override.yaml](samples/pilot-advanced-override.yaml)):
+defines install time parameters like component and enablement and namespace, and K8s settings like resources, HPA spec etc. in a structured way.
+The simplest customization is to turn components on and off. For example, to turn on cni ([samples/cni-on.yaml](samples/cni-on.yaml):
 
 ```yaml
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
-    proxy:
-      enabled: false
+    cni:
+      enabled: true
 ```
 
 The operator validates the configuration and automatically detects syntax errors. If you are
@@ -377,6 +373,8 @@ way as galley settings. Supported K8s settings currently include:
 - [toleration](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/)
 - [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)
 - [deployment strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+- [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+- [service spec](https://kubernetes.io/docs/concepts/services-networking/service/)
 
 All of these K8s settings use the K8s API definitions, so [K8s documentation](https://kubernetes.io/docs/concepts/) can
 be used for reference. All K8s overlay values are also validated in the operator.
@@ -450,7 +448,7 @@ the spec.
 ## Interaction with controller
 
 The controller shares the same API as the operator CLI, so it's possible to install any of the above examples as a CR
-in the cluster in the istio-operator namespace and the controller will react to it with the same outcome as running
+in the cluster in the istio-system namespace and the controller will react to it with the same outcome as running
 `istioctl manifest apply -f <path-to-custom-resource-file>`.
 
 ## Architecture
