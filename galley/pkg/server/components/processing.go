@@ -62,7 +62,7 @@ const versionMetadataKey = "config.source.version"
 type Processing struct {
 	args *settings.Args
 
-	mcpCache     *snapshot.Cache
+	mcpCache *snapshot.Cache
 
 	k kube.Interfaces
 
@@ -81,8 +81,8 @@ type Processing struct {
 func NewProcessing(a *settings.Args) *Processing {
 	mcpCache := snapshot.New(groups.IndexFunction)
 	return &Processing{
-		args:         a,
-		mcpCache:     mcpCache,
+		args:     a,
+		mcpCache: mcpCache,
 	}
 }
 
