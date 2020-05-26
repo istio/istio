@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -33,9 +32,6 @@ type Config struct {
 
 	// Domain of the echo Instance. If not provided, a default will be selected.
 	Domain string
-
-	// Galley component (may be required, depending on the environment/configuration).
-	Galley galley.Instance
 
 	// Pilot component reference (may be required, depending on the environment/configuration).
 	Pilot pilot.Instance

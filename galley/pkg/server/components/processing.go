@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/envvar"
-	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema"
@@ -80,8 +79,6 @@ type Processing struct {
 	listener      net.Listener
 	stopCh        chan struct{}
 }
-
-var _ process.Component = &Processing{}
 
 // NewProcessing returns a new processing component.
 func NewProcessing(a *settings.Args) *Processing {
@@ -320,10 +317,11 @@ func (p *Processing) createSourceAndStatusUpdater(schemas collection.Schemas) (
 		}
 
 		o := apiserver.Options{
-			Client:           k,
-			ResyncPeriod:     p.args.ResyncPeriod,
-			Schemas:          schemas,
-			StatusController: statusCtl,
+			Client:            k,
+			WatchedNamespaces: p.args.WatchedNamespaces,
+			ResyncPeriod:      p.args.ResyncPeriod,
+			Schemas:           schemas,
+			StatusController:  statusCtl,
 		}
 		s := apiserver.New(o)
 		src = s

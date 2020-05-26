@@ -16,8 +16,6 @@
 
 package features
 
-type Feature string
-
 const (
 	Observability	Feature = "observability"
 	Security_Certificates_Citadel	Feature = "security.certificates.citadel"

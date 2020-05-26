@@ -20,10 +20,8 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pilot/pkg/features"
-
-	"istio.io/istio/pkg/util"
-
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/webhooks"
 	"istio.io/pkg/log"
 )
 
@@ -32,22 +30,20 @@ const (
 	webhookName = "sidecar-injector.istio.io"
 )
 
-// Was not used in Pilot for 1.3/1.4 (injector was standalone).
-// In 1.5 - used as part of istiod, if the inject template exists.
-func (s *Server) initSidecarInjector(args *PilotArgs) error {
-	// Injector should run along, even if not used - but only if the injection template is mounted.
-	// ./var/lib/istio/inject - enabled by mounting a template in the config.
+func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	injectPath := args.InjectionOptions.InjectionDirectory
 	if injectPath == "" {
 		log.Infof("Skipping sidecar injector, injection path is missing")
-		return nil
+		return nil, nil
 	}
 
 	// If the injection path exists, we will set up injection
 	if _, err := os.Stat(filepath.Join(injectPath, "config")); os.IsNotExist(err) {
 		log.Infof("Skipping sidecar injector, template not found")
-		return nil
+		return nil, nil
 	}
+
+	log.Info("initializing sidecar injector")
 
 	parameters := inject.WebhookParameters{
 		ConfigFile: filepath.Join(injectPath, "config"),
@@ -61,7 +57,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 
 	wh, err := inject.NewWebhook(parameters)
 	if err != nil {
-		return fmt.Errorf("failed to create injection webhook: %v", err)
+		return nil, fmt.Errorf("failed to create injection webhook: %v", err)
 	}
 	// Patch cert if a webhook config name is provided.
 	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
@@ -73,14 +69,13 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 			if hasCustomTLSCerts(args.TLSOptions) {
 				caBundlePath = args.TLSOptions.CaCertFile
 			}
-			util.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, caBundlePath, s.kubeClient, stop)
+			webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, caBundlePath, s.kubeClient, stop)
 			return nil
 		})
 	}
-	s.injectionWebhook = wh
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go wh.Run(stop)
 		return nil
 	})
-	return nil
+	return wh, nil
 }

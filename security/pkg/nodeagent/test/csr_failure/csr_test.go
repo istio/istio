@@ -24,7 +24,6 @@ import (
 )
 
 func TestCSRFailure(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/22729")
 	rotateInterval := 1 * time.Second
 	sdsTest.RotateCert(rotateInterval)
 	setup := sdsTest.SetupTest(t, env.CSRFailure)

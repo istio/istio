@@ -28,6 +28,7 @@ import (
 
 // initMeshConfiguration creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
+	log.Info("initializing mesh configuration")
 	defer func() {
 		if s.environment.Watcher != nil {
 			meshdump, _ := gogoprotomarshal.ToJSONWithIndent(s.environment.Mesh(), "    ")
@@ -65,6 +66,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 // initMeshNetworks loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
 func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
+	log.Info("initializing mesh networks")
 	if args.NetworksConfigFile != "" {
 		var err error
 		s.environment.NetworksWatcher, err = mesh.NewNetworksWatcher(fileWatcher, args.NetworksConfigFile)

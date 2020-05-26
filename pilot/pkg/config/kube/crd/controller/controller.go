@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"istio.io/pkg/ledger"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/listwatch"
 
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -108,7 +110,7 @@ func knownCrdsWithRetry(client *Client) map[string]struct{} {
 // NewController creates a new Kubernetes controller for CRDs
 // Use "" for namespace to listen for all namespace changes
 func NewController(client *Client, options controller2.Options) model.ConfigStoreCache {
-	log.Infof("CRD controller watching namespaces %q", options.WatchedNamespace)
+	log.Infof("CRD controller watching namespaces %q", options.WatchedNamespaces)
 
 	// The queue requires a time duration for a retry delay after a handler error
 	out := &controller{
@@ -117,13 +119,15 @@ func NewController(client *Client, options controller2.Options) model.ConfigStor
 		kinds:  make(map[resource.GroupVersionKind]*cacheHandler),
 	}
 
+	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
+
 	known := knownCrdsWithRetry(client)
 	// add stores for CRD kinds
 	for _, s := range client.Schemas().All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
 		if _, f := known[name]; f {
-			out.addInformer(s, options.WatchedNamespace, options.ResyncPeriod)
+			out.addInformer(s, watchedNamespaceList, options.ResyncPeriod)
 		} else {
 			log.Warnf("Skipping CRD %v as it is not present", s.String())
 		}
@@ -132,45 +136,51 @@ func NewController(client *Client, options controller2.Options) model.ConfigStor
 	return out
 }
 
-func (c *controller) addInformer(schema collection.Schema, namespace string, resyncPeriod time.Duration) {
+func (c *controller) addInformer(schema collection.Schema, namespaces []string, resyncPeriod time.Duration) {
 	kind := schema.Resource().GroupVersionKind()
 	schemaType := crd.SupportedTypes[kind]
 	c.kinds[kind] = c.newCacheHandler(schema, schemaType.Object.DeepCopyObject(), kind.Kind, resyncPeriod,
-		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
-			result = schemaType.Collection.DeepCopyObject()
-			rc, ok := c.client.clientset[schema.Resource().APIVersion()]
-			if !ok {
-				return nil, fmt.Errorf("client not initialized %s", kind)
-			}
-			req := rc.dynamic.Get().
-				Resource(schema.Resource().Plural()).
-				VersionedParams(&opts, meta_v1.ParameterCodec)
+		func(namespace string) cache.ListerWatcher {
+			return &cache.ListWatch{
+				ListFunc: func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
+					result = schemaType.Collection.DeepCopyObject()
+					rc, ok := c.client.clientset[schema.Resource().APIVersion()]
+					if !ok {
+						return nil, fmt.Errorf("client not initialized %s", kind)
+					}
+					req := rc.dynamic.Get().
+						Resource(schema.Resource().Plural()).
+						VersionedParams(&opts, meta_v1.ParameterCodec)
 
-			if !schema.Resource().IsClusterScoped() {
-				req = req.Namespace(namespace)
+					if !schema.Resource().IsClusterScoped() {
+						req = req.Namespace(namespace)
+					}
+					err = req.Do(context.TODO()).Into(result)
+					return
+				},
+				WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
+					rc, ok := c.client.clientset[schema.Resource().APIVersion()]
+					if !ok {
+						return nil, fmt.Errorf("client not initialized %s", kind)
+					}
+					var timeout time.Duration
+					if opts.TimeoutSeconds != nil {
+						timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+					}
+					opts.Watch = true
+					req := rc.dynamic.Get().
+						Resource(schema.Resource().Plural()).
+						VersionedParams(&opts, meta_v1.ParameterCodec).
+						Timeout(timeout)
+					if !schema.Resource().IsClusterScoped() {
+						req = req.Namespace(namespace)
+					}
+					return req.Watch(context.TODO())
+				},
 			}
-			err = req.Do(context.TODO()).Into(result)
-			return
 		},
-		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			rc, ok := c.client.clientset[schema.Resource().APIVersion()]
-			if !ok {
-				return nil, fmt.Errorf("client not initialized %s", kind)
-			}
-			var timeout time.Duration
-			if opts.TimeoutSeconds != nil {
-				timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-			}
-			opts.Watch = true
-			req := rc.dynamic.Get().
-				Resource(schema.Resource().Plural()).
-				VersionedParams(&opts, meta_v1.ParameterCodec).
-				Timeout(timeout)
-			if !schema.Resource().IsClusterScoped() {
-				req = req.Namespace(namespace)
-			}
-			return req.Watch(context.TODO())
-		})
+		namespaces,
+	)
 }
 
 func (c *controller) checkReadyForEvents(curr interface{}) error {
@@ -210,11 +220,14 @@ func (c *controller) newCacheHandler(
 	o runtime.Object,
 	otype string,
 	resyncPeriod time.Duration,
-	lf cache.ListFunc,
-	wf cache.WatchFunc) *cacheHandler {
+	lwf func(string) cache.ListerWatcher,
+	namespaces []string) *cacheHandler {
+
+	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, lwf)
+
 	// TODO: finer-grained index (perf)
 	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{ListFunc: lf, WatchFunc: wf}, o,
+		mlw, o,
 		resyncPeriod, cache.Indexers{})
 
 	h := &cacheHandler{

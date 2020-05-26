@@ -144,9 +144,8 @@ func init() {
 		"Setting this flag has no effect. Install CRD definitions directly or with the operator")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
 		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
-	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Config.ControllerOptions.WatchedNamespace, "appNamespace",
-		"a", metav1.NamespaceAll,
-		"Restrict the applications namespace the controller manages; if not set, controller watches all namespaces")
+	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Config.ControllerOptions.WatchedNamespaces, "appNamespace", "a", metav1.NamespaceAll,
+		"Specify the applications namespace list the controller manages, separated by comma; if not set, controller watches all namespaces")
 	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Config.ControllerOptions.ResyncPeriod, "resync", 60*time.Second,
 		"Controller resync interval")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", constants.DefaultKubernetesDomain,

@@ -23,7 +23,12 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
+
+	"istio.io/istio/operator/pkg/util"
+
+	"istio.io/api/mesh/v1alpha1"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -37,6 +42,9 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
 )
+
+// TODO: dynamically generate meshID to support multi-tenancy tests
+const meshID = "testmesh0"
 
 type operatorComponent struct {
 	id          resource.ID
@@ -147,6 +155,11 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Generate the istioctl config file
 	iopFile := filepath.Join(workDir, "iop.yaml")
 	operatorYaml := cfg.IstioOperatorConfigYAML()
+	if env.IsMultinetwork() {
+		meshNetworksYaml := meshNetworkSettings(cfg, env)
+		operatorYaml += Indent("global:\n", "    ")
+		operatorYaml += Indent(meshNetworksYaml, "      ")
+	}
 	if err := ioutil.WriteFile(iopFile, []byte(operatorYaml), os.ModePerm); err != nil {
 		return nil, fmt.Errorf("failed to write iop: %v", err)
 	}
@@ -185,6 +198,15 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
+	if env.IsMultinetwork() {
+		// enable cross network traffic
+		for _, cluster := range env.KubeClusters {
+			if err := createCrossNetworkGateway(cluster, cfg); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// Wait for all of the control planes to be started.
 	for _, cluster := range env.KubeClusters {
 		if err := waitForControlPlane(i, cluster, cfg); err != nil {
@@ -195,7 +217,31 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string) error {
+func createCrossNetworkGateway(cluster kube.Cluster, cfg Config) error {
+	scopes.CI.Infof("Setting up cross-network-gateway in cluster: %s namespace: %s", cluster.Name(), cfg.SystemNamespace)
+	_, err := cluster.ApplyContents(cfg.SystemNamespace, fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: cross-network-gateway
+  namespace: %s
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: tls
+      protocol: TLS
+    tls:
+      mode: AUTO_PASSTHROUGH
+    hosts:
+    - "*.local"
+`, cfg.SystemNamespace))
+	return err
+}
+
+func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string) (err error) {
 	// Create an istioctl to configure this cluster.
 	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
 		Cluster: cluster,
@@ -229,6 +275,11 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 
+		if networkName := cluster.NetworkName(); networkName != "" {
+			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
+				"--set", "values.global.network="+networkName)
+		}
+
 		if c.environment.IsControlPlaneCluster(cluster) {
 			// Expose Istiod through ingress to allow remote clusters to connect
 			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
@@ -246,7 +297,10 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 			}, retry.Timeout(1*time.Minute)); err != nil {
 				return fmt.Errorf("failed getting the istiod address for cluster %d: %v", controlPlaneCluster.Index(), err)
 			}
-			installSettings = append(installSettings, "--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
+			installSettings = append(installSettings,
+				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
+				// Use the local Istiod for CA
+				"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012")
 		}
 	}
 
@@ -271,6 +325,34 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	}
 
 	return nil
+}
+
+// meshNetworkSettings builds the values for meshNetworks with an endpoint in each network per-cluster.
+// Assumes that the registry service is always istio-ingressgateway.
+func meshNetworkSettings(cfg Config, environment *kube.Environment) string {
+	meshNetworks := v1alpha1.MeshNetworks{Networks: make(map[string]*v1alpha1.Network)}
+	defaultGateways := []*v1alpha1.Network_IstioNetworkGateway{{
+		Gw: &v1alpha1.Network_IstioNetworkGateway_RegistryServiceName{
+			RegistryServiceName: "istio-ingressgateway." + cfg.IngressNamespace + ".svc.cluster.local",
+		},
+		Port: 443,
+	}}
+
+	for networkName, clusters := range environment.ClustersByNetwork() {
+		network := &v1alpha1.Network{
+			Endpoints: make([]*v1alpha1.Network_NetworkEndpoints, len(clusters)),
+			Gateways:  defaultGateways,
+		}
+		for i, cluster := range clusters {
+			network.Endpoints[i] = &v1alpha1.Network_NetworkEndpoints{
+				Ne: &v1alpha1.Network_NetworkEndpoints_FromRegistry{
+					FromRegistry: cluster.Name(),
+				},
+			}
+		}
+		meshNetworks.Networks[networkName] = network
+	}
+	return strings.Replace(util.ToYAMLWithJSONPB(&meshNetworks), "networks:", "meshNetworks:", 1)
 }
 
 func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {

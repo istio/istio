@@ -17,7 +17,7 @@ package matcher
 import (
 	"strings"
 
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 // StringMatcher creates a string matcher for v.

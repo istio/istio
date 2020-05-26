@@ -25,7 +25,7 @@ rules:
     resources: ["gateways"]
 
   # istio configuration
-  - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
 {{- if .Values.global.istiod.enableAnalysis }}
     verbs: ["get", "watch", "list", "update"]
 {{- else }}
@@ -112,7 +112,6 @@ metadata:
 rules:
   - apiGroups:
       - "config.istio.io"
-      - "rbac.istio.io"
       - "security.istio.io"
       - "networking.istio.io"
       - "authentication.istio.io"

@@ -45,6 +45,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return nil
 	}
 
+	log.Info("initializing config validator")
 	// always start the validation server
 	params := server.Options{
 		MixerValidator: validate.NewDefaultValidator(false),
@@ -89,9 +90,13 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 			webhookConfigName = strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, args.Namespace)
 		}
 
+		caBundlePath := s.caBundlePath
+		if hasCustomTLSCerts(args.TLSOptions) {
+			caBundlePath = args.TLSOptions.CaCertFile
+		}
 		o := controller.Options{
 			WatchedNamespace:  args.Namespace,
-			CAPath:            s.caBundlePath,
+			CAPath:            caBundlePath,
 			WebhookConfigName: webhookConfigName,
 			ServiceName:       "istiod",
 		}

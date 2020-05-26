@@ -73,11 +73,8 @@ func runProfileDump(profilePath, configPath string, chartSource chartSourceType)
 	if configPath != "" {
 		cmd += " --config-path " + configPath
 	}
-	switch chartSource {
-	case liveCharts:
-		cmd += " --charts=" + liveInstallPackageDir
-	default:
-		cmd += " --charts=" + snapshotInstallPackageDir
+	if len(chartSource) > 0 {
+		cmd += " --charts=" + string(chartSource)
 	}
 	return runCommand(cmd)
 }

@@ -525,7 +525,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.16"
+        tag: "1.18"
         memory:
           max_traces: 50000
         spanStorageType: badger

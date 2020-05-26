@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/version"
 )
 
@@ -213,12 +212,4 @@ func (client mockExecConfig) PodsForSelector(namespace, labelSelector string) (*
 
 func (client mockExecConfig) BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*kubernetes.PortForward, error) {
 	return nil, fmt.Errorf("mock k8s does not forward")
-}
-
-func (client mockExecConfig) GetPodNodeAgentSecrets(podName, ns, istioNamespace string) (map[string]sds.Debug, error) {
-	return map[string]sds.Debug{}, nil
-}
-
-func (client mockExecConfig) NodeAgentDebugEndpointOutput(podName, ns, secretType, container string) (sds.Debug, error) {
-	return sds.Debug{}, nil
 }

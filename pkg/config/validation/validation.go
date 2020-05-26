@@ -35,7 +35,6 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
-	rbac "istio.io/api/rbac/v1alpha1"
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
@@ -1734,11 +1733,6 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	return
 }
 
-// ValidateAccept always returns true
-func ValidateAccept(_, _ string, _ proto.Message) error {
-	return nil
-}
-
 // ValidatePeerAuthentication checks that peer authentication spec is well-formed.
 var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthentication",
 	func(name, namespace string, msg proto.Message) error {
@@ -1769,205 +1763,6 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
 
 		return errs
-	})
-
-// ValidateServiceRole checks that ServiceRole is well-formed.
-var ValidateServiceRole = registerValidateFunc("ValidateServiceRole",
-	func(_, _ string, msg proto.Message) error {
-		in, ok := msg.(*rbac.ServiceRole)
-		if !ok {
-			return errors.New("cannot cast to ServiceRole")
-		}
-		var errs error
-		if len(in.Rules) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("at least 1 rule must be specified"))
-		}
-		for i, rule := range in.Rules {
-			// Regular rules and not rules (e.g. methods and not_methods should not be defined together).
-			sameAttributeKindError := "cannot have both regular and *not* attributes for the same kind (%s) for rule %d"
-			if len(rule.Methods) > 0 && len(rule.NotMethods) > 0 {
-				errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. methods and not_methods", i))
-			}
-			if len(rule.Ports) > 0 && len(rule.NotPorts) > 0 {
-				errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. ports and not_ports", i))
-			}
-			if !ValidatePorts(rule.Ports) || !ValidatePorts(rule.NotPorts) {
-				errs = appendErrors(errs, fmt.Errorf("at least one port is not in the range of [0, 65535]"))
-			}
-			for j, constraint := range rule.Constraints {
-				if len(constraint.Key) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("key cannot be empty for constraint %d in rule %d", j, i))
-				}
-				if len(constraint.Values) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("at least 1 value must be specified for constraint %d in rule %d", j, i))
-				}
-				if hasExistingFirstClassFieldInRole(constraint.Key, rule) {
-					errs = appendErrors(errs, fmt.Errorf("cannot define %s for rule %d because a similar first-class field has been defined", constraint.Key, i))
-				}
-			}
-		}
-		return errs
-	})
-
-// Returns true if the user defines a constraint that already exists in the first-class fields, false
-// if none has overlapped.
-// First-class fields are the immediate-level fields right after the `rules` field in a ServiceRole, e.g.
-// methods, services, etc., or after the `subjects` field in a binding, e.g. names, groups, etc. In shorts,
-// they are not fields under Constraints (in ServiceRole) and Properties (in binding).
-// This prevents the user from defining the same key, e.g. port of the serving service, in multiple places
-// in a ServiceRole definition.
-func hasExistingFirstClassFieldInRole(constraintKey string, rule *rbac.AccessRule) bool {
-	// Same as authz.attrDestPort
-	// Cannot use authz.attrDestPort since there is a import cycle. However, these constants can be
-	// defined at another place and both authz and model package can access them.
-	const attrDestPort = "destination.port"
-	// Only check for port since we only have ports (or not_ports) as first-class field and in destination.port
-	// in a ServiceRole definition.
-	if constraintKey == attrDestPort && len(rule.Ports) > 0 {
-		return true
-	}
-	if constraintKey == attrDestPort && len(rule.NotPorts) > 0 {
-		return true
-	}
-	return false
-}
-
-// checkServiceRoleBinding checks that ServiceRoleBinding is well-formed.
-func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
-	var errs error
-	if len(in.Subjects) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("at least 1 subject must be specified"))
-	}
-	for i, subject := range in.Subjects {
-		if isFirstClassFieldEmpty(subject) {
-			errs = appendErrors(errs, fmt.Errorf("empty subjects are not allowed. Found an empty subject at index %d", i))
-		}
-		for propertyKey := range subject.Properties {
-			if hasExistingFirstClassFieldInBinding(propertyKey, subject) {
-				errs = appendErrors(errs, fmt.Errorf("cannot define %s for binding %d because a similar first-class field has been defined", propertyKey, i))
-			}
-		}
-		// Since source.principal = "*" in binding properties is different than User: "*" from the old API,
-		// we want to remove ambiguity when the user defines "*" in names or not_names
-		if isStarInNames(subject.Names) || isStarInNames(subject.NotNames) {
-			errs = appendErrors(errs, fmt.Errorf("do not use * for names or not_names (in rule %d)", i))
-		}
-	}
-	roleFieldCount := 0
-	if in.RoleRef != nil {
-		roleFieldCount++
-	}
-	if len(in.Actions) > 0 {
-		roleFieldCount++
-	}
-	if in.Role != "" {
-		roleFieldCount++
-	}
-	if roleFieldCount != 1 {
-		errs = appendErrors(errs, fmt.Errorf("exactly one of `roleRef`, `role`, or `actions` must be specified"))
-	}
-	if in.RoleRef != nil {
-		expectKind := "ServiceRole"
-		if in.RoleRef.Kind != expectKind {
-			errs = appendErrors(errs, fmt.Errorf("kind set to %q, currently the only supported value is %q",
-				in.RoleRef.Kind, expectKind))
-		}
-		if len(in.RoleRef.Name) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("`name` in `roleRef` cannot be empty"))
-		}
-	}
-	if len(in.Actions) > 0 {
-		inlineServiceRole := &rbac.ServiceRole{Rules: in.Actions}
-		errs = appendErrors(errs, ValidateServiceRole("", "", inlineServiceRole))
-	}
-	if in.Role != "" {
-		// Same as rootNamespacePrefix in rbac_v2.go
-		const rootNamespacePrefix = "/"
-		if in.Role == rootNamespacePrefix {
-			errs = appendErrors(errs, fmt.Errorf("`role` cannot have an empty ServiceRole name"))
-		}
-	}
-	return errs
-}
-
-// ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
-var ValidateServiceRoleBinding = registerValidateFunc("ValidateServiceRoleBinding",
-	func(_, _ string, msg proto.Message) error {
-		in, ok := msg.(*rbac.ServiceRoleBinding)
-		if !ok {
-			return errors.New("cannot cast to ServiceRoleBinding")
-		}
-		return checkServiceRoleBinding(in)
-	})
-
-// isFirstClassFieldEmpty return false if there is at least one first class field (e.g. properties)
-func isFirstClassFieldEmpty(subject *rbac.Subject) bool {
-	return len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 &&
-		len(subject.Namespaces) == 0 && len(subject.NotNamespaces) == 0 && len(subject.Groups) == 0 &&
-		len(subject.NotGroups) == 0 && len(subject.Ips) == 0 && len(subject.NotIps) == 0 &&
-		len(subject.Names) == 0 && len(subject.NotNames) == 0
-}
-
-// Returns true if the user defines a property that already exists in the first-class fields, false
-// if none has overlapped.
-// In the future when we introduce expression conditions in properties field, we might need to revisit
-// this function.
-func hasExistingFirstClassFieldInBinding(propertiesKey string, subject *rbac.Subject) bool {
-	switch propertiesKey {
-	case "source.principal":
-		return len(subject.Names) > 0
-	case "request.auth.claims[groups]":
-		return len(subject.Groups) > 0
-	case "source.namespace":
-		return len(subject.Namespaces) > 0
-	case "source.ip":
-		return len(subject.Ips) > 0
-	}
-	return false
-}
-
-// isStarInNames returns true if there is a "*" in the names slice.
-func isStarInNames(names []string) bool {
-	for _, name := range names {
-		if name == "*" {
-			return true
-		}
-	}
-	return false
-}
-
-func checkRbacConfig(name, typ string, msg proto.Message) error {
-	in, ok := msg.(*rbac.RbacConfig)
-	if !ok {
-		return errors.New("cannot cast to " + typ)
-	}
-
-	if name != constants.DefaultRbacConfigName {
-		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, constants.DefaultRbacConfigName)
-	}
-
-	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
-		return errors.New("inclusion cannot be null (use 'inclusion: {}' for none)")
-	}
-
-	if in.Mode == rbac.RbacConfig_ON_WITH_EXCLUSION && in.Exclusion == nil {
-		return errors.New("exclusion cannot be null (use 'exclusion: {}' for none)")
-	}
-
-	return nil
-}
-
-// ValidateClusterRbacConfig checks that ClusterRbacConfig is well-formed.
-var ValidateClusterRbacConfig = registerValidateFunc("ValidateClusterRbacConfig",
-	func(name, _ string, msg proto.Message) error {
-		return checkRbacConfig(name, "ClusterRbacConfig", msg)
-	})
-
-// ValidateRbacConfig checks that RbacConfig is well-formed.
-var ValidateRbacConfig = registerValidateFunc("ValidateRbacConfig",
-	func(name, _ string, msg proto.Message) error {
-		scope.Warnf("RbacConfig is deprecated, use ClusterRbacConfig instead.")
-		return checkRbacConfig(name, "RbacConfig", msg)
 	})
 
 func validateJwt(jwt *authn.Jwt) (errs error) {
@@ -2256,6 +2051,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 				}
 				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
 			}
 
 			if match.Port != 0 {
@@ -2263,6 +2059,13 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 			}
 			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
+			for _, qp := range match.GetQueryParams() {
+				errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
+			}
 		}
 	}
 
@@ -2288,6 +2091,20 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 	}
 
 	return
+}
+
+func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
+	re := sm.GetRegex()
+	if re == "" {
+		return nil
+	}
+
+	_, err := regexp.Compile(re)
+	if err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("%q: %w; Istio uses RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax)", where, err)
 }
 
 func validateGatewayNames(gatewayNames []string) (errs error) {
@@ -2413,7 +2230,7 @@ func validateAllowOrigins(origin *networking.StringMatch) error {
 	if match == "" {
 		return fmt.Errorf("'%v' is not a valid match type for CORS allow origins", match)
 	}
-	return nil
+	return validateStringMatchRegexp(origin, "corsPolicy.allowOrigins")
 }
 
 func validateHTTPMethod(method string) error {

@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/util"
+	"istio.io/istio/pkg/webhooks"
 	"istio.io/pkg/log"
 
 	"k8s.io/client-go/dynamic"
@@ -52,7 +52,7 @@ type kubeController struct {
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
-	WatchedNamespace  string
+	WatchedNamespaces string
 	DomainSuffix      string
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
@@ -81,7 +81,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		log.Info("Resync time was configured to 0, resetting to 30")
 	}
 	mc := &Multicluster{
-		WatchedNamespace:      opts.WatchedNamespace,
+		WatchedNamespaces:     opts.WatchedNamespaces,
 		DomainSuffix:          opts.DomainSuffix,
 		ResyncPeriod:          opts.ResyncPeriod,
 		serviceController:     serviceController,
@@ -114,13 +114,13 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 	remoteKubeController.stopCh = stopCh
 	m.m.Lock()
 	kubectl := NewController(clientset, metadataClient, Options{
-		WatchedNamespace: m.WatchedNamespace,
-		ResyncPeriod:     m.ResyncPeriod,
-		DomainSuffix:     m.DomainSuffix,
-		XDSUpdater:       m.XDSUpdater,
-		ClusterID:        clusterID,
-		NetworksWatcher:  m.networksWatcher,
-		Metrics:          m.metrics,
+		WatchedNamespaces: m.WatchedNamespaces,
+		ResyncPeriod:      m.ResyncPeriod,
+		DomainSuffix:      m.DomainSuffix,
+		XDSUpdater:        m.XDSUpdater,
+		ClusterID:         clusterID,
+		NetworksWatcher:   m.networksWatcher,
+		Metrics:           m.metrics,
 	})
 
 	remoteKubeController.Controller = kubectl
@@ -141,9 +141,9 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 	if m.fetchCaRoot != nil {
 		nc := NewNamespaceController(m.fetchCaRoot, opts, clientset)
 		go nc.Run(stopCh)
-		go util.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clientset, stopCh)
-		valicationWebhookController := util.CreateValidationWebhookController(clientset, dynamicClient, webhookConfigName,
-			m.secretNamespace, m.caBundlePath)
+		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clientset, stopCh)
+		valicationWebhookController := webhooks.CreateValidationWebhookController(clientset, dynamicClient, webhookConfigName,
+			m.secretNamespace, m.caBundlePath, true)
 		if valicationWebhookController != nil {
 			go valicationWebhookController.Start(stopCh)
 		}
