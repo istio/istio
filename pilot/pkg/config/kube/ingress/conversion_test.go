@@ -60,7 +60,7 @@ func TestGoldenConversion(t *testing.T) {
 			}
 			for _, obj := range input {
 				ingress := obj.(*v1beta1.Ingress)
-				gws := ConvertIngressV1alpha3(*ingress, "mydomain")
+				gws := ConvertIngressV1alpha3(*ingress, "", "mydomain")
 				ordered = append(ordered, gws)
 			}
 
