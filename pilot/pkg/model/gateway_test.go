@@ -22,12 +22,12 @@ import (
 )
 
 func TestMergeGateways(t *testing.T) {
-	gwHttpFoo := makeConfig("foo1", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway")
-	gwHttp2Wildcard := makeConfig("foo5", "not-default", "*", "name5", "http2", 8, "ingressgateway")
-	gwHttpWildcard := makeConfig("foo3", "not-default", "*", "name3", "http", 8, "ingressgateway")
-	gwTcpWildcard := makeConfig("foo4", "not-default-2", "*", "name4", "tcp", 8, "ingressgateway")
+	gwHTTPFoo := makeConfig("foo1", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway")
+	gwHTTP2Wildcard := makeConfig("foo5", "not-default", "*", "name5", "http2", 8, "ingressgateway")
+	gwHTTPWildcard := makeConfig("foo3", "not-default", "*", "name3", "http", 8, "ingressgateway")
+	gwTCPWildcard := makeConfig("foo4", "not-default-2", "*", "name4", "tcp", 8, "ingressgateway")
 
-	gwHttpWildcardAlternate := makeConfig("foo2", "not-default", "*", "name2", "http", 7, "ingressgateway2")
+	gwHTTPWildcardAlternate := makeConfig("foo2", "not-default", "*", "name2", "http", 7, "ingressgateway2")
 
 	tests := []struct {
 		name               string
@@ -38,49 +38,49 @@ func TestMergeGateways(t *testing.T) {
 	}{
 		{
 			"single-server-config",
-			[]Config{gwHttpFoo},
+			[]Config{gwHTTPFoo},
 			1,
 			map[string]int{"http.7": 1},
 			1,
 		},
 		{
 			"same-server-config",
-			[]Config{gwHttpFoo, gwHttpWildcardAlternate},
+			[]Config{gwHTTPFoo, gwHTTPWildcardAlternate},
 			1,
 			map[string]int{"http.7": 2},
 			2,
 		},
 		{
 			"multi-server-config",
-			[]Config{gwHttpFoo, gwHttpWildcardAlternate, gwHttpWildcard},
+			[]Config{gwHTTPFoo, gwHTTPWildcardAlternate, gwHTTPWildcard},
 			2,
 			map[string]int{"http.7": 2, "http.8": 1},
 			3,
 		},
 		{
 			"http-tcp-server-config",
-			[]Config{gwHttpFoo, gwTcpWildcard},
+			[]Config{gwHTTPFoo, gwTCPWildcard},
 			2,
 			map[string]int{"http.7": 1},
 			2,
 		},
 		{
 			"tcp-tcp-server-config",
-			[]Config{gwTcpWildcard, gwHttpWildcard},
+			[]Config{gwTCPWildcard, gwHTTPWildcard},
 			1,
 			map[string]int{},
 			2,
 		},
 		{
 			"tcp-tcp-server-config",
-			[]Config{gwHttpWildcard, gwTcpWildcard}, //order matters
+			[]Config{gwHTTPWildcard, gwTCPWildcard}, //order matters
 			1,
 			map[string]int{"http.8": 1},
 			2,
 		},
 		{
 			"http-http2-server-config",
-			[]Config{gwHttpWildcard, gwHttp2Wildcard}, //order matters
+			[]Config{gwHTTPWildcard, gwHTTP2Wildcard}, //order matters
 			1,
 			// http and http2 both present
 			map[string]int{"http.8": 2},
