@@ -26,7 +26,6 @@ import (
 )
 
 const (
-	errorStr    = "error"
 	group       = "group"
 	version     = "version"
 	resourceTag = "resource"

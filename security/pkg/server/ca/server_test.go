@@ -104,8 +104,8 @@ func TestCreateCertificate(t *testing.T) {
 			authenticators: []authenticator{&mockAuthenticator{
 				errMsg: "Not authorized",
 			}},
-			code:       codes.Unauthenticated,
-			ca:         &mockca.FakeCA{},
+			code: codes.Unauthenticated,
+			ca:   &mockca.FakeCA{},
 		},
 		"CA not ready": {
 			authenticators: []authenticator{&mockAuthenticator{}},
@@ -191,8 +191,8 @@ func TestHandleCSR(t *testing.T) {
 			authenticators: []authenticator{&mockAuthenticator{
 				errMsg: "Not authorized",
 			}},
-			ca:         &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
-			code:       codes.Unauthenticated,
+			ca:   &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
+			code: codes.Unauthenticated,
 		},
 		"No caller authenticated": {
 			authenticators: []authenticator{&mockAuthenticator{}},
