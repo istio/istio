@@ -76,6 +76,7 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 
 func TestWait(t *testing.T) {
 	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "default",
