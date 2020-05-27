@@ -2409,6 +2409,11 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 
+	http2ProtocolOptions := &core.Http2ProtocolOptions{
+		AllowConnect:  true,
+		AllowMetadata: true,
+	}
+
 	tests := []struct {
 		name     string
 		mtlsCtx  mtlsContextType
@@ -2417,6 +2422,9 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
+		http2ProtocolOptions       *core.Http2ProtocolOptions
+
+		validateTLSContext func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext)
 	}{
 		{
 			name:                       "user specified without tls",
@@ -2427,12 +2435,30 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			expectTransportSocketMatch: false,
 		},
 		{
-			name:                       "user specified with tls",
+			name:                       "user specified with istio_mutual tls",
 			mtlsCtx:                    userSupplied,
 			LbPolicy:                   apiv2.Cluster_ROUND_ROBIN,
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
+				}
+			},
+		},
+		{
+			name:                       "user specified with istio_mutual tls with h2",
+			mtlsCtx:                    userSupplied,
+			tls:                        tlsSettings,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
+				}
+			},
 		},
 		{
 			name:                       "auto detect with tls",
@@ -2441,6 +2467,24 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        tlsSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
+				}
+			},
+		},
+		{
+			name:                       "auto detect with tls and h2 options",
+			mtlsCtx:                    autoDetected,
+			tls:                        tlsSettings,
+			expectTransportSocket:      false,
+			expectTransportSocketMatch: true,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
+				}
+			},
 		},
 		{
 			name:                       "auto detect with tls",
@@ -2464,7 +2508,8 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			opts := &buildClusterOpts{
 				cluster: &apiv2.Cluster{
-					LbPolicy: test.LbPolicy,
+					LbPolicy:             test.LbPolicy,
+					Http2ProtocolOptions: test.http2ProtocolOptions,
 				},
 				proxy: proxy,
 				push:  push,
@@ -2478,6 +2523,19 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			if test.expectTransportSocketMatch && opts.cluster.TransportSocketMatches == nil ||
 				!test.expectTransportSocketMatch && opts.cluster.TransportSocketMatches != nil {
 				t.Errorf("Expected TransportSocketMatch %v", test.expectTransportSocketMatch)
+			}
+			if test.validateTLSContext != nil {
+				ctx := &envoy_api_v2_auth.UpstreamTlsContext{}
+				if test.expectTransportSocket {
+					if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
+						t.Fatal(err)
+					}
+				} else if test.expectTransportSocketMatch {
+					if err := ptypes.UnmarshalAny(opts.cluster.TransportSocketMatches[0].TransportSocket.GetTypedConfig(), ctx); err != nil {
+						t.Fatal(err)
+					}
+				}
+				test.validateTLSContext(t, ctx)
 			}
 		})
 	}
