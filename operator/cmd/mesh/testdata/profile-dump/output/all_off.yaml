@@ -196,7 +196,7 @@ spec:
   hub: gcr.io/istio-testing
 
   meshConfig:
-    enablePrometheusMerge: false
+    enablePrometheusMerge: true
   profile: default
   tag: latest
   values:
