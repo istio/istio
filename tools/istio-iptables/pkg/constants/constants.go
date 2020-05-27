@@ -71,6 +71,7 @@ const (
 	LocalExcludePorts         = "istio-local-exclude-ports"
 	ServiceCidr               = "istio-service-cidr"
 	ServiceExcludeCidr        = "istio-service-exclude-cidr"
+	OutboundPorts             = "istio-outbound-ports"
 	LocalOutboundPortsExclude = "istio-local-outbound-ports-exclude"
 	EnvoyPort                 = "envoy-port"
 	InboundCapturePort        = "inbound-capture-port"
