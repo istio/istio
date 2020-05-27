@@ -198,18 +198,6 @@ func (s *Suite) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error) {
 	return
 }
 
-// SetupOnEnv runs the given setup function conditionally, based on the current environment.
-func (s *Suite) SetupOnEnv(e environment.Name, fn resource.SetupFn) *Suite {
-	s.Setup(func(ctx resource.Context) error {
-		if ctx.Environment().EnvironmentName() != e {
-			return nil
-		}
-		return fn(ctx)
-	})
-
-	return s
-}
-
 // Run the suite. This method calls os.Exit and does not return.
 func (s *Suite) Run() {
 	s.osExit(s.run())

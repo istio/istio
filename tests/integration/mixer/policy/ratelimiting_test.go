@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/redis"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -55,7 +54,6 @@ func TestRateLimiting_RedisQuotaRollingWindow(t *testing.T) {
 func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			destinationService := "productpage"
 			bookInfoNameSpaceStr := bookinfoNs.Name()
@@ -150,9 +148,8 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_policy_ratelimit", m).
 		Label(label.CustomSetup).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   meshConfig:

@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/tests/integration/security/util/secret"
@@ -93,7 +92,6 @@ ksOPXgK63Oot7wxQOuG5BX1v1yQ=
 
 func TestDNSCertificate(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			var galleySecret, galleySecret2, sidecarInjectorSecret, sidecarInjectorSecret2 *corev1.Secret
 			istio.DefaultConfigOrFail(t, ctx)

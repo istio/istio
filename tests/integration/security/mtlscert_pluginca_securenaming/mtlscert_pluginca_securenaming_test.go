@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
@@ -101,7 +100,6 @@ spec:
 // - Secure naming information is respected in the mTLS handshake.
 func TestMTLSCertPluginCASecureNaming(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 			testNamespace := namespace.NewOrFail(t, ctx, namespace.Config{

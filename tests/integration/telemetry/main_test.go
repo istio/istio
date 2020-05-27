@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -35,10 +34,9 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("telemetry_test", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
+		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 # Add an additional TCP port, 31400
 components:

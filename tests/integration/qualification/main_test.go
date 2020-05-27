@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -30,6 +29,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("qualification", m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Setup(istio.Setup(&ist, nil)).
 		Run()
 }

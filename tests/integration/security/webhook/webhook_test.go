@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -31,15 +30,13 @@ var (
 	inst istio.Instance
 )
 
-// This test requires `--istio.test.env=kube` because it tests istioctl managing k8s webhook configurations.
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("istioctl_webhook_test", m).
 		Label(label.CustomSetup).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		// Deploy Istio
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 }
 

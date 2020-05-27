@@ -319,7 +319,7 @@ func TestSuite_SetupOnEnv(t *testing.T) {
 	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 
 	var setupCalled bool
-	s.SetupOnEnv(environment.Kube, func(c resource.Context) error {
+	s.Setup(func(c resource.Context) error {
 		setupCalled = true
 		return nil
 	})
@@ -348,7 +348,7 @@ func TestSuite_SetupOnEnv_Mismatch(t *testing.T) {
 	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 
 	var setupCalled bool
-	s.SetupOnEnv(environment.Kube, func(c resource.Context) error {
+	s.Setup(func(c resource.Context) error {
 		setupCalled = true
 		return nil
 	})

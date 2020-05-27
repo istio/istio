@@ -19,8 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -31,7 +29,6 @@ import (
 func TestCheck_Allow(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			mxr := mixer.NewOrFail(t, ctx, mixer.Config{})
 			be := policybackend.NewOrFail(t, ctx, policybackend.Config{})
@@ -75,7 +72,6 @@ func TestCheck_Allow(t *testing.T) {
 func TestCheck_Deny(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			mxr := mixer.NewOrFail(t, ctx, mixer.Config{})
 			be := policybackend.NewOrFail(t, ctx, policybackend.Config{})
