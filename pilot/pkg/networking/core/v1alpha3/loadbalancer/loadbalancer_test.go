@@ -277,9 +277,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
-					OutlierDetection: &networking.OutlierDetection{
-						ConsecutiveErrors: 5,
-					},
+					OutlierDetection: &networking.OutlierDetection{},
 				},
 			},
 		}})
@@ -339,9 +337,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
-					OutlierDetection: &networking.OutlierDetection{
-						ConsecutiveErrors: 5,
-					},
+					OutlierDetection: &networking.OutlierDetection{},
 				},
 			},
 		}})
