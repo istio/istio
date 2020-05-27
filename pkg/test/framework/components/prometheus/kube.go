@@ -57,17 +57,35 @@ type kubeComponent struct {
 	api       prometheusApiV1.API
 	forwarder testKube.PortForwarder
 	cluster   kube.Cluster
+	cleanup   func() error
 }
 
-func installPrometheus(ctx resource.Context, ns string) error {
+func getPrometheusYaml() (string, error) {
 	yamlBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/prometheus.yaml"))
 	if err != nil {
-		return err
+		return "", err
 	}
 	yaml := string(yamlBytes)
 	// For faster tests, drop scrape interval
 	yaml = strings.ReplaceAll(yaml, "scrape_interval: 15s", "scrape_interval: 5s")
+	yaml = strings.ReplaceAll(yaml, "scrape_timeout: 10s", "scrape_timeout: 5s")
+	return yaml, nil
+}
+
+func installPrometheus(ctx resource.Context, ns string) error {
+	yaml, err := getPrometheusYaml()
+	if err != nil {
+		return err
+	}
 	return ctx.ApplyConfig(ns, yaml)
+}
+
+func removePrometheus(ctx resource.Context, ns string) error {
+	yaml, err := getPrometheusYaml()
+	if err != nil {
+		return err
+	}
+	return ctx.DeleteConfig(ns, yaml)
 }
 
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
@@ -85,6 +103,9 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		return nil, err
 	}
 
+	c.cleanup = func() error {
+		return removePrometheus(ctx, cfg.TelemetryNamespace)
+	}
 	fetchFn := c.cluster.NewSinglePodFetch(cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
 	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
@@ -278,7 +299,8 @@ func (c *kubeComponent) SumOrFail(t test.Failer, val model.Value, labels map[str
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	return c.forwarder.Close()
+	_ = c.forwarder.Close()
+	return c.cleanup()
 }
 
 // check equality without considering timestamps
