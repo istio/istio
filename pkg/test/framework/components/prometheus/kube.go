@@ -18,6 +18,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"path/filepath"
+	"strings"
 	"time"
 
 	prometheusApi "github.com/prometheus/client_golang/api"
@@ -25,6 +28,7 @@ import (
 	"github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -55,15 +59,29 @@ type kubeComponent struct {
 	cluster   kube.Cluster
 }
 
+func installPrometheus(ctx resource.Context, ns string) error {
+	yamlBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/prometheus.yaml"))
+	if err != nil {
+		return err
+	}
+	yaml := string(yamlBytes)
+	// For faster tests, drop scrape interval
+	yaml = strings.ReplaceAll(yaml, "scrape_interval: 15s", "scrape_interval: 5s")
+	return ctx.ApplyConfig(ns, yaml)
+}
+
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c := &kubeComponent{
 		cluster: kube.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
-
 	// Find the Prometheus pod and service, and start forwarding a local port.
 	cfg, err := istio.DefaultConfig(ctx)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := installPrometheus(ctx, cfg.TelemetryNamespace); err != nil {
 		return nil, err
 	}
 
