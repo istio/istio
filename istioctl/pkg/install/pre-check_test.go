@@ -38,20 +38,20 @@ type testcase struct {
 }
 
 var (
-	version1_13 = &version.Info{
+	version1_15 = &version.Info{
 		Major:      "1",
-		Minor:      "13",
-		GitVersion: "1.13",
+		Minor:      "15",
+		GitVersion: "1.15",
 	}
 	version1_8 = &version.Info{
 		Major:      "1",
 		Minor:      "8",
 		GitVersion: "1.8",
 	}
-	version1_13GKE = &version.Info{
+	version1_15GKE = &version.Info{
 		Major:      "1",
-		Minor:      "13+",
-		GitVersion: "v1.13.7-gke.10",
+		Minor:      "15+",
+		GitVersion: "v1.15.7-gke.10",
 	}
 	version1_8GKE = &version.Info{
 		Major:      "1",
@@ -86,7 +86,7 @@ func TestPreCheck(t *testing.T) {
 		{
 			description: "Valid Kubernetes Version against GKE",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_13GKE,
+				version:   version1_15GKE,
 				namespace: "test",
 			},
 			expectedException: false,
@@ -101,21 +101,21 @@ func TestPreCheck(t *testing.T) {
 		},
 		{description: "Invalid Istio System",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_13,
+				version:   version1_15,
 				namespace: "istio-system",
 			},
 			expectedException: false, // It is fine to precheck an existing namespace; we might be installing canary control plane
 		},
 		{description: "Valid Istio System",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_13,
+				version:   version1_15,
 				namespace: "test",
 			},
 			expectedException: false,
 		},
 		{description: "Lacking Permission",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_13,
+				version:   version1_15,
 				namespace: "test",
 				authConfig: &authorizationapi.SelfSubjectAccessReview{
 					Spec: authorizationapi.SelfSubjectAccessReviewSpec{
@@ -133,7 +133,7 @@ func TestPreCheck(t *testing.T) {
 		},
 		{description: "Valid Case",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_13,
+				version:   version1_15,
 				namespace: "test",
 			},
 		},
