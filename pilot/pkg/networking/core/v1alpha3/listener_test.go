@@ -2489,7 +2489,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 		Push:             push,
 	}
 
-	out := mergeTCPFilterChains(incomingFilterChains, params, "0.0.0.0_443", listenerMap, node)
+	out := mergeTCPFilterChains(incomingFilterChains, params, "0.0.0.0_443", listenerMap)
 
 	if len(out) != 3 {
 		t.Errorf("Got %d filter chains, expected 3", len(out))
