@@ -72,6 +72,18 @@ const (
 	pluggedCertCA
 )
 
+// IstioCARA is the common interface for IstioCA and IstioRA.
+type IstioCARA interface {
+	// Sign takes a PEM-encoded CSR, subject IDs and lifetime, and returns a signed certificate.
+	Sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error)
+	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+	SignWithCertChain(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error)
+	// GetCAKeyCertBundle returns the KeyCertBundle used by CA. Only available for Istio CA.
+	GetCAKeyCertBundle() util.KeyCertBundle
+	// GetRootCertPem will return the root certificate PEM as a byte slice.
+	GetRootCertPem() []byte
+}
+
 // IstioCAOptions holds the configurations for creating an Istio CA.
 // TODO(myidpt): remove IstioCAOptions.
 type IstioCAOptions struct {
@@ -318,6 +330,15 @@ func (ca *IstioCA) SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl tim
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
 func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	return ca.keyCertBundle
+}
+
+// GetRootCertPem will return the CA certificate PEM as a byte slice.
+func (ca *IstioCA) GetRootCertPem() []byte {
+	if ca.keyCertBundle == nil {
+		pkiCaLog.Errorf("failed to get root cert PEM: KeyCertBundle is nil")
+		return []byte{}
+	}
+	return ca.keyCertBundle.GetRootCertPem()
 }
 
 func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {

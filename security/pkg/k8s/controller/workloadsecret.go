@@ -106,8 +106,10 @@ type certificateAuthority interface {
 	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
 	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
 	SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
-	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
+	// GetCAKeyCertBundle returns the KeyCertBundle used by CA. Only available for Istio CA.
 	GetCAKeyCertBundle() util.KeyCertBundle
+	// GetRootCertPem returns the root cert PEM.
+	GetRootCertPem() []byte
 }
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -335,7 +337,11 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 			saNamespace, GetSecretName(saName), err)
 		return
 	}
-	rootCert := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
+	rootCert := sc.ca.GetRootCertPem()
+	if len(rootCert) == 0 {
+		k8sControllerLog.Errorf("Error getting root cert: root cert is empty")
+		return
+	}
 	secret.Data = map[string][]byte{
 		CertChainID:  chain,
 		PrivateKeyID: key,
@@ -476,14 +482,12 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 		return nil, nil, err
 	}
 
-	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
-	certPEM, signErr := sc.ca.Sign(csrPEM, strings.Split(id, ","), sc.certTTL, sc.forCA)
+	certPEM, signErr := sc.ca.SignWithCertChain(csrPEM, strings.Split(id, ","), sc.certTTL, sc.forCA)
 	if signErr != nil {
 		k8sControllerLog.Errorf("CSR signing error (%v)", signErr.Error())
 		sc.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
 		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr.(*caerror.Error))
 	}
-	certPEM = append(certPEM, certChainPEM...)
 
 	return certPEM, keyPEM, nil
 }
@@ -499,8 +503,14 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
-	caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
+	var rootCertificate, caCert []byte
+	rootCertificate = sc.ca.GetRootCertPem()
+	if len(rootCertificate) == 0 {
+		k8sControllerLog.Errorf("Error getting root cert: root cert is empty")
+		return
+	}
 	if sc.syncWithSelfSignedCaSecret && !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+		caCert, _, _, rootCertificate = sc.ca.GetCAKeyCertBundle().GetAllPem()
 		var err error
 		rootCertificate, err = sc.tryToSyncKeyCertBundle(rootCertificate, caCert)
 		if err != nil {
@@ -594,7 +604,7 @@ func (sc *SecretController) refreshSecret(scrt *v1.Secret) error {
 
 	scrt.Data[CertChainID] = chain
 	scrt.Data[PrivateKeyID] = key
-	scrt.Data[RootCertID] = sc.ca.GetCAKeyCertBundle().GetRootCertPem()
+	scrt.Data[RootCertID] = sc.ca.GetRootCertPem()
 
 	_, err = sc.core.Secrets(namespace).Update(scrt)
 	return err

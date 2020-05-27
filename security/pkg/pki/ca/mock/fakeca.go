@@ -59,3 +59,11 @@ func (ca *FakeCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	}
 	return ca.KeyCertBundle
 }
+
+// GetRootCertPem returns the root certificate.
+func (ca *FakeCA) GetRootCertPem() []byte {
+	if ca.KeyCertBundle == nil {
+		return []byte{}
+	}
+	return ca.KeyCertBundle.GetRootCertPem()
+}

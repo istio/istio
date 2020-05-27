@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/ra"
 	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
@@ -53,6 +54,8 @@ const (
 	selfSignedRootCertGracePeriodPercentile = "CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
 	workloadCertMinGracePeriod              = "CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD"
 	enableJitterForRootCertRotator          = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
+
+	envBackendCA = "BACKEND_CA"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -123,6 +126,9 @@ type cliOptions struct { // nolint: maligned
 
 	// Whether SDS is enabled on.
 	sdsEnabled bool
+
+	// backendCA specifies the backend CA name if Citadel is used as an RA
+	backendCA string
 }
 
 var (
@@ -150,6 +156,8 @@ var (
 			"If true, set up a jitter to start root cert rotator. "+
 				"Jitter selects a backoff time in seconds to start root cert rotator, "+
 				"and the back off time is below root cert check interval.").Get(),
+		backendCA: env.RegisterStringVar(envBackendCA, "", "If set, use Ciatdel as RA and use the speicified "+
+			"backend CA. Currently only Vault is supported.").Get(),
 	}
 
 	rootCmd = &cobra.Command{
@@ -342,8 +350,12 @@ func runCA() {
 	if err != nil {
 		fatalf("Could not create k8s clientset: %v", err)
 	}
-	ca := createCA(cs.CoreV1())
+	ca := createCARA(cs.CoreV1())
 
+	if len(opts.backendCA) != 0 && opts.selfSignedCA {
+		log.Infof("Citadel is configured to use backend CA: %s. The self-signed CA is off.", opts.backendCA)
+		opts.selfSignedCA = false
+	}
 	stopCh := make(chan struct{})
 	if !opts.serverOnly {
 		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
@@ -363,7 +375,10 @@ func runCA() {
 		}
 	}
 
-	if opts.grpcPort > 0 {
+	// Don't support using as Citadel as RA.
+	if opts.grpcPort > 0 && len(opts.backendCA) != 0 {
+		log.Infof("Citadel is configured to use backend CA: %s. The CSR service is not exposed.", opts.backendCA)
+	} else if opts.grpcPort > 0 {
 		// start registry if gRPC server is to be started
 		reg := registry.GetIdentityRegistry()
 
@@ -448,9 +463,18 @@ func runCA() {
 	}
 }
 
-func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
+func createCARA(client corev1.CoreV1Interface) ca.IstioCARA {
 	var caOpts *ca.IstioCAOptions
 	var err error
+
+	if len(opts.backendCA) != 0 {
+		log.Infof("Use %s as backend CA, and Citadel acts as an RA", opts.backendCA)
+		ra, err := ra.NewIstioRA(opts.backendCA, client)
+		if err != nil {
+			fatalf("Failed to create RA: %v", err)
+		}
+		return ra
+	}
 
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
