@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"reflect"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -260,6 +262,19 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		}
 		globalValues["jwtPolicy"] = string(jwtPolicy)
 	}
+
+	istioNs := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name: globalValues["istioNamespace"].(string),
+		Labels: map[string]string{
+			"istio-injection": "disabled",
+		},
+	}}
+	err = r.client.Create(context.TODO(), istioNs)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		log.Errorf("Failed to create namespace %v: %v", istioNs, err)
+		return reconcile.Result{}, nil
+	}
+
 	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iopMerged, nil)
 	if err != nil {
 		return reconcile.Result{}, err
