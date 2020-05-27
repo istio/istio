@@ -21,6 +21,7 @@ about: Suggest an idea to improve Istio
 [ ] Test and Release
 [ ] User Experience
 [ ] Developer Infrastructure
+[ ] Product Security
 
 **Affected features (please put an X in all that apply)**
 

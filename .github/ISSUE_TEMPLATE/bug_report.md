@@ -21,6 +21,7 @@ about: Report a bug to help us improve Istio
 [ ] Test and Release
 [ ] User Experience
 [ ] Developer Infrastructure
+[ ] Product Security
 
 **Affected features (please put an X in all that apply)**
 
