@@ -38,9 +38,6 @@ type SetupContextFn func(ctx resource.Context) error
 func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.SetupFn {
 	return func(ctx resource.Context) error {
 		switch ctx.Environment().EnvironmentName() {
-		case environment.Native:
-			scopes.Framework.Debugf("istio.Setup: Skipping deployment of Istio on native")
-
 		case environment.Kube:
 			cfg, err := DefaultConfig(ctx)
 			if err != nil {

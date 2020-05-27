@@ -30,7 +30,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/environment/native"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -113,21 +112,6 @@ func (s *Suite) Label(labels ...label.Instance) *Suite {
 // Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
 func (s *Suite) Skip(reason string) *Suite {
 	s.skipMessage = reason
-	return s
-}
-
-// RequireEnvironment ensures that the current environment matches what the suite expects. Otherwise it
-// stops test execution. This also applies the appropriate label to the suite implicitly.
-func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
-	fn := func(ctx resource.Context) error {
-		if name != ctx.Environment().EnvironmentName() {
-			s.Skip(fmt.Sprintf("Required environment (%v) does not match current: %v",
-				name, ctx.Environment().EnvironmentName()))
-		}
-		return nil
-	}
-
-	s.requireFns = append(s.requireFns, fn)
 	return s
 }
 
@@ -420,8 +404,6 @@ func initRuntime(s *Suite) error {
 
 func newEnvironment(name string, ctx resource.Context) (resource.Environment, error) {
 	switch name {
-	case environment.Native.String():
-		return native.New(ctx)
 	case environment.Kube.String():
 		s, err := kube.NewSettingsFromCommandLine()
 		if err != nil {

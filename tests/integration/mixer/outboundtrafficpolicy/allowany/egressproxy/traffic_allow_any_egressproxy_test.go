@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 const (
@@ -74,7 +73,6 @@ type Config struct {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("outbound_traffic_policy_egressproxy_test", m).
-		RequireEnvironment(environment.Native).
 		Run()
 }
 

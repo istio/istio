@@ -260,6 +260,5 @@ func createConfig(t *testing.T, ctx resource.Context, config Config, yaml string
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("sidecar_scope_test", m).
-		RequireEnvironment(environment.Native).
 		Run()
 }

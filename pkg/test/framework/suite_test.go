@@ -123,49 +123,6 @@ func TestSuite_Label_SuiteAllow(t *testing.T) {
 	g.Expect(runSkipped).To(BeFalse())
 }
 
-func TestSuite_RequireEnvironment(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-	s.RequireEnvironment(environment.Kube)
-	s.Run()
-
-	g.Expect(runSkipped).To(BeTrue())
-}
-
-func TestSuite_RequireEnvironment_Match(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runCalled bool
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runCalled = true
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-	s.RequireEnvironment(environment.Native)
-	s.Run()
-
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
-}
-
 func TestSuite_RequireMinMaxClusters(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -357,12 +314,12 @@ func TestSuite_SetupOnEnv(t *testing.T) {
 	}
 
 	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
+	settings.Environment = environment.Kube.String()
 
 	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 
 	var setupCalled bool
-	s.SetupOnEnv(environment.Native, func(c resource.Context) error {
+	s.SetupOnEnv(environment.Kube, func(c resource.Context) error {
 		setupCalled = true
 		return nil
 	})
@@ -386,7 +343,7 @@ func TestSuite_SetupOnEnv_Mismatch(t *testing.T) {
 	}
 
 	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
+	settings.Environment = "fake"
 
 	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 

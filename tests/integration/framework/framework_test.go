@@ -44,7 +44,6 @@ func TestMain(m *testing.M) {
 		Setup(mysetup).
 
 		// The following two setup methods will run conditionally, depending on the environment.
-		SetupOnEnv(environment.Native, setupNative).
 		SetupOnEnv(environment.Kube, setupKube).
 
 		// Require that this test only run on single-cluster environments.

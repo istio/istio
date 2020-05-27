@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 const (
@@ -227,7 +226,6 @@ func createConfig(t *testing.T, ctx resource.Context, config Config, yaml string
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("envoyfilter_test", m).
-		RequireEnvironment(environment.Native).
 		Run()
 }
 

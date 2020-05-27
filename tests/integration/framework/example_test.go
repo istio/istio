@@ -50,10 +50,6 @@ func mysetup(c resource.Context) error {
 	return nil
 }
 
-func setupNative(_ resource.Context) error {
-	return nil
-}
-
 func setupKube(_ resource.Context) error {
 	return nil
 }
