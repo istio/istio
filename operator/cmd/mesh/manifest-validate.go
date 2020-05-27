@@ -18,13 +18,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
 	kubeCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/test/env"
 )
 
 const (
@@ -484,7 +485,7 @@ func validatePort(flagValue string) error {
 }
 
 func getProfiles() []string {
-	dirPath := "./manifests/profiles"
+	dirPath := path.Join(env.IstioSrc, "manifests/profiles")
 	profiles := make([]string, 0)
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
