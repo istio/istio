@@ -290,12 +290,15 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 			con.mu.RLock()
 
 			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
-				// TODO: handle skipped nodes
+				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
-					ProxyID:         con.node.ID,
-					ClusterVersion:  s.getResourceVersion(con.ClusterNonceAcked, resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(con.ListenerNonceAcked, resourceID, knownVersions),
-					RouteVersion:    s.getResourceVersion(con.RouteNonceAcked, resourceID, knownVersions),
+					ProxyID: con.node.ID,
+					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ClusterType),
+						resourceID, knownVersions),
+					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ListenerType),
+						resourceID, knownVersions),
+					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, RouteType),
+						resourceID, knownVersions),
 				})
 			}
 			con.mu.RUnlock()
