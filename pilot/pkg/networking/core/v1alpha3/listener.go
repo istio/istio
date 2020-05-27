@@ -1456,6 +1456,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	conflictType := NoConflict
 
 	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound
+	// If we have an HTTP service bound to 0.0.0.0, then this will intercept all traffic. This leads to
+	// passthrough traffic for non-HTTP traffic failing, as the HCM will reject it. Instead, we must set up
+	// protocol sniffing to capture TCP traffic and direct it to the passthrough cluster directly
+	createTcpFallthrough := outboundSniffingEnabled && listenerOpts.bind == actualWildcard && pluginParams.ListenerProtocol == istionetworking.ListenerProtocolHTTP
 
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if pluginParams.Port.Protocol == protocol.HTTP_PROXY {
@@ -1489,19 +1493,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
 			// HTTP services, which can happen when a pod accesses a non registry service.
-			if outboundSniffingEnabled {
-				if listenerOpts.bind == actualWildcard {
-					for _, opt := range opts {
-						if opt.match == nil {
-							opt.match = &listener.FilterChainMatch{}
-						}
-
-						// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-						opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+			if createTcpFallthrough {
+				for _, opt := range opts {
+					if opt.match == nil {
+						opt.match = &listener.FilterChainMatch{}
 					}
 
-					listenerOpts.needHTTPInspector = true
+					// Support HTTP/1.0, HTTP/1.1 and HTTP/2
+					opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
 				}
+
+				listenerOpts.needHTTPInspector = true
 			}
 			listenerOpts.filterChainOpts = opts
 
@@ -1649,12 +1651,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
 				pluginParams, listenerMapKey, listenerMap, node)
 		} else {
+			listenerProtocol := pluginParams.Port.Protocol
+			if createTcpFallthrough {
+				// if we have a tcp fallthrough fitler chain, this is no longer an HTTP listener - it
+				// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
+				// inspection to route between them
+				listenerProtocol = protocol.Unsupported
+			}
 			listenerMap[listenerMapKey] = &outboundListenerEntry{
 				services:    []*model.Service{pluginParams.Service},
 				servicePort: pluginParams.Port,
 				bind:        listenerOpts.bind,
 				listener:    mutable.Listener,
-				protocol:    pluginParams.Port.Protocol,
+				protocol:    listenerProtocol,
 			}
 		}
 
