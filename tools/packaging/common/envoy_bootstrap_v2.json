@@ -274,6 +274,21 @@
               "h2"
             ],
             {{ if eq .sds_uds_path "unix:/etc/istio/proxy/SDS" }}
+            "tls_certificate_sds_secret_configs": [
+              {
+                "name": "default",
+                "sds_config": {
+                  "api_config_source": {
+                    "api_type": "GRPC",
+                    "grpc_services": [
+                      {
+                        "envoy_grpc": { "cluster_name": "sds-grpc" }
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
             "validation_context": {
               "trusted_ca": {
                 {{ if eq .pilot_cert_provider "kubernetes" }}
