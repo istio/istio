@@ -7919,7 +7919,7 @@ imagePullSecrets:
 {{- end }}
 {{- end }}
 metadata:
-  name: istio-egressgateway-service-account
+  name: {{ $gateway.name | default "istio-egressgateway" }}-service-account
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -9284,7 +9284,7 @@ var _chartsGatewaysIstioIngressTemplatesRoleYaml = []byte(`{{ $gateway := index 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: istio-ingressgateway-sds
+  name: {{ $gateway.name | default "istio-ingressgateway" }}-sds
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -9316,17 +9316,17 @@ var _chartsGatewaysIstioIngressTemplatesRolebindingsYaml = []byte(`{{ $gateway :
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: istio-ingressgateway-sds
+  name: {{ $gateway.name | default "istio-ingressgateway" }}-sds
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: istio-ingressgateway-sds
+  name: {{ $gateway.name | default "istio-ingressgateway" }}-sds
 subjects:
 - kind: ServiceAccount
-  name: istio-ingressgateway-service-account
+  name: {{ $gateway.name | default "istio-ingressgateway" }}-service-account
 ---
 {{- end }}
 `)
@@ -9425,7 +9425,7 @@ imagePullSecrets:
 {{- end }}
 {{- end }}
 metadata:
-  name: istio-ingressgateway-service-account
+  name: {{ $gateway.name | default "istio-ingressgateway" }}-service-account
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}

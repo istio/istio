@@ -60,12 +60,9 @@ func TestManifestGenerateGateways(t *testing.T) {
 	g.Expect(objs.kind(hpaStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(pdbStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(serviceStr).size()).Should(Equal(3))
-
-	// Two namespaces so two sets of these.
-	// istio-ingressgateway and user-ingressgateway share these as they are in the same namespace (istio-system).
-	g.Expect(objs.kind(roleStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(roleBindingStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(saStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(roleStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(roleBindingStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(saStr).size()).Should(Equal(3))
 
 	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 	d := dobj.Unstructured()
