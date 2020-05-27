@@ -90,6 +90,7 @@ func (iptConfigurator *IptablesConfigurator) logConfig() {
 	fmt.Printf("ISTIO_INBOUND_TPROXY_MARK=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_MARK"))
 	fmt.Printf("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE"))
 	fmt.Printf("ISTIO_INBOUND_PORTS=%s\n", os.Getenv("ISTIO_INBOUND_PORTS"))
+	fmt.Printf("ISTIO_OUTBOUND_PORTS=%s\n", os.Getenv("ISTIO_OUTBOUND_PORTS"))
 	fmt.Printf("ISTIO_LOCAL_EXCLUDE_PORTS=%s\n", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS"))
 	fmt.Printf("ISTIO_SERVICE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_CIDR"))
 	fmt.Printf("ISTIO_SERVICE_EXCLUDE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR"))
@@ -409,6 +410,8 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 	}
 
+	iptConfigurator.handleOutboundPortsInclude()
+
 	iptConfigurator.handleInboundIpv4Rules(ipv4RangesInclude)
 	if iptConfigurator.cfg.EnableInboundIPv6 {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
@@ -434,6 +437,15 @@ func (iptConfigurator *IptablesConfigurator) run() {
 			"-j", constants.MARK, "--set-mark", iptConfigurator.cfg.InboundTProxyMark)
 	}
 	iptConfigurator.executeCommands()
+}
+
+func (iptConfigurator *IptablesConfigurator) handleOutboundPortsInclude() {
+	if iptConfigurator.cfg.OutboundPortsInclude != "" {
+		for _, port := range split(iptConfigurator.cfg.OutboundPortsInclude) {
+			iptConfigurator.iptables.AppendRuleV4(
+				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
+		}
+	}
 }
 
 func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, contents string) error {
