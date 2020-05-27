@@ -54,7 +54,7 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
-var _basicmetaYaml = []byte(`# Copyright Istio Authors
+var _basicmetaYaml = []byte(`# Copyright 2019 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in conformance with the License.
@@ -107,7 +107,7 @@ func basicmetaYaml() (*asset, error) {
 	return a, nil
 }
 
-var _basicmeta2Yaml = []byte(`# Copyright Istio Authors
+var _basicmeta2Yaml = []byte(`# Copyright 2019 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in conformance with the License.
