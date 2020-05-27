@@ -119,7 +119,7 @@ func init() {
 		serverArgs.Config.ClusterRegistriesNamespace, "Namespace for ConfigMap which stores clusters configs")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "/etc/istio/config/mesh",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used.")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.NetworksConfigFile, "networksConfig", "/etc/istio/config/meshNetworks",
 		"File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used.")

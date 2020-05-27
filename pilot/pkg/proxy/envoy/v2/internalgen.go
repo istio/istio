@@ -17,6 +17,7 @@ package v2
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/golang/protobuf/ptypes/any"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -43,11 +44,32 @@ type InternalGen struct {
 }
 
 func (sg *InternalGen) OnConnect(con *XdsConnection) {
+	con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value {
+	Kind:
+		&structpb.Value_StringValue{
+			StringValue: "TODO", // TODO: fill in the Istiod address - may include network, cluster, IP
+		},
+	}
+	con.xdsNode.Metadata.Fields["con"] = &structpb.Value {
+		Kind:
+		&structpb.Value_StringValue{
+			StringValue: con.ConID,
+		},
+	}
 	sg.startPush(TypeURLConnections, []*any.Any{util.MessageToAny(con.xdsNode)})
 }
 
 func (sg *InternalGen) OnDisconnect(con *XdsConnection) {
 	sg.startPush(TypeURLDisconnect, []*any.Any{util.MessageToAny(con.xdsNode)})
+
+	con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value {
+		Kind:
+		&structpb.Value_StringValue{
+			StringValue: "", // TODO: using empty string to indicate this node has no istiod connection. We'll iterate.
+		},
+	}
+
+	// Note that it is quite possible for a 'connect' on a different istiod to happen before a disconnect.
 }
 
 func (sg *InternalGen) OnNack(node *model.Proxy, dr *xdsapi.DiscoveryRequest) {

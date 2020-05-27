@@ -49,7 +49,7 @@ func TestInternalEvents(t *testing.T) {
 	defer tearDown()
 
 	ldsr, close1, err := connectADSC(util.MockPilotGrpcAddr, &adsc.Config{
-		Watch: []string{v2.TypeURLConnections, v2.TypeURLDisconnect},
+		Watch: []string{v2.TypeURLConnections},
 		Meta: model.NodeMetadata{
 			Generator: "event",
 		}.ToStruct(),

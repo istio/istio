@@ -965,6 +965,7 @@ func (s *Server) initGenerators() {
 	s.EnvoyXdsServer.InternalGen = &envoyv2.InternalGen{
 		Server: s.EnvoyXdsServer,
 	}
+	s.EnvoyXdsServer.Generators["api/" + envoyv2.TypeURLConnections] = s.EnvoyXdsServer.InternalGen
 	s.EnvoyXdsServer.Generators["event"] = s.EnvoyXdsServer.InternalGen
 }
 
