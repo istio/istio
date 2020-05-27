@@ -29,7 +29,7 @@ import (
 // This test focuses on stats filter and metadata exchange filter could work coherently with
 // proxy bootstrap config. To avoid flake, it does not verify correctness of metrics, which
 // should be covered by integration test in proxy repo.
-// This test exercises the enablePrometheusMerge code path
+// This test exercises the enablePrometheusMerge disabled code path
 func TestStatsFilter(t *testing.T) {
 	common.TestStatsFilter(t)
 }
@@ -41,6 +41,8 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).
+		// Application scraping will not work with permissive mode
+		Setup(common.SetupStrictMTLS).
 		Run()
 }
 
@@ -54,5 +56,5 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.v2.enabled"] = "true"
 	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
 	cfg.Values["prometheus.enabled"] = "true"
-	cfg.Values["meshConfig.enablePrometheusMerge"] = "true"
+	cfg.Values["meshConfig.enablePrometheusMerge"] = "false"
 }

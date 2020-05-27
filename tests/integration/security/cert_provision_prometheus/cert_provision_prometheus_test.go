@@ -86,6 +86,7 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.v1.enabled"] = "false"
 	cfg.Values["telemetry.v2.enabled"] = "true"
 	cfg.Values["prometheus.enabled"] = "true"
+	cfg.Values["meshConfig.enablePrometheusMerge"] = "false"
 }
 
 func testsetup(ctx resource.Context) error {

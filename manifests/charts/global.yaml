@@ -561,7 +561,7 @@ clusterResources: true
 version: ""
 
 meshConfig:
-  enablePrometheusMerge: false
+  enablePrometheusMerge: true
   defaultConfig:
     tracing:
       tlsSettings:
