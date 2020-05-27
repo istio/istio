@@ -88,11 +88,11 @@ func validateClusterLabelsInStats(svc echo.Instance, t test.Failer) {
 			hasSourceCluster := false
 			hasDestinationCluster := false
 			for _, label := range metric.Label {
-				if *label.Name == "source_cluster" {
+				if label.GetName() == "source_cluster" {
 					hasSourceCluster = true
 					continue
 				}
-				if *label.Name == "destination_cluster" {
+				if label.GetName() == "destination_cluster" {
 					hasDestinationCluster = true
 					continue
 				}
