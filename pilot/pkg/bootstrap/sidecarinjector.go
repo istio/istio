@@ -43,6 +43,8 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		return nil, nil
 	}
 
+	log.Info("initializing sidecar injector")
+
 	parameters := inject.WebhookParameters{
 		ConfigFile: filepath.Join(injectPath, "config"),
 		ValuesFile: filepath.Join(injectPath, "values"),

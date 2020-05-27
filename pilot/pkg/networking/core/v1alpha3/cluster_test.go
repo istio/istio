@@ -1054,17 +1054,6 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&cluster.OutlierDetection{},
 		},
 		{
-			"Deprecated consecutive errors is set",
-			&networking.OutlierDetection{
-				ConsecutiveErrors: 3,
-			},
-			&cluster.OutlierDetection{
-				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 0},
-				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
-				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
-			},
-		},
-		{
 			"Consecutive gateway and 5xx errors are set",
 			&networking.OutlierDetection{
 				Consecutive_5XxErrors:    &types.UInt32Value{Value: 4},
@@ -1197,8 +1186,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		})
@@ -1239,8 +1227,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		})
@@ -1288,8 +1275,7 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 				LoadBalancer: &networking.LoadBalancerSettings{LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
 					Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
@@ -1353,8 +1339,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		},
@@ -1403,8 +1388,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		},
@@ -1766,9 +1750,6 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
 					},
 				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-				},
 			},
 		})
 
@@ -1788,9 +1769,6 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
 						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
 					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
 				},
 			},
 		})
@@ -2224,6 +2202,11 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 
+	http2ProtocolOptions := &corev3.Http2ProtocolOptions{
+		AllowConnect:  true,
+		AllowMetadata: true,
+	}
+
 	tests := []struct {
 		name          string
 		mtlsCtx       mtlsContextType
@@ -2232,6 +2215,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
+		http2ProtocolOptions       *corev3.Http2ProtocolOptions
 
 		validateTLSContext func(t *testing.T, ctx *tls.UpstreamTlsContext)
 	}{
@@ -2244,12 +2228,31 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			expectTransportSocketMatch: false,
 		},
 		{
-			name:                       "user specified with tls",
+			name:                       "user specified with istio_mutual tls",
 			mtlsCtx:                    userSupplied,
 			discoveryType:              cluster.Cluster_EDS,
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
+				}
+			},
+		},
+		{
+			name:                       "user specified with istio_mutual tls with h2",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        tlsSettings,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
+				}
+			},
 		},
 		{
 			name:                       "user specified mutual tls",
@@ -2267,6 +2270,31 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
 					t.Fatalf("expected cert name %v got %v", certName, got)
 				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); got != nil {
+					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
+				}
+			},
+		},
+		{
+			name:                       "user specified mutual tls with h2",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        mutualTLSSettings,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTLSSettings.CaCertificates
+				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettings.ClientCertificate, mutualTLSSettings.PrivateKey)
+				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
+					t.Fatalf("expected root name %v got %v", rootName, got)
+				}
+				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
+					t.Fatalf("expected cert name %v got %v", certName, got)
+				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
+				}
 			},
 		},
 		{
@@ -2276,6 +2304,25 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        tlsSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
+				}
+			},
+		},
+		{
+			name:                       "auto detect with tls and h2 options",
+			mtlsCtx:                    autoDetected,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        tlsSettings,
+			expectTransportSocket:      false,
+			expectTransportSocketMatch: true,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
+				}
+			},
 		},
 		{
 			name:                       "auto detect with tls",
@@ -2300,6 +2347,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			opts := &buildClusterOpts{
 				cluster: &cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
+					Http2ProtocolOptions: test.http2ProtocolOptions,
 				},
 				proxy: proxy,
 				push:  push,
@@ -2317,8 +2365,14 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 			if test.validateTLSContext != nil {
 				ctx := &tls.UpstreamTlsContext{}
-				if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
-					t.Fatal(err)
+				if test.expectTransportSocket {
+					if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
+						t.Fatal(err)
+					}
+				} else if test.expectTransportSocketMatch {
+					if err := ptypes.UnmarshalAny(opts.cluster.TransportSocketMatches[0].TransportSocket.GetTypedConfig(), ctx); err != nil {
+						t.Fatal(err)
+					}
 				}
 				test.validateTLSContext(t, ctx)
 			}

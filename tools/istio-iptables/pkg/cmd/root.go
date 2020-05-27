@@ -91,6 +91,7 @@ func constructConfig() *config.Config {
 		InboundTProxyRouteTable: viper.GetString(constants.InboundTProxyRouteTable),
 		InboundPortsInclude:     viper.GetString(constants.InboundPorts),
 		InboundPortsExclude:     viper.GetString(constants.LocalExcludePorts),
+		OutboundPortsInclude:    viper.GetString(constants.OutboundPorts),
 		OutboundPortsExclude:    viper.GetString(constants.LocalOutboundPortsExclude),
 		OutboundIPRangesInclude: viper.GetString(constants.ServiceCidr),
 		OutboundIPRangesExclude: viper.GetString(constants.ServiceExcludeCidr),
@@ -224,6 +225,13 @@ func init() {
 		handleError(err)
 	}
 	viper.SetDefault(constants.ServiceExcludeCidr, "")
+
+	rootCmd.Flags().StringP(constants.OutboundPorts, "q", "",
+		"Comma separated list of outbound ports to be explicitly included for redirection to Envoy")
+	if err := viper.BindPFlag(constants.OutboundPorts, rootCmd.Flags().Lookup(constants.OutboundPorts)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OutboundPorts, "")
 
 	rootCmd.Flags().StringP(constants.LocalOutboundPortsExclude, "o", "",
 		"Comma separated list of outbound ports to be excluded from redirection to Envoy")

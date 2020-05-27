@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
+	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	mca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google/mock"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
@@ -166,10 +167,14 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 		RecycleInterval:         100 * time.Millisecond,
 		WorkloadUDSPath:         socket,
 	}
-	wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, mockMeshCAServer.Address,
-		"GoogleCA", false /* Disable TLS */, nil, "", "", "", "")
+	caClient, err := gca.NewGoogleCAClient(mockMeshCAServer.Address, false)
 	if err != nil {
-		t.Errorf("failed to create secretFetcher for workload proxy: %v", err)
+		t.Fatalf("failed to create secretFetcher for workload proxy: %v", err)
+	}
+
+	wSecretFetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: true,
+		CaClient:    caClient,
 	}
 
 	workloadSdsCacheOptions := &cache.Options{}

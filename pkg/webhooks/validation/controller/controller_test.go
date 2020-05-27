@@ -303,22 +303,6 @@ func TestGreenfield(t *testing.T) {
 			"istiod config created when endpoint is ready and invalid config is denied")
 }
 
-func TestUnregisterValidationWebhook(t *testing.T) {
-	g := NewGomegaWithT(t)
-	c := createTestController(t)
-
-	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, kubeApiMeta.CreateOptions{})
-	_ = c.configStore.Add(unpatchedWebhookConfig)
-	_ = c.endpointStore.Add(istiodEndpoint)
-
-	c.o.UnregisterValidationWebhook = true
-	reconcileHelper(t, c)
-
-	_, err := c.ValidatingWebhookConfigurations().Get(context.TODO(), istiod, kubeApiMeta.GetOptions{})
-	g.Expect(err).ShouldNot(Succeed())
-	g.Expect(kubeErrors.ReasonForError(err)).Should(Equal(kubeApiMeta.StatusReasonNotFound))
-}
-
 func TestCABundleChange(t *testing.T) {
 	g := NewGomegaWithT(t)
 	c := createTestController(t)

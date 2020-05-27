@@ -27,6 +27,9 @@ spec:
         service.istio.io/canonical-name: istio-ingressgateway
         service.istio.io/canonical-revision: latest
       annotations:
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/stats/prometheus"
         sidecar.istio.io/inject: "false"
     spec:
       securityContext:

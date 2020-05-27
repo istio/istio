@@ -818,16 +818,6 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 
 	out := &cluster.OutlierDetection{}
-	if outlier.BaseEjectionTime != nil {
-		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
-	}
-	if outlier.ConsecutiveErrors > 0 {
-		// Only listen to gateway errors, see https://github.com/istio/api/pull/617
-		out.EnforcingConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: uint32(100)} // defaults to 0
-		out.EnforcingConsecutive_5Xx = &wrappers.UInt32Value{Value: uint32(0)}             // defaults to 100
-		out.ConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: uint32(outlier.ConsecutiveErrors)}
-	}
-
 	if e := outlier.Consecutive_5XxErrors; e != nil {
 		v := e.GetValue()
 
@@ -851,6 +841,9 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 
 	if outlier.Interval != nil {
 		out.Interval = gogo.DurationToProtoDuration(outlier.Interval)
+	}
+	if outlier.BaseEjectionTime != nil {
+		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
 	}
 	if outlier.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
@@ -1067,15 +1060,27 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		if len(tls.Sni) == 0 && tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 			tlsContext.Sni = c.Name
 		}
+
+		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
+		// We add `istio-peer-exchange` to the list of alpn strings.
+		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				// Enable sending `istio-peer-exchange`	ALPN in ALPN list if TCP
+				// metadataexchange is enabled.
+				if util.IsTCPMetadataExchangeEnabled(node) {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
+				} else {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				}
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		} else if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
+			// Also, Enable sending `istio-peer-exchange` ALPN in ALPN list if TCP
+			// metadataexchange is enabled.
 			if util.IsTCPMetadataExchangeEnabled(node) {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
 			} else {
