@@ -17,7 +17,6 @@ package secretfetcher
 import (
 	"bytes"
 	"context"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -75,8 +74,7 @@ var (
 	// example value format like "30s"
 	secretControllerResyncPeriod = env.RegisterStringVar("SECRET_WATCHER_RESYNC_PERIOD", "", "").Get()
 	// ingressFallbackSecret specifies the name of fallback secret for ingress gateway.
-	ingressFallbackSecret = env.RegisterStringVar("INGRESS_GATEWAY_FALLBACK_SECRET", "gateway-fallback", "").Get()
-	secretFetcherLog      = log.RegisterScope("secretfetcher", "secret fetcher debugging", 0)
+	secretFetcherLog = log.RegisterScope("secretfetcher", "secret fetcher debugging", 0)
 )
 
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.
@@ -107,15 +105,6 @@ type SecretFetcher struct {
 
 	secretNamespace string
 	coreV1          corev1.CoreV1Interface
-}
-
-func fatalf(template string, args ...interface{}) {
-	if len(args) > 0 {
-		secretFetcherLog.Errorf(template, args...)
-	} else {
-		secretFetcherLog.Errorf(template)
-	}
-	os.Exit(-1)
 }
 
 // Run starts the SecretFetcher until a value is sent to ch.
