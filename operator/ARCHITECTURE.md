@@ -37,7 +37,7 @@ Throughout the document, the following terms are used:
 [IstioOperatorSpec proto](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto),
 including feature and component groupings, namespaces and enablement, and per-component K8s settings.
 - Helm values.yaml API, implicitly defined through the various values.yaml files in the
-[Helm charts](https://github.com/istio/installer) and schematized in the operator through
+[istio/manifests/charts](../manifests/charts/istio-operator) and schematized in the operator through
 [values_types.proto](pkg/apis/istio/v1alpha1/values_types.proto).
 
 ## IstioOperatorSpec API
