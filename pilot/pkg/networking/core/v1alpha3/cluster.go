@@ -20,11 +20,10 @@ import (
 	"strconv"
 	"strings"
 
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/gogo/protobuf/types"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -77,7 +76,7 @@ var (
 	defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
 		Name:  "tlsMode-disabled",
 		Match: &structpb.Struct{},
-		TransportSocket: &corev3.TransportSocket{
+		TransportSocket: &core.TransportSocket{
 			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
@@ -699,7 +698,7 @@ func setH2Options(cluster *cluster.Cluster) {
 	if cluster == nil || cluster.Http2ProtocolOptions != nil {
 		return
 	}
-	cluster.Http2ProtocolOptions = &corev3.Http2ProtocolOptions{
+	cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		// Envoy default value of 100 is too low for data path.
 		MaxConcurrentStreams: &wrappers.UInt32Value{
 			Value: 1073741824,
@@ -773,7 +772,7 @@ func applyConnectionPool(push *model.PushContext, c *cluster.Cluster, settings *
 
 	if idleTimeout != nil {
 		idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
-		c.CommonHttpProtocolOptions = &corev3.HttpProtocolOptions{IdleTimeout: idleTimeoutDuration}
+		c.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: idleTimeoutDuration}
 	}
 }
 
@@ -783,7 +782,7 @@ func applyTCPKeepalive(push *model.PushContext, c *cluster.Cluster, settings *ne
 
 		// Start with empty tcp_keepalive, which would set SO_KEEPALIVE on the socket with OS default values.
 		c.UpstreamConnectionOptions = &cluster.UpstreamConnectionOptions{
-			TcpKeepalive: &corev3.TcpKeepalive{},
+			TcpKeepalive: &core.TcpKeepalive{},
 		}
 
 		// Apply mesh wide TCP keepalive if available.
@@ -819,16 +818,6 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 
 	out := &cluster.OutlierDetection{}
-	if outlier.BaseEjectionTime != nil {
-		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
-	}
-	if outlier.ConsecutiveErrors > 0 {
-		// Only listen to gateway errors, see https://github.com/istio/api/pull/617
-		out.EnforcingConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: uint32(100)} // defaults to 0
-		out.EnforcingConsecutive_5Xx = &wrappers.UInt32Value{Value: uint32(0)}             // defaults to 100
-		out.ConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: uint32(outlier.ConsecutiveErrors)}
-	}
-
 	if e := outlier.Consecutive_5XxErrors; e != nil {
 		v := e.GetValue()
 
@@ -852,6 +841,9 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 
 	if outlier.Interval != nil {
 		out.Interval = gogo.DurationToProtoDuration(outlier.Interval)
+	}
+	if outlier.BaseEjectionTime != nil {
+		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
 	}
 	if outlier.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
@@ -940,7 +932,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 }
 
 func applyLocalityLBSetting(
-	locality *corev3.Locality,
+	locality *core.Locality,
 	cluster *cluster.Cluster,
 	localityLB *networking.LocalityLoadBalancerSetting,
 ) {
@@ -1068,15 +1060,27 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		if len(tls.Sni) == 0 && tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 			tlsContext.Sni = c.Name
 		}
+
+		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
+		// We add `istio-peer-exchange` to the list of alpn strings.
+		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				// Enable sending `istio-peer-exchange`	ALPN in ALPN list if TCP
+				// metadataexchange is enabled.
+				if util.IsTCPMetadataExchangeEnabled(node) {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
+				} else {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				}
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		} else if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
+			// Also, Enable sending `istio-peer-exchange` ALPN in ALPN list if TCP
+			// metadataexchange is enabled.
 			if util.IsTCPMetadataExchangeEnabled(node) {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
 			} else {
@@ -1086,9 +1090,9 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 	}
 
 	if tlsContext != nil {
-		c.TransportSocket = &corev3.TransportSocket{
+		c.TransportSocket = &core.TransportSocket{
 			Name:       util.EnvoyTLSSocketName,
-			ConfigType: &corev3.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
 		}
 	}
 

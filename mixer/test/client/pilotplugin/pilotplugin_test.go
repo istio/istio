@@ -20,17 +20,16 @@ import (
 	"net"
 	"testing"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-
 	"google.golang.org/grpc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -276,13 +275,15 @@ func TestPilotPlugin(t *testing.T) {
 	}
 
 	snapshots := cache.NewSnapshotCache(true, mock{}, nil)
-	_ = snapshots.SetSnapshot(id, makeSnapshot(s, t))
+	if err := snapshots.SetSnapshot(id, makeSnapshot(s, t)); err != nil {
+		t.Fatal(err)
+	}
 	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
-	go func() {
-		_ = grpcServer.Serve(lis)
+	go grpcServer.Serve(lis)
+	defer func() {
+		grpcServer.Stop()
 	}()
-	defer grpcServer.GracefulStop()
 
 	s.SetMixerSourceUID("pod.ns")
 
@@ -304,7 +305,7 @@ func TestPilotPlugin(t *testing.T) {
 
 type mock struct{}
 
-func (mock) ID(*core.Node) string {
+func (mock) ID(*corev2.Node) string {
 	return id
 }
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
@@ -372,8 +373,8 @@ var (
 	}
 )
 
-func makeRoute(cluster string) *v2.RouteConfiguration {
-	return &v2.RouteConfiguration{
+func makeRoute(cluster string) *route.RouteConfiguration {
+	return &route.RouteConfiguration{
 		Name: cluster,
 		VirtualHosts: []*route.VirtualHost{{
 			Name:    cluster,
@@ -388,8 +389,8 @@ func makeRoute(cluster string) *v2.RouteConfiguration {
 	}
 }
 
-func makeListener(port uint16, route string) (*v2.Listener, *hcm.HttpConnectionManager) {
-	return &v2.Listener{
+func makeListener(port uint16, route string) (*listener.Listener, *hcm.HttpConnectionManager) {
+	return &listener.Listener{
 			Name: route,
 			Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 				Address:       "127.0.0.1",
@@ -438,7 +439,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	p.OnOutboundRouteConfiguration(&clientParams, clientRoute)
 
 	snapshot := cache.Snapshot{}
-	snapshot.Resources[types.Route] = cache.NewResources("http", []types.Resource{clientRoute, serverRoute})
-	snapshot.Resources[types.Listener] = cache.NewResources("http", []types.Resource{clientListener, serverListener})
+	snapshot.Resources[types.Route] = cache.NewResources("http", []types.Resource{env.CastRouteToV2(clientRoute), env.CastRouteToV2(serverRoute)})
+	snapshot.Resources[types.Listener] = cache.NewResources("http", []types.Resource{env.CastListenerToV2(clientListener), env.CastListenerToV2(serverListener)})
 	return snapshot
 }

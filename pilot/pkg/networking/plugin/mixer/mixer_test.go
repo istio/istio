@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -169,7 +169,7 @@ func TestOnOutboundListener(t *testing.T) {
 				},
 			},
 			mutableObjects: &istionetworking.MutableObjects{
-				Listener: &xdsapi.Listener{},
+				Listener: &listener.Listener{},
 				FilterChains: []istionetworking.FilterChain{
 					{
 						IsFallThrough: false,
@@ -189,7 +189,7 @@ func TestOnOutboundListener(t *testing.T) {
 				},
 			},
 			mutableObjects: &istionetworking.MutableObjects{
-				Listener: &xdsapi.Listener{},
+				Listener: &listener.Listener{},
 				FilterChains: []istionetworking.FilterChain{
 					{
 						IsFallThrough: false,
@@ -264,7 +264,7 @@ func TestOnOutboundListenerSkipMixer(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			}
-			mutable := &istionetworking.MutableObjects{Listener: &xdsapi.Listener{}, FilterChains: []istionetworking.FilterChain{{}}}
+			mutable := &istionetworking.MutableObjects{Listener: &listener.Listener{}, FilterChains: []istionetworking.FilterChain{{}}}
 			_ = mp.OnOutboundListener(inputParams, mutable)
 			for _, chain := range mutable.FilterChains {
 				if got := len(chain.HTTP); got != v.wantFilters {
@@ -327,7 +327,7 @@ func TestOnInboundListenerSkipMixer(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			}
-			mutable := &istionetworking.MutableObjects{Listener: &xdsapi.Listener{Address: testAddress()}, FilterChains: []istionetworking.FilterChain{{}}}
+			mutable := &istionetworking.MutableObjects{Listener: &listener.Listener{Address: testAddress()}, FilterChains: []istionetworking.FilterChain{{}}}
 			_ = mp.OnInboundListener(inputParams, mutable)
 			for _, chain := range mutable.FilterChains {
 				if got := len(chain.HTTP); got != v.wantFilters {

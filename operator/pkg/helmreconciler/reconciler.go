@@ -196,11 +196,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 
 // Delete resources associated with the custom resource instance
 func (h *HelmReconciler) Delete() error {
-	manifestMap, err := h.RenderCharts()
-	if err != nil {
-		return err
-	}
-	return h.Prune(manifestMap, true)
+	return h.Prune(nil, true)
 }
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.

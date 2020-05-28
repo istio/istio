@@ -27,13 +27,11 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
-	rbac "istio.io/api/rbac/v1alpha1"
 	authz "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -161,40 +159,6 @@ var (
 				Namespace: "default",
 			},
 		},
-	}
-
-	// ExampleServiceRole is an example rbac service role
-	ExampleServiceRole = &rbac.ServiceRole{Rules: []*rbac.AccessRule{
-		{
-			Services: []string{"service0"},
-			Methods:  []string{"GET", "POST"},
-			Constraints: []*rbac.AccessRule_Constraint{
-				{Key: "key", Values: []string{"value"}},
-				{Key: "key", Values: []string{"value"}},
-			},
-		},
-		{
-			Services: []string{"service0"},
-			Methods:  []string{"GET", "POST"},
-			Constraints: []*rbac.AccessRule_Constraint{
-				{Key: "key", Values: []string{"value"}},
-				{Key: "key", Values: []string{"value"}},
-			},
-		},
-	}}
-
-	// ExampleServiceRoleBinding is an example rbac service role binding
-	ExampleServiceRoleBinding = &rbac.ServiceRoleBinding{
-		Subjects: []*rbac.Subject{
-			{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
-			{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
-		},
-		RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
-	}
-
-	// ExampleRbacConfig is an example rbac config
-	ExampleRbacConfig = &rbac.RbacConfig{
-		Mode: rbac.RbacConfig_ON,
 	}
 
 	// ExampleAuthorizationPolicy is an example AuthorizationPolicy
@@ -421,10 +385,6 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"HTTPAPISpecBinding", configName, collections.IstioConfigV1Alpha2Httpapispecbindings, ExampleHTTPAPISpecBinding},
 		{"QuotaSpec", configName, collections.IstioMixerV1ConfigClientQuotaspecs, ExampleQuotaSpec},
 		{"QuotaSpecBinding", configName, collections.IstioMixerV1ConfigClientQuotaspecbindings, ExampleQuotaSpecBinding},
-		{"ServiceRole", configName, collections.IstioRbacV1Alpha1Serviceroles, ExampleServiceRole},
-		{"ServiceRoleBinding", configName, collections.IstioRbacV1Alpha1Servicerolebindings, ExampleServiceRoleBinding},
-		{"RbacConfig", constants.DefaultRbacConfigName, collections.IstioRbacV1Alpha1Rbacconfigs, ExampleRbacConfig},
-		{"ClusterRbacConfig", constants.DefaultRbacConfigName, collections.IstioRbacV1Alpha1Clusterrbacconfigs, ExampleRbacConfig},
 		{"AuthorizationPolicy", configName, collections.IstioSecurityV1Beta1Authorizationpolicies, ExampleAuthorizationPolicy},
 	}
 

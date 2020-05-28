@@ -17,9 +17,9 @@ package model
 import (
 	"sync"
 
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	envoy_config_grpc_credential_v2alpha "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_grpc_credential "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 
@@ -79,7 +79,7 @@ const (
 )
 
 // ConstructSdsSecretConfigWithCustomUds constructs SDS secret configuration for ingress gateway.
-func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *auth.SdsSecretConfig {
+func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *tls.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
@@ -89,7 +89,7 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *auth.SdsSec
 		StatPrefix: SDSStatPrefix,
 	}
 
-	return &auth.SdsSecretConfig{
+	return &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -110,12 +110,12 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *auth.SdsSec
 }
 
 // ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name, sdsUdsPath string) *auth.SdsSecretConfig {
+func ConstructSdsSecretConfig(name, sdsUdsPath string) *tls.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
 
-	return &auth.SdsSecretConfig{
+	return &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -136,9 +136,9 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string) *auth.SdsSecretConfig {
 }
 
 // ConstructValidationContext constructs ValidationContext in CommonTLSContext.
-func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *auth.CommonTlsContext_ValidationContext {
-	ret := &auth.CommonTlsContext_ValidationContext{
-		ValidationContext: &auth.CertificateValidationContext{
+func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *tls.CommonTlsContext_ValidationContext {
+	ret := &tls.CommonTlsContext_ValidationContext{
+		ValidationContext: &tls.CertificateValidationContext{
 			TrustedCa: &core.DataSource{
 				Specifier: &core.DataSource_Filename{
 					Filename: rootCAFilePath,
@@ -155,7 +155,7 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 }
 
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
-func ApplyToCommonTLSContext(tlsContext *auth.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
+func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
 	// configure TLS with SDS
 	if metadata.SdsEnabled && sdsPath != "" {
 		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
@@ -168,14 +168,14 @@ func ApplyToCommonTLSContext(tlsContext *auth.CommonTlsContext, metadata *model.
 		}
 
 		// configure server listeners with SDS.
-		tlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
+		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
 				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(
 					model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), sdsPath),
 			},
 		}
-		tlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
+		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), sdsPath),
 		}
 	} else {
@@ -189,7 +189,7 @@ func ApplyToCommonTLSContext(tlsContext *auth.CommonTlsContext, metadata *model.
 		tlsServerCertChain := model.GetOrDefault(metadata.TLSServerCertChain, base+constants.CertChainFilename)
 		tlsServerKey := model.GetOrDefault(metadata.TLSServerKey, base+constants.KeyFilename)
 
-		tlsContext.TlsCertificates = []*auth.TlsCertificate{
+		tlsContext.TlsCertificates = []*tls.TlsCertificate{
 			{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
@@ -208,29 +208,29 @@ func ApplyToCommonTLSContext(tlsContext *auth.CommonTlsContext, metadata *model.
 
 // ApplyCustomSDSToCommonTLSContext applies the customized sds to CommonTlsContext
 // Used for building both gateway/sidecar TLS context
-func ApplyCustomSDSToCommonTLSContext(tlsContext *auth.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath string) {
+func ApplyCustomSDSToCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath string) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
-	tlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
+	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 		ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
 	}
 	// If tls mode is MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
 	// at gateway agent. Otherwise, use the static certificate validation context config.
 	if tlsOpts.Mode == networking.ServerTLSSettings_MUTUAL {
-		defaultValidationContext := &auth.CertificateValidationContext{
+		defaultValidationContext := &tls.CertificateValidationContext{
 			MatchSubjectAltNames:  util.StringToExactMatch(tlsOpts.SubjectAltNames),
 			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,
 			VerifyCertificateHash: tlsOpts.VerifyCertificateHash,
 		}
-		tlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext: defaultValidationContext,
 				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigWithCustomUds(
 					tlsOpts.CredentialName+SdsCaSuffix, sdsUdsPath),
 			},
 		}
 	} else if len(tlsOpts.SubjectAltNames) > 0 {
-		tlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-			ValidationContext: &auth.CertificateValidationContext{
+		tlsContext.ValidationContextType = &tls.CommonTlsContext_ValidationContext{
+			ValidationContext: &tls.CertificateValidationContext{
 				MatchSubjectAltNames: util.StringToExactMatch(tlsOpts.SubjectAltNames),
 			},
 		}
@@ -240,7 +240,7 @@ func ApplyCustomSDSToCommonTLSContext(tlsContext *auth.CommonTlsContext, tlsOpts
 // ConstructgRPCCallCredentials is used to construct SDS config which is only available from 1.1
 func ConstructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcService_GoogleGrpc_CallCredentials {
 	// If k8s sa jwt token file exists, envoy only handles plugin credentials.
-	config := &envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig{
+	config := &envoy_config_grpc_credential.FileBasedMetadataConfig{
 		SecretData: &core.DataSource{
 			Specifier: &core.DataSource_Filename{
 				Filename: tokenFileName,
@@ -280,7 +280,7 @@ var fileBasedMetadataConfigAnyMap sync.Map
 // returns different result. Once SDS config differs, Envoy will create multiple SDS clients to fetch
 // same SDS resource. To solve this problem, we use findOrMarshalFileBasedMetadataConfig so that
 // FileBasedMetadataConfig is marshaled once, and is reused in all SDS configs.
-func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMetadata *envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig) *any.Any {
+func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMetadata *envoy_config_grpc_credential.FileBasedMetadataConfig) *any.Any {
 	key := fbMetadataAnyKey{
 		tokenFileName: tokenFileName,
 		headerKey:     headerKey,

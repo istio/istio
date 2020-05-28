@@ -35,6 +35,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/listwatch"
 	queue2 "istio.io/istio/pkg/queue"
 
 	"istio.io/pkg/log"
@@ -78,17 +79,21 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	// queue requires a time duration for a retry delay after a handler error
 	queue := queue2.NewQueue(1 * time.Second)
 
-	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
+
+	mlw := listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
 			ListFunc: func(opts metaV1.ListOptions) (runtime.Object, error) {
-				return client.NetworkingV1beta1().Ingresses(options.WatchedNamespace).List(context.TODO(), opts)
+				return client.NetworkingV1beta1().Ingresses(namespace).List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metaV1.ListOptions) (watch.Interface, error) {
-				return client.NetworkingV1beta1().Ingresses(options.WatchedNamespace).Watch(context.TODO(), opts)
+				return client.NetworkingV1beta1().Ingresses(namespace).Watch(context.TODO(), opts)
 			},
-		},
-		&v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{},
-	)
+		}
+	})
+
+	informer := cache.NewSharedIndexInformer(mlw, &v1beta1.Ingress{}, options.ResyncPeriod,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	st := StatusSyncer{
 		client:              client,

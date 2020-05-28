@@ -17,7 +17,13 @@
 package adapter
 
 import (
+	"time"
+
 	"github.com/gogo/protobuf/proto"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 type (
@@ -60,6 +66,10 @@ type (
 		// Return how much time remains until Mixer considers the adapter call having timed out and kills it
 		// Return true/false to indicate this is a 'recovery mode' execution following a prior crash of the adapter
 		// ?
+
+		// Create a new informer monitoring the application namespaces
+		NewInformer(clientset kubernetes.Interface, objType runtime.Object, duration time.Duration, listerWatcher func(namespace string) cache.ListerWatcher,
+			indexers cache.Indexers) cache.SharedIndexInformer
 	}
 
 	// Logger defines where adapters should output their log state to.

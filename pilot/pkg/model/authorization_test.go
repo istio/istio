@@ -68,8 +68,8 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		ns             string
 		workloadLabels map[string]string
 		configs        []Config
-		wantDeny       []AuthorizationPolicyConfig
-		wantAllow      []AuthorizationPolicyConfig
+		wantDeny       []AuthorizationPolicy
+		wantAllow      []AuthorizationPolicy
 	}{
 		{
 			name:      "no policies",
@@ -91,11 +91,11 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policy),
 			},
-			wantAllow: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicy{
 				{
-					Name:                "authz-1",
-					Namespace:           "bar",
-					AuthorizationPolicy: policy,
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      policy,
 				},
 			},
 		},
@@ -105,11 +105,11 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", denyPolicy),
 			},
-			wantDeny: []AuthorizationPolicyConfig{
+			wantDeny: []AuthorizationPolicy{
 				{
-					Name:                "authz-1",
-					Namespace:           "bar",
-					AuthorizationPolicy: denyPolicy,
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      denyPolicy,
 				},
 			},
 		},
@@ -121,16 +121,16 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			wantAllow: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicy{
 				{
-					Name:                "authz-1",
-					Namespace:           "bar",
-					AuthorizationPolicy: policy,
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      policy,
 				},
 				{
-					Name:                "authz-2",
-					Namespace:           "bar",
-					AuthorizationPolicy: policy,
+					Name:      "authz-2",
+					Namespace: "bar",
+					Spec:      policy,
 				},
 			},
 		},
@@ -141,18 +141,18 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", denyPolicy),
 			},
-			wantDeny: []AuthorizationPolicyConfig{
+			wantDeny: []AuthorizationPolicy{
 				{
-					Name:                "authz-2",
-					Namespace:           "bar",
-					AuthorizationPolicy: denyPolicy,
+					Name:      "authz-2",
+					Namespace: "bar",
+					Spec:      denyPolicy,
 				},
 			},
-			wantAllow: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicy{
 				{
-					Name:                "authz-1",
-					Namespace:           "bar",
-					AuthorizationPolicy: policy,
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      policy,
 				},
 			},
 		},
@@ -166,11 +166,11 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			wantAllow: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicy{
 				{
-					Name:                "authz-1",
-					Namespace:           "bar",
-					AuthorizationPolicy: policyWithSelector,
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      policyWithSelector,
 				},
 			},
 		},
@@ -185,11 +185,11 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			wantAllow: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicy{
 				{
-					Name:                "authz-1",
-					Namespace:           "bar",
-					AuthorizationPolicy: policyWithSelector,
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      policyWithSelector,
 				},
 			},
 		},
@@ -223,11 +223,11 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
-			wantAllow: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicy{
 				{
-					Name:                "authz-1",
-					Namespace:           "istio-config",
-					AuthorizationPolicy: policy,
+					Name:      "authz-1",
+					Namespace: "istio-config",
+					Spec:      policy,
 				},
 			},
 		},
@@ -237,11 +237,11 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
-			wantAllow: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicy{
 				{
-					Name:                "authz-1",
-					Namespace:           "istio-config",
-					AuthorizationPolicy: policy,
+					Name:      "authz-1",
+					Namespace: "istio-config",
+					Spec:      policy,
 				},
 			},
 		},
@@ -252,16 +252,16 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "istio-config", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			wantAllow: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicy{
 				{
-					Name:                "authz-1",
-					Namespace:           "istio-config",
-					AuthorizationPolicy: policy,
+					Name:      "authz-1",
+					Namespace: "istio-config",
+					Spec:      policy,
 				},
 				{
-					Name:                "authz-2",
-					Namespace:           "bar",
-					AuthorizationPolicy: policy,
+					Name:      "authz-2",
+					Namespace: "bar",
+					Spec:      policy,
 				},
 			},
 		},
