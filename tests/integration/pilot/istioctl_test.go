@@ -84,7 +84,7 @@ func TestWait(t *testing.T) {
 				Prefix: "default",
 				Inject: true,
 			})
-			ctx.ApplyConfigOrFail(t, ns.Name(), `
+			g.ApplyConfigOrFail(t, ns, `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
