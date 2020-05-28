@@ -1,5 +1,5 @@
 hub: gcr.io/istio-testing
-tag: 1.6-dev
+tag: latest
 operatorNamespace: istio-operator
 istioNamespace: istio-system
 waitForResourcesTimeout: 300s
