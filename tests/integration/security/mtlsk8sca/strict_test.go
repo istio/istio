@@ -34,7 +34,7 @@ import (
 // - Send HTTP/gRPC requests between apps.
 func TestMtlsStrictK8sCA(t *testing.T) {
 	framework.NewTest(t).
-		Features(features.Security_Mtls_K8sCa).
+		Features("security.mtls.k8s-ca").
 		Run(func(ctx framework.TestContext) {
 
 			rctx := reachability.CreateContext(ctx, p)
