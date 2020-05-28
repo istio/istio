@@ -166,6 +166,10 @@ type Port struct {
 	// service.
 	Port int `json:"port"`
 
+	// TargetPort is the default port where the instances behind this Service can be reached.
+	// Individual instances may override this.
+	TargetPort int `json:"targetPort"`
+
 	// Protocol to be used for the port.
 	Protocol protocol.Instance `json:"protocol,omitempty"`
 }

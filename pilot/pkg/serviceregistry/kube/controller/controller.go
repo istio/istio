@@ -765,6 +765,9 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 			break
 		}
 	}
+	if servicePort == nil {
+		return nil
+	}
 
 	out := make([]*model.ServiceInstance, 0)
 
@@ -774,13 +777,18 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 			continue
 		}
 		if selector.SubsetOf(fi.Endpoint.Labels) {
+
+			for _, p := range svc.Ports {
+				log.Errorf("howardjohn: build %v %+v", svc.Hostname, p)
+			}
 			// create an instance with endpoint whose service port name matches
 			// TODO(rshriram): we currently ignore the workload entry (endpoint) ports and setup 1-1 mapping
 			// from service port to endpoint port. Need to figure out a way to map workload entry port to
 			// appropriate k8s service port
 			istioEndpoint := *fi.Endpoint
-			istioEndpoint.EndpointPort = uint32(reqSvcPort)
+			istioEndpoint.EndpointPort = uint32(servicePort.TargetPort)
 			istioEndpoint.ServicePortName = servicePort.Name
+			log.Errorf("howardjohn: built %+v", istioEndpoint)
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
 				ServicePort: servicePort,
@@ -803,23 +811,14 @@ func (c *Controller) collectAllForeignEndpoints(svc *model.Service) []*model.Ist
 		return nil
 	}
 
-	instances := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
 	endpoints := make([]*model.IstioEndpoint, 0)
-
-	// all endpoints for ports[0]
-	for _, instance := range instances {
-		endpoints = append(endpoints, instance.Endpoint)
-	}
-
-	// build an endpoint for each remaining service port
-	for i := 1; i < len(svc.Ports); i++ {
+	for _, port := range svc.Ports {
+		instances := c.getForeignServiceInstancesByPort(svc, port.Port)
 		for _, instance := range instances {
-			ep := *instance.Endpoint
-			ep.EndpointPort = uint32(svc.Ports[i].Port)
-			ep.ServicePortName = svc.Ports[i].Name
-			endpoints = append(endpoints, &ep)
+			endpoints = append(endpoints, instance.Endpoint)
 		}
 	}
+
 	return endpoints
 }
 
@@ -907,7 +906,7 @@ func (c *Controller) ForeignServiceInstanceHandler(si *model.ServiceInstance, ev
 			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.domainSuffix)]
 			c.RUnlock()
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
-			if service.Resolution != model.ClientSideLB {
+			if service == nil || service.Resolution != model.ClientSideLB {
 				// may be a headless service
 				continue
 			}

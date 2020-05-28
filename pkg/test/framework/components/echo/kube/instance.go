@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -84,7 +85,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	// Generate the service and deployment YAML.
 	serviceYAML, deploymentYAML, err := generateYAML(cfg, c.cluster)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate yaml: %v", err)
 	}
 
 	// Apply the service definition to all clusters.
@@ -99,6 +100,42 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), deploymentYAML); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %d: %v",
 			cfg.FQDN(), c.cluster.Index(), err)
+	}
+
+	if cfg.DeployAsVM {
+		var pod kubeCore.Pod
+		if err := retry.UntilSuccess(func() error {
+			pods, err := c.cluster.GetPods(cfg.Namespace.Name(), fmt.Sprintf("istio.io/test-vm=%s", cfg.Service))
+			if err != nil {
+				return err
+			}
+			if len(pods) != 1 {
+				return fmt.Errorf("expected 1 pod, found %v", len(pods))
+			}
+			pod = pods[0]
+			if pod.Status.PodIP == "" {
+				return fmt.Errorf("empty pod ip")
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+		ip := pod.Status.PodIP
+		wle := fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: %s
+spec:
+  address: %s
+  serviceAccount: %s
+  labels:
+    app: %s
+`, pod.Name, ip, cfg.Service, cfg.Service)
+		// Deploy the workload entry.
+		if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), wle); err != nil {
+			return nil, fmt.Errorf("failed deploying workload entry: %v", err)
+		}
 	}
 
 	// Now retrieve the service information to find the ClusterIP
@@ -216,31 +253,29 @@ func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Inst
 }
 
 // WorkloadHasSidecar returns true if the input endpoint is deployed with sidecar injected based on the config.
-func workloadHasSidecar(cfg echo.Config, endpoint *kubeCore.ObjectReference) bool {
+func workloadHasSidecar(cfg echo.Config, podName string) bool {
 	// Match workload first.
 	for _, w := range cfg.Subsets {
-		if strings.HasPrefix(endpoint.Name, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
+		if strings.HasPrefix(podName, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
 			return w.Annotations.GetBool(echo.SidecarInject)
 		}
 	}
 	return true
 }
 
-func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
+func (c *instance) initialize(pods []kubeCore.Pod) error {
 	if c.workloads != nil {
 		// Already ready.
 		return nil
 	}
 
 	workloads := make([]*workload, 0)
-	for _, subset := range endpoints.Subsets {
-		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.tls, c.ctx)
+	for _, pod := range pods {
+			workload, err := newWorkload(pod, workloadHasSidecar(c.cfg, pod.Name), c.grpcPort, c.cluster, c.tls, c.ctx)
 			if err != nil {
 				return err
 			}
 			workloads = append(workloads, workload)
-		}
 	}
 
 	if len(workloads) == 0 {

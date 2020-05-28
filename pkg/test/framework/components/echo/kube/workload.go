@@ -43,7 +43,6 @@ var (
 type workload struct {
 	*client.Instance
 
-	addr      kubeCore.EndpointAddress
 	pod       kubeCore.Pod
 	forwarder kube.PortForwarder
 	sidecar   *sidecar
@@ -51,17 +50,7 @@ type workload struct {
 	ctx       resource.Context
 }
 
-func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
-	cluster kube2.Cluster, tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
-	if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" {
-		return nil, fmt.Errorf("invalid TargetRef for endpoint %s: %v", addr.IP, addr.TargetRef)
-	}
-
-	pod, err := cluster.GetPod(addr.TargetRef.Namespace, addr.TargetRef.Name)
-	if err != nil {
-		return nil, err
-	}
-
+func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16, cluster kube2.Cluster, tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
 	// Create a forwarder to the command port of the app.
 	forwarder, err := cluster.NewPortForwarder(pod, 0, grpcPort)
 	if err != nil {
@@ -86,7 +75,6 @@ func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
 	}
 
 	return &workload{
-		addr:      addr,
 		pod:       pod,
 		forwarder: forwarder,
 		Instance:  c,
@@ -120,7 +108,7 @@ func (w *workload) checkDeprecation() error {
 }
 
 func (w *workload) Address() string {
-	return w.addr.IP
+	return w.pod.Status.PodIP
 }
 
 func (w *workload) Sidecar() echo.Sidecar {

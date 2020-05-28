@@ -202,14 +202,15 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ $.Service }}
+      istio.io/test-vm: {{ $.Service }}
   template:
     metadata:
       annotations:
         # Sidecar is inside the pod to simulate VMs - do not inject
         sidecar.istio.io/inject: "false"
       labels:
-        app: {{ $.Service }}
+        # Label should not be selected. We will create a workload entry instead
+        istio.io/test-vm: {{ $.Service }}
     spec:
       # Disable kube-dns, to mirror VM
       dnsPolicy: Default
@@ -328,20 +329,20 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		// TODO do we need CIDR or should we use *
 		// This will be rejected and the error will contain the service cidr
 		// Following the docs: https://istio.io/docs/setup/install/virtual-machine/#create-files-to-transfer-to-the-virtual-machine
-//		_, err = cluster.Accessor.ApplyContents("istio-system", `
-//apiVersion: v1
-//kind: Service
-//metadata:
-//  name: invalid-svc-to-get-cidr
-//spec:
-//  clusterIP: 1.1.1.1
-//  ports:
-//  - port: 443
-//`)
-//		if err == nil {
-//			return "", "", fmt.Errorf("expected error from invalid cidr, but did not get one")
-//		}
-//		serivceCIDR = cidrErrorRegex.ReplaceAllString(err.Error(), "")
+		//		_, err = cluster.Accessor.ApplyContents("istio-system", `
+		//apiVersion: v1
+		//kind: Service
+		//metadata:
+		//  name: invalid-svc-to-get-cidr
+		//spec:
+		//  clusterIP: 1.1.1.1
+		//  ports:
+		//  - port: 443
+		//`)
+		//		if err == nil {
+		//			return "", "", fmt.Errorf("expected error from invalid cidr, but did not get one")
+		//		}
+		//		serivceCIDR = cidrErrorRegex.ReplaceAllString(err.Error(), "")
 	}
 	params := map[string]interface{}{
 		"Hub":                 settings.Hub,
