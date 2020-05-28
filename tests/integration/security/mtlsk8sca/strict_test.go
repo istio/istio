@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
@@ -34,7 +33,7 @@ import (
 // - Send HTTP/gRPC requests between apps.
 func TestMtlsStrictK8sCA(t *testing.T) {
 	framework.NewTest(t).
-		Features(features.Security_Mtls_K8sCa).
+		Features("security.mtls.k8s-ca").
 		Run(func(ctx framework.TestContext) {
 
 			rctx := reachability.CreateContext(ctx, p)
