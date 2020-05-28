@@ -175,10 +175,6 @@ func TestKeyfactorSignCSR(t *testing.T) {
 			responseData: KeyfactorResponse{},
 			expectedErr:  fmt.Sprintf("Request failed with status: 500, message: 500"),
 		},
-		"On server not available": {
-			turnOnServer: false,
-			expectedErr:  fmt.Sprintf("Could not request to KeyfactorCA server: %v Post \"%v/KeyfactorAPI/Enrollment/CSR\": dial tcp: lookup fake091234keyfactor.com: no such host", fakeURL, fakeURL),
-		},
 	}
 
 	for testID, tc := range testCases {
