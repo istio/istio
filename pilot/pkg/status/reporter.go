@@ -69,10 +69,9 @@ const labelKey = "internal.istio.io/distribution-report"
 const dataField = "distribution-report"
 
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
-// with distribution information
-func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store model.ConfigStore, stop <-chan struct{}) {
+// with distribution information.  To run in read-only mode, (for supporting istioctl wait), set writeMode = false
+func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store model.ConfigStore, writeMode bool, stop <-chan struct{}) {
 	scope.Info("Starting status follower controller")
-	ctx := NewIstioContext(stop)
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
 	}
@@ -85,6 +84,10 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 	r.status = make(map[string]string)
 	r.reverseStatus = make(map[string][]string)
 	r.inProgressResources = make(map[string]*inProgressEntry)
+	go r.readFromEventQueue()
+	if !writeMode {
+		return
+	}
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
 	r.cm = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -94,13 +97,14 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 		Data: make(map[string]string),
 	}
 	t := r.clock.Tick(r.UpdateInterval)
+	ctx := NewIstioContext(stop)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				if r.cm != nil {
 					// TODO: is the use of a cancelled context here a problem?  Maybe set a short timeout context?
-					if err := r.client.Delete(ctx, r.cm.Name, metav1.DeleteOptions{}); err != nil {
+					if err := r.client.Delete(context.Background(), r.cm.Name, metav1.DeleteOptions{}); err != nil {
 						scope.Errorf("failed to properly clean up distribution report: %v", err)
 					}
 				}
@@ -112,7 +116,6 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 			}
 		}
 	}()
-	go r.readFromEventQueue()
 }
 
 // build a distribution report to send to status leader
@@ -239,6 +242,13 @@ type distributionEvent struct {
 	conID   string
 	xdsType string
 	nonce   string
+}
+
+func (r *Reporter) QueryLastNonce(conID string, xdsType string) string {
+	key := conID + xdsType
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.status[key]
 }
 
 // Register that a dataplane has acknowledged a new version of the config.

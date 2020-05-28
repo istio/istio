@@ -37,6 +37,7 @@ func constructTestConfig() *config.Config {
 		InboundTProxyRouteTable: "133",
 		InboundPortsInclude:     "",
 		InboundPortsExclude:     "",
+		OutboundPortsInclude:    "",
 		OutboundPortsExclude:    "",
 		OutboundIPRangesInclude: "",
 		OutboundIPRangesExclude: "",
@@ -602,5 +603,27 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
+	}
+}
+
+func TestHandleOutboundPortsIncludeWithOutboundPorts(t *testing.T) {
+	cfg := constructTestConfig()
+	cfg.OutboundPortsInclude = "32000,31000"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.handleOutboundPortsInclude()
+
+	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	ip6Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
+	if !reflect.DeepEqual([]string{}, ip6Rules) {
+		t.Errorf("Expected ip6Rules to be empty; instead got %#v", ip6Rules)
+	}
+	expectedIpv4Rules := []string{
+		"iptables -t nat -N ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 32000 -j ISTIO_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 31000 -j ISTIO_REDIRECT",
+	}
+	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {
+		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv4Rules, ip4Rules)
 	}
 }

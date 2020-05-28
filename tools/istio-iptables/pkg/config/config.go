@@ -34,6 +34,7 @@ type Config struct {
 	InboundTProxyRouteTable string        `json:"INBOUND_TPROXY_ROUTE_TABLE"`
 	InboundPortsInclude     string        `json:"INBOUND_PORTS_INCLUDE"`
 	InboundPortsExclude     string        `json:"INBOUND_PORTS_EXCLUDE"`
+	OutboundPortsInclude    string        `json:"OUTBOUND_PORTS_INCLUDE"`
 	OutboundPortsExclude    string        `json:"OUTBOUND_PORTS_EXCLUDE"`
 	OutboundIPRangesInclude string        `json:"OUTBOUND_IPRANGES_INCLUDE"`
 	OutboundIPRangesExclude string        `json:"OUTBOUND_IPRANGES_EXCLUDE"`
@@ -69,6 +70,7 @@ func (c *Config) Print() {
 	fmt.Printf("INBOUND_PORTS_EXCLUDE=%s\n", c.InboundPortsExclude)
 	fmt.Printf("OUTBOUND_IP_RANGES_INCLUDE=%s\n", c.OutboundIPRangesInclude)
 	fmt.Printf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", c.OutboundIPRangesExclude)
+	fmt.Printf("OUTBOUND_PORTS_INCLUDE=%s\n", c.OutboundPortsInclude)
 	fmt.Printf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude)
 	fmt.Printf("KUBEVIRT_INTERFACES=%s\n", c.KubevirtInterfaces)
 	fmt.Printf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6)

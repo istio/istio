@@ -116,9 +116,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 	// Name in the Istiod cert - support the old service names as well.
 	// validate hostname contains namespace
 	parts := strings.Split(hostname, ".")
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid hostname %s, should contain at least service name and namespace", hostname)
-	}
+	hostnamePrefix := parts[0]
 
 	// append custom hostname if there is any
 	names := []string{hostname}
@@ -142,7 +140,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 	if features.PilotCertProvider.Get() == KubernetesCAProvider {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
-			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
+			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath)
 
 		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
