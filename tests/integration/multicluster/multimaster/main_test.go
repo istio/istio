@@ -15,6 +15,7 @@
 package multimaster
 
 import (
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"testing"
 
 	"istio.io/istio/tests/integration/multicluster"
@@ -42,6 +43,14 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
+		Setup(kube.Setup(func(s *kube.Settings) {
+			// Make all clusters run their own control plane
+			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
+			for i := 0; i < len(s.KubeConfig); i++ {
+				idx := resource.ClusterIndex(i)
+				s.ControlPlaneTopology[idx] = idx
+			}
+		})).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
