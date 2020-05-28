@@ -13,20 +13,21 @@ Labeling a test with a feature and scenario allow release managers and others to
 For consistency, features must be registerd in [features.yaml](features.yaml), or your test will fail.  Each entry in this file will be equivalent to a dot delimited feature label.  For instance:
 
 ```yaml
-    foo:
-      bar:
-      baz:
-        boo:
+    usability:
+      observability:
+        status:
+      analyzers:
+        virtualservice:
 ```
 
 will allow parameters like
 
 ```go
-    "foo.bar.goo.gle"
-    "foo.baz.boo"
+    "usability.observability.status.exist-by-default"
+    "usability.analyzers.virtualservice"
 ```
 
-where "foo.bar" is the feature, and "goo.gle" is the scenario.
+where "usability.observability.status" is the feature, and "exist-by-default" is the scenario in the first case, and the second case has no scenario.
 
 The heirarchical nature of feature labels allows us to aggregate data about related feature sets.  To provide for consistent reporting and aggregation, we have defined the top two layers of heirarchy, and ask that you place your feature under these headings.  For more detail on the purpose of each heading, see Top-Level Feature Headings below.  If you feel that none of the existing headings fit your feature, please check with the Test and Release Working Group before adding a new heading.
 
