@@ -233,7 +233,7 @@ type TestOutcome struct {
 	Name          string
 	Type          string
 	Outcome       Outcome
-	FeatureLabels []features.Feature
+	FeatureLabels map[features.Feature][]string
 }
 
 func (s *suiteContext) registerOutcome(test *Test) {
