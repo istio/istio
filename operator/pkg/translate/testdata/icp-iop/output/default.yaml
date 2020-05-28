@@ -178,7 +178,7 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
-  tag: 1.4-dev
+  tag: latest
   values:
     certmanager:
       hub: quay.io/jetstack
