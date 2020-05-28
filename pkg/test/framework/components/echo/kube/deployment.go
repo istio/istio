@@ -231,9 +231,9 @@ spec:
         - bash
         - -c
         - |-
-          # Certificates are pre-provisioned in /var/run/secrets/istio
+          # Certificates are mounted in /var/run/secrets/istio/mounted
           sudo mkdir -p /etc/certs
-          sudo cp /var/run/secrets/istio/{root-cert.pem,cert-chain.pem,key.pem} /etc/certs
+          sudo cp /var/run/secrets/istio/mounted/{root-cert.pem,cert-chain.pem,key.pem} /etc/certs
           sudo chown -R istio-proxy /etc/certs /var/lib/istio/envoy
 
           sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
@@ -260,7 +260,14 @@ spec:
             port: 15021
           initialDelaySeconds: 1
           periodSeconds: 2
-          failureThreshold: 10`
+          failureThreshold: 10
+        volumeMounts:
+        - mountPath: /var/run/secrets/istio/mounted
+          name: workload-certs
+      volumes:
+      - secret:
+          secretName: workload-certs
+        name: workload-certs`
 )
 
 var (

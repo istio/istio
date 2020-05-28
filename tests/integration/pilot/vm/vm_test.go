@@ -20,6 +20,7 @@ import (
 )
 
 var p pilot.Instance
+var ns namespace.Instance
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
@@ -28,13 +29,24 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("vm_test", m).
 		RequireSingleCluster().
+		RequireEnvironment(environment.Kube).
+		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
+			var err error
+			ns, err = namespace.New(ctx, namespace.Config{
+				Prefix: "virtual-machine",
+				Inject: true,
+			})
+			return err
+		}).
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   global:
     meshExpansion:
       enabled: true`
-		}, cert.CreateCASecret)).
+		}, func(ctx resource.Context) error {
+			return cert.CreateCASecret(ctx, ns.Name())
+		})).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
@@ -53,12 +65,6 @@ func TestVmTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			//ns := namespace.NewOrFail(t, ctx, namespace.Config{
-			//	Prefix: "virtual-machine",
-			//	Inject: true,
-			//})
-
-			ns := namespace.ClaimOrFail(t, ctx, "default")
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.
 			ctx.ApplyConfigOrFail(ctx, ns.Name(), `
