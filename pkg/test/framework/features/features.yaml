@@ -29,6 +29,8 @@ features:
       status:
   # features that allow users to secure their services and service mesh.
   security:
+    mtls:
+      k8s-ca:
     peer:
     user:
     control-plane:
