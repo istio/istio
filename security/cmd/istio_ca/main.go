@@ -356,6 +356,7 @@ func runCA() {
 		log.Infof("Citadel is configured to use backend CA: %s. The self-signed CA is off and CSR service is disabled", opts.backendCA)
 		opts.selfSignedCA = false
 		opts.grpcPort = 0
+		opts.serverOnly = false
 	}
 
 	stopCh := make(chan struct{})
@@ -377,10 +378,7 @@ func runCA() {
 		}
 	}
 
-	// Don't support using as Citadel as RA.
 	if opts.grpcPort > 0 {
-		log.Infof("Citadel is configured to use backend CA: %s. The CSR service is not exposed.", opts.backendCA)
-	} else if opts.grpcPort > 0 {
 		// start registry if gRPC server is to be started
 		reg := registry.GetIdentityRegistry()
 
