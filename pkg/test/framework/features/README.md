@@ -20,7 +20,7 @@ For consistency, features must be registerd in [features.yaml](features.yaml), o
         virtualservice:
 ```
 
-will allow parameters like
+will allow you to label a test with:
 
 ```go
     "usability.observability.status.exist-by-default"
