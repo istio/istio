@@ -48,12 +48,15 @@ const (
 	tlsScrtCert = "tls.crt"
 	// The ID/name for the k8sKey in kubernetes tls secret.
 	tlsScrtKey = "tls.key"
+	// The ID/name for the CA certificate in kubernetes tls secret
+	tlsScrtCaCert = "ca.crt"
 	// The ID/name for the certificate chain in kubernetes generic secret.
 	genericScrtCert = "cert"
 	// The ID/name for the private key in kubernetes generic secret.
 	genericScrtKey = "key"
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	genericScrtCaCert = "cacert"
+
 )
 
 type IngressCredential struct {
@@ -164,6 +167,7 @@ func createSecret(ingressType ingress.CallType, cn, ns string, ic IngressCredent
 		Data: map[string][]byte{
 			tlsScrtCert: []byte(ic.ServerCert),
 			tlsScrtKey:  []byte(ic.PrivateKey),
+			tlsScrtCaCert:  []byte(ic.CaCert),
 		},
 	}
 }
