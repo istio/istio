@@ -95,6 +95,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("KubeConfig:           %s\n", s.KubeConfig)
 	result += fmt.Sprintf("MiniKubeIngress:      %v\n", s.Minikube)
 	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.ControlPlaneTopology)
+	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
 
 	return result
 }
