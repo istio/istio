@@ -95,9 +95,6 @@ var (
 	// ChartsDir is the Kubernetes Helm chart directory in the repository
 	ChartsDir = path.Join(IstioSrc, "install/kubernetes/helm")
 
-	// IstioChartDir is the Kubernetes Helm chart directory in the repository
-	IstioChartDir = path.Join(ChartsDir, "istio")
-
 	// BookInfoRoot is the root folder for the bookinfo samples
 	BookInfoRoot = path.Join(IstioSrc, "samples/bookinfo")
 

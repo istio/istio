@@ -24,9 +24,9 @@ run a privileged controller in the cluster.
 1. [Migration tools](#migration-tools). The migration tools are intended to
 automate configuration migration from Helm to the operator.
 
-The operator code uses the new Helm charts in the [istio/installer](https://github.com/istio/installer) repo. It is not
+The operator code uses the new Helm charts in the [istio/manifests/charts](../manifests/charts/istio-operator). It is not
 compatible with the older charts in [istio/istio](https://github.com/istio/istio/tree/1.4.7/install/kubernetes/helm).
-See the istio/installer repo for details about the new charts and why they were created. Briefly, the new charts
+See `istio/manifests/charts` for details about the new charts and why they were created. Briefly, the new charts
 are intended to support production ready deployments of Istio that follow best practices like canarying for upgrade.
 
 ## Terminology
@@ -34,7 +34,7 @@ are intended to support production ready deployments of Istio that follow best p
 Throughout the document, the following terms are used:
 
 - `IstioOperatorSpec`: The API directly defined in the
-[IstioOperatorSpec proto](https://github.com/istio/api/mesh/v1alpha1/operator.proto),
+[IstioOperatorSpec proto](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto),
 including feature and component groupings, namespaces and enablement, and per-component K8s settings.
 - Helm values.yaml API, implicitly defined through the various values.yaml files in the
 [Helm charts](https://github.com/istio/installer) and schematized in the operator through
