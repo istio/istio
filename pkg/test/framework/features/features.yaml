@@ -29,7 +29,6 @@ features:
       status:
   # features that allow users to secure their services and service mesh.
   security:
-    mtls:
     peer:
     user:
     control-plane:
