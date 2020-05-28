@@ -20,7 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking.k8s.io/v1beta1"
 
 	"istio.io/istio/pkg/config/schema/resource"
 

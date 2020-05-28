@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -154,7 +155,7 @@ func builtinEndpointsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _builtinIngressYaml = []byte(`apiVersion: extensions/v1beta1
+var _builtinIngressYaml = []byte(`apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: secured-ingress

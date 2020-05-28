@@ -425,7 +425,7 @@ resources:
     group: "extensions"
     version: "v1beta1"
     proto: "k8s.io.api.extensions.v1beta1.IngressSpec"
-    protoPackage: "k8s.io/api/extensions/v1beta1"
+    protoPackage: "k8s.io/api/networking.k8s.io/v1beta1"
 
   - Kind: "GatewayClass"
     plural: "gatewayclasses"

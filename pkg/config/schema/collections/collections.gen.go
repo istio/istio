@@ -814,9 +814,9 @@ var (
 	}.MustBuild()
 
 	// K8SExtensionsV1Beta1Ingresses describes the collection
-	// k8s/extensions/v1beta1/ingresses
+	// k8s/networking.k8s.io/v1beta1/ingresses
 	K8SExtensionsV1Beta1Ingresses = collection.Builder{
-		Name:         "k8s/extensions/v1beta1/ingresses",
+		Name:         "k8s/networking.k8s.io/v1beta1/ingresses",
 		VariableName: "K8SExtensionsV1Beta1Ingresses",
 		Disabled:     false,
 		Resource: resource.Builder{
@@ -825,7 +825,7 @@ var (
 			Plural:        "ingresses",
 			Version:       "v1beta1",
 			Proto:         "k8s.io.api.extensions.v1beta1.IngressSpec",
-			ProtoPackage:  "k8s.io/api/extensions/v1beta1",
+			ProtoPackage:  "k8s.io/api/networking.k8s.io/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),

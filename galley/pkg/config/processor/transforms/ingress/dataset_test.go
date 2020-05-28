@@ -30,7 +30,7 @@ import (
 
 func ingress1() *resource.Instance {
 	return toIngressResource(`
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: foo
@@ -52,7 +52,7 @@ spec:
 
 func ingress1v2() *resource.Instance {
 	return toIngressResource(`
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: foo

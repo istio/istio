@@ -37,6 +37,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -309,7 +310,7 @@ func datasetCoreV1Service_expectedJson() (*asset, error) {
 	return a, nil
 }
 
-var _datasetExtensionsV1beta1Ingress_basicYaml = []byte(`apiVersion: extensions/v1beta1
+var _datasetExtensionsV1beta1Ingress_basicYaml = []byte(`apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: foo
@@ -332,7 +333,7 @@ func datasetExtensionsV1beta1Ingress_basicYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_basic.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_basic.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -379,7 +380,7 @@ func datasetExtensionsV1beta1Ingress_basic_expectedJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_basic_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_basic_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -398,12 +399,12 @@ func datasetExtensionsV1beta1Ingress_basic_meshconfigYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_basic_meshconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _datasetExtensionsV1beta1Ingress_merge_0Yaml = []byte(`apiVersion: extensions/v1beta1
+var _datasetExtensionsV1beta1Ingress_merge_0Yaml = []byte(`apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: foo
@@ -420,7 +421,7 @@ spec:
           serviceName: service1
           servicePort: 4200
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: bar
@@ -449,7 +450,7 @@ func datasetExtensionsV1beta1Ingress_merge_0Yaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_merge_0.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_merge_0.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -575,7 +576,7 @@ func datasetExtensionsV1beta1Ingress_merge_0_expectedJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_merge_0_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_merge_0_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -594,12 +595,12 @@ func datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_merge_0_meshconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_merge_0_meshconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _datasetExtensionsV1beta1Ingress_merge_1Yaml = []byte(`apiVersion: extensions/v1beta1
+var _datasetExtensionsV1beta1Ingress_merge_1Yaml = []byte(`apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: foo
@@ -616,7 +617,7 @@ spec:
           serviceName: service1
           servicePort: 4200
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: bar
@@ -646,7 +647,7 @@ func datasetExtensionsV1beta1Ingress_merge_1Yaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_merge_1.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_merge_1.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -772,12 +773,12 @@ func datasetExtensionsV1beta1Ingress_merge_1_expectedJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_merge_1_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_merge_1_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _datasetExtensionsV1beta1Ingress_multihostYaml = []byte(`apiVersion: extensions/v1beta1
+var _datasetExtensionsV1beta1Ingress_multihostYaml = []byte(`apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: echo
@@ -808,7 +809,7 @@ func datasetExtensionsV1beta1Ingress_multihostYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_multihost.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_multihost.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -917,7 +918,7 @@ func datasetExtensionsV1beta1Ingress_multihost_expectedJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_multihost_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_multihost_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -936,7 +937,7 @@ func datasetExtensionsV1beta1Ingress_multihost_meshconfigYaml() (*asset, error) 
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_multihost_meshconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/networking.k8s.io/v1beta1/ingress_multihost_meshconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1422,17 +1423,17 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/core/v1/namespace_expected.json":                                          datasetCoreV1Namespace_expectedJson,
 	"dataset/core/v1/service.yaml":                                                     datasetCoreV1ServiceYaml,
 	"dataset/core/v1/service_expected.json":                                            datasetCoreV1Service_expectedJson,
-	"dataset/extensions/v1beta1/ingress_basic.yaml":                                    datasetExtensionsV1beta1Ingress_basicYaml,
-	"dataset/extensions/v1beta1/ingress_basic_expected.json":                           datasetExtensionsV1beta1Ingress_basic_expectedJson,
-	"dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml":                         datasetExtensionsV1beta1Ingress_basic_meshconfigYaml,
-	"dataset/extensions/v1beta1/ingress_merge_0.yaml":                                  datasetExtensionsV1beta1Ingress_merge_0Yaml,
-	"dataset/extensions/v1beta1/ingress_merge_0_expected.json":                         datasetExtensionsV1beta1Ingress_merge_0_expectedJson,
-	"dataset/extensions/v1beta1/ingress_merge_0_meshconfig.yaml":                       datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml,
-	"dataset/extensions/v1beta1/ingress_merge_1.yaml":                                  datasetExtensionsV1beta1Ingress_merge_1Yaml,
-	"dataset/extensions/v1beta1/ingress_merge_1_expected.json":                         datasetExtensionsV1beta1Ingress_merge_1_expectedJson,
-	"dataset/extensions/v1beta1/ingress_multihost.yaml":                                datasetExtensionsV1beta1Ingress_multihostYaml,
-	"dataset/extensions/v1beta1/ingress_multihost_expected.json":                       datasetExtensionsV1beta1Ingress_multihost_expectedJson,
-	"dataset/extensions/v1beta1/ingress_multihost_meshconfig.yaml":                     datasetExtensionsV1beta1Ingress_multihost_meshconfigYaml,
+	"dataset/networking.k8s.io/v1beta1/ingress_basic.yaml":                             datasetExtensionsV1beta1Ingress_basicYaml,
+	"dataset/networking.k8s.io/v1beta1/ingress_basic_expected.json":                    datasetExtensionsV1beta1Ingress_basic_expectedJson,
+	"dataset/networking.k8s.io/v1beta1/ingress_basic_meshconfig.yaml":                  datasetExtensionsV1beta1Ingress_basic_meshconfigYaml,
+	"dataset/networking.k8s.io/v1beta1/ingress_merge_0.yaml":                           datasetExtensionsV1beta1Ingress_merge_0Yaml,
+	"dataset/networking.k8s.io/v1beta1/ingress_merge_0_expected.json":                  datasetExtensionsV1beta1Ingress_merge_0_expectedJson,
+	"dataset/networking.k8s.io/v1beta1/ingress_merge_0_meshconfig.yaml":                datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml,
+	"dataset/networking.k8s.io/v1beta1/ingress_merge_1.yaml":                           datasetExtensionsV1beta1Ingress_merge_1Yaml,
+	"dataset/networking.k8s.io/v1beta1/ingress_merge_1_expected.json":                  datasetExtensionsV1beta1Ingress_merge_1_expectedJson,
+	"dataset/networking.k8s.io/v1beta1/ingress_multihost.yaml":                         datasetExtensionsV1beta1Ingress_multihostYaml,
+	"dataset/networking.k8s.io/v1beta1/ingress_multihost_expected.json":                datasetExtensionsV1beta1Ingress_multihost_expectedJson,
+	"dataset/networking.k8s.io/v1beta1/ingress_multihost_meshconfig.yaml":              datasetExtensionsV1beta1Ingress_multihost_meshconfigYaml,
 	"dataset/mesh.istio.io/v1alpha1/meshconfig.yaml":                                   datasetMeshIstioIoV1alpha1MeshconfigYaml,
 	"dataset/mesh.istio.io/v1alpha1/meshconfig_expected.json":                          datasetMeshIstioIoV1alpha1Meshconfig_expectedJson,
 	"dataset/networking.istio.io/v1alpha3/destinationRule.yaml":                        datasetNetworkingIstioIoV1alpha3DestinationruleYaml,
