@@ -16,11 +16,15 @@ package kube
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"text/template"
 
 	"github.com/Masterminds/sprig"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -184,11 +188,83 @@ data:
 ---
 {{- end}}
 `
+
+	// vmDeploymentYaml aims to simulate a VM, but instead of managing the complex test setup of spinning up a VM,
+	// connecting, etc we run it inside a pod. The pod has pretty much all Kubernetes features disabled (DNS and SA token mount)
+	// such that we can adequately simulate a VM and DIY the bootstrapping.
+	vmDeploymentYaml = `
+{{- $cluster := .Cluster }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Service }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $.Service }}
+  template:
+    metadata:
+      annotations:
+        # Sidecar is inside the pod to simulate VMs - do not inject
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: {{ $.Service }}
+    spec:
+      # Disable kube-dns, to mirror VM
+      dnsPolicy: Default
+      # Disable service account mount, to mirror VM
+      automountServiceAccountToken: false
+      containers:
+      - name: istio-proxy
+        image: registry:5000/app_sidecar:1590626160
+        #image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
+        imagePullPolicy: {{ $.PullPolicy }}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          runAsUser: 1338
+          runAsGroup: 1338
+        command:
+        - bash
+        - -c
+        - |-
+          # Certificates are pre-provisioned in /var/run/secrets/istio
+          sudo mkdir -p /etc/certs
+          sudo cp /var/run/secrets/istio/{root-cert.pem,cert-chain.pem,key.pem} /etc/certs
+          sudo chown -R istio-proxy /etc/certs /var/lib/istio/envoy
+
+          sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
+
+          # TODO: run with systemctl?
+          sudo /usr/local/bin/istio-start.sh&
+          /usr/local/bin/server --cluster "{{ $cluster }}" \
+{{- range $i, $p := $.ContainerPorts }}
+{{- if eq .Protocol "GRPC" }}
+             --grpc \
+{{- else if eq .Protocol "TCP" }}
+             --tcp \
+{{- else }}
+             --port \
+{{- end }}
+             "{{ $p.Port }}" \
+{{- end }}
+        readinessProbe:
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10`
 )
 
 var (
-	serviceTemplate    *template.Template
-	deploymentTemplate *template.Template
+	serviceTemplate      *template.Template
+	deploymentTemplate   *template.Template
+	vmDeploymentTemplate *template.Template
 )
 
 func init() {
@@ -201,18 +277,25 @@ func init() {
 	if _, err := deploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(deploymentYAML); err != nil {
 		panic(fmt.Sprintf("unable to parse echo deployment template: %v", err))
 	}
+
+	vmDeploymentTemplate = template.New("echo_vm_deployment")
+	if _, err := vmDeploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(vmDeploymentYaml); err != nil {
+		panic(fmt.Sprintf("unable to parse echo vm deployment template: %v", err))
+	}
 }
 
-func generateYAML(cfg echo.Config) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAML(cfg echo.Config, cluster kube.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Create the parameters for the YAML template.
 	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return "", "", err
 	}
-	return generateYAMLWithSettings(cfg, settings)
+	return generateYAMLWithSettings(cfg, settings, cluster)
 }
 
-func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (serviceYAML string, deploymentYAML string, err error) {
+var cidrErrorRegex = regexp.MustCompile(".*valid IPs is ")
+
+func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster kube.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -228,6 +311,36 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (servic
 		}
 	}
 
+	var istiodIp, istiodPort, serivceCIDR string
+	if cfg.DeployAsVM {
+		s, err := kube.NewSettingsFromCommandLine()
+		if err != nil {
+			return "", "", err
+		}
+		addr, err := istio.GetRemoteDiscoveryAddress("istio-system", cluster, s.Minikube)
+		if err != nil {
+			return "", "", err
+		}
+		istiodIp = addr.IP.String()
+		istiodPort = strconv.Itoa(addr.Port)
+
+		// This will be rejected and the error will contain the service cidr
+		// Following the docs: https://istio.io/docs/setup/install/virtual-machine/#create-files-to-transfer-to-the-virtual-machine
+		_, err = cluster.Accessor.ApplyContents("istio-system", `
+apiVersion: v1
+kind: Service
+metadata:
+  name: invalid-svc-to-get-cidr
+spec:
+  clusterIP: 1.1.1.1
+  ports:
+  - port: 443
+`)
+		if err == nil {
+			return "", "", fmt.Errorf("expected error from invalid cidr, but did not get one")
+		}
+		serivceCIDR = cidrErrorRegex.ReplaceAllString(err.Error(), "")
+	}
 	params := map[string]interface{}{
 		"Hub":                 settings.Hub,
 		"Tag":                 settings.Tag,
@@ -245,6 +358,11 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (servic
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
 		"Cluster":             cfg.ClusterIndex(),
+		"VM": map[string]interface{}{
+			"ServiceCIDR": serivceCIDR,
+			"IstiodIP":    istiodIp,
+			"IstiodPort":  istiodPort,
+		},
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)
@@ -252,7 +370,12 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (servic
 		return
 	}
 
+	deploy := deploymentTemplate
+	if cfg.DeployAsVM {
+		deploy = vmDeploymentTemplate
+	}
+
 	// Generate the YAML content.
-	deploymentYAML, err = tmpl.Execute(deploymentTemplate, params)
+	deploymentYAML, err = tmpl.Execute(deploy, params)
 	return
 }

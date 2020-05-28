@@ -133,7 +133,7 @@ func TestDeploymentYAML(t *testing.T) {
 		},
 	}
 	for _, tc := range testCase {
-		serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings)
+		serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, )
 		if err != nil {
 			t.Errorf("failed to generate yaml %v", err)
 		}

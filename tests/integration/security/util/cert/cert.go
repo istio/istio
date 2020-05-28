@@ -102,6 +102,10 @@ func CreateCASecret(ctx resource.Context) error {
 		},
 	}
 
+	err = kubeAccessor.DeleteSecret(systemNs.Name(), name)
+	if err == nil {
+		log.Infof("secret %v is deleted", name)
+	}
 	err = kubeAccessor.CreateSecret(systemNs.Name(), secret)
 	if err != nil {
 		return err
@@ -124,7 +128,7 @@ func CreateCASecret(ctx resource.Context) error {
 }
 
 func ReadSampleCertFromFile(f string) ([]byte, error) {
-	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "samples/certs", f))
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/pilot", f))
 	if err != nil {
 		return nil, err
 	}

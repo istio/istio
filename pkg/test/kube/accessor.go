@@ -779,7 +779,7 @@ func (a *Accessor) applyFile(namespace string, file string, dryRun bool) error {
 		// Concatenate the stdout and stderr
 		s := stdout.String() + stderr.String()
 		scopes.CI.Infof("(FAILED) Executing kubectl apply: %s (err: %v): %s", file, err, s)
-		return fmt.Errorf("%v: %s", err, s)
+		return err
 	}
 	return nil
 }
