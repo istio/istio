@@ -217,7 +217,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: istio-proxy
-        image: registry:5000/app_sidecar:1590626160
+        image: registry:5000/app_sidecar:1590680252
         #image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
         securityContext:
@@ -325,22 +325,23 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		istiodIp = addr.IP.String()
 		istiodPort = strconv.Itoa(addr.Port)
 
+		// TODO do we need CIDR or should we use *
 		// This will be rejected and the error will contain the service cidr
 		// Following the docs: https://istio.io/docs/setup/install/virtual-machine/#create-files-to-transfer-to-the-virtual-machine
-		_, err = cluster.Accessor.ApplyContents("istio-system", `
-apiVersion: v1
-kind: Service
-metadata:
-  name: invalid-svc-to-get-cidr
-spec:
-  clusterIP: 1.1.1.1
-  ports:
-  - port: 443
-`)
-		if err == nil {
-			return "", "", fmt.Errorf("expected error from invalid cidr, but did not get one")
-		}
-		serivceCIDR = cidrErrorRegex.ReplaceAllString(err.Error(), "")
+//		_, err = cluster.Accessor.ApplyContents("istio-system", `
+//apiVersion: v1
+//kind: Service
+//metadata:
+//  name: invalid-svc-to-get-cidr
+//spec:
+//  clusterIP: 1.1.1.1
+//  ports:
+//  - port: 443
+//`)
+//		if err == nil {
+//			return "", "", fmt.Errorf("expected error from invalid cidr, but did not get one")
+//		}
+//		serivceCIDR = cidrErrorRegex.ReplaceAllString(err.Error(), "")
 	}
 	params := map[string]interface{}{
 		"Hub":                 settings.Hub,

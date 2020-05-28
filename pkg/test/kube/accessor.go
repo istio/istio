@@ -329,8 +329,12 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string,
 	opts ...retry.Option) (*kubeApiCore.Service, *kubeApiCore.Endpoints, error) {
 	var service *kubeApiCore.Service
 	var endpoints *kubeApiCore.Endpoints
+	attempts := 0
 	err := retry.UntilSuccess(func() error {
-
+		attempts++
+		if attempts + 1 % 10 == 0 {
+			scopes.CI.Infof("waiting for %v/%v to become ready...", name, ns)
+		}
 		s, err := a.GetService(ns, name)
 		if err != nil {
 			return err

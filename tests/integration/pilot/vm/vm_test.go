@@ -2,6 +2,7 @@ package vm
 
 import (
 	"testing"
+	"time"
 
 	"istio.io/pkg/log"
 
@@ -47,11 +48,12 @@ func TestVmTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "virtual-machine",
-				Inject: true,
-			})
+			//ns := namespace.NewOrFail(t, ctx, namespace.Config{
+			//	Prefix: "virtual-machine",
+			//	Inject: true,
+			//})
 
+			ns := namespace.ClaimOrFail(t, ctx, "default")
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.
 			ctx.ApplyConfigOrFail(ctx, ns.Name(), `
@@ -90,10 +92,10 @@ spec:
 					DeployAsVM: true,
 				}).
 				With(&pod, echo.Config{
-					Service:    "pod",
-					Namespace:  ns,
-					Ports:      ports,
-					Pilot:      p,
+					Service:   "pod",
+					Namespace: ns,
+					Ports:     ports,
+					Pilot:     p,
 				}).
 				BuildOrFail(t)
 
@@ -104,7 +106,7 @@ spec:
 					return err
 				}
 				return r.CheckOK()
-			})
+			}, retry.Delay(100*time.Millisecond))
 			retry.UntilSuccessOrFail(ctx, func() error {
 				r, err := vm.Call(echo.CallOptions{Target: pod, PortName: "http"})
 				log.Errorf("howardjohn: %v -> %v", r.String(), err)
@@ -112,6 +114,6 @@ spec:
 					return err
 				}
 				return r.CheckOK()
-			})
+			}, retry.Delay(100*time.Millisecond))
 		})
 }
