@@ -133,7 +133,7 @@ func TestKeyfactorWithTLSEnabled(t *testing.T) {
 
 func TestKeyfactorSignCSR(t *testing.T) {
 
-	fakeURL := "fake091234keyfactor.com/bad/url"
+	fakeURL := "https://fake091234keyfactor.com/bad/url"
 
 	fakeResponse := KeyfactorResponse{
 		CertificateInformation: CertificateInformation{
@@ -177,21 +177,30 @@ func TestKeyfactorSignCSR(t *testing.T) {
 		},
 		"On server not available": {
 			turnOnServer: false,
-			expectedErr:  fmt.Sprintf("Could not request to KeyfactorCA server: %v", fakeURL),
+			expectedErr:  fmt.Sprintf("Could not request to KeyfactorCA server: %v Post \"%v/KeyfactorAPI/Enrollment/CSR\": dial tcp: lookup fake091234keyfactor.com: no such host", fakeURL, fakeURL),
 		},
 	}
 
 	for testID, tc := range testCases {
 		t.Run(testID, func(tsub *testing.T) {
 
-			os.Setenv("KEYFACTOR_CONFIG_NAME", "config_for_client.yaml")
-			defer os.Unsetenv("KEYFACTOR_CONFIG_NAME")
+			os.Setenv("KEYFACTOR_CA", "FakeCA")
+			os.Setenv("KEYFACTOR_AUTH_TOKEN", "FakeAuthToken")
+			os.Setenv("KEYFACTOR_APPKEY", "FakeAppKey")
+			os.Setenv("KEYFACTOR_CA_TEMPLATE", "Istio")
 
-			os.Setenv("KEYFACTOR_CONFIG_PATH", "./testdata")
-			defer os.Unsetenv("KEYFACTOR_CONFIG_PATH")
+			metadataJSON, _ := json.Marshal(&[]FieldAlias{})
+			os.Setenv("KEYFACTOR_METADATA_JSON", string(metadataJSON))
 
-			requestBodyChan := make(chan map[string]interface{})
-			mockServer := mockKeyfactor.CreateServer(tc.serverError, tc.responseData, requestBodyChan)
+			defer func() {
+				os.Unsetenv("KEYFACTOR_CA")
+				os.Unsetenv("KEYFACTOR_AUTH_TOKEN")
+				os.Unsetenv("KEYFACTOR_APPKEY")
+				os.Unsetenv("KEYFACTOR_CA_TEMPLATE")
+				os.Unsetenv("KEYFACTOR_METADATA_JSON")
+			}()
+
+			mockServer := mockKeyfactor.CreateServer(tc.serverError, tc.responseData, nil)
 
 			defer mockServer.Server.Close()
 

@@ -40,10 +40,11 @@ func CreateServer(responseError bool, responseData interface{}, requestBodyChan 
 			return
 		}
 
-		var requestBody map[string]interface{}
-
-		json.NewDecoder(r.Body).Decode(&requestBody)
-		requestBodyChan <- requestBody
+		if requestBodyChan != nil {
+			var requestBody map[string]interface{}
+			json.NewDecoder(r.Body).Decode(&requestBody)
+			requestBodyChan <- requestBody
+		}
 
 		j, _ := json.Marshal(responseData)
 		_, _ = w.Write(j)
