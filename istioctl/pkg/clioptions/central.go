@@ -14,21 +14,49 @@
 
 package clioptions
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
+	"time"
+
+	"github.com/spf13/cobra"
+)
 
 // CentralControlPlaneOptions holds options common to all subcommands
 // that invoke Istiod via xDS REST endpoint
 type CentralControlPlaneOptions struct {
-	// XDS endpoint, e.g. localhost:15010.
+	// Xds is XDS endpoint, e.g. localhost:15010.
 	Xds string
 
-	// TODO TLS options
-	// TODO timeout?
+	// XdsLabel is a Kubernetes label on the Istiod service
+	XdsLabel string
+
+	// CertDir is the local directory containing certificates
+	CertDir string
+
+	// Timeout is how long to wait before giving up on XDS
+	Timeout time.Duration
 }
 
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
 // (Currently just --endpoint)
 func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVar(&o.Xds, "endpoint", "",
+	cmd.PersistentFlags().StringVar(&o.Xds, "xds-address", "",
 		"XDS Endpoint")
+	cmd.PersistentFlags().StringVar(&o.CertDir, "cert-dir", "",
+		"XDS Endpoint (UNIMPLEMENTED)")
+	cmd.PersistentFlags().StringVar(&o.XdsLabel, "xds-label", "",
+		"Istio XDS service label (UNIMPLEMENTED)")
+	cmd.PersistentFlags().DurationVar(&o.Timeout, "timeout", time.Second*30,
+		"the duration to wait before failing")
+}
+
+// ValidateControlPlaneFlags checks arguments for valid values and combinations
+func (o *CentralControlPlaneOptions) ValidateControlPlaneFlags() error {
+	if o.Xds != "" && o.XdsLabel != "" {
+		return fmt.Errorf("either --xds-address or --xds-label, not both")
+	}
+	if o.XdsLabel != "" {
+		return fmt.Errorf("--xds-label not implemented")
+	}
+	return nil
 }

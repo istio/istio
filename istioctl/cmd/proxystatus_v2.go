@@ -19,7 +19,6 @@ import (
 	"io"
 	"os"
 	"text/tabwriter"
-	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -52,21 +51,30 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 	istioctl proxy-status productpage-v1-679f4bcbbb-6j4j6.default
 `,
 		Aliases: []string{"ps"},
+		Args: func(c *cobra.Command, args []string) error {
+			if err := cobra.MaximumNArgs(1)(c, args); err != nil {
+				return err
+			}
+			if err := opts.ValidateControlPlaneFlags(); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			if opts.Xds == "" {
-				return fmt.Errorf("--endpoint default not implemented; MUST be supplied; try localhost:15012")
+				return fmt.Errorf("--xds-address default not implemented; MUST be supplied; try localhost:15012")
 			}
-			adscConn, err := adsc.Dial(opts.Xds, "", &adsc.Config{
-				IP: "1.2.3.4",
+			adscConn, err := adsc.Dial(opts.Xds, opts.CertDir, &adsc.Config{
 				Meta: model.NodeMetadata{
 					Generator: "event",
 				}.ToStruct(),
+
 				// TODO I tried and failed to add DialOptions here and have ADSC
 				// pass them down so that I could add gRPC Interceptors for logging
 				// and debugging.
 			})
 			if err != nil {
-				return fmt.Errorf("Could not dial: %w", err)
+				return fmt.Errorf("could not dial: %w", err)
 			}
 			if len(args) > 0 {
 				return fmt.Errorf("experimental proxy-status <pod> unimplemented")
@@ -82,8 +90,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 				return err
 			}
 
-			// TODO --timeout parameter
-			dr, err := adscConn.WaitVersion(10*time.Second, connectionsTypeURL, "")
+			dr, err := adscConn.WaitVersion(opts.Timeout, connectionsTypeURL, "")
 			if err != nil {
 				return err
 			}
@@ -95,7 +102,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 					node := corev2.Node{}
 					err = ptypes.UnmarshalAny(resource, &node)
 					if err != nil {
-						return fmt.Errorf("Could not unmarshal Node: %w", err)
+						return fmt.Errorf("could not unmarshal Node: %w", err)
 					}
 					nodes = append(nodes, node)
 				default:
@@ -115,37 +122,20 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 
 func printNodeConnections(nodes []corev2.Node, writer io.Writer) error {
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tMESH\tCDS\tLDS\tEDS\tRDS\tPILOT")
+	_, _ = fmt.Fprintln(w, "NAME\tMESH\tCDS\tLDS\tEDS\tRDS\tPILOT\tVERSION")
 
 	for _, node := range nodes {
-		/*
-			// This isn't working... everything ends up in meta.Raw...
-			// Is there a better way to turn a *structpb.Struct into a model.Metadata?
-			// Should I even be trying to get a model.Metadata instead of working with the Struct?
-			b, err := json.Marshal(node.GetMetadata())
-			if err != nil {
-				return err
-			}
-			meta := &model.NodeMetadata{}
-			if err := meta.UnmarshalJSON(b); err != nil {
-				return err
-			}
-			fmt.Printf("Metadata: %v#\n", meta)
-			fmt.Printf("Metadata.ProxyConfig: %v#\n", meta.ProxyConfig)
-			fmt.Printf("Metadata.Raw: %v#\n", meta.Raw)
-			fmt.Printf("%s.%s\t%s\n", meta.InstanceName, meta.Namespace, meta.MeshID)
-		*/
-		fields := node.GetMetadata().GetFields()
-		name := fields["NAME"]
-		if name.GetStringValue() == "" {
-			// Skip the unnamed node, which represents the XDS request node?!?
+		meta, err := model.ParseMetadata(node.GetMetadata())
+		if err != nil {
+			return fmt.Errorf("cannot parse metadata: %w", err)
+		}
+		if meta.InstanceName == "" {
+			// Skip the unnamed node, which represents the XDS request node
 			continue
 		}
-		ns := fields["NAMESPACE"]
-		meshID := fields["MESH_ID"]
-		fmt.Fprintf(w, "%s.%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			name.GetStringValue(), ns.GetStringValue(), meshID.GetStringValue(),
-			"TODO", "TODO", "TODO", "TODO", "TODO")
+		fmt.Fprintf(w, "%s.%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			meta.InstanceName, meta.Namespace, meta.MeshID,
+			"TODO", "TODO", "TODO", "TODO", "TODO", meta.IstioVersion)
 	}
 	return w.Flush()
 }

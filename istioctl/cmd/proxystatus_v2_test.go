@@ -44,7 +44,7 @@ func TestProxyStatusV2(t *testing.T) {
 	// Why?
 	cases := []execTestCase{
 		{ // case 0
-			args:           strings.Split(fmt.Sprintf("experimental proxy-status --endpoint %s", pilot_util.MockPilotGrpcAddr), " "),
+			args:           strings.Split(fmt.Sprintf("experimental proxy-status --xds-address %s", pilot_util.MockPilotGrpcAddr), " "),
 			expectedString: "NAME     CDS     LDS     EDS     RDS     PILOT",
 		},
 	}

@@ -222,7 +222,11 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 	return &tls.Config{
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      serverCAs,
-		ServerName:   "istio-pilot.istio-system",
+		// If I don't do this, my connections from istioctl/port-forward fail with
+		// authentication handshake failed: x509: certificate is valid for istiod.istio-system.svc,
+		// istiod-remote.istio-system.svc, istio-pilot.istio-system.svc, not istio-pilot.istio-system
+		// TODO Why?
+		ServerName: "istio-pilot.istio-system.svc",
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			return nil
 		},
