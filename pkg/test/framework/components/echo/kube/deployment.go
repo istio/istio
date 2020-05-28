@@ -238,6 +238,7 @@ spec:
           sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
+          sudo sh -c 'echo "1.1.1.1 pod.{{$.Namespace}}.svc.cluster.local" >> /etc/hosts'
 
           # TODO: run with systemctl?
           sudo /usr/local/bin/istio-start.sh&
@@ -358,6 +359,7 @@ spec:
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
 		"Cluster":             cfg.ClusterIndex(),
+		"Namespace":           cfg.Namespace.Name(),
 		"VM": map[string]interface{}{
 			"ServiceCIDR": serivceCIDR,
 			"IstiodIP":    istiodIp,

@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"fmt"
 	"testing"
 
 	"istio.io/pkg/log"
@@ -55,16 +54,25 @@ func TestVmTraffic(t *testing.T) {
 
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.
-			ctx.ApplyConfigOrFail(ctx, ns.Name(), fmt.Sprintf(`
+			ctx.ApplyConfigOrFail(ctx, ns.Name(), `
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: default
-  namespace: %s
 spec:
   mtls:
     mode: STRICT
-`, ns.Name()))
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: send-mtls
+spec:
+  host: "*.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+`)
 			ports := []echo.Port{
 				{
 					Name:         "http",
@@ -92,12 +100,18 @@ spec:
 			retry.UntilSuccessOrFail(ctx, func() error {
 				r, err := pod.Call(echo.CallOptions{Target: vm, PortName: "http"})
 				log.Errorf("howardjohn: %v -> %v", r.String(), err)
-				return err
+				if err != nil {
+					return err
+				}
+				return r.CheckOK()
 			})
 			retry.UntilSuccessOrFail(ctx, func() error {
 				r, err := vm.Call(echo.CallOptions{Target: pod, PortName: "http"})
 				log.Errorf("howardjohn: %v -> %v", r.String(), err)
-				return err
+				if err != nil {
+					return err
+				}
+				return r.CheckOK()
 			})
 		})
 }
