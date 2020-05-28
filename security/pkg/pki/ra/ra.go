@@ -28,9 +28,6 @@ import (
 
 var pkiRaLog = log.RegisterScope("pkiRaLog", "Citadel RA log", 0)
 
-// backendCA is the enum for the upstream CA type.
-type backendCA int
-
 // BackendCAClient interface defines the clients to talk to the backend CA.
 type BackendCAClient interface {
 	CSRSign(ctx context.Context, reqID string, csrPEM []byte, jwt string,
@@ -44,12 +41,12 @@ type IstioRA struct {
 }
 
 // NewIstioRA returns a new IstioRA instance.
-func NewIstioRA(backendCAName string, k8sClient corev1.CoreV1Interface) (*IstioRA, error) {
+func NewIstioRA(backendCAName string, cmGetter corev1.ConfigMapsGetter) (*IstioRA, error) {
 	if backendCAName != "Vault" {
 		return nil, fmt.Errorf("currently only Vault is supported as the backend CA. %s is not supported", backendCAName)
 	}
 
-	client, err := vault.NewVaultClient(k8sClient)
+	client, err := vault.NewVaultClient(cmGetter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client for backend CA: %v", err)
 	}
@@ -65,9 +62,9 @@ func (ra *IstioRA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 		return nil, fmt.Errorf("istio RA does not support issue certificates for CAs yet")
 	}
 	signedCertStrs, err := ra.client.CSRSign(
-		context.Background(), "" /* reqID not used */, csrPEM, "" /* not used */, (int64)(requestedLifetime.Seconds()))
+		context.Background(), "" /* reqID not used */, csrPEM, "" /* not used */, int64(requestedLifetime.Seconds()))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to sign CSR with the backend CA: %v", err)
+		return nil, fmt.Errorf("failed to sign CSR with the backend CA: %v", err)
 	}
 	// The first returned certificate is the leave certificate.
 	return []byte(signedCertStrs[0]), nil
@@ -79,9 +76,9 @@ func (ra *IstioRA) SignWithCertChain(csrPEM []byte, subjectIDs []string, request
 		return nil, fmt.Errorf("istio RA does not support issue certificates for CAs yet")
 	}
 	signedCertStrs, err := ra.client.CSRSign(
-		context.Background(), "" /* reqID not used */, csrPEM, "" /* not used */, (int64)(requestedLifetime.Seconds()))
+		context.Background(), "" /* reqID not used */, csrPEM, "" /* not used */, int64(requestedLifetime.Seconds()))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to sign CSR with the backend CA: %v", err)
+		return nil, fmt.Errorf("failed to sign CSR with the backend CA: %v", err)
 	}
 	var signedCertBytes []byte
 	for _, cert := range signedCertStrs {

@@ -350,12 +350,14 @@ func runCA() {
 	if err != nil {
 		fatalf("Could not create k8s clientset: %v", err)
 	}
-	ca := createCARA(cs.CoreV1())
+	ca := createCertProvider(cs.CoreV1())
 
-	if len(opts.backendCA) != 0 && opts.selfSignedCA {
-		log.Infof("Citadel is configured to use backend CA: %s. The self-signed CA is off.", opts.backendCA)
+	if opts.backendCA != "" {
+		log.Infof("Citadel is configured to use backend CA: %s. The self-signed CA is off and CSR service is disabled", opts.backendCA)
 		opts.selfSignedCA = false
+		opts.grpcPort = 0
 	}
+
 	stopCh := make(chan struct{})
 	if !opts.serverOnly {
 		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
@@ -376,7 +378,7 @@ func runCA() {
 	}
 
 	// Don't support using as Citadel as RA.
-	if opts.grpcPort > 0 && len(opts.backendCA) != 0 {
+	if opts.grpcPort > 0 {
 		log.Infof("Citadel is configured to use backend CA: %s. The CSR service is not exposed.", opts.backendCA)
 	} else if opts.grpcPort > 0 {
 		// start registry if gRPC server is to be started
@@ -463,7 +465,7 @@ func runCA() {
 	}
 }
 
-func createCARA(client corev1.CoreV1Interface) ca.IstioCARA {
+func createCertProvider(client corev1.CoreV1Interface) ca.IstioCertProvider {
 	var caOpts *ca.IstioCAOptions
 	var err error
 

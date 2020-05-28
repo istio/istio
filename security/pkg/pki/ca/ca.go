@@ -72,8 +72,8 @@ const (
 	pluggedCertCA
 )
 
-// IstioCARA is the common interface for IstioCA and IstioRA.
-type IstioCARA interface {
+// IstioCertProvider is the common interface for IstioCA and IstioRA.
+type IstioCertProvider interface {
 	// Sign takes a PEM-encoded CSR, subject IDs and lifetime, and returns a signed certificate.
 	Sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error)
 	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
