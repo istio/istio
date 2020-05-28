@@ -36,7 +36,7 @@ func TestKeyfactorConfigFromFile(t *testing.T) {
 			authToken:       "Basic FakeAuthToken",
 			appKey:          "FAKE_APP_KEY",
 			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
-			expectedErr:     "Missing caName (KEYFATOR_CA) in ENV",
+			expectedErr:     "missing caName (KEYFATOR_CA) in ENV",
 		},
 		"Missing appKey in ENV": {
 			caName:          "FakeCAName",
@@ -44,7 +44,7 @@ func TestKeyfactorConfigFromFile(t *testing.T) {
 			authToken:       "Basic FakeAuthToken",
 			appKey:          "",
 			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
-			expectedErr:     "Missing appKey (KEYFATOR_APPKEY) in ENV",
+			expectedErr:     "missing appKey (KEYFATOR_APPKEY) in ENV",
 		},
 		"Missing authToken in ENV": {
 			caName:          "FakeCAName",
@@ -52,7 +52,7 @@ func TestKeyfactorConfigFromFile(t *testing.T) {
 			authToken:       "",
 			appKey:          "FakeAppKey",
 			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
-			expectedErr:     "Missing authToken (KEYFATOR_AUTH_TOKEN) in ENV",
+			expectedErr:     "missing authToken (KEYFATOR_AUTH_TOKEN) in ENV",
 		},
 		"Missing caTemplate in ENV": {
 			caName:          "FakeCAName",
@@ -60,7 +60,7 @@ func TestKeyfactorConfigFromFile(t *testing.T) {
 			authToken:       "Basic FakeAuth",
 			appKey:          "FakeAppKey",
 			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
-			expectedErr:     "Missing caTemplate (KEYFATOR_CA_TEMPLATE) in ENV",
+			expectedErr:     "missing caTemplate (KEYFATOR_CA_TEMPLATE) in ENV",
 		},
 		"Do not supported new metadata field": {
 			caName:          "FakeCAName",
@@ -68,7 +68,7 @@ func TestKeyfactorConfigFromFile(t *testing.T) {
 			authToken:       "Basic FakeAuth",
 			appKey:          "FakeAppKey",
 			customMetadatas: []FieldAlias{{Name: "ClusterInvalid", Alias: "Fake_Alias_Cluster"}},
-			expectedErr:     "Do not support Metadata field name: ClusterInvalid",
+			expectedErr:     "do not support Metadata field name: ClusterInvalid",
 		},
 		"Invalid metadata configuration": {
 			caName:          "FakeCAName",
@@ -76,7 +76,7 @@ func TestKeyfactorConfigFromFile(t *testing.T) {
 			authToken:       "Basic FakeAuth",
 			appKey:          "FakeAppKey",
 			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: ""}},
-			expectedErr:     "Invalid alias name for Metadata: Cluster",
+			expectedErr:     "invalid alias name for Metadata: Cluster",
 		},
 		"Empty metadata configuration": {
 			caName:          "FakeCAName",

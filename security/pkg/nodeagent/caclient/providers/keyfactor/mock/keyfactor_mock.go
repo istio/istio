@@ -16,6 +16,7 @@ package caclient
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 )
@@ -34,16 +35,23 @@ func CreateServer(responseError bool, responseData interface{}, requestBodyChan 
 
 	handler := http.NewServeMux()
 	handler.HandleFunc("/KeyfactorAPI/Enrollment/CSR", func(w http.ResponseWriter, r *http.Request) {
-		if responseError {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("500 - Something bad happened!"))
-			return
-		}
 
 		if requestBodyChan != nil {
 			var requestBody map[string]interface{}
-			json.NewDecoder(r.Body).Decode(&requestBody)
+			err := json.NewDecoder(r.Body).Decode(&requestBody)
+			if err != nil {
+				fmt.Println("got error on Mock KeyfactorCa: requestBodyChan")
+			}
 			requestBodyChan <- requestBody
+		}
+
+		if responseError {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err := w.Write([]byte("500 - Something bad happened!"))
+			if err != nil {
+				fmt.Println("got error on Mock KeyfactorCa: responseError")
+			}
+			return
 		}
 
 		j, _ := json.Marshal(responseData)

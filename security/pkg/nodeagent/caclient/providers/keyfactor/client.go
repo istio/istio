@@ -93,8 +93,8 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 	keyfactorConfig, err := LoadKeyfactorConfigFromENV()
 
 	if err != nil {
-		keyFactorCAClientLog.Errorf("Cannot load keyfactor config from ENV: %v", err)
-		return nil, fmt.Errorf("Cannot load keyfactor config: %v", err)
+		keyFactorCAClientLog.Errorf("cannot load keyfactor config from ENV: %v", err)
+		return nil, fmt.Errorf("cannot load keyfactor config: %v", err)
 	}
 
 	keyFactorCAClientLog.Infof("Create keyfactor metadatas: %v", keyfactorConfig.CustomMetadatas)
@@ -149,8 +149,8 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 		// Load the system default root certificates.
 		pool, err := x509.SystemCertPool()
 		if err != nil {
-			keyFactorCAClientLog.Errorf("Could not get SystemCertPool: %v", err)
-			return nil, fmt.Errorf("Could not get SystemCertPool: %v", err)
+			keyFactorCAClientLog.Errorf("could not get SystemCertPool: %v", err)
+			return nil, fmt.Errorf("could not get SystemCertPool: %v", err)
 		}
 
 		if pool == nil {
@@ -161,7 +161,7 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 		if len(rootCert) > 0 {
 			ok := pool.AppendCertsFromPEM(rootCert)
 			if !ok {
-				return nil, fmt.Errorf("Invalid root-cert.pem: %v", string(rootCert))
+				return nil, fmt.Errorf("invalid root-cert.pem: %v", string(rootCert))
 			}
 		}
 
@@ -184,7 +184,7 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 func (cl *KeyFactorCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, subjectID string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 
-	keyFactorCAClientLog.Infof("Start sign Keyfactor CSR request:")
+	keyFactorCAClientLog.Infof("start sign Keyfactor CSR request:")
 
 	bytesRepresentation, err := json.Marshal(keyfactorRequestPayload{
 		CSR:                  string(csrPEM),
@@ -199,10 +199,16 @@ func (cl *KeyFactorCAClient) CSRSign(ctx context.Context, reqID string, csrPEM [
 		},
 	})
 
+	if err != nil {
+		keyFactorCAClientLog.Errorf("error encode json data: %v", err)
+		return nil, fmt.Errorf("error encode json data: %v", err)
+	}
+
 	u, err := url.Parse(cl.CaEndpoint)
 
 	if err != nil {
-		return nil, fmt.Errorf("Invalid caAddress: %v (%v)", cl.CaEndpoint, err)
+		keyFactorCAClientLog.Errorf("invalid caAddress: %v (%v)", cl.CaEndpoint, err)
+		return nil, fmt.Errorf("invalid caAddress: %v (%v)", cl.CaEndpoint, err)
 	}
 
 	u.Path = path.Join(u.Path, cl.ClientOptions.EnrollPath)
@@ -211,7 +217,7 @@ func (cl *KeyFactorCAClient) CSRSign(ctx context.Context, reqID string, csrPEM [
 	requestCSR, err := http.NewRequest("POST", enrollCSRPath, bytes.NewBuffer(bytesRepresentation))
 
 	if err != nil {
-		return nil, fmt.Errorf("Cannot create request with url: %v", enrollCSRPath)
+		return nil, fmt.Errorf("cannot create request with url: %v", enrollCSRPath)
 	}
 
 	requestCSR.Header.Set("authorization", cl.ClientOptions.AuthToken)
@@ -221,27 +227,37 @@ func (cl *KeyFactorCAClient) CSRSign(ctx context.Context, reqID string, csrPEM [
 	requestCSR.Header.Set("Content-Type", "application/json")
 
 	if err != nil {
-		keyFactorCAClientLog.Errorf("Request to keyfactor is invalid: %v", err)
-		return nil, fmt.Errorf("Request to keyfactor is invalid: %v", err)
+		keyFactorCAClientLog.Errorf("request to keyfactor is invalid: %v", err)
+		return nil, fmt.Errorf("request to keyfactor is invalid: %v", err)
 	}
 
 	res, err := cl.Client.Do(requestCSR)
 	if err != nil {
-		return nil, fmt.Errorf("Could not request to KeyfactorCA server: %v %v", cl.CaEndpoint, err)
+		keyFactorCAClientLog.Errorf("could not request to KeyfactorCA server: %v %v", cl.CaEndpoint, err)
+		return nil, fmt.Errorf("could not request to KeyfactorCA server: %v %v", cl.CaEndpoint, err)
 	}
 	defer res.Body.Close()
 	status := res.StatusCode
 
 	if status == http.StatusOK {
 		jsonResponse := &KeyfactorResponse{}
-		json.NewDecoder(res.Body).Decode(&jsonResponse)
+		err := json.NewDecoder(res.Body).Decode(&jsonResponse)
+
+		if err != nil {
+			keyFactorCAClientLog.Errorf("could not decode response data from KeyfactorCA: %v", err)
+			return nil, fmt.Errorf("could not decode response data from KeyfactorCA: %v", err)
+		}
+
 		return getCertFromResponse(jsonResponse), nil
 	}
 
 	var errorMessage interface{}
-	json.NewDecoder(res.Body).Decode(&errorMessage)
-	keyFactorCAClientLog.Errorf("Request failed with status: %v, message: %v", status, errorMessage)
-	return nil, fmt.Errorf("Request failed with status: %v, message: %v", status, errorMessage)
+	err = json.NewDecoder(res.Body).Decode(&errorMessage)
+	if err != nil {
+		keyFactorCAClientLog.Errorf("cannot decode error message from keyfactorCA: %v", err)
+	}
+	keyFactorCAClientLog.Errorf("request failed with status: %v, message: %v", status, errorMessage)
+	return nil, fmt.Errorf("request failed with status: %v, message: %v", status, errorMessage)
 }
 
 func getCertFromResponse(jsonResponse *KeyfactorResponse) []string {
@@ -254,7 +270,7 @@ func getCertFromResponse(jsonResponse *KeyfactorResponse) []string {
 		certChains = append(certChains, fmt.Sprintf(template, i))
 	}
 
-	keyFactorCAClientLog.Infof("Keyfactor response %v certificates in certchain.", len(certChains))
+	keyFactorCAClientLog.Infof("keyfactor response %v certificates in certchain.", len(certChains))
 
 	return certChains
 }

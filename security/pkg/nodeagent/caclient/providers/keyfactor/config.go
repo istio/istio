@@ -101,23 +101,19 @@ func LoadKeyfactorConfigFromENV() (*KeyfactorConfig, error) {
 func (kc *KeyfactorConfig) Validate() error {
 
 	if kc.CaName == "" {
-		return fmt.Errorf("Missing caName (KEYFATOR_CA) in ENV")
+		return fmt.Errorf("missing caName (KEYFATOR_CA) in ENV")
 	}
 
 	if kc.AuthToken == "" {
-		return fmt.Errorf("Missing authToken (KEYFATOR_AUTH_TOKEN) in ENV")
+		return fmt.Errorf("missing authToken (KEYFATOR_AUTH_TOKEN) in ENV")
 	}
 
 	if kc.AppKey == "" {
-		return fmt.Errorf("Missing appKey (KEYFATOR_APPKEY) in ENV")
+		return fmt.Errorf("missing appKey (KEYFATOR_APPKEY) in ENV")
 	}
 
 	if kc.CaTemplate == "" {
-		return fmt.Errorf("Missing caTemplate (KEYFATOR_CA_TEMPLATE) in ENV")
-	}
-
-	if kc.EnrollPath == "" {
-		return fmt.Errorf("Missing enrollPath (KEYFATOR_E) in ENV")
+		return fmt.Errorf("missing caTemplate (KEYFATOR_CA_TEMPLATE) in ENV")
 	}
 
 	configLog.Infof("Validating custom Metadata")
@@ -125,12 +121,12 @@ func (kc *KeyfactorConfig) Validate() error {
 	for _, value := range kc.CustomMetadatas {
 		configLog.Infof("Validating fieldName: %v", value.Name)
 		if _, found := supportedMetadata[value.Name]; !found {
-			configLog.Errorf("Do not support Metadata field name: %v", value.Name)
-			return fmt.Errorf("Do not support Metadata field name: %v", value.Name)
+			configLog.Errorf("do not support Metadata field name: %v", value.Name)
+			return fmt.Errorf("do not support Metadata field name: %v", value.Name)
 		}
 
 		if value.Alias == "" {
-			return fmt.Errorf("Invalid alias name for Metadata: %v", value.Name)
+			return fmt.Errorf("invalid alias name for Metadata: %v", value.Name)
 		}
 	}
 	return nil
