@@ -460,6 +460,11 @@ data:
           value: |
                  {{ toJSON .ObjectMeta.Annotations }}
         {{ end }}
+        {{ if .ObjectMeta.Labels }}
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+                 {{ toJSON .ObjectMeta.Labels }}
+        {{ end }}
         {{- if .DeploymentMeta.Name }}
         - name: ISTIO_META_WORKLOAD_NAME
           value: {{ .DeploymentMeta.Name }}
