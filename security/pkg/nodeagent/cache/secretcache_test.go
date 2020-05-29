@@ -1133,6 +1133,11 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 
 func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) {
 	fetcher := &secretfetcher.SecretFetcher{}
+	originalTimeout := totalTimeout
+	totalTimeout = time.Second * 1
+	defer func() {
+		totalTimeout = originalTimeout
+	}()
 
 	opt := Options{
 		RotationInterval: 1 * time.Millisecond,
