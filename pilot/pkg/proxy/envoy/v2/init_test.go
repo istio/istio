@@ -25,6 +25,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
+	"istio.io/istio/pkg/adsc"
+
 	"istio.io/istio/pilot/pkg/model"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -64,6 +66,7 @@ func testIP(id uint32) string {
 	return net.IP(ipb).String()
 }
 
+// connectADS creates a direct, insecure connection using raw GRPC
 func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
 	conn, err := grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
@@ -79,6 +82,30 @@ func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedReso
 		_ = client.CloseSend()
 		_ = conn.Close()
 	}, nil
+}
+
+// connectADSC creates a connection using ASDC client.
+// If certDir is specified, will use MTLS.
+// This has more functionality than 'raw' grpc connection, including
+// sending a more realistic mode metadata.
+func connectADSC(url string, cfg *adsc.Config) (*adsc.ADSC, util.TearDownFunc, error) {
+	if cfg == nil {
+		cfg = &adsc.Config{}
+	}
+
+	if cfg.IP == "" {
+		cfg.IP = "10.11.0.1"
+	}
+
+	// Fill in defaults
+	if cfg.Namespace == "" {
+		cfg.Namespace = "none"
+	}
+
+	adsc, err := adsc.Dial(url, cfg.CertDir, cfg)
+	return adsc, func() {
+		adsc.Close()
+	}, err
 }
 
 func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
