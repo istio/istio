@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -95,6 +95,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("KubeConfig:           %s\n", s.KubeConfig)
 	result += fmt.Sprintf("MiniKubeIngress:      %v\n", s.Minikube)
 	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.ControlPlaneTopology)
+	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
 
 	return result
 }

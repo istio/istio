@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package framework
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,11 +34,12 @@ import (
 // Test allows the test author to specify test-related metadata in a fluent-style, before commencing execution.
 type Test struct {
 	// name to be used when creating a Golang test. Only used for subtests.
-	name                string
-	parent              *Test
-	goTest              *testing.T
-	labels              []label.Instance
-	featureLabels       []features.Feature
+	name   string
+	parent *Test
+	goTest *testing.T
+	labels []label.Instance
+	// featureLabels maps features to the scenarios they cover.
+	featureLabels       map[features.Feature][]string
 	notImplemented      bool
 	s                   *suiteContext
 	requiredEnv         environment.Name
@@ -64,8 +66,9 @@ func NewTest(t *testing.T) *Test {
 	}
 
 	runner := &Test{
-		s:      rt.suiteContext(),
-		goTest: t,
+		s:             rt.suiteContext(),
+		goTest:        t,
+		featureLabels: make(map[features.Feature][]string),
 	}
 
 	return runner
@@ -88,13 +91,17 @@ func (t *Test) Features(feats ...features.Feature) *Test {
 		return nil
 	}
 	for _, f := range feats {
-		if !c.Check(f) {
+		check, scenario := c.Check(f)
+		if !check {
 			log.Errorf("feature %s is not present in /pkg/test/framework/features/features.yaml", f)
 			t.goTest.FailNow()
 			return nil
 		}
+		// feats actually contains feature and scenario.  split them here.
+		onlyFeature := features.Feature(strings.Replace(string(f), scenario, "", 1))
+		t.featureLabels[onlyFeature] = append(t.featureLabels[onlyFeature], scenario)
 	}
-	t.featureLabels = append(t.featureLabels, feats...)
+
 	return t
 }
 

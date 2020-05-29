@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1129,6 +1129,63 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 		Op:   fsnotify.Write,
 	})
 	notifyEvent.Wait()
+}
+
+func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) {
+	fetcher := &secretfetcher.SecretFetcher{}
+	originalTimeout := totalTimeout
+	totalTimeout = time.Second * 1
+	defer func() {
+		totalTimeout = originalTimeout
+	}()
+
+	opt := Options{
+		RotationInterval: 1 * time.Millisecond,
+		EvictionDuration: 0,
+	}
+
+	sc := NewSecretCache(fetcher, notifyCb, opt)
+	defer func() {
+		sc.Close()
+	}()
+	rootCertPath, _ := filepath.Abs("./testdata/root-cert-bogus.pem")
+	keyPath, _ := filepath.Abs("./testdata/key-bogus.pem")
+	certChainPath, _ := filepath.Abs("./testdata/cert-chain-bogus.pem")
+
+	resource := fmt.Sprintf("file-cert:%s~%s", certChainPath, keyPath)
+	conID := "proxy1-id"
+	ctx := context.Background()
+
+	gotSecret, err := sc.GenerateSecret(ctx, conID, resource, "jwtToken1")
+
+	if err == nil {
+		t.Fatalf("expected to get error")
+	}
+
+	if gotSecret != nil {
+		t.Fatalf("Expected to get nil secret but got %v", gotSecret)
+	}
+
+	rootResource := "file-root:" + rootCertPath
+	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, rootResource, "jwtToken1")
+
+	if err == nil {
+		t.Fatalf("Expected to get error, but did not get")
+	}
+	if !strings.Contains(err.Error(), "no such file or directory") {
+		t.Fatalf("Expected file not found error, but got %v", err)
+	}
+	if gotSecretRoot != nil {
+		t.Fatalf("Expected to get nil secret but got %v", gotSecret)
+	}
+	length := 0
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		length++
+		return true
+	})
+	if length > 0 {
+		t.Fatalf("Expected zero secrets in cache, but got %v", length)
+	}
 }
 
 func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem) error {

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,8 @@ import (
 var (
 	cacheLog       = log.RegisterScope("cache", "cache debugging", 0)
 	newFileWatcher = filewatcher.NewWatcher
+	// The total timeout for any credential retrieval process, default value of 10s is used.
+	totalTimeout = time.Second * 10
 )
 
 const (
@@ -69,10 +71,8 @@ const (
 	// identityTemplate is the format template of identity in the CSR request.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 
-	// The total timeout for any credential retrieval process, default value of 10s is used.
-	totalTimeout = time.Second * 10
-
-	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
+	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
+	// non-retryable error in CSR request or while there is an error in reading file mounts.
 	firstRetryBackOffInMilliSec = 50
 
 	// notifySecretRetrievalTimeout is the timeout for another round of secret retrieval. This is to make sure to
@@ -731,7 +731,7 @@ func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
 
 // Generate a root certificate item from the passed in rootCertPath
 func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*model.SecretItem, error) {
-	rootCert, err := ioutil.ReadFile(rootCertPath)
+	rootCert, err := readFileWithTimeout(rootCertPath)
 	if err != nil {
 		return nil, err
 	}
@@ -757,11 +757,11 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 
 // Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, token string, connKey ConnKey) (*model.SecretItem, error) {
-	certChain, err := ioutil.ReadFile(certChainPath)
+	certChain, err := readFileWithTimeout(certChainPath)
 	if err != nil {
 		return nil, err
 	}
-	keyPEM, err := ioutil.ReadFile(keyPath)
+	keyPEM, err := readFileWithTimeout(keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -784,6 +784,24 @@ func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, 
 	}, nil
 }
 
+// readFileWithTimeout reads the given file with timeout. It returns error
+// if it is not able to read file after timeout.
+func readFileWithTimeout(path string) ([]byte, error) {
+	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
+	for {
+		cert, err := ioutil.ReadFile(path)
+		if err == nil {
+			return cert, nil
+		}
+		select {
+		case <-time.After(time.Duration(retryBackoffInMS)):
+			retryBackoffInMS *= 2
+		case <-time.After(totalTimeout):
+			return nil, err
+		}
+	}
+}
+
 func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, *model.SecretItem, error) {
 	resourceName := connKey.ResourceName
 	logPrefix := cacheLogPrefix(resourceName)
@@ -792,35 +810,38 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	// a well known path, they are used in the SDS response.
 	sdsFromFile := false
 	var err error
-	var ns *model.SecretItem
+	var sitem *model.SecretItem
 
 	switch {
 	// Default root certificate.
 	case connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile):
 		sdsFromFile = true
-		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey)
-		sc.addFileWatcher(sc.existingRootCertFile, token, connKey)
+		if sitem, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey); err == nil {
+			sc.addFileWatcher(sc.existingRootCertFile, token, connKey)
+		}
 	// Default workload certificate.
 	case connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile):
 		sdsFromFile = true
-		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
-		// Adding cert is sufficient here as key can't change without changing the cert.
-		sc.addFileWatcher(sc.existingCertChainFile, token, connKey)
+		if sitem, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey); err == nil {
+			// Adding cert is sufficient here as key can't change without changing the cert.
+			sc.addFileWatcher(sc.existingCertChainFile, token, connKey)
+		}
 	default:
 		// Check if the resource name refers to a file mounted certificate.
 		// Currently used in destination rules and server certs (via metadata).
 		// Based on the resource name, we need to read the secret from a file encoded in the resource name.
 		cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName)
+		sdsFromFile = ok
 		switch {
-		case ok && cfg.IsRootCertificate() && sc.rootCertificateExist(cfg.CaCertificatePath):
-			sdsFromFile = true
-			ns, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey)
-			sc.addFileWatcher(cfg.CaCertificatePath, token, connKey)
-		case ok && cfg.IsKeyCertificate() && sc.keyCertificateExist(cfg.CertificatePath, cfg.PrivateKeyPath):
-			sdsFromFile = true
-			ns, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey)
-			// Adding cert is sufficient here as key can't change without changing the cert.
-			sc.addFileWatcher(cfg.CertificatePath, token, connKey)
+		case ok && cfg.IsRootCertificate():
+			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey); err == nil {
+				sc.addFileWatcher(cfg.CaCertificatePath, token, connKey)
+			}
+		case ok && cfg.IsKeyCertificate():
+			if sitem, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey); err == nil {
+				// Adding cert is sufficient here as key can't change without changing the cert.
+				sc.addFileWatcher(cfg.CertificatePath, token, connKey)
+			}
 		}
 	}
 
@@ -831,8 +852,8 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 			return sdsFromFile, nil, err
 		}
 		cacheLog.Infoa("GenerateSecret from file ", resourceName)
-		sc.secrets.Store(connKey, *ns)
-		return sdsFromFile, ns, nil
+		sc.secrets.Store(connKey, *sitem)
+		return sdsFromFile, sitem, nil
 	}
 	return sdsFromFile, nil, nil
 }
