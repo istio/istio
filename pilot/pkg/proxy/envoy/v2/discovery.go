@@ -19,8 +19,10 @@ import (
 	"sync"
 	"time"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
+	"github.com/mitchellh/hashstructure"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
@@ -133,6 +135,16 @@ type DiscoveryServer struct {
 	adsClientsMutex sync.RWMutex
 
 	StatusReporter DistributionStatusCache
+
+	xdsCache      map[uint64]*XdsCache
+	xdsCacheMutex sync.RWMutex
+}
+
+type XdsCache struct {
+	CDS *xdsapi.DiscoveryResponse
+	EDS *xdsapi.DiscoveryResponse
+	RDS *xdsapi.DiscoveryResponse
+	LDS *xdsapi.DiscoveryResponse
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -168,6 +180,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		DebugConfigs:            features.DebugConfigs,
 		debugHandlers:           map[string]string{},
 		adsClients:              map[string]*XdsConnection{},
+		xdsCache:                map[uint64]*XdsCache{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
@@ -216,6 +229,22 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 	}
 }
 
+type proxyCacheKey struct {
+	labels map[string]string
+}
+
+func (s *DiscoveryServer) invalidateCache() {
+	s.xdsCacheMutex.Lock()
+	defer s.xdsCacheMutex.Unlock()
+	s.xdsCache = map[uint64]*XdsCache{}
+}
+func (s *DiscoveryServer) buildHashKey(con *XdsConnection) (uint64, error) {
+	key := proxyCacheKey{
+		labels: con.node.Metadata.Labels,
+	}
+	return hashstructure.Hash(key, nil)
+}
+
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
@@ -239,6 +268,8 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 		pushContextErrors.Increment()
 		return
 	}
+	adsLog.Errorf("howardjohn: invalidating caches")
+	s.invalidateCache()
 
 	if err := s.UpdateServiceShards(push); err != nil {
 		return

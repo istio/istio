@@ -48,14 +48,34 @@ func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix, typeURL stri
 }
 
 func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
-	// TODO: Modify interface to take services, and config instead of making library query registry
-	pushStart := time.Now()
-	rawClusters := s.ConfigGenerator.BuildClusters(con.node, push)
-
-	if s.DebugConfigs {
-		con.CDSClusters = rawClusters
+	key, e := s.buildHashKey(con)
+	if e != nil {
+		return e
 	}
-	response := cdsDiscoveryResponse(rawClusters, push.Version, con.RequestedTypes.CDS)
+	pushStart := time.Now()
+	var response *xdsapi.DiscoveryResponse
+	s.xdsCacheMutex.RLock()
+	cached, f := s.xdsCache[key]
+	s.xdsCacheMutex.RUnlock()
+	if f {
+		adsLog.Errorf("howardjohn: %v is cached", con.node.ID)
+		response = cached.CDS
+	} else {
+		adsLog.Errorf("howardjohn: %v is not cached", con.node.ID)
+		// TODO: Modify interface to take services, and config instead of making library query registry
+		rawClusters := s.ConfigGenerator.BuildClusters(con.node, push)
+
+		if s.DebugConfigs {
+			con.CDSClusters = rawClusters
+		}
+		response = cdsDiscoveryResponse(rawClusters, push.Version, con.RequestedTypes.CDS)
+	}
+	s.xdsCacheMutex.Lock()
+	if s.xdsCache[key] == nil {
+		s.xdsCache[key] = &XdsCache{}
+	}
+	s.xdsCache[key].CDS = response
+	s.xdsCacheMutex.Unlock()
 	err := con.send(response)
 	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -67,6 +87,6 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 
 	// The response can't be easily read due to 'any' marshaling.
 	adsLog.Infof("CDS: PUSH for node:%s clusters:%d services:%d version:%s",
-		con.node.ID, len(rawClusters), len(push.Services(nil)), version)
+		con.node.ID, len(response.Resources), len(push.Services(nil)), version)
 	return nil
 }

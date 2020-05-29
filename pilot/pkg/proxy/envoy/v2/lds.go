@@ -25,14 +25,28 @@ import (
 )
 
 func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
+	key, e := s.buildHashKey(con)
+	if e != nil {
+		return e
+	}
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
-
-	if s.DebugConfigs {
-		con.LDSListeners = rawListeners
+	var response *xdsapi.DiscoveryResponse
+	s.xdsCacheMutex.RLock()
+	cached, f := s.xdsCache[key]
+	s.xdsCacheMutex.RUnlock()
+	if f {
+		adsLog.Errorf("howardjohn: %v is cached", con.node.ID)
+		response = cached.CDS
+	} else {
+		rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
+		adsLog.Errorf("howardjohn: %v is not cached", con.node.ID)
+		if s.DebugConfigs {
+			con.LDSListeners = rawListeners
+		}
+		response = ldsDiscoveryResponse(rawListeners, version, push.Version, con.RequestedTypes.LDS)
 	}
-	response := ldsDiscoveryResponse(rawListeners, version, push.Version, con.RequestedTypes.LDS)
+
 	err := con.send(response)
 	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -42,7 +56,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	}
 	ldsPushes.Increment()
 
-	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.node.ID, len(rawListeners))
+	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.node.ID, len(response.Resources))
 	return nil
 }
 
