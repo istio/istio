@@ -41,6 +41,7 @@ func InsertDataToConfigMap(client corev1.ConfigMapsGetter, meta metav1.ObjectMet
 			ObjectMeta: meta,
 			Data:       data,
 		}
+		log.Errorf("howardjohn: create namespace configmap %v", meta.Namespace)
 		if _, err = client.ConfigMaps(meta.Namespace).Create(context.TODO(), configmap, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("error when creating configmap %v: %v", meta.Name, err)
 		}

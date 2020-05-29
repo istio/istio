@@ -18,9 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os/exec"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -68,57 +66,25 @@ func DumpCertFromSidecar(ns namespace.Instance, fromSelector, fromContainer, con
 	return out, nil
 }
 
-var certMakefile = filepath.Join(env.IstioSrc, "install/tools/certs/Makefile")
-
-func mintCerts(d string, namespace string) error {
-	c := exec.Command("make", "-f", certMakefile, namespace+"-certs-selfSigned")
-	c.Dir = d
-	o, err := c.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("creating certs output: %v, err: %v", string(o), err)
-	}
-	return nil
-}
-
 // CreateCASecret creates a k8s secret "cacerts" to store the CA key and cert.
-func CreateCASecret(ctx resource.Context, workloadNamespace string) error {
+func CreateCASecret(ctx resource.Context) error {
 	name := "cacerts"
 	systemNs, err := namespace.ClaimSystemNamespace(ctx)
 	if err != nil {
 		return err
 	}
-	if workloadNamespace == "" {
-		workloadNamespace = systemNs.Name()
-	}
 
-	dir, err := ctx.CreateTmpDirectory("certificates")
-	if err != nil {
+	var caCert, caKey, certChain, rootCert []byte
+	if caCert, err = ReadSampleCertFromFile("ca-cert.pem"); err != nil {
 		return err
 	}
-
-	if err := mintCerts(dir, workloadNamespace); err != nil {
+	if caKey, err = ReadSampleCertFromFile("ca-key.pem"); err != nil {
 		return err
 	}
-
-	base := filepath.Join(dir, workloadNamespace)
-	var caCert, caKey, certChain, rootCert, workloadCert, workloadKey []byte
-	if caCert, err = readCert(base, "selfSigned-ca-cert.pem"); err != nil {
+	if certChain, err = ReadSampleCertFromFile("cert-chain.pem"); err != nil {
 		return err
 	}
-	if caKey, err = readCert(base, "selfSigned-ca-key.pem"); err != nil {
-		return err
-	}
-	if certChain, err = readCert(base, "selfSigned-ca-cert-chain.pem"); err != nil {
-		return err
-	}
-	if rootCert, err = readCert(base, "root-cert.pem"); err != nil {
-		return err
-	}
-
-	if workloadCert, err = readCert(base, "selfSigned-workload-cert.pem"); err != nil {
-		return err
-	}
-	if workloadKey, err = readCert(base, "key.pem"); err != nil {
+	if rootCert, err = ReadSampleCertFromFile("root-cert.pem"); err != nil {
 		return err
 	}
 
@@ -136,33 +102,7 @@ func CreateCASecret(ctx resource.Context, workloadNamespace string) error {
 		},
 	}
 
-	err = kubeAccessor.DeleteSecret(systemNs.Name(), name)
-	if err == nil {
-		log.Infof("secret %v is deleted", name)
-	}
 	err = kubeAccessor.CreateSecret(systemNs.Name(), secret)
-	if err != nil {
-		return err
-	}
-
-	workloadSecretName := "workload-certs"
-	workloadSecret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      workloadSecretName,
-			Namespace: workloadNamespace,
-		},
-		Data: map[string][]byte{
-			"cert-chain.pem": workloadCert,
-			"key.pem":        workloadKey,
-			"root-cert.pem":  caCert,
-		},
-	}
-
-	err = kubeAccessor.DeleteSecret(workloadNamespace, workloadSecretName)
-	if err == nil {
-		log.Infof("secret %v is deleted", workloadSecretName)
-	}
-	err = kubeAccessor.CreateSecret(workloadNamespace, workloadSecret)
 	if err != nil {
 		return err
 	}
@@ -183,14 +123,10 @@ func CreateCASecret(ctx resource.Context, workloadNamespace string) error {
 	return nil
 }
 
-func readCert(base string, f string) ([]byte, error) {
-	b, err := ioutil.ReadFile(path.Join(base, f))
+func ReadSampleCertFromFile(f string) ([]byte, error) {
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "samples/certs", f))
 	if err != nil {
 		return nil, err
 	}
 	return b, nil
-}
-
-func ReadSampleCertFromFile(f string) ([]byte, error) {
-	return readCert(path.Join(env.IstioSrc, "tests/testdata/certs/pilot"), f)
 }
