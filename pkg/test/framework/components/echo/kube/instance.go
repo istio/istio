@@ -216,31 +216,29 @@ func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Inst
 }
 
 // WorkloadHasSidecar returns true if the input endpoint is deployed with sidecar injected based on the config.
-func workloadHasSidecar(cfg echo.Config, endpoint *kubeCore.ObjectReference) bool {
+func workloadHasSidecar(cfg echo.Config, podName string) bool {
 	// Match workload first.
 	for _, w := range cfg.Subsets {
-		if strings.HasPrefix(endpoint.Name, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
+		if strings.HasPrefix(podName, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
 			return w.Annotations.GetBool(echo.SidecarInject)
 		}
 	}
 	return true
 }
 
-func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
+func (c *instance) initialize(pods []kubeCore.Pod) error {
 	if c.workloads != nil {
 		// Already ready.
 		return nil
 	}
 
 	workloads := make([]*workload, 0)
-	for _, subset := range endpoints.Subsets {
-		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.tls, c.ctx)
-			if err != nil {
-				return err
-			}
-			workloads = append(workloads, workload)
+	for _, pod := range pods {
+		workload, err := newWorkload(pod, workloadHasSidecar(c.cfg, pod.Name), c.grpcPort, c.cluster, c.tls, c.ctx)
+		if err != nil {
+			return err
 		}
+		workloads = append(workloads, workload)
 	}
 
 	if len(workloads) == 0 {
