@@ -28,6 +28,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/networking/util"
+	alpn_filter "istio.io/istio/security/proto/envoy/config/filter/http/alpn/v2alpha1"
 )
 
 const OriginalSrc = "envoy.listener.original_src"
@@ -82,6 +83,27 @@ var (
 		Name: OriginalSrc,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{}),
+		},
+	}
+	alpnFilter = &http_conn.HttpFilter{
+		Name: AlpnFilterName,
+		ConfigType: &http_conn.HttpFilter_TypedConfig{
+			TypedConfig: util.MessageToAny(&alpn_filter.FilterConfig{
+				AlpnOverride: []*alpn_filter.FilterConfig_AlpnOverride{
+					{
+						UpstreamProtocol: alpn_filter.FilterConfig_HTTP10,
+						AlpnOverride:     mtlsHTTP10ALPN,
+					},
+					{
+						UpstreamProtocol: alpn_filter.FilterConfig_HTTP11,
+						AlpnOverride:     mtlsHTTP11ALPN,
+					},
+					{
+						UpstreamProtocol: alpn_filter.FilterConfig_HTTP2,
+						AlpnOverride:     mtlsHTTP2ALPN,
+					},
+				},
+			}),
 		},
 	}
 )
