@@ -35,16 +35,23 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	s.xdsCacheMutex.RLock()
 	cached, f := s.xdsCache[key]
 	s.xdsCacheMutex.RUnlock()
-	if f {
-		adsLog.Errorf("howardjohn: %v is cached", con.node.ID)
+	if f && cached.LDS != nil {
+		adsLog.Errorf("howardjohn: %v is cached for LDS", con.node.ID)
 		response = cached.LDS
 	} else {
 		rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
-		adsLog.Errorf("howardjohn: %v is not cached", con.node.ID)
+		adsLog.Errorf("howardjohn: %v is not cached for LDS", con.node.ID)
 		if s.DebugConfigs {
 			con.LDSListeners = rawListeners
 		}
 		response = ldsDiscoveryResponse(rawListeners, version, push.Version, con.RequestedTypes.LDS)
+
+		s.xdsCacheMutex.Lock()
+		if s.xdsCache[key] == nil {
+			s.xdsCache[key] = &XdsCache{}
+		}
+		s.xdsCache[key].LDS = response
+		s.xdsCacheMutex.Unlock()
 	}
 
 	err := con.send(response)

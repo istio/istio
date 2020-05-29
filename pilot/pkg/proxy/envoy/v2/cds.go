@@ -57,11 +57,11 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	s.xdsCacheMutex.RLock()
 	cached, f := s.xdsCache[key]
 	s.xdsCacheMutex.RUnlock()
-	if f {
-		adsLog.Errorf("howardjohn: %v is cached", con.node.ID)
+	if f && cached.CDS != nil {
+		adsLog.Errorf("howardjohn: %v is cached for CDS", con.node.ID)
 		response = cached.CDS
 	} else {
-		adsLog.Errorf("howardjohn: %v is not cached", con.node.ID)
+		adsLog.Errorf("howardjohn: %v is not cached for CDS", con.node.ID)
 		// TODO: Modify interface to take services, and config instead of making library query registry
 		rawClusters := s.ConfigGenerator.BuildClusters(con.node, push)
 
@@ -69,13 +69,14 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 			con.CDSClusters = rawClusters
 		}
 		response = cdsDiscoveryResponse(rawClusters, push.Version, con.RequestedTypes.CDS)
+
+		s.xdsCacheMutex.Lock()
+		if s.xdsCache[key] == nil {
+			s.xdsCache[key] = &XdsCache{}
+		}
+		s.xdsCache[key].CDS = response
+		s.xdsCacheMutex.Unlock()
 	}
-	s.xdsCacheMutex.Lock()
-	if s.xdsCache[key] == nil {
-		s.xdsCache[key] = &XdsCache{}
-	}
-	s.xdsCache[key].CDS = response
-	s.xdsCacheMutex.Unlock()
 	err := con.send(response)
 	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
