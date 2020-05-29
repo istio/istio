@@ -123,6 +123,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
 	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
+	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
 
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
@@ -738,4 +739,23 @@ func (s *DiscoveryServer) getProxyConnection(proxyID string) *XdsConnection {
 	}
 
 	return nil
+}
+
+func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+
+	instances := map[string][]*model.ServiceInstance{}
+	s.adsClientsMutex.RLock()
+	for _, con := range s.adsClients {
+		con.mu.RLock()
+		if con.node != nil {
+			instances[con.node.ID] = con.node.ServiceInstances
+		}
+		con.mu.RUnlock()
+	}
+	s.adsClientsMutex.RUnlock()
+	by, _ := json.MarshalIndent(instances, "", "  ")
+
+	_, _ = w.Write(by)
 }
