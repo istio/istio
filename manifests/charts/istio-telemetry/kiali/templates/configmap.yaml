@@ -18,7 +18,7 @@ data:
       strategy: {{ .Values.kiali.dashboard.auth.strategy }}
 {{- if eq .Values.kiali.dashboard.auth.strategy "ldap" }}
       ldap:
-{{- with .Values.kiali.dashboard.auth.strategy.ldap }}
+{{- with .Values.kiali.dashboard.auth.ldap }}
 {{ toYaml . | indent 8 }}
 {{- end }}
 {{- end }}
