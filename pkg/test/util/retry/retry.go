@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/test"
 )
 
