@@ -120,6 +120,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	s.addDebugHandler(mux, "/debug/registryz", "Debug support for registry", s.registryz)
 	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
+	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
 	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
 	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)

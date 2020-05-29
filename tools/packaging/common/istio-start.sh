@@ -18,7 +18,7 @@
 #
 # Script to configure and start the Istio sidecar.
 
-set -e
+set -ex
 
 # Match pilot/docker/Dockerfile.proxyv2
 export ISTIO_META_ISTIO_VERSION="1.6.0"
@@ -101,8 +101,8 @@ if [ -z "${PILOT_ADDRESS:-}" ]; then
 fi
 
 CA_ADDR=${CA_ADDR:-${PILOT_ADDRESS}}
-PROV_CERT=${PROV_CERT:-/etc/certs}
-OUTPUT_CERTS=${OUTPUT_CERTS:-/etc/certs}
+PROV_CERT=${PROV_CERT-/etc/certs}
+OUTPUT_CERTS=${OUTPUT_CERTS-/etc/certs}
 
 export PROV_CERT
 export OUTPUT_CERTS

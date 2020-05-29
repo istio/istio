@@ -27,6 +27,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	kubeApiAdmissions "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/autoscaling/v2beta1"
@@ -643,6 +644,21 @@ func (a *Accessor) GetClusterRoleBinding(role string) (*v1.ClusterRoleBinding, e
 	return a.clientSet.RbacV1().ClusterRoleBindings().Get(context.TODO(), role, kubeApiMeta.GetOptions{})
 }
 
+// CreateNamespace with the given name. Also adds an "istio-testing" annotation.
+func (a *Accessor) CreateServiceAccountToken(ns string, serviceAccount string) (string, error) {
+	scopes.Framework.Debugf("Creating service account token for: %s/", ns, serviceAccount)
+
+	token ,err := a.clientSet.CoreV1().ServiceAccounts(ns).CreateToken(context.TODO(), serviceAccount, &authenticationv1.TokenRequest{
+		Spec:       authenticationv1.TokenRequestSpec{
+			Audiences:         []string{"istio-ca"},
+		},
+	}, kubeApiMeta.CreateOptions{})
+
+	if err != nil {
+		return "", err
+	}
+	return token.Status.Token, nil
+}
 // GetUnstructured returns an unstructured k8s resource object based on the provided schema, namespace, and name.
 func (a *Accessor) GetUnstructured(gvr schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
 	u, err := a.dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, kubeApiMeta.GetOptions{})

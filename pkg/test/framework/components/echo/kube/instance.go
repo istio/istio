@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -103,6 +104,28 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	if cfg.DeployAsVM {
+		serviceAccount := cfg.Service
+		if !cfg.ServiceAccount {
+			serviceAccount = "default"
+		}
+		token, err := c.cluster.CreateServiceAccountToken(cfg.Namespace.Name(), serviceAccount)
+		if err != nil {
+			return nil, err
+		}
+		if err := c.cluster.CreateSecret(cfg.Namespace.Name(), &kubeCore.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfg.Service + "-istio-token",
+				Namespace: cfg.Namespace.Name(),
+			},
+			Data: map[string][]byte{
+				"istio-token": []byte(token),
+			},
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if cfg.DeployAsVM {
 		var pod kubeCore.Pod
 		if err := retry.UntilSuccess(func() error {
 			pods, err := c.cluster.GetPods(cfg.Namespace.Name(), fmt.Sprintf("istio.io/test-vm=%s", cfg.Service))
@@ -121,6 +144,11 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 			return nil, err
 		}
 		ip := pod.Status.PodIP
+
+		serviceAccount := cfg.Service
+		if !cfg.ServiceAccount {
+			serviceAccount = "default"
+		}
 		wle := fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadEntry
@@ -131,7 +159,7 @@ spec:
   serviceAccount: %s
   labels:
     app: %s
-`, pod.Name, ip, cfg.Service, cfg.Service)
+`, pod.Name, ip, serviceAccount, cfg.Service)
 		// Deploy the workload entry.
 		if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), wle); err != nil {
 			return nil, fmt.Errorf("failed deploying workload entry: %v", err)
@@ -271,11 +299,11 @@ func (c *instance) initialize(pods []kubeCore.Pod) error {
 
 	workloads := make([]*workload, 0)
 	for _, pod := range pods {
-			workload, err := newWorkload(pod, workloadHasSidecar(c.cfg, pod.Name), c.grpcPort, c.cluster, c.tls, c.ctx)
-			if err != nil {
-				return err
-			}
-			workloads = append(workloads, workload)
+		workload, err := newWorkload(pod, workloadHasSidecar(c.cfg, pod.Name), c.grpcPort, c.cluster, c.tls, c.ctx)
+		if err != nil {
+			return err
+		}
+		workloads = append(workloads, workload)
 	}
 
 	if len(workloads) == 0 {

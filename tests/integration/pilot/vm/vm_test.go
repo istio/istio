@@ -16,7 +16,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var p pilot.Instance
@@ -45,7 +44,8 @@ values:
     meshExpansion:
       enabled: true`
 		}, func(ctx resource.Context) error {
-			return cert.CreateCASecret(ctx, ns.Name())
+			return nil
+			//return cert.CreateCASecret(ctx, ns.Name())
 		})).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {

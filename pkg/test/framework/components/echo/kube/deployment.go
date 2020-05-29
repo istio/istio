@@ -218,7 +218,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: istio-proxy
-        image: registry:5000/app_sidecar:1590680252
+        image: registry:5000/app_sidecar:1590709267
         #image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
         securityContext:
@@ -231,18 +231,13 @@ spec:
         - bash
         - -c
         - |-
-          # Certificates are mounted in /var/run/secrets/istio/mounted
-          sudo mkdir -p /etc/certs
-          sudo cp /var/run/secrets/istio/mounted/{root-cert.pem,cert-chain.pem,key.pem} /etc/certs
-          sudo chown -R istio-proxy /etc/certs /var/lib/istio/envoy
-
           sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
           sudo sh -c 'echo "1.1.1.1 pod.{{$.Namespace}}.svc.cluster.local" >> /etc/hosts'
 
           # TODO: run with systemctl?
-          sudo /usr/local/bin/istio-start.sh&
+          sudo -E /usr/local/bin/istio-start.sh&
           /usr/local/bin/server --cluster "{{ $cluster }}" \
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
@@ -254,6 +249,10 @@ spec:
 {{- end }}
              "{{ $p.Port }}" \
 {{- end }}
+        env:
+        # We use token not certs
+        - name: PROV_CERT
+          value: ""
         readinessProbe:
           httpGet:
             path: /healthz/ready
@@ -262,12 +261,17 @@ spec:
           periodSeconds: 2
           failureThreshold: 10
         volumeMounts:
-        - mountPath: /var/run/secrets/istio/mounted
-          name: workload-certs
+        - mountPath: /var/run/secrets/tokens
+          name: {{ $.Service }}-istio-token
+        - mountPath: /var/run/secrets/istio
+          name: istio-ca-root-cert
       volumes:
       - secret:
-          secretName: workload-certs
-        name: workload-certs`
+          secretName: {{ $.Service }}-istio-token
+        name: {{ $.Service }}-istio-token
+      - configMap:
+          name: istio-ca-root-cert
+        name: istio-ca-root-cert`
 )
 
 var (
