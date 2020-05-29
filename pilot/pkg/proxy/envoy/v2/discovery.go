@@ -138,6 +138,8 @@ type DiscoveryServer struct {
 
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
 	Authenticators []authenticate.Authenticator
+
+	InternalGen    *InternalGen
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
