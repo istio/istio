@@ -102,6 +102,7 @@ func Analyze() *cobra.Command {
 	for k := range msgOutputFormats {
 		msgOutputFormatKeys = append(msgOutputFormatKeys, k)
 	}
+	sort.Strings(msgOutputFormatKeys)
 
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
