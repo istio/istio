@@ -145,16 +145,29 @@ func DeleteIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames
 // createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
 // For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
 func createSecret(ingressType ingress.CallType, cn, ns string, ic IngressCredential, isGenericSecret bool) *v1.Secret {
-	if ingressType == ingress.Mtls && isGenericSecret {
+	if ingressType == ingress.Mtls {
+		if isGenericSecret {
+			return &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cn,
+					Namespace: ns,
+				},
+				Data: map[string][]byte{
+					genericScrtCert:   []byte(ic.ServerCert),
+					genericScrtKey:    []byte(ic.PrivateKey),
+					genericScrtCaCert: []byte(ic.CaCert),
+				},
+			}
+		}
 		return &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cn,
 				Namespace: ns,
 			},
 			Data: map[string][]byte{
-				genericScrtCert:   []byte(ic.ServerCert),
-				genericScrtKey:    []byte(ic.PrivateKey),
-				genericScrtCaCert: []byte(ic.CaCert),
+				tlsScrtCert:   []byte(ic.ServerCert),
+				tlsScrtKey:    []byte(ic.PrivateKey),
+				tlsScrtCaCert: []byte(ic.CaCert),
 			},
 		}
 	}
@@ -164,9 +177,8 @@ func createSecret(ingressType ingress.CallType, cn, ns string, ic IngressCredent
 			Namespace: ns,
 		},
 		Data: map[string][]byte{
-			tlsScrtCert:   []byte(ic.ServerCert),
-			tlsScrtKey:    []byte(ic.PrivateKey),
-			tlsScrtCaCert: []byte(ic.CaCert),
+			tlsScrtCert: []byte(ic.ServerCert),
+			tlsScrtKey:  []byte(ic.PrivateKey),
 		},
 	}
 }
