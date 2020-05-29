@@ -18,7 +18,7 @@
 #
 # Script to configure and start the Istio sidecar.
 
-set -ex
+set -e
 
 # Match pilot/docker/Dockerfile.proxyv2
 export ISTIO_META_ISTIO_VERSION="1.6.0"
@@ -30,18 +30,13 @@ if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
   . "$ISTIO_SIDECAR_CONFIG"
 fi
 
-# Capture all inbound ports by default
-ISTIO_INBOUND_PORTS="${ISTIO_INBOUND_PORTS:-*}"
-# Except for the "admin" ports
-ISTIO_LOCAL_EXCLUDE_PORTS="${ISTIO_LOCAL_EXCLUDE_PORTS:-15090,15021,15020}"
-
 # Load config variables ISTIO_SYSTEM_NAMESPACE, CONTROL_PLANE_AUTH_POLICY
 ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
 if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
   # shellcheck disable=SC1090
   . "$ISTIO_CLUSTER_CONFIG"
   # Make sure the documented configuration variables are exported
-  export ISTIO_CP_AUTH ISTIO_SERVICE_CIDR ISTIO_INBOUND_PORTS ISTIO_LOCAL_EXCLUDE_PORTS
+  export ISTIO_CP_AUTH ISTIO_SERVICE_CIDR ISTIO_INBOUND_PORTS ISTIO_LOCAL_EXCLUDE_PORTS ISTIO_LOCAL_EXCLUDE_PORTS
 fi
 
 # Set defaults

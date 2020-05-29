@@ -346,6 +346,7 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string,
 	var service *kubeApiCore.Service
 	var endpoints *kubeApiCore.Endpoints
 	err := retry.UntilSuccess(func() error {
+
 		s, err := a.GetService(ns, name)
 		if err != nil {
 			return err
@@ -810,7 +811,7 @@ func (a *Accessor) applyFile(namespace string, file string, dryRun bool) error {
 		// Concatenate the stdout and stderr
 		s := stdout.String() + stderr.String()
 		scopes.CI.Infof("(FAILED) Executing kubectl apply: %s (err: %v): %s", file, err, s)
-		return err
+		return fmt.Errorf("%v: %s", err, s)
 	}
 	return nil
 }

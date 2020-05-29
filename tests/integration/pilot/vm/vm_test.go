@@ -33,9 +33,8 @@ import (
 var p pilot.Instance
 var ns namespace.Instance
 
-// TestMain defines the entrypoint for pilot tests using a standard Istio installation.
-// If a test requires a custom install it should go into its own package, otherwise it should go
-// here to reuse a single install across tests.
+// This tests VM mesh expansion. Rather than deal with the infra to get a real VM, we will use a pod
+// with no Service, no DNS, no service account, etc to simulate a VM.
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("vm_test", m).
@@ -65,10 +64,6 @@ values:
 		Run()
 }
 
-// TODO:
-// * Clean up all the debug stuff
-// * Investigate if the changes to istio-start are safe
-// * Better DNS
 func TestVmTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -118,6 +113,7 @@ spec:
 				}).
 				BuildOrFail(t)
 
+			// Check pod -> VM
 			retry.UntilSuccessOrFail(ctx, func() error {
 				r, err := pod.Call(echo.CallOptions{Target: vm, PortName: "http"})
 				if err != nil {
@@ -125,6 +121,7 @@ spec:
 				}
 				return r.CheckOK()
 			}, retry.Delay(100*time.Millisecond))
+			// Check VM -> pod
 			retry.UntilSuccessOrFail(ctx, func() error {
 				r, err := vm.Call(echo.CallOptions{Target: pod, PortName: "http"})
 				if err != nil {

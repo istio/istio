@@ -252,6 +252,12 @@ spec:
         # We use token not certs
         - name: PROV_CERT
           value: ""
+        # By default we do not capture inbound. For these tests we will mark as capture all
+        - name: ISTIO_INBOUND_PORTS
+          value: "*"
+        # Block standard inbound ports
+        - name: ISTIO_LOCAL_EXCLUDE_PORTS
+          value: "15090,15021,15020"
         readinessProbe:
           httpGet:
             path: /healthz/ready
