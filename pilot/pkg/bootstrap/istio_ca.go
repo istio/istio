@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/pkg/env"
@@ -120,7 +119,6 @@ var (
 const (
 	bearerTokenPrefix = "Bearer "
 	httpAuthHeader    = "authorization"
-	identityTemplate  = "spiffe://%s/ns/%s/sa/%s"
 )
 
 type CAOptions struct {
@@ -259,26 +257,6 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 	}
 
 	return structuredPayload, nil
-}
-
-func extractBearerToken(ctx context.Context) (string, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return "", fmt.Errorf("no metadata is attached")
-	}
-
-	authHeader, exists := md[httpAuthHeader]
-	if !exists {
-		return "", fmt.Errorf("no HTTP authorization header exists")
-	}
-
-	for _, value := range authHeader {
-		if strings.HasPrefix(value, bearerTokenPrefix) {
-			return strings.TrimPrefix(value, bearerTokenPrefix), nil
-		}
-	}
-
-	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
 }
 
 // Save the root public key file and initialize the path the the file, to be used by other
