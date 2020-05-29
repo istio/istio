@@ -319,7 +319,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 		case virtualServiceGvk:
 			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
 		case gatewayGvk:
-			gateways := ConvertIngressV1alpha3(*ingress, c.mesh.IngressSelector, c.domainSuffix)
+			gateways := ConvertIngressV1alpha3(*ingress, c.mesh, c.domainSuffix)
 			out = append(out, gateways)
 		}
 	}
