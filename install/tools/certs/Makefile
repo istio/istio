@@ -226,8 +226,8 @@ root-key.pem:
 	@echo "extendedKeyUsage = serverAuth, clientAuth" >> $@
 	@echo "subjectAltName=@san" >> $@
 	@echo "[ san ]" >> $@
-	@echo "URI.1 = spiffe://cluster.local/ns/$(L)/sa/$(SERVICE_ACCOUNT)" >> $@
-	@echo "DNS.1 = spiffe://cluster.local/ns/$(L)/sa/$(SERVICE_ACCOUNT)" >> $@
+	@echo "URI.1 = spiffe://cluster.local/ns/$(L)sa/$(SERVICE_ACCOUNT)" >> $@
+	@echo "DNS.1 = spiffe://cluster.local/ns/$(L)sa/$(SERVICE_ACCOUNT)" >> $@
 	@echo "[ req_dn ]" >> $@
 	@echo "O = $(INTERMEDIATE_ORG)" >> $@
 	@echo "CN = $(INTERMEDIATE_CN)" >> $@
