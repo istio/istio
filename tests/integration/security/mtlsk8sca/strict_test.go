@@ -44,6 +44,10 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude headless naked service
+						if src == rctx.HeadlessNaked || opts.Target == rctx.HeadlessNaked {
+							return false
+						}
 						// Exclude calls to the headless service.
 						// Auto mtls does not apply to headless service, because for headless service
 						// the cluster discovery type is ORIGINAL_DST, and it will not apply upstream tls setting
@@ -66,6 +70,10 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude headless naked service
+						if src == rctx.HeadlessNaked || opts.Target == rctx.HeadlessNaked {
+							return false
+						}
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
 							return false
