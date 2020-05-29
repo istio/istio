@@ -57,8 +57,6 @@ values:
 }
 
 // TODO:
-// * Use workload entry (ie pod has no labels)
-// * Dynamically generate certs for namespace. Maybe do this for cacerts as well. Stop using default then
 // * Clean up all the debug stuff
 // * Investigate if the changes to istio-start are safe
 func TestVmTraffic(t *testing.T) {

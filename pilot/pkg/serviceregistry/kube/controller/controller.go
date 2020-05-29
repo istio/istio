@@ -826,13 +826,26 @@ func (c *Controller) collectAllForeignEndpoints(svc *model.Service) []*model.Ist
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+
 	out := make([]*model.ServiceInstance, 0)
 	if len(proxy.IPAddresses) > 0 {
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
 		proxyIP := proxy.IPAddresses[0]
+		log.Errorf("howardjohn: foreignRegistryInstancesByIP is size %v. Looking for %v", len(c.foreignRegistryInstancesByIP), proxyIP)
+		for ip, i := range c.foreignRegistryInstancesByIP {
+			log.Errorf("howardjohn: has %v -> %+v", ip, i)
+		}
+
 		pod := c.pods.getPodByIP(proxyIP)
-		if pod != nil {
+		if foreign, f := c.foreignRegistryInstancesByIP[proxyIP]; f {
+			var err error
+			out = append(out, foreign)
+			out, err = c.hydrateForeignServiceInstance(foreign)
+			if err != nil {
+				log.Warnf("hydrateForeignServiceInstance for %v failed: %v", proxy.ID, err)
+			}
+		} else if pod != nil {
 			// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
 			// which can happen when multi clusters using same pod cidr.
 			// As we have proxy Network meta, compare it with the network which endpoint belongs to,
@@ -868,6 +881,43 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy, "")
 		} else {
 			log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
+		}
+	}
+	return out, nil
+}
+
+func (c *Controller) hydrateForeignServiceInstance(si *model.ServiceInstance) ([]*model.ServiceInstance, error) {
+	out := []*model.ServiceInstance{}
+	// find the workload entry's service by label selector
+	// rather than scanning through our internal map of model.services, get the services via the k8s apis
+	dummyPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Namespace: si.Service.Attributes.Namespace, Labels: si.Endpoint.Labels},
+	}
+
+	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
+	if k8sServices, err := getPodServices(listerv1.NewServiceLister(c.serviceInformer.GetIndexer()), dummyPod); err == nil && len(k8sServices) > 0 {
+		for _, k8sSvc := range k8sServices {
+			var service *model.Service
+			c.RLock()
+			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.domainSuffix)]
+			c.RUnlock()
+			// Note that this cannot be an external service because k8s external services do not have label selectors.
+			if service == nil || service.Resolution != model.ClientSideLB {
+				// may be a headless service
+				continue
+			}
+
+			for _, port := range service.Ports {
+				if port.Protocol == protocol.UDP {
+					continue
+				}
+				// Similar code as UpdateServiceShards in eds.go
+				instances, err := c.InstancesByPort(service, port.Port, labels.Collection{})
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, instances...)
+			}
 		}
 	}
 	return out, nil
