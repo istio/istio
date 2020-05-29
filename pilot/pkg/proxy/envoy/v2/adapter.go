@@ -18,7 +18,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -32,19 +32,19 @@ import (
 // Note: this is just about the transport protocol. The XDS resource versioning is independent of transport
 // protocol
 type DiscoveryStreamV2Adapter struct {
-	ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+	discoveryv2.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 }
 
 // We implement the v3 DiscoveryStream API
 var _ DiscoveryStream = &DiscoveryStreamV2Adapter{}
 
-func (d DiscoveryStreamV2Adapter) Send(r *discovery.DiscoveryResponse) error {
+func (d DiscoveryStreamV2Adapter) Send(v3Resp *discovery.DiscoveryResponse) error {
 	return d.AggregatedDiscoveryService_StreamAggregatedResourcesServer.Send(&xdsapi.DiscoveryResponse{
-		VersionInfo: r.VersionInfo,
-		Resources:   r.Resources,
-		Canary:      r.Canary,
-		TypeUrl:     r.TypeUrl,
-		Nonce:       r.Nonce,
+		VersionInfo: v3Resp.VersionInfo,
+		Resources:   v3Resp.Resources,
+		Canary:      v3Resp.Canary,
+		TypeUrl:     v3Resp.TypeUrl,
+		Nonce:       v3Resp.Nonce,
 	})
 }
 
@@ -67,11 +67,12 @@ func convertToV3Node(node *corev2.Node) *corev3.Node {
 	if node == nil {
 		return nil
 	}
+	// We don't copy some fields we don't use like extensions and user_agent_name to avoid some extra copies
+	// since we do not use them.
 	resp := &corev3.Node{
-		Id:             node.Id,
-		Cluster:        node.Cluster,
-		Metadata:       node.Metadata,
-		ClientFeatures: node.ClientFeatures,
+		Id:       node.Id,
+		Cluster:  node.Cluster,
+		Metadata: node.Metadata,
 	}
 	if node.Locality != nil {
 		l := node.Locality
@@ -91,9 +92,9 @@ type discoveryServerV2Adapter struct {
 }
 
 // We implement the v2 ADS API
-var _ ads.AggregatedDiscoveryServiceServer = &discoveryServerV2Adapter{}
+var _ discoveryv2.AggregatedDiscoveryServiceServer = &discoveryServerV2Adapter{}
 
-func (d *discoveryServerV2Adapter) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (d *discoveryServerV2Adapter) StreamAggregatedResources(stream discoveryv2.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	v3Stream := &DiscoveryStreamV2Adapter{stream}
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := "0.0.0.0"
@@ -104,10 +105,10 @@ func (d *discoveryServerV2Adapter) StreamAggregatedResources(stream ads.Aggregat
 	return d.s.StreamAggregatedResources(v3Stream)
 }
 
-func (d discoveryServerV2Adapter) DeltaAggregatedResources(server ads.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+func (d discoveryServerV2Adapter) DeltaAggregatedResources(server discoveryv2.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
-func (s *DiscoveryServer) createV2Adapter() ads.AggregatedDiscoveryServiceServer {
+func (s *DiscoveryServer) createV2Adapter() discoveryv2.AggregatedDiscoveryServiceServer {
 	return &discoveryServerV2Adapter{s}
 }

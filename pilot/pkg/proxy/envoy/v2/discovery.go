@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
@@ -165,7 +165,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	// Register v2 and v3 servers
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
-	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
+	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
