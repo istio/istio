@@ -30,8 +30,10 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	istiolog "istio.io/pkg/log"
 
@@ -201,24 +203,31 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// Protected by flag to avoid breaking upgrades - should be enabled in multi-cluster/meshexpansion where
 	// XDS is exposed.
 	if s.Authenticators != nil && len(s.Authenticators) > 0 {
-		var authenticatedId *authenticate.Caller
-		for _, authn := range s.Authenticators {
-			u, err := authn.Authenticate(ctx)
-			if u != nil && err == nil {
-				authenticatedId = u
+		if err := credentials.CheckSecurityLevel(ctx, credentials.PrivacyAndIntegrity); err != nil {
+			var authenticatedId *authenticate.Caller
+			for _, authn := range s.Authenticators {
+				u, err := authn.Authenticate(ctx)
+				if u != nil && err == nil {
+					authenticatedId = u
+				}
 			}
+
+			if authenticatedId == nil {
+				adsLog.Errora("Failed to authenticate client ", peerInfo)
+				return errors.New("Authentication failure")
+			}
+
+			adsLog.Infoa("Authenticated XDS: ", peerInfo, " ", authenticatedId.AuthSource, " ", authenticatedId.Identities)
+		} else {
+			// TODO: add a flag to prevent unauthenticated requests ( 15010 )
+			// request not over TLS ( on the insecure port
+			adsLog.Infoa("Unauthenticated XDS: ", peerInfo)
 		}
 
-		if authenticatedId == nil {
-			adsLog.Errora("Failed to authenticate client ", peerInfo)
-			return errors.New("Authentication failure")
-		}
-
-		adsLog.Infoa("Authenticated XDS: ", peerInfo, " ", authenticatedId.AuthSource, " ", authenticatedId.Identities)
 	}
 
 	// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
-	
+
 	// first call - lazy loading, in tests. This should not happen if readiness
 	// check works, since it assumes ClearCache is called (and as such PushContext
 	// is initialized)
