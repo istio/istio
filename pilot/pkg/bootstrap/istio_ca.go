@@ -116,11 +116,6 @@ var (
 		"Expected audience in the tokens. ")
 )
 
-const (
-	bearerTokenPrefix = "Bearer "
-	httpAuthHeader    = "authorization"
-)
-
 type CAOptions struct {
 	// domain to use in SPIFFE identity URLs
 	TrustDomain string
