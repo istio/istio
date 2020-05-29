@@ -45,9 +45,7 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil, func(ctx resource.Context) error {
-			return cert.CreateCASecret(ctx, "")
-		})).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil, cert.CreateCASecret)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
