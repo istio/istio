@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -133,6 +134,9 @@ type DiscoveryServer struct {
 	adsClientsMutex sync.RWMutex
 
 	StatusReporter DistributionStatusCache
+
+	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
+	Authenticators []authenticate.Authenticator
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -168,6 +172,10 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		DebugConfigs:            features.DebugConfigs,
 		debugHandlers:           map[string]string{},
 		adsClients:              map[string]*XdsConnection{},
+	}
+
+	if features.XDSAuth {
+		out.Authenticators = append(out.Authenticators, &authenticate.ClientCertAuthenticator{})
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
