@@ -37,7 +37,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	s.xdsCacheMutex.RUnlock()
 	if f {
 		adsLog.Errorf("howardjohn: %v is cached", con.node.ID)
-		response = cached.CDS
+		response = cached.LDS
 	} else {
 		rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
 		adsLog.Errorf("howardjohn: %v is not cached", con.node.ID)
