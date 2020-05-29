@@ -44,15 +44,17 @@ type InternalGen struct {
 }
 
 func (sg *InternalGen) OnConnect(con *XdsConnection) {
-	con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value{
-		Kind: &structpb.Value_StringValue{
-			StringValue: "TODO", // TODO: fill in the Istiod address - may include network, cluster, IP
-		},
-	}
-	con.xdsNode.Metadata.Fields["con"] = &structpb.Value{
-		Kind: &structpb.Value_StringValue{
-			StringValue: con.ConID,
-		},
+	if con.xdsNode.Metadata != nil && con.xdsNode.Metadata.Fields != nil {
+		con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value{
+			Kind: &structpb.Value_StringValue{
+				StringValue: "TODO", // TODO: fill in the Istiod address - may include network, cluster, IP
+			},
+		}
+		con.xdsNode.Metadata.Fields["con"] = &structpb.Value{
+			Kind: &structpb.Value_StringValue{
+				StringValue: con.ConID,
+			},
+		}
 	}
 	sg.startPush(TypeURLConnections, []*any.Any{util.MessageToAny(con.xdsNode)})
 }
@@ -60,10 +62,12 @@ func (sg *InternalGen) OnConnect(con *XdsConnection) {
 func (sg *InternalGen) OnDisconnect(con *XdsConnection) {
 	sg.startPush(TypeURLDisconnect, []*any.Any{util.MessageToAny(con.xdsNode)})
 
-	con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value{
-		Kind: &structpb.Value_StringValue{
-			StringValue: "", // TODO: using empty string to indicate this node has no istiod connection. We'll iterate.
-		},
+	if con.xdsNode.Metadata != nil && con.xdsNode.Metadata.Fields != nil {
+		con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value{
+			Kind: &structpb.Value_StringValue{
+				StringValue: "", // TODO: using empty string to indicate this node has no istiod connection. We'll iterate.
+			},
+		}
 	}
 
 	// Note that it is quite possible for a 'connect' on a different istiod to happen before a disconnect.
