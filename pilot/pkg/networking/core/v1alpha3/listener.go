@@ -1470,13 +1470,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
 				// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
 				if currentListenerEntry.protocol.IsHTTP() {
-					conflictType = HTTPOverHTTP
+					// conflictType is HTTPOverHTTP
+					// In these cases, we just add the services and exit early rather than recreate an identical listener
 					currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 					return
 				} else if currentListenerEntry.protocol.IsTCP() {
 					conflictType = HTTPOverTCP
 				} else {
-					conflictType = HTTPOverAuto
+					// conflictType is HTTPOverAuto
+					// In these cases, we just add the services and exit early rather than recreate an identical listener
 					currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 					return
 				}
@@ -1575,7 +1577,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				} else if currentListenerEntry.protocol.IsTCP() {
 					conflictType = AutoOverTCP
 				} else {
-					conflictType = AutoOverAuto
+					// conflictType is AutoOverAuto
+					// In these cases, we just add the services and exit early rather than recreate an identical listener
 					currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 					return
 				}
