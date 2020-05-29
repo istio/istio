@@ -133,7 +133,7 @@ type DiscoveryServer struct {
 	adsClientsMutex sync.RWMutex
 
 	StatusReporter DistributionStatusCache
-	InternalGen *InternalGen
+	InternalGen    *InternalGen
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
