@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -135,10 +135,7 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
 
-	fep, err := esc.c.collectAllForeignEndpoints(svc)
-	if err != nil {
-		log.Debugf("Handle EDS: error collecting foreign endpoints of svc %s in namespace %s", hostname, slice.Namespace)
-	}
+	fep := esc.c.collectAllForeignEndpoints(svc)
 
 	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace,
 		append(esc.endpointCache.Get(hostname), fep...))

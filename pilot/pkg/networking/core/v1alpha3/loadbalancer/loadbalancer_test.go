@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -277,9 +277,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
-					OutlierDetection: &networking.OutlierDetection{
-						ConsecutiveErrors: 5,
-					},
+					OutlierDetection: &networking.OutlierDetection{},
 				},
 			},
 		}})
@@ -339,9 +337,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
-					OutlierDetection: &networking.OutlierDetection{
-						ConsecutiveErrors: 5,
-					},
+					OutlierDetection: &networking.OutlierDetection{},
 				},
 			},
 		}})

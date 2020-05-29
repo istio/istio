@@ -1,6 +1,6 @@
 // +build !race
 
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@ func Test_KubeSecretController(t *testing.T) {
 	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
 	secretcontroller.ValidateClientConfig = mockValidateClientConfig
 	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
+	secretcontroller.CreateMetadataInterfaceFromClusterConfig = mockCreateMetaInterfaceFromClusterConfig
+	secretcontroller.CreateDynamicInterfaceFromClusterConfig = mockCreateDynamicInterfaceFromClusterConfig
 
 	clientset := fake.NewSimpleClientset()
 	b := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {

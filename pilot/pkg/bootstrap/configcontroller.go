@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,9 +98,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 				return err
 			}
 		}
-		if features.EnableStatus {
-			s.initStatusController(args)
-		}
+		s.initStatusController(args, features.EnableStatus)
 	}
 
 	// Used for tests.
@@ -333,25 +331,27 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initStatusController(args *PilotArgs) {
-	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-		leaderelection.
-			NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
-			AddRunFunction(func(stop <-chan struct{}) {
-				(&status.DistributionController{QPS: float32(features.StatusQPS), Burst: features.StatusBurst}).
-					Start(s.kubeConfig, args.Namespace, stop)
-			}).Run(stop)
-		return nil
-	})
+func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	s.statusReporter = &status.Reporter{
 		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
 		PodName:        args.PodName,
 	}
 	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-		s.statusReporter.Start(s.kubeClient, args.Namespace, s.configController, stop)
+		s.statusReporter.Start(s.kubeClient, args.Namespace, s.configController, writeStatus, stop)
 		return nil
 	})
 	s.EnvoyXdsServer.StatusReporter = s.statusReporter
+	if writeStatus {
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			leaderelection.
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+				AddRunFunction(func(stop <-chan struct{}) {
+					(&status.DistributionController{QPS: float32(features.StatusQPS), Burst: features.StatusBurst}).
+						Start(s.kubeConfig, args.Namespace, stop)
+				}).Run(stop)
+			return nil
+		})
+	}
 }
 
 func (s *Server) mcpController(

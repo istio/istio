@@ -59,7 +59,7 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=master-2020-05-20T22-13-03
+  export IMAGE_VERSION=master-2020-05-28T00-40-33
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   export IMAGE_NAME=build-tools
@@ -95,20 +95,20 @@ export CONDITIONAL_HOST_MOUNTS=${CONDITIONAL_HOST_MOUNTS:-}
 
 # docker conditional host mount (needed for make docker push)
 if [[ -d "${HOME}/.docker" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.docker,destination=/config/.docker,readonly "
+  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.docker,destination=/config/.docker,readonly,consistency=delegated "
 fi
 
 # gcloud conditional host mount (needed for docker push with the gcloud auth configure-docker)
 if [[ -d "${HOME}/.config/gcloud" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.config/gcloud,destination=/config/.config/gcloud,readonly "
+  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.config/gcloud,destination=/config/.config/gcloud,readonly,consistency=delegated "
 fi
 
 # Conditional host mount if KUBECONFIG is set
 if [[ -n "${KUBECONFIG}" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=$(dirname "${KUBECONFIG}"),destination=/home/.kube,readonly "
+  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=$(dirname "${KUBECONFIG}"),destination=/home/.kube,readonly,consistency=delegated "
 elif [[ -f "${HOME}/.kube/config" ]]; then
   # otherwise execute a conditional host mount if $HOME/.kube/config is set
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.kube,destination=/home/.kube,readonly "
+  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.kube,destination=/home/.kube,readonly,consistency=delegated "
 fi
 
 # Avoid recursive calls to make from attempting to start an additional container

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 // clusters and initialize the multicluster structures.
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if hasKubeRegistry(args.Service.Registries) {
+		log.Info("initializing Kubernetes cluster registry")
 		mc, err := controller.NewMulticluster(s.kubeClient,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions,

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ type Config struct {
 	IP string
 
 	// CertDir is the directory where mTLS certs are configured.
-	// If emtpy, an insecure connection will be used.
+	// If empty, an insecure connection will be used.
 	// TODO: also allow passing in-memory certs.
 	CertDir string
 
@@ -151,6 +151,11 @@ type ADSC struct {
 	// TODO: also load at startup - so we can support warm up in init-container, and survive
 	// restarts.
 	LocalCacheDir string
+
+	cfg *Config
+
+	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
+	sendNodeMeta bool
 }
 
 const (
@@ -168,6 +173,9 @@ var (
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
+	if opts == nil {
+		opts = &Config{}
+	}
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),
 		XDSUpdates:  make(chan *xdsapi.DiscoveryResponse, 100),
@@ -175,6 +183,10 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		certDir:     certDir,
 		url:         url,
 		Received:    map[string]*xdsapi.DiscoveryResponse{},
+		cfg:         opts,
+	}
+	if certDir != "" {
+		opts.CertDir = certDir
 	}
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
@@ -251,7 +263,7 @@ func (a *ADSC) Close() {
 	a.mutex.Unlock()
 }
 
-// Run will run the ADS client.
+// Run will run one connection to the ADS client.
 func (a *ADSC) Run() error {
 
 	// TODO: pass version info, nonce properly
@@ -284,6 +296,15 @@ func (a *ADSC) Run() error {
 		return err
 	}
 	a.stream = edsstr
+	a.sendNodeMeta = true
+
+	// Send the initial requests
+	for _, r := range a.cfg.Watch {
+		_ = a.Send(&xdsapi.DiscoveryRequest{
+			TypeUrl: r,
+		})
+	}
+
 	go a.handleRecv()
 	return nil
 }
@@ -712,8 +733,12 @@ func (a *ADSC) node() *core.Node {
 	return n
 }
 
+// Raw send of a request.
 func (a *ADSC) Send(req *xdsapi.DiscoveryRequest) error {
-	req.Node = a.node()
+	if a.sendNodeMeta {
+		req.Node = a.node()
+		a.sendNodeMeta = false
+	}
 	req.ResponseNonce = time.Now().String()
 	return a.stream.Send(req)
 }

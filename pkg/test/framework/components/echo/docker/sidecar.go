@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/docker"
@@ -120,6 +122,19 @@ func (s *sidecar) WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.Con
 	}
 }
 
+func (s *sidecar) Stats() (map[string]*dto.MetricFamily, error) {
+	return s.proxyStats()
+}
+
+func (s *sidecar) StatsOrFail(t test.Failer) map[string]*dto.MetricFamily {
+	t.Helper()
+	stats, err := s.Stats()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stats
+}
+
 func (s *sidecar) Clusters() (*envoyAdmin.Clusters, error) {
 	msg := &envoyAdmin.Clusters{}
 	if err := s.adminRequest("clusters?format=json", msg); err != nil {
@@ -171,6 +186,22 @@ func (s *sidecar) adminRequest(path string, out proto.Message) error {
 			path, err, string(result.StdErr), string(result.StdOut))
 	}
 	return nil
+}
+
+func (s *sidecar) proxyStats() (map[string]*dto.MetricFamily, error) {
+	arg := fmt.Sprintf("http://%s:%d/stats/prometheus", localhost, proxyAdminPort)
+	result, err := s.container.Exec(context.Background(), "curl", arg)
+	if err != nil {
+		return nil, fmt.Errorf("failed exec on container %s: %v. Command: curl %s. Output:\n%+v",
+			s.container.Name, err, arg, result)
+	}
+
+	parser := expfmt.TextParser{}
+	mfMap, err := parser.TextToMetricFamilies(bytes.NewReader(result.StdOut))
+	if err != nil {
+		return nil, fmt.Errorf("failed parsing prometheus stats: %v", err)
+	}
+	return mfMap, nil
 }
 
 func (s *sidecar) Logs() (string, error) {

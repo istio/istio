@@ -12,38 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package process
+package authenticate
 
-import (
-	"errors"
-	"testing"
+import "context"
 
-	. "github.com/onsi/gomega"
-)
+// Caller carries the identity and authentication source of a caller.
+type Caller struct {
+	AuthSource AuthSource
+	Identities []string
+}
 
-func TestComponentFromFns(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	var started bool
-	var stopped bool
-	var startErr error
-	c := ComponentFromFns(
-		func() error {
-			started = true
-			return startErr
-		},
-		func() {
-			stopped = true
-		})
-
-	err := c.Start()
-	g.Expect(err).To(BeNil())
-	g.Expect(started).To(BeTrue())
-
-	c.Stop()
-	g.Expect(stopped).To(BeTrue())
-
-	startErr = errors.New("some error")
-	err = c.Start()
-	g.Expect(err).NotTo(BeNil())
+type Authenticator interface {
+	Authenticate(ctx context.Context) (*Caller, error)
+	AuthenticatorType() string
 }

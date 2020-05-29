@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -105,6 +105,11 @@ var ALPNH2Only = []string{"h2"}
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 // Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
 var ALPNInMeshH2 = []string{"istio", "h2"}
+
+// ALPNInMeshH2WithMxc advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+// The custom "istio-peer-exchange" value indicates, metadata exchange is enabled for TCP.
+var ALPNInMeshH2WithMxc = []string{"istio-peer-exchange", "istio", "h2"}
 
 // ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.

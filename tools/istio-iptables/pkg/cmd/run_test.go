@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ func constructTestConfig() *config.Config {
 		InboundTProxyRouteTable: "133",
 		InboundPortsInclude:     "",
 		InboundPortsExclude:     "",
+		OutboundPortsInclude:    "",
 		OutboundPortsExclude:    "",
 		OutboundIPRangesInclude: "",
 		OutboundIPRangesExclude: "",
@@ -602,5 +603,66 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
+	}
+}
+
+func TestHandleOutboundPortsIncludeWithOutboundPorts(t *testing.T) {
+	cfg := constructTestConfig()
+	cfg.OutboundPortsInclude = "32000,31000"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.handleOutboundPortsInclude()
+
+	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	ip6Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
+	if !reflect.DeepEqual([]string{}, ip6Rules) {
+		t.Errorf("Expected ip6Rules to be empty; instead got %#v", ip6Rules)
+	}
+	expectedIpv4Rules := []string{
+		"iptables -t nat -N ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 32000 -j ISTIO_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 31000 -j ISTIO_REDIRECT",
+	}
+	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {
+		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv4Rules, ip4Rules)
+	}
+}
+
+func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
+	cfg := constructTestConfig()
+	cfg.OutboundIPRangesInclude = "127.1.2.3/32"
+	cfg.DryRun = true
+	dnsVar.DefaultValue = "ALL"
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.cfg.EnableInboundIPv6 = false
+	iptConfigurator.cfg.ProxyGID = "1,2"
+	iptConfigurator.cfg.ProxyUID = "3,4"
+	iptConfigurator.run()
+	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	expected := []string{
+		"iptables -t nat -N ISTIO_REDIRECT",
+		"iptables -t nat -N ISTIO_IN_REDIRECT",
+		"iptables -t nat -N ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
+		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 3 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 4 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 4 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 1 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 2 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -d 127.1.2.3/32 -j ISTIO_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 15013",
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)
 	}
 }

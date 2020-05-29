@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -187,7 +187,6 @@ func DefaultArgs() *Args {
 		CredentialOptions:               creds.DefaultOptions(),
 		ConfigPath:                      "",
 		DomainSuffix:                    constants.DefaultKubernetesDomain,
-		DisableResourceReadyCheck:       false,
 		ExcludedResourceKinds:           kuberesource.DefaultExcludedResourceKinds(),
 		SinkMeta:                        make([]string, 0),
 		KeepAlive:                       keepalive.DefaultOption(),
@@ -236,7 +235,6 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
 	_, _ = fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
 	_, _ = fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
-	_, _ = fmt.Fprintf(buf, "DisableResourceReadyCheck: %v\n", a.DisableResourceReadyCheck)
 	_, _ = fmt.Fprintf(buf, "ExcludedResourceKinds: %v\n", a.ExcludedResourceKinds)
 	_, _ = fmt.Fprintf(buf, "SinkAddress: %v\n", a.SinkAddress)
 	_, _ = fmt.Fprintf(buf, "SinkAuthMode: %v\n", a.SinkAuthMode)

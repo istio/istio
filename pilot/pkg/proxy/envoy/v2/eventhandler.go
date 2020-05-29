@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@ package v2
 
 // EventHandler allows for generic monitoring of xDS ACKS and disconnects, for the purpose of tracking
 // Config distribution through the mesh.
-type DistributionEventHandler interface {
+type DistributionStatusCache interface {
 	// RegisterEvent notifies the implementer of an xDS ACK, and must be non-blocking
 	RegisterEvent(conID string, xdsType string, nonce string)
 	RegisterDisconnect(s string, urls []string)
+	QueryLastNonce(conID string, xdsType string) (noncePrefix string)
 }

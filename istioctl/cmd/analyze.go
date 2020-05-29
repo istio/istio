@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -102,6 +102,7 @@ func Analyze() *cobra.Command {
 	for k := range msgOutputFormats {
 		msgOutputFormatKeys = append(msgOutputFormatKeys, k)
 	}
+	sort.Strings(msgOutputFormatKeys)
 
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",

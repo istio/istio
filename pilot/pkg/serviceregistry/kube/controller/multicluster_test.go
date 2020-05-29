@@ -1,6 +1,6 @@
 // +build !race
 
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/metadata"
@@ -98,12 +100,19 @@ func mockCreateMetaInterfaceFromClusterConfig(_ *clientcmdapi.Config) (metadata.
 	return metafake.NewSimpleMetadataClient(scheme), nil
 }
 
+func mockCreateDynamicInterfaceFromClusterConfig(_ *clientcmdapi.Config) (dynamic.Interface, error) {
+	scheme := runtime.NewScheme()
+	metav1.AddMetaToScheme(scheme)
+	return dynamicfake.NewSimpleDynamicClient(scheme), nil
+}
+
 // This test is skipped by the build tag !race due to https://github.com/istio/istio/issues/15610
 func Test_KubeSecretController(t *testing.T) {
 	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
 	secretcontroller.ValidateClientConfig = mockValidateClientConfig
 	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
 	secretcontroller.CreateMetadataInterfaceFromClusterConfig = mockCreateMetaInterfaceFromClusterConfig
+	secretcontroller.CreateDynamicInterfaceFromClusterConfig = mockCreateDynamicInterfaceFromClusterConfig
 
 	clientset := fake.NewSimpleClientset()
 	mc, err := NewMulticluster(clientset,

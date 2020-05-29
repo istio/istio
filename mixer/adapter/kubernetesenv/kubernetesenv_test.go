@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,8 +27,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/metadata"
+	metafake "k8s.io/client-go/metadata/fake"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
@@ -526,6 +530,18 @@ func mockValidateClientConfig(_ clientcmdapi.Config) error {
 
 func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
+}
+
+func mockCreateMetaInterfaceFromClusterConfig(_ *clientcmdapi.Config) (metadata.Interface, error) {
+	scheme := runtime.NewScheme()
+	metav1.AddMetaToScheme(scheme)
+	return metafake.NewSimpleMetadataClient(scheme), nil
+}
+
+func mockCreateDynamicInterfaceFromClusterConfig(_ *clientcmdapi.Config) (dynamic.Interface, error) {
+	scheme := runtime.NewScheme()
+	metav1.AddMetaToScheme(scheme)
+	return dynamicfake.NewSimpleDynamicClient(scheme), nil
 }
 
 // Kubernetes Runtime Object for Tests

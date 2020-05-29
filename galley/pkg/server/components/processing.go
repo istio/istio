@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/envvar"
-	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema"
@@ -80,8 +79,6 @@ type Processing struct {
 	listener      net.Listener
 	stopCh        chan struct{}
 }
-
-var _ process.Component = &Processing{}
 
 // NewProcessing returns a new processing component.
 func NewProcessing(a *settings.Args) *Processing {

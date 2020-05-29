@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,6 +63,9 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
+		if s.InternalGen != nil {
+			s.InternalGen.OnNack(con.node, discReq)
+		}
 		return w, true
 	}
 
@@ -111,6 +114,9 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 		TypeUrl:     w.TypeUrl,
 		VersionInfo: push.Version, // TODO: we can now generate per-type version !
 		Nonce:       nonce(push.Version),
+	}
+	if push.Version == "" { // Usually in tests.
+		resp.VersionInfo = resp.Nonce
 	}
 
 	// XdsResourceGenerator is the default generator for this connection. We want to allow

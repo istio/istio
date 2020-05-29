@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -855,15 +855,8 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 	if outlier.BaseEjectionTime != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
 	}
-	if outlier.ConsecutiveErrors < 0 {
-		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors cannot be negative"))
-	}
-	if outlier.Consecutive_5XxErrors != nil || outlier.ConsecutiveGatewayErrors != nil {
-		// ConsecutiveErrors is deprecated for Consecutive_5XxErrors and
-		// ConsecutiveGatewayErrors; they should not be set at the same time.
-		if outlier.ConsecutiveErrors > 0 {
-			errs = appendErrors(errs, fmt.Errorf("consecutive_errors should not be set with consecutive_5xx_errors or consecutive_gateway_errors"))
-		}
+	if outlier.ConsecutiveErrors != 0 {
+		scope.Warnf("outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead")
 	}
 	if outlier.Interval != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))

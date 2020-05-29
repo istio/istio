@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -301,22 +301,6 @@ func TestGreenfield(t *testing.T) {
 	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), istiod, kubeApiMeta.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundleFail),
 			"istiod config created when endpoint is ready and invalid config is denied")
-}
-
-func TestUnregisterValidationWebhook(t *testing.T) {
-	g := NewGomegaWithT(t)
-	c := createTestController(t)
-
-	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, kubeApiMeta.CreateOptions{})
-	_ = c.configStore.Add(unpatchedWebhookConfig)
-	_ = c.endpointStore.Add(istiodEndpoint)
-
-	c.o.UnregisterValidationWebhook = true
-	reconcileHelper(t, c)
-
-	_, err := c.ValidatingWebhookConfigurations().Get(context.TODO(), istiod, kubeApiMeta.GetOptions{})
-	g.Expect(err).ShouldNot(Succeed())
-	g.Expect(kubeErrors.ReasonForError(err)).Should(Equal(kubeApiMeta.StatusReasonNotFound))
 }
 
 func TestCABundleChange(t *testing.T) {

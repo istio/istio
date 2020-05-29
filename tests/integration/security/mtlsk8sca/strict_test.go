@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import (
 // - Send HTTP/gRPC requests between apps.
 func TestMtlsStrictK8sCA(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.control-plane.k8s-certs").
 		Run(func(ctx framework.TestContext) {
 
 			rctx := reachability.CreateContext(ctx, p)

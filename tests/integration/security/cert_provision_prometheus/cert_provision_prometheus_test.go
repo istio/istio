@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,6 +86,7 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.v1.enabled"] = "false"
 	cfg.Values["telemetry.v2.enabled"] = "true"
 	cfg.Values["prometheus.enabled"] = "true"
+	cfg.Values["meshConfig.enablePrometheusMerge"] = "false"
 }
 
 func testsetup(ctx resource.Context) error {
