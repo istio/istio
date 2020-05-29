@@ -1459,7 +1459,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// If we have an HTTP service bound to 0.0.0.0, then this will intercept all traffic. This leads to
 	// passthrough traffic for non-HTTP traffic failing, as the HCM will reject it. Instead, we must set up
 	// protocol sniffing to capture TCP traffic and direct it to the passthrough cluster directly
-	createTcpFallthrough := outboundSniffingEnabled && listenerOpts.bind == actualWildcard && pluginParams.ListenerProtocol == istionetworking.ListenerProtocolHTTP
+	createTCPFallthrough := outboundSniffingEnabled && listenerOpts.bind == actualWildcard && pluginParams.ListenerProtocol == istionetworking.ListenerProtocolHTTP
 
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if pluginParams.Port.Protocol == protocol.HTTP_PROXY {
@@ -1493,7 +1493,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
 			// HTTP services, which can happen when a pod accesses a non registry service.
-			if createTcpFallthrough {
+			if createTCPFallthrough {
 				for _, opt := range opts {
 					if opt.match == nil {
 						opt.match = &listener.FilterChainMatch{}
@@ -1652,8 +1652,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				pluginParams, listenerMapKey, listenerMap, node)
 		} else {
 			listenerProtocol := pluginParams.Port.Protocol
-			if createTcpFallthrough {
-				// if we have a tcp fallthrough fitler chain, this is no longer an HTTP listener - it
+			if createTCPFallthrough {
+				// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
 				// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
 				// inspection to route between them
 				listenerProtocol = protocol.Unsupported
