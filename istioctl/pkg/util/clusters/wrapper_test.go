@@ -39,9 +39,9 @@ func TestMarshalJSON(t *testing.T) {
 			in: &Wrapper{
 				Clusters: &adminapi.Clusters{
 					ClusterStatuses: []*adminapi.ClusterStatus{{
-							Name:        "foo",
-							AddedViaApi: false,
-						},
+						Name:        "foo",
+						AddedViaApi: false,
+					},
 					},
 				},
 			},
@@ -74,9 +74,9 @@ func TestUnmarshalJSON(t *testing.T) {
 			expected: &Wrapper{
 				Clusters: &adminapi.Clusters{
 					ClusterStatuses: []*adminapi.ClusterStatus{{
-							Name:        "foo",
-							AddedViaApi: false,
-						},
+						Name:        "foo",
+						AddedViaApi: false,
+					},
 					},
 				},
 			},
