@@ -203,7 +203,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// Protected by flag to avoid breaking upgrades - should be enabled in multi-cluster/meshexpansion where
 	// XDS is exposed.
 	if s.Authenticators != nil && len(s.Authenticators) > 0 {
-		if err := credentials.CheckSecurityLevel(ctx, credentials.PrivacyAndIntegrity); err != nil {
+		if err := credentials.CheckSecurityLevel(ctx, credentials.PrivacyAndIntegrity); err == nil {
 			var authenticatedId *authenticate.Caller
 			for _, authn := range s.Authenticators {
 				u, err := authn.Authenticate(ctx)
