@@ -68,10 +68,25 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	return
 }
 
+// defaultSelector defines the default selector that will be used if one is not provided
+// This will select the default ingressgateway deployment provided by the standard installation
+// Configurable by meshConfig.ingressSelector.
+var defaultSelector = labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
+
 // ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
-func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.Config {
-	gateway := &networking.Gateway{
-		Selector: labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
+func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig, domainSuffix string) model.Config {
+	gateway := &networking.Gateway{}
+	// Setup the selector for the gateway
+	if len(mesh.IngressSelector) > 0 {
+		// If explicitly defined, use this one
+		gateway.Selector = labels.Instance{constants.IstioLabel: mesh.IngressSelector}
+	} else if mesh.IngressService != "istio-ingressgateway" {
+		// Otherwise, we will use the ingress service as the default. It is common for the selector and service
+		// to be the same, so this removes the need for two configurations
+		// However, if its istio-ingressgateway we need to use the old values for backwards compatibility
+		gateway.Selector = labels.Instance{constants.IstioLabel: mesh.IngressService}
+	} else {
+		gateway.Selector = defaultSelector
 	}
 
 	for i, tls := range ingress.Spec.TLS {
