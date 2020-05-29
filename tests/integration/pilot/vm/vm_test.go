@@ -59,6 +59,7 @@ values:
 // TODO:
 // * Clean up all the debug stuff
 // * Investigate if the changes to istio-start are safe
+// * Better DNS
 func TestVmTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
