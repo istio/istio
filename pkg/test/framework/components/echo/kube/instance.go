@@ -307,7 +307,7 @@ func (c *instance) initialize(pods []kubeCore.Pod) error {
 	}
 
 	if len(workloads) == 0 {
-		return fmt.Errorf("no pods found for service %s/%s/%s", c.cfg.Namespace.Name(), c.cfg.Service, c.cfg.Version)
+		return fmt.Errorf("no workloads found for service %s/%s/%s, from %v pods", c.cfg.Namespace.Name(), c.cfg.Service, c.cfg.Version, len(pods))
 	}
 
 	c.workloads = workloads
