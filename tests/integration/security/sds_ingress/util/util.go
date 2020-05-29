@@ -56,7 +56,6 @@ const (
 	genericScrtKey = "key"
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	genericScrtCaCert = "cacert"
-
 )
 
 type IngressCredential struct {
@@ -165,9 +164,9 @@ func createSecret(ingressType ingress.CallType, cn, ns string, ic IngressCredent
 			Namespace: ns,
 		},
 		Data: map[string][]byte{
-			tlsScrtCert: []byte(ic.ServerCert),
-			tlsScrtKey:  []byte(ic.PrivateKey),
-			tlsScrtCaCert:  []byte(ic.CaCert),
+			tlsScrtCert:   []byte(ic.ServerCert),
+			tlsScrtKey:    []byte(ic.PrivateKey),
+			tlsScrtCaCert: []byte(ic.CaCert),
 		},
 	}
 }
@@ -376,7 +375,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance) { 
 		})
 		credNames = append(credNames, cred)
 	}
-	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA , true)
+	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA, true)
 	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
