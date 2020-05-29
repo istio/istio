@@ -840,7 +840,6 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		pod := c.pods.getPodByIP(proxyIP)
 		if foreign, f := c.foreignRegistryInstancesByIP[proxyIP]; f {
 			var err error
-			out = append(out, foreign)
 			out, err = c.hydrateForeignServiceInstance(foreign)
 			if err != nil {
 				log.Warnf("hydrateForeignServiceInstance for %v failed: %v", proxy.ID, err)

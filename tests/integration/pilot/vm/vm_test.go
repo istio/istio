@@ -57,9 +57,6 @@ values:
   global:
     meshExpansion:
       enabled: true`
-		}, func(ctx resource.Context) error {
-			return nil
-			//return cert.CreateCASecret(ctx, ns.Name())
 		})).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {

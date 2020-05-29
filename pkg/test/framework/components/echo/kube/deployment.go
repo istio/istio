@@ -321,7 +321,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		}
 	}
 
-	var istiodIp, istiodPort string
+	var istiodIP, istiodPort string
 	if cfg.DeployAsVM {
 		s, err := kube.NewSettingsFromCommandLine()
 		if err != nil {
@@ -331,7 +331,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		if err != nil {
 			return "", "", err
 		}
-		istiodIp = addr.IP.String()
+		istiodIP = addr.IP.String()
 		istiodPort = strconv.Itoa(addr.Port)
 	}
 	namespace := ""
@@ -357,7 +357,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		"Cluster":             cfg.ClusterIndex(),
 		"Namespace":           namespace,
 		"VM": map[string]interface{}{
-			"IstiodIP":   istiodIp,
+			"IstiodIP":   istiodIP,
 			"IstiodPort": istiodPort,
 		},
 	}

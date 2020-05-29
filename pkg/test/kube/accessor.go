@@ -656,7 +656,7 @@ func (a *Accessor) GetClusterRoleBinding(role string) (*v1.ClusterRoleBinding, e
 
 // CreateNamespace with the given name. Also adds an "istio-testing" annotation.
 func (a *Accessor) CreateServiceAccountToken(ns string, serviceAccount string) (string, error) {
-	scopes.Framework.Debugf("Creating service account token for: %s/", ns, serviceAccount)
+	scopes.Framework.Debugf("Creating service account token for: %s/%s", ns, serviceAccount)
 
 	token, err := a.clientSet.CoreV1().ServiceAccounts(ns).CreateToken(context.TODO(), serviceAccount, &authenticationv1.TokenRequest{
 		Spec: authenticationv1.TokenRequestSpec{
