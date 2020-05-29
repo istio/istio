@@ -18,11 +18,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"errors"
 	"reflect"
 	"testing"
 
-	oidc "github.com/coreos/go-oidc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -124,78 +122,6 @@ func TestAuthenticate_clientCertAuthenticator(t *testing.T) {
 		if !reflect.DeepEqual(tc.caller, result) {
 			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v",
 				id, tc.caller, result)
-		}
-	}
-}
-
-type mockKeySet struct {
-	err     error
-	payload []byte
-}
-
-func (ks *mockKeySet) VerifySignature(ctx context.Context, jwt string) (payload []byte, err error) {
-	return ks.payload, ks.err
-}
-
-func TestAuthenticate_IDTokenAuthenticator(t *testing.T) {
-	payload := `{"iss":"https://foo", "email":"test@foo"}`
-	signedPayload := "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJodHRwczovL2ZvbyIsICJlbWFpbCI" +
-		"6InRlc3RAZm9vIn0.BzP-QWpGleJ9CmsIOahyuw1A-O5qmv5yKrfehHh2ubcT_Ug3RHXDyt3sunU14_NAmdtIhE7EO5ywS" +
-		"v1j8BEa1dZjJf3U8CICKj_MIe3EV_Ks2yzkgJr0UQ5xIa1IGaSITtARQUas7qzhArcECobDeINkMUaCup4nmQkWxg0rkjH3"
-
-	testCases := map[string]struct {
-		metadata       metadata.MD
-		verifyError    error
-		expectedErrMsg string
-		expectedCaller *Caller
-	}{
-		"No ID token": {
-			expectedErrMsg: "ID token extraction error: no metadata is attached",
-		},
-		"ID token with invalid signature": {
-			metadata:       metadata.MD{"authorization": []string{signedPayload}},
-			verifyError:    errors.New("invalid signature"),
-			expectedErrMsg: "failed to verify the ID token (error failed to verify signature: invalid signature)",
-		},
-		"ID token with correct signature": {
-			metadata: metadata.MD{"authorization": []string{signedPayload}},
-			expectedCaller: &Caller{
-				AuthSource: AuthSourceIDToken,
-				Identities: []string{"test@foo"},
-			},
-		},
-	}
-
-	for id, tc := range testCases {
-		ctx := context.Background()
-		if tc.metadata != nil {
-			ctx = metadata.NewIncomingContext(ctx, tc.metadata)
-		}
-
-		auth := &IDTokenAuthenticator{
-			verifier: oidc.NewVerifier(
-				"https://foo",
-				&mockKeySet{
-					err:     tc.verifyError,
-					payload: []byte(payload)},
-				&oidc.Config{
-					SkipClientIDCheck: true,
-					SkipExpiryCheck:   true,
-				})}
-		actual, err := auth.Authenticate(ctx)
-		if len(tc.expectedErrMsg) > 0 {
-			if err == nil {
-				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
-			} else if err.Error() != tc.expectedErrMsg {
-				t.Errorf("Case %s: Incorrect error message: want %s but got %s", id, tc.expectedErrMsg, err.Error())
-			}
-		} else if err != nil {
-			t.Fatalf("Case %s: Unexpected Error: %v", id, err)
-		}
-		if tc.expectedCaller != nil {
-			if !reflect.DeepEqual(tc.expectedCaller, actual) {
-				t.Errorf("Case %s: Unexpected caller: want %v but got %v", id, tc.expectedCaller, actual)
-			}
 		}
 	}
 }
