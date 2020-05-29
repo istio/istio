@@ -217,7 +217,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: istio-proxy
-        image: registry:5000/app_sidecar:1590709267
+        image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
         #image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
         securityContext:

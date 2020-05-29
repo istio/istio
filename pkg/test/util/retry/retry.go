@@ -81,7 +81,6 @@ type RetriableFunc func() (result interface{}, completed bool, err error)
 func UntilSuccess(fn func() error, options ...Option) error {
 	_, e := Do(func() (interface{}, bool, error) {
 		err := fn()
-		log.Errorf("howardjohn: %v", err)
 		if err != nil {
 			return nil, false, err
 		}

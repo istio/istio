@@ -777,10 +777,6 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 			continue
 		}
 		if selector.SubsetOf(fi.Endpoint.Labels) {
-
-			for _, p := range svc.Ports {
-				log.Errorf("howardjohn: build %v %+v", svc.Hostname, p)
-			}
 			// create an instance with endpoint whose service port name matches
 			// TODO(rshriram): we currently ignore the workload entry (endpoint) ports and setup 1-1 mapping
 			// from service port to endpoint port. Need to figure out a way to map workload entry port to
@@ -788,7 +784,6 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 			istioEndpoint := *fi.Endpoint
 			istioEndpoint.EndpointPort = uint32(servicePort.TargetPort)
 			istioEndpoint.ServicePortName = servicePort.Name
-			log.Errorf("howardjohn: built %+v", istioEndpoint)
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
 				ServicePort: servicePort,
@@ -832,10 +827,6 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
 		proxyIP := proxy.IPAddresses[0]
-		log.Errorf("howardjohn: foreignRegistryInstancesByIP is size %v. Looking for %v", len(c.foreignRegistryInstancesByIP), proxyIP)
-		for ip, i := range c.foreignRegistryInstancesByIP {
-			log.Errorf("howardjohn: has %v -> %+v", ip, i)
-		}
 
 		pod := c.pods.getPodByIP(proxyIP)
 		if foreign, f := c.foreignRegistryInstancesByIP[proxyIP]; f {

@@ -18,8 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -122,7 +120,6 @@ spec:
 
 			retry.UntilSuccessOrFail(ctx, func() error {
 				r, err := pod.Call(echo.CallOptions{Target: vm, PortName: "http"})
-				log.Errorf("howardjohn: %v -> %v", r.String(), err)
 				if err != nil {
 					return err
 				}
@@ -130,7 +127,6 @@ spec:
 			}, retry.Delay(100*time.Millisecond))
 			retry.UntilSuccessOrFail(ctx, func() error {
 				r, err := vm.Call(echo.CallOptions{Target: pod, PortName: "http"})
-				log.Errorf("howardjohn: %v -> %v", r.String(), err)
 				if err != nil {
 					return err
 				}
