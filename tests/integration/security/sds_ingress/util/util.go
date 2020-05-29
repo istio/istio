@@ -90,7 +90,7 @@ var IngressCredentialServerKeyCertB = IngressCredential{
 // and creates K8s secrets for ingress gateway.
 // nolint: interfacer
 func CreateIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames []string,
-	ingressType ingress.CallType, ingressCred IngressCredential, isGenericSecret bool) {
+	ingressType ingress.CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool) {
 	t.Helper()
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
@@ -103,7 +103,7 @@ func CreateIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames
 	// Create Kubernetes secret for ingress gateway
 	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
 	for _, cn := range credNames {
-		secret := createSecret(ingressType, cn, systemNS.Name(), ingressCred, isGenericSecret)
+		secret := createSecret(ingressType, cn, systemNS.Name(), ingressCred, isCompoundAndNotGeneric)
 		err := kubeAccessor.CreateSecret(systemNS.Name(), secret)
 		if err != nil {
 			t.Fatalf("Failed to create secret (error: %s)", err)
@@ -144,18 +144,19 @@ func DeleteIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames
 
 // createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
 // For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
-func createSecret(ingressType ingress.CallType, cn, ns string, ic IngressCredential, isGenericSecret bool) *v1.Secret {
+
+func createSecret(ingressType ingress.CallType, cn, ns string, ic IngressCredential, isCompoundAndNotGeneric bool) *v1.Secret {
 	if ingressType == ingress.Mtls {
-		if isGenericSecret {
+		if isCompoundAndNotGeneric {
 			return &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cn,
 					Namespace: ns,
 				},
 				Data: map[string][]byte{
-					genericScrtCert:   []byte(ic.ServerCert),
-					genericScrtKey:    []byte(ic.PrivateKey),
-					genericScrtCaCert: []byte(ic.CaCert),
+					tlsScrtCert:   []byte(ic.ServerCert),
+					tlsScrtKey:    []byte(ic.PrivateKey),
+					tlsScrtCaCert: []byte(ic.CaCert),
 				},
 			}
 		}
@@ -235,7 +236,7 @@ func SendRequest(ing ingress.Instance, host string, path string, callType ingres
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
 // from ingressCred.
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, // nolint:interfacer
-	ingressType ingress.CallType, ingressCred IngressCredential) {
+	ingressType ingress.CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool) {
 	t.Helper()
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
@@ -246,7 +247,7 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, 
 			t.Errorf("Failed to get secret %s:%s (error: %s)", scrt.Namespace, scrt.Name, err)
 			continue
 		}
-		scrt = updateSecret(ingressType, scrt, ingressCred)
+		scrt = updateSecret(ingressType, scrt, ingressCred, isCompoundAndNotGeneric)
 		if _, err = kubeAccessor.GetSecret(systemNS.Name()).Update(context.TODO(), scrt, metav1.UpdateOptions{}); err != nil {
 			t.Errorf("Failed to update secret %s:%s (error: %s)", scrt.Namespace, scrt.Name, err)
 		}
@@ -265,12 +266,17 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, 
 
 // createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
 // For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
-func updateSecret(ingressType ingress.CallType, scrt *v1.Secret, ic IngressCredential) *v1.Secret {
+func updateSecret(ingressType ingress.CallType, scrt *v1.Secret, ic IngressCredential, isCompoundAndNotGeneric bool) *v1.Secret {
 	if ingressType == ingress.Mtls {
-		scrt.Data[genericScrtCert] = []byte(ic.ServerCert)
-		scrt.Data[genericScrtKey] = []byte(ic.PrivateKey)
-		scrt.Data[genericScrtCaCert] = []byte(ic.CaCert)
-
+		if isCompoundAndNotGeneric {
+			scrt.Data[tlsScrtCert] = []byte(ic.ServerCert)
+			scrt.Data[tlsScrtKey] = []byte(ic.PrivateKey)
+			scrt.Data[tlsScrtCaCert] = []byte(ic.CaCert)
+		} else {
+			scrt.Data[genericScrtCert] = []byte(ic.ServerCert)
+			scrt.Data[genericScrtKey] = []byte(ic.PrivateKey)
+			scrt.Data[genericScrtCaCert] = []byte(ic.CaCert)
+		}
 	} else {
 		scrt.Data[tlsScrtCert] = []byte(ic.ServerCert)
 		scrt.Data[tlsScrtKey] = []byte(ic.PrivateKey)
@@ -387,7 +393,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance) { 
 		})
 		credNames = append(credNames, cred)
 	}
-	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA, true)
+	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA, false)
 	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
@@ -427,7 +433,7 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance) { /
 		})
 		credNames = append(credNames, cred)
 	}
-	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA, true)
+	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA, false)
 	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
