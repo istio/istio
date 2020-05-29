@@ -105,7 +105,7 @@ func (i *operatorComponent) Close() (err error) {
 			}
 			// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
 			for _, cm := range leaderElectionConfigMaps {
-				if e := cluster.DeleteConfigMap(i.settings.SystemNamespace, cm); e != nil {
+				if e := cluster.DeleteConfigMap(cm, i.settings.SystemNamespace); e != nil {
 					err = multierror.Append(err, e)
 				}
 			}
