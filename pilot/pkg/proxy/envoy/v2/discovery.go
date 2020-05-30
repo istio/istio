@@ -361,7 +361,9 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				startDebounce = lastConfigUpdateTime
 			}
 			timeChan = time.After(debounceBackoff)
-			debounceBackoff = backoffDelay(debounceBackoff)
+			if features.EnableDynamicDebounce {
+				debounceBackoff *= 2
+			}
 			req = req.Merge(r)
 		case <-timeChan:
 			if free {
@@ -379,20 +381,6 @@ func shouldStartDebounce(debouncedEvents int) bool {
 		return debouncedEvents == 2
 	}
 	return debouncedEvents == 1
-}
-
-func backoffDelay(currentDelay time.Duration) time.Duration {
-	debounceBackoff := currentDelay
-	if features.EnableDynamicDebounce {
-		debounceBackoff *= 2
-		if debounceBackoff < 0 {
-			debounceBackoff = debounceAfter
-		}
-		if debounceBackoff > debounceMax {
-			debounceBackoff = debounceMax
-		}
-	}
-	return debounceBackoff
 }
 
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
