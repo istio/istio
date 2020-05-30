@@ -196,7 +196,7 @@ func TestDebounce(t *testing.T) {
 			name: "Should debounce full pushes",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				updateCh <- &model.PushRequest{Full: true}
-				expect(0, 0)
+				expect(0, 1)
 			},
 		},
 		{

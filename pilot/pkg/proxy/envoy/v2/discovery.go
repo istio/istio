@@ -352,7 +352,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			// When dynamic debounce is enabled, we should push first request.
 			if (features.EnableDynamicDebounce && debouncedEvents == 1) || (!enableEDSDebounce && !r.Full) {
 				// trigger push now, just for EDS
-				go pushFn(r)
+				go push(r)
 				continue
 			}
 
