@@ -52,6 +52,7 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
+        # Not supported in K8S 1.15 - use runAsRoot=true
         allowPrivilegeEscalation: false
         capabilities:
           drop:
