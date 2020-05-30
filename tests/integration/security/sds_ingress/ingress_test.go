@@ -229,8 +229,8 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			var (
-				credName = []string{"testsinglemtlsgatewaywithcacert-compoundsecretrotation"}
-				host     = "testsinglemtlsgatewaywithcacert-compoundsecretrotation.example.com"
+				credName = []string{"testsinglemtlsgatewayandnotgeneric-compoundsecretrotation"}
+				host     = "testsinglemtlsgatewayandnotgeneric-compoundsecretrotation.example.com"
 			)
 
 			// Add kubernetes secret to provision key/cert for ingress gateway.

@@ -166,9 +166,9 @@ func createSecret(ingressType ingress.CallType, cn, ns string, ic IngressCredent
 				Namespace: ns,
 			},
 			Data: map[string][]byte{
-				tlsScrtCert:   []byte(ic.ServerCert),
-				tlsScrtKey:    []byte(ic.PrivateKey),
-				tlsScrtCaCert: []byte(ic.CaCert),
+				genericScrtCert:   []byte(ic.ServerCert),
+				genericScrtKey:    []byte(ic.PrivateKey),
+				genericScrtCaCert: []byte(ic.CaCert),
 			},
 		}
 	}
