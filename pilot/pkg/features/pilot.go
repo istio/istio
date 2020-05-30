@@ -82,6 +82,12 @@ var (
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	)
 
+	EnableDynamicDebounce = env.RegisterBoolVar(
+		"PILOT_ENABLE_DYNAMIC_DEBOUNCE",
+		true,
+		"If enabled, Pilot will switch to dynamic back off debounce instead of fixed debounce logic",
+	).Get()
+
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	//
 	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces

@@ -78,7 +78,6 @@ const (
 func init() {
 	debounceAfter = features.DebounceAfter
 	debounceMax = features.DebounceMax
-	enableEDSDebounce = features.EnableEDSDebounce.Get()
 }
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -302,6 +301,10 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 
 	pushCounter := 0
 	debouncedEvents := 0
+	// back-off for deboumce. For fixed debouncer, it will be constant.
+	// When dynamic debouncer is enabled, this will be incremental
+	// backoff like 100 ms, 200 ms, 400 ms etc.
+	debounceBackoff := debounceAfter
 
 	// Keeps track of the push requests. If updates are debounce they will be merged.
 	var req *model.PushRequest
@@ -315,15 +318,15 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 	}
 
 	pushWorker := func() {
-		eventDelay := time.Since(startDebounce)
+		debounceDelay := time.Since(startDebounce)
 		quietTime := time.Since(lastConfigUpdateTime)
 		// it has been too long or quiet enough
-		if eventDelay >= debounceMax || quietTime >= debounceAfter {
+		if debounceDelay >= debounceMax || quietTime >= debounceBackoff {
 			if req != nil {
 				pushCounter++
 				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
 					pushCounter, debouncedEvents,
-					quietTime, eventDelay, req.Full)
+					quietTime, debounceDelay, req.Full)
 
 				free = false
 				go push(req)
@@ -331,7 +334,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				debouncedEvents = 0
 			}
 		} else {
-			timeChan = time.After(debounceAfter - quietTime)
+			timeChan = time.After(debounceMax - debounceBackoff)
 		}
 	}
 
@@ -345,19 +348,20 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			if len(r.Reason) == 0 {
 				r.Reason = []model.TriggerReason{model.UnknownTrigger}
 			}
-			if !enableEDSDebounce && !r.Full {
+			debouncedEvents++
+			// When dynamic debounce is enabled, we should push first request.
+			if (features.EnableDynamicDebounce && debouncedEvents == 1) || (!enableEDSDebounce && !r.Full) {
 				// trigger push now, just for EDS
 				go pushFn(r)
 				continue
 			}
 
 			lastConfigUpdateTime = time.Now()
-			if debouncedEvents == 0 {
-				timeChan = time.After(debounceAfter)
+			if shouldStartDebounce(debouncedEvents) {
 				startDebounce = lastConfigUpdateTime
 			}
-			debouncedEvents++
-
+			timeChan = time.After(debounceBackoff)
+			debounceBackoff = backoffDelay(debounceBackoff)
 			req = req.Merge(r)
 		case <-timeChan:
 			if free {
@@ -367,6 +371,28 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			return
 		}
 	}
+}
+
+func shouldStartDebounce(debouncedEvents int) bool {
+	// When dynamic debouncing is enabled, we should start debounce from secomd request.
+	if features.EnableDynamicDebounce {
+		return debouncedEvents == 2
+	}
+	return debouncedEvents == 1
+}
+
+func backoffDelay(currentDelay time.Duration) time.Duration {
+	debounceBackoff := currentDelay
+	if features.EnableDynamicDebounce {
+		debounceBackoff *= 2
+		if debounceBackoff < 0 {
+			debounceBackoff = debounceAfter
+		}
+		if debounceBackoff > debounceMax {
+			debounceBackoff = debounceMax
+		}
+	}
+	return debounceBackoff
 }
 
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
