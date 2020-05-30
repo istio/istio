@@ -17,8 +17,8 @@ package v3
 import "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
 const (
-	EndpointType = resource.EndpointType
 	ClusterType  = resource.ClusterType
+	EndpointType = resource.EndpointType
 	ListenerType = resource.ListenerType
 	RouteType    = resource.RouteType
 )

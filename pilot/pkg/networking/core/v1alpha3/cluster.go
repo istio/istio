@@ -24,7 +24,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	envoytypes "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/gogo/protobuf/types"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -859,7 +859,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		if c.CommonLbConfig == nil {
 			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 		}
-		c.CommonLbConfig.HealthyPanicThreshold = &typev3.Percent{Value: float64(outlier.MinHealthPercent)} // defaults to 50
+		c.CommonLbConfig.HealthyPanicThreshold = &envoytypes.Percent{Value: float64(outlier.MinHealthPercent)} // defaults to 50
 	}
 }
 
