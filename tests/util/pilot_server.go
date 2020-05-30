@@ -25,6 +25,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
@@ -71,6 +72,8 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		pilotHTTP = "0"
 	}
 	httpAddr := ":" + pilotHTTP
+
+	features.DebounceMax = features.DebounceAfter * 5
 
 	meshConfig := mesh.DefaultMeshConfig()
 	meshConfig.EnableAutoMtls.Value = false
