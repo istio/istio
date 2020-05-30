@@ -176,7 +176,10 @@ type Controller struct {
 	services       cache.SharedIndexInformer
 	endpoints      kubeEndpointsController
 
+	// For k8s >=1.15
 	nodeMetadataInformer cache.SharedIndexInformer
+	// For k8s < 1.15
+	nodeInformer cache.SharedIndexInformer
 	// Used to watch node accessible from remote cluster.
 	// In multi-cluster(shared control plane multi-networks) scenario, ingress gateway service can be of nodePort type.
 	// With this, we can populate mesh's gateway address with the node ips.
@@ -248,11 +251,24 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		c.endpoints = newEndpointSliceController(c, sharedInformers)
 	}
 
-	// This is for getting the pod to node mapping, so that we can get the pod's locality.
-	metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
-	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-	c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
+	// check k8s apiserver version, only apply metadata informer when version >= 1.15
+	// https://github.com/kubernetes/kubernetes/issues/91582
+	k8sVersion, _ := client.Discovery().ServerVersion()
+	if k8sVersion != nil && k8sVersion.Major != "" {
+		if k8sVersion.Major < "1" || (k8sVersion.Major == "1" && k8sVersion.Minor < "15") {
+			c.nodeInformer = coreinformers.NewNodeInformer(client, options.ResyncPeriod, cache.Indexers{})
+		}
+	}
+
+	if c.nodeInformer == nil {
+		// This is for getting the pod to node mapping, so that we can get the pod's locality.
+		metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
+		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+		c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
+	}
+
 	// This is for getting the node IPs of a selected set of nodes
+	// TODO(hzxuzhonghu): optimize don't list-watch all nodes.
 	c.filteredNodeInformer = coreinformers.NewFilteredNodeInformer(client, options.ResyncPeriod,
 		cache.Indexers{},
 		func(options *metav1.ListOptions) {})
@@ -462,10 +478,14 @@ func compareEndpoints(a, b *v1.Endpoints) bool {
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
+	nodeInformer := c.nodeMetadataInformer
+	if nodeInformer == nil {
+		nodeInformer = c.nodeInformer
+	}
 	if !c.services.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
-		!c.nodeMetadataInformer.HasSynced() ||
+		!nodeInformer.HasSynced() ||
 		!c.filteredNodeInformer.HasSynced() {
 		return false
 	}
@@ -484,13 +504,17 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 
+	nodeInformer := c.nodeMetadataInformer
+	if nodeInformer == nil {
+		nodeInformer = c.nodeInformer
+	}
 	go c.services.Run(stop)
 	go c.pods.informer.Run(stop)
-	go c.nodeMetadataInformer.Run(stop)
+	go nodeInformer.Run(stop)
 	go c.filteredNodeInformer.Run(stop)
 
 	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, c.nodeMetadataInformer.HasSynced, c.filteredNodeInformer.HasSynced,
+	cache.WaitForCacheSync(stop, nodeInformer.HasSynced, c.filteredNodeInformer.HasSynced,
 		c.pods.informer.HasSynced,
 		c.services.HasSynced)
 
@@ -583,18 +607,29 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
-	raw, exists, err := c.nodeMetadataInformer.GetStore().GetByKey(pod.Spec.NodeName)
-	if !exists || err != nil {
-		log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
-		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-		raw, err = c.metadataClient.Resource(nodeResource).Get(context.TODO(), pod.Spec.NodeName, metav1.GetOptions{})
-		if err != nil {
-			log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+	var obj interface{}
+	if c.nodeMetadataInformer != nil {
+		raw, exists, err := c.nodeMetadataInformer.GetStore().GetByKey(pod.Spec.NodeName)
+		if !exists || err != nil {
+			log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
+			nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+			raw, err = c.metadataClient.Resource(nodeResource).Get(context.TODO(), pod.Spec.NodeName, metav1.GetOptions{})
+			if err != nil {
+				log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+				return ""
+			}
+		}
+		obj = raw
+	} else {
+		node, exists, err := c.nodeInformer.GetStore().GetByKey(pod.Spec.NodeName)
+		if !exists || err != nil {
+			log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
 			return ""
 		}
+		obj = node
 	}
 
-	nodeMeta, err := meta.Accessor(raw)
+	nodeMeta, err := meta.Accessor(obj)
 	if err != nil {
 		log.Warnf("unable to get node meta: %v", nodeMeta)
 		return ""
