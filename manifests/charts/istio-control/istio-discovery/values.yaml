@@ -90,6 +90,7 @@ pilot:
 
   # Controls legacy k8s ingress
   # Only one pilot profile should enable ingress support !!!
+  # DEPRECATED: use meshConfig directly. Has no effect if meshConfig is set
   ingress:
     # If empty, node-port is assumed.
     ingressService: istio-ingressgateway
