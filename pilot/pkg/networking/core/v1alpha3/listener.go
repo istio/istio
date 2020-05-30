@@ -1449,6 +1449,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	conflictType := NoConflict
 
 	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound
+	listenerProtocol := pluginParams.Port.Protocol
 
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if pluginParams.Port.Protocol == protocol.HTTP_PROXY {
@@ -1483,7 +1484,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 					return
 				}
 			}
-
 			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
 			// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
@@ -1500,6 +1500,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 					}
 
 					listenerOpts.needHTTPInspector = true
+
+					// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
+					// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
+					// inspection to route between them
+					listenerProtocol = protocol.Unsupported
 				}
 			}
 			listenerOpts.filterChainOpts = opts
@@ -1656,7 +1661,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				servicePort: pluginParams.Port,
 				bind:        listenerOpts.bind,
 				listener:    mutable.Listener,
-				protocol:    pluginParams.Port.Protocol,
+				protocol:    listenerProtocol,
 			}
 		}
 	case HTTPOverTCP:
