@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,7 +58,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
-	alpn_filter "istio.io/istio/security/proto/envoy/config/filter/http/alpn/v2alpha1"
 )
 
 const (
@@ -1114,14 +1113,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 	// Now validate all the listeners. Collate the tcp listeners first and then the HTTP listeners
 	// TODO: This is going to be bad for caching as the order of listeners in tcpListeners or httpListeners is not
 	// guaranteed.
-	invalid := 0.0
-	for name, l := range listenerMap {
-		if err := l.listener.Validate(); err != nil {
-			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
-			invalid++
-			invalidOutboundListeners.Record(invalid)
-			continue
-		}
+	for _, l := range listenerMap {
 		if l.servicePort.Protocol.IsTCP() {
 			tcpListeners = append(tcpListeners, l.listener)
 		} else {
@@ -1457,6 +1449,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	conflictType := NoConflict
 
 	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound
+	listenerProtocol := pluginParams.Port.Protocol
 
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if pluginParams.Port.Protocol == protocol.HTTP_PROXY {
@@ -1478,14 +1471,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
 				// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
 				if currentListenerEntry.protocol.IsHTTP() {
-					conflictType = HTTPOverHTTP
+					// conflictType is HTTPOverHTTP
+					// In these cases, we just add the services and exit early rather than recreate an identical listener
+					currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
+					return
 				} else if currentListenerEntry.protocol.IsTCP() {
 					conflictType = HTTPOverTCP
 				} else {
-					conflictType = HTTPOverAuto
+					// conflictType is HTTPOverAuto
+					// In these cases, we just add the services and exit early rather than recreate an identical listener
+					currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
+					return
 				}
 			}
-
 			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
 			// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
@@ -1502,6 +1500,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 					}
 
 					listenerOpts.needHTTPInspector = true
+
+					// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
+					// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
+					// inspection to route between them
+					listenerProtocol = protocol.Unsupported
 				}
 			}
 			listenerOpts.filterChainOpts = opts
@@ -1579,7 +1582,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				} else if currentListenerEntry.protocol.IsTCP() {
 					conflictType = AutoOverTCP
 				} else {
-					conflictType = AutoOverAuto
+					// conflictType is AutoOverAuto
+					// In these cases, we just add the services and exit early rather than recreate an identical listener
+					currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
+					return
 				}
 			}
 
@@ -1655,13 +1661,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				servicePort: pluginParams.Port,
 				bind:        listenerOpts.bind,
 				listener:    mutable.Listener,
-				protocol:    pluginParams.Port.Protocol,
+				protocol:    listenerProtocol,
 			}
 		}
-
-	case HTTPOverHTTP, HTTPOverAuto:
-		// Append service only
-		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 	case HTTPOverTCP:
 		// Merge HTTP filter chain to TCP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(mutable.Listener.FilterChains, currentListenerEntry.listener.FilterChains)
@@ -1703,8 +1705,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.protocol = protocol.Unsupported
 		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 
-	case AutoOverAuto:
-		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
+	default:
+		// Covered previously - in this case we return early to prevent creating listeners that we end up throwing away
+		// This should never happen
+		log.Errorf("Got unexpected conflict type %v. This should never happen", conflictType)
 	}
 
 	if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListenerEntry != nil {
@@ -1916,27 +1920,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND {
-		filters = append(filters, &http_conn.HttpFilter{
-			Name: AlpnFilterName,
-			ConfigType: &http_conn.HttpFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&alpn_filter.FilterConfig{
-					AlpnOverride: []*alpn_filter.FilterConfig_AlpnOverride{
-						{
-							UpstreamProtocol: alpn_filter.FilterConfig_HTTP10,
-							AlpnOverride:     mtlsHTTP10ALPN,
-						},
-						{
-							UpstreamProtocol: alpn_filter.FilterConfig_HTTP11,
-							AlpnOverride:     mtlsHTTP11ALPN,
-						},
-						{
-							UpstreamProtocol: alpn_filter.FilterConfig_HTTP2,
-							AlpnOverride:     mtlsHTTP2ALPN,
-						},
-					},
-				}),
-			},
-		})
+		filters = append(filters, alpnFilter)
 	}
 
 	filters = append(filters, corsFilter, faultFilter, routerFilter)

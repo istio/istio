@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -159,6 +161,36 @@ func (s *sidecar) ListenersOrFail(t test.Failer) *envoyAdmin.Listeners {
 		t.Fatal(err)
 	}
 	return listeners
+}
+
+func (s *sidecar) Stats() (map[string]*dto.MetricFamily, error) {
+	return s.proxyStats()
+}
+
+func (s *sidecar) StatsOrFail(t test.Failer) map[string]*dto.MetricFamily {
+	t.Helper()
+	stats, err := s.Stats()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stats
+}
+
+func (s *sidecar) proxyStats() (map[string]*dto.MetricFamily, error) {
+	// Exec onto the pod and make a curl request to the admin port, writing
+	command := "pilot-agent request GET /stats/prometheus"
+	response, err := s.cluster.Exec(s.podNamespace, s.podName, proxyContainerName, command)
+	if err != nil {
+		return nil, fmt.Errorf("failed exec on pod %s/%s: %v. Command: %s. Output:\n%s",
+			s.podNamespace, s.podName, err, command, response)
+	}
+
+	parser := expfmt.TextParser{}
+	mfMap, err := parser.TextToMetricFamilies(strings.NewReader(response))
+	if err != nil {
+		return nil, fmt.Errorf("failed parsing prometheus stats: %v", err)
+	}
+	return mfMap, nil
 }
 
 func (s *sidecar) adminRequest(path string, out proto.Message) error {

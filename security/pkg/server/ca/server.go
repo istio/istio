@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,11 +47,6 @@ const (
 
 var serverCaLog = log.RegisterScope("serverca", "Citadel server log", 0)
 
-type authenticator interface {
-	Authenticate(ctx context.Context) (*authenticate.Caller, error)
-	AuthenticatorType() string
-}
-
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
@@ -67,7 +62,7 @@ type CertificateAuthority interface {
 // specified port.
 type Server struct {
 	monitoring     monitoringMetrics
-	Authenticators []authenticator
+	Authenticators []authenticate.Authenticator
 	hostnames      []string
 	authorizer     authorizer
 	ca             CertificateAuthority
@@ -242,7 +237,7 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
-	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
+	authenticators := []authenticate.Authenticator{&authenticate.ClientCertAuthenticator{}}
 	serverCaLog.Info("added client certificate authenticator")
 
 	// Only add k8s jwt authenticator if SDS is enabled.
@@ -251,19 +246,6 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 			trustDomain, jwtPolicy)
 		authenticators = append(authenticators, authenticator)
 		serverCaLog.Info("added K8s JWT authenticator")
-	}
-
-	// Temporarily disable ID token authenticator by resetting the hostlist.
-	// [TODO](myidpt): enable ID token authenticator when the CSR API authz can work correctly.
-	hostlistForJwtAuth := make([]string, 0)
-	for _, host := range hostlistForJwtAuth {
-		aud := fmt.Sprintf("grpc://%s:%d", host, port)
-		if jwtAuthenticator, err := authenticate.NewIDTokenAuthenticator(aud); err != nil {
-			serverCaLog.Errorf("failed to create JWT authenticator (error %v)", err)
-		} else {
-			authenticators = append(authenticators, jwtAuthenticator)
-			serverCaLog.Infof("added general JWT authenticator")
-		}
 	}
 
 	recordCertsExpiry(ca.GetCAKeyCertBundle())

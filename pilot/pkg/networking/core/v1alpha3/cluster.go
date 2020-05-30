@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -954,15 +954,6 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 
 	c := opts.cluster
 	proxy := opts.proxy
-
-	// Disable transport socket when cluster type is `Cluster_ORIGINAL_DST` and mtls is autoDetected
-	// We don't know whether headless service instance has sidecar injected or not.
-	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
-		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
-			return
-		}
-	}
-
 	certValidationContext := &auth.CertificateValidationContext{}
 	var trustedCa *core.DataSource
 	if len(tls.CaCertificates) != 0 {

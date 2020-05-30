@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/adsc"
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -42,6 +43,52 @@ const (
 	routeA = "http.80"
 	routeB = "https.443.https.my-gateway.testns"
 )
+
+func TestInternalEvents(t *testing.T) {
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	ldsr, close1, err := connectADSC(util.MockPilotGrpcAddr, &adsc.Config{
+		Watch: []string{v2.TypeURLConnections},
+		Meta: model.NodeMetadata{
+			Generator: "event",
+		}.ToStruct(),
+	})
+	if err != nil {
+		t.Fatal("Failed to connect", err)
+	}
+	defer close1()
+
+	dr, err := ldsr.WaitVersion(5*time.Second, v2.TypeURLConnections, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if dr.Resources == nil || len(dr.Resources) == 0 {
+		t.Error("No data")
+	}
+
+	// Create a second connection - we should get an event.
+	_, close2, err := connectADSC(util.MockPilotGrpcAddr, &adsc.Config{
+		Watch: []string{v2.ClusterTypeV3},
+	})
+	if err != nil {
+		t.Fatal("Failed to connect", err)
+	}
+	defer close2()
+
+	//
+	dr, err = ldsr.WaitVersion(5*time.Second, v2.TypeURLConnections,
+		dr.VersionInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dr.Resources == nil || len(dr.Resources) == 0 {
+		t.Fatal("No data")
+	}
+	t.Log(dr.Resources[0])
+
+}
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnectWithNonce(t *testing.T) {

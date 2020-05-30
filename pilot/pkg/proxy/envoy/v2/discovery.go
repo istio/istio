@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -111,6 +111,7 @@ type DiscoveryServer struct {
 	adsClientsMutex sync.RWMutex
 
 	StatusReporter DistributionStatusCache
+	InternalGen    *InternalGen
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update

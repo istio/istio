@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1133,6 +1133,11 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 
 func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) {
 	fetcher := &secretfetcher.SecretFetcher{}
+	originalTimeout := totalTimeout
+	totalTimeout = time.Second * 1
+	defer func() {
+		totalTimeout = originalTimeout
+	}()
 
 	opt := Options{
 		RotationInterval: 1 * time.Millisecond,

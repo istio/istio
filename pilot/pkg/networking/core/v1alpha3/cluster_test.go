@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -2329,7 +2329,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_ORIGINAL_DST,
 			tls:                        tlsSettings,
-			expectTransportSocket:      false,
+			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 		},
 	}
