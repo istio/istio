@@ -332,6 +332,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				go push(req)
 				req = nil
 				debouncedEvents = 0
+				debounceBackoff = debounceAfter
 			}
 		} else {
 			adsLog.Infof("Push debounce unstable[%d] %d: %v since last change, %v since last push, full=%v, new debounce= %v",
