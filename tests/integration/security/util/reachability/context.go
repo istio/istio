@@ -60,13 +60,13 @@ type TestCase struct {
 
 // Context is a context for reachability tests.
 type Context struct {
-	ctx          framework.TestContext
-	p            pilot.Instance
-	Namespace    namespace.Instance
-	A, B         echo.Instance
-	Multiversion echo.Instance
-	Headless     echo.Instance
-	Naked        echo.Instance
+	ctx              framework.TestContext
+	p                pilot.Instance
+	Namespace        namespace.Instance
+	A, B, C, D, E, F echo.Instance
+	Multiversion     echo.Instance
+	Headless         echo.Instance
+	Naked            echo.Instance
 }
 
 // CreateContext creates and initializes reachability context.
@@ -76,7 +76,7 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 		Inject: true,
 	})
 
-	var a, b, multiVersion, headless, naked echo.Instance
+	var a, b, c, d, e, f, multiVersion, headless, naked echo.Instance
 	cfg := util.EchoConfig("multiversion", ns, false, nil, p)
 	cfg.Subsets = []echo.SubsetConfig{
 		// Istio deployment, with sidecar.
@@ -92,6 +92,10 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 	echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil, p)).
 		With(&b, util.EchoConfig("b", ns, false, nil, p)).
+		With(&c, util.EchoConfig("c", ns, false, nil, p)).
+		With(&d, util.EchoConfig("d", ns, false, nil, p)).
+		With(&e, util.EchoConfig("e", ns, false, nil, p)).
+		With(&f, util.EchoConfig("f", ns, false, nil, p)).
 		With(&multiVersion, cfg).
 		With(&headless, util.EchoConfig("headless", ns, true, nil, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
