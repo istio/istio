@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -576,10 +576,10 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					connectionManager: &http_conn.HttpConnectionManager{
+					connectionManager: &hcm.HttpConnectionManager{
 						XffNumTrustedHops:        0,
-						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
-						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						ForwardClientCertDetails: hcm.HttpConnectionManager_SANITIZE_SET,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,
 							Uri:     true,
@@ -641,10 +641,10 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					connectionManager: &http_conn.HttpConnectionManager{
+					connectionManager: &hcm.HttpConnectionManager{
 						XffNumTrustedHops:        0,
-						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
-						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						ForwardClientCertDetails: hcm.HttpConnectionManager_SANITIZE_SET,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,
 							Uri:     true,
@@ -704,10 +704,10 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					connectionManager: &http_conn.HttpConnectionManager{
+					connectionManager: &hcm.HttpConnectionManager{
 						XffNumTrustedHops:        0,
-						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
-						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						ForwardClientCertDetails: hcm.HttpConnectionManager_SANITIZE_SET,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,
 							Uri:     true,
@@ -767,10 +767,10 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					connectionManager: &http_conn.HttpConnectionManager{
+					connectionManager: &hcm.HttpConnectionManager{
 						XffNumTrustedHops:        0,
-						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
-						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						ForwardClientCertDetails: hcm.HttpConnectionManager_SANITIZE_SET,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,
 							Uri:     true,
@@ -801,10 +801,10 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					connectionManager: &http_conn.HttpConnectionManager{
+					connectionManager: &hcm.HttpConnectionManager{
 						XffNumTrustedHops:        2,
-						ForwardClientCertDetails: http_conn.HttpConnectionManager_APPEND_FORWARD,
-						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,
 							Uri:     true,
@@ -869,10 +869,10 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					connectionManager: &http_conn.HttpConnectionManager{
+					connectionManager: &hcm.HttpConnectionManager{
 						XffNumTrustedHops:        3,
-						ForwardClientCertDetails: http_conn.HttpConnectionManager_FORWARD_ONLY,
-						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						ForwardClientCertDetails: hcm.HttpConnectionManager_FORWARD_ONLY,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,
 							Uri:     true,

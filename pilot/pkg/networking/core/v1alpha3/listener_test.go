@@ -25,7 +25,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -932,7 +932,7 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 			len(plaintextHTTPALPNs), plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 	}
 
-	hcm := &http_filter.HttpConnectionManager{}
+	hcm := &hcm.HttpConnectionManager{}
 	if err := getFilterConfig(fc.Filters[0], hcm); err != nil {
 		t.Fatalf("failed to get HCM, config %v", hcm)
 	}
@@ -948,7 +948,7 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 	}
 }
 
-func hasAlpnFilter(filters []*http_filter.HttpFilter) bool {
+func hasAlpnFilter(filters []*hcm.HttpFilter) bool {
 	for _, f := range filters {
 		if f.Name == AlpnFilterName {
 			return true
@@ -1433,7 +1433,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 	var customTagsTest = []struct {
 		name             string
 		in               *meshconfig.Tracing
-		out              *http_filter.HttpConnectionManager_Tracing
+		out              *hcm.HttpConnectionManager_Tracing
 		tproxy           model.Proxy
 		envPilotSampling float64
 	}{
@@ -1447,7 +1447,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         0,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1470,7 +1470,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         10,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1493,7 +1493,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         300,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1516,7 +1516,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         300,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1539,7 +1539,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         300,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1563,7 +1563,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         0,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1585,7 +1585,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 1024,
 				Sampling:         0,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: &wrappers.UInt32Value{
 					Value: 1024,
 				},
@@ -1632,7 +1632,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					},
 				},
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
 				},
@@ -1688,7 +1688,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					},
 				},
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
 				},
@@ -1754,10 +1754,10 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 	}
 }
 
-func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected *http_filter.HttpConnectionManager_Tracing, name string) {
+func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected *hcm.HttpConnectionManager_Tracing, name string) {
 	t.Helper()
 	if f.Name == "envoy.http_connection_manager" {
-		cmgr := &http_filter.HttpConnectionManager{}
+		cmgr := &hcm.HttpConnectionManager{}
 		err := getFilterConfig(f, cmgr)
 		if err != nil {
 			t.Fatal(err)
@@ -1869,7 +1869,7 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *listener.Listener) {
 
 		f := fc.Filters[0]
 		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
-		hf := cfg.Fields["http_filters"].GetListValue()
+		hf := cfg.Fields["hcms"].GetListValue()
 		if len(hf.Values) != 3 {
 			t.Fatalf("expected %d http filters, found %d", 3, len(hf.Values))
 		}
@@ -2115,7 +2115,7 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istio
 		}
 	case istionetworking.ListenerProtocolHTTP:
 		for cnum := range mutable.FilterChains {
-			filter := &http_filter.HttpFilter{
+			filter := &hcm.HttpFilter{
 				Name: fakePluginHTTPFilter,
 			}
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
