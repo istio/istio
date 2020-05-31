@@ -60,7 +60,7 @@ spec:
         privileged: false
         readOnlyRootFilesystem: true
 {{- end }}
-      serviceAccountName: istio-ingressgateway-service-account
+      serviceAccountName: {{ $gateway.name | default "istio-ingressgateway" }}-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
