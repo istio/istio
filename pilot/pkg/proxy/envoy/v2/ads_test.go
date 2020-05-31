@@ -669,6 +669,7 @@ func TestAdsPushScoping(t *testing.T) {
 }
 
 func TestAdsUpdate(t *testing.T) {
+	v2.DebounceMax = 100 * time.Millisecond
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 

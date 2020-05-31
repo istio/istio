@@ -170,8 +170,8 @@ func TestDebounce(t *testing.T) {
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
 	debounceAfter = time.Millisecond * 50
-	debounceMax = debounceAfter * 2
-	syncPushTime := 2 * features.DebounceMax
+	DebounceMax = debounceAfter * 2
+	syncPushTime := 2 * DebounceMax
 	enableEDSDebounce = false
 
 	tests := []struct {
@@ -225,13 +225,13 @@ func TestDebounce(t *testing.T) {
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				// Send many requests within debounce window
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(features.DebounceAfter / 2)
+				time.Sleep(debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(features.DebounceAfter / 2)
+				time.Sleep(debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(features.DebounceAfter / 2)
+				time.Sleep(debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(features.DebounceAfter / 2)
+				time.Sleep(debounceAfter / 2)
 				expect(0, 1)
 			},
 		},
@@ -295,7 +295,7 @@ func TestDebounce(t *testing.T) {
 						}
 						return nil
 					}
-				}, retry.Timeout(features.DebounceAfter*8), retry.Delay(features.DebounceAfter/2))
+				}, retry.Timeout(debounceAfter*8), retry.Delay(debounceAfter/2))
 				if err != nil {
 					t.Error(err)
 				}
