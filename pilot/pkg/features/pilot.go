@@ -70,7 +70,7 @@ var (
 
 	DebounceMax = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_MAX",
-		10*time.Second,
+		5*time.Second,
 		"The maximum amount of time to wait for events while debouncing. If events keep showing up with no breaks "+
 			"for this time, we'll trigger a push.",
 	).Get()
@@ -80,7 +80,7 @@ var (
 		true,
 		"If enabled, Pilot will include EDS pushes in the push debouncing, configured by PILOT_DEBOUNCE_AFTER and PILOT_DEBOUNCE_MAX."+
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
-	).Get()
+	)
 
 	EnableDynamicDebounce = env.RegisterBoolVar(
 		"PILOT_ENABLE_DYNAMIC_DEBOUNCE",

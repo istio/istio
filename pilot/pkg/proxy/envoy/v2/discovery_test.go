@@ -169,16 +169,10 @@ func TestDebounce(t *testing.T) {
 	// This test tests the timeout and debouncing of config updates
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
-	features.DebounceAfter = time.Millisecond * 50
-	features.DebounceMax = features.DebounceAfter * 2
+	debounceAfter = time.Millisecond * 50
+	debounceMax = debounceAfter * 2
 	syncPushTime := 2 * features.DebounceMax
-	features.EnableEDSDebounce = false
-
-	defer func() {
-		features.DebounceAfter = time.Millisecond * 10
-		features.DebounceMax = time.Second * 10
-		features.EnableEDSDebounce = true
-	}()
+	enableEDSDebounce = false
 
 	tests := []struct {
 		name string
