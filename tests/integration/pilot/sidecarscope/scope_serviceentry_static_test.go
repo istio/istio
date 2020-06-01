@@ -52,7 +52,7 @@ func TestServiceEntryStatic(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := p.WatchDiscovery(time.Second*500, checkResultStatic); err != nil {
+		if err := p.WatchDiscovery(time.Second*10, checkResultStatic); err != nil {
 			t.Error(err)
 		}
 
@@ -67,7 +67,7 @@ func TestServiceEntryStatic(t *testing.T) {
 		if err := p.StartDiscovery(ListenerReq); err != nil {
 			t.Fatal(err)
 		}
-		if err := p.WatchDiscovery(time.Second*500, checkResultStaticListener); err != nil {
+		if err := p.WatchDiscovery(time.Second*10, checkResultStaticListener); err != nil {
 			t.Error(err)
 		}
 	})
@@ -94,7 +94,7 @@ func TestSidecarScopeIngressListener(t *testing.T) {
 		if err := p.StartDiscovery(req); err != nil {
 			t.Fatal(err)
 		}
-		if err := p.WatchDiscovery(time.Second*12, checkSidecarIngressCluster); err != nil {
+		if err := p.WatchDiscovery(time.Second*5, checkSidecarIngressCluster); err != nil {
 			t.Fatal(err)
 		}
 

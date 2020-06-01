@@ -248,7 +248,7 @@ func TestEnvoyFilterHTTPFilterInsertBefore(t *testing.T) {
 		if err := p.StartDiscovery(listenerReq); err != nil {
 			t.Fatal(err)
 		}
-		if err := p.WatchDiscovery(time.Second*500, checkHTTPFilter); err != nil {
+		if err := p.WatchDiscovery(time.Second*10, checkHTTPFilter); err != nil {
 			t.Error(err)
 		}
 	})

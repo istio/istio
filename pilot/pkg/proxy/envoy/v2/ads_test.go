@@ -730,11 +730,11 @@ func TestAdsUpdate(t *testing.T) {
 	if res1, err = adsReceive(edsstr, 15*time.Second); err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
-	if res1.TypeUrl != v2.EndpointTypeV3 {
-		t.Errorf("Expecting %v got %v", v2.EndpointTypeV3, res1.TypeUrl)
+	if res1.TypeUrl != v3.EndpointType {
+		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.TypeUrl)
 	}
-	if res1.Resources[0].TypeUrl != v2.EndpointTypeV3 {
-		t.Errorf("Expecting %v got %v", v2.EndpointTypeV3, res1.Resources[0].TypeUrl)
+	if res1.Resources[0].TypeUrl != v3.EndpointType {
+		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.Resources[0].TypeUrl)
 	}
 	if _, err := getLoadAssignment(res1); err != nil {
 		t.Fatal("Invalid EDS response ", err)

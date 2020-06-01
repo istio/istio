@@ -139,7 +139,7 @@ func TestSidecarConfig(t *testing.T) {
 		if err := p.StartDiscovery(listenerReq); err != nil {
 			t.Fatal(err)
 		}
-		if err := p.WatchDiscovery(time.Second*500, checkFallThroughNetworkFilter); err != nil {
+		if err := p.WatchDiscovery(time.Second*10, checkFallThroughNetworkFilter); err != nil {
 			t.Fatal(err)
 		}
 
