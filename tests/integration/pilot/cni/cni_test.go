@@ -31,7 +31,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("cni", m).
 		RequireEnvironment(environment.Kube).
-		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 components:

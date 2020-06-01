@@ -69,7 +69,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("meshnetwork_test", m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {

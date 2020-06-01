@@ -35,7 +35,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("pilot_test", m).
-		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {

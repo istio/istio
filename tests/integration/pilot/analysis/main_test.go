@@ -28,7 +28,6 @@ import (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("pilot_analysis_test", m).
-		RequireSingleCluster().
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `

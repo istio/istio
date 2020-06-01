@@ -51,7 +51,6 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		// IngressClass is only present in 1.18+
 		RequireEnvironmentVersion("1.18").
-		RequireSingleCluster().
 		Setup(func(ctx resource.Context) (err error) {
 			if err := ctx.ApplyConfigDir("", "testdata"); err != nil {
 				return err
