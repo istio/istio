@@ -24,7 +24,7 @@ import (
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/gogo/protobuf/proto"
@@ -233,7 +233,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 }
 
 func buildTestClusters(serviceHostname string, serviceResolution model.Resolution,
-	nodeType model.NodeType, locality *corev3.Locality, mesh meshconfig.MeshConfig,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message) ([]*cluster.Cluster, error) {
 	return buildTestClustersWithAuthnPolicy(
 		serviceHostname,
@@ -248,7 +248,7 @@ func buildTestClusters(serviceHostname string, serviceResolution model.Resolutio
 }
 
 func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution model.Resolution, externalService bool,
-	nodeType model.NodeType, locality *corev3.Locality, mesh meshconfig.MeshConfig,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication) ([]*cluster.Cluster, error) {
 	return buildTestClustersWithProxyMetadata(
 		serviceHostname,
@@ -264,7 +264,7 @@ func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution 
 }
 
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, externalService bool,
-	nodeType model.NodeType, locality *corev3.Locality, mesh meshconfig.MeshConfig,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication,
 	meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*cluster.Cluster, error) {
 	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution, externalService,
@@ -275,7 +275,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 }
 
 func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution, externalService bool,
-	nodeType model.NodeType, locality *corev3.Locality, mesh meshconfig.MeshConfig,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication,
 	meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*cluster.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
@@ -1027,7 +1027,7 @@ func TestDisablePanicThresholdAsDefault(t *testing.T) {
 
 	for _, outlier := range outliers {
 		clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-			&corev3.Locality{}, testMesh,
+			&core.Locality{}, testMesh,
 			&networking.DestinationRule{
 				Host: "*.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -1111,7 +1111,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-				&corev3.Locality{}, testMesh,
+				&core.Locality{}, testMesh,
 				&networking.DestinationRule{
 					Host: "*.example.org",
 					TrafficPolicy: &networking.TrafficPolicy{
@@ -1140,7 +1140,7 @@ func TestStatNamePattern(t *testing.T) {
 	}
 
 	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&corev3.Locality{}, statConfigMesh,
+		&core.Locality{}, statConfigMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 		})
@@ -1153,7 +1153,7 @@ func TestDuplicateClusters(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&corev3.Locality{}, testMesh,
+		&core.Locality{}, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 		})
@@ -1177,7 +1177,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 	}
 
 	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&corev3.Locality{
+		&core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
 			SubZone: "subzone1",
@@ -1218,7 +1218,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
 
 	clusters, err = buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&corev3.Locality{
+		&core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
 			SubZone: "subzone1",
@@ -1266,7 +1266,7 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 	}
 
 	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&corev3.Locality{
+		&core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
 			SubZone: "subzone1",
@@ -1330,7 +1330,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 	}
 
 	clusters, err := buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, false, model.Router,
-		&corev3.Locality{
+		&core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
 			SubZone: "subzone1",
@@ -1379,7 +1379,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
 
 	clusters, err = buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, false, model.Router,
-		&corev3.Locality{
+		&core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
 			SubZone: "subzone1",
@@ -1444,7 +1444,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		},
 	}
 
-	emptyMetadata := &corev3.Metadata{
+	emptyMetadata := &core.Metadata{
 		FilterMetadata: make(map[string]*structpb.Struct),
 	}
 
@@ -1502,7 +1502,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			},
 			expected: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
@@ -1514,11 +1514,11 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 						{
 							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 								Endpoint: &endpoint.Endpoint{
-									Address: &corev3.Address{
-										Address: &corev3.Address_SocketAddress{
-											SocketAddress: &corev3.SocketAddress{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
 												Address: "192.168.1.1",
-												PortSpecifier: &corev3.SocketAddress_PortValue{
+												PortSpecifier: &core.SocketAddress_PortValue{
 													PortValue: 10001,
 												},
 											},
@@ -1534,11 +1534,11 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 						{
 							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 								Endpoint: &endpoint.Endpoint{
-									Address: &corev3.Address{
-										Address: &corev3.Address_SocketAddress{
-											SocketAddress: &corev3.SocketAddress{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
 												Address: "192.168.1.2",
-												PortSpecifier: &corev3.SocketAddress_PortValue{
+												PortSpecifier: &core.SocketAddress_PortValue{
 													PortValue: 10001,
 												},
 											},
@@ -1554,7 +1554,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region2",
 						Zone:    "zone1",
 						SubZone: "subzone1",
@@ -1566,11 +1566,11 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 						{
 							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 								Endpoint: &endpoint.Endpoint{
-									Address: &corev3.Address{
-										Address: &corev3.Address_SocketAddress{
-											SocketAddress: &corev3.SocketAddress{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
 												Address: "192.168.1.3",
-												PortSpecifier: &corev3.SocketAddress_PortValue{
+												PortSpecifier: &core.SocketAddress_PortValue{
 													PortValue: 10001,
 												},
 											},
@@ -1622,7 +1622,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			},
 			expected: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
@@ -1634,11 +1634,11 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 						{
 							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 								Endpoint: &endpoint.Endpoint{
-									Address: &corev3.Address{
-										Address: &corev3.Address_SocketAddress{
-											SocketAddress: &corev3.SocketAddress{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
 												Address: "192.168.1.1",
-												PortSpecifier: &corev3.SocketAddress_PortValue{
+												PortSpecifier: &core.SocketAddress_PortValue{
 													PortValue: 10001,
 												},
 											},
@@ -2202,7 +2202,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 
-	http2ProtocolOptions := &corev3.Http2ProtocolOptions{
+	http2ProtocolOptions := &core.Http2ProtocolOptions{
 		AllowConnect:  true,
 		AllowMetadata: true,
 	}
@@ -2215,7 +2215,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
-		http2ProtocolOptions       *corev3.Http2ProtocolOptions
+		http2ProtocolOptions       *core.Http2ProtocolOptions
 
 		validateTLSContext func(t *testing.T, ctx *tls.UpstreamTlsContext)
 	}{

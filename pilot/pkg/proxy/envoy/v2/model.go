@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v3
+package v2
 
-import "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+import "github.com/envoyproxy/go-control-plane/pkg/resource/v2"
 
 const (
-	ClusterType  = resource.ClusterType
+	// ClusterType is used for cluster discovery. Typically first request received
+	ClusterType = resource.ClusterType
+	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
 	EndpointType = resource.EndpointType
+	// ListenerType is sent after clusters and endpoints.
 	ListenerType = resource.ListenerType
-	RouteType    = resource.RouteType
+	// RouteType is sent after listeners.
+	RouteType = resource.RouteType
 )
