@@ -51,7 +51,7 @@ func getDefaultProxy() model.Proxy {
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
 			IstioVersion:    "1.4",
-			ConfigNamespace: "not-default",
+			Namespace: "not-default",
 		},
 		IstioVersion:    model.ParseIstioVersion("1.4"),
 		ConfigNamespace: "not-default",

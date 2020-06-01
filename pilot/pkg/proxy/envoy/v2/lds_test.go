@@ -208,7 +208,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: model.NodeMetadata{
 			InstanceIPs:     []string{"100.1.1.2"},
-			ConfigNamespace: "ns1",
+			Namespace: "ns1",
 			IstioVersion:    "1.3.0",
 		}.ToStruct(),
 		IP:        "100.1.1.2",
@@ -269,7 +269,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: model.NodeMetadata{
 			InstanceIPs:     []string{"99.1.1.1"}, // as service instance of ingress gateway
-			ConfigNamespace: "istio-system",
+			Namespace: "istio-system",
 			IstioVersion:    "1.3.0",
 		}.ToStruct(),
 		IP:        "99.1.1.1",
@@ -393,7 +393,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: model.NodeMetadata{
 			InstanceIPs:     []string{"98.1.1.1"}, // as service instance of ingress gateway
-			ConfigNamespace: "consumerns",
+			Namespace: "consumerns",
 			IstioVersion:    "1.3.0",
 		}.ToStruct(),
 		IP:        "98.1.1.1",
@@ -497,7 +497,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 			adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 				Meta: model.NodeMetadata{
 					InstanceIPs:     []string{test.ip}, // as service instance of ingress gateway
-					ConfigNamespace: "istio-system",
+					Namespace: "istio-system",
 					IstioVersion:    "1.4.0",
 				}.ToStruct(),
 				IP:        test.ip,
