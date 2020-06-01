@@ -114,7 +114,7 @@ type XdsConnection struct {
 
 	// Original node metadata, to avoid unmarshall/marshall. This is included
 	// in internal events.
-	xdsNode *corev2.Node
+	xdsNode *corev3.Node
 }
 
 // XdsEvent represents a config or registry event that results in a push.
