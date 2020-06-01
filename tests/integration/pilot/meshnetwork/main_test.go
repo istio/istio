@@ -16,6 +16,7 @@ package meshnetwork
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"testing"
 	"time"
 
@@ -64,12 +65,18 @@ spec:
 var (
 	i istio.Instance
 	p pilot.Instance
+	// TODO(landow) handle multiple clusters
+	cluster kube.Cluster
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("meshnetwork_test", m).
 		Label(label.CustomSetup).
+		Setup(func(ctx resource.Context) error {
+			cluster = ctx.Environment().Clusters()[0].(kube.Cluster)
+			return nil
+		}).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
@@ -84,26 +91,22 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+	cfg.IstioOperatorConfigYAML()
 
-	cfg.ControlPlaneValues = `
+	cfg.ControlPlaneValues = fmt.Sprintf(`
 values:
   # overrides to test the meshNetworks.
   global:
     meshNetworks:
-      # NOTE: DO NOT CHANGE THIS! Its hardcoded in Pilot in different areas
-      Kubernetes:
+      %s:
         endpoints:
-        - fromRegistry: Kubernetes
+        - fromRegistry: %s
         gateways:
         - port: 15443
           address: 2.2.2.2
         vm: {}
 
-    #This will cause ISTIO_META_NETWORK to be set on the pods and the
-    #kube controller code to match endpoints from kubernetes with the default
-    #cluster ID of "Kubernetes". Need to fix this code
-    network: "Kubernetes"
-`
+`, cluster.NetworkName(), cluster.Name())
 }
 
 func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
