@@ -58,6 +58,12 @@ ifneq ($(_INTEGRATION_TEST_NETWORKS),)
     _INTEGRATION_TEST_FLAGS += --istio.test.kube.networkTopology=$(_INTEGRATION_TEST_NETWORKS)
 endif
 
+# If $(INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY) is set, add the networkTopology flag
+_INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY ?= $(INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY)
+ifneq ($(_INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY),)
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.controlPlaneTopology=$(_INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY)
+endif
+
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \

@@ -26,13 +26,12 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pilot/pkg/leaderelection"
-
-	"istio.io/api/mesh/v1alpha1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -42,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests
@@ -168,14 +168,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	// Generate the istioctl config file
 	iopFile := filepath.Join(workDir, "iop.yaml")
-	operatorYaml := cfg.IstioOperatorConfigYAML()
-	if env.IsMultinetwork() {
-		meshNetworksYaml := meshNetworkSettings(cfg, env)
-		operatorYaml += Indent("global:\n", "    ")
-		operatorYaml += Indent(meshNetworksYaml, "      ")
-	}
-	if err := ioutil.WriteFile(iopFile, []byte(operatorYaml), os.ModePerm); err != nil {
-		return nil, fmt.Errorf("failed to write iop: %v", err)
+	if err := i.generateIOPFile(cfg.IstioOperatorConfigYAML(), iopFile, cfg); err != nil {
+		return nil, err
 	}
 
 	// Deploy the Istio control plane(s)
@@ -341,9 +335,49 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	return nil
 }
 
+func (i *operatorComponent) generateIOPFile(operatorYaml string, path string, cfg Config) error {
+	// using a map to modify the yaml, string manipulation is too fragile
+	var operatorCfg map[string]interface{}
+	if err := yaml.Unmarshal([]byte(operatorYaml), &operatorCfg); err != nil {
+		return fmt.Errorf("failed to unmsarshal base iop: %v", err)
+	}
+	spec := operatorCfg["spec"].(map[interface{}]interface{})
+	if i.environment.IsMultinetwork() && !strings.Contains(operatorYaml, "meshNetworks:") {
+		values := map[interface{}]interface{}{}
+		if spec["values"] != nil {
+			values = operatorCfg["spec"].(map[interface{}]interface{})["values"].(map[interface{}]interface{})
+		}
+		spec["values"] = values
+
+		global := map[interface{}]interface{}{}
+		if values["global"] != nil {
+			global = values["global"].(map[interface{}]interface{})
+		}
+		values["global"] = global
+
+		if global["meshNetworks"] == nil {
+			meshNetworks, err := protomarshal.ToJSONMap(meshNetworkSettings(cfg, i.environment))
+			if err != nil {
+				return fmt.Errorf("failed to convert meshNetworks: %v", err)
+			}
+			global["meshNetworks"] = meshNetworks["networks"]
+		}
+	}
+
+	out, err := yaml.Marshal(operatorCfg)
+	if err != nil {
+		return fmt.Errorf("failed marshalling iop: %v", err)
+	}
+
+	if err := ioutil.WriteFile(path, out, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to write iop: %v", err)
+	}
+	return nil
+}
+
 // meshNetworkSettings builds the values for meshNetworks with an endpoint in each network per-cluster.
 // Assumes that the registry service is always istio-ingressgateway.
-func meshNetworkSettings(cfg Config, environment *kube.Environment) string {
+func meshNetworkSettings(cfg Config, environment *kube.Environment) *v1alpha1.MeshNetworks {
 	meshNetworks := v1alpha1.MeshNetworks{Networks: make(map[string]*v1alpha1.Network)}
 	defaultGateways := []*v1alpha1.Network_IstioNetworkGateway{{
 		Gw: &v1alpha1.Network_IstioNetworkGateway_RegistryServiceName{
@@ -366,7 +400,8 @@ func meshNetworkSettings(cfg Config, environment *kube.Environment) string {
 		}
 		meshNetworks.Networks[networkName] = network
 	}
-	return strings.Replace(util.ToYAMLWithJSONPB(&meshNetworks), "networks:", "meshNetworks:", 1)
+
+	return &meshNetworks
 }
 
 func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {

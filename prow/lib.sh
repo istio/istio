@@ -194,6 +194,7 @@ EOF
 function setup_kind_clusters() {
   TOPOLOGY="${1}"
   IMAGE="${2}"
+  IP_FAMILY="${3:-ipv4}"
 
   KUBECONFIG_DIR="$(mktemp -d)"
 
@@ -217,7 +218,7 @@ EOF
 
     # Create the clusters.
     # TODO: add IPv6
-    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER_NAME}" "${CLUSTER_YAML}"
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${IP_FAMILY}" "${IMAGE}" "${CLUSTER_NAME}" "${CLUSTER_YAML}"
 
     # Install MetalLB for LoadBalancer support
     install_metallb "$CLUSTER_KUBECONFIG"
@@ -236,13 +237,11 @@ EOF
   export CLUSTER2_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER2_NAME}"
   export CLUSTER3_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER3_NAME}"
 
-  if [[ "${TOPOLOGY}" != "SINGLE_CLUSTER" ]]; then
-    # Clusters 1 and 2 are on the same network
-    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}" 1
-    # Cluster 3 is on a different network but we still need to set up routing for MetalLB addresses
-    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER3_NAME}" "${CLUSTER3_KUBECONFIG}" 0
-    connect_kind_clusters "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}" "${CLUSTER3_NAME}" "${CLUSTER3_KUBECONFIG}" 0
-  fi
+  # Clusters 1 and 2 are on the same network
+  connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}" 1
+  # Cluster 3 is on a different network but we still need to set up routing for MetalLB addresses
+  connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER3_NAME}" "${CLUSTER3_KUBECONFIG}" 0
+  connect_kind_clusters "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}" "${CLUSTER3_NAME}" "${CLUSTER3_KUBECONFIG}" 0
 }
 
 function connect_kind_clusters() {

@@ -101,26 +101,18 @@ export CI="true"
 make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
-  else
-    # TODO: Support IPv6 multicluster
-    time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
+  # TODO: Support IPv6 multicluster
+  time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}" "${IP_FAMILY}"
 
-    # Set the kube configs to point to the clusters.
-    export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG}"
-    export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-1"
-  fi
+  # Set the kube configs to point to the clusters.
+  export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG}"
+  export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-1"
+  export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY="0:0,1:0,2:2"
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
   time build_images
-
-  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    time kind_load_images ""
-  else
-    time kind_load_images_on_clusters
-  fi
+  time kind_load_images_on_clusters
 fi
 
 # If a variant is defined, update the tag accordingly
