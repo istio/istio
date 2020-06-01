@@ -34,8 +34,7 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
-          "enableAnalysis": false,
-          "enabled": true
+          "enableAnalysis": false
         },
         "jwtPolicy": "third-party-jwt",
         "logAsJson": false,
@@ -65,9 +64,6 @@ data:
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "enableCoreDump": false,
-          "envoyStatsd": {
-            "enabled": false
-          },
           "excludeIPRanges": "",
           "excludeInboundPorts": "",
           "excludeOutboundPorts": "",
