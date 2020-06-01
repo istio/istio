@@ -159,19 +159,6 @@ type ServiceDiscovery struct {
 	GetProxyServiceInstancesError error
 }
 
-// ClearErrors clear errors used for failures during model.ServiceDiscovery interface methods
-func (sd *ServiceDiscovery) ClearErrors() {
-	sd.ServicesError = nil
-	sd.GetServiceError = nil
-	sd.InstancesError = nil
-	sd.GetProxyServiceInstancesError = nil
-}
-
-// AddService will add to the registry the provided service
-func (sd *ServiceDiscovery) AddService(name host.Name, svc *model.Service) {
-	sd.services[name] = svc
-}
-
 // Services implements discovery interface
 func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	if sd.ServicesError != nil {
