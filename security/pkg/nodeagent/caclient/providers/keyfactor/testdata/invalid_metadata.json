@@ -4,6 +4,6 @@
     "authToken": "testAuthToken",
     "appKey": "testAppKey",
     "metadata": {
-        "Cluster": "Fake_Alias_Cluster"
+        "Invalid": "Cluster_Alias"
     }
 }

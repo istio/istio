@@ -4,6 +4,8 @@
     "authToken": "testAuthToken",
     "appKey": "testAppKey",
     "metadata": {
-        "Cluster": "Fake_Alias_Cluster"
+        "Cluster": "Fake_Alias_Cluster",
+        "Service": "",
+        "PodName": ""
     }
 }

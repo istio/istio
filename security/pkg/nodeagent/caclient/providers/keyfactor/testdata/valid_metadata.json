@@ -1,0 +1,14 @@
+{
+    "caName": "testCaName",
+    "caTemplate": "caTemplate",
+    "authToken": "testAuthToken",
+    "appKey": "testAppKey",
+    "metadata": {
+        "Cluster":"Fake_Alias_Cluster",
+        "Service":"Fake_Alias_Service",
+        "PodName":"Fake_Alias_PodName",
+        "PodNamespace":"Fake_Alias_PodNamespace",
+        "PodIP":"Fake_Alias_PodIP",
+        "TrustDomain":"Fake_Trust_Domain"
+    }
+}

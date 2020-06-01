@@ -15,7 +15,6 @@
 package caclient
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -149,12 +148,8 @@ func TestKeyfactorWithTLSEnabled(t *testing.T) {
 		t.Run(testID, func(tsub *testing.T) {
 
 			os.Setenv("KEYFACTOR_CONFIG_PATH", "./testdata/valid.json")
-			metadataJSON, _ := json.Marshal(&[]FieldAlias{{Name: "Cluster", Alias: "Cluster_Alias"}})
-			os.Setenv("KEYFACTOR_METADATA_JSON", string(metadataJSON))
-
 			defer func() {
 				os.Unsetenv("KEYFACTOR_CONFIG_PATH")
-				os.Unsetenv("KEYFACTOR_METADATA_JSON")
 			}()
 
 			_, err := NewKeyFactorCAClient("", tc.enabledTLS, tc.rootCert, &KeyfactorCAClientMetadata{})
@@ -223,12 +218,9 @@ func TestKeyfactorSignCSR(t *testing.T) {
 		t.Run(testID, func(tsub *testing.T) {
 
 			os.Setenv("KEYFACTOR_CONFIG_PATH", "./testdata/valid.json")
-			metadataJSON, _ := json.Marshal(&[]FieldAlias{{Name: "Cluster", Alias: "Cluster_Alias"}})
-			os.Setenv("KEYFACTOR_METADATA_JSON", string(metadataJSON))
 
 			defer func() {
 				os.Unsetenv("KEYFACTOR_CONFIG_PATH")
-				os.Unsetenv("KEYFACTOR_METADATA_JSON")
 			}()
 
 			mockServer := mockKeyfactor.CreateServer(tc.serverError, tc.responseData, nil)
@@ -286,67 +278,56 @@ func TestCustomMetadata(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		customMetadatas   []FieldAlias
+		configPath        string
 		expectMetadataMap map[string]string
 		expectedErr       string
 	}{
 		"Valid metadata configuration": {
-			customMetadatas:   []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
+			configPath:        "./testdata/valid.json",
+			expectMetadataMap: map[string]string{"Fake_Alias_Cluster": "FakeClusterName"},
+			expectedErr:       "",
+		},
+		"Valid metadata configuration with empty alias": {
+			configPath:        "./testdata/metadata_alias_empty.json",
 			expectMetadataMap: map[string]string{"Fake_Alias_Cluster": "FakeClusterName"},
 			expectedErr:       "",
 		},
 		"Empty metadata configuration": {
-			customMetadatas:   []FieldAlias{},
+			configPath:        "./testdata/empty_metadata.json",
+			expectMetadataMap: make(map[string]string),
+			expectedErr:       "",
+		},
+		"Nil metadata configuration": {
+			configPath:        "./testdata/nil_metadata.json",
 			expectMetadataMap: make(map[string]string),
 			expectedErr:       "",
 		},
 		"With full metadata configuration": {
-			customMetadatas: []FieldAlias{
-				{Name: "Cluster", Alias: "Fake_Alias_Cluster"},
-				{Name: "Service", Alias: "Fake_Alias_Service"},
-				{Name: "PodName", Alias: "Fake_Alias_PodName"},
-				{Name: "PodNamespace", Alias: "Fake_Alias_PodNamespace"},
-				{Name: "PodIP", Alias: "Fake_Alias_PodIP"},
-			},
+			configPath: "./testdata/valid_metadata.json",
 			expectMetadataMap: map[string]string{
 				"Fake_Alias_Cluster":      "FakeClusterName",
 				"Fake_Alias_Service":      "FakeService",
 				"Fake_Alias_PodName":      "FakeService-v1-PodID",
 				"Fake_Alias_PodNamespace": "FakePodNamespace",
 				"Fake_Alias_PodIP":        "FakePodIP",
+				"Fake_Trust_Domain":       "FakeTrustDomain",
 			},
 			expectedErr: "",
 		},
 		"Error with further redundant metadata configurations": {
-			customMetadatas: []FieldAlias{
-				{Name: "Cluster", Alias: "Fake_Alias_Cluster"},
-				{Name: "Service", Alias: "Fake_Alias_Service"},
-				{Name: "PodName", Alias: "Fake_Alias_PodName"},
-				{Name: "PodNamespace", Alias: "Fake_Alias_PodNamespace"},
-				{Name: "PodIP", Alias: "Fake_Alias_PodIP"},
-				{Name: "MoreMoreMore", Alias: "MoreMoreMore"},
-			},
-			expectMetadataMap: map[string]string{
-				"Fake_Alias_Cluster":      "FakeClusterName",
-				"Fake_Alias_Service":      "FakeService",
-				"Fake_Alias_PodName":      "FakeService-v1-PodID",
-				"Fake_Alias_PodNamespace": "FakePodNamespace",
-				"Fake_Alias_PodIP":        "FakePodIP",
-			},
-			expectedErr: "cannot load keyfactor config: do not support Metadata field name: MoreMoreMore",
+			configPath:        "./testdata/invalid_metadata.json",
+			expectMetadataMap: map[string]string{},
+			expectedErr:       "cannot load keyfactor config: do not support Metadata field name: Invalid",
 		},
 	}
 
 	for testID, tc := range testCases {
 		t.Run(testID, func(tsub *testing.T) {
 
-			os.Setenv("KEYFACTOR_CONFIG_PATH", "./testdata/valid.json")
-			metadataJSON, _ := json.Marshal(tc.customMetadatas)
-			os.Setenv("KEYFACTOR_METADATA_JSON", string(metadataJSON))
+			os.Setenv("KEYFACTOR_CONFIG_PATH", tc.configPath)
 
 			defer func() {
 				os.Unsetenv("KEYFACTOR_CONFIG_PATH")
-				os.Unsetenv("KEYFACTOR_METADATA_JSON")
 			}()
 
 			requestBodyChan := make(chan map[string]interface{})

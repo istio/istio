@@ -3,7 +3,5 @@
     "caTemplate": "caTemplate",
     "authToken": "testAuthToken",
     "appKey": "testAppKey",
-    "metadata": {
-        "Cluster": "Fake_Alias_Cluster"
-    }
+    "metadata": {}
 }

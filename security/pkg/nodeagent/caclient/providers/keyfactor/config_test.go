@@ -24,38 +24,33 @@ func TestKeyfactorConfigFromFile(t *testing.T) {
 
 	testCases := map[string]struct {
 		configPath      string
-		customMetadatas []FieldAlias
+		customMetadatas map[string]string
 		expectedErr     string
 	}{
 		"Missing caName in ENV": {
 			configPath:      "./testdata/missing_caName.json",
-			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
+			customMetadatas: map[string]string{"Cluster": "Fake_Alias_Cluster"},
 			expectedErr:     "missing caName (KEYFATOR_CA) in ENV",
 		},
 		"Missing appKey in ENV": {
 			configPath:      "./testdata/missing_app_key.json",
-			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
+			customMetadatas: map[string]string{"Cluster": "Fake_Alias_Cluster"},
 			expectedErr:     "missing appKey (KEYFATOR_APPKEY) in ENV",
 		},
 		"Missing authToken in ENV": {
 			configPath:      "./testdata/missing_auth_token.json",
-			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
+			customMetadatas: map[string]string{"Cluster": "Fake_Alias_Cluster"},
 			expectedErr:     "missing authToken (KEYFATOR_AUTH_TOKEN) in ENV",
 		},
 		"Missing caTemplate in ENV": {
 			configPath:      "./testdata/missing_caTemplate.json",
-			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
+			customMetadatas: map[string]string{"Cluster": "Fake_Alias_Cluster"},
 			expectedErr:     "missing caTemplate (KEYFATOR_CA_TEMPLATE) in ENV",
 		},
 		"Do not supported new metadata field": {
 			configPath:      "./testdata/valid.json",
-			customMetadatas: []FieldAlias{{Name: "ClusterInvalid", Alias: "Fake_Alias_Cluster"}},
+			customMetadatas: map[string]string{"Cluster": "Fake_Alias_Cluster"},
 			expectedErr:     "do not support Metadata field name: ClusterInvalid",
-		},
-		"Invalid metadata configuration": {
-			configPath:      "./testdata/valid.json",
-			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: ""}},
-			expectedErr:     "invalid alias name for Metadata: Cluster",
 		},
 		"Empty metadata configuration": {
 			configPath:      "./testdata/valid.json",
@@ -74,7 +69,7 @@ func TestKeyfactorConfigFromFile(t *testing.T) {
 		},
 		"Valid configuration json file": {
 			configPath:      "./testdata/valid.json",
-			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
+			customMetadatas: map[string]string{"Cluster": "Fake_Alias_Cluster"},
 			expectedErr:     "",
 		},
 	}

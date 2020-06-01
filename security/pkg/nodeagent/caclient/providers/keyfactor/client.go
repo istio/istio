@@ -97,15 +97,18 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 		return nil, fmt.Errorf("cannot load keyfactor config: %v", err)
 	}
 
-	keyFactorCAClientLog.Infof("Create keyfactor metadatas: %v", keyfactorConfig.CustomMetadatas)
+	keyFactorCAClientLog.Infof("Create keyfactor metadatas: %v", keyfactorConfig.Metadata)
 
 	customMetadatas := make(map[string]string)
 
-	for _, field := range keyfactorConfig.CustomMetadatas {
-		switch field.Name {
+	for fieldKey, aliasName := range keyfactorConfig.Metadata {
+		if aliasName == "" {
+			keyFactorCAClientLog.Infof("Skip metadata fieldName: %v", fieldKey)
+			continue
+		}
+		switch fieldKey {
 		case "Cluster":
-			customMetadatas[field.Alias] = metadata.ClusterID
-
+			customMetadatas[aliasName] = metadata.ClusterID
 		case "Service":
 			serviceName := metadata.PodName
 			if splitPodName := strings.Split(metadata.PodName, "-"); len(splitPodName) > 2 {
@@ -113,15 +116,15 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 				arrayOfServiceNames := splitPodName[0 : len(splitPodName)-2]
 				serviceName = strings.Join(arrayOfServiceNames, "-")
 			}
-			customMetadatas[field.Alias] = serviceName
+			customMetadatas[aliasName] = serviceName
 		case "PodName":
-			customMetadatas[field.Alias] = metadata.PodName
+			customMetadatas[aliasName] = metadata.PodName
 		case "PodNamespace":
-			customMetadatas[field.Alias] = metadata.PodNamespace
+			customMetadatas[aliasName] = metadata.PodNamespace
 		case "PodIP":
-			customMetadatas[field.Alias] = metadata.PodIP
+			customMetadatas[aliasName] = metadata.PodIP
 		case "TrustDomain":
-			customMetadatas[field.Alias] = metadata.TrustDomain
+			customMetadatas[aliasName] = metadata.TrustDomain
 		}
 	}
 

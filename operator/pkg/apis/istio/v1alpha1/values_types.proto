@@ -555,10 +555,6 @@ message KeyfactorConfiguration {
 
   // Path to mount keyfactor confg json, default: /etc/keyfactor/config.json
   string configPath = 2;
-
-  // Custom metadata to use on SignCSR request (supported: Cluster, Service, PodName, PodNamespace, TrustDomain)
-  repeated KeyfactorMetadataConfig metadata = 3;
-  
 }
 
 message KeyfactorMetadataConfig {

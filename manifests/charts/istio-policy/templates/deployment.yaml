@@ -78,7 +78,7 @@ spec:
       {{- if ne .Values.global.keyfactor.secretName ""}}
       - name: keyfactor-config
         secret:
-          secretName: {{ .Values.global.keyfactor.secretName | quote }}
+          secretName: {{ .Values.global.keyfactor.secretName }}
           optional: true
       {{- end }}
       affinity:
@@ -249,20 +249,6 @@ spec:
         {{- if .Values.global.caProvider }}
         - name: CA_PROVIDER
           value: {{ .Values.global.caProvider }}
-        {{- end }}
-        # Keyfactor metadata config
-        {{- if .Values.global.keyfactor.metadata }}
-        - name: "KEYFACTOR_METADATA_JSON"
-          value: |-
-            [
-              {{- range $index, $fieldMetadata := .Values.global.keyfactor.metadata }}
-                {{- if ne $index 0}},{{- end}}
-                {
-                  "name": "{{ $fieldMetadata.name }}",
-                  "alias": "{{ $fieldMetadata.alias }}"
-                }
-              {{- end}}
-            ]
         {{- end }}
         {{- if .Values.global.keyfactor.configPath }}
         - name: "KEYFACTOR_CONFIG_PATH"

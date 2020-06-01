@@ -457,11 +457,10 @@ global:
   # Config IstioAgent's CA Provider. Supported: Citadel, GoogleCA, KeyfactorCA
   caProvider: "Citadel"
   
-  # KeyfactorCA configurationsd
+  # KeyfactorCA configurations
   keyfactor:
     secretName: ""
     configPath: "/etc/keyfactor/config.json"
-    metadata: []
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #

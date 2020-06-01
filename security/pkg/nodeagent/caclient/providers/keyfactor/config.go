@@ -56,16 +56,10 @@ type KeyfactorConfig struct {
 	AppKey string `json:"appKey"`
 
 	// EnrollPath api path to Enroll CSR Request
-	EnrollPath string
+	EnrollPath string `json:"enrollPath"`
 
-	// CustomMetadatas configure enable of name of metadata fields
-	CustomMetadatas []FieldAlias
-}
-
-// FieldAlias config alias field for keyfactor client
-type FieldAlias struct {
-	Name  string `json:"name"`
-	Alias string `json:"alias"`
+	// Metadata configure enable of name of metadata fields
+	Metadata map[string]string `json:"metadata"`
 }
 
 // LoadKeyfactorConfigFile load and return keyfactorCA client config from env
@@ -85,14 +79,6 @@ func LoadKeyfactorConfigFile() (*KeyfactorConfig, error) {
 		configLog.Errorf("cannot parse keyfactor config file (%s): %v", configFilePath, err)
 		return nil, fmt.Errorf("cannot parse keyfactor config file (%s): %v", configFilePath, err)
 	}
-
-	metadatas := make([]FieldAlias, 0)
-	metadataJSONfromENV := []byte(metadataENV.Get())
-	if err := json.Unmarshal(metadataJSONfromENV, &metadatas); err != nil {
-		configLog.Errorf("cannot parse metadata configuration (%s): %v", metadatas, err)
-	}
-
-	conf.CustomMetadatas = metadatas
 
 	configLog.Infof("Validate Keyfactor config\n%v", conf)
 	if err := conf.Validate(); err != nil {
@@ -122,15 +108,11 @@ func (kc *KeyfactorConfig) Validate() error {
 
 	configLog.Infof("Validating custom Metadata")
 
-	for _, value := range kc.CustomMetadatas {
-		configLog.Infof("Validating fieldName: %v", value.Name)
-		if _, found := supportedMetadata[value.Name]; !found {
-			configLog.Errorf("do not support Metadata field name: %v", value.Name)
-			return fmt.Errorf("do not support Metadata field name: %v", value.Name)
-		}
-
-		if value.Alias == "" {
-			return fmt.Errorf("invalid alias name for Metadata: %v", value.Name)
+	for key, value := range kc.Metadata {
+		configLog.Infof("Validating fieldName: %v - alias to: %v", key, value)
+		if _, found := supportedMetadata[key]; !found {
+			configLog.Errorf("do not support Metadata field name: %v", key)
+			return fmt.Errorf("do not support Metadata field name: %v", key)
 		}
 	}
 	return nil
