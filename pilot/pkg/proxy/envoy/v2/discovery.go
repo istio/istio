@@ -56,25 +56,6 @@ var (
 	enableEDSDebounce bool
 )
 
-const (
-	typePrefix = "type.googleapis.com/envoy.api.v2."
-
-	// Constants used for XDS
-
-	// ClusterType is used for cluster discovery. Typically first request received
-	ClusterType = typePrefix + "Cluster"
-	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
-	EndpointType = typePrefix + "ClusterLoadAssignment"
-	// ListenerType is sent after clusters and endpoints.
-	ListenerType = typePrefix + "Listener"
-	// RouteType is sent after listeners.
-	RouteType = typePrefix + "RouteConfiguration"
-
-	// EndpointTypeV3 is used for EDS and ADS endpoint discovery. Typically second request.
-	EndpointTypeV3 = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
-	ClusterTypeV3  = "type.googleapis.com/envoy.config.cluster.v3.Cluster"
-)
-
 func init() {
 	debounceAfter = features.DebounceAfter
 	debounceMax = features.DebounceMax
