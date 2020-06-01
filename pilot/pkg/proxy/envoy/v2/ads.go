@@ -208,20 +208,20 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// XDS is exposed.
 	if s.Authenticators != nil && len(s.Authenticators) > 0 {
 		if err := credentials.CheckSecurityLevel(ctx, credentials.PrivacyAndIntegrity); err == nil {
-			var authenticatedId *authenticate.Caller
+			var authenticatedID *authenticate.Caller
 			for _, authn := range s.Authenticators {
 				u, err := authn.Authenticate(ctx)
 				if u != nil && err == nil {
-					authenticatedId = u
+					authenticatedID = u
 				}
 			}
 
-			if authenticatedId == nil {
+			if authenticatedID == nil {
 				adsLog.Errora("Failed to authenticate client ", peerInfo)
-				return errors.New("Authentication failure")
+				return errors.New("authentication failure")
 			}
 
-			adsLog.Infoa("Authenticated XDS: ", peerInfo, " ", authenticatedId.AuthSource, " ", authenticatedId.Identities)
+			adsLog.Infoa("Authenticated XDS: ", peerInfo, " ", authenticatedID.AuthSource, " ", authenticatedID.Identities)
 		} else {
 			// TODO: add a flag to prevent unauthenticated requests ( 15010 )
 			// request not over TLS ( on the insecure port
