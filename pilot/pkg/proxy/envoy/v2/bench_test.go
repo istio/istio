@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/test"
 
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -237,14 +237,14 @@ func routesFromListeners(ll []*listener.Listener) []string {
 	for _, l := range ll {
 		for _, fc := range l.FilterChains {
 			for _, filter := range fc.Filters {
-				if filter.Name == "envoy.http_connection_manager" {
+				if filter.Name == "envoy.hcmection_manager" {
 					filter.GetTypedConfig()
-					hcm := &http_conn.HttpConnectionManager{}
-					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err != nil {
+					hcon := &hcm.HttpConnectionManager{}
+					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcon); err != nil {
 						panic(err)
 					}
-					switch r := hcm.GetRouteSpecifier().(type) {
-					case *http_conn.HttpConnectionManager_Rds:
+					switch r := hcon.GetRouteSpecifier().(type) {
+					case *hcm.HttpConnectionManager_Rds:
 						routes = append(routes, r.Rds.RouteConfigName)
 					}
 				}
