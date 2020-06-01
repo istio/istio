@@ -90,7 +90,7 @@ type KeyfactorResponse struct {
 // NewKeyFactorCAClient create a CA client for KeyFactor CA.
 func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, metadata *KeyfactorCAClientMetadata) (caClientInterface.Client, error) {
 
-	keyfactorConfig, err := LoadKeyfactorConfigFromENV()
+	keyfactorConfig, err := LoadKeyfactorConfigFile()
 
 	if err != nil {
 		keyFactorCAClientLog.Errorf("cannot load keyfactor config from ENV: %v", err)
@@ -184,8 +184,6 @@ func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, meta
 func (cl *KeyFactorCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, subjectID string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 
-	keyFactorCAClientLog.Infof("start sign Keyfactor CSR request:")
-
 	bytesRepresentation, err := json.Marshal(keyfactorRequestPayload{
 		CSR:                  string(csrPEM),
 		CertificateAuthority: cl.ClientOptions.CaName,
@@ -214,6 +212,7 @@ func (cl *KeyFactorCAClient) CSRSign(ctx context.Context, reqID string, csrPEM [
 	u.Path = path.Join(u.Path, cl.ClientOptions.EnrollPath)
 	enrollCSRPath := u.String()
 
+	keyFactorCAClientLog.Infof("start sign Keyfactor CSR request to: %v", enrollCSRPath)
 	requestCSR, err := http.NewRequest("POST", enrollCSRPath, bytes.NewBuffer(bytesRepresentation))
 
 	if err != nil {

@@ -1819,51 +1819,18 @@ No
 <td><code>secretName</code></td>
 <td><code>string</code></td>
 <td>
-<p>Name of secret contains config of keyfactor, just in case using the secret instead of yaml file</p>
+<p>Name of secret contains config of keyfactor</p>
 
 </td>
 <td>
 No
 </td>
 </tr>
-<tr id="KeyfactorConfiguration-caName">
-<td><code>caName</code></td>
+<tr id="KeyfactorConfiguration-configPath">
+<td><code>configPath</code></td>
 <td><code>string</code></td>
 <td>
-<p>Name of certificate authorization</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KeyfactorConfiguration-authToken">
-<td><code>authToken</code></td>
-<td><code>string</code></td>
-<td>
-<p>Use for authentication header</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KeyfactorConfiguration-appKey">
-<td><code>appKey</code></td>
-<td><code>string</code></td>
-<td>
-<p>ApiKey from Api Setting</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KeyfactorConfiguration-caTemplate">
-<td><code>caTemplate</code></td>
-<td><code>string</code></td>
-<td>
-<p>Name of template to enroll new certificate</p>
+<p>Path to mount keyfactor confg json, default: /etc/keyfactor/config.json</p>
 
 </td>
 <td>

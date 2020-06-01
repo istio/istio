@@ -235,10 +235,7 @@ spec:
       caProvider: "Citadel"
       keyfactor:
         secretName: ""
-        caName: ""
-        authToken: ""
-        appKey: ""
-        caTemplate: ""
+        configPath: "/etc/keyfactor/config.json"
         metadata: []
       jwtPolicy: third-party-jwt
       proxy:

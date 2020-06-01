@@ -110,38 +110,7 @@ spec:
             - name: CA_PROVIDER
               value: {{ .Values.global.caProvider }}
             {{- end }}
-            {{- if eq .Values.global.caProvider "KeyfactorCA" }}
-            {{- if ne .Values.global.keyfactor.secretName ""  }}
-            - name: KEYFACTOR_CA
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.global.keyfactor.secretName }}
-                  key: "caName"
-            - name: KEYFACTOR_AUTH_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.global.keyfactor.secretName }}
-                  key: "authToken"
-            - name: KEYFACTOR_APPKEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.global.keyfactor.secretName }}
-                  key: "appKey"
-            - name: KEYFACTOR_CA_TEMPLATE
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.global.keyfactor.secretName }}
-                  key: "caTemplate"
-            {{- else}}
-            - name: KEYFACTOR_CA
-              value: {{ .Values.global.keyfactor.caName }}
-            - name: KEYFACTOR_AUTH_TOKEN
-              value: {{ .Values.global.keyfactor.authToken }}
-            - name: KEYFACTOR_APPKEY
-              value: {{ .Values.global.keyfactor.appKey }}
-            - name: KEYFACTOR_CA_TEMPLATE
-              value: {{ .Values.global.keyfactor.caTemplate }}
-            {{- end }}
+            # Keyfactor metadata config
             {{- if .Values.global.keyfactor.metadata }}
             - name: "KEYFACTOR_METADATA_JSON"
               value: |-
@@ -155,6 +124,9 @@ spec:
                   {{- end}}
                 ]
             {{- end }}
+            {{- if .Values.global.keyfactor.configPath }}
+            - name: "KEYFACTOR_CONFIG_PATH"
+              value: {{ .Values.global.keyfactor.configPath }}
             {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -215,6 +187,12 @@ spec:
               name: istio-certs
             - name: istio-config-volume
               mountPath: /etc/istio/config
+            # Keyfactor secret mount
+            {{- if ne .Values.global.keyfactor.secretName ""}}
+            - name: keyfactor-config
+              mountPath: /etc/keyfactor
+              readOnly: true
+            {{- end }}
 {{- end }}
 
       volumes:
@@ -253,7 +231,13 @@ spec:
           name: istio-ca-root-cert
         {{- end }}
 {{- end }}
-
+      # Keyfactor secret mount to volume
+      {{- if ne .Values.global.keyfactor.secretName ""}}
+      - name: keyfactor-config
+        secret:
+          secretName: {{ .Values.global.keyfactor.secretName | quote }}
+          optional: true
+      {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}

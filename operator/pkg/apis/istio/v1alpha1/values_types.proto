@@ -550,23 +550,14 @@ message GlobalConfig {
 
 // Configure the external CA Provider by Keyfactor.
 message KeyfactorConfiguration {
-  // Name of secret contains config of keyfactor, just in case using the secret instead of yaml file
+  // Name of secret contains config of keyfactor
   string secretName = 1;
 
-  // Name of certificate authorization
-  string caName = 2;
-  
-  // Use for authentication header
-  string authToken = 3;
-
-  // ApiKey from Api Setting
-  string appKey = 4;
-
-  // Name of template to enroll new certificate
-  string caTemplate = 5;
+  // Path to mount keyfactor confg json, default: /etc/keyfactor/config.json
+  string configPath = 2;
 
   // Custom metadata to use on SignCSR request (supported: Cluster, Service, PodName, PodNamespace, TrustDomain)
-  repeated KeyfactorMetadataConfig metadata = 6;
+  repeated KeyfactorMetadataConfig metadata = 3;
   
 }
 

@@ -23,90 +23,75 @@ import (
 func TestKeyfactorConfigFromFile(t *testing.T) {
 
 	testCases := map[string]struct {
-		caName          string
-		authToken       string
-		caTemplate      string
-		appKey          string
+		configPath      string
 		customMetadatas []FieldAlias
 		expectedErr     string
 	}{
 		"Missing caName in ENV": {
-			caName:          "",
-			caTemplate:      "Istio",
-			authToken:       "Basic FakeAuthToken",
-			appKey:          "FAKE_APP_KEY",
+			configPath:      "./testdata/missing_caName.json",
 			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
 			expectedErr:     "missing caName (KEYFATOR_CA) in ENV",
 		},
 		"Missing appKey in ENV": {
-			caName:          "FakeCAName",
-			caTemplate:      "Istio",
-			authToken:       "Basic FakeAuthToken",
-			appKey:          "",
+			configPath:      "./testdata/missing_app_key.json",
 			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
 			expectedErr:     "missing appKey (KEYFATOR_APPKEY) in ENV",
 		},
 		"Missing authToken in ENV": {
-			caName:          "FakeCAName",
-			caTemplate:      "Istio",
-			authToken:       "",
-			appKey:          "FakeAppKey",
+			configPath:      "./testdata/missing_auth_token.json",
 			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
 			expectedErr:     "missing authToken (KEYFATOR_AUTH_TOKEN) in ENV",
 		},
 		"Missing caTemplate in ENV": {
-			caName:          "FakeCAName",
-			caTemplate:      "",
-			authToken:       "Basic FakeAuth",
-			appKey:          "FakeAppKey",
+			configPath:      "./testdata/missing_caTemplate.json",
 			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
 			expectedErr:     "missing caTemplate (KEYFATOR_CA_TEMPLATE) in ENV",
 		},
 		"Do not supported new metadata field": {
-			caName:          "FakeCAName",
-			caTemplate:      "FakeCATemplate",
-			authToken:       "Basic FakeAuth",
-			appKey:          "FakeAppKey",
+			configPath:      "./testdata/valid.json",
 			customMetadatas: []FieldAlias{{Name: "ClusterInvalid", Alias: "Fake_Alias_Cluster"}},
 			expectedErr:     "do not support Metadata field name: ClusterInvalid",
 		},
 		"Invalid metadata configuration": {
-			caName:          "FakeCAName",
-			caTemplate:      "FakeCATemplate",
-			authToken:       "Basic FakeAuth",
-			appKey:          "FakeAppKey",
+			configPath:      "./testdata/valid.json",
 			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: ""}},
 			expectedErr:     "invalid alias name for Metadata: Cluster",
 		},
 		"Empty metadata configuration": {
-			caName:          "FakeCAName",
-			caTemplate:      "FakeCATemplate",
-			authToken:       "Basic FakeAuth",
-			appKey:          "FakeAppKey",
+			configPath:      "./testdata/valid.json",
 			customMetadatas: nil,
+			expectedErr:     "",
+		},
+		"Invalid json config file": {
+			configPath:      "./testdata/invalid.json",
+			customMetadatas: nil,
+			expectedErr:     "cannot parse keyfactor config file (./testdata/invalid.json): invalid character 'i' looking for beginning of value",
+		},
+		"Missing json config file": {
+			configPath:      "./testdata/nowhere.json",
+			customMetadatas: nil,
+			expectedErr:     "unable to read keyfactor config file (./testdata/nowhere.json): open ./testdata/nowhere.json: no such file or directory. <missing or empty secret>",
+		},
+		"Valid configuration json file": {
+			configPath:      "./testdata/valid.json",
+			customMetadatas: []FieldAlias{{Name: "Cluster", Alias: "Fake_Alias_Cluster"}},
 			expectedErr:     "",
 		},
 	}
 
 	for testID, tc := range testCases {
 		t.Run(testID, func(tsub *testing.T) {
-			os.Setenv("KEYFACTOR_CA", tc.caName)
-			os.Setenv("KEYFACTOR_AUTH_TOKEN", tc.authToken)
-			os.Setenv("KEYFACTOR_APPKEY", tc.appKey)
-			os.Setenv("KEYFACTOR_CA_TEMPLATE", tc.caTemplate)
+			os.Setenv("KEYFACTOR_CONFIG_PATH", tc.configPath)
 
 			metadataJSON, _ := json.Marshal(tc.customMetadatas)
 			os.Setenv("KEYFACTOR_METADATA_JSON", string(metadataJSON))
 
 			defer func() {
-				os.Unsetenv("KEYFACTOR_CA")
-				os.Unsetenv("KEYFACTOR_AUTH_TOKEN")
-				os.Unsetenv("KEYFACTOR_APPKEY")
-				os.Unsetenv("KEYFACTOR_CA_TEMPLATE")
+				os.Unsetenv("KEYFACTOR_CONFIG_PATH")
 				os.Unsetenv("KEYFACTOR_METADATA_JSON")
 			}()
 
-			_, err := LoadKeyfactorConfigFromENV()
+			_, err := LoadKeyfactorConfigFile()
 
 			if err != nil && err.Error() != tc.expectedErr {
 				tsub.Errorf("Failed testcase: %s - Expect (%v), but got (%v)", testID, tc.expectedErr, err)

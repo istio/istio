@@ -148,19 +148,12 @@ func TestKeyfactorWithTLSEnabled(t *testing.T) {
 	for testID, tc := range testCases {
 		t.Run(testID, func(tsub *testing.T) {
 
-			os.Setenv("KEYFACTOR_CA", "FakeCA")
-			os.Setenv("KEYFACTOR_AUTH_TOKEN", "FakeAuthToken")
-			os.Setenv("KEYFACTOR_APPKEY", "FakeAppKey")
-			os.Setenv("KEYFACTOR_CA_TEMPLATE", "Istio")
-
+			os.Setenv("KEYFACTOR_CONFIG_PATH", "./testdata/valid.json")
 			metadataJSON, _ := json.Marshal(&[]FieldAlias{{Name: "Cluster", Alias: "Cluster_Alias"}})
 			os.Setenv("KEYFACTOR_METADATA_JSON", string(metadataJSON))
 
 			defer func() {
-				os.Unsetenv("KEYFACTOR_CA")
-				os.Unsetenv("KEYFACTOR_AUTH_TOKEN")
-				os.Unsetenv("KEYFACTOR_APPKEY")
-				os.Unsetenv("KEYFACTOR_CA_TEMPLATE")
+				os.Unsetenv("KEYFACTOR_CONFIG_PATH")
 				os.Unsetenv("KEYFACTOR_METADATA_JSON")
 			}()
 
@@ -229,19 +222,12 @@ func TestKeyfactorSignCSR(t *testing.T) {
 	for testID, tc := range testCases {
 		t.Run(testID, func(tsub *testing.T) {
 
-			os.Setenv("KEYFACTOR_CA", "FakeCA")
-			os.Setenv("KEYFACTOR_AUTH_TOKEN", "FakeAuthToken")
-			os.Setenv("KEYFACTOR_APPKEY", "FakeAppKey")
-			os.Setenv("KEYFACTOR_CA_TEMPLATE", "Istio")
-
-			metadataJSON, _ := json.Marshal(&[]FieldAlias{})
+			os.Setenv("KEYFACTOR_CONFIG_PATH", "./testdata/valid.json")
+			metadataJSON, _ := json.Marshal(&[]FieldAlias{{Name: "Cluster", Alias: "Cluster_Alias"}})
 			os.Setenv("KEYFACTOR_METADATA_JSON", string(metadataJSON))
 
 			defer func() {
-				os.Unsetenv("KEYFACTOR_CA")
-				os.Unsetenv("KEYFACTOR_AUTH_TOKEN")
-				os.Unsetenv("KEYFACTOR_APPKEY")
-				os.Unsetenv("KEYFACTOR_CA_TEMPLATE")
+				os.Unsetenv("KEYFACTOR_CONFIG_PATH")
 				os.Unsetenv("KEYFACTOR_METADATA_JSON")
 			}()
 
@@ -354,21 +340,15 @@ func TestCustomMetadata(t *testing.T) {
 	for testID, tc := range testCases {
 		t.Run(testID, func(tsub *testing.T) {
 
-			os.Setenv("KEYFACTOR_CA", "FakeCA")
-			os.Setenv("KEYFACTOR_AUTH_TOKEN", "FakeAuthToken")
-			os.Setenv("KEYFACTOR_APPKEY", "FakeAppKey")
-			os.Setenv("KEYFACTOR_CA_TEMPLATE", "Istio")
-
+			os.Setenv("KEYFACTOR_CONFIG_PATH", "./testdata/valid.json")
 			metadataJSON, _ := json.Marshal(tc.customMetadatas)
 			os.Setenv("KEYFACTOR_METADATA_JSON", string(metadataJSON))
 
 			defer func() {
-				os.Unsetenv("KEYFACTOR_CA")
-				os.Unsetenv("KEYFACTOR_AUTH_TOKEN")
-				os.Unsetenv("KEYFACTOR_APPKEY")
-				os.Unsetenv("KEYFACTOR_CA_TEMPLATE")
+				os.Unsetenv("KEYFACTOR_CONFIG_PATH")
 				os.Unsetenv("KEYFACTOR_METADATA_JSON")
 			}()
+
 			requestBodyChan := make(chan map[string]interface{})
 			mockServer := mockKeyfactor.CreateServer(false, fakeResponse, requestBodyChan)
 

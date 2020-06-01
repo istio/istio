@@ -460,10 +460,7 @@ global:
   # KeyfactorCA configurationsd
   keyfactor:
     secretName: ""
-    caName: ""
-    authToken: ""
-    appKey: ""
-    caTemplate: ""
+    configPath: "/etc/keyfactor/config.json"
     metadata: []
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
