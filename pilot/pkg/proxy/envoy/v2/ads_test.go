@@ -21,6 +21,7 @@ import (
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -184,7 +185,19 @@ func sendAndReceive(t *testing.T, node string, client AdsClient, typeURL string,
 	return res
 }
 
+func sendAndReceiveV3(t *testing.T, node string, client AdsClientV3, typeURL string, errMsg string) *discovery.DiscoveryResponse {
+	if err := sendXdsV3(node, client, typeURL, errMsg); err != nil {
+		t.Fatal(err)
+	}
+	res, err := adsReceiveV3(client, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
 type AdsClient ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+type AdsClientV3 discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
 // xdsTest runs a given function with a local pilot environment. This is used to test the ADS handling.
 func xdsTest(t *testing.T, name string, fn func(t *testing.T, client AdsClient)) {
@@ -193,6 +206,21 @@ func xdsTest(t *testing.T, name string, fn func(t *testing.T, client AdsClient))
 		defer tearDown()
 
 		client, cancel, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer cancel()
+		fn(t, client)
+	})
+}
+
+// xdsTest runs a given function with a local pilot environment. This is used to test the ADS handling.
+func xdsV3Test(t *testing.T, name string, fn func(t *testing.T, client AdsClientV3)) {
+	t.Run(name, func(t *testing.T) {
+		_, tearDown := initLocalPilotTestEnv(t)
+		defer tearDown()
+
+		client, cancel, err := connectADSV3(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -232,6 +260,22 @@ func TestAdsVersioning(t *testing.T) {
 	xdsTest(t, "send v3", func(t *testing.T, client AdsClient) {
 		// Send v3 request, expect v3 response
 		res := sendAndReceive(t, node, client, v3.ClusterType, "")
+		if res.TypeUrl != v3.ClusterType {
+			t.Fatalf("expected type %v, got %v", v3.ClusterType, res.TypeUrl)
+		}
+	})
+
+	xdsV3Test(t, "send v2 with v3 transport", func(t *testing.T, client AdsClientV3) {
+		// Send v2 request, expect v2 response
+		res := sendAndReceiveV3(t, node, client, v2.ClusterType, "")
+		if res.TypeUrl != v2.ClusterType {
+			t.Fatalf("expected type %v, got %v", v2.ClusterType, res.TypeUrl)
+		}
+	})
+
+	xdsV3Test(t, "send v3 with v3 transport", func(t *testing.T, client AdsClientV3) {
+		// Send v3 request, expect v3 response
+		res := sendAndReceiveV3(t, node, client, v3.ClusterType, "")
 		if res.TypeUrl != v3.ClusterType {
 			t.Fatalf("expected type %v, got %v", v3.ClusterType, res.TypeUrl)
 		}
