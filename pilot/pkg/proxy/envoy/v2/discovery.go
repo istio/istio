@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -51,7 +50,7 @@ var (
 	// debounceMax is the maximum time to wait for events
 	// while debouncing. Defaults to 10 seconds. If events keep
 	// showing up with no break for this time, we'll trigger a push.
-	DebounceMax time.Duration
+	debounceMax time.Duration
 
 	// enableEDSDebounce indicates whether EDS pushes should be debounced.
 	enableEDSDebounce bool
@@ -78,7 +77,7 @@ const (
 
 func init() {
 	debounceAfter = features.DebounceAfter
-	DebounceMax = features.DebounceMax
+	debounceMax = features.DebounceMax
 	enableEDSDebounce = features.EnableEDSDebounce.Get()
 }
 
@@ -284,7 +283,9 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	inboundConfigUpdates.Increment()
-	s.pushChannel <- req
+	if s.adsClientCount() > 0 {
+		s.pushChannel <- req
+	}
 }
 
 // Debouncing and push request happens in a separate thread, it uses locks
@@ -319,14 +320,12 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 		pushFn(req)
 		freeCh <- struct{}{}
 	}
-	fmt.Printf("debounceBackoff %v \n", debounceBackoff)
 
 	pushWorker := func() {
 		debounceDelay := time.Since(startDebounce)
 		quietTime := time.Since(lastConfigUpdateTime)
-		fmt.Printf("debounceBackoff %v \n", debounceBackoff)
 		// it has been too long or quiet enough
-		if debounceDelay >= DebounceMax || quietTime >= debounceBackoff {
+		if debounceDelay >= debounceMax || quietTime >= debounceBackoff {
 			if req != nil {
 				pushCounter++
 				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
@@ -372,11 +371,9 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			timeChan = time.After(debounceBackoff)
 			if features.EnableDynamicDebounce {
 				debounceBackoff *= 2
-				fmt.Printf("Setting Before debounceBackoff...... %v \n", debounceBackoff)
-				if debounceBackoff >= DebounceMax {
-					debounceBackoff = DebounceMax
+				if debounceBackoff >= debounceMax {
+					debounceBackoff = debounceMax
 				}
-				fmt.Printf("Setting debounceBackoff...... %v \n", debounceBackoff)
 			}
 			req = req.Merge(r)
 		case <-timeChan:

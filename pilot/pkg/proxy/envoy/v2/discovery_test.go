@@ -170,8 +170,8 @@ func TestDebounce(t *testing.T) {
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
 	debounceAfter = time.Millisecond * 50
-	DebounceMax = debounceAfter * 2
-	syncPushTime := 2 * DebounceMax
+	debounceMax = debounceAfter * 2
+	syncPushTime := 2 * debounceMax
 	enableEDSDebounce = false
 
 	tests := []struct {
