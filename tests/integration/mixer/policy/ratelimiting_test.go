@@ -17,7 +17,6 @@ package policy
 import (
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"path"
 	"strings"
