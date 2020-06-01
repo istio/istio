@@ -51,5 +51,4 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["global.pilotCertProvider"] = "kubernetes"
-	cfg.Values["global.mtls.auto"] = "true"
 }

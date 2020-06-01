@@ -27,6 +27,7 @@ spec:
         # priority scheduling and that its resources are reserved
         # if it ever gets evicted.
         scheduler.alpha.kubernetes.io/critical-pod: ''
+        sidecar.istio.io/inject: "false"
         {{- if .Values.cni.podAnnotations }}
 {{ toYaml .Values.cni.podAnnotations | indent 8 }}
         {{- end }}

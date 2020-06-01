@@ -61,9 +61,8 @@ components:
             targetPort: 31400
             name: tcp
 values:
-  global:
-    proxy:
-      accessLogFile: "/dev/stdout"
+  meshConfig:
+    accessLogFile: "/dev/stdout"
   prometheus:
     enabled: true
     scrapeInterval: 5s

@@ -19,7 +19,3 @@ spec:
   components:
     pilot:
       enabled: true
-  values:
-    global:
-      proxy:
-        protocolDetectionTimeout: 12s

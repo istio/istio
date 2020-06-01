@@ -44,7 +44,7 @@ func setupConfig(cfg *istio.Config) {
 
 	cfg.ControlPlaneValues = `
 values:
-  global:
+  meshConfig:
     certificates:
       - dnsNames: [istio-pilot.istio-system.svc, istio-pilot.istio-system]
       - secretName: dns.istio-galley-service-account
