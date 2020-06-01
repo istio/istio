@@ -21,7 +21,9 @@ import (
 	"net"
 	"time"
 
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
@@ -109,7 +111,41 @@ func connectADSC(url string, cfg *adsc.Config) (*adsc.ADSC, util.TearDownFunc, e
 	}, err
 }
 
+func connectADSV3(url string) (discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
+	conn, err := grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return nil, nil, fmt.Errorf("GRPC dial failed: %s", err)
+	}
+	xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
+	client, err := xds.StreamAggregatedResources(context.Background())
+	if err != nil {
+		return nil, nil, fmt.Errorf("stream resources failed: %s", err)
+	}
+
+	return client, func() {
+		_ = client.CloseSend()
+		_ = conn.Close()
+	}, nil
+}
+
 func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
+	done := make(chan int, 1)
+	t := time.NewTimer(to)
+	defer func() {
+		done <- 1
+	}()
+	go func() {
+		select {
+		case <-t.C:
+			_ = ads.CloseSend() // will result in adsRecv closing as well, interrupting the blocking recv
+		case <-done:
+			_ = t.Stop()
+		}
+	}()
+	return ads.Recv()
+}
+
+func adsReceiveV3(ads discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*discovery.DiscoveryResponse, error) {
 	done := make(chan int, 1)
 	t := time.NewTimer(to)
 	defer func() {
@@ -238,6 +274,26 @@ func sendXds(node string, client ads.AggregatedDiscoveryService_StreamAggregated
 	err := client.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &corev2.Node{
+			Id:       node,
+			Metadata: nodeMetadata,
+		},
+		ErrorDetail: errorDetail,
+		TypeUrl:     typeURL})
+	if err != nil {
+		return fmt.Errorf("%v Request failed: %s", typeURL, err)
+	}
+
+	return nil
+}
+
+func sendXdsV3(node string, client discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient, typeURL string, errMsg string) error {
+	var errorDetail *status.Status
+	if errMsg != "" {
+		errorDetail = &status.Status{Message: errMsg}
+	}
+	err := client.Send(&discovery.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &corev3.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
