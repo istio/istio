@@ -28,7 +28,6 @@ const (
 )
 
 var (
-	metadataENV       = env.RegisterStringVar("KEYFACTOR_METADATA_JSON", "", "Metadata configuration as JSON")
 	configPathENV     = env.RegisterStringVar("KEYFACTOR_CONFIG_PATH", "/etc/keyfactor/config.json", "Path to keyfactor client config")
 	configLog         = log.RegisterScope("keyfactorConfig", "KeyFactor CA config", 0)
 	supportedMetadata = map[string]string{

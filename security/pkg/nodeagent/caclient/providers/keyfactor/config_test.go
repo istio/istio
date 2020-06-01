@@ -60,12 +60,14 @@ func TestKeyfactorConfigFromFile(t *testing.T) {
 		"Invalid json config file": {
 			configPath:      "./testdata/invalid.json",
 			customMetadatas: nil,
-			expectedErr:     "cannot parse keyfactor config file (./testdata/invalid.json): invalid character 'i' looking for beginning of value",
+			expectedErr: "cannot parse keyfactor config file (./testdata/invalid.json): " +
+				"invalid character 'i' looking for beginning of value",
 		},
 		"Missing json config file": {
 			configPath:      "./testdata/nowhere.json",
 			customMetadatas: nil,
-			expectedErr:     "unable to read keyfactor config file (./testdata/nowhere.json): open ./testdata/nowhere.json: no such file or directory. <missing or empty secret>",
+			expectedErr: "unable to read keyfactor config file (./testdata/nowhere.json):" +
+				" open ./testdata/nowhere.json: no such file or directory. <missing or empty secret>",
 		},
 		"Valid configuration json file": {
 			configPath:      "./testdata/valid.json",
