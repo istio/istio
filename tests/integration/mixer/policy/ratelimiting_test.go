@@ -97,7 +97,7 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 		defer deleteConfigOrFail(t, config, g, ctx)
 		util.AllowRuleSync(t)
 
-		_ = util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
+		res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
 		_, _ = util.FetchRequestCount(t, prom, destinationService, "",
 			bookInfoNameSpaceStr, 300)
 
