@@ -562,13 +562,6 @@ include tools/istio-docker.mk
 push: docker.push
 
 FILES_TO_CLEAN+=install/consul/istio.yaml \
-                install/kubernetes/istio-auth.yaml \
-                install/kubernetes/istio-citadel-plugin-certs.yaml \
-                install/kubernetes/istio-citadel-with-health-check.yaml \
-                install/kubernetes/istio-one-namespace-auth.yaml \
-                install/kubernetes/istio-one-namespace-trust-domain.yaml \
-                install/kubernetes/istio-one-namespace.yaml \
-                install/kubernetes/istio.yaml \
                 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 
 #-----------------------------------------------------------------------------
