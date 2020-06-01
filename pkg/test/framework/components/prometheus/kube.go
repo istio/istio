@@ -302,7 +302,10 @@ func (c *kubeComponent) SumOrFail(t test.Failer, val model.Value, labels map[str
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
 	_ = c.forwarder.Close()
-	return c.cleanup()
+	if c.cleanup != nil {
+		return c.cleanup()
+	}
+	return nil
 }
 
 // check equality without considering timestamps
