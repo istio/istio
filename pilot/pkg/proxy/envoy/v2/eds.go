@@ -366,11 +366,10 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	}
 }
 
-func (s *DiscoveryServer) generateEndpoints(
-	clusterName string, proxy *model.Proxy, push *model.PushContext, edsUpdatedServices map[string]struct{},
-) *endpoint.ClusterLoadAssignment {
-	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+func (s *DiscoveryServer) generateEndpoints(clusterName string, proxy *model.Proxy, push *model.PushContext,
+	edsUpdatedServices map[string]struct{}) *endpoint.ClusterLoadAssignment {
 	if edsUpdatedServices != nil {
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
 			// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
 			// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
