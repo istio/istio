@@ -25,14 +25,14 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -217,7 +217,7 @@ func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) {
 	features.EnableProtocolSniffingForOutbound = true
 	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
 
-	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+	// The oldest service port is Auto.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIP, "unknown", tnow.Add(1*time.Second)),
@@ -782,15 +782,10 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
 		}
 
-		if !isTCPFilterChain(listeners[0].FilterChains[0]) {
-			t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[0].Filters[0].Name)
-		}
+		_ = getTCPFilterChain(t, listeners[0])
+		http := getHTTPFilterChain(t, listeners[0])
 
-		if !isHTTPFilterChain(listeners[0].FilterChains[1]) {
-			t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
-		}
-
-		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionOutbound, false)
+		verifyHTTPFilterChainMatch(t, http, model.TrafficDirectionOutbound, false)
 		if len(listeners[0].ListenerFilters) != 2 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -803,6 +798,32 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 				listeners[0].ListenerFiltersTimeout)
 		}
 	}
+}
+
+func getTCPFilterChain(t *testing.T, l *listener.Listener) *listener.FilterChain {
+	t.Helper()
+	for _, fc := range l.FilterChains {
+		for _, f := range fc.Filters {
+			if f.Name == "envoy.tcp_proxy" {
+				return fc
+			}
+		}
+	}
+	t.Fatalf("tcp filter chain not found")
+	return nil
+}
+
+func getHTTPFilterChain(t *testing.T, l *listener.Listener) *listener.FilterChain {
+	t.Helper()
+	for _, fc := range l.FilterChains {
+		for _, f := range fc.Filters {
+			if f.Name == "envoy.http_connection_manager" {
+				return fc
+			}
+		}
+	}
+	t.Fatalf("tcp filter chain not found")
+	return nil
 }
 
 func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
@@ -896,7 +917,8 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 	} else {
 		if direction == model.TrafficDirectionInbound &&
 			!reflect.DeepEqual(plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols) {
-			t.Fatalf("expected %d application protocols, %v", len(plaintextHTTPALPNs), plaintextHTTPALPNs)
+			t.Fatalf("expected %d application protocols, %v got %v",
+				len(plaintextHTTPALPNs), plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 		}
 
 		if fc.FilterChainMatch.TransportProtocol != "" {
@@ -906,10 +928,11 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 
 	if direction == model.TrafficDirectionOutbound &&
 		!reflect.DeepEqual(plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols) {
-		t.Fatalf("expected %d application protocols, %v", len(plaintextHTTPALPNs), plaintextHTTPALPNs)
+		t.Fatalf("expected %d application protocols, %v got %v",
+			len(plaintextHTTPALPNs), plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 	}
 
-	hcm := &http_filter.HttpConnectionManager{}
+	hcm := &hcm.HttpConnectionManager{}
 	if err := getFilterConfig(fc.Filters[0], hcm); err != nil {
 		t.Fatalf("failed to get HCM, config %v", hcm)
 	}
@@ -925,7 +948,7 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 	}
 }
 
-func hasAlpnFilter(filters []*http_filter.HttpFilter) bool {
+func hasAlpnFilter(filters []*hcm.HttpFilter) bool {
 	for _, f := range filters {
 		if f.Name == AlpnFilterName {
 			return true
@@ -1410,7 +1433,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 	var customTagsTest = []struct {
 		name             string
 		in               *meshconfig.Tracing
-		out              *http_filter.HttpConnectionManager_Tracing
+		out              *hcm.HttpConnectionManager_Tracing
 		tproxy           model.Proxy
 		envPilotSampling float64
 	}{
@@ -1424,7 +1447,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         0,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1447,7 +1470,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         10,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1470,7 +1493,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         300,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1493,7 +1516,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         300,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1516,7 +1539,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         300,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1540,7 +1563,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 0,
 				Sampling:         0,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: nil,
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
@@ -1562,7 +1585,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: 1024,
 				Sampling:         0,
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				MaxPathTagLength: &wrappers.UInt32Value{
 					Value: 1024,
 				},
@@ -1609,7 +1632,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					},
 				},
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
 				},
@@ -1665,7 +1688,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					},
 				},
 			},
-			out: &http_filter.HttpConnectionManager_Tracing{
+			out: &hcm.HttpConnectionManager_Tracing{
 				ClientSampling: &envoy_type.Percent{
 					Value: 100.0,
 				},
@@ -1731,10 +1754,10 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 	}
 }
 
-func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected *http_filter.HttpConnectionManager_Tracing, name string) {
+func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected *hcm.HttpConnectionManager_Tracing, name string) {
 	t.Helper()
 	if f.Name == "envoy.http_connection_manager" {
-		cmgr := &http_filter.HttpConnectionManager{}
+		cmgr := &hcm.HttpConnectionManager{}
 		err := getFilterConfig(f, cmgr)
 		if err != nil {
 			t.Fatal(err)
@@ -2073,7 +2096,7 @@ func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []istionetwor
 		{
 			ListenerFilters: []*listener.ListenerFilter{
 				{
-					Name: xdsutil.TlsInspector,
+					Name: wellknown.TlsInspector,
 				},
 			},
 		},
@@ -2092,7 +2115,7 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istio
 		}
 	case istionetworking.ListenerProtocolHTTP:
 		for cnum := range mutable.FilterChains {
-			filter := &http_filter.HttpFilter{
+			filter := &hcm.HttpFilter{
 				Name: fakePluginHTTPFilter,
 			}
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
@@ -2111,7 +2134,7 @@ func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []
 			TLSContext: &tls.DownstreamTlsContext{},
 			ListenerFilters: []*listener.ListenerFilter{
 				{
-					Name: xdsutil.TlsInspector,
+					Name: wellknown.TlsInspector,
 				},
 			},
 		},
@@ -2135,7 +2158,7 @@ func isHTTPListener(listener *listener.Listener) bool {
 
 func isMysqlListener(listener *listener.Listener) bool {
 	if len(listener.FilterChains) > 0 && len(listener.FilterChains[0].Filters) > 0 {
-		return listener.FilterChains[0].Filters[0].Name == xdsutil.MySQLProxy
+		return listener.FilterChains[0].Filters[0].Name == wellknown.MySQLProxy
 	}
 	return false
 }
@@ -2383,7 +2406,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 	}
 
 	tcpProxyFilter := &listener.Filter{
-		Name:       xdsutil.TCPProxy,
+		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	}
 
@@ -2393,7 +2416,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 	}
 
 	tcpProxyFilter2 := &listener.Filter{
-		Name:       xdsutil.TCPProxy,
+		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	}
 

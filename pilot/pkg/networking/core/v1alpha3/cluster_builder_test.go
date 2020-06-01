@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
 	"github.com/golang/protobuf/ptypes/duration"
@@ -279,9 +279,9 @@ func TestApplyEdsConfig(t *testing.T) {
 			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			edsConfig: &cluster.Cluster_EdsClusterConfig{
 				ServiceName: "foo",
-				EdsConfig: &corev3.ConfigSource{
-					ConfigSourceSpecifier: &corev3.ConfigSource_Ads{
-						Ads: &corev3.AggregatedConfigSource{},
+				EdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
 					},
 					InitialFetchTimeout: features.InitialFetchTimeout,
 				},
@@ -355,7 +355,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			discovery:   cluster.Cluster_STATIC,
 			endpoints: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
@@ -377,7 +377,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 					ClusterName: "foo",
 					Endpoints: []*endpoint.LocalityLbEndpoints{
 						{
-							Locality: &corev3.Locality{
+							Locality: &core.Locality{
 								Region:  "region1",
 								Zone:    "zone1",
 								SubZone: "subzone1",

@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -362,14 +363,14 @@ func (a *ADSC) handleRecv() {
 					listeners = append(listeners, ll)
 				}
 
-			case v2.ClusterTypeV3:
+			case v3.ClusterType:
 				{
 					cl := &cluster.Cluster{}
 					_ = proto.Unmarshal(valBytes, cl)
 					clusters = append(clusters, cl)
 				}
 
-			case v2.EndpointTypeV3:
+			case v3.EndpointType:
 				{
 					el := &endpoint.ClusterLoadAssignment{}
 					_ = proto.Unmarshal(valBytes, el)
@@ -677,7 +678,7 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 	adscLog.Infof("CDS: %d size=%d", len(cn), cdsSize)
 
 	if len(cn) > 0 {
-		a.sendRsc(v2.EndpointTypeV3, cn)
+		a.sendRsc(v3.EndpointType, cn)
 	}
 	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(ll, " ", " ")
@@ -832,9 +833,9 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 			switch t {
 			case ListenerType:
 				delete(want, "lds")
-			case v2.ClusterTypeV3:
+			case v3.ClusterType:
 				delete(want, "cds")
-			case v2.EndpointTypeV3:
+			case v3.EndpointType:
 				delete(want, "eds")
 			case routeType:
 				delete(want, "rds")
@@ -896,7 +897,7 @@ func (a *ADSC) Watch() {
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
-		TypeUrl:       v2.ClusterTypeV3,
+		TypeUrl:       v3.ClusterType,
 	})
 }
 

@@ -70,7 +70,7 @@ func TestInternalEvents(t *testing.T) {
 
 	// Create a second connection - we should get an event.
 	_, close2, err := connectADSC(util.MockPilotGrpcAddr, &adsc.Config{
-		Watch: []string{v2.ClusterTypeV3},
+		Watch: []string{v3.ClusterType},
 	})
 	if err != nil {
 		t.Fatal("Failed to connect", err)
@@ -258,11 +258,11 @@ func TestAdsClusterUpdate(t *testing.T) {
 			t.Fatal("Recv failed", err)
 		}
 
-		if res.TypeUrl != v2.EndpointTypeV3 {
-			t.Errorf("Expecting %v got %v", v2.EndpointTypeV3, res.TypeUrl)
+		if res.TypeUrl != v3.EndpointType {
+			t.Errorf("Expecting %v got %v", v3.EndpointType, res.TypeUrl)
 		}
-		if res.Resources[0].TypeUrl != v2.EndpointTypeV3 {
-			t.Errorf("Expecting %v got %v", v2.EndpointTypeV3, res.Resources[0].TypeUrl)
+		if res.Resources[0].TypeUrl != v3.EndpointType {
+			t.Errorf("Expecting %v got %v", v3.EndpointType, res.Resources[0].TypeUrl)
 		}
 
 		cla, err := getLoadAssignment(res)
@@ -708,11 +708,11 @@ func TestAdsUpdate(t *testing.T) {
 		t.Fatal("Recv failed", err)
 	}
 
-	if res1.TypeUrl != v2.EndpointTypeV3 {
-		t.Errorf("Expecting %v got %v", v2.EndpointTypeV3, res1.TypeUrl)
+	if res1.TypeUrl != v3.EndpointType {
+		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.TypeUrl)
 	}
-	if res1.Resources[0].TypeUrl != v2.EndpointTypeV3 {
-		t.Errorf("Expecting %v got %v", v2.EndpointTypeV3, res1.Resources[0].TypeUrl)
+	if res1.Resources[0].TypeUrl != v3.EndpointType {
+		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.Resources[0].TypeUrl)
 	}
 	cla, err := getLoadAssignment(res1)
 	if err != nil {

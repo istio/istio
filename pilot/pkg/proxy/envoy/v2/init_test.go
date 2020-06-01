@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -46,10 +47,10 @@ var nodeMetadata = &structpb.Struct{Fields: map[string]*structpb.Value{
 
 // Extract cluster load assignment from a discovery response.
 func getLoadAssignment(res1 *xdsapi.DiscoveryResponse) (*endpoint.ClusterLoadAssignment, error) {
-	if res1.TypeUrl != v2.EndpointTypeV3 {
+	if res1.TypeUrl != v3.EndpointType {
 		return nil, errors.New("Invalid typeURL" + res1.TypeUrl)
 	}
-	if res1.Resources[0].TypeUrl != v2.EndpointTypeV3 {
+	if res1.Resources[0].TypeUrl != v3.EndpointType {
 		return nil, errors.New("Invalid resource typeURL" + res1.Resources[0].TypeUrl)
 	}
 	cla := &endpoint.ClusterLoadAssignment{}
@@ -132,7 +133,7 @@ func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoverySe
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
-		TypeUrl:       v2.EndpointTypeV3,
+		TypeUrl:       v3.EndpointType,
 		ResourceNames: clusters,
 	})
 	if err != nil {
@@ -143,7 +144,7 @@ func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoverySe
 }
 
 func sendEDSNack(_ []string, node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	return sendXds(node, client, v2.EndpointTypeV3, "NOPE!")
+	return sendXds(node, client, v3.EndpointType, "NOPE!")
 }
 
 // If pilot is reset, envoy will connect with a nonce/version info set on the previous
@@ -155,7 +156,7 @@ func sendEDSReqReconnect(clusters []string, client ads.AggregatedDiscoveryServic
 			Id:       sidecarID(app3Ip, "app3"),
 			Metadata: nodeMetadata,
 		},
-		TypeUrl:       v2.EndpointTypeV3,
+		TypeUrl:       v3.EndpointType,
 		ResponseNonce: res.Nonce,
 		VersionInfo:   res.VersionInfo,
 		ResourceNames: clusters})
