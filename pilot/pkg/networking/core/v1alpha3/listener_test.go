@@ -32,7 +32,7 @@ import (
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -1869,7 +1869,7 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *listener.Listener) {
 
 		f := fc.Filters[0]
 		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
-		hf := cfg.Fields["hcms"].GetListValue()
+		hf := cfg.Fields["http_filters"].GetListValue()
 		if len(hf.Values) != 3 {
 			t.Fatalf("expected %d http filters, found %d", 3, len(hf.Values))
 		}
@@ -2096,7 +2096,7 @@ func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []istionetwor
 		{
 			ListenerFilters: []*listener.ListenerFilter{
 				{
-					Name: xdsutil.TlsInspector,
+					Name: wellknown.TlsInspector,
 				},
 			},
 		},
@@ -2134,7 +2134,7 @@ func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []
 			TLSContext: &tls.DownstreamTlsContext{},
 			ListenerFilters: []*listener.ListenerFilter{
 				{
-					Name: xdsutil.TlsInspector,
+					Name: wellknown.TlsInspector,
 				},
 			},
 		},
@@ -2158,7 +2158,7 @@ func isHTTPListener(listener *listener.Listener) bool {
 
 func isMysqlListener(listener *listener.Listener) bool {
 	if len(listener.FilterChains) > 0 && len(listener.FilterChains[0].Filters) > 0 {
-		return listener.FilterChains[0].Filters[0].Name == xdsutil.MySQLProxy
+		return listener.FilterChains[0].Filters[0].Name == wellknown.MySQLProxy
 	}
 	return false
 }
@@ -2406,7 +2406,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 	}
 
 	tcpProxyFilter := &listener.Filter{
-		Name:       xdsutil.TCPProxy,
+		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	}
 
@@ -2416,7 +2416,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 	}
 
 	tcpProxyFilter2 := &listener.Filter{
-		Name:       xdsutil.TCPProxy,
+		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	}
 

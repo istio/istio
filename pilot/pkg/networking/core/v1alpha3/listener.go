@@ -30,7 +30,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	fileaccesslogconfig "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	alsconfig "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
-	grpc_stats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
+	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/filters/ratelimit/v3"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
@@ -1911,7 +1911,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		filters = append(filters, &hcm.HttpFilter{
 			Name: wellknown.HTTPGRPCStats,
 			ConfigType: &hcm.HttpFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&grpc_stats.FilterConfig{
+				TypedConfig: util.MessageToAny(&grpcstats.FilterConfig{
 					EmitFilterState: true,
 				}),
 			},

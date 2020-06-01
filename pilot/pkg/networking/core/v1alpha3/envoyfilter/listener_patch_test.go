@@ -26,7 +26,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -408,9 +408,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
-{"name": "envoy.hcmection_manager",
+{"name": "envoy.http_connection_manager",
  "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.filter.network.hcmection_manager.v2.HttpConnectionManager",
+        "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
          "xffNumTrustedHops": "4"
  }
 }`),
@@ -437,9 +437,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
-{"name": "envoy.hcmection_manager", 
+{"name": "envoy.http_connection_manager", 
  "typed_config": {
-        "@type": "type.googleapis.com/envoy.extensions.filters.network.hcmection_manager.v3.HttpConnectionManager",
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
          "mergeSlashes": true,
          "alwaysSetRequestIdInResponse": true
  }
@@ -605,10 +605,10 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
-									HttpFilters: []*hcm.HttpFilter{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
 										{Name: wellknown.Fault,
-											ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
+											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
 										},
 										{Name: "http-filter2"},
 									},
@@ -640,12 +640,12 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									XffNumTrustedHops: 4,
 									MergeSlashes:      true,
-									HttpFilters: []*hcm.HttpFilter{
+									HttpFilters: []*http_conn.HttpFilter{
 										{Name: wellknown.Fault,
-											ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
+											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
 										},
 										{Name: "http-filter3"},
 										{Name: "http-filter2"},
@@ -681,8 +681,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
-									HttpFilters: []*hcm.HttpFilter{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "http-filter1"},
 										{Name: "http-filter2"},
 									},
@@ -737,8 +737,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
-									HttpFilters: []*hcm.HttpFilter{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "http-filter1"},
 										{Name: "http-filter2"},
 										{Name: "http-filter3"},
@@ -797,10 +797,10 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
-									HttpFilters: []*hcm.HttpFilter{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
 										{Name: wellknown.Fault,
-											ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
+											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
 										},
 										{Name: "http-filter2"},
 									},
@@ -838,12 +838,12 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									XffNumTrustedHops: 4,
 									MergeSlashes:      true,
-									HttpFilters: []*hcm.HttpFilter{
+									HttpFilters: []*http_conn.HttpFilter{
 										{Name: wellknown.Fault,
-											ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
+											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
 										},
 										{Name: "http-filter3"},
 										{Name: "http-filter2"},
@@ -986,10 +986,10 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 					{
 						Name: wellknown.HTTPConnectionManager,
 						ConfigType: &listener.Filter_TypedConfig{
-							TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
+							TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 								XffNumTrustedHops: 4,
 								MergeSlashes:      true,
-								HttpFilters: []*hcm.HttpFilter{
+								HttpFilters: []*http_conn.HttpFilter{
 									{Name: "http-filter3"},
 									{Name: wellknown.Router},
 									{Name: "http-filter2"},
