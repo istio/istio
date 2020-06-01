@@ -207,9 +207,9 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: model.NodeMetadata{
-			InstanceIPs:     []string{"100.1.1.2"},
-			Namespace: "ns1",
-			IstioVersion:    "1.3.0",
+			InstanceIPs:  []string{"100.1.1.2"},
+			Namespace:    "ns1",
+			IstioVersion: "1.3.0",
 		}.ToStruct(),
 		IP:        "100.1.1.2",
 		Namespace: "ns1",
@@ -268,9 +268,9 @@ func TestLDSWithIngressGateway(t *testing.T) {
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: model.NodeMetadata{
-			InstanceIPs:     []string{"99.1.1.1"}, // as service instance of ingress gateway
-			Namespace: "istio-system",
-			IstioVersion:    "1.3.0",
+			InstanceIPs:  []string{"99.1.1.1"}, // as service instance of ingress gateway
+			Namespace:    "istio-system",
+			IstioVersion: "1.3.0",
 		}.ToStruct(),
 		IP:        "99.1.1.1",
 		Namespace: "istio-system",
@@ -392,9 +392,9 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: model.NodeMetadata{
-			InstanceIPs:     []string{"98.1.1.1"}, // as service instance of ingress gateway
-			Namespace: "consumerns",
-			IstioVersion:    "1.3.0",
+			InstanceIPs:  []string{"98.1.1.1"}, // as service instance of ingress gateway
+			Namespace:    "consumerns",
+			IstioVersion: "1.3.0",
 		}.ToStruct(),
 		IP:        "98.1.1.1",
 		Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
@@ -496,9 +496,9 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 				Meta: model.NodeMetadata{
-					InstanceIPs:     []string{test.ip}, // as service instance of ingress gateway
-					Namespace: "istio-system",
-					IstioVersion:    "1.4.0",
+					InstanceIPs:  []string{test.ip}, // as service instance of ingress gateway
+					Namespace:    "istio-system",
+					IstioVersion: "1.4.0",
 				}.ToStruct(),
 				IP:        test.ip,
 				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
