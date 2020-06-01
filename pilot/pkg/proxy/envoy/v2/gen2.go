@@ -17,7 +17,7 @@ package v2
 import (
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -27,7 +27,7 @@ import (
 
 // handleReqAck checks if the message is an ack/nack and handles it, returning true.
 // If false, the request should be processed by calling the generator.
-func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) (*model.WatchedResource, bool) {
+func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *discovery.DiscoveryRequest) (*model.WatchedResource, bool) {
 
 	// All NACKs should have ErrorDetail set !
 	// Relying on versionCode != sentVersionCode as nack is less reliable.
@@ -89,14 +89,14 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 }
 
 // handleCustomGenerator uses model.Generator to generate the response.
-func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discovery.DiscoveryRequest) error {
 	w, isAck := s.handleReqAck(con, req)
 	if isAck {
 		return nil
 	}
 
 	push := s.globalPushContext()
-	resp := &xdsapi.DiscoveryResponse{
+	resp := &discovery.DiscoveryResponse{
 		TypeUrl:     w.TypeUrl,
 		VersionInfo: push.Version, // TODO: we can now generate per-type version !
 		Nonce:       nonce(push.Version),
@@ -153,7 +153,7 @@ func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushCo
 	// become dependent of the specific resource - for example in case of API it'll be the largest
 	// version of the requested type.
 
-	resp := &xdsapi.DiscoveryResponse{
+	resp := &discovery.DiscoveryResponse{
 		TypeUrl:     w.TypeUrl,
 		VersionInfo: currentVersion,
 		Nonce:       nonce(push.Version),
