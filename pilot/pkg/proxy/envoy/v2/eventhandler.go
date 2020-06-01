@@ -18,14 +18,14 @@ import v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 
 // DistributionType represents the type of object we are tracking. This is distinct from Envoy's TypeUrl
 // as TypeUrl is versioned, whereas DistributionType is not
-type DistributionType = string
+type DistributionType string
 
 const (
 	ClusterDistributionType  DistributionType = "Cluster"
 	ListenerDistributionType DistributionType = "Listener"
 	RouteDistributionType    DistributionType = "Route"
 	EndpointDistributionType DistributionType = "Endpoint"
-	UnknownDistributionType  DistributionType = "Unknown"
+	UnknownDistributionType  DistributionType = ""
 )
 
 var AllDistributionTypes = []DistributionType{
@@ -35,8 +35,8 @@ var AllDistributionTypes = []DistributionType{
 	EndpointDistributionType,
 }
 
-func TypeUrlToDistributionType(typeUrl string) DistributionType {
-	switch typeUrl {
+func TypeURLToDistributionType(typeURL string) DistributionType {
+	switch typeURL {
 	case ClusterType, v3.ClusterType:
 		return ClusterDistributionType
 	case EndpointType, v3.EndpointType:

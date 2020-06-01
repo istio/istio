@@ -300,7 +300,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 				}()
 			}
 			if s.StatusReporter != nil {
-				s.StatusReporter.RegisterEvent(con.ConID, TypeUrlToDistributionType(discReq.TypeUrl), discReq.ResponseNonce)
+				s.StatusReporter.RegisterEvent(con.ConID, TypeURLToDistributionType(discReq.TypeUrl), discReq.ResponseNonce)
 			}
 
 			// Based on node metadata a different generator was selected, use it instead of the default
