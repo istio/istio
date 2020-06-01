@@ -24,7 +24,7 @@ import (
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 
 	"istio.io/istio/pkg/test/framework"
 )
@@ -41,7 +41,7 @@ func TestServiceEntryDNS(t *testing.T) {
 			Node: &xdscore.Node{
 				Id: nodeID.ServiceNode(),
 			},
-			TypeUrl: v2.ClusterTypeV3,
+			TypeUrl: v3.ClusterType,
 		}
 
 		if err := p.StartDiscovery(req); err != nil {
@@ -66,7 +66,7 @@ func TestServiceEntryDNSNoSelfImport(t *testing.T) {
 			Node: &xdscore.Node{
 				Id: nodeID.ServiceNode(),
 			},
-			TypeUrl: v2.ClusterTypeV3,
+			TypeUrl: v3.ClusterType,
 		}
 
 		if err := p.StartDiscovery(req); err != nil {
