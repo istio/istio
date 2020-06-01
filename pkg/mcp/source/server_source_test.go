@@ -37,10 +37,6 @@ type serverHarness struct {
 	*sourceTestHarness
 }
 
-func (h *serverHarness) EstablishResourceStream(ctx context.Context, opts ...grpc.CallOption) (mcp.ResourceSource_EstablishResourceStreamServer, error) { // nolint: lll
-	return h, h.openError()
-}
-
 func (*serverHarness) SendHeader(metadata.MD) error {
 	return nil
 }

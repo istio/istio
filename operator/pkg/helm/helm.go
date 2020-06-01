@@ -88,7 +88,6 @@ func ReadProfileYAML(profile, chartsDir string) (string, error) {
 			return "", err
 		}
 	case util.IsFilePath(profile):
-		scope.Infof("Loading values from local filesystem at path %s", profile)
 		if globalValues, err = readFile(profile); err != nil {
 			return "", err
 		}

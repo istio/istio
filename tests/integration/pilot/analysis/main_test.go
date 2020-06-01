@@ -38,7 +38,6 @@ values:
       PILOT_ENABLE_STATUS: true
   global:
     istiod:
-      enabled: true
       enableAnalysis: true
 `
 		})).

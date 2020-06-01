@@ -71,7 +71,7 @@ func setupConfig(cfg *istio.Config) {
 	}
 	cfg.Values["tracing.enabled"] = "true"
 	cfg.Values["tracing.provider"] = "zipkin"
-	cfg.Values["global.enableTracing"] = "true"
-	cfg.Values["global.disablePolicyChecks"] = "true"
+	cfg.Values["meshConfig.enableTracing"] = "true"
+	cfg.Values["meshConfig.disablePolicyChecks"] = "true"
 	cfg.Values["pilot.traceSampling"] = "100.0"
 }

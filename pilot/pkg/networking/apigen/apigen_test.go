@@ -58,7 +58,7 @@ func initDS() *xds.Server {
 func TestAPIGen(t *testing.T) {
 	ds := initDS()
 	ds.DiscoveryServer.Generators["api"] = &apigen.APIGenerator{}
-	epGen := &envoyv2.EdsGenerator{ds.DiscoveryServer}
+	epGen := &envoyv2.EdsGenerator{Server: ds.DiscoveryServer}
 	ds.DiscoveryServer.Generators["api/"+envoyv2.EndpointType] = epGen
 
 	err := ds.StartGRPC(grpcAddr)

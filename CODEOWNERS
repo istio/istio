@@ -1,4 +1,7 @@
 *                                                                @costinm @linsun @rshriram @howardjohn
+/.gitattributes                                                  @istio/wg-test-and-release-maintainers
+/.gitignore                                                      @istio/wg-test-and-release-maintainers
+/Makefile.core.mk                                                @istio/wg-test-and-release-maintainers
 /bin/                                                            @istio/wg-test-and-release-maintainers
 /cmd/istiod/                                                     @istio/wg-environments-maintainers
 /common/                                                         @istio/wg-test-and-release-maintainers

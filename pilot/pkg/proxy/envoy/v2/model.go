@@ -12,30 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package constraint
+package v2
 
-import (
-	"encoding/json"
+import "github.com/envoyproxy/go-control-plane/pkg/resource/v2"
 
-	"sigs.k8s.io/yaml"
+const (
+	// ClusterType is used for cluster discovery. Typically first request received
+	ClusterType = resource.ClusterType
+	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
+	EndpointType = resource.EndpointType
+	// ListenerType is sent after clusters and endpoints.
+	ListenerType = resource.ListenerType
+	// RouteType is sent after listeners.
+	RouteType = resource.RouteType
 )
-
-// Constraints that needs to be satisfied.
-type Constraints struct {
-	Constraints []*Collection `json:"constraints"`
-}
-
-// Parse the given yaml bytes as a Constraint
-func Parse(yamlBytes []byte) (*Constraints, error) {
-	jsonBytes, err := yaml.YAMLToJSON(yamlBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Constraints{}
-	if err = json.Unmarshal(jsonBytes, c); err != nil {
-		return nil, err
-	}
-
-	return c, nil
-}

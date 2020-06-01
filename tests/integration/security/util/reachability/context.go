@@ -60,14 +60,13 @@ type TestCase struct {
 
 // Context is a context for reachability tests.
 type Context struct {
-	ctx           framework.TestContext
-	p             pilot.Instance
-	Namespace     namespace.Instance
-	A, B          echo.Instance
-	Multiversion  echo.Instance
-	Headless      echo.Instance
-	Naked         echo.Instance
-	HeadlessNaked echo.Instance
+	ctx          framework.TestContext
+	p            pilot.Instance
+	Namespace    namespace.Instance
+	A, B         echo.Instance
+	Multiversion echo.Instance
+	Headless     echo.Instance
+	Naked        echo.Instance
 }
 
 // CreateContext creates and initializes reachability context.
@@ -77,7 +76,7 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 		Inject: true,
 	})
 
-	var a, b, multiVersion, headless, naked, headlessNaked echo.Instance
+	var a, b, multiVersion, headless, naked echo.Instance
 	cfg := util.EchoConfig("multiversion", ns, false, nil, p)
 	cfg.Subsets = []echo.SubsetConfig{
 		// Istio deployment, with sidecar.
@@ -97,20 +96,17 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 		With(&headless, util.EchoConfig("headless", ns, true, nil, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), p)).
-		With(&headlessNaked, util.EchoConfig("headless-naked", ns, true, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false), p)).
 		BuildOrFail(ctx)
 
 	return Context{
-		ctx:           ctx,
-		p:             p,
-		Namespace:     ns,
-		A:             a,
-		B:             b,
-		Multiversion:  multiVersion,
-		Headless:      headless,
-		Naked:         naked,
-		HeadlessNaked: headlessNaked,
+		ctx:          ctx,
+		p:            p,
+		Namespace:    ns,
+		A:            a,
+		B:            b,
+		Multiversion: multiVersion,
+		Headless:     headless,
+		Naked:        naked,
 	}
 }
 
@@ -209,12 +205,4 @@ func (rc *Context) Run(testCases []TestCase) {
 			}
 		})
 	}
-}
-
-func (rc *Context) IsNaked(i echo.Instance) bool {
-	return i == rc.HeadlessNaked || i == rc.Naked
-}
-
-func (rc *Context) IsHeadless(i echo.Instance) bool {
-	return i == rc.HeadlessNaked || i == rc.Headless
 }

@@ -70,13 +70,13 @@ func TestCNIReachability(t *testing.T) {
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
-						if rctx.IsHeadless(opts.Target) && opts.PortName == "tcp" {
+						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
 							return false
 						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						if rctx.IsNaked(src) && rctx.IsNaked(opts.Target) {
+						if src == rctx.Naked && opts.Target == rctx.Naked {
 							// naked->naked should always succeed.
 							return true
 						}
