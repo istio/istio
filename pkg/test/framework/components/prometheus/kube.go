@@ -99,12 +99,14 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		return nil, err
 	}
 
-	if err := installPrometheus(ctx, cfg.TelemetryNamespace); err != nil {
-		return nil, err
-	}
+	if !cfgIn.SkipDeploy {
+		if err := installPrometheus(ctx, cfg.TelemetryNamespace); err != nil {
+			return nil, err
+		}
 
-	c.cleanup = func() error {
-		return removePrometheus(ctx, cfg.TelemetryNamespace)
+		c.cleanup = func() error {
+			return removePrometheus(ctx, cfg.TelemetryNamespace)
+		}
 	}
 	fetchFn := c.cluster.NewSinglePodFetch(cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
 	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
