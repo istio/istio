@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
 )
@@ -148,20 +147,4 @@ func (i Instance) String() string {
 		buffer.WriteString(label)
 	}
 	return buffer.String()
-}
-
-// Parse labels from a comma-separated string of the form k1=v1,k2=v2,...,kn=vn.
-func Parse(s string) Instance {
-	pairs := strings.Split(s, ",")
-	tag := make(Instance, len(pairs))
-
-	for _, pair := range pairs {
-		kv := strings.Split(pair, "=")
-		if len(kv) > 1 {
-			tag[kv[0]] = kv[1]
-		} else {
-			tag[kv[0]] = ""
-		}
-	}
-	return tag
 }

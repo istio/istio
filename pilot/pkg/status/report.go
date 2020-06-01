@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package status
 
 import (
-	"fmt"
 	"strings"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -30,10 +29,6 @@ type DistributionReport struct {
 	Reporter            string         `json:"reporter"`
 	DataPlaneCount      int            `json:"dataPlaneCount"`
 	InProgressResources map[string]int `json:"inProgressResources"`
-}
-
-func (r *DistributionReport) SetProgress(resource fmt.Stringer, progress int) {
-	r.InProgressResources[resource.String()] = progress
 }
 
 func ReportFromYaml(content []byte) (DistributionReport, error) {

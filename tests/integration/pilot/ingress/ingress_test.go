@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -200,10 +200,10 @@ func TestIngress(t *testing.T) {
 			// Set up secret contain some TLS certs for *.example.com
 			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
 			credName := "k8s-ingress-secret-foo"
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA)
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA, false)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName})
 			credName2 := "k8s-ingress-secret-bar"
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB)
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB, false)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName2})
 
 			if err := ctx.ApplyConfig(ns.Name(), `

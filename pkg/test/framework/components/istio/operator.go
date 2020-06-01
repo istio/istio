@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pilot/pkg/leaderelection"
 
 	"istio.io/api/mesh/v1alpha1"
 
@@ -87,6 +88,13 @@ func removeCRDs(istioYaml string) string {
 	return yml.JoinString(nonCrds...)
 }
 
+var leaderElectionConfigMaps = []string{
+	leaderelection.IngressController,
+	leaderelection.NamespaceController,
+	leaderelection.ValidationController,
+	leaderelection.StatusController,
+}
+
 func (i *operatorComponent) Close() (err error) {
 	scopes.CI.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	defer scopes.CI.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
@@ -94,6 +102,12 @@ func (i *operatorComponent) Close() (err error) {
 		for _, cluster := range i.environment.KubeClusters {
 			if e := cluster.DeleteContents("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
 				err = multierror.Append(err, e)
+			}
+			// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
+			for _, cm := range leaderElectionConfigMaps {
+				if e := cluster.DeleteConfigMap(cm, i.settings.SystemNamespace); e != nil {
+					err = multierror.Append(err, e)
+				}
 			}
 			if i.environment.IsMulticluster() {
 				if e := cluster.DeleteNamespace(i.settings.SystemNamespace); e != nil {

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -135,16 +135,6 @@ func ValidatePort(port int) error {
 		return nil
 	}
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
-}
-
-// ValidatePorts checks if all ports are in range [0, 65535]
-func ValidatePorts(ports []int32) bool {
-	for _, port := range ports {
-		if ValidatePort(int(port)) != nil {
-			return false
-		}
-	}
-	return true
 }
 
 // ValidateFQDN checks a fully-qualified domain name

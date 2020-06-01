@@ -173,7 +173,7 @@ func (x OutboundTrafficPolicyConfig_Mode) String() string {
 }
 
 func (OutboundTrafficPolicyConfig_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{29, 0}
+	return fileDescriptor_261260e22432516f, []int{27, 0}
 }
 
 // ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.
@@ -1129,81 +1129,6 @@ func (m *EgressGatewayConfig) GetRunAsRoot() *protobuf.BoolValue {
 	return nil
 }
 
-// EnvoyMetricsConfig is a set of configuration options for Envoy metrics.
-type EnvoyMetricsConfig struct {
-	// Enables the Envoy Metrics Service.
-	Enabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Sets the destination Envoy Metrics Service address in Envoy.
-	Host string `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
-	// Sets the destination Envoy Metrics Service port in Envoy.
-	Port                 int32                   `protobuf:"varint,3,opt,name=port,proto3" json:"port,omitempty"`
-	TlsSettings          map[string]interface{} `protobuf:"bytes,4,opt,name=tlsSettings,proto3" json:"tlsSettings,omitempty"`
-	TcpKeepalive         map[string]interface{} `protobuf:"bytes,5,opt,name=tcpKeepalive,proto3" json:"tcpKeepalive,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
-}
-
-func (m *EnvoyMetricsConfig) Reset()         { *m = EnvoyMetricsConfig{} }
-func (m *EnvoyMetricsConfig) String() string { return proto.CompactTextString(m) }
-func (*EnvoyMetricsConfig) ProtoMessage()    {}
-func (*EnvoyMetricsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{9}
-}
-
-func (m *EnvoyMetricsConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_EnvoyMetricsConfig.Unmarshal(m, b)
-}
-func (m *EnvoyMetricsConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_EnvoyMetricsConfig.Marshal(b, m, deterministic)
-}
-func (m *EnvoyMetricsConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EnvoyMetricsConfig.Merge(m, src)
-}
-func (m *EnvoyMetricsConfig) XXX_Size() int {
-	return xxx_messageInfo_EnvoyMetricsConfig.Size(m)
-}
-func (m *EnvoyMetricsConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_EnvoyMetricsConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_EnvoyMetricsConfig proto.InternalMessageInfo
-
-func (m *EnvoyMetricsConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *EnvoyMetricsConfig) GetHost() string {
-	if m != nil {
-		return m.Host
-	}
-	return ""
-}
-
-func (m *EnvoyMetricsConfig) GetPort() int32 {
-	if m != nil {
-		return m.Port
-	}
-	return 0
-}
-
-func (m *EnvoyMetricsConfig) GetTlsSettings() map[string]interface{} {
-	if m != nil {
-		return m.TlsSettings
-	}
-	return nil
-}
-
-func (m *EnvoyMetricsConfig) GetTcpKeepalive() map[string]interface{} {
-	if m != nil {
-		return m.TcpKeepalive
-	}
-	return nil
-}
-
 // GatewayLabelsConfig is a set of Configuration for gateway labels.
 type GatewayLabelsConfig struct {
 	App                  string   `protobuf:"bytes,1,opt,name=app,proto3" json:"app,omitempty"`
@@ -1217,7 +1142,7 @@ func (m *GatewayLabelsConfig) Reset()         { *m = GatewayLabelsConfig{} }
 func (m *GatewayLabelsConfig) String() string { return proto.CompactTextString(m) }
 func (*GatewayLabelsConfig) ProtoMessage()    {}
 func (*GatewayLabelsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{10}
+	return fileDescriptor_261260e22432516f, []int{9}
 }
 
 func (m *GatewayLabelsConfig) XXX_Unmarshal(b []byte) error {
@@ -1269,7 +1194,7 @@ func (m *GatewaysConfig) Reset()         { *m = GatewaysConfig{} }
 func (m *GatewaysConfig) String() string { return proto.CompactTextString(m) }
 func (*GatewaysConfig) ProtoMessage()    {}
 func (*GatewaysConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{11}
+	return fileDescriptor_261260e22432516f, []int{10}
 }
 
 func (m *GatewaysConfig) XXX_Unmarshal(b []byte) error {
@@ -1318,8 +1243,7 @@ type GlobalConfig struct {
 	//   1 - Least preferred
 	//   2 - No preference
 	//   3 - Most preferred
-	Arch         *ArchConfig                    `protobuf:"bytes,1,opt,name=arch,proto3" json:"arch,omitempty"`
-	Certificates []map[string]interface{} `protobuf:"bytes,40,opt,name=certificates,proto3" json:"certificates,omitempty"`
+	Arch *ArchConfig `protobuf:"bytes,1,opt,name=arch,proto3" json:"arch,omitempty"`
 	// Specifies the namespace for the configuration and validation component.
 	ConfigNamespace     string `protobuf:"bytes,2,opt,name=configNamespace,proto3" json:"configNamespace,omitempty"`
 	ConfigRootNamespace string `protobuf:"bytes,50,opt,name=configRootNamespace,proto3" json:"configRootNamespace,omitempty"`
@@ -1334,8 +1258,6 @@ type GlobalConfig struct {
 	DefaultNodeSelector map[string]interface{} `protobuf:"bytes,6,opt,name=defaultNodeSelector,proto3" json:"defaultNodeSelector,omitempty"` // Deprecated: Do not use.
 	// Specifies the default pod disruption budget configuration.
 	DefaultPodDisruptionBudget *DefaultPodDisruptionBudgetConfig `protobuf:"bytes,7,opt,name=defaultPodDisruptionBudget,proto3" json:"defaultPodDisruptionBudget,omitempty"` // Deprecated: Do not use.
-	// Controls whether the policy enforcement is enabled.
-	DisablePolicyChecks *protobuf.BoolValue `protobuf:"bytes,8,opt,name=disablePolicyChecks,proto3" json:"disablePolicyChecks,omitempty"`
 	// Default k8s resources settings for all Istio control plane components.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
@@ -1412,8 +1334,6 @@ type GlobalConfig struct {
 	MeshNetworks map[string]interface{} `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
 	// Specifies the monitor port number for all Istio control plane components.
 	MonitoringPort uint32 `protobuf:"varint,20,opt,name=monitoringPort,proto3" json:"monitoringPort,omitempty"`
-	// Specifies the MTLS settings for the applications that Istio manages.
-	Mtls *MTLSConfig `protobuf:"bytes,21,opt,name=mtls,proto3" json:"mtls,omitempty"`
 	// Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.
 	MultiCluster *MultiClusterConfig `protobuf:"bytes,22,opt,name=multiCluster,proto3" json:"multiCluster,omitempty"`
 	Network      string              `protobuf:"bytes,39,opt,name=network,proto3" json:"network,omitempty"`
@@ -1497,7 +1417,7 @@ func (m *GlobalConfig) Reset()         { *m = GlobalConfig{} }
 func (m *GlobalConfig) String() string { return proto.CompactTextString(m) }
 func (*GlobalConfig) ProtoMessage()    {}
 func (*GlobalConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{12}
+	return fileDescriptor_261260e22432516f, []int{11}
 }
 
 func (m *GlobalConfig) XXX_Unmarshal(b []byte) error {
@@ -1521,13 +1441,6 @@ var xxx_messageInfo_GlobalConfig proto.InternalMessageInfo
 func (m *GlobalConfig) GetArch() *ArchConfig {
 	if m != nil {
 		return m.Arch
-	}
-	return nil
-}
-
-func (m *GlobalConfig) GetCertificates() []map[string]interface{} {
-	if m != nil {
-		return m.Certificates
 	}
 	return nil
 }
@@ -1579,13 +1492,6 @@ func (m *GlobalConfig) GetDefaultNodeSelector() map[string]interface{} {
 func (m *GlobalConfig) GetDefaultPodDisruptionBudget() *DefaultPodDisruptionBudgetConfig {
 	if m != nil {
 		return m.DefaultPodDisruptionBudget
-	}
-	return nil
-}
-
-func (m *GlobalConfig) GetDisablePolicyChecks() *protobuf.BoolValue {
-	if m != nil {
-		return m.DisablePolicyChecks
 	}
 	return nil
 }
@@ -1695,13 +1601,6 @@ func (m *GlobalConfig) GetMonitoringPort() uint32 {
 		return m.MonitoringPort
 	}
 	return 0
-}
-
-func (m *GlobalConfig) GetMtls() *MTLSConfig {
-	if m != nil {
-		return m.Mtls
-	}
-	return nil
 }
 
 func (m *GlobalConfig) GetMultiCluster() *MultiClusterConfig {
@@ -1957,7 +1856,7 @@ func (m *STSConfig) Reset()         { *m = STSConfig{} }
 func (m *STSConfig) String() string { return proto.CompactTextString(m) }
 func (*STSConfig) ProtoMessage()    {}
 func (*STSConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{13}
+	return fileDescriptor_261260e22432516f, []int{12}
 }
 
 func (m *STSConfig) XXX_Unmarshal(b []byte) error {
@@ -1986,9 +1885,6 @@ func (m *STSConfig) GetServicePort() uint32 {
 }
 
 type IstiodConfig struct {
-	// If enabled, all control plane functionality will be handled by a single deployment.
-	// Deprecated. This field is always ignored and assumed true.
-	Enabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"` // Deprecated: Do not use.
 	// If enabled, istiod will perform config analysis
 	EnableAnalysis       *protobuf.BoolValue `protobuf:"bytes,2,opt,name=enableAnalysis,proto3" json:"enableAnalysis,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
@@ -2000,7 +1896,7 @@ func (m *IstiodConfig) Reset()         { *m = IstiodConfig{} }
 func (m *IstiodConfig) String() string { return proto.CompactTextString(m) }
 func (*IstiodConfig) ProtoMessage()    {}
 func (*IstiodConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{14}
+	return fileDescriptor_261260e22432516f, []int{13}
 }
 
 func (m *IstiodConfig) XXX_Unmarshal(b []byte) error {
@@ -2020,14 +1916,6 @@ func (m *IstiodConfig) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_IstiodConfig proto.InternalMessageInfo
-
-// Deprecated: Do not use.
-func (m *IstiodConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
 
 func (m *IstiodConfig) GetEnableAnalysis() *protobuf.BoolValue {
 	if m != nil {
@@ -2051,7 +1939,7 @@ func (m *GlobalLoggingConfig) Reset()         { *m = GlobalLoggingConfig{} }
 func (m *GlobalLoggingConfig) String() string { return proto.CompactTextString(m) }
 func (*GlobalLoggingConfig) ProtoMessage()    {}
 func (*GlobalLoggingConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{15}
+	return fileDescriptor_261260e22432516f, []int{14}
 }
 
 func (m *GlobalLoggingConfig) XXX_Unmarshal(b []byte) error {
@@ -2166,7 +2054,7 @@ func (m *IngressGatewayConfig) Reset()         { *m = IngressGatewayConfig{} }
 func (m *IngressGatewayConfig) String() string { return proto.CompactTextString(m) }
 func (*IngressGatewayConfig) ProtoMessage()    {}
 func (*IngressGatewayConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{16}
+	return fileDescriptor_261260e22432516f, []int{15}
 }
 
 func (m *IngressGatewayConfig) XXX_Unmarshal(b []byte) error {
@@ -2532,7 +2420,7 @@ func (m *IngressGatewaySdsConfig) Reset()         { *m = IngressGatewaySdsConfig
 func (m *IngressGatewaySdsConfig) String() string { return proto.CompactTextString(m) }
 func (*IngressGatewaySdsConfig) ProtoMessage()    {}
 func (*IngressGatewaySdsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{17}
+	return fileDescriptor_261260e22432516f, []int{16}
 }
 
 func (m *IngressGatewaySdsConfig) XXX_Unmarshal(b []byte) error {
@@ -2589,7 +2477,7 @@ func (m *IngressGatewayZvpnConfig) Reset()         { *m = IngressGatewayZvpnConf
 func (m *IngressGatewayZvpnConfig) String() string { return proto.CompactTextString(m) }
 func (*IngressGatewayZvpnConfig) ProtoMessage()    {}
 func (*IngressGatewayZvpnConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{18}
+	return fileDescriptor_261260e22432516f, []int{17}
 }
 
 func (m *IngressGatewayZvpnConfig) XXX_Unmarshal(b []byte) error {
@@ -2639,7 +2527,7 @@ func (m *KubernetesEnvMixerAdapterConfig) Reset()         { *m = KubernetesEnvMi
 func (m *KubernetesEnvMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
 func (*KubernetesEnvMixerAdapterConfig) ProtoMessage()    {}
 func (*KubernetesEnvMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{19}
+	return fileDescriptor_261260e22432516f, []int{18}
 }
 
 func (m *KubernetesEnvMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
@@ -2680,7 +2568,7 @@ func (m *LoadSheddingConfig) Reset()         { *m = LoadSheddingConfig{} }
 func (m *LoadSheddingConfig) String() string { return proto.CompactTextString(m) }
 func (*LoadSheddingConfig) ProtoMessage()    {}
 func (*LoadSheddingConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{20}
+	return fileDescriptor_261260e22432516f, []int{19}
 }
 
 func (m *LoadSheddingConfig) XXX_Unmarshal(b []byte) error {
@@ -2715,55 +2603,6 @@ func (m *LoadSheddingConfig) GetMode() Mode {
 	return Mode_disabled
 }
 
-// MTLS settings for the applications that Istio manages.
-type MTLSConfig struct {
-	// Enables MTLS for service to service traffic.
-	Enabled              *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Auto                 *protobuf.BoolValue `protobuf:"bytes,2,opt,name=auto,proto3" json:"auto,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *MTLSConfig) Reset()         { *m = MTLSConfig{} }
-func (m *MTLSConfig) String() string { return proto.CompactTextString(m) }
-func (*MTLSConfig) ProtoMessage()    {}
-func (*MTLSConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{21}
-}
-
-func (m *MTLSConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_MTLSConfig.Unmarshal(m, b)
-}
-func (m *MTLSConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_MTLSConfig.Marshal(b, m, deterministic)
-}
-func (m *MTLSConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MTLSConfig.Merge(m, src)
-}
-func (m *MTLSConfig) XXX_Size() int {
-	return xxx_messageInfo_MTLSConfig.Size(m)
-}
-func (m *MTLSConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_MTLSConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MTLSConfig proto.InternalMessageInfo
-
-func (m *MTLSConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *MTLSConfig) GetAuto() *protobuf.BoolValue {
-	if m != nil {
-		return m.Auto
-	}
-	return nil
-}
-
 // Configuration for Istio mesh expansion to bare metal.
 type MeshExpansionConfig struct {
 	// Exposes Pilot and Citadel mTLS on the ingress gateway.
@@ -2779,7 +2618,7 @@ func (m *MeshExpansionConfig) Reset()         { *m = MeshExpansionConfig{} }
 func (m *MeshExpansionConfig) String() string { return proto.CompactTextString(m) }
 func (*MeshExpansionConfig) ProtoMessage()    {}
 func (*MeshExpansionConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{22}
+	return fileDescriptor_261260e22432516f, []int{20}
 }
 
 func (m *MeshExpansionConfig) XXX_Unmarshal(b []byte) error {
@@ -2835,7 +2674,7 @@ func (m *MixerTelemetryAdaptersConfig) Reset()         { *m = MixerTelemetryAdap
 func (m *MixerTelemetryAdaptersConfig) String() string { return proto.CompactTextString(m) }
 func (*MixerTelemetryAdaptersConfig) ProtoMessage()    {}
 func (*MixerTelemetryAdaptersConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{23}
+	return fileDescriptor_261260e22432516f, []int{21}
 }
 
 func (m *MixerTelemetryAdaptersConfig) XXX_Unmarshal(b []byte) error {
@@ -2912,7 +2751,7 @@ func (m *MixerPolicyAdaptersConfig) Reset()         { *m = MixerPolicyAdaptersCo
 func (m *MixerPolicyAdaptersConfig) String() string { return proto.CompactTextString(m) }
 func (*MixerPolicyAdaptersConfig) ProtoMessage()    {}
 func (*MixerPolicyAdaptersConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{24}
+	return fileDescriptor_261260e22432516f, []int{22}
 }
 
 func (m *MixerPolicyAdaptersConfig) XXX_Unmarshal(b []byte) error {
@@ -2985,7 +2824,7 @@ func (m *MixerConfig) Reset()         { *m = MixerConfig{} }
 func (m *MixerConfig) String() string { return proto.CompactTextString(m) }
 func (*MixerConfig) ProtoMessage()    {}
 func (*MixerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{25}
+	return fileDescriptor_261260e22432516f, []int{23}
 }
 
 func (m *MixerConfig) XXX_Unmarshal(b []byte) error {
@@ -3090,7 +2929,7 @@ func (m *MixerPolicyConfig) Reset()         { *m = MixerPolicyConfig{} }
 func (m *MixerPolicyConfig) String() string { return proto.CompactTextString(m) }
 func (*MixerPolicyConfig) ProtoMessage()    {}
 func (*MixerPolicyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{26}
+	return fileDescriptor_261260e22432516f, []int{24}
 }
 
 func (m *MixerPolicyConfig) XXX_Unmarshal(b []byte) error {
@@ -3305,9 +3144,7 @@ type MixerTelemetryConfig struct {
 	// K8s rolling update strategy
 	RollingMaxUnavailable *IntOrStringForPB `protobuf:"bytes,16,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"` // Deprecated: Do not use.
 	// Controls whether to use of Mesh Configuration Protocol to distribute configuration.
-	UseMCP                *protobuf.BoolValue `protobuf:"bytes,17,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
-	ReportBatchMaxTime    string              `protobuf:"bytes,18,opt,name=reportBatchMaxTime,proto3" json:"reportBatchMaxTime,omitempty"`
-	ReportBatchMaxEntries uint32              `protobuf:"varint,19,opt,name=reportBatchMaxEntries,proto3" json:"reportBatchMaxEntries,omitempty"`
+	UseMCP *protobuf.BoolValue `protobuf:"bytes,17,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
 	// K8s resources settings.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
@@ -3328,7 +3165,7 @@ func (m *MixerTelemetryConfig) Reset()         { *m = MixerTelemetryConfig{} }
 func (m *MixerTelemetryConfig) String() string { return proto.CompactTextString(m) }
 func (*MixerTelemetryConfig) ProtoMessage()    {}
 func (*MixerTelemetryConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{27}
+	return fileDescriptor_261260e22432516f, []int{25}
 }
 
 func (m *MixerTelemetryConfig) XXX_Unmarshal(b []byte) error {
@@ -3453,20 +3290,6 @@ func (m *MixerTelemetryConfig) GetUseMCP() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *MixerTelemetryConfig) GetReportBatchMaxTime() string {
-	if m != nil {
-		return m.ReportBatchMaxTime
-	}
-	return ""
-}
-
-func (m *MixerTelemetryConfig) GetReportBatchMaxEntries() uint32 {
-	if m != nil {
-		return m.ReportBatchMaxEntries
-	}
-	return 0
-}
-
 // Deprecated: Do not use.
 func (m *MixerTelemetryConfig) GetResources() *Resources {
 	if m != nil {
@@ -3535,7 +3358,7 @@ func (m *MultiClusterConfig) Reset()         { *m = MultiClusterConfig{} }
 func (m *MultiClusterConfig) String() string { return proto.CompactTextString(m) }
 func (*MultiClusterConfig) ProtoMessage()    {}
 func (*MultiClusterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{28}
+	return fileDescriptor_261260e22432516f, []int{26}
 }
 
 func (m *MultiClusterConfig) XXX_Unmarshal(b []byte) error {
@@ -3582,7 +3405,7 @@ func (m *OutboundTrafficPolicyConfig) Reset()         { *m = OutboundTrafficPoli
 func (m *OutboundTrafficPolicyConfig) String() string { return proto.CompactTextString(m) }
 func (*OutboundTrafficPolicyConfig) ProtoMessage()    {}
 func (*OutboundTrafficPolicyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{29}
+	return fileDescriptor_261260e22432516f, []int{27}
 }
 
 func (m *OutboundTrafficPolicyConfig) XXX_Unmarshal(b []byte) error {
@@ -3671,8 +3494,6 @@ type PilotConfig struct {
 	// This controls whether the mesh config map, generated from values.yaml is generated.
 	// If false, pilot wil use default values or user-supplied values, in that order of preference.
 	ConfigMap *protobuf.BoolValue `protobuf:"bytes,18,opt,name=configMap,proto3" json:"configMap,omitempty"`
-	// Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
-	Ingress *PilotIngressConfig `protobuf:"bytes,19,opt,name=ingress,proto3" json:"ingress,omitempty"`
 	// Controls whether Pilot is configured through the Mesh Control Protocol (MCP).
 	//
 	// If set to true, Pilot requires an MCP server (like Galley) to be installed.
@@ -3718,7 +3539,7 @@ func (m *PilotConfig) Reset()         { *m = PilotConfig{} }
 func (m *PilotConfig) String() string { return proto.CompactTextString(m) }
 func (*PilotConfig) ProtoMessage()    {}
 func (*PilotConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{30}
+	return fileDescriptor_261260e22432516f, []int{28}
 }
 
 func (m *PilotConfig) XXX_Unmarshal(b []byte) error {
@@ -3864,13 +3685,6 @@ func (m *PilotConfig) GetConfigMap() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *PilotConfig) GetIngress() *PilotIngressConfig {
-	if m != nil {
-		return m.Ingress
-	}
-	return nil
-}
-
 func (m *PilotConfig) GetUseMCP() *protobuf.BoolValue {
 	if m != nil {
 		return m.UseMCP
@@ -4000,7 +3814,7 @@ func (m *PilotIngressConfig) Reset()         { *m = PilotIngressConfig{} }
 func (m *PilotIngressConfig) String() string { return proto.CompactTextString(m) }
 func (*PilotIngressConfig) ProtoMessage()    {}
 func (*PilotIngressConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{31}
+	return fileDescriptor_261260e22432516f, []int{29}
 }
 
 func (m *PilotIngressConfig) XXX_Unmarshal(b []byte) error {
@@ -4055,7 +3869,7 @@ func (m *PilotPolicyConfig) Reset()         { *m = PilotPolicyConfig{} }
 func (m *PilotPolicyConfig) String() string { return proto.CompactTextString(m) }
 func (*PilotPolicyConfig) ProtoMessage()    {}
 func (*PilotPolicyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{32}
+	return fileDescriptor_261260e22432516f, []int{30}
 }
 
 func (m *PilotPolicyConfig) XXX_Unmarshal(b []byte) error {
@@ -4100,7 +3914,7 @@ func (m *TelemetryConfig) Reset()         { *m = TelemetryConfig{} }
 func (m *TelemetryConfig) String() string { return proto.CompactTextString(m) }
 func (*TelemetryConfig) ProtoMessage()    {}
 func (*TelemetryConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{33}
+	return fileDescriptor_261260e22432516f, []int{31}
 }
 
 func (m *TelemetryConfig) XXX_Unmarshal(b []byte) error {
@@ -4155,7 +3969,7 @@ func (m *TelemetryV1Config) Reset()         { *m = TelemetryV1Config{} }
 func (m *TelemetryV1Config) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV1Config) ProtoMessage()    {}
 func (*TelemetryV1Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{34}
+	return fileDescriptor_261260e22432516f, []int{32}
 }
 
 func (m *TelemetryV1Config) XXX_Unmarshal(b []byte) error {
@@ -4200,7 +4014,7 @@ func (m *TelemetryV2Config) Reset()         { *m = TelemetryV2Config{} }
 func (m *TelemetryV2Config) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV2Config) ProtoMessage()    {}
 func (*TelemetryV2Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{35}
+	return fileDescriptor_261260e22432516f, []int{33}
 }
 
 func (m *TelemetryV2Config) XXX_Unmarshal(b []byte) error {
@@ -4268,7 +4082,7 @@ func (m *TelemetryV2MetadataExchangeConfig) Reset()         { *m = TelemetryV2Me
 func (m *TelemetryV2MetadataExchangeConfig) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV2MetadataExchangeConfig) ProtoMessage()    {}
 func (*TelemetryV2MetadataExchangeConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{36}
+	return fileDescriptor_261260e22432516f, []int{34}
 }
 
 func (m *TelemetryV2MetadataExchangeConfig) XXX_Unmarshal(b []byte) error {
@@ -4311,7 +4125,7 @@ func (m *TelemetryV2PrometheusConfig) Reset()         { *m = TelemetryV2Promethe
 func (m *TelemetryV2PrometheusConfig) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV2PrometheusConfig) ProtoMessage()    {}
 func (*TelemetryV2PrometheusConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{37}
+	return fileDescriptor_261260e22432516f, []int{35}
 }
 
 func (m *TelemetryV2PrometheusConfig) XXX_Unmarshal(b []byte) error {
@@ -4363,7 +4177,7 @@ func (m *TelemetryV2StackDriverConfig) Reset()         { *m = TelemetryV2StackDr
 func (m *TelemetryV2StackDriverConfig) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV2StackDriverConfig) ProtoMessage()    {}
 func (*TelemetryV2StackDriverConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{38}
+	return fileDescriptor_261260e22432516f, []int{36}
 }
 
 func (m *TelemetryV2StackDriverConfig) XXX_Unmarshal(b []byte) error {
@@ -4441,7 +4255,7 @@ func (m *TelemetryV2AccessLogPolicyFilterConfig) Reset() {
 func (m *TelemetryV2AccessLogPolicyFilterConfig) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV2AccessLogPolicyFilterConfig) ProtoMessage()    {}
 func (*TelemetryV2AccessLogPolicyFilterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{39}
+	return fileDescriptor_261260e22432516f, []int{37}
 }
 
 func (m *TelemetryV2AccessLogPolicyFilterConfig) XXX_Unmarshal(b []byte) error {
@@ -4491,7 +4305,7 @@ func (m *PilotConfigSource) Reset()         { *m = PilotConfigSource{} }
 func (m *PilotConfigSource) String() string { return proto.CompactTextString(m) }
 func (*PilotConfigSource) ProtoMessage()    {}
 func (*PilotConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{40}
+	return fileDescriptor_261260e22432516f, []int{38}
 }
 
 func (m *PilotConfigSource) XXX_Unmarshal(b []byte) error {
@@ -4538,7 +4352,7 @@ func (m *PortsConfig) Reset()         { *m = PortsConfig{} }
 func (m *PortsConfig) String() string { return proto.CompactTextString(m) }
 func (*PortsConfig) ProtoMessage()    {}
 func (*PortsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{41}
+	return fileDescriptor_261260e22432516f, []int{39}
 }
 
 func (m *PortsConfig) XXX_Unmarshal(b []byte) error {
@@ -4628,7 +4442,7 @@ func (m *PrometheusConfig) Reset()         { *m = PrometheusConfig{} }
 func (m *PrometheusConfig) String() string { return proto.CompactTextString(m) }
 func (*PrometheusConfig) ProtoMessage()    {}
 func (*PrometheusConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{42}
+	return fileDescriptor_261260e22432516f, []int{40}
 }
 
 func (m *PrometheusConfig) XXX_Unmarshal(b []byte) error {
@@ -4808,7 +4622,7 @@ func (m *PrometheusMixerAdapterConfig) Reset()         { *m = PrometheusMixerAda
 func (m *PrometheusMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
 func (*PrometheusMixerAdapterConfig) ProtoMessage()    {}
 func (*PrometheusMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{43}
+	return fileDescriptor_261260e22432516f, []int{41}
 }
 
 func (m *PrometheusMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
@@ -4856,7 +4670,7 @@ func (m *PrometheusSecurityConfig) Reset()         { *m = PrometheusSecurityConf
 func (m *PrometheusSecurityConfig) String() string { return proto.CompactTextString(m) }
 func (*PrometheusSecurityConfig) ProtoMessage()    {}
 func (*PrometheusSecurityConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{44}
+	return fileDescriptor_261260e22432516f, []int{42}
 }
 
 func (m *PrometheusSecurityConfig) XXX_Unmarshal(b []byte) error {
@@ -4897,7 +4711,7 @@ func (m *PrometheusServiceConfig) Reset()         { *m = PrometheusServiceConfig
 func (m *PrometheusServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*PrometheusServiceConfig) ProtoMessage()    {}
 func (*PrometheusServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{45}
+	return fileDescriptor_261260e22432516f, []int{43}
 }
 
 func (m *PrometheusServiceConfig) XXX_Unmarshal(b []byte) error {
@@ -4946,7 +4760,7 @@ func (m *PrometheusServiceNodePortConfig) Reset()         { *m = PrometheusServi
 func (m *PrometheusServiceNodePortConfig) String() string { return proto.CompactTextString(m) }
 func (*PrometheusServiceNodePortConfig) ProtoMessage()    {}
 func (*PrometheusServiceNodePortConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{46}
+	return fileDescriptor_261260e22432516f, []int{44}
 }
 
 func (m *PrometheusServiceNodePortConfig) XXX_Unmarshal(b []byte) error {
@@ -4983,13 +4797,7 @@ func (m *PrometheusServiceNodePortConfig) GetPort() uint32 {
 
 // Configuration for Proxy.
 type ProxyConfig struct {
-	Enabled *protobuf.BoolValue `protobuf:"bytes,35,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Specifies the path to write the sidecar access log file.
-	AccessLogFile string `protobuf:"bytes,1,opt,name=accessLogFile,proto3" json:"accessLogFile,omitempty"`
-	// Configures how and what fields are displayed in sidecar access log.
-	AccessLogFormat   string            `protobuf:"bytes,2,opt,name=accessLogFormat,proto3" json:"accessLogFormat,omitempty"`
-	AccessLogEncoding AccessLogEncoding `protobuf:"varint,3,opt,name=accessLogEncoding,proto3,enum=v1alpha1.AccessLogEncoding" json:"accessLogEncoding,omitempty"`
-	AutoInject        string            `protobuf:"bytes,4,opt,name=autoInject,proto3" json:"autoInject,omitempty"`
+	AutoInject string `protobuf:"bytes,4,opt,name=autoInject,proto3" json:"autoInject,omitempty"`
 	// Domain for the cluster, default: "cluster.local".
 	//
 	// K8s allows this to be customized, see https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/
@@ -4998,18 +4806,10 @@ type ProxyConfig struct {
 	//
 	// If a component level is not set, then the global "logLevel" will be used. If left empty, "misc:error" is used.
 	ComponentLogLevel string `protobuf:"bytes,6,opt,name=componentLogLevel,proto3" json:"componentLogLevel,omitempty"`
-	// Controls number of proxy worker threads.
-	//
-	// If set to 0 (default), then start worker thread for each CPU thread/core.
-	Concurrency uint32 `protobuf:"varint,7,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
 	// Enables core dumps for newly injected sidecars.
 	//
 	// If set, newly injected sidecars will have core dumps enabled.
 	EnableCoreDump *protobuf.BoolValue `protobuf:"bytes,9,opt,name=enableCoreDump,proto3" json:"enableCoreDump,omitempty"`
-	// Configures Envoy Metrics Service.
-	EnvoyMetricsService *EnvoyMetricsConfig `protobuf:"bytes,10,opt,name=envoyMetricsService,proto3" json:"envoyMetricsService,omitempty"`
-	// Configures statsd export in Envoy.
-	EnvoyStatsd *EnvoyMetricsConfig `protobuf:"bytes,11,opt,name=envoyStatsd,proto3" json:"envoyStatsd,omitempty"`
 	// Specifies the Istio ingress ports not to capture.
 	ExcludeInboundPorts string `protobuf:"bytes,12,opt,name=excludeInboundPorts,proto3" json:"excludeInboundPorts,omitempty"`
 	// Lists the excluded IP ranges of Istio egress traffic that the sidecar captures.
@@ -5042,27 +4842,20 @@ type ProxyConfig struct {
 	// K8s resources settings.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources                *Resources              `protobuf:"bytes,24,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
-	Tracer                   Tracer                  `protobuf:"varint,25,opt,name=tracer,proto3,enum=v1alpha1.Tracer" json:"tracer,omitempty"`
-	ProtocolDetectionTimeout string                  `protobuf:"bytes,26,opt,name=protocolDetectionTimeout,proto3" json:"protocolDetectionTimeout,omitempty"`
-	EnvoyAccessLogService    *EnvoyAccessLogConfig   `protobuf:"bytes,27,opt,name=envoyAccessLogService,proto3" json:"envoyAccessLogService,omitempty"`
-	ExcludeOutboundPorts     string                  `protobuf:"bytes,28,opt,name=excludeOutboundPorts,proto3" json:"excludeOutboundPorts,omitempty"`
-	DrainDuration            *duration.Duration      `protobuf:"bytes,29,opt,name=drainDuration,proto3" json:"drainDuration,omitempty"`
-	ConnectTimeout           string                  `protobuf:"bytes,30,opt,name=connectTimeout,proto3" json:"connectTimeout,omitempty"`
-	ParentShutdownDuration   *duration.Duration      `protobuf:"bytes,32,opt,name=parentShutdownDuration,proto3" json:"parentShutdownDuration,omitempty"`
-	EnableCoreDumpImage      string                  `protobuf:"bytes,33,opt,name=enableCoreDumpImage,proto3" json:"enableCoreDumpImage,omitempty"` // Deprecated: Do not use.
-	OutlierLogPath           string                  `protobuf:"bytes,34,opt,name=outlierLogPath,proto3" json:"outlierLogPath,omitempty"`
-	Lifecycle                map[string]interface{} `protobuf:"bytes,36,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
-	XXX_NoUnkeyedLiteral     struct{}                `json:"-"`
-	XXX_unrecognized         []byte                  `json:"-"`
-	XXX_sizecache            int32                   `json:"-"`
+	Resources            *Resources              `protobuf:"bytes,24,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
+	Tracer               Tracer                  `protobuf:"varint,25,opt,name=tracer,proto3,enum=v1alpha1.Tracer" json:"tracer,omitempty"`
+	ExcludeOutboundPorts string                  `protobuf:"bytes,28,opt,name=excludeOutboundPorts,proto3" json:"excludeOutboundPorts,omitempty"`
+	Lifecycle            map[string]interface{} `protobuf:"bytes,36,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
+	XXX_unrecognized     []byte                  `json:"-"`
+	XXX_sizecache        int32                   `json:"-"`
 }
 
 func (m *ProxyConfig) Reset()         { *m = ProxyConfig{} }
 func (m *ProxyConfig) String() string { return proto.CompactTextString(m) }
 func (*ProxyConfig) ProtoMessage()    {}
 func (*ProxyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{47}
+	return fileDescriptor_261260e22432516f, []int{45}
 }
 
 func (m *ProxyConfig) XXX_Unmarshal(b []byte) error {
@@ -5082,34 +4875,6 @@ func (m *ProxyConfig) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_ProxyConfig proto.InternalMessageInfo
-
-func (m *ProxyConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *ProxyConfig) GetAccessLogFile() string {
-	if m != nil {
-		return m.AccessLogFile
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetAccessLogFormat() string {
-	if m != nil {
-		return m.AccessLogFormat
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetAccessLogEncoding() AccessLogEncoding {
-	if m != nil {
-		return m.AccessLogEncoding
-	}
-	return AccessLogEncoding_JSON
-}
 
 func (m *ProxyConfig) GetAutoInject() string {
 	if m != nil {
@@ -5132,30 +4897,9 @@ func (m *ProxyConfig) GetComponentLogLevel() string {
 	return ""
 }
 
-func (m *ProxyConfig) GetConcurrency() uint32 {
-	if m != nil {
-		return m.Concurrency
-	}
-	return 0
-}
-
 func (m *ProxyConfig) GetEnableCoreDump() *protobuf.BoolValue {
 	if m != nil {
 		return m.EnableCoreDump
-	}
-	return nil
-}
-
-func (m *ProxyConfig) GetEnvoyMetricsService() *EnvoyMetricsConfig {
-	if m != nil {
-		return m.EnvoyMetricsService
-	}
-	return nil
-}
-
-func (m *ProxyConfig) GetEnvoyStatsd() *EnvoyMetricsConfig {
-	if m != nil {
-		return m.EnvoyStatsd
 	}
 	return nil
 }
@@ -5245,20 +4989,6 @@ func (m *ProxyConfig) GetTracer() Tracer {
 	return Tracer_zipkin
 }
 
-func (m *ProxyConfig) GetProtocolDetectionTimeout() string {
-	if m != nil {
-		return m.ProtocolDetectionTimeout
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetEnvoyAccessLogService() *EnvoyAccessLogConfig {
-	if m != nil {
-		return m.EnvoyAccessLogService
-	}
-	return nil
-}
-
 func (m *ProxyConfig) GetExcludeOutboundPorts() string {
 	if m != nil {
 		return m.ExcludeOutboundPorts
@@ -5266,195 +4996,9 @@ func (m *ProxyConfig) GetExcludeOutboundPorts() string {
 	return ""
 }
 
-func (m *ProxyConfig) GetDrainDuration() *duration.Duration {
-	if m != nil {
-		return m.DrainDuration
-	}
-	return nil
-}
-
-func (m *ProxyConfig) GetConnectTimeout() string {
-	if m != nil {
-		return m.ConnectTimeout
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetParentShutdownDuration() *duration.Duration {
-	if m != nil {
-		return m.ParentShutdownDuration
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *ProxyConfig) GetEnableCoreDumpImage() string {
-	if m != nil {
-		return m.EnableCoreDumpImage
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetOutlierLogPath() string {
-	if m != nil {
-		return m.OutlierLogPath
-	}
-	return ""
-}
-
 func (m *ProxyConfig) GetLifecycle() map[string]interface{} {
 	if m != nil {
 		return m.Lifecycle
-	}
-	return nil
-}
-
-type EnvoyAccessLogConfig struct {
-	Enabled              *protobuf.BoolValue        `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Host                 string                     `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
-	Port                 string                     `protobuf:"bytes,3,opt,name=port,proto3" json:"port,omitempty"`
-	TlsSettings          *EnvoyAccessLogtlsSettings `protobuf:"bytes,4,opt,name=tlsSettings,proto3" json:"tlsSettings,omitempty"`
-	TcpKeepalive         map[string]interface{}    `protobuf:"bytes,5,opt,name=tcpKeepalive,proto3" json:"tcpKeepalive,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
-	XXX_unrecognized     []byte                     `json:"-"`
-	XXX_sizecache        int32                      `json:"-"`
-}
-
-func (m *EnvoyAccessLogConfig) Reset()         { *m = EnvoyAccessLogConfig{} }
-func (m *EnvoyAccessLogConfig) String() string { return proto.CompactTextString(m) }
-func (*EnvoyAccessLogConfig) ProtoMessage()    {}
-func (*EnvoyAccessLogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{48}
-}
-
-func (m *EnvoyAccessLogConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_EnvoyAccessLogConfig.Unmarshal(m, b)
-}
-func (m *EnvoyAccessLogConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_EnvoyAccessLogConfig.Marshal(b, m, deterministic)
-}
-func (m *EnvoyAccessLogConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EnvoyAccessLogConfig.Merge(m, src)
-}
-func (m *EnvoyAccessLogConfig) XXX_Size() int {
-	return xxx_messageInfo_EnvoyAccessLogConfig.Size(m)
-}
-func (m *EnvoyAccessLogConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_EnvoyAccessLogConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_EnvoyAccessLogConfig proto.InternalMessageInfo
-
-func (m *EnvoyAccessLogConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *EnvoyAccessLogConfig) GetHost() string {
-	if m != nil {
-		return m.Host
-	}
-	return ""
-}
-
-func (m *EnvoyAccessLogConfig) GetPort() string {
-	if m != nil {
-		return m.Port
-	}
-	return ""
-}
-
-func (m *EnvoyAccessLogConfig) GetTlsSettings() *EnvoyAccessLogtlsSettings {
-	if m != nil {
-		return m.TlsSettings
-	}
-	return nil
-}
-
-func (m *EnvoyAccessLogConfig) GetTcpKeepalive() map[string]interface{} {
-	if m != nil {
-		return m.TcpKeepalive
-	}
-	return nil
-}
-
-type EnvoyAccessLogtlsSettings struct {
-	Mode                 string   `protobuf:"bytes,1,opt,name=mode,proto3" json:"mode,omitempty"`
-	ClientCertificate    string   `protobuf:"bytes,2,opt,name=clientCertificate,proto3" json:"clientCertificate,omitempty"`
-	PrivateKey           string   `protobuf:"bytes,3,opt,name=privateKey,proto3" json:"privateKey,omitempty"`
-	CaCertificates       string   `protobuf:"bytes,4,opt,name=caCertificates,proto3" json:"caCertificates,omitempty"`
-	Sni                  string   `protobuf:"bytes,5,opt,name=sni,proto3" json:"sni,omitempty"`
-	SubjectAltNames      []string `protobuf:"bytes,6,rep,name=subjectAltNames,proto3" json:"subjectAltNames,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *EnvoyAccessLogtlsSettings) Reset()         { *m = EnvoyAccessLogtlsSettings{} }
-func (m *EnvoyAccessLogtlsSettings) String() string { return proto.CompactTextString(m) }
-func (*EnvoyAccessLogtlsSettings) ProtoMessage()    {}
-func (*EnvoyAccessLogtlsSettings) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{49}
-}
-
-func (m *EnvoyAccessLogtlsSettings) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_EnvoyAccessLogtlsSettings.Unmarshal(m, b)
-}
-func (m *EnvoyAccessLogtlsSettings) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_EnvoyAccessLogtlsSettings.Marshal(b, m, deterministic)
-}
-func (m *EnvoyAccessLogtlsSettings) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EnvoyAccessLogtlsSettings.Merge(m, src)
-}
-func (m *EnvoyAccessLogtlsSettings) XXX_Size() int {
-	return xxx_messageInfo_EnvoyAccessLogtlsSettings.Size(m)
-}
-func (m *EnvoyAccessLogtlsSettings) XXX_DiscardUnknown() {
-	xxx_messageInfo_EnvoyAccessLogtlsSettings.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_EnvoyAccessLogtlsSettings proto.InternalMessageInfo
-
-func (m *EnvoyAccessLogtlsSettings) GetMode() string {
-	if m != nil {
-		return m.Mode
-	}
-	return ""
-}
-
-func (m *EnvoyAccessLogtlsSettings) GetClientCertificate() string {
-	if m != nil {
-		return m.ClientCertificate
-	}
-	return ""
-}
-
-func (m *EnvoyAccessLogtlsSettings) GetPrivateKey() string {
-	if m != nil {
-		return m.PrivateKey
-	}
-	return ""
-}
-
-func (m *EnvoyAccessLogtlsSettings) GetCaCertificates() string {
-	if m != nil {
-		return m.CaCertificates
-	}
-	return ""
-}
-
-func (m *EnvoyAccessLogtlsSettings) GetSni() string {
-	if m != nil {
-		return m.Sni
-	}
-	return ""
-}
-
-func (m *EnvoyAccessLogtlsSettings) GetSubjectAltNames() []string {
-	if m != nil {
-		return m.SubjectAltNames
 	}
 	return nil
 }
@@ -5476,7 +5020,7 @@ func (m *ProxyInitConfig) Reset()         { *m = ProxyInitConfig{} }
 func (m *ProxyInitConfig) String() string { return proto.CompactTextString(m) }
 func (*ProxyInitConfig) ProtoMessage()    {}
 func (*ProxyInitConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{50}
+	return fileDescriptor_261260e22432516f, []int{46}
 }
 
 func (m *ProxyInitConfig) XXX_Unmarshal(b []byte) error {
@@ -5525,7 +5069,7 @@ func (m *ResourcesRequestsConfig) Reset()         { *m = ResourcesRequestsConfig
 func (m *ResourcesRequestsConfig) String() string { return proto.CompactTextString(m) }
 func (*ResourcesRequestsConfig) ProtoMessage()    {}
 func (*ResourcesRequestsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{51}
+	return fileDescriptor_261260e22432516f, []int{47}
 }
 
 func (m *ResourcesRequestsConfig) XXX_Unmarshal(b []byte) error {
@@ -5562,15 +5106,7 @@ func (m *ResourcesRequestsConfig) GetMemory() string {
 
 // Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 type SDSConfig struct {
-	// Controls whether the SecretDiscoveryService is enabled.
-	Enabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"` // Deprecated: Do not use.
-	// Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
-	UdsPath string `protobuf:"bytes,2,opt,name=udsPath,proto3" json:"udsPath,omitempty"` // Deprecated: Do not use.
-	// Enables SDS use of k8s normal JWT to request for certificates.
-	UseNormalJwt *protobuf.BoolValue `protobuf:"bytes,3,opt,name=useNormalJwt,proto3" json:"useNormalJwt,omitempty"` // Deprecated: Do not use.
-	// Enables SDS use of trustworthy JWT to request for certificates.
-	UseTrustworthyJwt    *protobuf.BoolValue     `protobuf:"bytes,4,opt,name=useTrustworthyJwt,proto3" json:"useTrustworthyJwt,omitempty"` // Deprecated: Do not use.
-	Token                map[string]interface{} `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"`                         // Deprecated: Do not use.
+	Token                map[string]interface{} `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"` // Deprecated: Do not use.
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -5580,7 +5116,7 @@ func (m *SDSConfig) Reset()         { *m = SDSConfig{} }
 func (m *SDSConfig) String() string { return proto.CompactTextString(m) }
 func (*SDSConfig) ProtoMessage()    {}
 func (*SDSConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{52}
+	return fileDescriptor_261260e22432516f, []int{48}
 }
 
 func (m *SDSConfig) XXX_Unmarshal(b []byte) error {
@@ -5600,38 +5136,6 @@ func (m *SDSConfig) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_SDSConfig proto.InternalMessageInfo
-
-// Deprecated: Do not use.
-func (m *SDSConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *SDSConfig) GetUdsPath() string {
-	if m != nil {
-		return m.UdsPath
-	}
-	return ""
-}
-
-// Deprecated: Do not use.
-func (m *SDSConfig) GetUseNormalJwt() *protobuf.BoolValue {
-	if m != nil {
-		return m.UseNormalJwt
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *SDSConfig) GetUseTrustworthyJwt() *protobuf.BoolValue {
-	if m != nil {
-		return m.UseTrustworthyJwt
-	}
-	return nil
-}
 
 // Deprecated: Do not use.
 func (m *SDSConfig) GetToken() map[string]interface{} {
@@ -5657,7 +5161,7 @@ func (m *SecretVolume) Reset()         { *m = SecretVolume{} }
 func (m *SecretVolume) String() string { return proto.CompactTextString(m) }
 func (*SecretVolume) ProtoMessage()    {}
 func (*SecretVolume) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{53}
+	return fileDescriptor_261260e22432516f, []int{49}
 }
 
 func (m *SecretVolume) XXX_Unmarshal(b []byte) error {
@@ -5714,7 +5218,7 @@ func (m *ServiceConfig) Reset()         { *m = ServiceConfig{} }
 func (m *ServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*ServiceConfig) ProtoMessage()    {}
 func (*ServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{54}
+	return fileDescriptor_261260e22432516f, []int{50}
 }
 
 func (m *ServiceConfig) XXX_Unmarshal(b []byte) error {
@@ -5794,7 +5298,7 @@ func (m *SidecarInjectorConfig) Reset()         { *m = SidecarInjectorConfig{} }
 func (m *SidecarInjectorConfig) String() string { return proto.CompactTextString(m) }
 func (*SidecarInjectorConfig) ProtoMessage()    {}
 func (*SidecarInjectorConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{55}
+	return fileDescriptor_261260e22432516f, []int{51}
 }
 
 func (m *SidecarInjectorConfig) XXX_Unmarshal(b []byte) error {
@@ -5886,7 +5390,7 @@ func (m *StdioMixerAdapterConfig) Reset()         { *m = StdioMixerAdapterConfig
 func (m *StdioMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
 func (*StdioMixerAdapterConfig) ProtoMessage()    {}
 func (*StdioMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{56}
+	return fileDescriptor_261260e22432516f, []int{52}
 }
 
 func (m *StdioMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
@@ -5938,7 +5442,7 @@ func (m *StackdriverMixerAdapterConfig) Reset()         { *m = StackdriverMixerA
 func (m *StackdriverMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
 func (*StackdriverMixerAdapterConfig) ProtoMessage()    {}
 func (*StackdriverMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{57}
+	return fileDescriptor_261260e22432516f, []int{53}
 }
 
 func (m *StackdriverMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
@@ -6016,7 +5520,7 @@ func (m *StackdriverMixerAdapterConfig_EnabledConfig) String() string {
 }
 func (*StackdriverMixerAdapterConfig_EnabledConfig) ProtoMessage() {}
 func (*StackdriverMixerAdapterConfig_EnabledConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{57, 0}
+	return fileDescriptor_261260e22432516f, []int{53, 0}
 }
 
 func (m *StackdriverMixerAdapterConfig_EnabledConfig) XXX_Unmarshal(b []byte) error {
@@ -6057,7 +5561,7 @@ func (m *StackdriverAuthConfig) Reset()         { *m = StackdriverAuthConfig{} }
 func (m *StackdriverAuthConfig) String() string { return proto.CompactTextString(m) }
 func (*StackdriverAuthConfig) ProtoMessage()    {}
 func (*StackdriverAuthConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{58}
+	return fileDescriptor_261260e22432516f, []int{54}
 }
 
 func (m *StackdriverAuthConfig) XXX_Unmarshal(b []byte) error {
@@ -6111,7 +5615,7 @@ func (m *StackdriverTracerConfig) Reset()         { *m = StackdriverTracerConfig
 func (m *StackdriverTracerConfig) String() string { return proto.CompactTextString(m) }
 func (*StackdriverTracerConfig) ProtoMessage()    {}
 func (*StackdriverTracerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{59}
+	return fileDescriptor_261260e22432516f, []int{55}
 }
 
 func (m *StackdriverTracerConfig) XXX_Unmarshal(b []byte) error {
@@ -6157,7 +5661,7 @@ func (m *StackdriverContextGraph) Reset()         { *m = StackdriverContextGraph
 func (m *StackdriverContextGraph) String() string { return proto.CompactTextString(m) }
 func (*StackdriverContextGraph) ProtoMessage()    {}
 func (*StackdriverContextGraph) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{60}
+	return fileDescriptor_261260e22432516f, []int{56}
 }
 
 func (m *StackdriverContextGraph) XXX_Unmarshal(b []byte) error {
@@ -6204,7 +5708,7 @@ func (m *TracerConfig) Reset()         { *m = TracerConfig{} }
 func (m *TracerConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerConfig) ProtoMessage()    {}
 func (*TracerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{61}
+	return fileDescriptor_261260e22432516f, []int{57}
 }
 
 func (m *TracerConfig) XXX_Unmarshal(b []byte) error {
@@ -6266,7 +5770,7 @@ func (m *TracerDatadogConfig) Reset()         { *m = TracerDatadogConfig{} }
 func (m *TracerDatadogConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerDatadogConfig) ProtoMessage()    {}
 func (*TracerDatadogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{62}
+	return fileDescriptor_261260e22432516f, []int{58}
 }
 
 func (m *TracerDatadogConfig) XXX_Unmarshal(b []byte) error {
@@ -6309,7 +5813,7 @@ func (m *TracerLightStepConfig) Reset()         { *m = TracerLightStepConfig{} }
 func (m *TracerLightStepConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerLightStepConfig) ProtoMessage()    {}
 func (*TracerLightStepConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{63}
+	return fileDescriptor_261260e22432516f, []int{59}
 }
 
 func (m *TracerLightStepConfig) XXX_Unmarshal(b []byte) error {
@@ -6359,7 +5863,7 @@ func (m *TracerZipkinConfig) Reset()         { *m = TracerZipkinConfig{} }
 func (m *TracerZipkinConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerZipkinConfig) ProtoMessage()    {}
 func (*TracerZipkinConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{64}
+	return fileDescriptor_261260e22432516f, []int{60}
 }
 
 func (m *TracerZipkinConfig) XXX_Unmarshal(b []byte) error {
@@ -6406,7 +5910,7 @@ func (m *TracerStackdriverConfig) Reset()         { *m = TracerStackdriverConfig
 func (m *TracerStackdriverConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerStackdriverConfig) ProtoMessage()    {}
 func (*TracerStackdriverConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{65}
+	return fileDescriptor_261260e22432516f, []int{61}
 }
 
 func (m *TracerStackdriverConfig) XXX_Unmarshal(b []byte) error {
@@ -6487,7 +5991,7 @@ func (m *TracingConfig) Reset()         { *m = TracingConfig{} }
 func (m *TracingConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingConfig) ProtoMessage()    {}
 func (*TracingConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{66}
+	return fileDescriptor_261260e22432516f, []int{62}
 }
 
 func (m *TracingConfig) XXX_Unmarshal(b []byte) error {
@@ -6612,7 +6116,7 @@ func (m *TracingOpencensusConfig) Reset()         { *m = TracingOpencensusConfig
 func (m *TracingOpencensusConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingOpencensusConfig) ProtoMessage()    {}
 func (*TracingOpencensusConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{67}
+	return fileDescriptor_261260e22432516f, []int{63}
 }
 
 func (m *TracingOpencensusConfig) XXX_Unmarshal(b []byte) error {
@@ -6681,7 +6185,7 @@ func (m *TracingOpencensusExportersConfig) Reset()         { *m = TracingOpencen
 func (m *TracingOpencensusExportersConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingOpencensusExportersConfig) ProtoMessage()    {}
 func (*TracingOpencensusExportersConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{68}
+	return fileDescriptor_261260e22432516f, []int{64}
 }
 
 func (m *TracingOpencensusExportersConfig) XXX_Unmarshal(b []byte) error {
@@ -6739,7 +6243,7 @@ func (m *TracingJaegerConfig) Reset()         { *m = TracingJaegerConfig{} }
 func (m *TracingJaegerConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingJaegerConfig) ProtoMessage()    {}
 func (*TracingJaegerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{69}
+	return fileDescriptor_261260e22432516f, []int{65}
 }
 
 func (m *TracingJaegerConfig) XXX_Unmarshal(b []byte) error {
@@ -6845,7 +6349,7 @@ func (m *TracingJaegerMemoryConfig) Reset()         { *m = TracingJaegerMemoryCo
 func (m *TracingJaegerMemoryConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingJaegerMemoryConfig) ProtoMessage()    {}
 func (*TracingJaegerMemoryConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{70}
+	return fileDescriptor_261260e22432516f, []int{66}
 }
 
 func (m *TracingJaegerMemoryConfig) XXX_Unmarshal(b []byte) error {
@@ -6911,7 +6415,7 @@ func (m *TracingZipkinConfig) Reset()         { *m = TracingZipkinConfig{} }
 func (m *TracingZipkinConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingZipkinConfig) ProtoMessage()    {}
 func (*TracingZipkinConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{71}
+	return fileDescriptor_261260e22432516f, []int{67}
 }
 
 func (m *TracingZipkinConfig) XXX_Unmarshal(b []byte) error {
@@ -7024,7 +6528,7 @@ func (m *TracingZipkinNodeConfig) Reset()         { *m = TracingZipkinNodeConfig
 func (m *TracingZipkinNodeConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingZipkinNodeConfig) ProtoMessage()    {}
 func (*TracingZipkinNodeConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{72}
+	return fileDescriptor_261260e22432516f, []int{68}
 }
 
 func (m *TracingZipkinNodeConfig) XXX_Unmarshal(b []byte) error {
@@ -7065,7 +6569,7 @@ func (m *KialiSecurityConfig) Reset()         { *m = KialiSecurityConfig{} }
 func (m *KialiSecurityConfig) String() string { return proto.CompactTextString(m) }
 func (*KialiSecurityConfig) ProtoMessage()    {}
 func (*KialiSecurityConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{73}
+	return fileDescriptor_261260e22432516f, []int{69}
 }
 
 func (m *KialiSecurityConfig) XXX_Unmarshal(b []byte) error {
@@ -7122,7 +6626,7 @@ func (m *KialiServiceConfig) Reset()         { *m = KialiServiceConfig{} }
 func (m *KialiServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*KialiServiceConfig) ProtoMessage()    {}
 func (*KialiServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{74}
+	return fileDescriptor_261260e22432516f, []int{70}
 }
 
 func (m *KialiServiceConfig) XXX_Unmarshal(b []byte) error {
@@ -7176,7 +6680,7 @@ func (m *KialiDashboardConfig) Reset()         { *m = KialiDashboardConfig{} }
 func (m *KialiDashboardConfig) String() string { return proto.CompactTextString(m) }
 func (*KialiDashboardConfig) ProtoMessage()    {}
 func (*KialiDashboardConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{75}
+	return fileDescriptor_261260e22432516f, []int{71}
 }
 
 func (m *KialiDashboardConfig) XXX_Unmarshal(b []byte) error {
@@ -7324,7 +6828,7 @@ func (m *KialiConfig) Reset()         { *m = KialiConfig{} }
 func (m *KialiConfig) String() string { return proto.CompactTextString(m) }
 func (*KialiConfig) ProtoMessage()    {}
 func (*KialiConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{76}
+	return fileDescriptor_261260e22432516f, []int{72}
 }
 
 func (m *KialiConfig) XXX_Unmarshal(b []byte) error {
@@ -7494,7 +6998,7 @@ func (m *BaseConfig) Reset()         { *m = BaseConfig{} }
 func (m *BaseConfig) String() string { return proto.CompactTextString(m) }
 func (*BaseConfig) ProtoMessage()    {}
 func (*BaseConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{77}
+	return fileDescriptor_261260e22432516f, []int{73}
 }
 
 func (m *BaseConfig) XXX_Unmarshal(b []byte) error {
@@ -7541,7 +7045,7 @@ func (m *IstiodRemoteConfig) Reset()         { *m = IstiodRemoteConfig{} }
 func (m *IstiodRemoteConfig) String() string { return proto.CompactTextString(m) }
 func (*IstiodRemoteConfig) ProtoMessage()    {}
 func (*IstiodRemoteConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{78}
+	return fileDescriptor_261260e22432516f, []int{74}
 }
 
 func (m *IstiodRemoteConfig) XXX_Unmarshal(b []byte) error {
@@ -7604,7 +7108,7 @@ func (m *Values) Reset()         { *m = Values{} }
 func (m *Values) String() string { return proto.CompactTextString(m) }
 func (*Values) ProtoMessage()    {}
 func (*Values) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{79}
+	return fileDescriptor_261260e22432516f, []int{75}
 }
 
 func (m *Values) XXX_Unmarshal(b []byte) error {
@@ -7843,7 +7347,6 @@ func init() {
 	proto.RegisterType((*DefaultPodDisruptionBudgetConfig)(nil), "v1alpha1.DefaultPodDisruptionBudgetConfig")
 	proto.RegisterType((*DefaultResourcesConfig)(nil), "v1alpha1.DefaultResourcesConfig")
 	proto.RegisterType((*EgressGatewayConfig)(nil), "v1alpha1.EgressGatewayConfig")
-	proto.RegisterType((*EnvoyMetricsConfig)(nil), "v1alpha1.EnvoyMetricsConfig")
 	proto.RegisterType((*GatewayLabelsConfig)(nil), "v1alpha1.GatewayLabelsConfig")
 	proto.RegisterType((*GatewaysConfig)(nil), "v1alpha1.GatewaysConfig")
 	proto.RegisterType((*GlobalConfig)(nil), "v1alpha1.GlobalConfig")
@@ -7855,7 +7358,6 @@ func init() {
 	proto.RegisterType((*IngressGatewayZvpnConfig)(nil), "v1alpha1.IngressGatewayZvpnConfig")
 	proto.RegisterType((*KubernetesEnvMixerAdapterConfig)(nil), "v1alpha1.KubernetesEnvMixerAdapterConfig")
 	proto.RegisterType((*LoadSheddingConfig)(nil), "v1alpha1.LoadSheddingConfig")
-	proto.RegisterType((*MTLSConfig)(nil), "v1alpha1.MTLSConfig")
 	proto.RegisterType((*MeshExpansionConfig)(nil), "v1alpha1.MeshExpansionConfig")
 	proto.RegisterType((*MixerTelemetryAdaptersConfig)(nil), "v1alpha1.MixerTelemetryAdaptersConfig")
 	proto.RegisterType((*MixerPolicyAdaptersConfig)(nil), "v1alpha1.MixerPolicyAdaptersConfig")
@@ -7882,8 +7384,6 @@ func init() {
 	proto.RegisterType((*PrometheusServiceConfig)(nil), "v1alpha1.PrometheusServiceConfig")
 	proto.RegisterType((*PrometheusServiceNodePortConfig)(nil), "v1alpha1.PrometheusServiceNodePortConfig")
 	proto.RegisterType((*ProxyConfig)(nil), "v1alpha1.ProxyConfig")
-	proto.RegisterType((*EnvoyAccessLogConfig)(nil), "v1alpha1.EnvoyAccessLogConfig")
-	proto.RegisterType((*EnvoyAccessLogtlsSettings)(nil), "v1alpha1.EnvoyAccessLogtlsSettings")
 	proto.RegisterType((*ProxyInitConfig)(nil), "v1alpha1.ProxyInitConfig")
 	proto.RegisterType((*ResourcesRequestsConfig)(nil), "v1alpha1.ResourcesRequestsConfig")
 	proto.RegisterType((*SDSConfig)(nil), "v1alpha1.SDSConfig")

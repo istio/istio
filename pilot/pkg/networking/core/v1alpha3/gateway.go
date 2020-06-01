@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/hashicorp/go-multierror"
 
@@ -353,11 +353,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			httpOpts: &httpListenerOpts{
 				rds:              routeName,
 				useRemoteAddress: true,
-				connectionManager: &http_conn.HttpConnectionManager{
+				connectionManager: &hcm.HttpConnectionManager{
 					XffNumTrustedHops: xffNumTrustedHops,
 					// Forward client cert if connection is mTLS
 					ForwardClientCertDetails: forwardClientCertDetails,
-					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+					SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 						Subject: proto.BoolTrue,
 						Cert:    true,
 						Uri:     true,
@@ -385,11 +385,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
-			connectionManager: &http_conn.HttpConnectionManager{
+			connectionManager: &hcm.HttpConnectionManager{
 				XffNumTrustedHops: xffNumTrustedHops,
 				// Forward client cert if connection is mTLS
 				ForwardClientCertDetails: forwardClientCertDetails,
-				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+				SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 					Subject: proto.BoolTrue,
 					Cert:    true,
 					Uri:     true,

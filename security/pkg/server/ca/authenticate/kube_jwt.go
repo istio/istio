@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,10 @@ package authenticate
 
 import (
 	"fmt"
+	"strings"
 
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/security/pkg/k8s/tokenreview"
@@ -44,6 +46,8 @@ type KubeJWTAuthenticator struct {
 	// remote cluster kubeClient getter
 	remoteKubeClientGetter RemoteKubeClientGetter
 }
+
+var _ Authenticator = &KubeJWTAuthenticator{}
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
 func NewKubeJWTAuthenticator(client kubernetes.Interface, clusterID string,
@@ -106,4 +110,41 @@ func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interf
 
 	// failover to local cluster
 	return a.kubeClient
+}
+
+func extractBearerToken(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("no metadata is attached")
+	}
+
+	authHeader, exists := md[authorizationMeta]
+	if !exists {
+		return "", fmt.Errorf("no HTTP authorization header exists")
+	}
+
+	for _, value := range authHeader {
+		if strings.HasPrefix(value, bearerTokenPrefix) {
+			return strings.TrimPrefix(value, bearerTokenPrefix), nil
+		}
+	}
+
+	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
+}
+
+func extractClusterID(ctx context.Context) string {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return ""
+	}
+
+	clusterIDHeader, exists := md[clusterIDMeta]
+	if !exists {
+		return ""
+	}
+
+	if len(clusterIDHeader) == 1 {
+		return clusterIDHeader[0]
+	}
+	return ""
 }

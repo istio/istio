@@ -37,7 +37,7 @@ export REPO_ROOT=/work
 # $CONTAINER_OPTIONS becomes an empty arg when quoted, so SC2086 is disabled for the
 # following command only
 # shellcheck disable=SC2086
-"${CONTAINER_CLI}" run -it --rm \
+"${CONTAINER_CLI}" run --init -it --rm \
     -u "${UID}:${DOCKER_GID}" \
     --sig-proxy=true \
     ${DOCKER_SOCKET_MOUNT:--v /var/run/docker.sock:/var/run/docker.sock} \

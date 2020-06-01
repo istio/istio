@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -588,9 +588,6 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
-
-	// AllPortsLiteral is the string value indicating all ports
-	AllPortsLiteral = "*"
 )
 
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
@@ -907,27 +904,6 @@ func hasValidIPAddresses(ipAddresses []string) bool {
 func isValidIPAddress(ip string) bool {
 	return net.ParseIP(ip) != nil
 }
-
-// Pile all node metadata constants here
-const (
-	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
-	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
-
-	// NodeMetadataTLSServerKey is the absolute path to server private key file
-	NodeMetadataTLSServerKey = "TLS_SERVER_KEY"
-
-	// NodeMetadataTLSServerRootCert is the absolute path to server root cert file
-	NodeMetadataTLSServerRootCert = "TLS_SERVER_ROOT_CERT"
-
-	// NodeMetadataTLSClientCertChain is the absolute path to client cert-chain file
-	NodeMetadataTLSClientCertChain = "TLS_CLIENT_CERT_CHAIN"
-
-	// NodeMetadataTLSClientKey is the absolute path to client private key file
-	NodeMetadataTLSClientKey = "TLS_CLIENT_KEY"
-
-	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
-	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
-)
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
 // sent to Envoy. This should not be confused with the CaptureMode in the API that indicates

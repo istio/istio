@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ settings (--set values.grafana.enabled=true). See documentation for more info:
 https://istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec`
 	// ChartsFlagHelpStr is the command line description for --charts
 	ChartsFlagHelpStr = `Specify a path to a directory of charts and profiles
-(e.g. ~/Downloads/istio-1.6.0/install/kubernetes/operator)
+(e.g. ~/Downloads/istio-1.6.0/manifests)
 or release tar URL (e.g. https://github.com/istio/istio/releases/download/1.6.0/istio-1.6.0-linux-amd64.tar.gz).
 `
 	revisionFlagHelpStr         = `Target control plane revision for the command.`

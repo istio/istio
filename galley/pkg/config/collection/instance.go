@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +20,6 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 )
-
-// ChangeNotifierFn is called when a collection instance changes.
-type ChangeNotifierFn func()
 
 // Instance is collection of resources, indexed by name.
 type Instance struct {

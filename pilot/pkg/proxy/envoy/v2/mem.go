@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -100,14 +100,6 @@ func NewMemServiceDiscovery(services map[host.Name]*model.Service, versions int)
 		ip2instance:         map[string][]*model.ServiceInstance{},
 		ip2workloadLabels:   map[string]*labels.Instance{},
 	}
-}
-
-// ClearErrors clear errors used for mocking failures during model.MemServiceDiscovery interface methods
-func (sd *MemServiceDiscovery) ClearErrors() {
-	sd.ServicesError = nil
-	sd.GetServiceError = nil
-	sd.InstancesError = nil
-	sd.GetProxyServiceInstancesError = nil
 }
 
 func (sd *MemServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
@@ -243,11 +235,6 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, en
 	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
 }
 
-// UpdateWorkloadLabels updates the workload labels, similar with K8S controller.
-func (sd *MemServiceDiscovery) UpdateWorkloadLabels(ip string, labels labels.Instance) {
-	sd.AddWorkload(ip, labels)
-}
-
 // Services implements discovery interface
 // Each call to Services() should return a list of new *model.Service
 func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
@@ -276,27 +263,6 @@ func (sd *MemServiceDiscovery) GetService(hostname host.Name) (*model.Service, e
 		return nil, errors.New("missing service")
 	}
 	return val, sd.GetServiceError
-}
-
-// Instances filters the service instances by labels. This assumes single port, as is
-// used by EDS/ADS.
-func (sd *MemServiceDiscovery) Instances(hostname host.Name, ports []string,
-	labels labels.Collection) ([]*model.ServiceInstance, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.InstancesError != nil {
-		return nil, sd.InstancesError
-	}
-	if len(ports) != 1 {
-		adsLog.Warna("Unexpected ports ", ports)
-		return nil, nil
-	}
-	key := string(hostname) + ":" + ports[0]
-	instances, ok := sd.instancesByPortName[key]
-	if !ok {
-		return nil, nil
-	}
-	return instances, nil
 }
 
 // InstancesByPort filters the service instances by labels. This assumes single port, as is

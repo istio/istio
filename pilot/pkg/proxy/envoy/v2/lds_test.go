@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -551,7 +551,7 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 		if !ok {
 			t.Fatalf("Expected Http Connection Manager Config Filter_TypedConfig, found %T", filter.ConfigType)
 		}
-		connectionManagerCfg := xdsapi_http_connection_manager.HttpConnectionManager{}
+		connectionManagerCfg := hcm.HttpConnectionManager{}
 		err := ptypes.UnmarshalAny(httpCfg.TypedConfig, &connectionManagerCfg)
 		if err != nil {
 			t.Fatalf("Could not deserialize http connection manager config: %v", err)

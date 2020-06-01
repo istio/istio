@@ -907,74 +907,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="EnvoyMetricsConfig">EnvoyMetricsConfig</h2>
-<section>
-<p>EnvoyMetricsConfig is a set of configuration options for Envoy metrics.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="EnvoyMetricsConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables the Envoy Metrics Service.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyMetricsConfig-host">
-<td><code>host</code></td>
-<td><code>string</code></td>
-<td>
-<p>Sets the destination Envoy Metrics Service address in Envoy.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyMetricsConfig-port">
-<td><code>port</code></td>
-<td><code>int32</code></td>
-<td>
-<p>Sets the destination Envoy Metrics Service port in Envoy.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyMetricsConfig-tlsSettings">
-<td><code>tlsSettings</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyMetricsConfig-tcpKeepalive">
-<td><code>tcpKeepalive</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="GatewayLabelsConfig">GatewayLabelsConfig</h2>
 <section>
 <p>GatewayLabelsConfig is a set of Configuration for gateway labels.</p>
@@ -1089,15 +1021,6 @@ No
 No
 </td>
 </tr>
-<tr id="GlobalConfig-certificates">
-<td><code>certificates</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="GlobalConfig-configNamespace">
 <td><code>configNamespace</code></td>
 <td><code>string</code></td>
@@ -1144,17 +1067,6 @@ No
 <td><code>defaultConfigVisibilitySettings</code></td>
 <td><code>string[]</code></td>
 <td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GlobalConfig-disablePolicyChecks">
-<td><code>disablePolicyChecks</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether the policy enforcement is enabled.</p>
-
 </td>
 <td>
 No
@@ -1338,17 +1250,6 @@ No
 <td><code>uint32</code></td>
 <td>
 <p>Specifies the monitor port number for all Istio control plane components.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GlobalConfig-mtls">
-<td><code>mtls</code></td>
-<td><code><a href="#MTLSConfig">MTLSConfig</a></code></td>
-<td>
-<p>Specifies the MTLS settings for the applications that Istio manages.</p>
 
 </td>
 <td>
@@ -1824,18 +1725,6 @@ No
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 <p>If enabled, istiod will perform config analysis</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="IstiodConfig-enabled" class="deprecated ">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>If enabled, all control plane functionality will be handled by a single deployment.
-Deprecated. This field is always ignored and assumed true.</p>
 
 </td>
 <td>
@@ -2504,43 +2393,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="MTLSConfig">MTLSConfig</h2>
-<section>
-<p>MTLS settings for the applications that Istio manages.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MTLSConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables MTLS for service to service traffic.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MTLSConfig-auto">
-<td><code>auto</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="MeshExpansionConfig">MeshExpansionConfig</h2>
 <section>
 <p>Configuration for Istio mesh expansion to bare metal.</p>
@@ -3127,24 +2979,6 @@ No
 No
 </td>
 </tr>
-<tr id="MixerTelemetryConfig-reportBatchMaxTime">
-<td><code>reportBatchMaxTime</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MixerTelemetryConfig-reportBatchMaxEntries">
-<td><code>reportBatchMaxEntries</code></td>
-<td><code>uint32</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="MixerTelemetryConfig-sessionAffinityEnabled">
 <td><code>sessionAffinityEnabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -3501,17 +3335,6 @@ No
 
 <p>This controls whether the mesh config map, generated from values.yaml is generated.
 If false, pilot wil use default values or user-supplied values, in that order of preference.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="PilotConfig-ingress">
-<td><code>ingress</code></td>
-<td><code><a href="#PilotIngressConfig">PilotIngressConfig</a></code></td>
-<td>
-<p>Controls legacy k8s ingress. Only one pilot profile should enable ingress support.</p>
 
 </td>
 <td>
@@ -4601,46 +4424,6 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="ProxyConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-accessLogFile">
-<td><code>accessLogFile</code></td>
-<td><code>string</code></td>
-<td>
-<p>Specifies the path to write the sidecar access log file.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-accessLogFormat">
-<td><code>accessLogFormat</code></td>
-<td><code>string</code></td>
-<td>
-<p>Configures how and what fields are displayed in sidecar access log.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-accessLogEncoding">
-<td><code>accessLogEncoding</code></td>
-<td><code><a href="#accessLogEncoding">accessLogEncoding</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="ProxyConfig-autoInject">
 <td><code>autoInject</code></td>
 <td><code>string</code></td>
@@ -4676,19 +4459,6 @@ No
 No
 </td>
 </tr>
-<tr id="ProxyConfig-concurrency">
-<td><code>concurrency</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>Controls number of proxy worker threads.</p>
-
-<p>If set to 0 (default), then start worker thread for each CPU thread/core.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="ProxyConfig-enableCoreDump">
 <td><code>enableCoreDump</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -4696,28 +4466,6 @@ No
 <p>Enables core dumps for newly injected sidecars.</p>
 
 <p>If set, newly injected sidecars will have core dumps enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-envoyMetricsService">
-<td><code>envoyMetricsService</code></td>
-<td><code><a href="#EnvoyMetricsConfig">EnvoyMetricsConfig</a></code></td>
-<td>
-<p>Configures Envoy Metrics Service.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-envoyStatsd">
-<td><code>envoyStatsd</code></td>
-<td><code><a href="#EnvoyMetricsConfig">EnvoyMetricsConfig</a></code></td>
-<td>
-<p>Configures statsd export in Envoy.</p>
 
 </td>
 <td>
@@ -4852,62 +4600,8 @@ No
 No
 </td>
 </tr>
-<tr id="ProxyConfig-protocolDetectionTimeout">
-<td><code>protocolDetectionTimeout</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-envoyAccessLogService">
-<td><code>envoyAccessLogService</code></td>
-<td><code><a href="#EnvoyAccessLogConfig">EnvoyAccessLogConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="ProxyConfig-excludeOutboundPorts">
 <td><code>excludeOutboundPorts</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-drainDuration">
-<td><code>drainDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-connectTimeout">
-<td><code>connectTimeout</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-parentShutdownDuration">
-<td><code>parentShutdownDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-outlierLogPath">
-<td><code>outlierLogPath</code></td>
 <td><code>string</code></td>
 <td>
 </td>
@@ -4932,144 +4626,6 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-enableCoreDumpImage" class="deprecated ">
-<td><code>enableCoreDumpImage</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="EnvoyAccessLogConfig">EnvoyAccessLogConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="EnvoyAccessLogConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogConfig-host">
-<td><code>host</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogConfig-port">
-<td><code>port</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogConfig-tlsSettings">
-<td><code>tlsSettings</code></td>
-<td><code><a href="#EnvoyAccessLogtlsSettings">EnvoyAccessLogtlsSettings</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogConfig-tcpKeepalive">
-<td><code>tcpKeepalive</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="EnvoyAccessLogtlsSettings">EnvoyAccessLogtlsSettings</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="EnvoyAccessLogtlsSettings-mode">
-<td><code>mode</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogtlsSettings-clientCertificate">
-<td><code>clientCertificate</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogtlsSettings-privateKey">
-<td><code>privateKey</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogtlsSettings-caCertificates">
-<td><code>caCertificates</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogtlsSettings-sni">
-<td><code>sni</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogtlsSettings-subjectAltNames">
-<td><code>subjectAltNames</code></td>
-<td><code>string[]</code></td>
-<td>
 </td>
 <td>
 No
@@ -5168,50 +4724,6 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="SDSConfig-enabled" class="deprecated ">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether the SecretDiscoveryService is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SDSConfig-udsPath" class="deprecated ">
-<td><code>udsPath</code></td>
-<td><code>string</code></td>
-<td>
-<p>Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SDSConfig-useNormalJwt" class="deprecated ">
-<td><code>useNormalJwt</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables SDS use of k8s normal JWT to request for certificates.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SDSConfig-useTrustworthyJwt" class="deprecated ">
-<td><code>useTrustworthyJwt</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables SDS use of trustworthy JWT to request for certificates.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="SDSConfig-token" class="deprecated ">
 <td><code>token</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -7437,31 +6949,6 @@ No
 <td>
 <p>No ingress or sync.</p>
 
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="accessLogEncoding">accessLogEncoding</h2>
-<section>
-<p>Configures the access log for sidecar to JSON or TEXT</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="accessLogEncoding-JSON">
-<td><code>JSON</code></td>
-<td>
-</td>
-</tr>
-<tr id="accessLogEncoding-TEXT">
-<td><code>TEXT</code></td>
-<td>
 </td>
 </tr>
 </tbody>
