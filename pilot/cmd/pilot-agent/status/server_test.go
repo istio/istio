@@ -40,14 +40,20 @@ import (
 
 type handler struct{}
 
+const (
+	testHeader = "Some-Header"
+	testHeaderValue = "some-value"
+	testHostValue = "host"
+)
+
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/header" {
-		if r.Host != "host" {
-			log.Errorf("missing expected host header, got %v", r.Host)
+		if r.Host != testHostValue {
+			log.Errorf("Missing expected host header, got %v", r.Host)
 			w.WriteHeader(http.StatusBadRequest)
 		}
-		if r.Header.Get("Some-Header") != "some-value" {
-			log.Errorf("missing expected Some-Header, got %v", r.Header)
+		if r.Header.Get(testHeader) != testHeaderValue {
+			log.Errorf("Missing expected Some-Header, got %v", r.Header)
 			w.WriteHeader(http.StatusBadRequest)
 		}
 	}
@@ -311,8 +317,8 @@ func TestAppProbe(t *testing.T) {
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
 						HTTPHeaders: []v1.HTTPHeader{
-							{"Host", "host"},
-							{"Some-Header", "some-value"},
+							{"Host", testHostValue},
+							{testHeader, testHeaderValue},
 						},
 					},
 				},
@@ -332,7 +338,6 @@ func TestAppProbe(t *testing.T) {
 			server.appKubeProbers = tc.config
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			_ = cancel
 			go server.Run(ctx)
 
 			var statusPort uint16
