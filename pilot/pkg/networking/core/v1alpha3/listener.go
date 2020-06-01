@@ -52,6 +52,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1964,6 +1965,10 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 			},
 		}
 		connectionManager.RouteSpecifier = rds
+		if pluginParams.Node.RequestedTypes.LDS == v3.ListenerType {
+			// For v3 listeners, send v3 routes
+			rds.Rds.ConfigSource.ResourceApiVersion = core.ApiVersion_V3
+		}
 	} else {
 		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}

@@ -463,7 +463,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.RequestedTypes.EDS)
+	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.node.RequestedTypes.EDS)
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
