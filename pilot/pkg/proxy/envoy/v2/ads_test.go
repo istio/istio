@@ -15,7 +15,6 @@ package v2_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -33,8 +32,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/tests/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -762,7 +759,6 @@ func TestAdsUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal("Invalid EDS response ", err)
 	}
-	// TODO: validate VersionInfo and nonce once we settle on a scheme
 
 	ep := cla.Endpoints
 	if len(ep) == 0 {
@@ -775,8 +771,6 @@ func TestAdsUpdate(t *testing.T) {
 	if lbe[0].GetEndpoint().Address.GetSocketAddress().Address != "10.2.0.1" {
 		t.Error("Expecting 10.2.0.1 got ", lbe[0].GetEndpoint().Address.GetSocketAddress().Address)
 	}
-	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
 
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.1.7.1", 1080)
@@ -789,8 +783,17 @@ func TestAdsUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
-	strResponse, _ = gogoprotomarshal.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
+
+	if res1.TypeUrl != v3.EndpointType {
+		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.TypeUrl)
+	}
+	if res1.Resources[0].TypeUrl != v3.EndpointType {
+		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.Resources[0].TypeUrl)
+	}
+	_, err = getLoadAssignment(res1)
+	if err != nil {
+		t.Fatal("Invalid EDS response ", err)
+	}
 }
 
 func TestEnvoyRDSProtocolError(t *testing.T) {
