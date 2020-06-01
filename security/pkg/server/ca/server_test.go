@@ -90,7 +90,7 @@ func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*authenticate
 
 func TestCreateCertificate(t *testing.T) {
 	testCases := map[string]struct {
-		authenticators []authenticator
+		authenticators []authenticate.Authenticator
 		ca             CertificateAuthority
 		certChain      []string
 		code           codes.Code
@@ -101,34 +101,34 @@ func TestCreateCertificate(t *testing.T) {
 			ca:             &mockca.FakeCA{},
 		},
 		"Unauthenticated request": {
-			authenticators: []authenticator{&mockAuthenticator{
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{
 				errMsg: "Not authorized",
 			}},
 			code: codes.Unauthenticated,
 			ca:   &mockca.FakeCA{},
 		},
 		"CA not ready": {
-			authenticators: []authenticator{&mockAuthenticator{}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Invalid CSR": {
-			authenticators: []authenticator{&mockAuthenticator{}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CSRError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Invalid TTL": {
-			authenticators: []authenticator{&mockAuthenticator{}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.TTLError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
-			authenticators: []authenticator{&mockAuthenticator{}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CertGenError, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Successful signing": {
-			authenticators: []authenticator{&mockAuthenticator{}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			ca: &mockca.FakeCA{
 				SignedCert: []byte("cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{
@@ -174,7 +174,7 @@ func TestCreateCertificate(t *testing.T) {
 
 func TestHandleCSR(t *testing.T) {
 	testCases := map[string]struct {
-		authenticators []authenticator
+		authenticators []authenticate.Authenticator
 		ca             *mockca.FakeCA
 		csr            string
 		cert           string
@@ -188,34 +188,34 @@ func TestHandleCSR(t *testing.T) {
 			code:           codes.Unauthenticated,
 		},
 		"Unauthenticated request": {
-			authenticators: []authenticator{&mockAuthenticator{
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{
 				errMsg: "Not authorized",
 			}},
 			ca:   &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code: codes.Unauthenticated,
 		},
 		"No caller authenticated": {
-			authenticators: []authenticator{&mockAuthenticator{}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			code:           codes.Unauthenticated,
 		},
 		"Corrupted CSR": {
-			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			csr:            "deadbeef",
 			code:           codes.InvalidArgument,
 		},
 		"Invalid SAN CSR": {
-			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			csr:            badSanCsr,
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
-			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			csr:            csr,
 			code:           codes.Internal,
 		},
 		"Successful signing": {
-			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte("generated cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
@@ -227,7 +227,7 @@ func TestHandleCSR(t *testing.T) {
 			code:        codes.OK,
 		},
 		"Multiple identities received by CA signer": {
-			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test1", "test2"}}},
+			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test1", "test2"}}},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte("generated cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
