@@ -39,9 +39,9 @@ func TestMain(m *testing.M) {
 
 // TestSingleTlsGateway_SecretRotation tests a single TLS ingress gateway with SDS enabled.
 // Verifies behavior in these scenarios.
-// (1) create a kubernetes secret to provision server key/cert and client CA cert, and
+// (1) create a kubernetes secret to provision server key/cert, and
 // verify that TLS connection could establish to deliver HTTPS request.
-// (2) Rotates key/cert and client CA cert by deleting the secret generated in (1) and
+// (2) Rotates key/cert by deleting the secret generated in (1) and
 // replacing it a new secret with a different server key/cert and client CA cert.
 // (3) verify that client using older CA cert gets a 404 response
 // (4) verify that client using the newer CA cert is able to establish TLS connection
