@@ -187,6 +187,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		certDir:     certDir,
 		url:         url,
 		Received:    map[string]*xdsapi.DiscoveryResponse{},
+		RecvWg: sync.WaitGroup{},
 		cfg:         opts,
 	}
 	if certDir != "" {
@@ -209,6 +210,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
+	adsc.RecvWg.Add(1)
 	err := adsc.Run()
 	return adsc, err
 }
