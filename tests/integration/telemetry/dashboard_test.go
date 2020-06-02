@@ -115,6 +115,7 @@ var (
 
 func TestDashboard(t *testing.T) {
 	framework.NewTest(t).
+		Features("observability.telemetry.dashboard").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
