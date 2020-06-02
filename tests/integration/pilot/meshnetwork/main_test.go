@@ -212,7 +212,6 @@ func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP str
 		ConfigNamespace: ns,
 		Metadata: &model.NodeMetadata{
 			InstanceIPs:      []string{endpointIP},
-			ConfigNamespace:  ns,
 			Namespace:        ns,
 			InterceptionMode: "NONE",
 			Network:          "vm",

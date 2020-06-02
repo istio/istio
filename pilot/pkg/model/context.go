@@ -380,12 +380,8 @@ type NodeMetadata struct {
 	// InstanceIPs is the set of IPs attached to this proxy
 	InstanceIPs StringList `json:"INSTANCE_IPS,omitempty"`
 
-	// ConfigNamespace is the name of the metadata variable that carries info about
-	// the config namespace associated with the proxy
-	ConfigNamespace string `json:"CONFIG_NAMESPACE,omitempty"`
-
 	// Namespace is the namespace in which the workload instance is running.
-	Namespace string `json:"NAMESPACE,omitempty"` // replaces CONFIG_NAMESPACE
+	Namespace string `json:"NAMESPACE,omitempty"`
 
 	// InterceptionMode is the name of the metadata variable that carries info about
 	// traffic interception mode at the proxy
@@ -859,8 +855,8 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
 	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
-	if len(proxy.Metadata.ConfigNamespace) > 0 {
-		return proxy.Metadata.ConfigNamespace
+	if len(proxy.Metadata.Namespace) > 0 {
+		return proxy.Metadata.Namespace
 	}
 
 	// if not found, for backward compatibility, extract the namespace from
