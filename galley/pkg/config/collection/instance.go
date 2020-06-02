@@ -21,9 +21,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
-// ChangeNotifierFn is called when a collection instance changes.
-type ChangeNotifierFn func()
-
 // Instance is collection of resources, indexed by name.
 type Instance struct {
 	mu          sync.RWMutex // TODO: This lock will most likely cause contention. We should investigate whether removing it would help.

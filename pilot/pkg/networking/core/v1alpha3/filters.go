@@ -15,20 +15,20 @@
 package v1alpha3
 
 import (
-	cors "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/cors/v2"
-	grpcweb "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/grpc_web/v2"
-	router "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/router/v2"
-	httpinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/http_inspector/v2"
-	originaldst "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/original_dst/v2"
-	originalsrc "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/original_src/v2alpha1"
-	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	grpcweb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
+	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	httpinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
+	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
+	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
+	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/networking/util"
-	alpn_filter "istio.io/istio/security/proto/envoy/config/filter/http/alpn/v2alpha1"
+	alpn "istio.io/istio/security/proto/envoy/config/filter/http/alpn/v2alpha1"
 )
 
 const OriginalSrc = "envoy.listener.original_src"
@@ -36,27 +36,27 @@ const OriginalSrc = "envoy.listener.original_src"
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
 // This should not be used for filters that will be mutated
 var (
-	corsFilter = &http_conn.HttpFilter{
+	corsFilter = &hcm.HttpFilter{
 		Name: wellknown.CORS,
-		ConfigType: &http_conn.HttpFilter_TypedConfig{
+		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&cors.Cors{}),
 		},
 	}
-	faultFilter = &http_conn.HttpFilter{
+	faultFilter = &hcm.HttpFilter{
 		Name: wellknown.Fault,
-		ConfigType: &http_conn.HttpFilter_TypedConfig{
+		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&fault.HTTPFault{}),
 		},
 	}
-	routerFilter = &http_conn.HttpFilter{
+	routerFilter = &hcm.HttpFilter{
 		Name: wellknown.Router,
-		ConfigType: &http_conn.HttpFilter_TypedConfig{
+		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&router.Router{}),
 		},
 	}
-	grpcWebFilter = &http_conn.HttpFilter{
+	grpcWebFilter = &hcm.HttpFilter{
 		Name: wellknown.GRPCWeb,
-		ConfigType: &http_conn.HttpFilter_TypedConfig{
+		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&grpcweb.GrpcWeb{}),
 		},
 	}
@@ -85,21 +85,21 @@ var (
 			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{}),
 		},
 	}
-	alpnFilter = &http_conn.HttpFilter{
+	alpnFilter = &hcm.HttpFilter{
 		Name: AlpnFilterName,
-		ConfigType: &http_conn.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&alpn_filter.FilterConfig{
-				AlpnOverride: []*alpn_filter.FilterConfig_AlpnOverride{
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: util.MessageToAny(&alpn.FilterConfig{
+				AlpnOverride: []*alpn.FilterConfig_AlpnOverride{
 					{
-						UpstreamProtocol: alpn_filter.FilterConfig_HTTP10,
+						UpstreamProtocol: alpn.FilterConfig_HTTP10,
 						AlpnOverride:     mtlsHTTP10ALPN,
 					},
 					{
-						UpstreamProtocol: alpn_filter.FilterConfig_HTTP11,
+						UpstreamProtocol: alpn.FilterConfig_HTTP11,
 						AlpnOverride:     mtlsHTTP11ALPN,
 					},
 					{
-						UpstreamProtocol: alpn_filter.FilterConfig_HTTP2,
+						UpstreamProtocol: alpn.FilterConfig_HTTP2,
 						AlpnOverride:     mtlsHTTP2ALPN,
 					},
 				},

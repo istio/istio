@@ -21,7 +21,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
@@ -393,17 +392,6 @@ func getDNSDomain(podNamespace, domain string) string {
 		}
 	}
 	return domain
-}
-
-func fromJSON(j string) *meshconfig.RemoteService {
-	var m meshconfig.RemoteService
-	err := jsonpb.UnmarshalString(j, &m)
-	if err != nil {
-		log.Warnf("Unable to unmarshal %s: %v", j, err)
-		return nil
-	}
-
-	return &m
 }
 
 func init() {

@@ -137,16 +137,6 @@ func ValidatePort(port int) error {
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }
 
-// ValidatePorts checks if all ports are in range [0, 65535]
-func ValidatePorts(ports []int32) bool {
-	for _, port := range ports {
-		if ValidatePort(int(port)) != nil {
-			return false
-		}
-	}
-	return true
-}
-
 // ValidateFQDN checks a fully-qualified domain name
 func ValidateFQDN(fqdn string) error {
 	if err := checkDNS1123Preconditions(fqdn); err != nil {

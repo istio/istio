@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/gogo/protobuf/types"
 
@@ -81,7 +81,7 @@ func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, c *cluster.Cl
 	// discovery type.
 	maybeApplyEdsConfig(c)
 
-	var clusterMetadata *corev3.Metadata
+	var clusterMetadata *core.Metadata
 	if destRule != nil {
 		clusterMetadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
 		c.Metadata = clusterMetadata
@@ -189,10 +189,10 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	if cb.proxy.SupportsIPv4() {
 		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
 		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
-		inboundPassthroughClusterIpv4.UpstreamBindConfig = &corev3.BindConfig{
-			SourceAddress: &corev3.SocketAddress{
+		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+			SourceAddress: &core.SocketAddress{
 				Address: util.InboundPassthroughBindIpv4,
-				PortSpecifier: &corev3.SocketAddress_PortValue{
+				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: uint32(0),
 				},
 			},
@@ -202,10 +202,10 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	if cb.proxy.SupportsIPv6() {
 		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
 		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
-		inboundPassthroughClusterIpv6.UpstreamBindConfig = &corev3.BindConfig{
-			SourceAddress: &corev3.SocketAddress{
+		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
+			SourceAddress: &core.SocketAddress{
 				Address: util.InboundPassthroughBindIpv6,
-				PortSpecifier: &corev3.SocketAddress_PortValue{
+				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: uint32(0),
 				},
 			},
@@ -284,9 +284,9 @@ func maybeApplyEdsConfig(c *cluster.Cluster) {
 	}
 	c.EdsClusterConfig = &cluster.Cluster_EdsClusterConfig{
 		ServiceName: c.Name,
-		EdsConfig: &corev3.ConfigSource{
-			ConfigSourceSpecifier: &corev3.ConfigSource_Ads{
-				Ads: &corev3.AggregatedConfigSource{},
+		EdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_Ads{
+				Ads: &core.AggregatedConfigSource{},
 			},
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},

@@ -51,9 +51,6 @@ type Snapshotter struct {
 
 var _ event.Processor = &Snapshotter{}
 
-// HandlerFn handles generated snapshots
-type HandlerFn func(*coll.Set)
-
 type accumulator struct {
 	reqSyncCount   int32
 	syncCount      int32

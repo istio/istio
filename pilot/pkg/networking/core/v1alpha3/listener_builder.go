@@ -20,8 +20,8 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -86,7 +86,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *li
 		chain.Name = l.Name
 	}
 	for _, filter := range l.ListenerFilters {
-		if needTLS = needTLS || filter.Name == xdsutil.TlsInspector; needTLS {
+		if needTLS = needTLS || filter.Name == wellknown.TlsInspector; needTLS {
 			break
 		}
 	}
@@ -412,9 +412,9 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 
 	needTLS := false
 	for _, clusterName := range ipVersions {
-		tcpProxy := &tcp_proxy.TcpProxy{
+		tcpProxy := &tcp.TcpProxy{
 			StatPrefix:       clusterName,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
+			ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
 		}
 
 		matchingIP := ""
@@ -426,7 +426,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 
 		setAccessLog(push, tcpProxy)
 		tcpProxyFilter := &listener.Filter{
-			Name:       xdsutil.TCPProxy,
+			Name:       wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 		}
 
@@ -483,7 +483,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 				}
 			}
 			for _, filter := range chain.ListenerFilters {
-				if filter.Name == xdsutil.TlsInspector {
+				if filter.Name == wellknown.TlsInspector {
 					needTLS = true
 					break
 				}
@@ -571,7 +571,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 			connectionManager := buildHTTPConnectionManager(in, httpOpts, chain.HTTP)
 
 			filter := &listener.Filter{
-				Name:       xdsutil.HTTPConnectionManager,
+				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
 			}
 
@@ -618,13 +618,13 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		egressCluster = util.BlackHoleCluster
 	}
 
-	tcpProxy := &tcp_proxy.TcpProxy{
+	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       egressCluster,
-		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: egressCluster},
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
 	}
 	setAccessLog(push, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
-		Name:       xdsutil.TCPProxy,
+		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	})
 

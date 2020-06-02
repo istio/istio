@@ -15,18 +15,14 @@
 package server
 
 import (
-	"context"
 	"strconv"
 
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
+	"istio.io/pkg/monitoring"
 
 	kubeApiAdmission "k8s.io/api/admission/v1beta1"
 )
 
 const (
-	errorStr    = "error"
 	group       = "group"
 	version     = "version"
 	resourceTag = "resource"
@@ -35,118 +31,69 @@ const (
 )
 
 var (
-	// ErrorTag holds the error for the context.
-	ErrorTag tag.Key
-
 	// GroupTag holds the resource group for the context.
-	GroupTag tag.Key
+	GroupTag = monitoring.MustCreateLabel(group)
 
 	// VersionTag holds the resource version for the context.
-	VersionTag tag.Key
+	VersionTag = monitoring.MustCreateLabel(version)
 
 	// ResourceTag holds the resource name for the context.
-	ResourceTag tag.Key
+	ResourceTag = monitoring.MustCreateLabel(resourceTag)
 
 	// ReasonTag holds the error reason for the context.
-	ReasonTag tag.Key
+	ReasonTag = monitoring.MustCreateLabel(reason)
 
 	// StatusTag holds the error code for the context.
-	StatusTag tag.Key
+	StatusTag = monitoring.MustCreateLabel(status)
 )
 
 var (
-	metricValidationPassed = stats.Int64(
+	metricValidationPassed = monitoring.NewSum(
 		"galley/validation/passed",
 		"Resource is valid",
-		stats.UnitDimensionless)
-	metricValidationFailed = stats.Int64(
+		monitoring.WithLabels(GroupTag, VersionTag, ResourceTag),
+	)
+	metricValidationFailed = monitoring.NewSum(
 		"galley/validation/failed",
 		"Resource validation failed",
-		stats.UnitDimensionless)
-	metricValidationHTTPError = stats.Int64(
+		monitoring.WithLabels(GroupTag, VersionTag, ResourceTag, ReasonTag),
+	)
+	metricValidationHTTPError = monitoring.NewSum(
 		"galley/validation/http_error",
 		"Resource validation http serve errors",
-		stats.UnitDimensionless)
+		monitoring.WithLabels(StatusTag),
+	)
 )
 
-func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
-	return &view.View{
-		Name:        measure.Name(),
-		Description: measure.Description(),
-		Measure:     measure,
-		TagKeys:     keys,
-		Aggregation: aggregation,
-	}
-}
-
 func init() {
-	var err error
-	if ErrorTag, err = tag.NewKey(errorStr); err != nil {
-		panic(err)
-	}
-	if GroupTag, err = tag.NewKey(group); err != nil {
-		panic(err)
-	}
-	if VersionTag, err = tag.NewKey(version); err != nil {
-		panic(err)
-	}
-	if ResourceTag, err = tag.NewKey(resourceTag); err != nil {
-		panic(err)
-	}
-	if ReasonTag, err = tag.NewKey(reason); err != nil {
-		panic(err)
-	}
-	if StatusTag, err = tag.NewKey(status); err != nil {
-		panic(err)
-	}
-
-	resourceKeys := []tag.Key{GroupTag, VersionTag, ResourceTag}
-	resourceErrorKeys := []tag.Key{GroupTag, VersionTag, ResourceTag, ReasonTag}
-	statusKey := []tag.Key{StatusTag}
-
-	err = view.Register(
-		newView(metricValidationPassed, resourceKeys, view.Count()),
-		newView(metricValidationFailed, resourceErrorKeys, view.Count()),
-		newView(metricValidationHTTPError, statusKey, view.Count()),
+	monitoring.MustRegister(
+		metricValidationPassed,
+		metricValidationFailed,
+		metricValidationHTTPError,
 	)
-
-	if err != nil {
-		panic(err)
-	}
 }
 
 func reportValidationFailed(request *kubeApiAdmission.AdmissionRequest, reason string) {
-	ctx, err := tag.New(context.Background(),
-		tag.Insert(GroupTag, request.Resource.Group),
-		tag.Insert(VersionTag, request.Resource.Version),
-		tag.Insert(ResourceTag, request.Resource.Resource),
-		tag.Insert(ReasonTag, reason))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationFailed: %v", err)
-	} else {
-		stats.Record(ctx, metricValidationFailed.M(1))
-	}
+	metricValidationFailed.
+		With(GroupTag.Value(request.Resource.Group)).
+		With(VersionTag.Value(request.Resource.Version)).
+		With(ResourceTag.Value(request.Resource.Resource)).
+		With(ReasonTag.Value(reason)).
+		Increment()
 }
 
 func reportValidationPass(request *kubeApiAdmission.AdmissionRequest) {
-	ctx, err := tag.New(context.Background(),
-		tag.Insert(GroupTag, request.Resource.Group),
-		tag.Insert(VersionTag, request.Resource.Version),
-		tag.Insert(ResourceTag, request.Resource.Resource))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationPass: %v", err)
-	} else {
-		stats.Record(ctx, metricValidationPassed.M(1))
-	}
+	metricValidationPassed.
+		With(GroupTag.Value(request.Resource.Group)).
+		With(VersionTag.Value(request.Resource.Version)).
+		With(ResourceTag.Value(request.Resource.Resource)).
+		Increment()
 }
 
 func reportValidationHTTPError(status int) {
-	ctx, err := tag.New(context.Background(), tag.Insert(StatusTag, strconv.Itoa(status)))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationHTTPError: %v", err)
-	} else {
-		stats.Record(ctx, metricValidationHTTPError.M(1))
-	}
+	metricValidationHTTPError.
+		With(StatusTag.Value(strconv.Itoa(status))).
+		Increment()
 }
 
 const (

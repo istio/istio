@@ -1,4 +1,4 @@
-// Copyright Istio Authors
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,30 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package constraint
+package requestclassfication
 
 import (
-	"encoding/json"
+	"testing"
 
-	"sigs.k8s.io/yaml"
+	"istio.io/istio/pkg/test/framework"
 )
 
-// Constraints that needs to be satisfied.
-type Constraints struct {
-	Constraints []*Collection `json:"constraints"`
+func TestMain(m *testing.M) {
+	framework.NewSuite("request_classification_test", m).Run()
 }
 
-// Parse the given yaml bytes as a Constraint
-func Parse(yamlBytes []byte) (*Constraints, error) {
-	jsonBytes, err := yaml.YAMLToJSON(yamlBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Constraints{}
-	if err = json.Unmarshal(jsonBytes, c); err != nil {
-		return nil, err
-	}
-
-	return c, nil
+func TestRequestClassification(t *testing.T) {
+	framework.NewTest(t).
+		NotImplementedYet("observability.telemetry.request-classification").
+		NotImplementedYet("observability.telemetry.stats.prometheus.customize-metric")
 }

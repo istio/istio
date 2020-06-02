@@ -19,7 +19,7 @@ import (
 	"sort"
 	"testing"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -480,16 +480,16 @@ func createLbEndpoints(lbEpsInfo []*LbEpInfo) []*endpoint.LbEndpoint {
 		lbEp := endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 				Endpoint: &endpoint.Endpoint{
-					Address: &corev3.Address{
-						Address: &corev3.Address_SocketAddress{
-							SocketAddress: &corev3.SocketAddress{
+					Address: &core.Address{
+						Address: &core.Address_SocketAddress{
+							SocketAddress: &core.SocketAddress{
 								Address: lbEpInfo.address,
 							},
 						},
 					},
 				},
 			},
-			Metadata: &corev3.Metadata{
+			Metadata: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					"istio": {
 						Fields: map[string]*structpb.Value{

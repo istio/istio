@@ -1,6 +1,6 @@
 {{- if .Values.global.remotePilotAddress }}
   {{- if .Values.pilot.enabled }}
-# when istiod is enabled in remote cluster, we can't use istiod service name  
+# when istiod is enabled in remote cluster, we can't use istiod service name
 apiVersion: v1
 kind: Service
 metadata:
@@ -22,7 +22,14 @@ spec:
   ports:
   - port: 15012
     name: tcp-istiod
+  # if the remotePilotAddress is IP addr, we use clusterIP: None.
+  # else, we use externalName
+  {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
   clusterIP: None
+  {{- else }}
+  type: ExternalName
+  externalName: {{ .Values.global.remotePilotAddress }}
+  {{- end }}
   {{- end }}
 ---
 {{- end }}
