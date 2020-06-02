@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	util "istio.io/istio/tests/integration/mixer"
-	"time"
 )
 
 var (
@@ -118,7 +117,6 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 			t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
 				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
 			t.Errorf("Could not find 429s")
-			time.Sleep(time.Minute * 10)
 		}
 
 	})
@@ -159,7 +157,7 @@ func TestMain(m *testing.M) {
 values:
   prometheus:
     enabled: true
-  global:
+  meshConfig:
     disablePolicyChecks: false
   telemetry:
     v1:
