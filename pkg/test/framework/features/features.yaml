@@ -27,8 +27,8 @@ features:
           tcp:
       attributegen:
       tracing:
-        client-tracing:
-        server-tracing:
+        client:
+        server:
       dashboard:
   # features relating to controlling the traffic of the service mesh.
   traffic:

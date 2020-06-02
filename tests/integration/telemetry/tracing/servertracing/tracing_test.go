@@ -36,7 +36,7 @@ import (
 // More information on distributed tracing can be found here: https://istio.io/docs/tasks/telemetry/distributed-tracing/zipkin/
 func TestProxyTracing(t *testing.T) {
 	framework.NewTest(t).
-		Features("telemetry.tracing.server-tracing").
+		Features("telemetry.tracing.server").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			bookinfoNsInst := tracing.GetBookinfoNamespaceInstance()
