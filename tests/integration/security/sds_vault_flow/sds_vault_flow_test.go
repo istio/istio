@@ -35,7 +35,6 @@ import (
 
 func TestSdsVaultCaFlow(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.vault").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			// Istio 1.3 uses Trustworthy JWT, which, unlike normal k8s JWT, is not

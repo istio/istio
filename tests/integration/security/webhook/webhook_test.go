@@ -64,7 +64,6 @@ values:
 func TestWebhookManagement(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.webhook").
 		Run(func(ctx framework.TestContext) {
 			ctx.Skip("TODO(github.com/istio/istio/issues/20289)")
 

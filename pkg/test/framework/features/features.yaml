@@ -38,9 +38,6 @@ features:
     control-plane:
       k8s-certs:
       plugin-cert:
-    webhook:
-    chiron:
-    vault:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
   # features releated to the lifecycle of istio installations
