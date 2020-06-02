@@ -60,19 +60,9 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		}
 	}()
 
-	c.ns, err = namespace.New(ctx, namespace.Config{
-		Prefix: redisNamespace,
-	})
+	c.ns, err = namespace.ClaimSystemNamespace(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not create %s Namespace for Redis install; err:%v", redisNamespace, err)
-	}
-
-	if err := environ.CheckFileExists(environ.ServiceAccountFilePath); err != nil {
-		return nil, fmt.Errorf("failed to file service account file %s, err: %v", environ.ServiceAccountFilePath, err)
-	}
-
-	if err := c.cluster.Apply("kube-system", environ.ServiceAccountFilePath); err != nil {
-		return nil, fmt.Errorf("failed to apply %s, err: %v", environ.ServiceAccountFilePath, err)
 	}
 
 	// apply redis YAML
