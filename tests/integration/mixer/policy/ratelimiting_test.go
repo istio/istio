@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	util "istio.io/istio/tests/integration/mixer"
+	"time"
 )
 
 var (
@@ -120,6 +121,7 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 			t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
 				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
 			t.Errorf("Could not find 429s")
+			time.Sleep(time.Minute * 10)
 		}
 
 	})
@@ -135,7 +137,7 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 	con := string(content)
 
 	con = strings.Replace(con, "redisServerUrl: redis-release-master:6379",
-		"redisServerUrl: redis."+red.GetRedisNamespace()+":6379", -1)
+		"redisServerUrl: redis-release-master."+red.GetRedisNamespace()+":6379", -1)
 	con = strings.Replace(con, "namespace: default",
 		"namespace: "+bookInfoNameSpaceStr, -1)
 
