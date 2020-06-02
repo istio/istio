@@ -24,9 +24,9 @@ spec:
               # Select list item by key:value
               - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
                 value: 1234 # OVERRIDDEN
-              # Override with object (note | on value: first line)
+              # Override with object
               - path: spec.template.spec.containers.[name:discovery].env.[name:POD_NAMESPACE].valueFrom
-                value: |
+                value:
                   fieldRef:
                     apiVersion: v2
                     fieldPath: metadata.myPath

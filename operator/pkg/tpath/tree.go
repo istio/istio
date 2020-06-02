@@ -27,14 +27,13 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
-	"strings"
 
-	yaml2 "github.com/ghodss/yaml"
 	"github.com/kylelemons/godebug/pretty"
 	"gopkg.in/yaml.v2"
 
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/operator/pkg/util"
 )
 
 var (
@@ -335,7 +334,6 @@ func setPathContext(nc *PathContext, value interface{}, merge bool) error {
 // setValueContext writes the given value to the Node in the given PathContext.
 // If setting the value requires growing the final slice, grows it.
 func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, error) {
-	vv, mapFromString := tryToUnmarshalStringToYAML(value)
 
 	switch parentNode := nc.Parent.Node.(type) {
 	case *interface{}:
@@ -353,7 +351,7 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, erro
 				*parentNode = vParentNode
 			}
 
-			merged, err := mergeConditional(vv, nc.Node, merge)
+			merged, err := mergeConditional(value, nc.Node, merge)
 			if err != nil {
 				return false, err
 			}
@@ -368,16 +366,16 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, erro
 
 		// Update is treated differently depending on whether the value is a scalar or map type. If scalar,
 		// insert a new element into the terminal node, otherwise replace the terminal node with the new subtree.
-		if ncNode, ok := nc.Node.(*interface{}); ok && !mapFromString {
+		if ncNode, ok := nc.Node.(*interface{}); ok {
 			switch vNcNode := (*ncNode).(type) {
 			case []interface{}:
-				switch vv.(type) {
+				switch value.(type) {
 				case map[string]interface{}:
 					// the vv is a map, and the node is a slice
-					mergedValue := append(vNcNode, vv)
+					mergedValue := append(vNcNode, value)
 					parentNode[key] = mergedValue
 				case *interface{}:
-					merged, err := mergeConditional(vv, vNcNode, merge)
+					merged, err := mergeConditional(value, vNcNode, merge)
 					if err != nil {
 						return false, err
 					}
@@ -386,31 +384,22 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, erro
 					nc.Node = merged
 				default:
 					// the vv is an basic JSON type (int, float, string, bool)
-					vv = append(vNcNode, vv)
-					parentNode[key] = vv
-					nc.Node = vv
+					value = append(vNcNode, value)
+					parentNode[key] = value
+					nc.Node = value
 				}
 			default:
 				return false, fmt.Errorf("don't know about vnc type %T", vNcNode)
 			}
 		} else {
-			// For map passed as string type, the root is the new key.
-			if mapFromString {
-				if err := util.DeleteFromMap(nc.Parent.Node, nc.Parent.KeyToChild); err != nil {
-					return false, err
-				}
-				vm := vv.(map[string]interface{})
-				newKey := getTreeRoot(vm)
-				return false, util.InsertIntoMap(nc.Parent.Node, newKey, vm[newKey])
-			}
-			parentNode[key] = vv
-			nc.Node = vv
+			parentNode[key] = value
+			nc.Node = value
 		}
 	// TODO `map[interface{}]interface{}` is used by tests in operator/cmd/mesh, we should add our own tests
 	case map[interface{}]interface{}:
 		key := nc.Parent.KeyToChild.(string)
-		parentNode[key] = vv
-		nc.Node = vv
+		parentNode[key] = value
+		nc.Node = value
 	default:
 		return false, fmt.Errorf("don't know about type %T", parentNode)
 	}
@@ -533,29 +522,6 @@ func isMapOrInterface(v interface{}) bool {
 		vv = vv.Elem()
 	}
 	return vv.Kind() == reflect.Map
-}
-
-// tryToUnmarshalStringToYAML tries to unmarshal something that may be a YAML list or map into a structure. If not
-// possible, returns original scalar value.
-func tryToUnmarshalStringToYAML(s interface{}) (interface{}, bool) {
-	// If value type is a string it could either be a literal string or a map type passed as a string. Try to unmarshal
-	// to discover it's the latter.
-	vv := s
-
-	if reflect.TypeOf(vv).Kind() == reflect.String {
-		sv := strings.Split(vv.(string), "\n")
-		// Need to be careful not to transform string literals into maps unless they really are maps, since scalar handling
-		// is different for inserts.
-		if len(sv) == 1 && strings.Contains(s.(string), ": ") ||
-			len(sv) > 1 && strings.Contains(s.(string), ":") {
-			nv := make(map[string]interface{})
-			if err := yaml2.Unmarshal([]byte(vv.(string)), &nv); err == nil {
-				return nv, true
-			}
-		}
-	}
-	// looks like a literal or failed unmarshal, return original type.
-	return vv, false
 }
 
 // getTreeRoot returns the first key found in m. It assumes a single root tree.

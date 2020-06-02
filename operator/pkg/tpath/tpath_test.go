@@ -567,6 +567,19 @@ components:
     - enabled: "false"
 `,
 		},
+		{
+			desc:     "nested json",
+			baseYAML:  `
+meshConfig:
+  accessLogFormat: ''
+`,
+			path:     "meshConfig.accessLogFormat",
+			value:    `{"foo": "bar"}`,
+			want: `
+meshConfig:
+  accessLogFormat: '{"foo": "bar"}'
+`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {

@@ -13,6 +13,12 @@ data:
     networks: {}
 
   mesh: |-
+    accessLogEncoding: JSON
+    accessLogFile: /dev/stdout
+    accessLogFormat: |-
+      {
+        "foo": "bar"
+      }
     defaultConfig:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
