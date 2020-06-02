@@ -24,6 +24,14 @@ type IptablesProducer interface {
 	InsertRuleV4(chain string, table string, position int, params ...string) IptablesProducer
 	// InsertRuleV6 inserts IPv6 rule at a particular position in the chain
 	InsertRuleV6(chain string, table string, position int, params ...string) IptablesProducer
+	// EnsureV4Rule ensure IPv4 rule in given iptables chain
+	EnsureV4Rule(rule *Rule) error
+	// EnsureV6Rule ensure IPv6 rule in given iptables chain
+	EnsureV6Rule(rule *Rule) error
+	// EnsureV4Chain ensure IPv4 chain exist in given iptables
+	EnsureV4Chain(rule *Rule) error
+	// EnsureV6Chain ensure IPv4 chain exist in given iptables
+	EnsureV6Chain(rule *Rule) error
 }
 
 // IptablesConsumer is an interface for constructing iptables-rules command string or iptables-restore formatted rules
@@ -33,9 +41,9 @@ type IptablesConsumer interface {
 	// BuildV6 creates ip6tables commands
 	BuildV6() [][]string
 	// BuildV4Restore creates iptables-restore input format
-	BuildV4Restore() string
+	BuildV4Restore() ([]*Rule, []*Rule, string)
 	// BuildV6Restore creates ip6tables-restore input format
-	BuildV6Restore() string
+	BuildV6Restore() ([]*Rule, []*Rule, string)
 }
 
 // IptablesBuilder is a higher level interface based on builder pattern.

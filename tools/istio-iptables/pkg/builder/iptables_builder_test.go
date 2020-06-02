@@ -19,30 +19,46 @@ import (
 	"testing"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 // TODO(abhide): Add more testcases once BuildV6Restore() are implemented
 func TestBuildV6Restore(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	expected := ""
-	actual := iptables.BuildV6Restore()
-	if expected != actual {
-		t.Errorf("Output didn't match: Got: %s, Expected: %s", actual, expected)
+	buildInRules, definedChain, data := iptables.BuildV6Restore()
+	if expected != data {
+		t.Errorf("Output didn't match: Got: %s, Expected: %s", data, expected)
+	}
+	if len(buildInRules) != 0 {
+		t.Errorf("Output didn't match: Got: %d, Expected: %d", len(buildInRules), 0)
+	}
+	if len(definedChain) != 0 {
+		t.Errorf("Output didn't match: Got: %d, Expected: %d", len(definedChain), 0)
 	}
 }
 
 // TODO(abhide): Add more testcases once BuildV4Restore() are implemented
 func TestBuildV4Restore(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	expected := ""
-	actual := iptables.BuildV4Restore()
-	if expected != actual {
-		t.Errorf("Output didn't match: Got: %s, Expected: %s", actual, expected)
+	buildInRules, definedChain, data := iptables.BuildV4Restore()
+	if expected != data {
+		t.Errorf("Output didn't match: Got: %s, Expected: %s", data, expected)
+	}
+	if len(buildInRules) != 0 {
+		t.Errorf("Output didn't match: Got: %d, Expected: %d", len(buildInRules), 0)
+	}
+	if len(definedChain) != 0 {
+		t.Errorf("Output didn't match: Got: %d, Expected: %d", len(definedChain), 0)
 	}
 }
 
 func TestBuildV4InsertSingleRule(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.InsertRuleV4("chain", "table", 2, "-f", "foo", "-b", "bar")
 	if err := len(iptables.rules.rulesv6) != 0; err {
 		t.Errorf("Expected rulesV6 to be empty; but got %#v", iptables.rules.rulesv6)
@@ -63,7 +79,8 @@ func TestBuildV4InsertSingleRule(t *testing.T) {
 }
 
 func TestBuildV4AppendSingleRule(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.AppendRuleV4("chain", "table", "-f", "foo", "-b", "bar")
 	if err := len(iptables.rules.rulesv6) != 0; err {
 		t.Errorf("Expected rulesV6 to be empty; but got %#v", iptables.rules.rulesv6)
@@ -84,7 +101,8 @@ func TestBuildV4AppendSingleRule(t *testing.T) {
 }
 
 func TestBuildV4AppendMultipleRules(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.AppendRuleV4("chain", "table", "-f", "foo", "-b", "bar")
 	iptables.AppendRuleV4("chain", "table", "-f", "fu", "-b", "bar")
 	iptables.AppendRuleV4("chain", "table", "-f", "foo", "-b", "baz")
@@ -109,7 +127,8 @@ func TestBuildV4AppendMultipleRules(t *testing.T) {
 }
 
 func TestBuildV4InsertMultipleRules(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.InsertRuleV4("chain", "table", 1, "-f", "foo", "-b", "bar")
 	iptables.InsertRuleV4("chain", "table", 2, "-f", "foo", "-b", "baaz")
 	iptables.InsertRuleV4("chain", "table", 3, "-f", "foo", "-b", "baz")
@@ -134,7 +153,8 @@ func TestBuildV4InsertMultipleRules(t *testing.T) {
 }
 
 func TestBuildV4AppendInsertMultipleRules(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.AppendRuleV4("chain", "table", "-f", "foo", "-b", "bar")
 	iptables.InsertRuleV4("chain", "table", 2, "-f", "foo", "-b", "bar")
 	iptables.AppendRuleV4("chain", "table", "-f", "foo", "-b", "baz")
@@ -159,7 +179,8 @@ func TestBuildV4AppendInsertMultipleRules(t *testing.T) {
 }
 
 func TestBuildV6InsertSingleRule(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.InsertRuleV6("chain", "table", 2, "-f", "foo", "-b", "bar")
 	if err := len(iptables.rules.rulesv4) != 0; err {
 		t.Errorf("Expected rulesV4 to be empty; but got %#v", iptables.rules.rulesv4)
@@ -180,7 +201,8 @@ func TestBuildV6InsertSingleRule(t *testing.T) {
 }
 
 func TestBuildV6AppendSingleRule(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.AppendRuleV6("chain", "table", "-f", "foo", "-b", "bar")
 	if err := len(iptables.rules.rulesv4) != 0; err {
 		t.Errorf("Expected rulesV6 to be empty; but got %#v", iptables.rules.rulesv6)
@@ -201,7 +223,8 @@ func TestBuildV6AppendSingleRule(t *testing.T) {
 }
 
 func TestBuildV6AppendMultipleRules(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.AppendRuleV6("chain", "table", "-f", "foo", "-b", "bar")
 	iptables.AppendRuleV6("chain", "table", "-f", "fu", "-b", "bar")
 	iptables.AppendRuleV6("chain", "table", "-f", "foo", "-b", "baz")
@@ -226,7 +249,8 @@ func TestBuildV6AppendMultipleRules(t *testing.T) {
 }
 
 func TestBuildV6InsertMultipleRules(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.InsertRuleV6("chain", "table", 1, "-f", "foo", "-b", "bar")
 	iptables.InsertRuleV6("chain", "table", 2, "-f", "foo", "-b", "baaz")
 	iptables.InsertRuleV6("chain", "table", 3, "-f", "foo", "-b", "baz")
@@ -251,7 +275,8 @@ func TestBuildV6InsertMultipleRules(t *testing.T) {
 }
 
 func TestBuildV6InsertAppendMultipleRules(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.AppendRuleV6("chain", "table", "-f", "foo", "-b", "bar")
 	iptables.InsertRuleV6("chain", "table", 2, "-f", "foo", "-b", "bar")
 	iptables.InsertRuleV6("chain", "table", 1, "-f", "foo", "-b", "bar")
@@ -276,7 +301,8 @@ func TestBuildV6InsertAppendMultipleRules(t *testing.T) {
 }
 
 func TestBuildV4V6MultipleRulesWithNewChain(t *testing.T) {
-	iptables := NewIptablesBuilder()
+	ext := &dep.StdoutStubDependencies{}
+	iptables := NewIptablesBuilder(ext)
 	iptables.AppendRuleV4("chain", "table", "-f", "foo", "-b", "bar")
 	iptables.InsertRuleV4("chain", "table", 2, "-f", "foo", "-b", "bar")
 	iptables.AppendRuleV4("chain", "table", "-f", "foo", "-b", "baz")

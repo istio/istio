@@ -22,4 +22,6 @@ type Dependencies interface {
 	Run(cmd string, args ...string) error
 	// RunQuietlyAndIgnore runs a command quietly and ignores errors
 	RunQuietlyAndIgnore(cmd string, args ...string)
+	// Command runs a command
+	Command(cmd string, args ...string) ([]byte, error)
 }

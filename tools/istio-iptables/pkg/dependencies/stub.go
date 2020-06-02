@@ -38,3 +38,9 @@ func (s *StdoutStubDependencies) Run(cmd string, args ...string) error {
 func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd string, args ...string) {
 	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
 }
+
+// Command runs a command quietly and ignores errors
+func (s *StdoutStubDependencies) Command(cmd string, args ...string) ([]byte, error) {
+	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
+	return nil, nil
+}

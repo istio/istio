@@ -54,3 +54,8 @@ func (r *RealDependencies) Run(cmd string, args ...string) error {
 func (r *RealDependencies) RunQuietlyAndIgnore(cmd string, args ...string) {
 	_ = r.execute(cmd, true, args...)
 }
+
+// Command runs a command
+func (r *RealDependencies) Command(cmd string, args ...string) ([]byte, error) {
+	return exec.Command(cmd, args...).CombinedOutput()
+}

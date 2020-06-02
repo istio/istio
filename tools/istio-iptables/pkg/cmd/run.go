@@ -37,7 +37,7 @@ type IptablesConfigurator struct {
 
 func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) *IptablesConfigurator {
 	return &IptablesConfigurator{
-		iptables: builder.NewIptablesBuilder(),
+		iptables: builder.NewIptablesBuilder(ext),
 		ext:      ext,
 		cfg:      cfg,
 	}
@@ -485,16 +485,40 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesCommands(commands []
 }
 
 func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) error {
-	var data, filename, cmd string
+	var data, cmd string
+	var buildInRules, definedChain []*builder.Rule
+	filename := fmt.Sprintf("iptables-rules-%d.txt", time.Now().UnixNano())
+
 	if isIpv4 {
-		data = iptConfigurator.iptables.BuildV4Restore()
-		filename = fmt.Sprintf("iptables-rules-%d.txt", time.Now().UnixNano())
+		buildInRules, definedChain, data = iptConfigurator.iptables.BuildV4Restore()
 		cmd = constants.IPTABLESRESTORE
+
+		for _, rule := range definedChain {
+			if err := iptConfigurator.iptables.EnsureV4Chain(rule); err != nil {
+				return err
+			}
+		}
+		for _, rule := range buildInRules {
+			if err := iptConfigurator.iptables.EnsureV4Rule(rule); err != nil {
+				return err
+			}
+		}
 	} else {
-		data = iptConfigurator.iptables.BuildV6Restore()
-		filename = fmt.Sprintf("ip6tables-rules-%d.txt", time.Now().UnixNano())
+		buildInRules, definedChain, data = iptConfigurator.iptables.BuildV6Restore()
 		cmd = constants.IP6TABLESRESTORE
+
+		for _, rule := range definedChain {
+			if err := iptConfigurator.iptables.EnsureV6Chain(rule); err != nil {
+				return err
+			}
+		}
+		for _, rule := range buildInRules {
+			if err := iptConfigurator.iptables.EnsureV6Rule(rule); err != nil {
+				return err
+			}
+		}
 	}
+
 	rulesFile, err := ioutil.TempFile("", filename)
 	if err != nil {
 		return fmt.Errorf("unable to create iptables-restore file: %v", err)
@@ -527,6 +551,5 @@ func (iptConfigurator *IptablesConfigurator) executeCommands() {
 		iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV4())
 		// Execute ip6tables commands
 		iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV6())
-
 	}
 }
