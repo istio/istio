@@ -155,7 +155,7 @@ type ADSC struct {
 
 	// Synchronization for receiving the gRPC stream.
 	RecvWg sync.WaitGroup
-  
+
 	cfg *Config
 
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
