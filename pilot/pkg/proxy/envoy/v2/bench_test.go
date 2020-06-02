@@ -199,7 +199,7 @@ func setupTest(t test.Failer, testName string) (model.Environment, core.ConfigGe
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			ConfigNamespace: "not-default",
+			Namespace: "not-default",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},
 		ConfigNamespace: "not-default",
