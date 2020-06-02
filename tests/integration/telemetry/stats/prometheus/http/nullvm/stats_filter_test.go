@@ -17,6 +17,7 @@ package nullvm
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 
@@ -30,7 +31,7 @@ import (
 // proxy bootstrap config. To avoid flake, it does not verify correctness of metrics, which
 // should be covered by integration test in proxy repo.
 func TestStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t)
+	common.TestStatsFilter(t, features.Feature("telemetry.stats.prometheus.http.nullvm"))
 }
 
 func TestMain(m *testing.M) {

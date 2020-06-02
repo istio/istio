@@ -48,6 +48,7 @@ var (
 func TestTcpMetric(t *testing.T) { // nolint:interfacer
 	framework.
 		NewTest(t).
+		Features("telemetry.stats.prometheus.tcp").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			addr := ing.HTTPAddress()
