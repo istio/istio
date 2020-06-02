@@ -221,13 +221,11 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 			}
 
 			return authenticatedID.Identities, nil
-		} else {
-			// TODO: add a flag to prevent unauthenticated requests ( 15010 )
-			// request not over TLS ( on the insecure port
-			return nil, nil
 		}
 	}
 
+	// TODO: add a flag to prevent unauthenticated requests ( 15010 )
+	// request not over TLS ( on the insecure port
 	return nil, nil
 }
 
