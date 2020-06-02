@@ -53,6 +53,7 @@ values:
 func TestMtlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.control-plane.k8s-certs", "security.control-plane.mtls").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			util.RunTestMultiMtlsGateways(ctx, inst)
@@ -62,6 +63,7 @@ func TestMtlsGatewaysK8sca(t *testing.T) {
 func TestTlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.control-plane.k8s-certs", "security.control-plane.tls").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			util.RunTestMultiTLSGateways(ctx, inst)

@@ -93,6 +93,7 @@ ksOPXgK63Oot7wxQOuG5BX1v1yQ=
 
 func TestDNSCertificate(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.chiron").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			var galleySecret, galleySecret2, sidecarInjectorSecret, sidecarInjectorSecret2 *corev1.Secret

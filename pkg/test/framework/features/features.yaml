@@ -30,9 +30,16 @@ features:
   # features that allow users to secure their services and service mesh.
   security:
     peer:
+      secure-naming:
     user:
     control-plane:
       k8s-certs:
+      mtls:
+      tls:
+      plugin-cert:
+    webhook:
+    chiron:
+    vault:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
   # features releated to the lifecycle of istio installations
