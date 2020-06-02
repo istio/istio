@@ -8815,7 +8815,7 @@ spec:
       # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
-          secretName: istio.{{ $gateway.name | default "istio-ingressgateway" }}-account
+          secretName: istio.{{ $gateway.name | default "istio-ingressgateway" }}-service-account
           optional: true
       {{- end }}
       {{- range $gateway.secretVolumes }}
