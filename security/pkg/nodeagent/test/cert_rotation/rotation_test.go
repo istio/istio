@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	rotateInterval   = 1500 * time.Millisecond
+	rotateInterval   = 2000 * time.Millisecond
 	proxyRunningTime = 5 * rotateInterval
 	sleepTime        = 100 * time.Millisecond
 	retryAttempt     = 3
@@ -92,8 +92,8 @@ func TestCertRotation(t *testing.T) {
 		if numOutboundSDSUpdate <= 1 {
 			t.Errorf("Number of SDS updates at outbound cluster should be greater than one, get %d", numOutboundSDSUpdate)
 		}
-		if numInboundSDSUpdate <= 1 {
-			t.Errorf("Number of SDS updates at inbound listener should be greater than one, get %d", numInboundSDSUpdate)
+		if numInboundSDSUpdate <= 0 {
+			t.Errorf("Number of SDS updates at inbound listener should be greater than zero, get %d", numInboundSDSUpdate)
 		}
 	} else {
 		t.Errorf("cannot get Envoy stats: %v", err)
