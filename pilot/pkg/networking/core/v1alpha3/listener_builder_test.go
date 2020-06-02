@@ -324,7 +324,7 @@ func expectTCPProxy(t *testing.T, chains []*listener.FilterChain, s string) {
 	got := ""
 	for _, c := range chains {
 		for _, f := range c.Filters {
-			if f.Name != "envoy.tcp" {
+			if f.Name != "envoy.tcp_proxy" {
 				continue
 			}
 			fc := &tcp.TcpProxy{}

@@ -804,7 +804,7 @@ func getTCPFilterChain(t *testing.T, l *listener.Listener) *listener.FilterChain
 	t.Helper()
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
-			if f.Name == "envoy.tcp" {
+			if f.Name == "envoy.tcp_proxy" {
 				return fc
 			}
 		}
@@ -962,7 +962,7 @@ func isHTTPFilterChain(fc *listener.FilterChain) bool {
 }
 
 func isTCPFilterChain(fc *listener.FilterChain) bool {
-	return len(fc.Filters) > 0 && fc.Filters[0].Name == "envoy.tcp"
+	return len(fc.Filters) > 0 && fc.Filters[0].Name == "envoy.tcp_proxy"
 }
 
 func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Service) {
