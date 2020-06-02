@@ -132,7 +132,7 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 	con := string(content)
 
 	con = strings.Replace(con, "redisServerUrl: redis-release-master:6379",
-		"redisServerUrl: redis-release-master."+red.GetRedisNamespace()+":6379", -1)
+		"redisServerUrl: redis."+red.GetRedisNamespace()+":6379", -1)
 	con = strings.Replace(con, "namespace: default",
 		"namespace: "+bookInfoNameSpaceStr, -1)
 
