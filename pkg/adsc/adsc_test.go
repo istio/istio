@@ -51,13 +51,16 @@ func TestADSC_Run(t *testing.T) {
 			desc: "stream-no-resources",
 			inAdsc: &ADSC{
 				certDir:    "",
-				url:        "127.0.0.1:49132",
+				url:        "127.0.0.1:49133",
 				Received:   make(map[string]*v2.DiscoveryResponse),
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *v2.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
+				cfg: &Config{
+					Watch: make([]string, 0),
+				},
 			},
-			port: uint32(49132),
+			port: uint32(49133),
 			streamHandler: func(server ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				return nil
 			},
@@ -69,13 +72,16 @@ func TestADSC_Run(t *testing.T) {
 			desc: "stream-2-unnamed-resources",
 			inAdsc: &ADSC{
 				certDir:    "",
-				url:        "127.0.0.1:49132",
+				url:        "127.0.0.1:49133",
 				Received:   make(map[string]*v2.DiscoveryResponse),
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *v2.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
+				cfg: &Config{
+					Watch: make([]string, 0),
+				},
 			},
-			port: uint32(49132),
+			port: uint32(49133),
 			streamHandler: func(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				_ = stream.Send(&v2.DiscoveryResponse{
 					TypeUrl: "foo",

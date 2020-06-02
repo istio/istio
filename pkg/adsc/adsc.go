@@ -319,11 +319,11 @@ func (a *ADSC) handleRecv() {
 		msg, err := a.stream.Recv()
 		if err != nil {
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
+			a.RecvWg.Done()
 			a.Close()
 			a.WaitClear()
 			a.Updates <- ""
 			a.XDSUpdates <- nil
-			a.RecvWg.Done()
 			return
 		}
 
