@@ -41,9 +41,9 @@ import (
 type handler struct{}
 
 const (
-	testHeader = "Some-Header"
+	testHeader      = "Some-Header"
 	testHeaderValue = "some-value"
-	testHostValue = "host"
+	testHostValue   = "host"
 )
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
