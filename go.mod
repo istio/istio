@@ -144,6 +144,7 @@ require (
 	go.opencensus.io v0.22.2
 	go.uber.org/atomic v1.4.0
 	go.uber.org/zap v1.10.0
+	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
 	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
@@ -156,9 +157,9 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
 	helm.sh/helm/v3 v3.2.0
-	istio.io/api v0.0.0-20200428194011-6b75cd3a8452
-	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
-	istio.io/pkg v0.0.0-20200427191155-bf8aca030541
+	istio.io/api v0.0.0-20200529165953-72dad51d4ffc
+	istio.io/gogo-genproto v0.0.0-20200511213158-02f1fd1746e5
+	istio.io/pkg v0.0.0-20200511212725-7bfbbf968c23
 	k8s.io/api v0.18.1
 	k8s.io/apiextensions-apiserver v0.18.0
 	k8s.io/apimachinery v0.18.1

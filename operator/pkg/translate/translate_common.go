@@ -59,13 +59,13 @@ func IsComponentEnabledFromValue(cn name.ComponentName, valueSpec map[string]int
 	}
 	valuePath := cnMap.ToHelmValuesTreeRoot
 	enabledPath := valuePath + ".enabled"
-	enableNodeI, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(enabledPath))
+	enableNodeI, found, err := tpath.Find(valueSpec, util.ToYAMLPath(enabledPath))
 	if err != nil {
 		return false, false, fmt.Errorf("error finding component enablement path: %s in helm value.yaml tree", enabledPath)
 	}
 	if !found {
 		// Some components do not specify enablement should be treated as enabled if the root node in the component subtree exists.
-		_, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
+		_, found, err := tpath.Find(valueSpec, util.ToYAMLPath(valuePath))
 		if err != nil {
 			return false, false, err
 		}

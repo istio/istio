@@ -97,26 +97,14 @@ spec:
         service:
           ports:
           - name: status-port
-            port: 15020
-            targetPort: 15020
+            port: 15021
+            targetPort: 15021
           - name: http2
             port: 80
             targetPort: 8080
           - name: https
             port: 443
             targetPort: 8443
-          - name: kiali
-            port: 15029
-            targetPort: 15029
-          - name: prometheus
-            port: 15030
-            targetPort: 15030
-          - name: grafana
-            port: 15031
-            targetPort: 15031
-          - name: tracing
-            port: 15032
-            targetPort: 15032
           - name: tls
             port: 15443
             targetPort: 15443
@@ -125,6 +113,8 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
       name: istio-ingressgateway
+    istiodRemote:
+      enabled: false
     pilot:
       enabled: false
       k8s:
@@ -213,13 +203,18 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
+  meshConfig:
+    enablePrometheusMerge: false
   profile: default
   tag: latest
   values:
+    base:
+      validationURL: ""
     clusterResources: true
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
+        env: {}
         name: istio-egressgateway
         secretVolumes:
         - mountPath: /etc/istio/egressgateway-certs
@@ -229,11 +224,13 @@ spec:
           name: egressgateway-ca-certs
           secretName: istio-egressgateway-ca-certs
         type: ClusterIP
+        zvpn: {}
       istio-ingressgateway:
         applicationPorts: ""
         autoscaleEnabled: true
         debug: info
         domain: ""
+        env: {}
         meshExpansionPorts:
         - name: tcp-pilot-grpc-tls
           port: 15011
@@ -256,6 +253,7 @@ spec:
           name: ingressgateway-ca-certs
           secretName: istio-ingressgateway-ca-certs
         type: LoadBalancer
+        zvpn: {}
     global:
       arch:
         amd64: 2
@@ -270,7 +268,6 @@ spec:
         requests:
           cpu: 10m
       enableHelmTest: false
-      enableTracing: true
       imagePullPolicy: ""
       imagePullSecrets: []
       istioNamespace: istio-system
@@ -278,8 +275,6 @@ spec:
         enableAnalysis: false
         enabled: true
       jwtPolicy: third-party-jwt
-      localityLbSetting:
-        enabled: true
       logAsJson: false
       logging:
         level: default:info
@@ -288,8 +283,6 @@ spec:
         useILB: false
       meshNetworks: {}
       mountMtlsCerts: false
-      mtls:
-        auto: true
       multiCluster:
         clusterName: ""
         enabled: false
@@ -297,10 +290,7 @@ spec:
       omitSidecarInjectorConfigMap: false
       oneNamespace: false
       operatorManageWebhooks: false
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
       pilotCertProvider: istiod
-      policyCheckFailOpen: false
       priorityClassName: ""
       proxy:
         autoInject: enabled
@@ -399,10 +389,14 @@ spec:
       coreDNSImage: coredns/coredns
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       coreDNSTag: 1.6.2
+    istiodRemote:
+      injectionURL: ""
     kiali:
       contextPath: /kiali
       createDemoSecret: false
       dashboard:
+        auth:
+          strategy: login
         grafanaInClusterURL: http://grafana:3000
         jaegerInClusterURL: http://tracing/jaeger
         passphraseKey: passphrase
@@ -417,8 +411,9 @@ spec:
         cert_file: /kiali-cert/cert-chain.pem
         enabled: false
         private_key_file: /kiali-cert/key.pem
-      tag: v1.15
-    meshConfig: {}
+      service:
+        annotations: {}
+      tag: v1.18
     mixer:
       adapters:
         kubernetesenv:
@@ -509,6 +504,7 @@ spec:
         enabled: false
       v2:
         enabled: true
+        metadataExchange: {}
         prometheus:
           enabled: true
         stackdriver:

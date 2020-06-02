@@ -33,16 +33,35 @@ import (
 )
 
 func TestGcpGetServiceIdentity(t *testing.T) {
-	bundle, err := util.NewVerifiedKeyCertBundleFromFile(
+	rsaBundle, err := util.NewVerifiedKeyCertBundleFromFile(
 		"../pki/testdata/multilevelpki/int-cert.pem", "../pki/testdata/multilevelpki/int-key.pem",
 		"", "../pki/testdata/multilevelpki/root-cert.pem")
 	if err != nil {
 		t.Error(err)
 	}
-	istioCA, err := ca.NewIstioCA(&ca.IstioCAOptions{
+	rsaIstioCA, err := ca.NewIstioCA(&ca.IstioCAOptions{
 		DefaultCertTTL: time.Minute * time.Duration(2),
 		MaxCertTTL:     time.Minute * time.Duration(4),
-		KeyCertBundle:  bundle,
+		KeyCertBundle:  rsaBundle,
+		RotatorConfig: &ca.SelfSignedCARootCertRotatorConfig{
+			// Disable root cert rotator by setting check interval to 0ns.
+			CheckInterval: time.Duration(0),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create a CA instances: %v", err)
+	}
+
+	ecBundle, err := util.NewVerifiedKeyCertBundleFromFile(
+		"../pki/testdata/multilevelpki/ecc-int-cert.pem", "../pki/testdata/multilevelpki/ecc-int-key.pem",
+		"", "../pki/testdata/multilevelpki/ecc-root-cert.pem")
+	if err != nil {
+		t.Error(err)
+	}
+	ecIstioCA, err := ca.NewIstioCA(&ca.IstioCAOptions{
+		DefaultCertTTL: time.Minute * time.Duration(2),
+		MaxCertTTL:     time.Minute * time.Duration(4),
+		KeyCertBundle:  ecBundle,
 		RotatorConfig: &ca.SelfSignedCARootCertRotatorConfig{
 			// Disable root cert rotator by setting check interval to 0ns.
 			CheckInterval: time.Duration(0),
@@ -53,12 +72,14 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
+		istioCA  *ca.IstioCA
 		resp     *pb.CsrResponse
 		err      string
 		expected string
 	}{
 		// TODO: test successful case.
-		"Returned no cert": {
+		"RSA: Returned no cert": {
+			istioCA: rsaIstioCA,
 			resp: &pb.CsrResponse{
 				IsApproved: true,
 				Status:     &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
@@ -67,12 +88,36 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 			},
 			expected: "CSR sign failure: failed to parse cert PEM: invalid PEM encoded certificate",
 		},
-		"SendCSR failed": {
+		"RSA: SendCSR failed": {
+			istioCA:  rsaIstioCA,
 			resp:     nil,
 			err:      "sendCSR failed",
 			expected: "sendCSR failed",
 		},
-		"gRPC server is not available": {
+		"RSA: gRPC server is not available": {
+			istioCA:  rsaIstioCA,
+			resp:     nil,
+			err:      fmt.Sprintf("%v", balancer.ErrTransientFailure.Error()),
+			expected: "all SubConns are in TransientFailure",
+		},
+		"EC: Returned no cert": {
+			istioCA: ecIstioCA,
+			resp: &pb.CsrResponse{
+				IsApproved: true,
+				Status:     &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
+				SignedCert: nil,
+				CertChain:  nil,
+			},
+			expected: "CSR sign failure: failed to parse cert PEM: invalid PEM encoded certificate",
+		},
+		"EC: SendCSR failed": {
+			istioCA:  ecIstioCA,
+			resp:     nil,
+			err:      "sendCSR failed",
+			expected: "sendCSR failed",
+		},
+		"EC: gRPC server is not available": {
+			istioCA:  ecIstioCA,
 			resp:     nil,
 			err:      fmt.Sprintf("%v", balancer.ErrTransientFailure.Error()),
 			expected: "all SubConns are in TransientFailure",
@@ -87,7 +132,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		controller, err := NewLivenessCheckController(
 			time.Minute,
 			"",
-			istioCA,
+			c.istioCA,
 			&probe.Options{
 				Path:           "/tmp/test.key",
 				UpdateInterval: time.Minute,

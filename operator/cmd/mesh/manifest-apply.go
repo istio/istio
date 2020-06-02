@@ -19,7 +19,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
 	"istio.io/api/operator/v1alpha1"
@@ -28,8 +27,8 @@ import (
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/pkg/log"
 )
 
@@ -46,7 +45,7 @@ type manifestApplyArgs struct {
 	kubeConfigPath string
 	// context is the cluster context in the kube config
 	context string
-	// wait is flag that indicates whether to wait resources ready before exiting.
+	// Deprecated: wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
 	// readinessTimeout is maximum time to wait for all Istio resources to be ready. wait must be true for this setting
 	// to take effect.
@@ -61,15 +60,17 @@ type manifestApplyArgs struct {
 	set []string
 	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	charts string
+	// revision is the Istio control plane revision the command targets.
+	revision string
 }
 
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use.")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
+	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", true,
 		"Wait until all Pods, Services, and minimum number of Pods "+
-			"of a Deployment are in a ready state before the exiting.")
+			"of a Deployment are in a ready state before the exiting. DEPRECATED, will always be set to true in 1.7+.")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
 		"Maximum time to wait for Istio resources in each component to be ready."+
 			" The --wait flag must be set for this flag to apply.")
@@ -77,6 +78,7 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 }
 
 func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) *cobra.Command {
@@ -147,7 +149,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := ApplyManifests(applyInstallFlagAlias(maArgs.set, maArgs.charts), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
+	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.charts, maArgs.revision), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
 		maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
@@ -163,15 +165,11 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
 	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l clog.Logger) error {
 
-	ysf, err := yamlFromSetFlags(setOverlay, force, l)
-	if err != nil {
-		return err
-	}
 	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
 	if err != nil {
 		return err
 	}
-	_, iops, err := GenerateConfig(inFilenames, ysf, force, restConfig, l)
+	_, iops, err := GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
 		return err
 	}
@@ -191,7 +189,8 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, WaitTimeout: waitTimeout, ProgressLog: util.NewProgressLog()}
+	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
+		Force: force}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return err
@@ -204,7 +203,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return fmt.Errorf("errors occurred during operation")
 	}
 
-	l.LogAndPrint(color.New(color.FgGreen).Sprint("✔ ") + installationCompleteStr)
+	opts.ProgressLog.SetState(progress.StateComplete)
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))

@@ -97,6 +97,10 @@ collections:
     kind: "MeshConfig"
     group: ""
 
+  - name: "istio/mesh/v1alpha1/MeshNetworks"
+    kind: "MeshNetworks"
+    group: ""
+
   - name: "istio/mixer/v1/config/client/quotaspecs"
     kind: "QuotaSpec"
     group: "config.istio.io"
@@ -395,6 +399,7 @@ snapshots:
       - "istio/rbac/v1alpha1/servicerolebindings"
       - "istio/rbac/v1alpha1/serviceroles"
       - "istio/mesh/v1alpha1/MeshConfig"
+      - "istio/mesh/v1alpha1/MeshNetworks"
       - "istio/networking/v1alpha3/envoyfilters"
       - "istio/networking/v1alpha3/destinationrules"
       - "istio/networking/v1alpha3/gateways"
@@ -610,6 +615,14 @@ resources:
     protoPackage: "istio.io/api/mesh/v1alpha1"
     description: "describes the configuration for the Istio mesh."
 
+  - kind: "MeshNetworks"
+    plural: "meshnetworks"
+    group: ""
+    version: "v1alpha1"
+    proto: "istio.mesh.v1alpha1.MeshNetworks"
+    protoPackage: "istio.io/api/mesh/v1alpha1"
+    description: "describes the networks for the Istio mesh."
+
   - kind: "ServiceRole"
     plural: "serviceroles"
     group: "rbac.istio.io"
@@ -633,8 +646,8 @@ resources:
     proto: "istio.rbac.v1alpha1.RbacConfig"
     protoPackage: "istio.io/api/rbac/v1alpha1"
     description: "describes the mesh level RBAC config.\n
-                   Deprecated: use ClusterRbacConfig instead.\n
-                   See https://github.com/istio/istio/issues/8825 for more details."
+      Deprecated: use ClusterRbacConfig instead.\n
+      See https://github.com/istio/istio/issues/8825 for more details."
 
   - kind: "ClusterRbacConfig"
     plural: "clusterrbacconfigs"
@@ -748,6 +761,7 @@ transforms:
       "k8s/core/v1/services": "k8s/core/v1/services"
       "k8s/core/v1/configmaps": "k8s/core/v1/configmaps"
       "istio/mesh/v1alpha1/MeshConfig": "istio/mesh/v1alpha1/MeshConfig"
+      "istio/mesh/v1alpha1/MeshNetworks": "istio/mesh/v1alpha1/MeshNetworks"
 `)
 
 func metadataYamlBytes() ([]byte, error) {

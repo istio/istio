@@ -22,11 +22,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
+
+	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
@@ -34,13 +39,13 @@ import (
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 
 	"github.com/google/uuid"
 )
 
 var (
-	cacheLog = log.RegisterScope("cache", "cache debugging", 0)
+	cacheLog       = log.RegisterScope("cache", "cache debugging", 0)
+	newFileWatcher = filewatcher.NewWatcher
 )
 
 const (
@@ -121,6 +126,10 @@ type Options struct {
 
 	// OutputKeyCertToDir is the directory for output the key and certificate
 	OutputKeyCertToDir string
+
+	// The type of Elliptical Signature algorithm to use
+	// when generating private keys. Currently only ECDSA is supported.
+	ECCSigAlg string
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -129,7 +138,7 @@ type SecretManager interface {
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error)
 
 	// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
-	ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool
+	ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool
 
 	// SecretExist checks if secret already existed.
 	// This API is used for sds server to check if coming request is ack request.
@@ -185,6 +194,12 @@ type SecretCache struct {
 	existingCertChainFile string
 	existingKeyFile       string
 	existingRootCertFile  string
+
+	// certWatcher watches the certificates for changes and triggers a notification to proxy.
+	certWatcher filewatcher.FileWatcher
+	// unique certs being watched with file watcher.
+	fileCerts map[string]map[ConnKey]struct{}
+	certMutex *sync.RWMutex
 }
 
 // NewSecretCache creates a new secret cache.
@@ -200,6 +215,9 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
 		existingCertChainFile: defaultCertChainFilePath,
 		existingKeyFile:       defaultKeyFilePath,
 		existingRootCertFile:  DefaultRootCertFilePath,
+		certWatcher:           newFileWatcher(),
+		fileCerts:             make(map[string]map[ConnKey]struct{}),
+		certMutex:             &sync.RWMutex{},
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)
@@ -235,7 +253,6 @@ func (sc *SecretCache) setRootCert(rootCert []byte, rootCertExpr time.Time) {
 // and SDS.FetchSecret. Since credential passing from client may change, regenerate secret every time
 // instead of reading from cache.
 func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error) {
-	var ns *model.SecretItem
 	connKey := ConnKey{
 		ConnectionID: connectionID,
 		ResourceName: resourceName,
@@ -245,30 +262,16 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 
 	// When there are existing root certificates, or private key and certificate under
 	// a well known path, they are used in the SDS response.
-	// In the current implementation, the file update events are not handled and if
-	// the files are updated, a user may restart Envoy to pick up the updated files.
-	// TODO (lei-tang): if updating files are supported, add a file watcher for
-	// the files under the well known path.
-	sdsFromFile := false
 	var err error
-	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile) {
-		sdsFromFile = true
-		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey)
-	} else if connKey.ResourceName == WorkloadKeyCertResourceName &&
-		sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile) {
-		sdsFromFile = true
-		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
-	}
+	var ns *model.SecretItem
+
+	// First try to generate secret from file.
+	sdsFromFile, ns, err := sc.generateFileSecret(connKey, token)
 
 	if sdsFromFile {
 		if err != nil {
-			cacheLog.Errorf("%s failed to generate secret for proxy: %v, by loading from files",
-				logPrefix, err)
 			return nil, err
 		}
-		// TODO(JimmyCYJ): need a file watcher to detect file updates and push new secret to clients.
-		cacheLog.Infoa("GenerateSecret from file ", resourceName)
-		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
 
@@ -325,6 +328,62 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	return ns, nil
 }
 
+func (sc *SecretCache) addFileWatcher(file string, token string, connKey ConnKey) {
+	// TODO(ramaraochavali): add integration test for file watcher functionality.
+	// Check if this file is being already watched, if so ignore it. FileWatcher has the functionality of
+	// checking for duplicates. This check is needed here to avoid processing duplicate events for the same file.
+	sc.certMutex.Lock()
+	npath := filepath.Clean(file)
+	watching := false
+	if _, watching = sc.fileCerts[npath]; !watching {
+		sc.fileCerts[npath] = make(map[ConnKey]struct{})
+	}
+	// Add connKey to the path - so that whenever it changes, connection is also pushed.
+	sc.fileCerts[npath][connKey] = struct{}{}
+	sc.certMutex.Unlock()
+	if watching {
+		return
+	}
+	// File is not being watched, start watching now and trigger key push.
+	cacheLog.Infof("adding watcher for file %s", file)
+	if err := sc.certWatcher.Add(file); err != nil {
+		cacheLog.Errorf("%v: error adding watcher for file, skipping watches [%s] %v", connKey, file, err)
+		return
+	}
+	go func() {
+		var timerC <-chan time.Time
+		for {
+			select {
+			case <-timerC:
+				timerC = nil
+				// TODO(ramaraochavali): Remove the watchers for unused keys and certs.
+				sc.certMutex.RLock()
+				connKeys := sc.fileCerts[npath]
+				sc.certMutex.RUnlock()
+				// Update all connections that use this file.
+				for ckey := range connKeys {
+					if _, ok := sc.secrets.Load(ckey); ok {
+						// Regenerate the Secret and trigger the callback that pushes the secrets to proxy.
+						if _, secret, err := sc.generateFileSecret(ckey, token); err != nil {
+							cacheLog.Errorf("%v: error in generating secret after file change [%s] %v", ckey, file, err)
+						} else {
+							cacheLog.Infof("%v: file changed, triggering secret push to proxy [%s]", ckey, file)
+							sc.callbackWithTimeout(ckey, secret)
+						}
+					}
+				}
+			case e := <-sc.certWatcher.Events(file):
+				if len(e.Op.String()) > 0 { // To avoid spurious events, mainly coming from tests.
+					// Use a timer to debounce watch updates
+					if timerC == nil {
+						timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+					}
+				}
+			}
+		}
+	}()
+}
+
 // SecretExist checks if secret already existed.
 // This API is used for sds server to check if coming request is ack request.
 func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version string) bool {
@@ -343,9 +402,10 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 
 // ShouldWaitForIngressGatewaySecret returns true if node agent is working in ingress gateway agent mode
 // and needs to wait for ingress gateway secret to be ready.
-func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
+func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
 	// If node agent works as workload agent, node agent does not expect any ingress gateway secret.
-	if sc.fetcher.UseCaClient {
+	// If workload is using file mounted certs, we should not wait for ingress secret.
+	if sc.fetcher.UseCaClient || fileMountedCertsOnly {
 		return false
 	}
 
@@ -415,6 +475,7 @@ func (sc *SecretCache) callbackWithTimeout(connKey ConnKey, secret *model.Secret
 
 // Close shuts down the secret cache.
 func (sc *SecretCache) Close() {
+	_ = sc.certWatcher.Close()
 	sc.closing <- true
 }
 
@@ -668,8 +729,7 @@ func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
 	return true
 }
 
-// Generate a root certificate item from the existing root certificate file
-// under a well known path.
+// Generate a root certificate item from the passed in rootCertPath
 func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*model.SecretItem, error) {
 	rootCert, err := ioutil.ReadFile(rootCertPath)
 	if err != nil {
@@ -695,8 +755,7 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 	}, nil
 }
 
-// Generate a key and certificate item from the existing key certificate files
-// under a well known path.
+// Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, token string, connKey ConnKey) (*model.SecretItem, error) {
 	certChain, err := ioutil.ReadFile(certChainPath)
 	if err != nil {
@@ -725,6 +784,59 @@ func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, 
 	}, nil
 }
 
+func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, *model.SecretItem, error) {
+	resourceName := connKey.ResourceName
+	logPrefix := cacheLogPrefix(resourceName)
+
+	// When there are existing root certificates, or private key and certificate under
+	// a well known path, they are used in the SDS response.
+	sdsFromFile := false
+	var err error
+	var ns *model.SecretItem
+
+	switch {
+	// Default root certificate.
+	case connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile):
+		sdsFromFile = true
+		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey)
+		sc.addFileWatcher(sc.existingRootCertFile, token, connKey)
+	// Default workload certificate.
+	case connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile):
+		sdsFromFile = true
+		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
+		// Adding cert is sufficient here as key can't change without changing the cert.
+		sc.addFileWatcher(sc.existingCertChainFile, token, connKey)
+	default:
+		// Check if the resource name refers to a file mounted certificate.
+		// Currently used in destination rules and server certs (via metadata).
+		// Based on the resource name, we need to read the secret from a file encoded in the resource name.
+		cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName)
+		switch {
+		case ok && cfg.IsRootCertificate() && sc.rootCertificateExist(cfg.CaCertificatePath):
+			sdsFromFile = true
+			ns, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey)
+			sc.addFileWatcher(cfg.CaCertificatePath, token, connKey)
+		case ok && cfg.IsKeyCertificate() && sc.keyCertificateExist(cfg.CertificatePath, cfg.PrivateKeyPath):
+			sdsFromFile = true
+			ns, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey)
+			// Adding cert is sufficient here as key can't change without changing the cert.
+			sc.addFileWatcher(cfg.CertificatePath, token, connKey)
+		}
+	}
+
+	if sdsFromFile {
+		if err != nil {
+			cacheLog.Errorf("%s failed to generate secret for proxy from file: %v",
+				logPrefix, err)
+			return sdsFromFile, nil, err
+		}
+		cacheLog.Infoa("GenerateSecret from file ", resourceName)
+		sc.secrets.Store(connKey, *ns)
+		return sdsFromFile, ns, nil
+	}
+	return sdsFromFile, nil, nil
+}
+
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
@@ -732,7 +844,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		return sc.generateGatewaySecret(token, connKey, t)
 	}
 
-	fmt.Printf("generateSecret called.\n")
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	// call authentication provider specific plugins to exchange token if necessary.
 	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
@@ -757,6 +868,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		Host:       csrHostName,
 		RSAKeySize: keySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
+		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
 	}
 
 	// Generate the cert/key, send CSR to CA.

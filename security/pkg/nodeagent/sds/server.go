@@ -121,6 +121,16 @@ type Options struct {
 
 	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
 	TLSEnabled bool
+
+	// ClusterID is the cluster ID
+	ClusterID string
+
+	// The type of Elliptical Signature algorithm to use
+	// when generating private keys. Currently only ECDSA is supported.
+	ECCSigAlg string
+
+	// FileMountedCerts indicates file mounted certs.
+	FileMountedCerts bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -139,9 +149,10 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, false, options.UseLocalJWT,
+		workloadSds: newSDSService(workloadSecretCache, options.FileMountedCerts, options.UseLocalJWT,
+			options.FileMountedCerts,
 			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
-		gatewaySds: newSDSService(gatewaySecretCache, true, options.UseLocalJWT,
+		gatewaySds: newSDSService(gatewaySecretCache, true, options.UseLocalJWT, options.FileMountedCerts,
 			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
 	}
 	if options.EnableWorkloadSDS {

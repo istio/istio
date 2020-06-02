@@ -1547,6 +1547,9 @@ message SidecarInjectorConfig {
 
   // Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
   TypeMapStringInterface objectSelector = 21;
+
+  // Configure the injection url for sidecar injector webhook
+  string injectionURL = 22;
 }
 
 // Configuration for stdio adapter in mixer, recommended for debug usage only.
@@ -1902,6 +1905,19 @@ message KialiConfig {
   KialiServiceConfig service = 19;
 }
 
+message BaseConfig {
+   // For Helm2 use, adds the CRDs to templates.
+   google.protobuf.BoolValue enableCRDTemplates = 1;
+
+   // URL to use for validating webhook.
+   string validationURL = 2;
+}
+
+message IstiodRemoteConfig {
+  // URL to use for sidecar injector webhook.
+  string injectionURL = 1;
+}
+
 message Values {
   CNIConfig cni = 2;
 
@@ -1943,6 +1959,10 @@ message Values {
 
   // TODO can this import the real mesh config API?
   TypeInterface meshConfig = 36;
+
+  BaseConfig base = 37;
+
+  IstiodRemoteConfig istiodRemote = 38;
 }
 
 // GOTYPE: map[string]interface{}

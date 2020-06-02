@@ -73,6 +73,9 @@ const (
 
 	CNIComponentName ComponentName = "Cni"
 
+	// istiod remote component
+	IstiodRemoteComponentName ComponentName = "IstiodRemote"
+
 	// Gateway components
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
@@ -97,7 +100,9 @@ var (
 		PolicyComponentName,
 		TelemetryComponentName,
 		CNIComponentName,
+		IstiodRemoteComponentName,
 	}
+
 	allComponentNamesMap = make(map[ComponentName]bool)
 	// DeprecatedComponentNamesMap defines the names of deprecated istio core components used in old versions,
 	// which would not appear as standalone components in current version. This is used for pruning, and alerting
@@ -115,6 +120,21 @@ var (
 		"spec.values.gateways.istio-egressgateway.enabled":  "spec.components.egressGateways.[name:istio-egressgateway].enabled",
 	}
 
+	// userFacingComponentNames are the names of components that are displayed to the user in high level CLIs
+	// (like progress log).
+	userFacingComponentNames = map[ComponentName]string{
+		IstioBaseComponentName:          "Istio core",
+		PilotComponentName:              "Istiod",
+		PolicyComponentName:             "Policy",
+		TelemetryComponentName:          "Telemetry",
+		CNIComponentName:                "CNI",
+		IngressComponentName:            "Ingress gateways",
+		EgressComponentName:             "Egress gateways",
+		AddonComponentName:              "Addons",
+		IstioOperatorComponentName:      "Istio operator",
+		IstioOperatorCustomResourceName: "Istio operator CRDs",
+		IstiodRemoteComponentName:       "Istiod remote",
+	}
 	scanAddons sync.Once
 )
 
@@ -266,4 +286,14 @@ func ScanBundledAddonComponents(chartsRootDir string) error {
 		}
 	})
 	return onceErr
+}
+
+// UserFacingComponentName returns the name of the given component that should be displayed to the user in high
+// level CLIs (like progress log).
+func UserFacingComponentName(name ComponentName) string {
+	ret, ok := userFacingComponentNames[name]
+	if !ok {
+		return "Unknown"
+	}
+	return ret
 }

@@ -22,7 +22,7 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -285,7 +285,7 @@ func (s *session) applyMeshEvent(e event.Event) {
 		s.meshCfg = proto.Clone(e.Resource.Message).(*v1alpha1.MeshConfig)
 	case event.Deleted:
 		scope.Processing.Infof("session.handleMeshEvent: received a delete mesh config event: %v", e)
-		s.meshCfg = meshcfg.Default()
+		s.meshCfg = mesh.DefaultMeshConfig()
 	case event.FullSync:
 		scope.Processing.Infof("session.applyMeshEvent meshSynced: %v => %v", s.meshSynced, true)
 		s.meshSynced = true

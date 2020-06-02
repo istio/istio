@@ -203,7 +203,7 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 111m
+            cpu: 999m
             memory: 128Mi
         volumeMounts:
         - mountPath: /etc/istio/config
@@ -554,7 +554,7 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 222m
+            cpu: 555m
             memory: 128Mi
         volumeMounts:
         - mountPath: /etc/istio/config
@@ -719,6 +719,28 @@ metadata:
     release: istio
 ---
 
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ilb-gateway
+  namespace: user-ingressgateway-ns
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    release: istio
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ilb-gateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -924,28 +946,6 @@ spec:
           secretName: istio-ingressgateway-ca-certs
 
 ---
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: ilb-gateway
-  namespace: user-ingressgateway-ns
-  labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
-    release: istio
-spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: ilb-gateway
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
----
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -1025,6 +1025,8 @@ metadata:
     istio: ingressgateway
     release: istio
 ---
+
+# IstiodRemote component is disabled.
 
 # Pilot istiod component is disabled.
 

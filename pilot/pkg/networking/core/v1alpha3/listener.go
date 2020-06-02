@@ -177,6 +177,9 @@ var (
 	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio"}
 	mtlsHTTP2ALPN  = []string{"istio-h2", "istio"}
 
+	// ALPN used for TCP Metadata Exchange.
+	tcpMxcALPN = "istio-peer-exchange"
+
 	// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 	// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
 	// If mTLS permissive is enabled, there are five filter chains. The filter chain match should be
@@ -795,6 +798,10 @@ allChainsLabel:
 			filterChainMatch = &fcm
 			if filterChainMatchOption[id].Protocol == istionetworking.ListenerProtocolHTTP {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
+				if chain.TLSContext != nil && chain.TLSContext.CommonTlsContext != nil {
+					chain.TLSContext.CommonTlsContext.AlpnProtocols = dropAlpnFromList(
+						chain.TLSContext.CommonTlsContext.AlpnProtocols, tcpMxcALPN)
+				}
 			} else {
 				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.Node, pluginParams.ServiceInstance)
 			}
@@ -1449,6 +1456,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	conflictType := NoConflict
 
 	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound
+	listenerProtocol := pluginParams.Port.Protocol
 
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if pluginParams.Port.Protocol == protocol.HTTP_PROXY {
@@ -1477,7 +1485,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 					conflictType = HTTPOverAuto
 				}
 			}
-
 			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
 			// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
@@ -1494,6 +1501,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 					}
 
 					listenerOpts.needHTTPInspector = true
+
+					// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
+					// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
+					// inspection to route between them
+					listenerProtocol = protocol.Unsupported
 				}
 			}
 			listenerOpts.filterChainOpts = opts
@@ -1647,7 +1659,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				servicePort: pluginParams.Port,
 				bind:        listenerOpts.bind,
 				listener:    mutable.Listener,
-				protocol:    pluginParams.Port.Protocol,
+				protocol:    listenerProtocol,
 			}
 		}
 
@@ -2165,6 +2177,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		listenerFilters = append(listenerFilters, httpInspectorFilter)
 	}
 
+	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy {
+		listenerFiltersMap[OriginalSrc] = true
+		listenerFilters = append(listenerFilters, originalSrcFilter)
+	}
+
 	for _, chain := range opts.filterChainOpts {
 		for _, filter := range chain.listenerFilters {
 			if _, exist := listenerFiltersMap[filter.Name]; !exist {
@@ -2680,4 +2697,15 @@ func resetCachedListenerConfig(mesh *meshconfig.MeshConfig) {
 // listenerKey builds the key for a given bind and port
 func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
+}
+
+func dropAlpnFromList(alpnProtocols []string, alpnToDrop string) []string {
+	var newAlpnProtocols []string
+	for _, alpn := range alpnProtocols {
+		if alpn == alpnToDrop {
+			continue
+		}
+		newAlpnProtocols = append(newAlpnProtocols, alpn)
+	}
+	return newAlpnProtocols
 }

@@ -115,6 +115,10 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
+  IstiodRemote:
+    HelmSubdir:           "istiod-remote"
+    ToHelmValuesTreeRoot: "global"
+    SkipReverseTranslate: true
   Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"

@@ -144,7 +144,16 @@ spec:
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio"
+                    "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "source_cluster": "node.metadata['CLUSTER_ID']",
+                          "destination_cluster": "upstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -183,7 +192,16 @@ spec:
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio"
+                    "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "destination_cluster": "node.metadata['CLUSTER_ID']",
+                          "source_cluster": "downstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
                   vm_id: stats_inbound
@@ -223,7 +241,16 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
-                    "disable_host_header_fallback": true
+                    "disable_host_header_fallback": true{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "source_cluster": "node.metadata['CLUSTER_ID']",
+                          "destination_cluster": "upstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -274,10 +301,19 @@ spec:
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio"
+                    "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "destination_cluster": "node.metadata['CLUSTER_ID']",
+                          "source_cluster": "downstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
@@ -311,10 +347,19 @@ spec:
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio"
+                    "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "source_cluster": "node.metadata['CLUSTER_ID']",
+                          "destination_cluster": "upstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
@@ -348,10 +393,19 @@ spec:
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio"
+                    "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                    "metrics": [
+                      {
+                        "dimensions": {
+                          "source_cluster": "node.metadata['CLUSTER_ID']",
+                          "destination_cluster": "upstream_peer.cluster_id"
+                        }
+                      }
+                    ]
+                    {{- end }}
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:

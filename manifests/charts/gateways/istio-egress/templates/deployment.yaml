@@ -59,7 +59,7 @@ spec:
         privileged: false
         readOnlyRootFilesystem: true
 {{- end }}
-      serviceAccountName: istio-egressgateway-service-account
+      serviceAccountName: {{ $gateway.name | default "istio-egressgateway" }}-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -177,6 +177,14 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
+          - name: CANONICAL_SERVICE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-name']
+          - name: CANONICAL_REVISION
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $gateway.name | default "istio-egressgateway" }}
           - name: ISTIO_META_OWNER

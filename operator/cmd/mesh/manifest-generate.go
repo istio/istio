@@ -48,6 +48,8 @@ type manifestGenerateArgs struct {
 	force bool
 	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	charts string
+	// revision is the Istio control plane revision the command targets.
+	revision string
 }
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
@@ -56,6 +58,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
 	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 }
 
 func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOpts *log.Options) *cobra.Command {
@@ -94,12 +97,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	ysf, err := yamlFromSetFlags(applyInstallFlagAlias(mgArgs.set, mgArgs.charts), mgArgs.force, l)
-	if err != nil {
-		return err
-	}
-
-	manifests, _, err := GenManifests(mgArgs.inFilename, ysf, mgArgs.force, nil, l)
+	manifests, _, err := GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.charts, mgArgs.revision), mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}
@@ -124,9 +122,9 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 // representation of path-values passed through the --set flag.
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
-func GenManifests(inFilename []string, setOverlayYAML string, force bool,
+func GenManifests(inFilename []string, setFlags []string, force bool,
 	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
-	mergedYAML, _, err := GenerateConfig(inFilename, setOverlayYAML, force, kubeConfig, l)
+	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err
 	}

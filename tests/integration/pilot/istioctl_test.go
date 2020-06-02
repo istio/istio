@@ -43,6 +43,7 @@ const (
    No Traffic Policy
 7070 VirtualService: a\..*
    when headers are end-user=jason
+7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
@@ -61,6 +62,7 @@ Service: a\..*
    No Traffic Policy
 7070 VirtualService: a\..*
    when headers are end-user=jason
+7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
@@ -73,6 +75,33 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 `
 	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
+
+func TestWait(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "default",
+				Inject: true,
+			})
+			g.ApplyConfigOrFail(t, ns, `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  gateways: [missing-gw]
+  hosts:
+  - reviews
+  http:
+  - route:
+    - destination: 
+        host: reviews
+`)
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl.InvokeOrFail(t, []string{"x", "wait", "VirtualService", "reviews." + ns.Name()})
+		})
+}
 
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data

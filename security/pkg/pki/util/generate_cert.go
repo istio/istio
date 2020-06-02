@@ -22,11 +22,13 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -34,6 +36,15 @@ import (
 	"time"
 
 	"istio.io/pkg/log"
+)
+
+// SupportedECSignatureAlgorithms are the types of EC Signature Algorithms
+// to be used in key generation (e.g. ECDSA or ED2551)
+type SupportedECSignatureAlgorithms string
+
+const (
+	// only ECDSA using P256 is currently supported
+	EcdsaSigAlg SupportedECSignatureAlgorithms = "ECDSA"
 )
 
 // CertOptions contains options for generating a new certificate.
@@ -81,19 +92,46 @@ type CertOptions struct {
 
 	// If true, the private key is encoded with PKCS#8.
 	PKCS8Key bool
+
+	// The type of Elliptical Signature algorithm to use
+	// when generating private keys. Currently only ECDSA is supported.
+	// If empty, RSA is used, otherwise ECC is used.
+	ECSigAlg SupportedECSignatureAlgorithms
 }
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
 func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
-	// Generate a RSA private&public key pair.
+	// Generate the appropriate private&public key pair based on options.
 	// The public key will be bound to the certificate generated below. The
 	// private key will be used to sign this certificate in the self-signed
 	// case, otherwise the certificate is signed by the signer private key
 	// as specified in the CertOptions.
-	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
+	if options.ECSigAlg != "" {
+		var ecPriv *ecdsa.PrivateKey
+
+		switch options.ECSigAlg {
+		case EcdsaSigAlg:
+			ecPriv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			if err != nil {
+				return nil, nil, fmt.Errorf("cert generation fails at EC key generation (%v)", err)
+			}
+		default:
+			return nil, nil, errors.New("cert generation fails due to unsupported EC signature algorithm")
+		}
+		return genCert(options, ecPriv, &ecPriv.PublicKey)
+	}
+
+	if options.RSAKeySize < minimumRsaKeySize {
+		return nil, nil, fmt.Errorf("requested key size does not meet the minimum required size of %d (requested: %d)", minimumRsaKeySize, options.RSAKeySize)
+	}
+	rsaPriv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cert generation fails at RSA key generation (%v)", err)
 	}
+	return genCert(options, rsaPriv, &rsaPriv.PublicKey)
+}
+
+func genCert(options CertOptions, priv interface{}, key interface{}) ([]byte, []byte, error) {
 	template, err := genCertTemplateFromOptions(options)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cert generation fails at cert template creation (%v)", err)
@@ -102,16 +140,13 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 	if !options.IsSelfSigned {
 		signerCert, signerKey = options.SignerCert, options.SignerPriv
 	}
-	certBytes, err := x509.CreateCertificate(rand.Reader, template, signerCert, &priv.PublicKey, signerKey)
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, signerCert, key, signerKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cert generation fails at X509 cert creation (%v)", err)
 	}
 
-	pemCert, pemKey, err = encodePem(false, certBytes, priv, options.PKCS8Key)
-	if err != nil {
-		return nil, nil, err
-	}
-	return
+	pemCert, pemKey, err := encodePem(false, certBytes, priv, options.PKCS8Key)
+	return pemCert, pemKey, err
 }
 
 func publicKey(priv interface{}) interface{} {
@@ -346,7 +381,7 @@ func genSerialNum() (*big.Int, error) {
 	return serialNum, nil
 }
 
-func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey, pkcs8 bool) (
+func encodePem(isCSR bool, csrOrCert []byte, priv interface{}, pkcs8 bool) (
 	csrOrCertPem []byte, privPem []byte, err error) {
 	encodeMsg := "CERTIFICATE"
 	if isCSR {
@@ -361,8 +396,17 @@ func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey, pkcs8 bool) (
 		}
 		privPem = pem.EncodeToMemory(&pem.Block{Type: blockTypePKCS8PrivateKey, Bytes: encodedKey})
 	} else {
-		encodedKey = x509.MarshalPKCS1PrivateKey(priv)
-		privPem = pem.EncodeToMemory(&pem.Block{Type: blockTypeRSAPrivateKey, Bytes: encodedKey})
+		switch k := priv.(type) {
+		case *rsa.PrivateKey:
+			encodedKey = x509.MarshalPKCS1PrivateKey(k)
+			privPem = pem.EncodeToMemory(&pem.Block{Type: blockTypeRSAPrivateKey, Bytes: encodedKey})
+		case *ecdsa.PrivateKey:
+			encodedKey, err = x509.MarshalECPrivateKey(k)
+			if err != nil {
+				return nil, nil, err
+			}
+			privPem = pem.EncodeToMemory(&pem.Block{Type: blockTypeECPrivateKey, Bytes: encodedKey})
+		}
 	}
 	err = nil
 	return
