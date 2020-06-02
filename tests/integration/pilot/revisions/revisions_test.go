@@ -35,7 +35,7 @@ import (
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("pilot_test", m).
+		NewSuite("pilot__revisions_test", m).
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
