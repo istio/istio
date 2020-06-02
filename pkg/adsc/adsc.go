@@ -137,6 +137,9 @@ type ADSC struct {
 	// TODO: also load at startup - so we can support warm up in init-container, and survive
 	// restarts.
 	LocalCacheDir string
+
+	// Synchronization for receiving the gRPC stream.
+	RecvWg sync.WaitGroup
 }
 
 const (
@@ -283,6 +286,7 @@ func (a *ADSC) handleRecv() {
 			a.WaitClear()
 			a.Updates <- ""
 			a.XDSUpdates <- nil
+			a.RecvWg.Done()
 			return
 		}
 
