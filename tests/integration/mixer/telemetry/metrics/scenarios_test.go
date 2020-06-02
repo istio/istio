@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -196,10 +196,10 @@ func TestMain(m *testing.M) {
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
+  meshConfig:
+    disablePolicyChecks: false
   prometheus:
     enabled: true
-  global:
-    disablePolicyChecks: false
   telemetry:
     v1:
       enabled: true

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	kubeLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -447,18 +446,6 @@ func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string
 		}
 	}
 	return false, "no subset addresses ready"
-}
-
-func (c *Controller) galleyPodsRunning() (running bool, err error) {
-	selector := kubeLabels.SelectorFromSet(map[string]string{"istio": "galley"})
-	pods, err := c.sharedInformers.Core().V1().Pods().Lister().List(selector)
-	if err != nil {
-		return true, err
-	}
-	if len(pods) > 0 {
-		return true, nil
-	}
-	return false, nil
 }
 
 func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {

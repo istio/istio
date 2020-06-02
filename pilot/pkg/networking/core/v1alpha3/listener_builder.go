@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -86,7 +86,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *li
 		chain.Name = l.Name
 	}
 	for _, filter := range l.ListenerFilters {
-		if needTLS = needTLS || filter.Name == xdsutil.TlsInspector; needTLS {
+		if needTLS = needTLS || filter.Name == wellknown.TlsInspector; needTLS {
 			break
 		}
 	}
@@ -426,7 +426,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 
 		setAccessLog(push, tcpProxy)
 		tcpProxyFilter := &listener.Filter{
-			Name:       xdsutil.TCPProxy,
+			Name:       wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 		}
 
@@ -483,7 +483,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 				}
 			}
 			for _, filter := range chain.ListenerFilters {
-				if filter.Name == xdsutil.TlsInspector {
+				if filter.Name == wellknown.TlsInspector {
 					needTLS = true
 					break
 				}
@@ -571,7 +571,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 			connectionManager := buildHTTPConnectionManager(in, httpOpts, chain.HTTP)
 
 			filter := &listener.Filter{
-				Name:       xdsutil.HTTPConnectionManager,
+				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
 			}
 
@@ -624,7 +624,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	}
 	setAccessLog(push, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
-		Name:       xdsutil.TCPProxy,
+		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	})
 

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,8 +45,8 @@ import (
 
 const (
 	// Minimum K8 version required to run latest version of Istio
-	// https://preliminary.istio.io/docs/setup/platform-setup/
-	minK8SVersion = "1.15"
+	// https://istio.io/docs/setup/platform-setup/
+	minK8SVersion = "1.16"
 )
 
 var (

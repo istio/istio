@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 type Feature string
 
 type Checker interface {
-	Check(feature Feature) bool
+	Check(feature Feature) (check bool, scenario string)
 }
 
 type checkerImpl struct {
@@ -51,21 +51,18 @@ func BuildChecker(yamlPath string) (Checker, error) {
 
 // returns true if the feature is defined in features.yaml,
 // false if not
-func (c *checkerImpl) Check(feature Feature) bool {
+func (c *checkerImpl) Check(feature Feature) (check bool, scenario string) {
 	return checkPathSegment(c.m, strings.Split(string(feature), "."))
 }
 
-func checkPathSegment(m map[string]interface{}, path []string) bool {
-	if len(path) < 1 {
-		return true
-	}
+func checkPathSegment(m map[string]interface{}, path []string) (check bool, scenario string) {
 	segment := path[0]
 	if val, ok := m[segment]; ok {
 		if valmap, ok := val.(map[string]interface{}); ok {
 			return checkPathSegment(valmap, path[1:])
 		} else if val == nil {
-			return true
+			return true, strings.Join(path[1:], ".")
 		}
 	}
-	return false
+	return false, ""
 }

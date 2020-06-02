@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,14 +49,15 @@ func setupConfig(cfg *istio.Config) {
 	}
 	cfg.ControlPlaneValues = `
 values:
-  global:
-    operatorManageWebhooks: true
+  meshConfig:
     certificates:
       - dnsNames: [istio-pilot.istio-system.svc, istio-pilot.istio-system]
       - secretName: dns.istio-galley-service-account
         dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
       - secretName: dns.istio-sidecar-injector-service-account
         dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+  global:
+    operatorManageWebhooks: true
 `
 }
 

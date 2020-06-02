@@ -224,7 +224,6 @@ spec:
     global:
       istioNamespace: istio-system
       istiod:
-        enabled: true
         enableAnalysis: false
       logging:
         level: "default:info"
@@ -260,10 +259,6 @@ spec:
         excludeOutboundPorts: ""
         excludeInboundPorts: ""
         autoInject: enabled
-        envoyStatsd:
-          enabled: false
-          host: # example: statsd-svc.istio-system
-          port: # example: 9125
         tracer: "zipkin"
       proxy_init:
         image: proxyv2

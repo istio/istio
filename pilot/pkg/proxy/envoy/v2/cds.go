@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,16 +17,16 @@ package v2
 import (
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
-	out := &xdsapi.DiscoveryResponse{
+func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+	out := &discovery.DiscoveryResponse{
 		// All resources for CDS ought to be of the type Cluster
 		TypeUrl: typeURL,
 

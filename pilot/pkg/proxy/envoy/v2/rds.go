@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ import (
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
-	"istio.io/istio/pkg/util/protomarshal"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"istio.io/istio/pkg/util/protomarshal"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -54,8 +54,8 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	return nil
 }
 
-func routeDiscoveryResponse(rs []*route.RouteConfiguration, version, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
-	resp := &xdsapi.DiscoveryResponse{
+func routeDiscoveryResponse(rs []*route.RouteConfiguration, version, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+	resp := &discovery.DiscoveryResponse{
 		TypeUrl:     typeURL,
 		VersionInfo: version,
 		Nonce:       nonce(noncePrefix),

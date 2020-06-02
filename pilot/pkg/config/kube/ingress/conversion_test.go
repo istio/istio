@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,7 +60,8 @@ func TestGoldenConversion(t *testing.T) {
 			}
 			for _, obj := range input {
 				ingress := obj.(*v1beta1.Ingress)
-				gws := ConvertIngressV1alpha3(*ingress, "mydomain")
+				m := mesh.DefaultMeshConfig()
+				gws := ConvertIngressV1alpha3(*ingress, &m, "mydomain")
 				ordered = append(ordered, gws)
 			}
 

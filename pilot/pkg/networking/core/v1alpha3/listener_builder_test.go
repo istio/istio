@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -50,8 +50,8 @@ func getDefaultProxy() model.Proxy {
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			IstioVersion:    "1.4",
-			ConfigNamespace: "not-default",
+			IstioVersion: "1.4",
+			Namespace:    "not-default",
 		},
 		IstioVersion:    model.ParseIstioVersion("1.4"),
 		ConfigNamespace: "not-default",
@@ -216,7 +216,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			t.Fatalf("expect passthrough filter chain sets transport protocol to tls if transport socket is set")
 		}
 
-		if len(fc.Filters) == 2 && fc.Filters[1].Name == xdsutil.TCPProxy &&
+		if len(fc.Filters) == 2 && fc.Filters[1].Name == wellknown.TCPProxy &&
 			fc.Name == VirtualInboundListenerName {
 			if fc.Filters[0].Name == fakePluginTCPFilter {
 				sawFakePluginFilter = true
@@ -247,7 +247,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			}
 		}
 
-		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.HTTPConnectionManager &&
+		if len(fc.Filters) == 1 && fc.Filters[0].Name == wellknown.HTTPConnectionManager &&
 			fc.Name == virtualInboundCatchAllHTTPFilterChainName {
 			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, append(plaintextHTTPALPNs, mtlsHTTPALPNs...)) {
 				t.Fatalf("expect %v application protocols, found %v", append(plaintextHTTPALPNs, mtlsHTTPALPNs...), fc.FilterChainMatch.ApplicationProtocols)
@@ -283,11 +283,11 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		t.Fatalf("expected %d listener filters, found %d", 3, len(l.ListenerFilters))
 	}
 
-	if l.ListenerFilters[0].Name != xdsutil.OriginalDestination ||
-		l.ListenerFilters[1].Name != xdsutil.TlsInspector ||
-		l.ListenerFilters[2].Name != xdsutil.HttpInspector {
+	if l.ListenerFilters[0].Name != wellknown.OriginalDestination ||
+		l.ListenerFilters[1].Name != wellknown.TlsInspector ||
+		l.ListenerFilters[2].Name != wellknown.HttpInspector {
 		t.Fatalf("expect listener filters [%q, %q, %q], found [%q, %q, %q]",
-			xdsutil.OriginalDestination, xdsutil.TlsInspector, xdsutil.HttpInspector,
+			wellknown.OriginalDestination, wellknown.TlsInspector, wellknown.HttpInspector,
 			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
 	}
 }

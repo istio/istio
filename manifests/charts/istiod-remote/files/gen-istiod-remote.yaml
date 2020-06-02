@@ -21,7 +21,6 @@ data:
         "caAddress": "",
         "caProvider": "Citadel",
         "centralIstiod": false,
-        "certificates": [],
         "configRootNamespace": "istio-system",
         "configValidation": true,
         "controlPlaneSecurityEnabled": true,
@@ -37,16 +36,13 @@ data:
           }
         },
         "defaultTolerations": [],
-        "disablePolicyChecks": true,
         "enableHelmTest": false,
-        "enableTracing": true,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
-          "enableAnalysis": false,
-          "enabled": true
+          "enableAnalysis": false
         },
         "jwtPolicy": "third-party-jwt",
         "keyfactor": {
@@ -67,10 +63,6 @@ data:
         "meshID": "",
         "meshNetworks": {},
         "mountMtlsCerts": false,
-        "mtls": {
-          "auto": true,
-          "enabled": false
-        },
         "multiCluster": {
           "clusterName": "",
           "enabled": false
@@ -79,64 +71,15 @@ data:
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
         "operatorManageWebhooks": false,
-        "outboundTrafficPolicy": {
-          "mode": "ALLOW_ANY"
-        },
         "pilotCertProvider": "istiod",
-        "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
         "prometheusNamespace": "istio-system",
         "proxy": {
-          "accessLogEncoding": "TEXT",
-          "accessLogFile": "",
-          "accessLogFormat": "",
           "autoInject": "enabled",
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
-          "concurrency": 2,
           "enableCoreDump": false,
-          "envoyAccessLogService": {
-            "enabled": false,
-            "host": null,
-            "port": null,
-            "tcpKeepalive": {
-              "interval": "10s",
-              "probes": 3,
-              "time": "10s"
-            },
-            "tlsSettings": {
-              "caCertificates": null,
-              "clientCertificate": null,
-              "mode": "DISABLE",
-              "privateKey": null,
-              "sni": null,
-              "subjectAltNames": []
-            }
-          },
-          "envoyMetricsService": {
-            "enabled": false,
-            "host": null,
-            "port": null,
-            "tcpKeepalive": {
-              "interval": "10s",
-              "probes": 3,
-              "time": "10s"
-            },
-            "tlsSettings": {
-              "caCertificates": null,
-              "clientCertificate": null,
-              "mode": "DISABLE",
-              "privateKey": null,
-              "sni": null,
-              "subjectAltNames": []
-            }
-          },
-          "envoyStatsd": {
-            "enabled": false,
-            "host": null,
-            "port": null
-          },
           "excludeIPRanges": "",
           "excludeInboundPorts": "",
           "excludeOutboundPorts": "",
@@ -144,7 +87,6 @@ data:
           "includeIPRanges": "*",
           "logLevel": "warning",
           "privileged": false,
-          "protocolDetectionTimeout": "100ms",
           "readinessFailureThreshold": 30,
           "readinessInitialDelaySeconds": 1,
           "readinessPeriodSeconds": 2,
@@ -178,11 +120,9 @@ data:
         "remotePolicyAddress": "",
         "remoteTelemetryAddress": "",
         "sds": {
-          "enabled": false,
           "token": {
             "aud": "istio-ca"
-          },
-          "udsPath": ""
+          }
         },
         "sts": {
           "servicePort": 0
@@ -208,7 +148,6 @@ data:
           }
         },
         "trustDomain": "cluster.local",
-        "trustDomainAliases": [],
         "useMCP": false
       },
       "revision": "",
