@@ -21,13 +21,11 @@ import (
 	"sync"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -51,8 +49,8 @@ var (
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
 // shorter name.
 type DiscoveryStream interface {
-	Send(*xdsapi.DiscoveryResponse) error
-	Recv() (*xdsapi.DiscoveryRequest, error)
+	Send(*discovery.DiscoveryResponse) error
+	Recv() (*discovery.DiscoveryRequest, error)
 	grpc.ServerStream
 }
 
@@ -116,7 +114,7 @@ type XdsConnection struct {
 
 	// Original node metadata, to avoid unmarshall/marshall. This is included
 	// in internal events.
-	xdsNode *corev2.Node
+	xdsNode *corev3.Node
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -167,7 +165,7 @@ func isExpectedGRPCError(err error) bool {
 	return false
 }
 
-func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
+func receiveThread(con *XdsConnection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
 		req, err := con.stream.Recv()
@@ -193,7 +191,7 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 }
 
 // StreamAggregatedResources implements the ADS interface.
-func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := "0.0.0.0"
 	if ok {
@@ -224,7 +222,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// go routine. If go grpc adds gochannel support for streams this will not be needed.
 	// This also detects close.
 	var receiveError error
-	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
+	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
 	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
@@ -331,7 +329,7 @@ func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) e
 	return nil
 }
 
-func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
 	if con.LDSWatch {
 		// Already received a cluster watch request, this is an ACK
 		if discReq.ErrorDetail != nil {
@@ -356,7 +354,7 @@ func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *xdsapi.Discover
 	return nil
 }
 
-func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
 	if con.CDSWatch {
 		// Already received a cluster watch request, this is an ACK
 		if discReq.ErrorDetail != nil {
@@ -385,7 +383,7 @@ func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *xdsapi.Discover
 	return nil
 }
 
-func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS:EDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
@@ -429,7 +427,7 @@ func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *xdsapi.Discover
 	return nil
 }
 
-func (s *DiscoveryServer) handleRds(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleRds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS:RDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
@@ -495,7 +493,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *corev2.Node, con *XdsConnection) error {
+func (s *DiscoveryServer) initConnection(node *corev3.Node, con *XdsConnection) error {
 	proxy, err := s.initProxy(node)
 	if err != nil {
 		return err
@@ -523,7 +521,7 @@ func (s *DiscoveryServer) initConnection(node *corev2.Node, con *XdsConnection) 
 }
 
 // initProxy initializes the Proxy from node.
-func (s *DiscoveryServer) initProxy(node *corev2.Node) (*model.Proxy, error) {
+func (s *DiscoveryServer) initProxy(node *corev3.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -603,7 +601,7 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 // The delta protocol changes the request, adding unsubscribe/subscribe instead of sending full
 // list of resources. On the response it adds 'removed resources' and sends changes for everything.
 // TODO: we could implement this method if needed, the change is not very big.
-func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
@@ -826,7 +824,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 }
 
 // Send with timeout
-func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
+func (conn *XdsConnection) send(res *discovery.DiscoveryResponse) error {
 	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(SendTimeout)

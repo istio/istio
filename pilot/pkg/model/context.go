@@ -380,12 +380,8 @@ type NodeMetadata struct {
 	// InstanceIPs is the set of IPs attached to this proxy
 	InstanceIPs StringList `json:"INSTANCE_IPS,omitempty"`
 
-	// ConfigNamespace is the name of the metadata variable that carries info about
-	// the config namespace associated with the proxy
-	ConfigNamespace string `json:"CONFIG_NAMESPACE,omitempty"`
-
 	// Namespace is the namespace in which the workload instance is running.
-	Namespace string `json:"NAMESPACE,omitempty"` // replaces CONFIG_NAMESPACE
+	Namespace string `json:"NAMESPACE,omitempty"`
 
 	// InterceptionMode is the name of the metadata variable that carries info about
 	// traffic interception mode at the proxy
@@ -588,9 +584,6 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
-
-	// AllPortsLiteral is the string value indicating all ports
-	AllPortsLiteral = "*"
 )
 
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
@@ -862,8 +855,8 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
 	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
-	if len(proxy.Metadata.ConfigNamespace) > 0 {
-		return proxy.Metadata.ConfigNamespace
+	if len(proxy.Metadata.Namespace) > 0 {
+		return proxy.Metadata.Namespace
 	}
 
 	// if not found, for backward compatibility, extract the namespace from
@@ -907,27 +900,6 @@ func hasValidIPAddresses(ipAddresses []string) bool {
 func isValidIPAddress(ip string) bool {
 	return net.ParseIP(ip) != nil
 }
-
-// Pile all node metadata constants here
-const (
-	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
-	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
-
-	// NodeMetadataTLSServerKey is the absolute path to server private key file
-	NodeMetadataTLSServerKey = "TLS_SERVER_KEY"
-
-	// NodeMetadataTLSServerRootCert is the absolute path to server root cert file
-	NodeMetadataTLSServerRootCert = "TLS_SERVER_ROOT_CERT"
-
-	// NodeMetadataTLSClientCertChain is the absolute path to client cert-chain file
-	NodeMetadataTLSClientCertChain = "TLS_CLIENT_CERT_CHAIN"
-
-	// NodeMetadataTLSClientKey is the absolute path to client private key file
-	NodeMetadataTLSClientKey = "TLS_CLIENT_KEY"
-
-	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
-	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
-)
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
 // sent to Envoy. This should not be confused with the CaptureMode in the API that indicates

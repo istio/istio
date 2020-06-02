@@ -1,6 +1,6 @@
 {{- if .Values.global.remotePilotAddress }}
   {{- if .Values.pilot.enabled }}
-# when istiod is enabled in remote cluster, we can't use istiod service name  
+# when istiod is enabled in remote cluster, we can't use istiod service name
 apiVersion: v1
 kind: Service
 metadata:

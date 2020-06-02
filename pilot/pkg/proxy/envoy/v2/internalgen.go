@@ -15,7 +15,7 @@
 package v2
 
 import (
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
@@ -73,7 +73,7 @@ func (sg *InternalGen) OnDisconnect(con *XdsConnection) {
 	// Note that it is quite possible for a 'connect' on a different istiod to happen before a disconnect.
 }
 
-func (sg *InternalGen) OnNack(node *model.Proxy, dr *xdsapi.DiscoveryRequest) {
+func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {
 	// Make sure we include the ID - the DR may not include metadata
 	dr.Node.Id = node.ID
 	sg.startPush(TypeURLNACK, []*any.Any{util.MessageToAny(dr)})
@@ -96,7 +96,7 @@ func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
 	}
 	sg.Server.adsClientsMutex.RUnlock()
 
-	dr := &xdsapi.DiscoveryResponse{
+	dr := &discovery.DiscoveryResponse{
 		TypeUrl:   typeURL,
 		Resources: data,
 	}

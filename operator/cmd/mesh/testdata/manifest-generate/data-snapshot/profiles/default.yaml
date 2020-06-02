@@ -195,10 +195,6 @@ spec:
     # Istio CNI feature
     cni:
       enabled: false
-    
-    # istiod remote configuration wwhen istiod isn't installed on the cluster
-    istiodRemote:
-      enabled: false
 
   addonComponents:
     prometheus:
@@ -224,7 +220,6 @@ spec:
     global:
       istioNamespace: istio-system
       istiod:
-        enabled: true
         enableAnalysis: false
       logging:
         level: "default:info"
@@ -254,10 +249,6 @@ spec:
         excludeOutboundPorts: ""
         excludeInboundPorts: ""
         autoInject: enabled
-        envoyStatsd:
-          enabled: false
-          host: # example: statsd-svc.istio-system
-          port: # example: 9125
         tracer: "zipkin"
       proxy_init:
         image: proxyv2
@@ -320,7 +311,6 @@ spec:
       mountMtlsCerts: false
     base:
       enableCRDTemplates: false
-      validationURL: ""
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -405,9 +395,6 @@ spec:
             enabled: true
           useAdapterCRDs: false
 
-    istiodRemote:
-      injectionURL: ""
-      
     gateways:
       istio-egressgateway:
         zvpn: {}
@@ -525,7 +512,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.18"
+        tag: "1.16"
         memory:
           max_traces: 50000
         spanStorageType: badger

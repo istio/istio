@@ -73,7 +73,7 @@ var (
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			ConfigNamespace: "not-default",
+			Namespace: "not-default",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -83,8 +83,8 @@ var (
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			ConfigNamespace: "not-default",
-			HTTP10:          "1",
+			Namespace: "not-default",
+			HTTP10:    "1",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -94,7 +94,7 @@ var (
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			ConfigNamespace: "not-default",
+			Namespace: "not-default",
 			Labels: map[string]string{
 				"istio": "ingressgateway",
 			},

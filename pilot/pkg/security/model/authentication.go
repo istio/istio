@@ -63,11 +63,6 @@ const (
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"
 
-	// IstioJwtFilterName is the name for the Istio Jwt filter. This should be the same
-	// as the name defined in
-	// https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/http_filter_factory.cc#L50
-	IstioJwtFilterName = "jwt-auth"
-
 	// EnvoyJwtFilterName is the name of the Envoy JWT filter. This should be the same as the name defined
 	// in https://github.com/envoyproxy/envoy/blob/v1.9.1/source/extensions/filters/http/well_known_names.h#L48
 	EnvoyJwtFilterName = "envoy.filters.http.jwt_authn"

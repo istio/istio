@@ -351,13 +351,6 @@ var (
 		"Number of conflicting tcp listeners with current tcp listener.",
 	)
 
-	// ProxyStatusConflictOutboundListenerTCPOverThrift metric tracks number of
-	// TCP listeners that conflicted with existing Thrift listeners on same port
-	ProxyStatusConflictOutboundListenerTCPOverThrift = monitoring.NewGauge(
-		"pilot_conflict_outbound_listener_tcp_over_current_thrift",
-		"Number of conflicting tcp listeners with current thrift listener.",
-	)
-
 	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
 	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
 	ProxyStatusConflictOutboundListenerHTTPOverTCP = monitoring.NewGauge(
@@ -689,15 +682,6 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	}
 
 	return DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
-}
-
-// GetAllSidecarScopes returns a map of namespace and the set of SidecarScope
-// object associated with the namespace. This will be used by the CDS code to
-// precompute CDS output for each sidecar scope. Since we have a default sidecarscope
-// for namespaces that do not explicitly have one, we are guaranteed to
-// have the CDS output cached for every namespace/sidecar scope combo.
-func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
-	return ps.sidecarsByNamespace
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.

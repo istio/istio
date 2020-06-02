@@ -40,9 +40,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
-// CallType defines type of bookinfo gateway
-type GatewayType int
-
 const (
 	// The ID/name for the certificate chain in kubernetes tls secret.
 	tlsScrtCert = "tls.crt"

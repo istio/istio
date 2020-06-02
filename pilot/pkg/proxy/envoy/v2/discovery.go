@@ -20,7 +20,8 @@ import (
 	"sync"
 	"time"
 
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -163,7 +164,9 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 
 // Register adds the ADS and EDS handles to the grpc server
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
-	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+	// Register v2 and v3 servers
+	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
@@ -302,6 +305,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 	}
 
 	pushWorker := func() {
+		fmt.Printf("Push worker called %v \n", time.Now())
 		debounceDelay := time.Since(startDebounce)
 		quietTime := time.Since(lastConfigUpdateTime)
 		// it has been too long or quiet enough
@@ -319,13 +323,13 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				debounceBackoff = debounceAfter
 			}
 		} else {
-			adsLog.Infof("Push debounce unstable[%d] %d: %v since last change, %v since last push, full=%v, new debounce= %v",
-				pushCounter, debouncedEvents,
-				quietTime, debounceDelay, req.Full, (debounceBackoff - quietTime))
 			debounceBackoff *= 2
 			if debounceBackoff >= debounceMax {
 				debounceBackoff = debounceMax
 			}
+			adsLog.Infof("Push debounce unstable[%d] %d: %v since last change, %v since last push, full=%v, new debounce= %v",
+				pushCounter, debouncedEvents,
+				quietTime, debounceDelay, req.Full, debounceBackoff)
 			timeChan = time.After(debounceBackoff)
 		}
 	}
@@ -341,21 +345,27 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				r.Reason = []model.TriggerReason{model.UnknownTrigger}
 			}
 			debouncedEvents++
-			// When dynamic debounce is enabled, we should push first request.
-			if (features.EnableDynamicDebounce && debouncedEvents == 1) || (!enableEDSDebounce && !r.Full) {
+			if !enableEDSDebounce && !r.Full {
 				// trigger push now, just for EDS
-				go push(r)
+				go pushFn(r)
 				continue
 			}
+			// // When dynamic debounce is enabled, we should push first request.
+			// if (features.EnableDynamicDebounce && debouncedEvents == 1 && !enableEDSDebounce && !r.Full) {
+			// 	// trigger push now, just for EDS
+			// 	go push(r)
+			// 	continue
+			// }
 
 			lastConfigUpdateTime = time.Now()
 			if shouldStartDebounce(debouncedEvents) {
 				startDebounce = lastConfigUpdateTime
-			}
-			if debouncedEvents == 1 {
-				fmt.Printf("Setting debounce back timer...%v \n", debounceBackoff)
 				timeChan = time.After(debounceBackoff)
 			}
+			// if debouncedEvents == 1 {
+			// 	fmt.Printf("Setting debounce back timer...%v \n", debounceBackoff)
+			// 	timeChan = time.After(debounceBackoff)
+			// }
 			// if features.EnableDynamicDebounce {
 			// 	debounceBackoff = debounceMax
 			// 	timeChan = time.After(debounceBackoff)
@@ -367,6 +377,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			// 	}
 			// }
 
+			//	fmt.Printf("merging request... %v \n ", req)
 			req = req.Merge(r)
 		case <-timeChan:
 			if free {

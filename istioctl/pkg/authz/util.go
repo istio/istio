@@ -18,12 +18,7 @@ import (
 	"strings"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-
-	"istio.io/istio/pilot/pkg/model"
 )
-
-// PolicyTypeToConfigs maps policy type (e.g. service-role) to a list of its config.
-type PolicyTypeToConfigs map[string][]model.Config
 
 func getCertificate(ctx *tls.CommonTlsContext) string {
 	cert := "none"

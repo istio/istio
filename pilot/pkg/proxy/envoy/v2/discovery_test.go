@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pkg/test/util/retry"
@@ -153,11 +153,11 @@ type fakeStream struct {
 	grpc.ServerStream
 }
 
-func (h *fakeStream) Send(*xdsapi.DiscoveryResponse) error {
+func (h *fakeStream) Send(*discovery.DiscoveryResponse) error {
 	return nil
 }
 
-func (h *fakeStream) Recv() (*xdsapi.DiscoveryRequest, error) {
+func (h *fakeStream) Recv() (*discovery.DiscoveryRequest, error) {
 	return nil, nil
 }
 
