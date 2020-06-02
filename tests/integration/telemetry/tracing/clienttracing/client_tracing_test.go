@@ -42,7 +42,7 @@ var (
 // are generated and that they are all a part of the same distributed trace with correct hierarchy and name.
 func TestClientTracing(t *testing.T) {
 	framework.NewTest(t).
-		Features("telemetry.tracing.client").
+		Features("observability.telemetry.tracing.client").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			bookinfoNsInst := tracing.GetBookinfoNamespaceInstance()

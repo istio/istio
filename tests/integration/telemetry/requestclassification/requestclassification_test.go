@@ -20,8 +20,12 @@ import (
 	"istio.io/istio/pkg/test/framework"
 )
 
+func TestMain(m *testing.M) {
+	framework.NewSuite("request_classification_test", m).Run()
+}
+
 func TestRequestClassification(t *testing.T) {
 	framework.NewTest(t).
-		NotImplementedYet("telemetry.request-classification").
-		NotImplementedYet("telemetry.stats.prometheus.customize-metric")
+		NotImplementedYet("observability.telemetry.request-classification").
+		NotImplementedYet("observability.telemetry.stats.prometheus.customize-metric")
 }

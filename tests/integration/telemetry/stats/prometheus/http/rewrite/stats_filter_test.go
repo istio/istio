@@ -32,7 +32,7 @@ import (
 // should be covered by integration test in proxy repo.
 // This test exercises the enablePrometheusMerge disabled code path
 func TestStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t, features.Feature("telemetry.stats.prometheus.merge"))
+	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.merge"))
 }
 
 func TestMain(m *testing.M) {
