@@ -114,7 +114,6 @@ func TestADSC_Run(t *testing.T) {
 			}
 			xds := grpc.NewServer()
 			ads.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
-			log.Println("About to serve!")
 			go func() {
 				err = xds.Serve(l)
 				if err != nil {
