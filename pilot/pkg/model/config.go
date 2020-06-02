@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -210,18 +210,6 @@ type ConfigStore interface {
 // Key function for the configuration objects
 func Key(typ, name, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
-}
-
-func ParseKey(key string) (typ, name, namespace string, err error) {
-	out := strings.Split(key, "/")
-	if len(out) != 3 {
-		err = fmt.Errorf("key '%s' could not be parsed into a key", key)
-	} else {
-		typ = out[0]
-		name = out[1]
-		namespace = out[2]
-	}
-	return
 }
 
 // Key is the unique identifier for a configuration object

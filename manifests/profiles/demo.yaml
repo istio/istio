@@ -77,8 +77,6 @@ spec:
             value: gctrace=1
           - name: PILOT_TRACE_SAMPLING
             value: "100"
-          - name: CONFIG_NAMESPACE
-            value: istio-config
         resources:
           requests:
             cpu: 10m

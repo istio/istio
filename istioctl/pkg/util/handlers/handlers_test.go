@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,64 +95,6 @@ func TestHandleNamespace(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			gotNs := HandleNamespace(tt.namespace, tt.defaultNamespace)
-			if gotNs != tt.wantNamespace {
-				t.Fatalf("unexpected namespace: wanted %v got %v", tt.wantNamespace, gotNs)
-			}
-		})
-	}
-}
-
-func TestHandleNamespaces(t *testing.T) {
-	tests := []struct {
-		description      string
-		ns               string
-		namespace        string
-		defaultNamespace string
-		wantNamespace    string
-		wantError        bool
-	}{
-		{
-			description: "return hello namespace",
-			ns:          "hello",
-			namespace:   "",
-			//defaultNamespace: "default",
-			wantNamespace: "hello",
-		},
-		{
-			description:      "return test namespace",
-			ns:               "",
-			namespace:        "test",
-			defaultNamespace: "default",
-			wantNamespace:    "test",
-		},
-		{
-			description:      "return default namespace",
-			ns:               "",
-			namespace:        "",
-			defaultNamespace: "default",
-			wantNamespace:    "default",
-		},
-		{
-			description:      "return error",
-			ns:               "hello",
-			namespace:        "test",
-			defaultNamespace: "default",
-			wantError:        true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.description, func(t *testing.T) {
-			gotNs, err := HandleNamespaces(tt.ns, tt.namespace, tt.defaultNamespace)
-			if tt.wantError {
-				if err == nil {
-					t.Fatalf("has not get expected error")
-				}
-			}
-			if !tt.wantError {
-				if err != nil {
-					t.Fatalf("unexpected error %v occurred", err)
-				}
-			}
 			if gotNs != tt.wantNamespace {
 				t.Fatalf("unexpected namespace: wanted %v got %v", tt.wantNamespace, gotNs)
 			}

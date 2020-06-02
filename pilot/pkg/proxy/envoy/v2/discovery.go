@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@ import (
 	"sync"
 	"time"
 
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -54,25 +55,6 @@ var (
 
 	// enableEDSDebounce indicates whether EDS pushes should be debounced.
 	enableEDSDebounce bool
-)
-
-const (
-	typePrefix = "type.googleapis.com/envoy.api.v2."
-
-	// Constants used for XDS
-
-	// ClusterType is used for cluster discovery. Typically first request received
-	ClusterType = typePrefix + "Cluster"
-	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
-	EndpointType = typePrefix + "ClusterLoadAssignment"
-	// ListenerType is sent after clusters and endpoints.
-	ListenerType = typePrefix + "Listener"
-	// RouteType is sent after listeners.
-	RouteType = typePrefix + "RouteConfiguration"
-
-	// EndpointTypeV3 is used for EDS and ADS endpoint discovery. Typically second request.
-	EndpointTypeV3 = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
-	ClusterTypeV3  = "type.googleapis.com/envoy.config.cluster.v3.Cluster"
 )
 
 func init() {
@@ -133,6 +115,7 @@ type DiscoveryServer struct {
 	adsClientsMutex sync.RWMutex
 
 	StatusReporter DistributionStatusCache
+	InternalGen    *InternalGen
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -180,7 +163,9 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 
 // Register adds the ADS and EDS handles to the grpc server
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
-	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+	// Register v2 and v3 servers
+	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {

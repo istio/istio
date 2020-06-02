@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -316,7 +317,7 @@ func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr ads.A
 			Id:       node,
 			Metadata: metadata,
 		},
-		TypeUrl: v2.ClusterTypeV3})
+		TypeUrl: v3.ClusterType})
 	if err != nil {
 		return fmt.Errorf("CDS request failed: %s", err)
 	}
@@ -332,7 +333,7 @@ func sendEDSReqWithMetadata(clusters []string, node string, metadata *structpb.S
 			Id:       node,
 			Metadata: metadata,
 		},
-		TypeUrl:       v2.EndpointTypeV3,
+		TypeUrl:       v3.EndpointType,
 		ResourceNames: clusters,
 	})
 	if err != nil {

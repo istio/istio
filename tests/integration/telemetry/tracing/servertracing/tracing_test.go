@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ func setupConfig(cfg *istio.Config) {
 	}
 	cfg.Values["tracing.enabled"] = "true"
 	cfg.Values["tracing.provider"] = "zipkin"
-	cfg.Values["global.enableTracing"] = "true"
-	cfg.Values["global.disablePolicyChecks"] = "true"
+	cfg.Values["meshConfig.enableTracing"] = "true"
+	cfg.Values["meshConfig.disablePolicyChecks"] = "true"
 	cfg.Values["pilot.traceSampling"] = "100.0"
 }

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,8 +31,8 @@ var (
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			IstioVersion:    "1.4",
-			ConfigNamespace: "not-default",
+			IstioVersion: "1.4",
+			Namespace:    "not-default",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 4},
 		ConfigNamespace: "not-default",

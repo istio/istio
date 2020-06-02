@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ package v3
 import "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
 const (
-	EndpointType = resource.EndpointType
 	ClusterType  = resource.ClusterType
+	EndpointType = resource.EndpointType
 	ListenerType = resource.ListenerType
 	RouteType    = resource.RouteType
 )
