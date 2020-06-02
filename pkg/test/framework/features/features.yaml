@@ -32,10 +32,11 @@ features:
     peer:
       secure-naming:
     user:
-    control-plane:
-      k8s-certs:
+    ingress:
       mtls:
       tls:
+    control-plane:
+      k8s-certs:
       plugin-cert:
     webhook:
     chiron:

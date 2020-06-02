@@ -33,7 +33,7 @@ import (
 // - Send HTTP/gRPC requests between apps.
 func TestMtlsStrictK8sCA(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.control-plane.mtls", "security.control-plane.k8s-certs").
+		Features("security.control-plane.k8s-certs").
 		Run(func(ctx framework.TestContext) {
 
 			rctx := reachability.CreateContext(ctx, p)
