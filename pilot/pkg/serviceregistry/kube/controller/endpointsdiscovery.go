@@ -34,6 +34,7 @@ type kubeEndpointsController interface {
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 		labelsList labels.Collection) ([]*model.ServiceInstance, error)
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
+	Sync()
 }
 
 // kubeEndpoints abstracts the common behavior across endpoint and endpoint slices.

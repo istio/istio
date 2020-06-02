@@ -42,6 +42,10 @@ type endpointSliceController struct {
 	endpointCache *endpointSliceCache
 }
 
+func (esc *endpointSliceController) Sync() {
+	panic("implement me")
+}
+
 var _ kubeEndpointsController = &endpointSliceController{}
 
 func newEndpointSliceController(c *Controller, options Options) *endpointSliceController {

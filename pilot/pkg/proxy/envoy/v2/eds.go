@@ -144,6 +144,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 				}
 			}
 
+			adsLog.Errorf("howardjohn: update service shards")
 			// TODO(nmittler): Should we get the cluster from the endpoints instead? May require organizing endpoints by cluster first.
 			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, endpoints)
 		}
@@ -326,6 +327,12 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	if svc == nil {
 		// Shouldn't happen here
 		adsLog.Debugf("can not find the service for cluster %s", clusterName)
+		adsLog.Errorf("howardjohn: size: %v", len(push.ServiceByHostnameAndNamespace))
+		for k, v := range push.ServiceByHostnameAndNamespace {
+			for ns := range v {
+				adsLog.Errorf("howardjohn: have %v/%v", k, ns)
+			}
+		}
 		return buildEmptyClusterLoadAssignment(clusterName)
 	}
 
@@ -344,7 +351,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	svcPort, f := svc.Ports.GetByPort(port)
 	if !f {
 		// Shouldn't happen here
-		adsLog.Debugf("can not find the service port %d for cluster %s", port, clusterName)
+		adsLog.Infof("can not find the service port %d for cluster %s", port, clusterName)
 		return buildEmptyClusterLoadAssignment(clusterName)
 	}
 
@@ -379,8 +386,10 @@ func (s *DiscoveryServer) generateEndpoints(clusterName string, proxy *model.Pro
 
 	l := s.loadAssignmentsForClusterIsolated(proxy, push, clusterName)
 	if l == nil {
+		adsLog.Errorf("howardjohn: nil assignment for %v", clusterName)
 		return nil
 	}
+	adsLog.Errorf("howardjohn: got %v", len(l.Endpoints))
 
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints

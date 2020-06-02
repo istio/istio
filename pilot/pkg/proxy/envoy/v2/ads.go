@@ -181,6 +181,8 @@ func receiveThread(con *XdsConnection, reqChannel chan *discovery.DiscoveryReque
 			totalXDSInternalErrors.Increment()
 			return
 		}
+		adsLog.Errorf("howardjohn: Got request %v: %v", req.TypeUrl, req.ResourceNames)
+		req.ResourceNames = req.ResourceNames[:1]
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
@@ -202,6 +204,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	// check works, since it assumes ClearCache is called (and as such PushContext
 	// is initialized)
 	// InitContext returns immediately if the context was already initialized.
+	adsLog.Errorf("howardjohn: new stream, init context")
 	err := s.globalPushContext().InitContext(s.Env, nil, nil)
 	if err != nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
@@ -404,12 +407,13 @@ func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.Disco
 
 	// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
 	if len(clusters) == 0 && len(con.Clusters) == 0 {
+		adsLog.Errorf("howardjohn: We have no clusters at all")
 		return nil
 	}
 
 	// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 	if listEqualUnordered(con.Clusters, clusters) {
-		adsLog.Debugf("ADS:EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+		adsLog.Errorf("ADS:EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 		if discReq.ResponseNonce != "" {
 			con.mu.Lock()
 			con.EndpointNonceAcked = discReq.ResponseNonce
@@ -419,7 +423,7 @@ func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.Disco
 	}
 
 	con.Clusters = clusters
-	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters))
+	adsLog.Errorf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters))
 	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
 	if err != nil {
 		return err
@@ -669,6 +673,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	pushTypes := PushTypeFor(con.node, pushEv)
 
+	adsLog.Errorf("howardjohn: cds:%v lds:%v clusters:%v routes:%v push:%v", con.CDSWatch, con.LDSWatch, len(con.Clusters), len(con.Routes), pushTypes)
 	if con.CDSWatch && pushTypes[CDS] {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {

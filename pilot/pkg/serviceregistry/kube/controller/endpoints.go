@@ -38,6 +38,13 @@ type endpointsController struct {
 	kubeEndpoints
 }
 
+func (e *endpointsController) Sync() {
+	for i, s := range e.informer.GetStore().List() {
+		log.Errorf("howardjohn: process endpoint %v", i)
+		e.onEvent(s, model.EventAdd)
+	}
+}
+
 var _ kubeEndpointsController = &endpointsController{}
 
 func newEndpointsController(c *Controller, options Options) *endpointsController {

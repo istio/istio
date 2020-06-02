@@ -30,6 +30,7 @@ type Instance interface {
 	Push(task Task)
 	// Run the loop until a signal on the channel
 	Run(<-chan struct{})
+	Size() int
 }
 
 type queueImpl struct {
@@ -37,6 +38,12 @@ type queueImpl struct {
 	tasks   []Task
 	cond    *sync.Cond
 	closing bool
+}
+
+func (q *queueImpl) Size() int {
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
+	return len(q.tasks)
 }
 
 // NewQueue instantiates a queue with a processing function

@@ -17,6 +17,7 @@ package model
 import (
 	"encoding/json"
 	"net"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -787,6 +788,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.Mutex.Lock()
 	defer ps.Mutex.Unlock()
 	if ps.initDone {
+		log.Errorf("howardjohn: already init")
 		return nil
 	}
 
@@ -822,6 +824,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 }
 
 func (ps *PushContext) createNewContext(env *Environment) error {
+	log.Errorf("howardjohn: create new context from %v", string(debug.Stack()))
 	if err := ps.initServiceRegistry(env); err != nil {
 		return err
 	}
@@ -906,6 +909,7 @@ func (ps *PushContext) updateContext(
 		}
 	}
 
+	log.Errorf("howardjohn: update new context, services=%v", servicesChanged)
 	if servicesChanged {
 		// Services have changed. initialize service registry
 		if err := ps.initServiceRegistry(env); err != nil {
@@ -1002,6 +1006,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	if err != nil {
 		return err
 	}
+	log.Errorf("howardjohn: got services %v", len(services))
 	// Sort the services in order of creation.
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {

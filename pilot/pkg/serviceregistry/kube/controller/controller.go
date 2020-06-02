@@ -197,6 +197,8 @@ type Controller struct {
 	serviceHandlers  []func(*model.Service, model.Event)
 	instanceHandlers []func(*model.ServiceInstance, model.Event)
 
+	synced bool
+
 	// This is only used for test
 	stop chan struct{}
 
@@ -309,7 +311,15 @@ func (c *Controller) Cluster() string {
 }
 
 func (c *Controller) checkReadyForEvents() error {
-	if !c.HasSynced() {
+	nodeInformer := c.nodeMetadataInformer
+	if nodeInformer == nil {
+		nodeInformer = c.nodeInformer
+	}
+	if !c.serviceInformer.HasSynced() ||
+		!c.endpoints.HasSynced() ||
+		!c.pods.informer.HasSynced() ||
+		!nodeInformer.HasSynced() ||
+		!c.filteredNodeInformer.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
 	return nil
@@ -496,6 +506,9 @@ func compareEndpoints(a, b *v1.Endpoints) bool {
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
+	if c.synced {
+		return true
+	}
 	nodeInformer := c.nodeMetadataInformer
 	if nodeInformer == nil {
 		nodeInformer = c.nodeInformer
@@ -506,6 +519,25 @@ func (c *Controller) HasSynced() bool {
 		!nodeInformer.HasSynced() ||
 		!c.filteredNodeInformer.HasSynced() {
 		return false
+	}
+
+	log.Errorf("howardjohn: have I synced? %v ", c.synced)
+	if !c.synced {
+		for i, s := range c.serviceInformer.GetStore().List() {
+			log.Errorf("howardjohn: process service %v", i)
+			c.onServiceEvent(s, model.EventAdd)
+		}
+		for i, s := range c.pods.informer.GetStore().List() {
+			log.Errorf("howardjohn: process pod %v", i)
+			c.pods.onEvent(s, model.EventAdd)
+		}
+		for i, s := range c.filteredNodeInformer.GetStore().List() {
+			log.Errorf("howardjohn: process node %v", i)
+			c.onNodeEvent(s, model.EventAdd)
+		}
+		c.endpoints.Sync()
+		log.Errorf("howardjohn: set synced")
+		c.synced = true
 	}
 	return true
 }
@@ -1229,7 +1261,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		}
 	}
 
-	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
+	log.Infof("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
 	fep := c.collectAllForeignEndpoints(svc)
 
