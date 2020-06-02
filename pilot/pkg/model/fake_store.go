@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+
+	"time"
+
 	"istio.io/pkg/ledger"
 )
 
@@ -28,7 +31,8 @@ type FakeStore struct {
 
 func NewFakeStore() *FakeStore {
 	f := FakeStore{
-		store: make(map[resource.GroupVersionKind]map[string][]Config),
+		store:  make(map[resource.GroupVersionKind]map[string][]Config),
+		ledger: ledger.Make(time.Minute),
 	}
 	return &f
 }

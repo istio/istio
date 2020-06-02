@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,13 +21,11 @@ import (
 	"sync"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -51,8 +49,8 @@ var (
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
 // shorter name.
 type DiscoveryStream interface {
-	Send(*xdsapi.DiscoveryResponse) error
-	Recv() (*xdsapi.DiscoveryRequest, error)
+	Send(*discovery.DiscoveryResponse) error
+	Recv() (*discovery.DiscoveryRequest, error)
 	grpc.ServerStream
 }
 
@@ -113,6 +111,10 @@ type XdsConnection struct {
 		RDS string
 		LDS string
 	}
+
+	// Original node metadata, to avoid unmarshall/marshall. This is included
+	// in internal events.
+	xdsNode *corev3.Node
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -163,7 +165,7 @@ func isExpectedGRPCError(err error) bool {
 	return false
 }
 
-func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
+func receiveThread(con *XdsConnection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
 		req, err := con.stream.Recv()
@@ -189,7 +191,7 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 }
 
 // StreamAggregatedResources implements the ADS interface.
-func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := "0.0.0.0"
 	if ok {
@@ -220,7 +222,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// go routine. If go grpc adds gochannel support for streams this will not be needed.
 	// This also detects close.
 	var receiveError error
-	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
+	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
 	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
@@ -239,7 +241,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if err := s.initConnection(discReq.Node, con); err != nil {
 					return err
 				}
-				defer s.removeCon(con.ConID)
+				defer func() {
+					s.removeCon(con.ConID)
+					if s.InternalGen != nil {
+						s.InternalGen.OnDisconnect(con)
+					}
+				}()
 			}
 			if s.StatusReporter != nil {
 				s.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
@@ -322,13 +329,16 @@ func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) e
 	return nil
 }
 
-func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
 	if con.LDSWatch {
 		// Already received a cluster watch request, this is an ACK
 		if discReq.ErrorDetail != nil {
 			errCode := codes.Code(discReq.ErrorDetail.Code)
 			adsLog.Warnf("ADS:LDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 			incrementXDSRejects(ldsReject, con.node.ID, errCode.String())
+			if s.InternalGen != nil {
+				s.InternalGen.OnNack(con.node, discReq)
+			}
 		} else if discReq.ResponseNonce != "" {
 			con.ListenerNonceAcked = discReq.ResponseNonce
 		}
@@ -344,13 +354,17 @@ func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *xdsapi.Discover
 	return nil
 }
 
-func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
 	if con.CDSWatch {
 		// Already received a cluster watch request, this is an ACK
 		if discReq.ErrorDetail != nil {
 			errCode := codes.Code(discReq.ErrorDetail.Code)
 			adsLog.Warnf("ADS:CDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 			incrementXDSRejects(cdsReject, con.node.ID, errCode.String())
+			if s.InternalGen != nil {
+				s.InternalGen.OnNack(con.node, discReq)
+			}
+
 		} else if discReq.ResponseNonce != "" {
 			con.ClusterNonceAcked = discReq.ResponseNonce
 		}
@@ -369,11 +383,14 @@ func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *xdsapi.Discover
 	return nil
 }
 
-func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS:EDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 		incrementXDSRejects(edsReject, con.node.ID, errCode.String())
+		if s.InternalGen != nil {
+			s.InternalGen.OnNack(con.node, discReq)
+		}
 		return nil
 	}
 	clusters := discReq.GetResourceNames()
@@ -410,11 +427,14 @@ func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *xdsapi.Discover
 	return nil
 }
 
-func (s *DiscoveryServer) handleRds(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleRds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS:RDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 		incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
+		if s.InternalGen != nil {
+			s.InternalGen.OnNack(con.node, discReq)
+		}
 		return nil
 	}
 	routes := discReq.GetResourceNames()
@@ -473,7 +493,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *corev2.Node, con *XdsConnection) error {
+func (s *DiscoveryServer) initConnection(node *corev3.Node, con *XdsConnection) error {
 	proxy, err := s.initProxy(node)
 	if err != nil {
 		return err
@@ -490,14 +510,18 @@ func (s *DiscoveryServer) initConnection(node *corev2.Node, con *XdsConnection) 
 	con.mu.Lock()
 	con.node = proxy
 	con.ConID = connectionID(node.Id)
+	con.xdsNode = node
 	s.addCon(con.ConID, con)
 	con.mu.Unlock()
 
+	if s.InternalGen != nil {
+		s.InternalGen.OnConnect(con)
+	}
 	return nil
 }
 
 // initProxy initializes the Proxy from node.
-func (s *DiscoveryServer) initProxy(node *corev2.Node) (*model.Proxy, error) {
+func (s *DiscoveryServer) initProxy(node *corev3.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -577,7 +601,7 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 // The delta protocol changes the request, adding unsubscribe/subscribe instead of sending full
 // list of resources. On the response it adds 'removed resources' and sends changes for everything.
 // TODO: we could implement this method if needed, the change is not very big.
-func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
@@ -586,12 +610,11 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscover
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
 	// TODO: update the service deps based on NetworkScope
 	if !pushEv.full {
-		edsUpdatedServices := model.ConfigNamesOfKind(pushEv.configsUpdated, model.ServiceEntryKind)
-
 		if !ProxyNeedsPush(con.node, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
+		edsUpdatedServices := model.ConfigNamesOfKind(pushEv.configsUpdated, model.ServiceEntryKind)
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 && len(edsUpdatedServices) > 0 {
@@ -801,7 +824,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 }
 
 // Send with timeout
-func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
+func (conn *XdsConnection) send(res *discovery.DiscoveryResponse) error {
 	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(SendTimeout)

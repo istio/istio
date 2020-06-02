@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,8 @@ import (
 var (
 	cacheLog       = log.RegisterScope("cache", "cache debugging", 0)
 	newFileWatcher = filewatcher.NewWatcher
+	// The total timeout for any credential retrieval process, default value of 10s is used.
+	totalTimeout = time.Second * 10
 )
 
 const (
@@ -69,10 +71,8 @@ const (
 	// identityTemplate is the format template of identity in the CSR request.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 
-	// The total timeout for any credential retrieval process, default value of 10s is used.
-	totalTimeout = time.Second * 10
-
-	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
+	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
+	// non-retryable error in CSR request or while there is an error in reading file mounts.
 	firstRetryBackOffInMilliSec = 50
 
 	// notifySecretRetrievalTimeout is the timeout for another round of secret retrieval. This is to make sure to
@@ -731,7 +731,7 @@ func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
 
 // Generate a root certificate item from the passed in rootCertPath
 func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*model.SecretItem, error) {
-	rootCert, err := ioutil.ReadFile(rootCertPath)
+	rootCert, err := readFileWithTimeout(rootCertPath)
 	if err != nil {
 		return nil, err
 	}
@@ -757,11 +757,11 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 
 // Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, token string, connKey ConnKey) (*model.SecretItem, error) {
-	certChain, err := ioutil.ReadFile(certChainPath)
+	certChain, err := readFileWithTimeout(certChainPath)
 	if err != nil {
 		return nil, err
 	}
-	keyPEM, err := ioutil.ReadFile(keyPath)
+	keyPEM, err := readFileWithTimeout(keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -782,6 +782,24 @@ func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, 
 		ExpireTime:       certExpireTime,
 		Version:          now.String(),
 	}, nil
+}
+
+// readFileWithTimeout reads the given file with timeout. It returns error
+// if it is not able to read file after timeout.
+func readFileWithTimeout(path string) ([]byte, error) {
+	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
+	for {
+		cert, err := ioutil.ReadFile(path)
+		if err == nil {
+			return cert, nil
+		}
+		select {
+		case <-time.After(time.Duration(retryBackoffInMS)):
+			retryBackoffInMS *= 2
+		case <-time.After(totalTimeout):
+			return nil, err
+		}
+	}
 }
 
 func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, *model.SecretItem, error) {

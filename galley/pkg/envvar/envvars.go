@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,18 +47,3 @@ var (
 	// EnableIncrementalMCP is an option to enable incremental mcp
 	EnableIncrementalMCP = env.RegisterBoolVar("ENABLE_INCREMENTAL_MCP", false, "")
 )
-
-// RegisteredEnvVarNames returns the names of registered environment variables.
-func RegisteredEnvVarNames() []string {
-	return []string{
-		// AuthFailure RateLimiter
-		AuthzFailureLogFreq.Name,
-		AuthzFailureLogBurstSize.Name,
-		// SourceServer RateLimiter
-		SourceServerStreamBurstSize.Name,
-		SourceServerStreamFreq.Name,
-		// MCP Source RateLimiter
-		MCPSourceReqBurstSize.Name,
-		MCPSourceReqFreq.Name,
-	}
-}

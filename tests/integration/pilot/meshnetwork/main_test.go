@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -212,7 +212,6 @@ func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP str
 		ConfigNamespace: ns,
 		Metadata: &model.NodeMetadata{
 			InstanceIPs:      []string{endpointIP},
-			ConfigNamespace:  ns,
 			Namespace:        ns,
 			InterceptionMode: "NONE",
 			Network:          "vm",

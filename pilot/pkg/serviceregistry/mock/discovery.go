@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -157,19 +157,6 @@ type ServiceDiscovery struct {
 	GetServiceError               error
 	InstancesError                error
 	GetProxyServiceInstancesError error
-}
-
-// ClearErrors clear errors used for failures during model.ServiceDiscovery interface methods
-func (sd *ServiceDiscovery) ClearErrors() {
-	sd.ServicesError = nil
-	sd.GetServiceError = nil
-	sd.InstancesError = nil
-	sd.GetProxyServiceInstancesError = nil
-}
-
-// AddService will add to the registry the provided service
-func (sd *ServiceDiscovery) AddService(name host.Name, svc *model.Service) {
-	sd.services[name] = svc
 }
 
 // Services implements discovery interface

@@ -6,5 +6,5 @@ spec:
   values:
     global:
       controlPlaneSecurityEnabled:
-      mtls:
-        auto:
+    pilot:
+      autoscaleEnabled:

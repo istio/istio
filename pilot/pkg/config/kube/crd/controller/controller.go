@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,8 +58,6 @@ type cacheHandler struct {
 	informer cache.SharedIndexInformer
 	handlers []func(model.Config, model.Config, model.Event)
 }
-
-type ValidateFunc func(interface{}) error
 
 var (
 	typeTag  = monitoring.MustCreateLabel("type")

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -206,7 +206,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	sidecarOutboundIn := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_MAGLEV,
@@ -216,7 +216,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	sidecarOutboundOut := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_RING_HASH, DnsLookupFamily: cluster.Cluster_V6_ONLY,
@@ -236,7 +236,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	gatewayInput := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_MAGLEV,
@@ -246,7 +246,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	gatewayOutput := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_RING_HASH, DnsLookupFamily: cluster.Cluster_V6_ONLY,

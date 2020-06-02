@@ -85,8 +85,6 @@ ingressGateways:
         maxSurge: 100%
         maxUnavailable: 25%
   name: istio-ingressgateway
-istiodRemote:
-  enabled: false
 pilot:
   enabled: false
   k8s:
