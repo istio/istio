@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	yaml2 "gopkg.in/yaml.v2"
-
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/image"
@@ -122,37 +120,6 @@ type Config struct {
 	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
 	// if the value is "", use the default sidecar injection instead.
 	CustomSidecarInjectorNamespace string
-}
-
-// IsMtlsEnabled checks in Values flag and Values file.
-func (c *Config) IsMtlsEnabled() bool {
-	if c.Values["global.mtls.auto"] == "true" {
-		return true
-	}
-
-	m := make(map[interface{}]interface{})
-	err := yaml2.Unmarshal([]byte(c.ControlPlaneValues), &m)
-	if err != nil {
-		return false
-	}
-	if m["values"] != nil {
-		switch values := m["values"].(type) {
-		case map[interface{}]interface{}:
-			if values["global"] != nil {
-				switch globalVal := values["global"].(type) {
-				case map[interface{}]interface{}:
-					switch mtlsVal := globalVal["mtls"].(type) {
-					case map[interface{}]interface{}:
-						if !mtlsVal["auto"].(bool) {
-							return false
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return true
 }
 
 func (c *Config) IstioOperatorConfigYAML() string {

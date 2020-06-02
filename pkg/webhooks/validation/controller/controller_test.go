@@ -33,7 +33,6 @@ import (
 	dfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	kubeTypedAdmission "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
-	kubeTypedCore "k8s.io/client-go/kubernetes/typed/core/v1"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -246,10 +245,6 @@ func createTestController(t *testing.T) *fakeController {
 
 func (fc *fakeController) ValidatingWebhookConfigurations() kubeTypedAdmission.ValidatingWebhookConfigurationInterface {
 	return fc.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
-}
-
-func (fc *fakeController) Endpoints() kubeTypedCore.EndpointsInterface {
-	return fc.client.CoreV1().Endpoints(fc.o.WatchedNamespace)
 }
 
 func reconcileHelper(t *testing.T, c *fakeController) {

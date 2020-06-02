@@ -15,12 +15,12 @@ package v2_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"testing"
 	"time"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -32,8 +32,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/tests/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -184,7 +182,19 @@ func sendAndReceive(t *testing.T, node string, client AdsClient, typeURL string,
 	return res
 }
 
+func sendAndReceiveV3(t *testing.T, node string, client AdsClientV3, typeURL string, errMsg string) *discovery.DiscoveryResponse {
+	if err := sendXdsV3(node, client, typeURL, errMsg); err != nil {
+		t.Fatal(err)
+	}
+	res, err := adsReceiveV3(client, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
 type AdsClient ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+type AdsClientV3 discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
 // xdsTest runs a given function with a local pilot environment. This is used to test the ADS handling.
 func xdsTest(t *testing.T, name string, fn func(t *testing.T, client AdsClient)) {
@@ -193,6 +203,21 @@ func xdsTest(t *testing.T, name string, fn func(t *testing.T, client AdsClient))
 		defer tearDown()
 
 		client, cancel, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer cancel()
+		fn(t, client)
+	})
+}
+
+// xdsTest runs a given function with a local pilot environment. This is used to test the ADS handling.
+func xdsV3Test(t *testing.T, name string, fn func(t *testing.T, client AdsClientV3)) {
+	t.Run(name, func(t *testing.T) {
+		_, tearDown := initLocalPilotTestEnv(t)
+		defer tearDown()
+
+		client, cancel, err := connectADSV3(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -232,6 +257,22 @@ func TestAdsVersioning(t *testing.T) {
 	xdsTest(t, "send v3", func(t *testing.T, client AdsClient) {
 		// Send v3 request, expect v3 response
 		res := sendAndReceive(t, node, client, v3.ClusterType, "")
+		if res.TypeUrl != v3.ClusterType {
+			t.Fatalf("expected type %v, got %v", v3.ClusterType, res.TypeUrl)
+		}
+	})
+
+	xdsV3Test(t, "send v2 with v3 transport", func(t *testing.T, client AdsClientV3) {
+		// Send v2 request, expect v2 response
+		res := sendAndReceiveV3(t, node, client, v2.ClusterType, "")
+		if res.TypeUrl != v2.ClusterType {
+			t.Fatalf("expected type %v, got %v", v2.ClusterType, res.TypeUrl)
+		}
+	})
+
+	xdsV3Test(t, "send v3 with v3 transport", func(t *testing.T, client AdsClientV3) {
+		// Send v3 request, expect v3 response
+		res := sendAndReceiveV3(t, node, client, v3.ClusterType, "")
 		if res.TypeUrl != v3.ClusterType {
 			t.Fatalf("expected type %v, got %v", v3.ClusterType, res.TypeUrl)
 		}
@@ -718,7 +759,6 @@ func TestAdsUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal("Invalid EDS response ", err)
 	}
-	// TODO: validate VersionInfo and nonce once we settle on a scheme
 
 	ep := cla.Endpoints
 	if len(ep) == 0 {
@@ -731,8 +771,6 @@ func TestAdsUpdate(t *testing.T) {
 	if lbe[0].GetEndpoint().Address.GetSocketAddress().Address != "10.2.0.1" {
 		t.Error("Expecting 10.2.0.1 got ", lbe[0].GetEndpoint().Address.GetSocketAddress().Address)
 	}
-	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
 
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.1.7.1", 1080)
@@ -745,8 +783,17 @@ func TestAdsUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
-	strResponse, _ = gogoprotomarshal.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
+
+	if res1.TypeUrl != v3.EndpointType {
+		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.TypeUrl)
+	}
+	if res1.Resources[0].TypeUrl != v3.EndpointType {
+		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.Resources[0].TypeUrl)
+	}
+	_, err = getLoadAssignment(res1)
+	if err != nil {
+		t.Fatal("Invalid EDS response ", err)
+	}
 }
 
 func TestEnvoyRDSProtocolError(t *testing.T) {
