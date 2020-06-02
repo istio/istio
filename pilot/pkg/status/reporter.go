@@ -242,11 +242,11 @@ func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v
 
 type distributionEvent struct {
 	conID            string
-	distributionType v2.DistributionType
+	distributionType v2.EventType
 	nonce            string
 }
 
-func (r *Reporter) QueryLastNonce(conID string, distributionType v2.DistributionType) (noncePrefix string) {
+func (r *Reporter) QueryLastNonce(conID string, distributionType v2.EventType) (noncePrefix string) {
 	key := conID + string(distributionType)
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -256,7 +256,7 @@ func (r *Reporter) QueryLastNonce(conID string, distributionType v2.Distribution
 // Register that a dataplane has acknowledged a new version of the config.
 // Theoretically, we could use the ads connections themselves to harvest this data,
 // but the mutex there is pretty hot, and it seems best to trade memory for time.
-func (r *Reporter) RegisterEvent(conID string, distributionType v2.DistributionType, nonce string) {
+func (r *Reporter) RegisterEvent(conID string, distributionType v2.EventType, nonce string) {
 	d := distributionEvent{nonce: nonce, distributionType: distributionType, conID: conID}
 	select {
 	case r.distributionEventQueue <- d:
@@ -273,7 +273,7 @@ func (r *Reporter) readFromEventQueue() {
 	}
 
 }
-func (r *Reporter) processEvent(conID string, distributionType v2.DistributionType, nonce string) {
+func (r *Reporter) processEvent(conID string, distributionType v2.EventType, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true
@@ -309,7 +309,7 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 }
 
 // When a dataplane disconnects, we should no longer count it, nor expect it to ack config.
-func (r *Reporter) RegisterDisconnect(conID string, types []v2.DistributionType) {
+func (r *Reporter) RegisterDisconnect(conID string, types []v2.EventType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true

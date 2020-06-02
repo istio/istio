@@ -294,11 +294,11 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
 					ProxyID: con.node.ID,
-					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ClusterDistributionType),
+					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ClusterEventType),
 						resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ListenerDistributionType),
+					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ListenerEventType),
 						resourceID, knownVersions),
-					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, RouteDistributionType),
+					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, RouteEventType),
 						resourceID, knownVersions),
 				})
 			}

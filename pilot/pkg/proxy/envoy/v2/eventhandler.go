@@ -16,37 +16,37 @@ package v2
 
 import v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 
-// DistributionType represents the type of object we are tracking. This is distinct from Envoy's TypeUrl
-// as TypeUrl is versioned, whereas DistributionType is not
-type DistributionType string
+// EventType represents the type of object we are tracking. This is distinct from Envoy's TypeUrl
+// as TypeUrl is versioned, whereas EventType is not
+type EventType string
 
 const (
-	ClusterDistributionType  DistributionType = "Cluster"
-	ListenerDistributionType DistributionType = "Listener"
-	RouteDistributionType    DistributionType = "Route"
-	EndpointDistributionType DistributionType = "Endpoint"
-	UnknownDistributionType  DistributionType = ""
+	ClusterEventType  EventType = "Cluster"
+	ListenerEventType EventType = "Listener"
+	RouteEventType    EventType = "Route"
+	EndpointEventType EventType = "Endpoint"
+	UnknownEventType  EventType = ""
 )
 
-var AllDistributionTypes = []DistributionType{
-	ClusterDistributionType,
-	ListenerDistributionType,
-	RouteDistributionType,
-	EndpointDistributionType,
+var AllDistributionTypes = []EventType{
+	ClusterEventType,
+	ListenerEventType,
+	RouteEventType,
+	EndpointEventType,
 }
 
-func TypeURLToDistributionType(typeURL string) DistributionType {
+func TypeURLToEventType(typeURL string) EventType {
 	switch typeURL {
 	case ClusterType, v3.ClusterType:
-		return ClusterDistributionType
+		return ClusterEventType
 	case EndpointType, v3.EndpointType:
-		return EndpointDistributionType
+		return EndpointEventType
 	case RouteType, v3.RouteType:
-		return RouteDistributionType
+		return RouteEventType
 	case ListenerType, v3.ListenerType:
-		return ListenerDistributionType
+		return ListenerEventType
 	default:
-		return UnknownDistributionType
+		return UnknownEventType
 	}
 }
 
@@ -54,7 +54,7 @@ func TypeURLToDistributionType(typeURL string) DistributionType {
 // Config distribution through the mesh.
 type DistributionStatusCache interface {
 	// RegisterEvent notifies the implementer of an xDS ACK, and must be non-blocking
-	RegisterEvent(conID string, distributionType DistributionType, nonce string)
-	RegisterDisconnect(s string, types []DistributionType)
-	QueryLastNonce(conID string, distributionType DistributionType) (noncePrefix string)
+	RegisterEvent(conID string, eventType EventType, nonce string)
+	RegisterDisconnect(s string, types []EventType)
+	QueryLastNonce(conID string, eventType EventType) (noncePrefix string)
 }

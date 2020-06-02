@@ -300,7 +300,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 				}()
 			}
 			if s.StatusReporter != nil {
-				s.StatusReporter.RegisterEvent(con.ConID, TypeURLToDistributionType(discReq.TypeUrl), discReq.ResponseNonce)
+				s.StatusReporter.RegisterEvent(con.ConID, TypeURLToEventType(discReq.TypeUrl), discReq.ResponseNonce)
 			}
 
 			// Based on node metadata a different generator was selected, use it instead of the default
@@ -726,7 +726,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, ClusterDistributionType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, ClusterEventType, pushEv.noncePrefix)
 	}
 
 	if len(con.Clusters) > 0 && pushTypes[EDS] {
@@ -735,7 +735,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, EndpointDistributionType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, EndpointEventType, pushEv.noncePrefix)
 	}
 	if con.LDSWatch && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
@@ -743,7 +743,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, ListenerDistributionType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, ListenerEventType, pushEv.noncePrefix)
 	}
 	if len(con.Routes) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
@@ -751,7 +751,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, RouteDistributionType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, RouteEventType, pushEv.noncePrefix)
 	}
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
