@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -192,19 +193,17 @@ func receiveThread(con *XdsConnection, reqChannel chan *discovery.DiscoveryReque
 	}
 }
 
-// StreamAggregatedResources implements the ADS interface.
-func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-	ctx := stream.Context()
-	peerInfo, ok := peer.FromContext(ctx)
-	peerAddr := "0.0.0.0"
-	if ok {
-		peerAddr = peerInfo.Addr.String()
-	}
-
+// Authenticate authenticates the ADS request.
+// Returns the validated principal.
+func (s *DiscoveryServer) Authenticate(ctx context.Context) ([]string, error) {
 	// Authenticate - currently just checks that request has a certificate signed with the our key.
 	// Protected by flag to avoid breaking upgrades - should be enabled in multi-cluster/meshexpansion where
 	// XDS is exposed.
 	if s.Authenticators != nil && len(s.Authenticators) > 0 {
+		peerInfo, ok := peer.FromContext(ctx)
+		if !ok {
+			return nil, errors.New("invalid context")
+		}
 		if err := credentials.CheckSecurityLevel(ctx, credentials.PrivacyAndIntegrity); err == nil {
 			var authenticatedID *authenticate.Caller
 			for _, authn := range s.Authenticators {
@@ -216,17 +215,32 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 
 			if authenticatedID == nil {
 				adsLog.Errora("Failed to authenticate client ", peerInfo)
-				return errors.New("authentication failure")
+				return nil, errors.New("authentication failure")
 			}
 
 			adsLog.Infoa("Authenticated XDS: ", peerInfo, " ", authenticatedID.AuthSource, " ", authenticatedID.Identities)
+			return authenticatedID.Identities, nil
 		} else {
 			// TODO: add a flag to prevent unauthenticated requests ( 15010 )
 			// request not over TLS ( on the insecure port
 			adsLog.Infoa("Unauthenticated XDS: ", peerInfo)
+			return nil, nil
 		}
-
 	}
+
+	return nil, nil
+}
+
+
+// StreamAggregatedResources implements the ADS interface.
+func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	ctx := stream.Context()
+	peerInfo, ok := peer.FromContext(ctx)
+	peerAddr := "0.0.0.0"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+
 
 	// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
 
