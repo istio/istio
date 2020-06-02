@@ -28,15 +28,15 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	fileaccesslogconfig "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
-	alsconfig "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
+	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/filters/ratelimit/v3"
-	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
+	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
-	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -91,10 +91,6 @@ const (
 
 	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
 	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
-
-	// VirtualOutboundTrafficLoopFilterChainName is the name of the filter chain that handles
-	// pod IP traffic loops
-	VirtualOutboundTrafficLoopFilterChainName = "virtualOutbound-trafficloop"
 
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
@@ -357,7 +353,7 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	fl := &fileaccesslogconfig.FileAccessLog{
+	fl := &fileaccesslog.FileAccessLog{
 		Path: mesh.AccessLogFile,
 	}
 
@@ -367,7 +363,7 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 		if mesh.AccessLogFormat != "" {
 			formatString = mesh.AccessLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslogconfig.FileAccessLog_Format{
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
 			Format: formatString,
 		}
 	case meshconfig.MeshConfig_JSON:
@@ -389,7 +385,7 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 		if jsonLog == nil {
 			jsonLog = EnvoyJSONLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslogconfig.FileAccessLog_JsonFormat{
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
 			JsonFormat: jsonLog,
 		}
 	default:
@@ -406,8 +402,8 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 }
 
 func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
-	fl := &alsconfig.HttpGrpcAccessLogConfig{
-		CommonConfig: &alsconfig.CommonGrpcAccessLogConfig{
+	fl := &grpcaccesslog.HttpGrpcAccessLogConfig{
+		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: httpEnvoyAccessLogFriendlyName,
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -676,8 +672,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 	}
 
 	thriftOpts := &thriftListenerOpts{
-		transport:   thrift_proxy.TransportType_AUTO_TRANSPORT,
-		protocol:    thrift_proxy.ProtocolType_AUTO_PROTOCOL,
+		transport:   thrift.TransportType_AUTO_TRANSPORT,
+		protocol:    thrift.ProtocolType_AUTO_PROTOCOL,
 		routeConfig: configgen.buildSidecarThriftRouteConfig(clusterName, pluginParams.Push.Mesh.ThriftConfig.RateLimitUrl),
 	}
 
@@ -1315,8 +1311,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForP
 	// No conflicts. Add a thrift filter chain option to the listenerOpts
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", pluginParams.Service.Hostname, pluginParams.Port.Port)
 	thriftOpts := &thriftListenerOpts{
-		protocol:    thrift_proxy.ProtocolType_AUTO_PROTOCOL,
-		transport:   thrift_proxy.TransportType_AUTO_TRANSPORT,
+		protocol:    thrift.ProtocolType_AUTO_PROTOCOL,
+		transport:   thrift.TransportType_AUTO_TRANSPORT,
 		routeConfig: configgen.buildSidecarThriftRouteConfig(clusterName, pluginParams.Push.Mesh.ThriftConfig.RateLimitUrl),
 	}
 
@@ -1863,9 +1859,9 @@ type httpListenerOpts struct {
 // thriftListenerOpts are options for a Thrift listener
 type thriftListenerOpts struct {
 	// Stats are not provided for the Thrift filter chain
-	transport   thrift_proxy.TransportType
-	protocol    thrift_proxy.ProtocolType
-	routeConfig *thrift_proxy.RouteConfiguration
+	transport   thrift.TransportType
+	protocol    thrift.ProtocolType
+	routeConfig *thrift.RouteConfiguration
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -2030,13 +2026,13 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConn
 			sampling = 100.0
 		}
 	}
-	cfg.ClientSampling = &envoy_type.Percent{
+	cfg.ClientSampling = &xdstype.Percent{
 		Value: 100.0,
 	}
-	cfg.RandomSampling = &envoy_type.Percent{
+	cfg.RandomSampling = &xdstype.Percent{
 		Value: sampling,
 	}
-	cfg.OverallSampling = &envoy_type.Percent{
+	cfg.OverallSampling = &xdstype.Percent{
 		Value: 100.0,
 	}
 }
@@ -2124,8 +2120,8 @@ func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_Thr
 	return thriftRateLimit
 }
 
-func buildThriftProxy(thriftOpts *thriftListenerOpts) *thrift_proxy.ThriftProxy {
-	return &thrift_proxy.ThriftProxy{
+func buildThriftProxy(thriftOpts *thriftListenerOpts) *thrift.ThriftProxy {
+	return &thrift.ThriftProxy{
 		Transport:   thriftOpts.transport,
 		Protocol:    thriftOpts.protocol,
 		RouteConfig: thriftOpts.routeConfig,
@@ -2286,7 +2282,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 	}
 
 	httpConnectionManagers := make([]*hcm.HttpConnectionManager, len(mutable.FilterChains))
-	thriftProxies := make([]*thrift_proxy.ThriftProxy, len(mutable.FilterChains))
+	thriftProxies := make([]*thrift.ThriftProxy, len(mutable.FilterChains))
 	for i := range mutable.FilterChains {
 		chain := mutable.FilterChains[i]
 		opt := opts.filterChainOpts[i]
@@ -2312,12 +2308,12 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 				pluginParams.Service.Hostname != "" &&
 				len(quotas) > 0 {
 				rateLimitConfig := buildThriftRatelimit(fmt.Sprint(pluginParams.Service.Hostname), opts.push.Mesh.ThriftConfig)
-				rateLimitFilter := &thrift_proxy.ThriftFilter{
+				rateLimitFilter := &thrift.ThriftFilter{
 					Name: "envoy.filters.thrift.rate_limit",
 				}
-				routerFilter := &thrift_proxy.ThriftFilter{
+				routerFilter := &thrift.ThriftFilter{
 					Name:       "envoy.filters.thrift.router",
-					ConfigType: &thrift_proxy.ThriftFilter_TypedConfig{TypedConfig: util.MessageToAny(rateLimitConfig)},
+					ConfigType: &thrift.ThriftFilter_TypedConfig{TypedConfig: util.MessageToAny(rateLimitConfig)},
 				}
 
 				thriftProxies[i].ThriftFilters = append(thriftProxies[i].ThriftFilters, rateLimitFilter, routerFilter)

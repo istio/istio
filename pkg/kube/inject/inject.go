@@ -311,7 +311,7 @@ func validateBool(value string) error {
 
 func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
 	// Skip injection when host networking is enabled. The problem is
-	// that the iptable changes are assumed to be within the pod when,
+	// that the iptables changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
 	// often results in routing failures within a node which can
 	// affect the network provider within the cluster causing

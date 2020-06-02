@@ -155,10 +155,10 @@ func TestMain(m *testing.M) {
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
-  prometheus:
-    enabled: true
   meshConfig:
     disablePolicyChecks: false
+  prometheus:
+    enabled: true
   telemetry:
     v1:
       enabled: true

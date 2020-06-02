@@ -15,7 +15,6 @@
 package status
 
 import (
-	"fmt"
 	"strings"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -30,10 +29,6 @@ type DistributionReport struct {
 	Reporter            string         `json:"reporter"`
 	DataPlaneCount      int            `json:"dataPlaneCount"`
 	InProgressResources map[string]int `json:"inProgressResources"`
-}
-
-func (r *DistributionReport) SetProgress(resource fmt.Stringer, progress int) {
-	r.InProgressResources[resource.String()] = progress
 }
 
 func ReportFromYaml(content []byte) (DistributionReport, error) {

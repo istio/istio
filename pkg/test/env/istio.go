@@ -16,7 +16,6 @@ package env
 
 import (
 	"fmt"
-	"go/build"
 	"os"
 	"path"
 	"path/filepath"
@@ -28,22 +27,6 @@ import (
 )
 
 var (
-	// GOPATH environment variable
-	// nolint: golint, stylecheck
-	GOPATH Variable = "GOPATH"
-
-	// TOP environment variable
-	// nolint: golint, stylecheck
-	TOP Variable = "TOP"
-
-	// ISTIO_GO environment variable
-	// nolint: golint, stylecheck
-	ISTIO_GO Variable = "ISTIO_GO"
-
-	// ISTIO_BIN environment variable
-	// nolint: golint, stylecheck
-	ISTIO_BIN Variable = "ISTIO_BIN"
-
 	// ISTIO_OUT environment variable
 	// nolint: golint, stylecheck
 	ISTIO_OUT Variable = "ISTIO_OUT"
@@ -80,9 +63,6 @@ var (
 	// IstioSrc is the location of istio source ($TOP/src/istio.io/istio
 	IstioSrc = REPO_ROOT.ValueOrDefaultFunc(getDefaultIstioSrc)
 
-	// IstioBin is the location of the binary output directory
-	IstioBin = verifyFile(ISTIO_BIN, ISTIO_BIN.ValueOrDefaultFunc(getDefaultIstioBin))
-
 	// IstioOut is the location of the output directory ($TOP/out)
 	IstioOut = verifyFile(ISTIO_OUT, ISTIO_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
 
@@ -94,9 +74,6 @@ var (
 
 	// ChartsDir is the Kubernetes Helm chart directory in the repository
 	ChartsDir = path.Join(IstioSrc, "install/kubernetes/helm")
-
-	// IstioChartDir is the Kubernetes Helm chart directory in the repository
-	IstioChartDir = path.Join(ChartsDir, "istio")
 
 	// BookInfoRoot is the root folder for the bookinfo samples
 	BookInfoRoot = path.Join(IstioSrc, "samples/bookinfo")
@@ -125,10 +102,6 @@ func getDefaultIstioSrc() string {
 		return filepath.Join(current[0:idx], "/src", "istio.io", "istio")
 	}
 	return current // launching from GOTOP (for example in goland)
-}
-
-func getDefaultIstioBin() string {
-	return fmt.Sprintf("%s/bin", build.Default.GOPATH)
 }
 
 func getDefaultIstioOut() string {

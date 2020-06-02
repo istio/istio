@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 
 	"istio.io/istio/pilot/pkg/features"
 
@@ -50,8 +50,8 @@ func getDefaultProxy() model.Proxy {
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			IstioVersion:    "1.4",
-			ConfigNamespace: "not-default",
+			IstioVersion: "1.4",
+			Namespace:    "not-default",
 		},
 		IstioVersion:    model.ParseIstioVersion("1.4"),
 		ConfigNamespace: "not-default",
@@ -327,7 +327,7 @@ func expectTCPProxy(t *testing.T, chains []*listener.FilterChain, s string) {
 			if f.Name != "envoy.tcp_proxy" {
 				continue
 			}
-			fc := &tcp_proxy.TcpProxy{}
+			fc := &tcp.TcpProxy{}
 			if err := getFilterConfig(f, fc); err != nil {
 				t.Fatalf("failed to get TCP Proxy config: %s", err)
 			}

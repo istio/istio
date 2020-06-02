@@ -68,12 +68,3 @@ func main() {
 		os.Exit(-4)
 	}
 }
-
-func readMetadata(path string) (*schema.Metadata, error) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read input file: %v", err)
-	}
-
-	return schema.ParseAndBuild(string(b))
-}

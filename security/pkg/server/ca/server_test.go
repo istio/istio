@@ -1,4 +1,4 @@
-// Copyright Istio Authors
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,22 +88,9 @@ func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*authenticate
 	}, nil
 }
 
-type mockAuthorizer struct {
-	errMsg string
-}
-
-// nolint: unparam
-func (authz *mockAuthorizer) authorize(requester *authenticate.Caller, requestedIds []string) error {
-	if len(authz.errMsg) > 0 {
-		return fmt.Errorf("%v", authz.errMsg)
-	}
-	return nil
-}
-
 func TestCreateCertificate(t *testing.T) {
 	testCases := map[string]struct {
 		authenticators []authenticate.Authenticator
-		authorizer     *mockAuthorizer
 		ca             CertificateAuthority
 		certChain      []string
 		code           codes.Code
@@ -111,44 +98,37 @@ func TestCreateCertificate(t *testing.T) {
 		"No authenticator": {
 			authenticators: nil,
 			code:           codes.Unauthenticated,
-			authorizer:     &mockAuthorizer{},
 			ca:             &mockca.FakeCA{},
 		},
 		"Unauthenticated request": {
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{
 				errMsg: "Not authorized",
 			}},
-			code:       codes.Unauthenticated,
-			authorizer: &mockAuthorizer{},
-			ca:         &mockca.FakeCA{},
+			code: codes.Unauthenticated,
+			ca:   &mockca.FakeCA{},
 		},
 		"CA not ready": {
-			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Invalid CSR": {
-			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CSRError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Invalid TTL": {
-			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.TTLError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
-			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CertGenError, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Successful signing": {
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
-			authorizer:     &mockAuthorizer{},
 			ca: &mockca.FakeCA{
 				SignedCert: []byte("cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{
@@ -166,7 +146,6 @@ func TestCreateCertificate(t *testing.T) {
 			ca:             c.ca,
 			hostnames:      []string{"hostname"},
 			port:           8080,
-			authorizer:     c.authorizer,
 			Authenticators: c.authenticators,
 			monitoring:     newMonitoringMetrics(),
 		}
@@ -196,7 +175,6 @@ func TestCreateCertificate(t *testing.T) {
 func TestHandleCSR(t *testing.T) {
 	testCases := map[string]struct {
 		authenticators []authenticate.Authenticator
-		authorizer     *mockAuthorizer
 		ca             *mockca.FakeCA
 		csr            string
 		cert           string
@@ -206,7 +184,6 @@ func TestHandleCSR(t *testing.T) {
 	}{
 		"No authenticator": {
 			authenticators: nil,
-			authorizer:     &mockAuthorizer{},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:           codes.Unauthenticated,
 		},
@@ -214,29 +191,24 @@ func TestHandleCSR(t *testing.T) {
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{
 				errMsg: "Not authorized",
 			}},
-			authorizer: &mockAuthorizer{},
-			ca:         &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
-			code:       codes.Unauthenticated,
+			ca:   &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
+			code: codes.Unauthenticated,
 		},
 		"No caller authenticated": {
-			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
 			code:           codes.Unauthenticated,
 		},
 		"Corrupted CSR": {
-			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			csr:            "deadbeef",
 			code:           codes.InvalidArgument,
 		},
 		"Invalid SAN CSR": {
-			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			csr:            badSanCsr,
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
-			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			csr:            csr,
@@ -244,7 +216,6 @@ func TestHandleCSR(t *testing.T) {
 		},
 		"Successful signing": {
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
-			authorizer:     &mockAuthorizer{},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte("generated cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
@@ -257,7 +228,6 @@ func TestHandleCSR(t *testing.T) {
 		},
 		"Multiple identities received by CA signer": {
 			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test1", "test2"}}},
-			authorizer:     &mockAuthorizer{},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte("generated cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
@@ -275,7 +245,6 @@ func TestHandleCSR(t *testing.T) {
 			ca:             c.ca,
 			hostnames:      []string{"hostname"},
 			port:           8080,
-			authorizer:     c.authorizer,
 			Authenticators: c.authenticators,
 			monitoring:     newMonitoringMetrics(),
 		}

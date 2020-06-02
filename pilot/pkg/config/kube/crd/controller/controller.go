@@ -59,8 +59,6 @@ type cacheHandler struct {
 	handlers []func(model.Config, model.Config, model.Event)
 }
 
-type ValidateFunc func(interface{}) error
-
 var (
 	typeTag  = monitoring.MustCreateLabel("type")
 	eventTag = monitoring.MustCreateLabel("event")

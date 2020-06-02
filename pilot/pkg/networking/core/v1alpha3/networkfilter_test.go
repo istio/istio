@@ -18,9 +18,9 @@ import (
 	"testing"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"github.com/golang/protobuf/ptypes"
 
@@ -31,11 +31,11 @@ import (
 
 func TestBuildRedisFilter(t *testing.T) {
 	redisFilter := buildRedisFilter("redis", "redis-cluster")
-	if redisFilter.Name != xdsutil.RedisProxy {
-		t.Errorf("redis filter name is %s not %s", redisFilter.Name, xdsutil.RedisProxy)
+	if redisFilter.Name != wellknown.RedisProxy {
+		t.Errorf("redis filter name is %s not %s", redisFilter.Name, wellknown.RedisProxy)
 	}
 	if config, ok := redisFilter.ConfigType.(*listener.Filter_TypedConfig); ok {
-		redisProxy := redis_proxy.RedisProxy{}
+		redisProxy := redis.RedisProxy{}
 		if err := ptypes.UnmarshalAny(config.TypedConfig, &redisProxy); err != nil {
 			t.Errorf("unmarshal failed: %v", err)
 		}
@@ -103,7 +103,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			}
 
 			listeners := buildInboundNetworkFilters(env.PushContext, &proxy, instance)
-			tcp := &tcp_proxy.TcpProxy{}
+			tcp := &tcp.TcpProxy{}
 			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
 				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)
@@ -216,7 +216,7 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 
 			listeners := buildOutboundNetworkFilters(&proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, model.ConfigMeta{Name: "test.com", Namespace: "ns"})
-			tcp := &tcp_proxy.TcpProxy{}
+			tcp := &tcp.TcpProxy{}
 			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
 				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)

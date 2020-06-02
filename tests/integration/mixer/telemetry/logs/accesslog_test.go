@@ -75,7 +75,7 @@ func TestMain(m *testing.M) {
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
-  global:
+  meshConfig:
     disablePolicyChecks: false
   telemetry:
     v1:

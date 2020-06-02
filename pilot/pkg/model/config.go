@@ -212,18 +212,6 @@ func Key(typ, name, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
 }
 
-func ParseKey(key string) (typ, name, namespace string, err error) {
-	out := strings.Split(key, "/")
-	if len(out) != 3 {
-		err = fmt.Errorf("key '%s' could not be parsed into a key", key)
-	} else {
-		typ = out[0]
-		name = out[1]
-		namespace = out[2]
-	}
-	return
-}
-
 // Key is the unique identifier for a configuration object
 func (meta *ConfigMeta) Key() string {
 	return Key(meta.Type, meta.Name, meta.Namespace)

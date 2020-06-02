@@ -572,34 +572,6 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 	}
 }
 
-// compact representations, for simplified debugging/testing
-
-// TCPListener extracts the core elements from envoy Listener.
-type TCPListener struct {
-	// Address is the address, as expected by go Dial and Listen, including port
-	Address string
-
-	// LogFile is the access log address for the listener
-	LogFile string
-
-	// Target is the destination cluster.
-	Target string
-}
-
-type Target struct {
-
-	// Address is a go address, extracted from the mangled cluster name.
-	Address string
-
-	// Endpoints are the resolved endpoints from eds or cluster static.
-	Endpoints map[string]Endpoint
-}
-
-type Endpoint struct {
-	// Weight extracted from eds
-	Weight int
-}
-
 // Save will save the json configs to files, using the base directory
 func (a *ADSC) Save(base string) error {
 	a.mutex.Lock()
