@@ -800,7 +800,6 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 		out.IPAddresses = metadata.InstanceIPs
 	} else if isValidIPAddress(parts[1]) {
 		//Fall back, use IP from node id, it's only for backward-compatibility, IP should come from metadata
-		// TODO: if this is empty, fallback to remote IP
 		out.IPAddresses = append(out.IPAddresses, parts[1])
 	}
 

@@ -32,8 +32,13 @@ import (
 	"istio.io/istio/pkg/config/constants"
 )
 
-// Implements a dns server, forwarding requests to upstream servers
-// or to DNS-over-TLS or local processing.
+// Based on istio-ecosystem/istio-coredns-plugin
+// Changes from original:
+// - runs inside istiod, using Istio main gRPC server
+// - instead of directly reading from K8S, use istiod store.
+// - removed "log" - switching to istio log.
+// - refactored Query, so both DNS native interface and coredns grpc plugin are implemented
+// - added parts of istio-ecosystem/dns-discovery, to provide in process DNS
 
 // TODO:
 // - add metrics, ideally using same names as kubedns/coredns ( Doug ?)
@@ -445,11 +450,4 @@ func (h *IstioDNS) openTLS() {
 			}
 		}
 	}()
-}
-
-// dnsOverGPRC is using the XDS service to pull cluster info from Istiod.
-// The information can be used to return .cluster.local and .global directly,
-// without a RTT to Istiod and without CoreDNS.
-func (h *IstioDNS) dnsOverGRPCClient() {
-	// WIP
 }

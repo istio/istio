@@ -25,20 +25,6 @@ import (
 
 // gen2 provides experimental support for extended generation mechanism.
 
-func (s *DiscoveryServer) generator(proxy *model.Proxy, con *XdsConnection, discReq *xdsapi.DiscoveryRequest) model.XdsResourceGenerator {
-	if proxy.Metadata.Generator != "" {
-		gen := s.Generators[proxy.Metadata.Generator]
-		return gen
-	}
-	return nil
-}
-
-// TODO:
-// 1. Per resource type generator - map, method to find watched and generator
-// 2. ADS implementing Generator for endpoints
-// 3. DS implementing Generator for endpoints
-// 4. Pass 'updated resources' to Generator
-
 // handleReqAck checks if the message is an ack/nack and handles it, returning true.
 // If false, the request should be processed by calling the generator.
 func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *discovery.DiscoveryRequest) (*model.WatchedResource, bool) {

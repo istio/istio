@@ -487,7 +487,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failu
 		return nil
 	}
 
-	scope.Debugf("validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v) is up-to-date. No change required.",
+	scope.Infof("validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v) is up-to-date. No change required.",
 		c.o.WebhookConfigName, failurePolicy, current.ResourceVersion)
 
 	return nil
