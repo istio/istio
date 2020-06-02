@@ -147,8 +147,8 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	}
 	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.charts, maArgs.revision), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
 		maArgs.kubeConfigPath, maArgs.context, maArgs.readinessTimeout, l); err != nil {
-		if _, err := vfs.Stat(profilesRoot); err != nil {
-			return fmt.Errorf("failed to apply manifests: %v, use -d with local profiles instead", err)
+		if _, err1 := vfs.Stat(profilesRoot); err1 != nil {
+			return fmt.Errorf("failed to apply manifests: %v, use -d with local profiles instead", err1)
 		}
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
