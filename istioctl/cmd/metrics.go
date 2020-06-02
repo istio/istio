@@ -156,7 +156,7 @@ func metrics(promAPI promv1.API, workload string) (workloadMetrics, error) {
 	}
 
 	rpsQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m]))`, reqTot, wlabel, wname, wnslabel, wns)
-	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code!="200"}[1m]))`, reqTot, wlabel, wname, wnslabel, wns)
+	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code=~"[45][0-9]{2}"}[1m]))`, reqTot, wlabel, wname, wnslabel, wns)
 	p50LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m])) by (le))`,
 		0.5, reqDur, wlabel, wname, wnslabel, wns)
 	p90LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m])) by (le))`,
