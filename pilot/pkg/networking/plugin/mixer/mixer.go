@@ -719,7 +719,10 @@ func getQuotaSpec(in *plugin.InputParams, hostname host.Name, isPolicyCheckDisab
 			continue
 		}
 		spec := &mpb.QuotaSpec{}
-		protomarshal.ApplyJSON(gogoSpec, spec)
+		err = protomarshal.ApplyJSON(gogoSpec, spec)
+		if err != nil {
+			continue
+		}
 		quotaSpec = append(quotaSpec, spec)
 	}
 	return quotaSpec
