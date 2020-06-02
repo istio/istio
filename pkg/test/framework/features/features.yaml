@@ -20,12 +20,13 @@ features:
     telemetry:
       stats:
         prometheus:
+          customize-metric:
           merge:
           http:
             nullvm:
             wasm:
           tcp:
-      attributegen:
+      request-classification:
       tracing:
         client:
         server:

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package attributegen
+package requestclassfication
 
 import (
 	"testing"
@@ -20,6 +20,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 )
 
-func TestAttribugeGen(t *testing.T) {
-	framework.NewTest(t).NotImplementedYet("telemetry.attributegen")
+func TestRequestClassification(t *testing.T) {
+	framework.NewTest(t).
+		NotImplementedYet("telemetry.request-classification").
+		NotImplementedYet("telemetry.stats.prometheus.customize-metric")
 }
