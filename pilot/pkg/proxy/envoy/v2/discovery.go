@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -264,9 +265,7 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	inboundConfigUpdates.Increment()
-	if s.adsClientCount() > 0 {
-		s.pushChannel <- req
-	}
+	s.pushChannel <- req
 }
 
 // Debouncing and push request happens in a separate thread, it uses locks
@@ -323,7 +322,11 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			adsLog.Infof("Push debounce unstable[%d] %d: %v since last change, %v since last push, full=%v, new debounce= %v",
 				pushCounter, debouncedEvents,
 				quietTime, debounceDelay, req.Full, (debounceBackoff - quietTime))
-			timeChan = time.After(debounceBackoff - quietTime)
+			debounceBackoff *= 2
+			if debounceBackoff >= debounceMax {
+				debounceBackoff = debounceMax
+			}
+			timeChan = time.After(debounceBackoff)
 		}
 	}
 
@@ -349,13 +352,21 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			if shouldStartDebounce(debouncedEvents) {
 				startDebounce = lastConfigUpdateTime
 			}
-			timeChan = time.After(debounceBackoff)
-			if features.EnableDynamicDebounce {
-				debounceBackoff *= 2
-				if debounceBackoff >= debounceMax {
-					debounceBackoff = debounceMax
-				}
+			if debouncedEvents == 1 {
+				fmt.Printf("Setting debounce back timer...%v \n", debounceBackoff)
+				timeChan = time.After(debounceBackoff)
 			}
+			// if features.EnableDynamicDebounce {
+			// 	debounceBackoff = debounceMax
+			// 	timeChan = time.After(debounceBackoff)
+
+			// 	fmt.Printf("Setting debounce back...%v \n", debounceBackoff)
+			// 	debounceBackoff *= 2
+			// 	if debounceBackoff >= debounceMax {
+			// 		debounceBackoff = debounceMax
+			// 	}
+			// }
+
 			req = req.Merge(r)
 		case <-timeChan:
 			if free {
