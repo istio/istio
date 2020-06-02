@@ -17,6 +17,7 @@ package rewrite
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 
@@ -31,7 +32,7 @@ import (
 // should be covered by integration test in proxy repo.
 // This test exercises the enablePrometheusMerge disabled code path
 func TestStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t)
+	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.merge"))
 }
 
 func TestMain(m *testing.M) {
