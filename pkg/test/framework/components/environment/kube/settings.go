@@ -41,6 +41,9 @@ type Settings struct {
 	// component will fall back to node-port in this case.
 	Minikube bool
 
+	// Indicates that control plane cluster is running in centralized model
+	CentralIstiod bool
+
 	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
 	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex

@@ -209,6 +209,8 @@ func init() {
 		"A comma-separated list of paths to kube config files for cluster environments (default is current kube context)")
 	flag.BoolVar(&settingsFromCommandLine.Minikube, "istio.test.kube.minikube", settingsFromCommandLine.Minikube,
 		"Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address..")
+	flag.BoolVar(&settingsFromCommandLine.CentralIstiod, "istio.test.kube.centralIstiod", settingsFromCommandLine.Minikube,
+		"Indicates that control plane cluster is running in centralized model.  Pilot will not be installed on remote clusters")
 	flag.StringVar(&controlPlaneTopology, "istio.test.kube.controlPlaneTopology",
 		"", "Specifies the mapping for each cluster to the cluster hosting its control plane. The value is a "+
 			"comma-separated list of the form <clusterIndex>:<controlPlaneClusterIndex>, where the indexes refer to the order in which "+
