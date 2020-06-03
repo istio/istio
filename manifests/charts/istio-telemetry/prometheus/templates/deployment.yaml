@@ -106,14 +106,6 @@ spec:
               {{- else }}
               value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
               {{- end }}
-            {{- if .Values.global.caProvider }}
-            - name: CA_PROVIDER
-              value: {{ .Values.global.caProvider }}
-            {{- end }}
-            {{- if .Values.global.keyfactor.configPath }}
-            - name: "KEYFACTOR_CONFIG_PATH"
-              value: {{ .Values.global.keyfactor.configPath }}
-            {{- end }}
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -173,12 +165,6 @@ spec:
               name: istio-certs
             - name: istio-config-volume
               mountPath: /etc/istio/config
-            # Keyfactor secret mount
-            {{- if ne .Values.global.keyfactor.secretName ""}}
-            - name: keyfactor-config
-              mountPath: /etc/keyfactor
-              readOnly: true
-            {{- end }}
 {{- end }}
 
       volumes:
@@ -217,13 +203,7 @@ spec:
           name: istio-ca-root-cert
         {{- end }}
 {{- end }}
-      # Keyfactor secret mount to volume
-      {{- if ne .Values.global.keyfactor.secretName ""}}
-      - name: keyfactor-config
-        secret:
-          secretName: {{ .Values.global.keyfactor.secretName }}
-          optional: true
-      {{- end }}
+
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}

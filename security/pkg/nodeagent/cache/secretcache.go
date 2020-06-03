@@ -887,7 +887,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	}
 	options := pkiutil.CertOptions{
 		Host:       csrHostName,
-		Org:        "Istio",
 		RSAKeySize: keySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),

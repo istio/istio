@@ -158,14 +158,6 @@ spec:
           {{- else }}
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
           {{- end }}
-          {{- if .Values.global.caProvider }}
-          - name: CA_PROVIDER
-            value: {{ .Values.global.caProvider }}
-          {{- end }}
-          {{- if .Values.global.keyfactor.configPath }}
-          - name: "KEYFACTOR_CONFIG_PATH"
-            value: {{ .Values.global.keyfactor.configPath }}
-          {{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -259,12 +251,6 @@ spec:
             mountPath: {{ .mountPath | quote }}
             readOnly: true
           {{- end }}
-          # Keyfactor secret mount
-          {{- if ne .Values.global.keyfactor.secretName ""}}
-          - name: keyfactor-config
-            mountPath: /etc/keyfactor
-            readOnly: true
-          {{- end }}
 {{- if $gateway.additionalContainers }}
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
@@ -317,12 +303,6 @@ spec:
       - name: {{ .name }}
         configMap:
           name: {{ .configMapName | quote }}
-          optional: true
-      {{- end }}
-      {{- if ne .Values.global.keyfactor.secretName ""}}
-      - name: keyfactor-config
-        secret:
-          secretName: {{ .Values.global.keyfactor.secretName }}
           optional: true
       {{- end }}
       affinity:

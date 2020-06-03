@@ -74,13 +74,6 @@ spec:
         secret:
           secretName: policy-adapter-secret
           optional: true
-      # Keyfactor secret mount to volume
-      {{- if ne .Values.global.keyfactor.secretName ""}}
-      - name: keyfactor-config
-        secret:
-          secretName: {{ .Values.global.keyfactor.secretName }}
-          optional: true
-      {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
@@ -246,14 +239,6 @@ spec:
         {{- else }}
           value: istiod.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
-        {{- if .Values.global.caProvider }}
-        - name: CA_PROVIDER
-          value: {{ .Values.global.caProvider }}
-        {{- end }}
-        {{- if .Values.global.keyfactor.configPath }}
-        - name: "KEYFACTOR_CONFIG_PATH"
-          value: {{ .Values.global.keyfactor.configPath }}
-        {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
@@ -274,11 +259,5 @@ spec:
         {{- end }}
         - name: uds-socket
           mountPath: /sock
-        # Keyfactor secret mount
-        {{- if ne .Values.global.keyfactor.secretName ""}}
-        - name: keyfactor-config
-          mountPath: /etc/keyfactor
-          readOnly: true
-        {{- end }}
 {{- end }}
 ---

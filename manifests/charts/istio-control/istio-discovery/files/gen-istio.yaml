@@ -72,7 +72,6 @@ data:
           "s390x": 2
         },
         "caAddress": "",
-        "caProvider": "Citadel",
         "centralIstiod": false,
         "configRootNamespace": "istio-system",
         "configValidation": true,
@@ -98,13 +97,6 @@ data:
           "enableAnalysis": false
         },
         "jwtPolicy": "third-party-jwt",
-        "keyfactor": {
-          "configPath": "/etc/keyfactor/config.json",
-          "secretName": ""
-        },
-        "localityLbSetting": {
-          "enabled": true
-        },
         "logAsJson": false,
         "logging": {
           "level": "default:info"
@@ -391,14 +383,6 @@ data:
         - name: CA_ADDR
           value: {{ .Values.global.caAddress }}
         {{- end }}
-        {{- if .Values.global.caProvider }}
-        - name: CA_PROVIDER
-          value: {{ .Values.global.caProvider }}
-        {{- end }}
-        {{- if .Values.global.keyfactor.configPath }}
-        - name: "KEYFACTOR_CONFIG_PATH"
-          value: {{ .Values.global.keyfactor.configPath }}
-        {{- end }}
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -590,12 +574,6 @@ data:
           {{ toYaml $value | indent 4 }}
           {{ end }}
           {{- end }}
-        # Keyfactor secret mount
-        {{- if ne .Values.global.keyfactor.secretName ""}}
-        - name: keyfactor-config
-          mountPath: /etc/keyfactor
-          readOnly: true
-        {{- end }}
       volumes:
       {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
       - name: custom-bootstrap-volume
@@ -653,13 +631,6 @@ data:
         secret:
           optional: true
           secretName: lightstep.cacert
-      {{- end }}
-      # Keyfactor secret mount to volume
-      {{- if ne .Values.global.keyfactor.secretName ""}}
-      - name: keyfactor-config
-        secret:
-          secretName: {{ .Values.global.keyfactor.secretName }}
-          optional: true
       {{- end }}
       {{- if .Values.global.podDNSSearchNamespaces }}
       dnsConfig:

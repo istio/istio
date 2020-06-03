@@ -50,13 +50,8 @@ type KeyFactorCAClient struct {
 	EnableTLS       bool
 	Client          *http.Client
 	CustomMetadatas map[string]string
-	Metadata        *KeyfactorCAClientMetadata
+	Metadata        KeyfactorCAClientMetadata
 	ClientOptions   *KeyfactorConfig
-}
-
-type san struct {
-	IP4 []string `json:"ip4"`
-	DNS []string `json:"dns"`
 }
 
 type keyfactorRequestPayload struct {
@@ -65,21 +60,12 @@ type keyfactorRequestPayload struct {
 	IncludeChain         bool              `json:"IncludeChain"`
 	TimeStamp            string            `json:"TimeStamp"`
 	Template             string            `json:"Template"`
-	SANs                 san               `json:"SANs"`
 	Metadata             map[string]string `json:"Metadata"`
 }
 
 // CertificateInformation response structure for keyfactor server
 type CertificateInformation struct {
-	SerialNumber       string      `json:"SerialNumber"`
-	IssuerDN           string      `json:"IssuerDN"`
-	Thumbprint         string      `json:"Thumbprint"`
-	KeyfactorID        int         `json:"KeyfactorID"`
-	KeyfactorRequestID int         `json:"KeyfactorRequestId"`
-	Certificates       []string    `json:"Certificates"`
-	RequestDisposition string      `json:"RequestDisposition"`
-	DispositionMessage string      `json:"DispositionMessage"`
-	EnrollmentContext  interface{} `json:"EnrollmentContext"`
+	Certificates []string `json:"Certificates"`
 }
 
 // KeyfactorResponse response structure for keyfactor server
@@ -88,7 +74,7 @@ type KeyfactorResponse struct {
 }
 
 // NewKeyFactorCAClient create a CA client for KeyFactor CA.
-func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, metadata *KeyfactorCAClientMetadata) (caClientInterface.Client, error) {
+func NewKeyFactorCAClient(endpoint string, enableTLS bool, rootCert []byte, metadata KeyfactorCAClientMetadata) (caClientInterface.Client, error) {
 
 	keyfactorConfig, err := LoadKeyfactorConfigFile()
 
@@ -194,10 +180,6 @@ func (cl *KeyFactorCAClient) CSRSign(ctx context.Context, reqID string, csrPEM [
 		Template:             cl.ClientOptions.CaTemplate,
 		TimeStamp:            time.Now().Format(time.RFC3339),
 		Metadata:             cl.CustomMetadatas,
-		SANs: san{
-			DNS: []string{cl.Metadata.ClusterID},
-			IP4: []string{cl.Metadata.PodIP},
-		},
 	})
 
 	if err != nil {
