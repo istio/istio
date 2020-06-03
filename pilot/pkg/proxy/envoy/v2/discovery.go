@@ -348,12 +348,13 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			if len(r.Reason) == 0 {
 				r.Reason = []model.TriggerReason{model.UnknownTrigger}
 			}
+			// When eds debounce is disabled, push EDS requests immediately.
 			if !enableEDSDebounce && !r.Full {
 				go pushFn(r)
 				continue
 			}
-			// When dynamic debounce is enabled, we should push first request
-			// and debouncing from second request.
+			// When dynamic debounce is enabled, we should push first request so that single
+			// config updates go through fast and start debouncing from second request.
 			if enableDynamicDebounce && debouncedEvents == 0 {
 				debouncedEvents++
 				go pushFn(r)

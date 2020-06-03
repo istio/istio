@@ -84,7 +84,7 @@ var (
 
 	EnableDynamicDebounce = env.RegisterBoolVar(
 		"PILOT_ENABLE_DYNAMIC_DEBOUNCE",
-		true,
+		false,
 		"If enabled, Pilot will switch to dynamic back off debounce instead of fixed debounce logic. With dynamic debounce, pilot backs off"+
 			" at incremental intervals like 100ms, 200ms etc till max debounce is reached.",
 	).Get()
