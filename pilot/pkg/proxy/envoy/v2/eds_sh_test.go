@@ -95,62 +95,62 @@ func TestSplitHorizonEds(t *testing.T) {
 				},
 			},
 		},
-		// {
-		// 	// Verify that EDS from network2 will return 2 local endpoints with local VIPs + 2 remote
-		// 	// endpoints weighted accordingly with the IP of the ingress gateway.
-		// 	network:   "network2",
-		// 	sidecarID: sidecarID("10.2.0.1", "app3"),
-		// 	want: expectedResults{
-		// 		weights: map[string]uint32{
-		// 			"10.2.0.1":      2,
-		// 			"10.2.0.2":      2,
-		// 			"159.122.219.1": 2,
-		// 			"159.122.219.3": 3,
-		// 			"179.114.119.3": 3,
-		// 			"10.4.0.1":      2,
-		// 			"10.4.0.2":      2,
-		// 			"10.4.0.3":      2,
-		// 			"10.4.0.4":      2,
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	// Verify that EDS from network3 will return 3 local endpoints with local VIPs + 2 remote
-		// 	// endpoints weighted accordingly with the IP of the ingress gateway.
-		// 	network:   "network3",
-		// 	sidecarID: sidecarID("10.3.0.1", "app3"),
-		// 	want: expectedResults{
-		// 		weights: map[string]uint32{
-		// 			"159.122.219.1": 2,
-		// 			"159.122.219.2": 4,
-		// 			"10.3.0.1":      2,
-		// 			"10.3.0.2":      2,
-		// 			"10.3.0.3":      2,
-		// 			"10.4.0.1":      2,
-		// 			"10.4.0.2":      2,
-		// 			"10.4.0.3":      2,
-		// 			"10.4.0.4":      2,
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	// Verify that EDS from network4 will return 4 local endpoint with local VIP + 4 remote
-		// 	// endpoints weighted accordingly with the IP of the ingress gateway.
-		// 	network:   "network4",
-		// 	sidecarID: sidecarID("10.4.0.1", "app3"),
-		// 	want: expectedResults{
-		// 		weights: map[string]uint32{
-		// 			"10.4.0.1":      2,
-		// 			"10.4.0.2":      2,
-		// 			"10.4.0.3":      2,
-		// 			"10.4.0.4":      2,
-		// 			"159.122.219.1": 2,
-		// 			"159.122.219.2": 4,
-		// 			"159.122.219.3": 3,
-		// 			"179.114.119.3": 3,
-		// 		},
-		// 	},
-		// },
+		{
+			// Verify that EDS from network2 will return 2 local endpoints with local VIPs + 2 remote
+			// endpoints weighted accordingly with the IP of the ingress gateway.
+			network:   "network2",
+			sidecarID: sidecarID("10.2.0.1", "app3"),
+			want: expectedResults{
+				weights: map[string]uint32{
+					"10.2.0.1":      2,
+					"10.2.0.2":      2,
+					"159.122.219.1": 2,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
+					"10.4.0.1":      2,
+					"10.4.0.2":      2,
+					"10.4.0.3":      2,
+					"10.4.0.4":      2,
+				},
+			},
+		},
+		{
+			// Verify that EDS from network3 will return 3 local endpoints with local VIPs + 2 remote
+			// endpoints weighted accordingly with the IP of the ingress gateway.
+			network:   "network3",
+			sidecarID: sidecarID("10.3.0.1", "app3"),
+			want: expectedResults{
+				weights: map[string]uint32{
+					"159.122.219.1": 2,
+					"159.122.219.2": 4,
+					"10.3.0.1":      2,
+					"10.3.0.2":      2,
+					"10.3.0.3":      2,
+					"10.4.0.1":      2,
+					"10.4.0.2":      2,
+					"10.4.0.3":      2,
+					"10.4.0.4":      2,
+				},
+			},
+		},
+		{
+			// Verify that EDS from network4 will return 4 local endpoint with local VIP + 4 remote
+			// endpoints weighted accordingly with the IP of the ingress gateway.
+			network:   "network4",
+			sidecarID: sidecarID("10.4.0.1", "app3"),
+			want: expectedResults{
+				weights: map[string]uint32{
+					"10.4.0.1":      2,
+					"10.4.0.2":      2,
+					"10.4.0.3":      2,
+					"10.4.0.4":      2,
+					"159.122.219.1": 2,
+					"159.122.219.2": 4,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.network, func(t *testing.T) {
