@@ -28,7 +28,7 @@ const (
 	UnknownEventType  EventType = ""
 )
 
-var AllDistributionTypes = []EventType{
+var AllEventTypes = []EventType{
 	ClusterEventType,
 	ListenerEventType,
 	RouteEventType,

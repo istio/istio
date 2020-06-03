@@ -693,7 +693,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if s.StatusReporter != nil {
 			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
 			// inform distribution status reporter that this connection has been updated, because it effectively has
-			for _, distributionType := range AllDistributionTypes {
+			for _, distributionType := range AllEventTypes {
 				s.StatusReporter.RegisterEvent(con.ConID, distributionType, pushEv.noncePrefix)
 			}
 		}
@@ -870,7 +870,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 
 	xdsClients.Record(float64(len(s.adsClients)))
 	if s.StatusReporter != nil {
-		go s.StatusReporter.RegisterDisconnect(conID, AllDistributionTypes)
+		go s.StatusReporter.RegisterDisconnect(conID, AllEventTypes)
 	}
 }
 
