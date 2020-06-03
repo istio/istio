@@ -33,7 +33,6 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/docker"
 	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/docker/images"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
@@ -158,7 +157,6 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"ISTIO_INBOUND_INTERCEPTION_MODE="+interceptionMode,
 			"ISTIO_SERVICE_CIDR=*",
 			"ISTIO_CP_AUTH="+authPolicy.String(),
-			"ISTIO_META_ISTIO_PROXY_SHA="+envoy.LatestStableSHA,
 			"ISTIO_META_POD_NAME="+hostName,
 			"ISTIO_META_CONFIG_NAMESPACE="+cfg.Namespace.Name(),
 			"ISTIO_METAJSON_LABELS="+metaJSONLabels,
