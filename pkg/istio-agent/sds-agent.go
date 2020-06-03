@@ -132,8 +132,7 @@ const (
 
 	// The type of Elliptical Signature algorithm to use
 	// when generating private keys. Currently only ECDSA is supported.
-	eccSigAlg       = "ECC_SIGNATURE_ALGORITHM"
-	keyfactorCAName = "KeyfactorCA"
+	eccSigAlg = "ECC_SIGNATURE_ALGORITHM"
 
 	// Indicates whether proxy uses file mounted certificates.
 	fileMountedCerts = "FILE_MOUNTED_CERTS"
@@ -148,6 +147,24 @@ var (
 	serverOptions           sds.Options
 	gatewaySecretChan       chan struct{}
 )
+
+// SDSAgentMetadata additional metadata to use by SDS Agent
+type SDSAgentMetadata struct {
+	// PodNamespace
+	PodNamespace string
+
+	// PodName
+	PodName string
+
+	// PodID
+	PodIP string
+
+	// ClusterID is the cluster where the agent resides
+	ClusterID string
+
+	// TrustDomain default: cluster.local
+	TrustDomain string
+}
 
 // SDSAgent contains the configuration of the agent, based on the injected
 // environment:
@@ -193,23 +210,11 @@ type SDSAgent struct {
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
 
-	// PodNamespace
-	PodNamespace string
-
-	// PodName
-	PodName string
-
-	// PodID
-	PodIP string
-
-	// ClusterID is the cluster where the agent resides
-	ClusterID string
-
 	// FileMountedCerts indicates whether the proxy is using file mounted certs.
 	FileMountedCerts bool
 
-	// TrustDomain default: cluster.local
-	TrustDomain string
+	// Metadata contain additional metadata use by SDS Agent
+	Metadata SDSAgentMetadata
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -220,16 +225,11 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir string,
-	clusterID string, podNamespace string, podName string, podIP string, trustDomain string) *SDSAgent {
+func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir string, metadata SDSAgentMetadata) *SDSAgent {
 	a := &SDSAgent{}
 
 	a.SDSAddress = "unix:" + LocalSDS
-	a.ClusterID = clusterID
-	a.PodIP = podIP
-	a.PodName = podName
-	a.PodNamespace = podNamespace
-	a.TrustDomain = trustDomain
+	a.Metadata = metadata
 
 	// If a workload is using file mounted certs, we do not to have to process CA relaated configuration.
 	if !shouldProvisionCertificates() {
@@ -320,7 +320,7 @@ func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, err
 	serverOptions.OutputKeyCertToDir = sa.OutputKeyCertToDir
 	serverOptions.CAEndpoint = sa.CAEndpoint
 	serverOptions.TLSEnabled = sa.RequireCerts
-	serverOptions.ClusterID = sa.ClusterID
+	serverOptions.ClusterID = sa.Metadata.ClusterID
 	serverOptions.FileMountedCerts = sa.FileMountedCerts
 	// If proxy is using file mounted certs, JWT token is not needed.
 	if sa.FileMountedCerts {
@@ -389,8 +389,8 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 		// used.
 		caClient, err = gca.NewGoogleCAClient(serverOptions.CAEndpoint, true)
 		serverOptions.PluginNames = []string{"GoogleTokenExchange"}
-	} else if serverOptions.CAProviderName == keyfactorCAName {
-		// Assume CA from Keyfactor is mounting /etc/certs
+	} else if serverOptions.CAProviderName == "KeyfactorCA" {
+		// Assume CA from Keyfactor is mounting /etc/certs - mounted from secret: "istio-certs"
 		rootCert, err := ioutil.ReadFile(cache.DefaultRootCertFilePath)
 
 		if err != nil {
@@ -402,12 +402,12 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 
 		sa.RootCert = rootCert
 
-		keyfactorMetadata := &keyfactor.KeyfactorCAClientMetadata{
-			TrustDomain:  sa.TrustDomain,
-			ClusterID:    sa.ClusterID,
-			PodNamespace: sa.PodNamespace,
-			PodName:      sa.PodName,
-			PodIP:        sa.PodIP,
+		keyfactorMetadata := keyfactor.KeyfactorCAClientMetadata{
+			TrustDomain:  sa.Metadata.TrustDomain,
+			ClusterID:    sa.Metadata.ClusterID,
+			PodNamespace: sa.Metadata.PodNamespace,
+			PodName:      sa.Metadata.PodName,
+			PodIP:        sa.Metadata.PodIP,
 		}
 
 		caClient, err = keyfactor.NewKeyFactorCAClient(serverOptions.CAEndpoint, sa.RequireCerts, rootCert, keyfactorMetadata)

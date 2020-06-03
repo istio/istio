@@ -322,14 +322,6 @@ global:
   # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
   caAddress: ""
 
-  # Config IstioAgent's CA Provider. Supported: Citadel, GoogleCA, KeyfactorCA
-  caProvider: "Citadel"
-  
-  # KeyfactorCA configurations
-  keyfactor:
-    secretName: ""
-    configPath: "/etc/keyfactor/config.json"
-
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #
   # The following example defines two networks with different endpoints association methods.
