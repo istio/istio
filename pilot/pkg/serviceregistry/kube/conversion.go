@@ -15,9 +15,7 @@
 package kube
 
 import (
-	"context"
 	"fmt"
-	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -139,10 +137,12 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 				if len(ingress.IP) > 0 {
 					lbAddrs = append(lbAddrs, ingress.IP)
 				} else if len(ingress.Hostname) > 0 {
-					addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
-					if err == nil {
-						lbAddrs = append(lbAddrs, addrs...)
-					}
+					// DO NOT resolve the DNS here. In environments like AWS, the ELB hostname
+					// does not have a repeatable DNS address and IPs resolved at an earlier point
+					// in time may not work. So, when we get just hostnames instead of IPs, we need
+					// to smartly switch from EDS to strict_dns rather than doing the naive thing of
+					// resolving the DNS name and hoping the resolution is one-time task.
+					lbAddrs = append(lbAddrs, ingress.Hostname)
 				}
 			}
 			if len(lbAddrs) > 0 {
