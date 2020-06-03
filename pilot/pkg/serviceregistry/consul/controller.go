@@ -106,14 +106,6 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	return nil, nil
 }
 
-// WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
-// This does not apply to Consul service registry, as Consul does not
-// manage the service instances. In future, when we integrate Nomad, we
-// might revisit this function.
-func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	return nil
-}
-
 // InstancesByPort retrieves instances for a service that match
 // any of the supplied labels. All instances match an empty tag list.
 func (c *Controller) InstancesByPort(svc *model.Service, port int,

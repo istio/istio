@@ -201,17 +201,6 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	return out, errs
 }
 
-// WorkloadHealthCheckInfo returne the health check information for IP addr
-// Return on the first hit.
-func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	for _, r := range c.GetRegistries() {
-		if probeList := r.WorkloadHealthCheckInfo(addr); probeList != nil {
-			return probeList
-		}
-	}
-	return nil
-}
-
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
 func (c *Controller) InstancesByPort(svc *model.Service, port int,

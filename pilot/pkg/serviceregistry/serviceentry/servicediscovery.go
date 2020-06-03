@@ -373,13 +373,6 @@ func (s *ServiceEntryStore) getServices() []*model.Service {
 	return services
 }
 
-// WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
-// This does not apply to Service Entry registry, as Service entries do not
-// manage the service instances.
-func (s *ServiceEntryStore) WorkloadHealthCheckInfo(_ string) model.ProbeList {
-	return nil
-}
-
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
 func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,

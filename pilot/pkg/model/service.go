@@ -434,11 +434,6 @@ type ServiceDiscovery interface {
 
 	GetProxyWorkloadLabels(*Proxy) (labels.Collection, error)
 
-	// WorkloadHealthCheckInfo lists set of probes associated with an IPv4 address.
-	// These probes are used by the platform to identify requests that are performing
-	// health checks.
-	WorkloadHealthCheckInfo(addr string) ProbeList
-
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
 	// Deprecated - service account tracking moved to XdsServer, incremental.
