@@ -29,12 +29,12 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	istiolog "istio.io/pkg/log"
+
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -206,22 +206,20 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 		if !ok {
 			return nil, errors.New("invalid context")
 		}
-		if err := credentials.CheckSecurityLevel(ctx, credentials.PrivacyAndIntegrity); err == nil {
-			var authenticatedID *authenticate.Caller
-			for _, authn := range s.Authenticators {
-				u, err := authn.Authenticate(ctx)
-				if u != nil && err == nil {
-					authenticatedID = u
-				}
+		var authenticatedID *authenticate.Caller
+		for _, authn := range s.Authenticators {
+			u, err := authn.Authenticate(ctx)
+			if u != nil && err == nil {
+				authenticatedID = u
 			}
-
-			if authenticatedID == nil {
-				adsLog.Errora("Failed to authenticate client ", peerInfo)
-				return nil, errors.New("authentication failure")
-			}
-
-			return authenticatedID.Identities, nil
 		}
+
+		if authenticatedID == nil {
+			adsLog.Errora("Failed to authenticate client ", peerInfo)
+			return nil, errors.New("authentication failure")
+		}
+
+		return authenticatedID.Identities, nil
 	}
 
 	// TODO: add a flag to prevent unauthenticated requests ( 15010 )
@@ -243,9 +241,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 		return err
 	}
 	if ids != nil {
-		adsLog.Infoa("Authenticated XDS: ", peerInfo, ids)
+		adsLog.Infof("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		adsLog.Infoa("Unauthenticated XDS: ", peerInfo)
+		adsLog.Infoa("Unauthenticated XDS: ", peerAddr)
 	}
 
 	// first call - lazy loading, in tests. This should not happen if readiness
