@@ -37,7 +37,6 @@ const (
 	// installedSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
 	// in the last manifest apply operation.
 	installedSpecCRPrefix = "installed-state"
-	profilesRoot          = "profiles"
 )
 
 type manifestApplyArgs struct {
@@ -147,7 +146,6 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	}
 	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.charts, maArgs.revision), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
 		maArgs.kubeConfigPath, maArgs.context, maArgs.readinessTimeout, l); err != nil {
-
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
 
