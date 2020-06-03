@@ -459,7 +459,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushCont
 		// Any build order change need a careful code review
 		builder.buildSidecarInboundListeners(configgen).
 			buildSidecarOutboundListeners(configgen).
-			buildManagementListeners(configgen).
 			buildHTTPProxyListener(configgen).
 			buildVirtualOutboundListener(configgen).
 			buildVirtualInboundListener(configgen)

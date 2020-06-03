@@ -19,8 +19,6 @@ import (
 	"strings"
 	"testing"
 
-	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-
 	"istio.io/istio/pilot/pkg/features"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -140,7 +138,6 @@ func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int, m
 
 	builder := NewListenerBuilder(&proxy, env.PushContext)
 	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
-		buildManagementListeners(ldsEnv.configgen).
 		buildHTTPProxyListener(ldsEnv.configgen).
 		buildVirtualOutboundListener(ldsEnv.configgen).
 		buildVirtualInboundListener(ldsEnv.configgen).
@@ -292,12 +289,6 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	}
 }
 
-func TestManagementListenerBuilder(t *testing.T) {
-	listeners := prepareListeners(t, nil, []int{9876}, model.InterceptionRedirect)
-	l := expectListener(t, listeners, "virtualInbound")
-	expectTCPProxy(t, l.FilterChains, "inbound|9876||mgmtCluster")
-}
-
 func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	// prepare
 	t.Helper()
@@ -317,38 +308,4 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	if !originalSrcFilterFound {
 		t.Fatalf("listener filter %s expected", OriginalSrc)
 	}
-}
-
-func expectTCPProxy(t *testing.T, chains []*listener.FilterChain, s string) {
-	t.Helper()
-	got := ""
-	for _, c := range chains {
-		for _, f := range c.Filters {
-			if f.Name != "envoy.tcp_proxy" {
-				continue
-			}
-			fc := &tcp.TcpProxy{}
-			if err := getFilterConfig(f, fc); err != nil {
-				t.Fatalf("failed to get TCP Proxy config: %s", err)
-			}
-			if s == fc.GetCluster() {
-				return
-			}
-		}
-	}
-
-	if got != s {
-		t.Fatalf("expected destination %v, got %v", s, got)
-	}
-}
-
-func expectListener(t *testing.T, listeners []*listener.Listener, name string) *listener.Listener {
-	t.Helper()
-	for _, l := range listeners {
-		if l.Name == name {
-			return l
-		}
-	}
-	t.Fatalf("could not find listener %v", name)
-	return nil
 }
