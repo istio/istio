@@ -321,7 +321,7 @@
         "transport_socket": {
           "name": "envoy.transport_sockets.tls",
           "typed_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext",
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
             "common_tls_context": {
               "alpn_protocols": [
                 "h2"
@@ -480,7 +480,7 @@
               {
                 "name": "envoy.http_connection_manager",
                 "typed_config": {
-                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "stats",
                   "route_config": {
@@ -506,7 +506,7 @@
                   "http_filters": [{
                     "name": "envoy.router",
                     "typed_config": {
-                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
                   }]
                 }
@@ -529,7 +529,7 @@
               {
                 "name": "envoy.http_connection_manager",
                 "typed_config": {
-                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "agent",
                   "route_config": {
@@ -555,7 +555,7 @@
                   "http_filters": [{
                     "name": "envoy.router",
                     "typed_config": {
-                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
                   }]
                 }
@@ -572,7 +572,7 @@
     "http": {
       "name": "envoy.zipkin",
       "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.trace.v2.ZipkinConfig",
+        "@type": "type.googleapis.com/envoy.config.trace.v3.ZipkinConfig",
         "collector_cluster": "zipkin",
         "collector_endpoint": "/api/v2/spans",
         "collector_endpoint_version": "HTTP_JSON",

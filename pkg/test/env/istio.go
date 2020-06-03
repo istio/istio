@@ -82,7 +82,7 @@ var (
 	BookInfoKube = path.Join(BookInfoRoot, "platform/kube")
 
 	// ServiceAccountFilePath is the helm service account file.
-	ServiceAccountFilePath = path.Join(ChartsDir, "helm-service-account.yaml")
+	ServiceAccountFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/service_account.yaml")
 
 	// RedisInstallFilePath is the redis installation file.
 	RedisInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/redis.yaml")

@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	mixerClient "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -369,14 +370,14 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 						Namespace: ns,
 						Domain:    "cluster.local",
 					},
-					Spec: &mccpb.QuotaSpecBinding{
-						Services: []*mccpb.IstioService{
+					Spec: &mixerClient.QuotaSpecBinding{
+						Services: []*mixerClient.IstioService{
 							{
 								Name:      "svc",
 								Namespace: ns,
 							},
 						},
-						QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{
+						QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
 							{
 								Name: "request-count",
 							},
@@ -390,10 +391,10 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 						Name:      "request-count",
 						Namespace: ns,
 					},
-					Spec: &mccpb.QuotaSpec{
-						Rules: []*mccpb.QuotaRule{
+					Spec: &mixerClient.QuotaSpec{
+						Rules: []*mixerClient.QuotaRule{
 							{
-								Quotas: []*mccpb.Quota{
+								Quotas: []*mixerClient.Quota{
 									{
 										Quota:  "requestcount",
 										Charge: 100,
