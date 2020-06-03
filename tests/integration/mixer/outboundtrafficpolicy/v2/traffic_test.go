@@ -48,9 +48,6 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
-addonComponents:
-  prometheus:
-    enabled: true
 values:
   telemetry:
     v1:

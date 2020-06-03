@@ -420,7 +420,7 @@ spec:
             httpGet:
               path: /-/ready
               port: 9090
-            initialDelaySeconds: 30
+            initialDelaySeconds: 0
             timeoutSeconds: 30
             failureThreshold: 3
             successThreshold: 1
