@@ -81,7 +81,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *li
 				log.Debugf("Intercepted inbound listener %s have neither 0 or 1 prefix ranges. Actual:  %d",
 					l.Name, len(chain.FilterChainMatch.PrefixRanges))
 			}
-			if sockAddr.Address == WildcardAddress || sockAddr.Address == WildcardIPv6Address {
+			if sockAddr.Address != WildcardAddress && sockAddr.Address != WildcardIPv6Address {
 				chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
 			}
 		}
