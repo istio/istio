@@ -157,8 +157,6 @@ func TestMain(m *testing.M) {
 values:
   meshConfig:
     disablePolicyChecks: false
-  prometheus:
-    enabled: true
   telemetry:
     v1:
       enabled: true
