@@ -55,12 +55,15 @@ var (
 
 	// enableEDSDebounce indicates whether EDS pushes should be debounced.
 	enableEDSDebounce bool
+
+	enableDynamicDebounce bool
 )
 
 func init() {
 	debounceAfter = features.DebounceAfter
 	debounceMax = features.DebounceMax
 	enableEDSDebounce = features.EnableEDSDebounce.Get()
+	enableDynamicDebounce = features.EnableDynamicDebounce
 }
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -321,7 +324,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				debounceBackoff = debounceAfter
 			}
 		} else {
-			if features.EnableDynamicDebounce {
+			if enableDynamicDebounce {
 				debounceBackoff *= 2
 				if debounceBackoff >= debounceMax {
 					debounceBackoff = debounceMax
@@ -352,9 +355,9 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				continue
 			}
 			// When dynamic debounce is enabled, we should push first request.
-			if features.EnableDynamicDebounce && debouncedEvents == 0 {
+			if enableDynamicDebounce && debouncedEvents == 0 {
 				// trigger push now, just for EDS
-				go pushFn(r)
+				go push(r)
 				continue
 			}
 

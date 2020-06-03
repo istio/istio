@@ -70,7 +70,7 @@ var (
 
 	DebounceMax = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_MAX",
-		5*time.Second,
+		10*time.Second,
 		"The maximum amount of time to wait for events while debouncing. If events keep showing up with no breaks "+
 			"for this time, we'll trigger a push.",
 	).Get()

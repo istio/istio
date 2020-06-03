@@ -173,6 +173,7 @@ func TestDebounce(t *testing.T) {
 	debounceMax = debounceAfter * 2
 	syncPushTime := 2 * debounceMax
 	enableEDSDebounce = false
+	enableDynamicDebounce = false
 
 	tests := []struct {
 		name string
@@ -205,7 +206,7 @@ func TestDebounce(t *testing.T) {
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				updateCh <- &model.PushRequest{Full: true}
 				updateCh <- &model.PushRequest{Full: true}
-				expect(0, 1)
+				expect(0, 0)
 			},
 		},
 		{
