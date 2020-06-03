@@ -114,10 +114,13 @@ a:
 		{
 			desc: "ModifyListEntryMapValue",
 			path: `a.b.[name:n2]`,
-			value: `name: n2
-list: 
-  - nk1: nv1
-  - nk2: nv2`,
+			value: map[string]interface{}{
+				"name": "n2",
+				"list": []map[string]interface{}{
+					{"nk1": "nv1"},
+					{"nk2": "nv2"},
+				},
+			},
 			wantFound: true,
 			want: `
 a:
@@ -349,9 +352,11 @@ a:
 		{
 			desc: "AddMapEntryMapValue",
 			path: `a.new_key`,
-			value: `new_key:
-  nk1:
-    nk2: nv2`,
+			value: map[string]interface{}{
+				"nk1": map[string]interface{}{
+					"nk2": "nv2",
+				},
+			},
 			wantFound: true,
 			want: `
 a:
@@ -371,8 +376,11 @@ a:
 		{
 			desc: "ModifyMapEntryMapValue",
 			path: `a.b`,
-			value: `nk1:
-  nk2: nv2`,
+			value: map[string]interface{}{
+				"nk1": map[string]interface{}{
+					"nk2": "nv2",
+				},
+			},
 			wantFound: true,
 			want: `
 a:
@@ -568,13 +576,13 @@ components:
 `,
 		},
 		{
-			desc:     "nested json",
-			baseYAML:  `
+			desc: "nested json",
+			baseYAML: `
 meshConfig:
   accessLogFormat: ''
 `,
-			path:     "meshConfig.accessLogFormat",
-			value:    `{"foo": "bar"}`,
+			path:  "meshConfig.accessLogFormat",
+			value: `{"foo": "bar"}`,
 			want: `
 meshConfig:
   accessLogFormat: '{"foo": "bar"}'

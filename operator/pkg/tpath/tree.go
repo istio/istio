@@ -523,11 +523,3 @@ func isMapOrInterface(v interface{}) bool {
 	}
 	return vv.Kind() == reflect.Map
 }
-
-// getTreeRoot returns the first key found in m. It assumes a single root tree.
-func getTreeRoot(m map[string]interface{}) string {
-	for k := range m {
-		return k
-	}
-	return ""
-}
