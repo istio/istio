@@ -52,7 +52,7 @@ popd
 # Set up prometheus
 helm3 template prometheus stable/prometheus \
   --namespace istio-system \
-  --version 11.0.2 \
+  --version 11.3.0 \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"
 
@@ -60,7 +60,7 @@ helm3 template prometheus stable/prometheus \
 {
   helm3 template grafana stable/grafana \
     --namespace istio-system \
-    --version 5.0.7 \
+    --version 5.1.2 \
     -f "${WD}/values-grafana.yaml"
 
   # Set up grafana dashboards. Split into 2 to avoid Kubernetes size limits
