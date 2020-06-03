@@ -23,7 +23,6 @@ import (
 	"time"
 
 	mesh "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 
 	"istio.io/istio/pilot/pkg/security/model"
