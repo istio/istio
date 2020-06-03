@@ -815,7 +815,8 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 			// from service port to endpoint port. Need to figure out a way to map workload entry port to
 			// appropriate k8s service port
 			istioEndpoint := *fi.Endpoint
-			istioEndpoint.EndpointPort = uint32(servicePort.TargetPort)
+			// BUG: reqSvcPort is the Service port - it should instead be the TargetPort
+			istioEndpoint.EndpointPort = uint32(reqSvcPort)
 			istioEndpoint.ServicePortName = servicePort.Name
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
@@ -839,14 +840,23 @@ func (c *Controller) collectAllForeignEndpoints(svc *model.Service) []*model.Ist
 		return nil
 	}
 
+	instances := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
 	endpoints := make([]*model.IstioEndpoint, 0)
-	for _, port := range svc.Ports {
-		instances := c.getForeignServiceInstancesByPort(svc, port.Port)
-		for _, instance := range instances {
-			endpoints = append(endpoints, instance.Endpoint)
-		}
+
+	// all endpoints for ports[0]
+	for _, instance := range instances {
+		endpoints = append(endpoints, instance.Endpoint)
 	}
 
+	// build an endpoint for each remaining service port
+	for i := 1; i < len(svc.Ports); i++ {
+		for _, instance := range instances {
+			ep := *instance.Endpoint
+			ep.EndpointPort = uint32(svc.Ports[i].Port)
+			ep.ServicePortName = svc.Ports[i].Name
+			endpoints = append(endpoints, &ep)
+		}
+	}
 	return endpoints
 }
 
