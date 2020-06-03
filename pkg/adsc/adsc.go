@@ -259,7 +259,6 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 // Close the stream.
 func (a *ADSC) Close() {
 	a.mutex.Lock()
-	_ = a.stream.CloseSend()
 	_ = a.conn.Close()
 	a.mutex.Unlock()
 }
