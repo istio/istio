@@ -24,12 +24,12 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/operator/pkg/vfs"
 	"istio.io/pkg/log"
 )
 
@@ -147,9 +147,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	}
 	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.charts, maArgs.revision), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
 		maArgs.kubeConfigPath, maArgs.context, maArgs.readinessTimeout, l); err != nil {
-		if _, err1 := vfs.Stat(profilesRoot); err1 != nil {
-			return fmt.Errorf("failed to apply manifests: %v, use -d with local profiles instead", err1)
-		}
+
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
 
@@ -169,6 +167,9 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	}
 	_, iops, err := GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
+		if subErr := helm.CheckCompiledInCharts(); subErr != nil {
+			return subErr
+		}
 		return err
 	}
 
