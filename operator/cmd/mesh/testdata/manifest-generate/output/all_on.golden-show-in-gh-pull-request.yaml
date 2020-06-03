@@ -8616,8 +8616,6 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
-        - name: ISTIO_META_USER_SDS
-          value: "true"
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
         image: gcr.io/istio-testing/proxyv2:latest
@@ -10147,8 +10145,6 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
-        - name: ISTIO_META_USER_SDS
-          value: "true"
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
         image: gcr.io/istio-testing/proxyv2:latest
