@@ -355,16 +355,15 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				continue
 			}
 			// When dynamic debounce is enabled, we should push first request.
-			// if enableDynamicDebounce && debouncedEvents == 1 {
-
-			// 	fmt.Println("Pushing directly")
-			// 	// trigger push now, just for EDS
-			// 	go pushFn(r)
-			// 	continue
-			// }
+			if enableDynamicDebounce && debouncedEvents == 0 {
+				// trigger push now, just for EDS
+				debouncedEvents++
+				go pushFn(r)
+				continue
+			}
 
 			lastConfigUpdateTime = time.Now()
-			if debouncedEvents == 0 {
+			if shouldStartDebounce(debouncedEvents) {
 				startDebounce = lastConfigUpdateTime
 				timeChan = time.After(debounceBackoff)
 			}
@@ -378,6 +377,13 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			return
 		}
 	}
+}
+
+func shouldStartDebounce(debouncedEvents int) bool {
+	if enableDynamicDebounce {
+		return debouncedEvents == 1
+	}
+	return debouncedEvents == 0
 }
 
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
