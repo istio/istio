@@ -309,7 +309,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 	pushWorker := func() {
 		debounceDelay := time.Since(startDebounce)
 		quietTime := time.Since(lastConfigUpdateTime)
-		// it has been too long or quiet enough
+		// it has been too long or quiet enough - push the current requests.
 		if debounceDelay >= debounceMax || quietTime >= debounceBackoff {
 			if req != nil {
 				pushCounter++
@@ -325,13 +325,12 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			}
 		} else {
 			if enableDynamicDebounce {
+				// If dynamic debounce is enabled, backoff slowly like 100ms, 200ms, 400ms etc,
+				// but do not go beyond max debounce.
 				debounceBackoff *= 2
 				if debounceBackoff >= debounceMax {
 					debounceBackoff = debounceMax
 				}
-				adsLog.Infof("Push debounce unstable[%d] %d: %v since last change, %v since last push, full=%v, new debounce= %v",
-					pushCounter, debouncedEvents,
-					quietTime, debounceDelay, req.Full, debounceBackoff)
 				timeChan = time.After(debounceBackoff)
 			} else {
 				timeChan = time.After(debounceAfter - quietTime)
@@ -350,13 +349,12 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				r.Reason = []model.TriggerReason{model.UnknownTrigger}
 			}
 			if !enableEDSDebounce && !r.Full {
-				// trigger push now, just for EDS
 				go pushFn(r)
 				continue
 			}
-			// When dynamic debounce is enabled, we should push first request.
+			// When dynamic debounce is enabled, we should push first request
+			// and debouncing from second request.
 			if enableDynamicDebounce && debouncedEvents == 0 {
-				// trigger push now, just for EDS
 				debouncedEvents++
 				go pushFn(r)
 				continue

@@ -70,7 +70,7 @@ var (
 
 	DebounceMax = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_MAX",
-		5*time.Second,
+		10*time.Second,
 		"The maximum amount of time to wait for events while debouncing. If events keep showing up with no breaks "+
 			"for this time, we'll trigger a push.",
 	).Get()
@@ -85,7 +85,8 @@ var (
 	EnableDynamicDebounce = env.RegisterBoolVar(
 		"PILOT_ENABLE_DYNAMIC_DEBOUNCE",
 		true,
-		"If enabled, Pilot will switch to dynamic back off debounce instead of fixed debounce logic",
+		"If enabled, Pilot will switch to dynamic back off debounce instead of fixed debounce logic. With dynamic debounce, pilot backs off"+
+			" at incremental intervals like 100ms, 200ms etc till max debounce is reached.",
 	).Get()
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
