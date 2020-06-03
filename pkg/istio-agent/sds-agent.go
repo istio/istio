@@ -390,18 +390,6 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 		caClient, err = gca.NewGoogleCAClient(serverOptions.CAEndpoint, true)
 		serverOptions.PluginNames = []string{"GoogleTokenExchange"}
 	} else if serverOptions.CAProviderName == "KeyfactorCA" {
-		// Assume CA from Keyfactor is mounting /etc/certs - mounted from secret: "istio-certs"
-		rootCert, err := ioutil.ReadFile(cache.DefaultRootCertFilePath)
-
-		if err != nil {
-			// We may not provide root cert, and can just use public system certificate pool
-			log.Infof("no certs found at %v, using system certs", cache.DefaultRootCertFilePath)
-		} else {
-			log.Infof("the CA cert of keyfactorCA is: %v", string(rootCert))
-		}
-
-		sa.RootCert = rootCert
-
 		keyfactorMetadata := keyfactor.KeyfactorCAClientMetadata{
 			TrustDomain:  sa.Metadata.TrustDomain,
 			ClusterID:    sa.Metadata.ClusterID,
@@ -410,7 +398,7 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 			PodIP:        sa.Metadata.PodIP,
 		}
 
-		caClient, err = keyfactor.NewKeyFactorCAClient(serverOptions.CAEndpoint, sa.RequireCerts, rootCert, keyfactorMetadata)
+		caClient, err = keyfactor.NewKeyFactorCAClient(serverOptions.CAEndpoint, sa.RequireCerts, nil, keyfactorMetadata)
 		if err != nil {
 			log.Fatalf("Cannot create new KeyfactorCA Provider. err: %v", err)
 		}

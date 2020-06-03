@@ -1,0 +1,50 @@
+---
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: example-integrate-keyfactor-ca
+spec:
+  profile: demo
+  values:
+    global:
+      caAddress: <REPLACED_ME>
+    meshConfig:
+      defaultConfig:
+        proxyMetadata:
+          # Create default ENV for each sidecard
+          CA_PROVIDER: "KeyfactorCA"
+          KEYFACTOR_CONFIG_PATH: /etc/keyfactor/config.json
+    gateways:
+      istio-egressgateway:
+        env:
+          CA_PROVIDER: KeyfactorCA
+          KEYFACTOR_CONFIG_PATH: /etc/keyfactor/config.json
+        secretVolumes:
+            ### BEGIN default config of gateways
+          - name: egressgateway-certs
+            secretName: istio-egressgateway-certs
+            mountPath: /etc/istio/egressgateway-certs
+          - name: egressgateway-ca-certs
+            secretName: istio-egressgateway-ca-certs
+            mountPath: /etc/istio/egressgateway-ca-certs
+            ### END default config of gateways
+          - name: keyfactor-config
+            secretName: keyfactor-config
+            mountPath: /etc/keyfactor
+      istio-ingressgateway:
+        env:
+          CA_PROVIDER: KeyfactorCA
+          KEYFACTOR_CONFIG_PATH: /etc/keyfactor/config.json
+        secretVolumes:
+            ### BEGIN default config of gateways
+          - name: ingressgateway-certs
+            secretName: istio-ingressgateway-certs
+            mountPath: /etc/istio/ingressgateway-certs
+          - name: ingressgateway-ca-certs
+            secretName: istio-ingressgateway-ca-certs
+            mountPath: /etc/istio/ingressgateway-ca-certs
+            ### END default config of gateways
+          - name: keyfactor-config
+            secretName: keyfactor-config
+            mountPath: /etc/keyfactor
