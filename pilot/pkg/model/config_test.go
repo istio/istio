@@ -22,10 +22,10 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
+	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	mock_config "istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"

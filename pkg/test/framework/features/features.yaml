@@ -18,7 +18,19 @@ features:
   # features that relate to measuring or exploring your service mesh or the services which comprise it.
   observability:
     telemetry:
-    tracing:
+      stats:
+        prometheus:
+          customize-metric:
+          merge:
+          http:
+            nullvm:
+            wasm:
+          tcp:
+      request-classification:
+      tracing:
+        client:
+        server:
+      dashboard:
   # features relating to controlling the traffic of the service mesh.
   traffic:
     routing:

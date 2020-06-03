@@ -397,7 +397,7 @@
               {
                 "name": "envoy.http_connection_manager",
                 "typed_config": {
-                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "stats",
                   "route_config": {
@@ -423,7 +423,7 @@
                   "http_filters": [{
                     "name": "envoy.router",
                     "typed_config": {
-                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
                   }]
                 }
@@ -446,7 +446,7 @@
               {
                 "name": "envoy.http_connection_manager",
                 "typed_config": {
-                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "agent",
                   "route_config": {
@@ -472,7 +472,7 @@
                   "http_filters": [{
                     "name": "envoy.router",
                     "typed_config": {
-                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
                   }]
                 }
@@ -489,7 +489,7 @@
     "http": {
       "name": "envoy.lightstep",
       "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.trace.v2.LightstepConfig",
+        "@type": "type.googleapis.com/envoy.config.trace.v3.LightstepConfig",
         "collector_cluster": "lightstep",
         "access_token_file": "/test-path/lightstep_access_token.txt"
       }

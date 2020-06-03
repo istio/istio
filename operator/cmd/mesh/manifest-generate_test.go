@@ -510,9 +510,35 @@ func TestTrailingWhitespace(t *testing.T) {
 	}
 }
 
+func validateReferentialIntegrity(t *testing.T, objs object.K8sObjects, cname string, deploymentSelector map[string]string) {
+	t.Run(cname, func(t *testing.T) {
+		deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
+		service := mustFindObject(t, objs, cname, name.ServiceStr)
+		pdb := mustFindObject(t, objs, cname, name.PDBStr)
+		hpa := mustFindObject(t, objs, cname, name.HPAStr)
+		podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
+		// Check all selectors align
+		mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels)
+		mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels)
+		mustSelect(t, mustGetLabels(t, deployment, "spec.selector.matchLabels"), podLabels)
+		if hpaName := mustGetPath(t, hpa, "spec.scaleTargetRef.name"); cname != hpaName {
+			t.Fatalf("HPA does not match deployment: %v != %v", cname, hpaName)
+		}
+
+		serviceAccountName := mustGetPath(t, deployment, "spec.template.spec.serviceAccountName").(string)
+		mustFindObject(t, objs, serviceAccountName, name.SAStr)
+
+		// Check we aren't changing immutable fields. This only matters for in place upgrade (non revision)
+		// This one is not a selector, it must be an exact match
+		if sel := mustGetLabels(t, deployment, "spec.selector.matchLabels"); !reflect.DeepEqual(deploymentSelector, sel) {
+			t.Fatalf("Depployment selectors are immutable, but changed since 1.5. Was %v, now is %v", deploymentSelector, sel)
+		}
+	})
+}
+
 // This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
 func TestConfigSelectors(t *testing.T) {
-	got, err := runManifestGenerate([]string{}, "", liveCharts)
+	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-egressgateway.enabled=true", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -529,60 +555,60 @@ func TestConfigSelectors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// First we fetch all the objects for our default install
-	cname := "istiod"
-	deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
-	service := mustFindObject(t, objs, cname, name.ServiceStr)
-	pdb := mustFindObject(t, objs, cname, name.PDBStr)
-	hpa := mustFindObject(t, objs, cname, name.HPAStr)
-	podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
-	// Check all selectors align
-	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels)
-	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels)
-	mustSelect(t, mustGetLabels(t, deployment, "spec.selector.matchLabels"), podLabels)
-	if hpaName := mustGetPath(t, hpa, "spec.scaleTargetRef.name"); cname != hpaName {
-		t.Fatalf("HPA does not match deployment: %v != %v", cname, hpaName)
-	}
-
-	// Next we fetch all the objects for a revision install
-	nameRev := "istiod-canary"
-	deploymentRev := mustFindObject(t, objsRev, nameRev, name.DeploymentStr)
-	serviceRev := mustFindObject(t, objsRev, nameRev, name.ServiceStr)
-	pdbRev := mustFindObject(t, objsRev, nameRev, name.PDBStr)
-	hpaRev := mustFindObject(t, objsRev, nameRev, name.HPAStr)
-	podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
-	// Check all selectors align for revision
-	mustSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabelsRev)
-	mustSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabelsRev)
-	mustSelect(t, mustGetLabels(t, deploymentRev, "spec.selector.matchLabels"), podLabelsRev)
-	if hpaName := mustGetPath(t, hpaRev, "spec.scaleTargetRef.name"); nameRev != hpaName {
-		t.Fatalf("HPA does not match deployment: %v != %v", nameRev, hpaName)
-	}
-
-	// Make sure default and revisions do not cross
-	mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels)
-	mustNotSelect(t, mustGetLabels(t, service, "spec.selector"), podLabelsRev)
-	mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels)
-	mustNotSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabelsRev)
-
-	// Check selection of previous versions . This only matters for in place upgrade (non revision)
-	podLabels15 := map[string]string{
-		"app":   "istiod",
+	istiod15Selector := map[string]string{
 		"istio": "pilot",
 	}
-	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels15)
-	mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels15)
-	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels15)
-	mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels15)
+	istiodCanary16Selector := map[string]string{
+		"app":          "istiod",
+		"istio.io/rev": "canary",
+	}
+	ingress15Selector := map[string]string{
+		"app":   "istio-ingressgateway",
+		"istio": "ingressgateway",
+	}
+	egress15Selector := map[string]string{
+		"app":   "istio-egressgateway",
+		"istio": "egressgateway",
+	}
 
-	// Check we aren't changing immutable fields. This only matters for in place upgrade (non revision)
-	// This one is not a selector, it must be an exact match
-	deploymentSelector15 := map[string]string{
-		"istio": "pilot",
-	}
-	if sel := mustGetLabels(t, deployment, "spec.selector.matchLabels"); !reflect.DeepEqual(deploymentSelector15, sel) {
-		t.Fatalf("Depployment selectors are immutable, but changed since 1.5. Was %v, now is %v", deploymentSelector15, sel)
-	}
+	// Validate references within the same deployment
+	validateReferentialIntegrity(t, objs, "istiod", istiod15Selector)
+	validateReferentialIntegrity(t, objs, "istio-ingressgateway", ingress15Selector)
+	validateReferentialIntegrity(t, objs, "istio-egressgateway", egress15Selector)
+	validateReferentialIntegrity(t, objsRev, "istiod-canary", istiodCanary16Selector)
+
+	t.Run("cross revision", func(t *testing.T) {
+		// Istiod revisions have complicated cross revision implications. We should assert these are correct
+		// First we fetch all the objects for our default install
+		cname := "istiod"
+		deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
+		service := mustFindObject(t, objs, cname, name.ServiceStr)
+		pdb := mustFindObject(t, objs, cname, name.PDBStr)
+		podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
+
+		// Next we fetch all the objects for a revision install
+		nameRev := "istiod-canary"
+		deploymentRev := mustFindObject(t, objsRev, nameRev, name.DeploymentStr)
+		serviceRev := mustFindObject(t, objsRev, nameRev, name.ServiceStr)
+		pdbRev := mustFindObject(t, objsRev, nameRev, name.PDBStr)
+		podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
+
+		// Make sure default and revisions do not cross
+		mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels)
+		mustNotSelect(t, mustGetLabels(t, service, "spec.selector"), podLabelsRev)
+		mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels)
+		mustNotSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabelsRev)
+
+		// Check selection of previous versions . This only matters for in place upgrade (non revision)
+		podLabels15 := map[string]string{
+			"app":   "istiod",
+			"istio": "pilot",
+		}
+		mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels15)
+		mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels15)
+		mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels15)
+		mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels15)
+	})
 }
 
 // TestLDFlags checks whether building mesh command with

@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/features"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -60,8 +61,9 @@ func GetPromInstance() prometheus.Instance {
 
 // TestStatsFilter includes common test logic for stats and mx exchange filters running
 // with nullvm and wasm runtime.
-func TestStatsFilter(t *testing.T) {
+func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
+		Features(feature).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			sourceQuery, destinationQuery, appQuery := buildQuery()

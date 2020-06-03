@@ -18,15 +18,14 @@ import (
 	"net/http"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/label"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
 func TestWhiteListing(t *testing.T) {
-	framework.NewTest(t).Label(label.Flaky).Run(func(ctx framework.TestContext) {
+	framework.NewTest(t).Run(func(ctx framework.TestContext) {
+		t.Skip("https://github.com/istio/istio/issues/15686")
 		// Verify you can access productpage right now.
 		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
 

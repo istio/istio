@@ -39,22 +39,22 @@ type monitor struct {
 var (
 	totalInjections = monitoring.NewSum(
 		"sidecar_injection_requests_total",
-		"Total number of Side car injection requests.",
+		"Total number of sidecar injection requests.",
 	)
 
 	totalSuccessfulInjections = monitoring.NewSum(
 		"sidecar_injection_success_total",
-		"Total number of successful Side car injection requests.",
+		"Total number of successful sidecar injection requests.",
 	)
 
 	totalFailedInjections = monitoring.NewSum(
 		"sidecar_injection_failure_total",
-		"Total number of failed Side car injection requests.",
+		"Total number of failed sidecar injection requests.",
 	)
 
 	totalSkippedInjections = monitoring.NewSum(
 		"sidecar_injection_skip_total",
-		"Total number of skipped injection requests.",
+		"Total number of skipped sidecar injection requests.",
 	)
 )
 

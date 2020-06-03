@@ -68,11 +68,11 @@ func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
 }
 
 func GetRemoteDiscoveryAddress(namespace string, cluster kubeenv.Cluster, useNodePort bool) (net.TCPAddr, error) {
-	// If running in KinD, MetalLB must be installed to enable LoadBalancer resources
 	svc, err := cluster.GetService(namespace, igwServiceName)
 	if err != nil {
 		return net.TCPAddr{}, err
 	}
+
 	// if useNodePort is set, we look for the node port service. This is generally used on kind or k8s without a LB
 	// and that do not have metallb installed
 	if useNodePort {
@@ -104,6 +104,7 @@ func GetRemoteDiscoveryAddress(namespace string, cluster kubeenv.Cluster, useNod
 		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, nil
 	}
 
+	// If running in KinD, MetalLB must be installed to enable LoadBalancer resources
 	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
 		return net.TCPAddr{}, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Namespace, svc.Name)
 	}
