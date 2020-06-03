@@ -373,13 +373,6 @@ func (s *ServiceEntryStore) getServices() []*model.Service {
 	return services
 }
 
-// ManagementPorts retrieves set of health check ports by instance IP.
-// This does not apply to Service Entry registry, as Service entries do not
-// manage the service instances.
-func (s *ServiceEntryStore) ManagementPorts(_ string) model.PortList {
-	return nil
-}
-
 // WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
 // This does not apply to Service Entry registry, as Service entries do not
 // manage the service instances.

@@ -316,13 +316,6 @@ func (sd *MemServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (label
 	return out, nil
 }
 
-// ManagementPorts implements discovery interface
-func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	return nil
-}
-
 // WorkloadHealthCheckInfo implements discovery interface
 func (sd *MemServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil

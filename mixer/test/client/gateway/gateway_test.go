@@ -245,7 +245,6 @@ func (mock) GetService(_ host.Name) (*model.Service, error) { return nil, nil }
 func (mock) InstancesByPort(_ *model.Service, _ int, _ labels.Collection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) ManagementPorts(_ string) model.PortList                        { return nil }
 func (mock) Services() ([]*model.Service, error)                            { return nil, nil }
 func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList               { return nil }
 func (mock) GetIstioServiceAccounts(_ *model.Service, ports []int) []string { return nil }

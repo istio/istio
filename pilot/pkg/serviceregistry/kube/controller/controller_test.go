@@ -1025,41 +1025,6 @@ func TestWorkloadHealthCheckInfo(t *testing.T) {
 	}
 }
 
-func TestManagementPorts(t *testing.T) {
-	controller, _ := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
-	defer controller.Stop()
-
-	pod := generatePodWithProbes("128.0.0.1", "pod1", "nsA", "", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("9090"))
-	addPods(t, controller, pod)
-	if err := waitForPod(controller, pod.Status.PodIP); err != nil {
-		t.Fatalf("wait for pod err: %v", err)
-	}
-	controller.pods.podsByIP["128.0.0.1"] = "nsA/pod1"
-
-	portList := controller.ManagementPorts("128.0.0.1")
-
-	expected := model.PortList{
-		{
-			Name:     "mgmt-8080",
-			Port:     8080,
-			Protocol: protocol.HTTP,
-		},
-		{
-			Name:     "mgmt-9090",
-			Port:     9090,
-			Protocol: protocol.HTTP,
-		},
-	}
-
-	if len(portList) != len(expected) {
-		t.Fatalf("Expecting %d port but got %d\r\n", len(expected), len(portList))
-	}
-
-	if !reflect.DeepEqual(expected, portList) {
-		t.Fatalf("got port, got:\n%#v\nwanted:\n%#v\n", portList, expected)
-	}
-}
-
 func TestController_Service(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode

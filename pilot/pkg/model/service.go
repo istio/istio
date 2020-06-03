@@ -434,14 +434,6 @@ type ServiceDiscovery interface {
 
 	GetProxyWorkloadLabels(*Proxy) (labels.Collection, error)
 
-	// ManagementPorts lists set of management ports associated with an IPv4 address.
-	// These management ports are typically used by the platform for out of band management
-	// tasks such as health checks, etc. In a scenario where the proxy functions in the
-	// transparent mode (traps all traffic to and from the service instance IP address),
-	// the configuration generated for the proxy will not manipulate traffic destined for
-	// the management ports
-	ManagementPorts(addr string) PortList
-
 	// WorkloadHealthCheckInfo lists set of probes associated with an IPv4 address.
 	// These probes are used by the platform to identify requests that are performing
 	// health checks.

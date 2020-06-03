@@ -236,19 +236,6 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 	return nil, nil
 }
 
-// ManagementPorts implements discovery interface
-func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
-	return model.PortList{{
-		Name:     "http",
-		Port:     3333,
-		Protocol: protocol.HTTP,
-	}, {
-		Name:     "custom",
-		Port:     9999,
-		Protocol: protocol.TCP,
-	}}
-}
-
 // WorkloadHealthCheckInfo implements discovery interface
 func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil

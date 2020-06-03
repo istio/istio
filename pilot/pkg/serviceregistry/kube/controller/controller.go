@@ -669,23 +669,6 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	return region + "/" + zone + "/" + subzone // Format: "%s/%s/%s"
 }
 
-// ManagementPorts implements a service catalog operation
-func (c *Controller) ManagementPorts(addr string) model.PortList {
-	pod := c.pods.getPodByIP(addr)
-	if pod == nil {
-		return nil
-	}
-
-	managementPorts, err := kube.ConvertProbesToPorts(&pod.Spec)
-	if err != nil {
-		log.Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
-	}
-
-	// We continue despite the error because healthCheckPorts could return a partial
-	// list of management ports
-	return managementPorts
-}
-
 // WorkloadHealthCheckInfo implements a service catalog operation
 func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	pod := c.pods.getPodByIP(addr)

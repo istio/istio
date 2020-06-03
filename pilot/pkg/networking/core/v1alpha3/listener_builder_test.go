@@ -70,7 +70,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
 	services := []*model.Service{service}
 
-	env := buildListenerEnv(services, nil)
+	env := buildListenerEnv(services)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
@@ -112,11 +112,11 @@ func setInboundCaptureAllOnThisNode(proxy *model.Proxy, mode model.TrafficInterc
 
 var testServices = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
 
-func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int, mode model.TrafficInterceptionMode) []*listener.Listener {
+func prepareListeners(t *testing.T, services []*model.Service, mode model.TrafficInterceptionMode) []*listener.Listener {
 	// prepare
 	ldsEnv := getDefaultLdsEnv()
 
-	env := buildListenerEnv(services, mgmtPort)
+	env := buildListenerEnv(services)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
@@ -151,7 +151,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t, testServices, nil, model.InterceptionRedirect)
+	listeners := prepareListeners(t, testServices, model.InterceptionRedirect)
 	// virtual inbound and outbound listener
 	if len(listeners) != 2 {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
@@ -196,7 +196,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t, testServices, nil, model.InterceptionRedirect)
+	listeners := prepareListeners(t, testServices, model.InterceptionRedirect)
 	// virtual inbound and outbound listener
 	if len(listeners) != 2 {
 		t.Fatalf("expect %d listeners, found %d", 2, len(listeners))
@@ -292,7 +292,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t, testServices, nil, model.InterceptionTproxy)
+	listeners := prepareListeners(t, testServices, model.InterceptionTproxy)
 
 	if len(listeners) != 2 {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
