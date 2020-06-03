@@ -81,7 +81,7 @@ func NewXDS() *Server {
 		DiscoveryServer: ds,
 	}
 	s.syncCh = make(chan string, len(schemas.All()))
-	configController := memory.NewController(store)
+	configController := memory.NewControllerSync(store, &schemas, s.syncCh)
 	s.MemoryConfigStore = model.MakeIstioStore(configController)
 
 	// Endpoints/Clusters - using the config store for ServiceEntries

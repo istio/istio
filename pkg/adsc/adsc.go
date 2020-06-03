@@ -434,9 +434,29 @@ func (a *ADSC) handleRecv() {
 				}
 			}
 		}
+		// last resource of this type. IstioStore doesn't yet have a way to indicate this
+		// or to support large sets - memory store has a special handling by calling Create
+		// with an empty resource. This is used to avoid sleep loop on HasSynced
+		if a.Store != nil && len(gvk) == 3 {
+			_, err = a.Store.Create(model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Group:   gvk[0],
+					Version: gvk[1],
+					Type:    gvk[2],
+				},
+			})
+			if err != nil {
+				continue
+			}
+			log.Infoa("Sync for ", gvk, len(msg.Resources))
+		}
 
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
 		// This scheme also allows us to chunk large responses !
+
+		a.Received[msg.TypeUrl] = msg
+
+		// TODO: add hook to inject nacks
 
 		a.mutex.Lock()
 		a.Received[msg.TypeUrl] = msg

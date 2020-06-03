@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 
 	"istio.io/istio/pilot/pkg/security/model"
@@ -208,8 +210,10 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir, clusterID string) *SDSAgent {
+func NewSDSAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir, clusterID string) *SDSAgent {
 	a := &SDSAgent{}
+
+	discAddr := proxyConfig.DiscoveryAddress
 
 	a.SDSAddress = "unix:" + LocalSDS
 	a.ClusterID = clusterID
@@ -266,7 +270,8 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 		a.CAEndpoint = discAddr
 	}
 
-	if tlsRequired {
+	// TODO: tls should be required in all cases except ":15010" port - it is mainly for debugging/tests.
+	if proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
 		a.RequireCerts = true
 	}
 
@@ -275,6 +280,9 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	if discPort == "15012" {
 		a.RequireCerts = true
 	}
+
+	initXDS(proxyConfig)
+	
 	return a
 }
 
