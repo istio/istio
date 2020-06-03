@@ -28,7 +28,6 @@ import (
 
 	"istio.io/istio/pkg/test/util/retry"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -206,7 +205,7 @@ func TestDebounce(t *testing.T) {
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				updateCh <- &model.PushRequest{Full: true}
 				updateCh <- &model.PushRequest{Full: true}
-				expect(0, 0)
+				expect(0, 1)
 			},
 		},
 		{
@@ -240,7 +239,7 @@ func TestDebounce(t *testing.T) {
 			name: "Should push synchronously after debounce",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(features.DebounceMax + 10*time.Millisecond)
+				time.Sleep(debounceAfter + 10*time.Millisecond)
 				updateCh <- &model.PushRequest{Full: true}
 				expect(0, 2)
 			},

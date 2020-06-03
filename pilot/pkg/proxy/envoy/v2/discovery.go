@@ -368,6 +368,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				timeChan = time.After(debounceBackoff)
 			}
 			debouncedEvents++
+
 			req = req.Merge(r)
 		case <-timeChan:
 			if free {

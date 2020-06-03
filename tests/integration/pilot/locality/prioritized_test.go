@@ -98,7 +98,7 @@ func TestPrioritized(t *testing.T) {
 					log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
 					if err := retry.UntilSuccess(func() error {
 						return sendTraffic(a, fakeHostname, expectAllTrafficToB)
-					}, retry.Delay(time.Second*12)); err != nil {
+					}, retry.Delay(time.Second*5)); err != nil {
 						ctx.Fatal(err)
 					}
 				})

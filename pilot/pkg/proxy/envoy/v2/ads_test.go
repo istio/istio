@@ -741,7 +741,7 @@ func TestAdsUpdate(t *testing.T) {
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	time.Sleep(time.Millisecond * 200)
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints("adsupdate.default.svc.cluster.local", "default",
-		newEndpointWithAccount("10.2.0.1", "", "v1"))
+		newEndpointWithAccount("10.2.0.1", "hello-sa", "v1"))
 
 	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), edsstr)
 	if err != nil {
@@ -749,7 +749,6 @@ func TestAdsUpdate(t *testing.T) {
 	}
 
 	res1, err := adsReceive(edsstr, 15*time.Second)
-
 	if err != nil {
 		t.Fatal("Recv failed", err)
 	}
@@ -764,6 +763,7 @@ func TestAdsUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal("Invalid EDS response ", err)
 	}
+
 	ep := cla.Endpoints
 	if len(ep) == 0 {
 		t.Fatal("No endpoints")
