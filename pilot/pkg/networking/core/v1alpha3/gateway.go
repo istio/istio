@@ -374,8 +374,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	// Build a filter chain for the HTTPS server
 	// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 	// where HTTPS server's TLS mode is not passthrough and not nil
-	// If proxy sends metadata USER_SDS, then create SDS config for
-	// gateway listener.
 	return &filterChainOpts{
 		// This works because we validate that only HTTPS servers can have same port but still different port names
 		// and that no two non-HTTPS servers can be on same port or share port names.
@@ -402,12 +400,9 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	}
 }
 
-// enableIngressSds: signifies whether this is an SDS enabled ingress controller, with an embedded node agent running
-// alongside the gateway pod (https://istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/)
 // sdsPath: is the path to the mesh-wide workload sds uds path, and it is assumed that if this path is unset, that sds is
 // disabled mesh-wide
 // metadata: map of miscellaneous configuration values sent from the Envoy instance back to Pilot, could include the field
-// USER_SDS which signifies that the proxy is an SDS-enabled ingress gateway
 //
 // Below is a table of potential scenarios for the gateway configuration:
 //
@@ -526,8 +521,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 		// Validation ensures that non-passthrough servers will have certs
 		if filters := buildGatewayNetworkFiltersFromTCPRoutes(node,
 			push, server, gatewaysForWorkload); len(filters) > 0 {
-			// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
-			// gateway listener.
 			return []*filterChainOpts{
 				{
 					sniHosts:       getSNIHostsForServer(server),
