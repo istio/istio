@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
-		Setup(kube.Setup(func(s *kube.Settings) {
+		Setup(kube.Setup(func(_ *kube.Environment, s *kube.Settings) {
 			// Make all clusters use the same control plane
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
 			primaryCluster := resource.ClusterIndex(0)

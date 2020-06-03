@@ -15,6 +15,7 @@
 package revisions
 
 import (
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"testing"
 	"time"
 
@@ -37,6 +38,10 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("pilot_revisions_test", m).
 		RequireEnvironment(environment.Kube).
+		Setup(kube.Setup(func(e *kube.Environment, _ *kube.Settings) {
+			//  TODO(landow) utilize multiple clusters
+			e.KubeClusters = e.KubeClusters[:1]
+		})).
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.Revision = "stable"
 		})).
