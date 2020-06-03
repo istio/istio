@@ -206,6 +206,10 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 		if !ok {
 			return nil, errors.New("invalid context")
 		}
+		// No authentication info provided
+		if peerInfo.AuthInfo == nil {
+			return nil, nil
+		}
 		var authenticatedID *authenticate.Caller
 		for _, authn := range s.Authenticators {
 			u, err := authn.Authenticate(ctx)
