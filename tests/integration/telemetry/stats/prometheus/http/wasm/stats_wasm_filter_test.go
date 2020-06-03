@@ -56,5 +56,4 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "true"
 	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
 	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "true"
-	cfg.Values["prometheus.enabled"] = "true"
 }
