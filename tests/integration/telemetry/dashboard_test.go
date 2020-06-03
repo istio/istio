@@ -203,7 +203,7 @@ func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 		}
 	} else {
 		if numSamples != 0 {
-			scopes.CI.Debugf("Filtered out metric '%v', but got samples: %v", query, value)
+			scopes.CI.Infof("Filtered out metric '%v', but got samples: %v", query, value)
 		}
 	}
 	return nil
