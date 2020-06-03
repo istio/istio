@@ -56,7 +56,8 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.BaseDir, "istio.test.work_dir", os.TempDir(),
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 
-	flag.StringVar(nil, "istio.test.env", "","Deprecated. This flag does nothing")
+	var env string
+	flag.StringVar(&env, "istio.test.env", "","Deprecated. This flag does nothing")
 
 	flag.BoolVar(&settingsFromCommandLine.NoCleanup, "istio.test.nocleanup", settingsFromCommandLine.NoCleanup,
 		"Do not cleanup resources after test completion")
