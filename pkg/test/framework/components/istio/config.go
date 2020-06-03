@@ -120,6 +120,10 @@ type Config struct {
 	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
 	// if the value is "", use the default sidecar injection instead.
 	CustomSidecarInjectorNamespace string
+
+	// Revision sets the revision flag during installation. This value should be used rather than ControlPlaneValues
+	// so that the names of the pods in this control plane are predictable.
+	Revision                       string
 }
 
 func (c *Config) IstioOperatorConfigYAML() string {

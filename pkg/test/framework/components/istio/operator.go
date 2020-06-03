@@ -23,7 +23,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -341,11 +340,17 @@ func (i *operatorComponent) generateIOPFile(operatorYaml string, path string, cf
 	if err := yaml.Unmarshal([]byte(operatorYaml), &operatorCfg); err != nil {
 		return fmt.Errorf("failed to unmsarshal base iop: %v", err)
 	}
+
 	spec := operatorCfg["spec"].(map[interface{}]interface{})
-	if i.environment.IsMultinetwork() && !strings.Contains(operatorYaml, "meshNetworks:") {
+
+	if cfg.Revision != "" {
+		spec["revision"] = cfg.Revision
+	}
+
+	if i.environment.IsMultinetwork() {
 		values := map[interface{}]interface{}{}
 		if spec["values"] != nil {
-			values = operatorCfg["spec"].(map[interface{}]interface{})["values"].(map[interface{}]interface{})
+			values = spec["values"].(map[interface{}]interface{})
 		}
 		spec["values"] = values
 
