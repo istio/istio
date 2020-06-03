@@ -475,7 +475,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 	push *model.PushContext) []*listener.Listener {
 
 	var listeners []*listener.Listener
-	listenerMap := make(map[string]*inboundListenerEntry)
+	listenerMap := make(map[int]*inboundListenerEntry)
 
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
@@ -513,7 +513,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		//
 		for _, instance := range node.ServiceInstances {
 			endpoint := instance.Endpoint
-			bind := endpoint.Address
+			// Inbound listeners will be aggregated into a single virtual listener (port 15006)
+			// As a result, we don't need to worry about binding to the endpoint IP; we already know
+			// all traffic for these listeners is inbound.
+			// TODO: directly build filter chains rather than translating listeneners to filter chains
+			wildcard, _ := getActualWildcardAndLocalHost(node)
+			bind := wildcard
 
 			// Local service instances can be accessed through one of three
 			// addresses: localhost, endpoint IP, and service
@@ -683,23 +688,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
 // for a given port or unix domain socket
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
-	pluginParams *plugin.InputParams, listenerMap map[string]*inboundListenerEntry) *listener.Listener {
+	pluginParams *plugin.InputParams, listenerMap map[int]*inboundListenerEntry) *listener.Listener {
 	// Local service instances can be accessed through one of four addresses:
 	// unix domain socket, localhost, endpoint IP, and service
 	// VIP. Localhost bypasses the proxy and doesn't need any TCP
 	// route config. Endpoint IP is handled below and Service IP is handled
 	// by outbound routes. Traffic sent to our service VIP is redirected by
 	// remote services' kubeproxy to our specific endpoint IP.
-	listenerMapKey := listenerKey(listenerOpts.bind, listenerOpts.port)
 
-	if old, exists := listenerMap[listenerMapKey]; exists {
-		// For sidecar specified listeners, the caller is expected to supply a dummy service instance
-		// with the right port and a hostname constructed from the sidecar config's name+namespace
-		pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node,
-			fmt.Sprintf("Conflicting inbound listener:%s. existing: %s, incoming: %s", listenerMapKey,
-				old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
-
-		// Skip building listener for the same ip port
+	if old, exists := listenerMap[listenerOpts.port]; exists {
+		// If we already setup this hostname, its not a conflict. This may just mean there are multiple
+		// IPs for this hostname
+		if old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
+			// For sidecar specified listeners, the caller is expected to supply a dummy service instance
+			// with the right port and a hostname constructed from the sidecar config's name+namespace
+			pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node,
+				fmt.Sprintf("Conflicting inbound listener:%d. existing: %s, incoming: %s", listenerOpts.port,
+					old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
+		}
+		// Skip building listener for the same port
 		return nil
 	}
 
@@ -836,15 +843,13 @@ allChainsLabel:
 		return nil
 	}
 
-	listenerMap[listenerMapKey] = &inboundListenerEntry{
-		bind:             listenerOpts.bind,
+	listenerMap[listenerOpts.port] = &inboundListenerEntry{
 		instanceHostname: pluginParams.ServiceInstance.Service.Hostname,
 	}
 	return mutable.Listener
 }
 
 type inboundListenerEntry struct {
-	bind             string
 	instanceHostname host.Name // could be empty if generated via Sidecar CRD
 }
 
