@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@ package xds
 
 import (
 	"net"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	"istio.io/pkg/log"
 
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -31,7 +32,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/log"
 )
 
 type Server struct {
@@ -120,26 +120,6 @@ func NewXDS() *Server {
 	env.IstioConfigStore = model.MakeIstioStore(aggregateConfigController)
 
 	return s
-}
-
-// WaitConfigSync will wait for the memory controller to sync.
-func (s *Server) WaitConfigSync(max time.Duration) bool {
-	// TODO: when adding support for multiple config controllers (matching MCP), make sure the
-	// new stores support reporting sync events on the syncCh, to avoid the sleep loop from MCP.
-	if s.ConfigStoreCache.HasSynced() {
-		return true
-	}
-	maxCh := time.After(max)
-	for {
-		select {
-		case <-s.syncCh:
-			if s.ConfigStoreCache.HasSynced() {
-				return true
-			}
-		case <-maxCh:
-			return s.ConfigStoreCache.HasSynced()
-		}
-	}
 }
 
 func (s *Server) StartGRPC(addr string) error {

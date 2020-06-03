@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,18 +25,18 @@ import (
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	grpc_stats "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/grpc_stats/v2alpha"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	fileaccesslogconfig "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
-	alsconfig "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
+	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/filters/ratelimit/v3"
-	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
+	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
-	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -58,7 +58,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
-	alpn_filter "istio.io/istio/security/proto/envoy/config/filter/http/alpn/v2alpha1"
 )
 
 const (
@@ -92,10 +91,6 @@ const (
 
 	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
 	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
-
-	// VirtualOutboundTrafficLoopFilterChainName is the name of the filter chain that handles
-	// pod IP traffic loops
-	VirtualOutboundTrafficLoopFilterChainName = "virtualOutbound-trafficloop"
 
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
@@ -358,7 +353,7 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	fl := &fileaccesslogconfig.FileAccessLog{
+	fl := &fileaccesslog.FileAccessLog{
 		Path: mesh.AccessLogFile,
 	}
 
@@ -368,7 +363,7 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 		if mesh.AccessLogFormat != "" {
 			formatString = mesh.AccessLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslogconfig.FileAccessLog_Format{
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
 			Format: formatString,
 		}
 	case meshconfig.MeshConfig_JSON:
@@ -390,7 +385,7 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 		if jsonLog == nil {
 			jsonLog = EnvoyJSONLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslogconfig.FileAccessLog_JsonFormat{
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
 			JsonFormat: jsonLog,
 		}
 	default:
@@ -407,8 +402,8 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 }
 
 func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
-	fl := &alsconfig.HttpGrpcAccessLogConfig{
-		CommonConfig: &alsconfig.CommonGrpcAccessLogConfig{
+	fl := &grpcaccesslog.HttpGrpcAccessLogConfig{
+		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: httpEnvoyAccessLogFriendlyName,
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -636,10 +631,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 			pluginParams.Push, pluginParams.ServiceInstance, clusterName),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
-		connectionManager: &http_conn.HttpConnectionManager{
+		connectionManager: &hcm.HttpConnectionManager{
 			// Append and forward client cert to backend.
-			ForwardClientCertDetails: http_conn.HttpConnectionManager_APPEND_FORWARD,
-			SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+			ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 				Subject: proto.BoolTrue,
 				Uri:     true,
 				Dns:     true,
@@ -677,8 +672,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 	}
 
 	thriftOpts := &thriftListenerOpts{
-		transport:   thrift_proxy.TransportType_AUTO_TRANSPORT,
-		protocol:    thrift_proxy.ProtocolType_AUTO_PROTOCOL,
+		transport:   thrift.TransportType_AUTO_TRANSPORT,
+		protocol:    thrift.ProtocolType_AUTO_PROTOCOL,
 		routeConfig: configgen.buildSidecarThriftRouteConfig(clusterName, pluginParams.Push.Mesh.ThriftConfig.RateLimitUrl),
 	}
 
@@ -1114,14 +1109,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 	// Now validate all the listeners. Collate the tcp listeners first and then the HTTP listeners
 	// TODO: This is going to be bad for caching as the order of listeners in tcpListeners or httpListeners is not
 	// guaranteed.
-	invalid := 0.0
-	for name, l := range listenerMap {
-		if err := l.listener.Validate(); err != nil {
-			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
-			invalid++
-			invalidOutboundListeners.Record(invalid)
-			continue
-		}
+	for _, l := range listenerMap {
 		if l.servicePort.Protocol.IsTCP() {
 			tcpListeners = append(tcpListeners, l.listener)
 		} else {
@@ -1160,7 +1148,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 			httpOpts: &httpListenerOpts{
 				rds:              RDSHttpProxy,
 				useRemoteAddress: false,
-				connectionManager: &http_conn.HttpConnectionManager{
+				connectionManager: &hcm.HttpConnectionManager{
 					HttpProtocolOptions: httpOpts,
 				},
 			},
@@ -1272,7 +1260,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	}
 
 	if features.HTTP10 || pluginParams.Node.Metadata.HTTP10 == "1" {
-		httpOpts.connectionManager = &http_conn.HttpConnectionManager{
+		httpOpts.connectionManager = &hcm.HttpConnectionManager{
 			HttpProtocolOptions: &core.Http1ProtocolOptions{
 				AcceptHttp_10: true,
 			},
@@ -1323,8 +1311,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForP
 	// No conflicts. Add a thrift filter chain option to the listenerOpts
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", pluginParams.Service.Hostname, pluginParams.Port.Port)
 	thriftOpts := &thriftListenerOpts{
-		protocol:    thrift_proxy.ProtocolType_AUTO_PROTOCOL,
-		transport:   thrift_proxy.TransportType_AUTO_TRANSPORT,
+		protocol:    thrift.ProtocolType_AUTO_PROTOCOL,
+		transport:   thrift.TransportType_AUTO_TRANSPORT,
 		routeConfig: configgen.buildSidecarThriftRouteConfig(clusterName, pluginParams.Push.Mesh.ThriftConfig.RateLimitUrl),
 	}
 
@@ -1457,6 +1445,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	conflictType := NoConflict
 
 	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound
+	listenerProtocol := pluginParams.Port.Protocol
 
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if pluginParams.Port.Protocol == protocol.HTTP_PROXY {
@@ -1478,14 +1467,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
 				// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
 				if currentListenerEntry.protocol.IsHTTP() {
-					conflictType = HTTPOverHTTP
+					// conflictType is HTTPOverHTTP
+					// In these cases, we just add the services and exit early rather than recreate an identical listener
+					currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
+					return
 				} else if currentListenerEntry.protocol.IsTCP() {
 					conflictType = HTTPOverTCP
 				} else {
-					conflictType = HTTPOverAuto
+					// conflictType is HTTPOverAuto
+					// In these cases, we just add the services and exit early rather than recreate an identical listener
+					currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
+					return
 				}
 			}
-
 			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
 			// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
@@ -1502,6 +1496,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 					}
 
 					listenerOpts.needHTTPInspector = true
+
+					// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
+					// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
+					// inspection to route between them
+					listenerProtocol = protocol.Unsupported
 				}
 			}
 			listenerOpts.filterChainOpts = opts
@@ -1579,7 +1578,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				} else if currentListenerEntry.protocol.IsTCP() {
 					conflictType = AutoOverTCP
 				} else {
-					conflictType = AutoOverAuto
+					// conflictType is AutoOverAuto
+					// In these cases, we just add the services and exit early rather than recreate an identical listener
+					currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
+					return
 				}
 			}
 
@@ -1655,13 +1657,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				servicePort: pluginParams.Port,
 				bind:        listenerOpts.bind,
 				listener:    mutable.Listener,
-				protocol:    pluginParams.Port.Protocol,
+				protocol:    listenerProtocol,
 			}
 		}
-
-	case HTTPOverHTTP, HTTPOverAuto:
-		// Append service only
-		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 	case HTTPOverTCP:
 		// Merge HTTP filter chain to TCP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(mutable.Listener.FilterChains, currentListenerEntry.listener.FilterChains)
@@ -1703,8 +1701,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.protocol = protocol.Unsupported
 		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 
-	case AutoOverAuto:
-		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
+	default:
+		// Covered previously - in this case we return early to prevent creating listeners that we end up throwing away
+		// This should never happen
+		log.Errorf("Got unexpected conflict type %v. This should never happen", conflictType)
 	}
 
 	if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListenerEntry != nil {
@@ -1846,7 +1846,7 @@ type httpListenerOpts struct {
 	routeConfig *route.RouteConfiguration
 	rds         string
 	// If set, use this as a basis
-	connectionManager *http_conn.HttpConnectionManager
+	connectionManager *hcm.HttpConnectionManager
 	// stat prefix for the http connection manager
 	// DO not set this field. Will be overridden by buildCompleteFilterChain
 	statPrefix string
@@ -1859,9 +1859,9 @@ type httpListenerOpts struct {
 // thriftListenerOpts are options for a Thrift listener
 type thriftListenerOpts struct {
 	// Stats are not provided for the Thrift filter chain
-	transport   thrift_proxy.TransportType
-	protocol    thrift_proxy.ProtocolType
-	routeConfig *thrift_proxy.RouteConfiguration
+	transport   thrift.TransportType
+	protocol    thrift.ProtocolType
+	routeConfig *thrift.RouteConfiguration
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1893,8 +1893,8 @@ type buildListenerOpts struct {
 }
 
 func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *httpListenerOpts,
-	httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
-	filters := make([]*http_conn.HttpFilter, len(httpFilters))
+	httpFilters []*hcm.HttpFilter) *hcm.HttpConnectionManager {
+	filters := make([]*hcm.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
 
 	if httpOpts.addGRPCWebFilter {
@@ -1904,10 +1904,10 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	if pluginParams.ServiceInstance != nil &&
 		pluginParams.ServiceInstance.ServicePort != nil &&
 		pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPC {
-		filters = append(filters, &http_conn.HttpFilter{
+		filters = append(filters, &hcm.HttpFilter{
 			Name: wellknown.HTTPGRPCStats,
-			ConfigType: &http_conn.HttpFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&grpc_stats.FilterConfig{
+			ConfigType: &hcm.HttpFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&grpcstats.FilterConfig{
 					EmitFilterState: true,
 				}),
 			},
@@ -1916,37 +1916,17 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND {
-		filters = append(filters, &http_conn.HttpFilter{
-			Name: AlpnFilterName,
-			ConfigType: &http_conn.HttpFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&alpn_filter.FilterConfig{
-					AlpnOverride: []*alpn_filter.FilterConfig_AlpnOverride{
-						{
-							UpstreamProtocol: alpn_filter.FilterConfig_HTTP10,
-							AlpnOverride:     mtlsHTTP10ALPN,
-						},
-						{
-							UpstreamProtocol: alpn_filter.FilterConfig_HTTP11,
-							AlpnOverride:     mtlsHTTP11ALPN,
-						},
-						{
-							UpstreamProtocol: alpn_filter.FilterConfig_HTTP2,
-							AlpnOverride:     mtlsHTTP2ALPN,
-						},
-					},
-				}),
-			},
-		})
+		filters = append(filters, alpnFilter)
 	}
 
 	filters = append(filters, corsFilter, faultFilter, routerFilter)
 
 	if httpOpts.connectionManager == nil {
-		httpOpts.connectionManager = &http_conn.HttpConnectionManager{}
+		httpOpts.connectionManager = &hcm.HttpConnectionManager{}
 	}
 
 	connectionManager := httpOpts.connectionManager
-	connectionManager.CodecType = http_conn.HttpConnectionManager_AUTO
+	connectionManager.CodecType = hcm.HttpConnectionManager_AUTO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
@@ -1958,8 +1938,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	// Allow websocket upgrades
-	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
-	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+	websocketUpgrade := &hcm.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
+	connectionManager.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 
 	idleTimeout, err := time.ParseDuration(pluginParams.Node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
@@ -1972,8 +1952,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	connectionManager.StreamIdleTimeout = notimeout
 
 	if httpOpts.rds != "" {
-		rds := &http_conn.HttpConnectionManager_Rds{
-			Rds: &http_conn.Rds{
+		rds := &hcm.HttpConnectionManager_Rds{
+			Rds: &hcm.Rds{
 				ConfigSource: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
@@ -1985,7 +1965,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		}
 		connectionManager.RouteSpecifier = rds
 	} else {
-		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
+		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
 
 	if pluginParams.Push.Mesh.AccessLogFile != "" {
@@ -2005,8 +1985,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	return connectionManager
 }
 
-func buildTracingConfig(config *meshconfig.ProxyConfig) *http_conn.HttpConnectionManager_Tracing {
-	tracingCfg := &http_conn.HttpConnectionManager_Tracing{}
+func buildTracingConfig(config *meshconfig.ProxyConfig) *hcm.HttpConnectionManager_Tracing {
+	tracingCfg := &hcm.HttpConnectionManager_Tracing{}
 	updateTraceSamplingConfig(config, tracingCfg)
 
 	if config.Tracing != nil {
@@ -2036,7 +2016,7 @@ func getPilotRandomSamplingEnv() float64 {
 	return f
 }
 
-func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *http_conn.HttpConnectionManager_Tracing) {
+func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConnectionManager_Tracing) {
 	sampling := pilotTraceSamplingEnv
 
 	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
@@ -2046,13 +2026,13 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *http_conn.Ht
 			sampling = 100.0
 		}
 	}
-	cfg.ClientSampling = &envoy_type.Percent{
+	cfg.ClientSampling = &xdstype.Percent{
 		Value: 100.0,
 	}
-	cfg.RandomSampling = &envoy_type.Percent{
+	cfg.RandomSampling = &xdstype.Percent{
 		Value: sampling,
 	}
-	cfg.OverallSampling = &envoy_type.Percent{
+	cfg.OverallSampling = &xdstype.Percent{
 		Value: 100.0,
 	}
 }
@@ -2140,8 +2120,8 @@ func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_Thr
 	return thriftRateLimit
 }
 
-func buildThriftProxy(thriftOpts *thriftListenerOpts) *thrift_proxy.ThriftProxy {
-	return &thrift_proxy.ThriftProxy{
+func buildThriftProxy(thriftOpts *thriftListenerOpts) *thrift.ThriftProxy {
+	return &thrift.ThriftProxy{
 		Transport:   thriftOpts.transport,
 		Protocol:    thriftOpts.protocol,
 		RouteConfig: thriftOpts.routeConfig,
@@ -2292,7 +2272,7 @@ func appendListenerFallthroughRoute(l *listener.Listener, opts *buildListenerOpt
 
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
 //
-// TODO: should we change this from []plugins.FilterChains to [][]listener.Filter, [][]*http_conn.HttpFilter?
+// TODO: should we change this from []plugins.FilterChains to [][]listener.Filter, [][]*hcm.HttpFilter?
 // TODO: given how tightly tied listener.FilterChains, opts.filterChainOpts, and mutable.FilterChains are to eachother
 // we should encapsulate them some way to ensure they remain consistent (mainly that in each an index refers to the same
 // chain)
@@ -2301,8 +2281,8 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 		return fmt.Errorf("must have more than 0 chains in listener: %#v", mutable.Listener)
 	}
 
-	httpConnectionManagers := make([]*http_conn.HttpConnectionManager, len(mutable.FilterChains))
-	thriftProxies := make([]*thrift_proxy.ThriftProxy, len(mutable.FilterChains))
+	httpConnectionManagers := make([]*hcm.HttpConnectionManager, len(mutable.FilterChains))
+	thriftProxies := make([]*thrift.ThriftProxy, len(mutable.FilterChains))
 	for i := range mutable.FilterChains {
 		chain := mutable.FilterChains[i]
 		opt := opts.filterChainOpts[i]
@@ -2328,12 +2308,12 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 				pluginParams.Service.Hostname != "" &&
 				len(quotas) > 0 {
 				rateLimitConfig := buildThriftRatelimit(fmt.Sprint(pluginParams.Service.Hostname), opts.push.Mesh.ThriftConfig)
-				rateLimitFilter := &thrift_proxy.ThriftFilter{
+				rateLimitFilter := &thrift.ThriftFilter{
 					Name: "envoy.filters.thrift.rate_limit",
 				}
-				routerFilter := &thrift_proxy.ThriftFilter{
+				routerFilter := &thrift.ThriftFilter{
 					Name:       "envoy.filters.thrift.router",
-					ConfigType: &thrift_proxy.ThriftFilter_TypedConfig{TypedConfig: util.MessageToAny(rateLimitConfig)},
+					ConfigType: &thrift.ThriftFilter_TypedConfig{TypedConfig: util.MessageToAny(rateLimitConfig)},
 				}
 
 				thriftProxies[i].ThriftFilters = append(thriftProxies[i].ThriftFilters, rateLimitFilter, routerFilter)

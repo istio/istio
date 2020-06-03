@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -445,7 +445,6 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			meta.InstanceName = val
 		case "POD_NAMESPACE":
 			meta.Namespace = val
-			meta.ConfigNamespace = val
 		case "ISTIO_META_OWNER":
 			meta.Owner = val
 		case "ISTIO_META_WORKLOAD_NAME":

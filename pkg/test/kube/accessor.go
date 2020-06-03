@@ -205,6 +205,21 @@ func (a *Accessor) NewPodFetch(namespace string, selectors ...string) PodFetchFu
 	}
 }
 
+// NewPodMustFetch creates a new PodFetchFunction that fetches all pods matching the namespace and label selectors.
+// If no pods are found, an error is returned
+func (a *Accessor) NewPodMustFetch(namespace string, selectors ...string) PodFetchFunc {
+	return func() ([]kubeApiCore.Pod, error) {
+		pods, err := a.GetPods(namespace, selectors...)
+		if err != nil {
+			return nil, err
+		}
+		if len(pods) == 0 {
+			return nil, fmt.Errorf("no pods found for %v", selectors)
+		}
+		return pods, nil
+	}
+}
+
 // NewSinglePodFetch creates a new PodFetchFunction that fetches a single pod matching the given label selectors.
 func (a *Accessor) NewSinglePodFetch(namespace string, selectors ...string) PodFetchFunc {
 	return func() ([]kubeApiCore.Pod, error) {

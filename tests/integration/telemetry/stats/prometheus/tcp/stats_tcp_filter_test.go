@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ var (
 func TestTcpMetric(t *testing.T) { // nolint:interfacer
 	framework.
 		NewTest(t).
+		Features("observability.telemetry.stats.prometheus.tcp").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			addr := ing.HTTPAddress()

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -183,9 +183,15 @@ func (s *Server) Run(ctx context.Context) {
 	go func() {
 		if err := http.Serve(l, mux); err != nil {
 			log.Errora(err)
-			// If the server errors then pilot-agent can never pass readiness or liveness probes
-			// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
-			notifyExit()
+			select {
+			case <-ctx.Done():
+				// We are shutting down already, don't trigger SIGTERM
+				return
+			default:
+				// If the server errors then pilot-agent can never pass readiness or liveness probes
+				// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
+				notifyExit()
+			}
 		}
 	}()
 
@@ -382,7 +388,8 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		if h.Name == "Host" || h.Name == ":authority" {
 			// Probe has specific host header override; honor it
 			appReq.Host = h.Value
-			break
+		} else {
+			appReq.Header.Add(h.Name, h.Value)
 		}
 	}
 

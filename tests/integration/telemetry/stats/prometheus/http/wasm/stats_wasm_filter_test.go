@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package wasm
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 
@@ -31,7 +32,7 @@ import (
 // proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
 // of metrics, which should be covered by integration test in proxy repo.
 func TestWasmStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t)
+	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.http.wasm"))
 }
 
 func TestMain(m *testing.M) {

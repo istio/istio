@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -70,6 +71,20 @@ type Config struct {
 	// IP is currently the primary key used to locate inbound configs. It is sent by client,
 	// must match a known endpoint IP. Tests can use a ServiceEntry to register fake IPs.
 	IP string
+
+	// CertDir is the directory where mTLS certs are configured.
+	// If empty, an insecure connection will be used.
+	// TODO: also allow passing in-memory certs.
+	CertDir string
+
+	// Watch is a list of resources to watch, represented as URLs (for new XDS resource naming)
+	// or type URLs.
+	Watch []string
+
+	// InitialReconnectDelay is the time to wait before attempting to reconnect.
+	// If empty reconnect will not be attempted.
+	// TODO: client will use exponential backoff to reconnect.
+	InitialReconnectDelay time.Duration
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -137,6 +152,11 @@ type ADSC struct {
 	// TODO: also load at startup - so we can support warm up in init-container, and survive
 	// restarts.
 	LocalCacheDir string
+
+	cfg *Config
+
+	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
+	sendNodeMeta bool
 }
 
 const (
@@ -154,6 +174,9 @@ var (
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
+	if opts == nil {
+		opts = &Config{}
+	}
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),
 		XDSUpdates:  make(chan *xdsapi.DiscoveryResponse, 100),
@@ -161,6 +184,10 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		certDir:     certDir,
 		url:         url,
 		Received:    map[string]*xdsapi.DiscoveryResponse{},
+		cfg:         opts,
+	}
+	if certDir != "" {
+		opts.CertDir = certDir
 	}
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
@@ -232,11 +259,11 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 // Close the stream.
 func (a *ADSC) Close() {
 	a.mutex.Lock()
-	a.conn.Close()
+	_ = a.conn.Close()
 	a.mutex.Unlock()
 }
 
-// Run will run the ADS client.
+// Run will run one connection to the ADS client.
 func (a *ADSC) Run() error {
 
 	// TODO: pass version info, nonce properly
@@ -269,6 +296,15 @@ func (a *ADSC) Run() error {
 		return err
 	}
 	a.stream = edsstr
+	a.sendNodeMeta = true
+
+	// Send the initial requests
+	for _, r := range a.cfg.Watch {
+		_ = a.Send(&xdsapi.DiscoveryRequest{
+			TypeUrl: r,
+		})
+	}
+
 	go a.handleRecv()
 	return nil
 }
@@ -326,14 +362,14 @@ func (a *ADSC) handleRecv() {
 					listeners = append(listeners, ll)
 				}
 
-			case v2.ClusterTypeV3:
+			case v3.ClusterType:
 				{
 					cl := &cluster.Cluster{}
 					_ = proto.Unmarshal(valBytes, cl)
 					clusters = append(clusters, cl)
 				}
 
-			case v2.EndpointTypeV3:
+			case v3.EndpointType:
 				{
 					el := &endpoint.ClusterLoadAssignment{}
 					_ = proto.Unmarshal(valBytes, el)
@@ -425,7 +461,6 @@ func (a *ADSC) handleRecv() {
 		default:
 		}
 	}
-
 }
 
 func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
@@ -536,34 +571,6 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 	}
 }
 
-// compact representations, for simplified debugging/testing
-
-// TCPListener extracts the core elements from envoy Listener.
-type TCPListener struct {
-	// Address is the address, as expected by go Dial and Listen, including port
-	Address string
-
-	// LogFile is the access log address for the listener
-	LogFile string
-
-	// Target is the destination cluster.
-	Target string
-}
-
-type Target struct {
-
-	// Address is a go address, extracted from the mangled cluster name.
-	Address string
-
-	// Endpoints are the resolved endpoints from eds or cluster static.
-	Endpoints map[string]Endpoint
-}
-
-type Endpoint struct {
-	// Weight extracted from eds
-	Weight int
-}
-
 // Save will save the json configs to files, using the base directory
 func (a *ADSC) Save(base string) error {
 	a.mutex.Lock()
@@ -642,7 +649,7 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 	adscLog.Infof("CDS: %d size=%d", len(cn), cdsSize)
 
 	if len(cn) > 0 {
-		a.sendRsc(v2.EndpointTypeV3, cn)
+		a.sendRsc(v3.EndpointType, cn)
 	}
 	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(ll, " ", " ")
@@ -671,12 +678,19 @@ func (a *ADSC) node() *core.Node {
 			}}
 	} else {
 		n.Metadata = a.Metadata
+		if a.Metadata.Fields["ISTIO_VERSION"] == nil {
+			a.Metadata.Fields["ISTIO_VERSION"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}}
+		}
 	}
 	return n
 }
 
+// Raw send of a request.
 func (a *ADSC) Send(req *xdsapi.DiscoveryRequest) error {
-	req.Node = a.node()
+	if a.sendNodeMeta {
+		req.Node = a.node()
+		a.sendNodeMeta = false
+	}
 	req.ResponseNonce = time.Now().String()
 	return a.stream.Send(req)
 }
@@ -782,7 +796,22 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	for {
 		select {
 		case t := <-a.Updates:
-			delete(want, t)
+			if t == "" {
+				return got, fmt.Errorf("closed")
+			}
+			toDelete := t
+			// legacy names, still used in tests.
+			switch t {
+			case ListenerType:
+				delete(want, "lds")
+			case v3.ClusterType:
+				delete(want, "cds")
+			case v3.EndpointType:
+				delete(want, "eds")
+			case routeType:
+				delete(want, "rds")
+			}
+			delete(want, toDelete)
 			got = append(got, t)
 			if len(want) == 0 {
 				return got, nil
@@ -839,7 +868,7 @@ func (a *ADSC) Watch() {
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
-		TypeUrl:       v2.ClusterTypeV3,
+		TypeUrl:       v3.ClusterType,
 	})
 }
 
