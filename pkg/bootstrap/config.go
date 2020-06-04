@@ -135,7 +135,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	}
 
 	// Support passing extra info from node environment as metadata
-	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.Proxy)
+	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.STSPort, cfg.Proxy)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +469,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
+func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string, stsPort int,
 	pc *meshAPI.ProxyConfig) (*model.NodeMetadata, map[string]interface{}, error) {
 	meta := &model.NodeMetadata{}
 	untypedMeta := map[string]interface{}{}
@@ -499,6 +499,11 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	// sds is enabled by default
 	meta.SdsEnabled = true
+
+	// Add STS port into node metadata if it is not 0. This is read by envoy telemetry filters
+	if stsPort != 0 {
+		meta.StsPort = strconv.Itoa(stsPort)
+	}
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(pc)
 

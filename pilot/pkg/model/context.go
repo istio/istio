@@ -455,6 +455,10 @@ type NodeMetadata struct {
 	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
 	SdsEnabled StringBool `json:"SDS,omitempty"`
 
+	// StsPort specifies the port of security token exchange server (STS).
+	// Used by envoy filters
+	StsPort string `json:"STS_PORT,omitempty"`
+
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
 	IdleTimeout string `json:"IDLE_TIMEOUT,omitempty"`
