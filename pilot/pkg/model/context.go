@@ -428,9 +428,6 @@ type NodeMetadata struct {
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
 
-	// LocalityLabel defines the locality specified for the pod
-	LocalityLabel string `json:"istio-locality,omitempty"`
-
 	PolicyCheck                  string `json:"policy.istio.io/check,omitempty"`
 	PolicyCheckRetries           string `json:"policy.istio.io/checkRetries,omitempty"`
 	PolicyCheckBaseRetryWaitTime string `json:"policy.istio.io/checkBaseRetryWaitTime,omitempty"`
@@ -454,19 +451,13 @@ type NodeMetadata struct {
 	// TLSClientRootCert is the absolute path to client root cert file
 	TLSClientRootCert string `json:"TLS_CLIENT_ROOT_CERT,omitempty"`
 
-	// SdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
-	// If not set, Pilot uses the default SDS token path.
-	SdsTokenPath string `json:"SDS_TOKEN_PATH,omitempty"`
-	SdsBase      string `json:"BASE,omitempty"`
+	CertBaseDir string `json:"BASE,omitempty"`
 	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
 	SdsEnabled StringBool `json:"SDS,omitempty"`
-	// SdsTrustJwt indicates if SDS trust jwt is enabled or not. This is are set to "1" if true
-	SdsTrustJwt StringBool `json:"TRUSTJWT,omitempty"`
 
 	// StsPort specifies the port of security token exchange server (STS).
+	// Used by envoy filters
 	StsPort string `json:"STS_PORT,omitempty"`
-
-	InsecurePath string `json:"istio.io/insecurepath,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
