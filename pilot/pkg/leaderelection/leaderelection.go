@@ -34,7 +34,8 @@ const (
 	// This holds the legacy name to not conflict with older control plane deployments which are just
 	// doing the ingress syncing.
 	IngressController = "istio-leader"
-	StatusController  = "istio-status-leader"
+	// TODO: Fix it, this is used by two controllers with separate leader elections
+	StatusController = "istio-status-leader"
 )
 
 type LeaderElection struct {
@@ -56,7 +57,7 @@ func (l *LeaderElection) Run(stop <-chan struct{}) {
 		le, err := l.create()
 		if err != nil {
 			// This should never happen; errors are only from invalid input and the input is not user modifiable
-			panic("leaderelection creation failed: " + err.Error())
+			panic("LeaderElection creation failed: " + err.Error())
 		}
 		l.cycle.Inc()
 		ctx, cancel := context.WithCancel(context.Background())
@@ -70,6 +71,7 @@ func (l *LeaderElection) Run(stop <-chan struct{}) {
 			// We were told to stop explicitly. Exit now
 			return
 		default:
+			cancel()
 			// Otherwise, we may have lost our lock. In practice, this is extremely rare; we need to have the lock, then lose it
 			// Typically this means something went wrong, such as API server downtime, etc
 			// If this does happen, we will start the cycle over again
@@ -87,7 +89,6 @@ func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
 		},
 		OnStoppedLeading: func() {
 			log.Infof("leader election lock lost")
-
 		},
 	}
 	lock := resourcelock.ConfigMapLock{
