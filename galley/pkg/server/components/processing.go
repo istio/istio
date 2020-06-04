@@ -15,7 +15,6 @@
 package components
 
 import (
-	"net"
 	"sync"
 
 	"istio.io/pkg/log"
@@ -47,12 +46,10 @@ type Processing struct {
 
 	k kube.Interfaces
 
-	serveWG       sync.WaitGroup
-	runtime       *processing.Runtime
-	reporter      monitoring.Reporter
-	listenerMutex sync.Mutex
-	listener      net.Listener
-	stopCh        chan struct{}
+	serveWG  sync.WaitGroup
+	runtime  *processing.Runtime
+	reporter monitoring.Reporter
+	stopCh   chan struct{}
 }
 
 // NewProcessing returns a new processing component.
