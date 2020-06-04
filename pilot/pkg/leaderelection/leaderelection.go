@@ -88,7 +88,7 @@ func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
 			}
 		},
 		OnStoppedLeading: func() {
-			log.Infof("leader election lock lost")
+			log.Infof("leader election lock lost: %v", l.electionID)
 		},
 	}
 	lock := resourcelock.ConfigMapLock{
@@ -107,9 +107,7 @@ func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
 		// When Pilot exits, the lease will be dropped. This is more likely to lead to a case where
 		// to instances are both considered the leaders. As such, if this is intended to be use for mission-critical
 		// usages (rather than avoiding duplication of work), this may need to be re-evaluated.
-		// TODO (therealmitchconnors) move background analysis to leader instance once this bug is fixed
-		// TODO this should be true once https://github.com/kubernetes/kubernetes/issues/87800 is fixed
-		ReleaseOnCancel: false,
+		ReleaseOnCancel: true,
 	})
 }
 
@@ -121,6 +119,9 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 }
 
 func NewLeaderElection(namespace, name, electionID string, client kubernetes.Interface) *LeaderElection {
+	if name == "" {
+		name = "unknown"
+	}
 	return &LeaderElection{
 		namespace:  namespace,
 		name:       name,
