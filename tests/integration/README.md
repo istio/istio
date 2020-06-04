@@ -80,7 +80,6 @@ func TestMyLogic(t *testing.T) {
             p := pilot.NewOrFail(ctx, ctx, cfg)
 
             // Use the component.
-            
             // Apply Kubernetes Config
             ctx.ApplyConfigOrFail(ctx, nil, mycfg)
 
