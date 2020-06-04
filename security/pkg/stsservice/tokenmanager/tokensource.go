@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"golang.org/x/oauth2"
+
 	"istio.io/istio/security/pkg/stsservice"
 )
 

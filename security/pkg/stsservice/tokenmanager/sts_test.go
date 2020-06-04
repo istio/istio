@@ -127,7 +127,7 @@ func TestStsTokenSource(t *testing.T) {
 	if got.TokenType != "Bearer" {
 		t.Errorf("access token type want Bearer got %v", got.TokenType)
 	}
-	expireIn := got.Expiry.Sub(time.Now())
+	expireIn := time.Until(got.Expiry)
 	if expireIn < 3500*time.Second {
 		t.Errorf("expiry too short want at least %v, got %v", expireIn, 3500)
 	}
