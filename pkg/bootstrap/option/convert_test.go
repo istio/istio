@@ -1,27 +1,42 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package option
 
 import (
+	"reflect"
+	"testing"
+
 	networkingAPI "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/bootstrap/auth"
-	"reflect"
-	"testing"
 )
 
 func TestTlsContextConvert(t *testing.T) {
-	tests := []struct{
-		desc string
-		tls *networkingAPI.ClientTLSSettings
-		sni string
-		meta *model.NodeMetadata
+	tests := []struct {
+		desc         string
+		tls          *networkingAPI.ClientTLSSettings
+		sni          string
+		meta         *model.NodeMetadata
 		expectTlsCtx *auth.UpstreamTLSContext
 	}{
 		{
-			desc: "no-tls",
-			tls: &networkingAPI.ClientTLSSettings{},
-			sni: "",
-			meta: &model.NodeMetadata{},
+			desc:         "no-tls",
+			tls:          &networkingAPI.ClientTLSSettings{},
+			sni:          "",
+			meta:         &model.NodeMetadata{},
 			expectTlsCtx: nil,
 		},
 		{
@@ -29,23 +44,23 @@ func TestTlsContextConvert(t *testing.T) {
 			tls: &networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_SIMPLE,
 			},
-			sni: "",
+			sni:  "",
 			meta: &model.NodeMetadata{},
 			expectTlsCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					ValidationContext: nil,
-					AlpnProtocols: util.ALPNH2Only,
+					AlpnProtocols:     util.ALPNH2Only,
 				},
 			},
 		},
 		{
 			desc: "tls-simple-cert-cli",
 			tls: &networkingAPI.ClientTLSSettings{
-				Mode: networkingAPI.ClientTLSSettings_SIMPLE,
+				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
 				CaCertificates: "foo.pem",
-				Sni: "foo",
+				Sni:            "foo",
 			},
-			sni: "",
+			sni:  "",
 			meta: &model.NodeMetadata{},
 			expectTlsCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
@@ -62,9 +77,9 @@ func TestTlsContextConvert(t *testing.T) {
 		{
 			desc: "tls-simple-cert-cli-meta",
 			tls: &networkingAPI.ClientTLSSettings{
-				Mode: networkingAPI.ClientTLSSettings_SIMPLE,
+				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
 				CaCertificates: "foo.pem",
-				Sni: "foo",
+				Sni:            "foo",
 			},
 			sni: "",
 			meta: &model.NodeMetadata{
@@ -92,12 +107,12 @@ func TestTlsContextConvert(t *testing.T) {
 		{
 			desc: "tls-cli-mutual",
 			tls: &networkingAPI.ClientTLSSettings{
-				Mode: networkingAPI.ClientTLSSettings_MUTUAL,
+				Mode:              networkingAPI.ClientTLSSettings_MUTUAL,
 				ClientCertificate: "foo",
-				PrivateKey: "im-private-foo",
-				Sni: "bar",
+				PrivateKey:        "im-private-foo",
+				Sni:               "bar",
 			},
-			sni: "",
+			sni:  "",
 			meta: &model.NodeMetadata{},
 			expectTlsCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
@@ -121,7 +136,7 @@ func TestTlsContextConvert(t *testing.T) {
 			tls: &networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			},
-			sni: "i-should-be-sni",
+			sni:  "i-should-be-sni",
 			meta: &model.NodeMetadata{},
 			expectTlsCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
@@ -148,11 +163,11 @@ func TestTlsContextConvert(t *testing.T) {
 		{
 			desc: "tls-istio-mutual-provide-certs",
 			tls: &networkingAPI.ClientTLSSettings{
-				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
+				Mode:              networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 				ClientCertificate: "foo.pem",
-				PrivateKey: "bar.pem",
+				PrivateKey:        "bar.pem",
 			},
-			sni: "i-should-be-sni",
+			sni:  "i-should-be-sni",
 			meta: &model.NodeMetadata{},
 			expectTlsCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
@@ -179,14 +194,14 @@ func TestTlsContextConvert(t *testing.T) {
 		{
 			desc: "tls-istio-mutual-meta-certs",
 			tls: &networkingAPI.ClientTLSSettings{
-				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
+				Mode:              networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 				ClientCertificate: "foo.pem",
-				PrivateKey: "bar.pem",
+				PrivateKey:        "bar.pem",
 			},
 			sni: "i-should-be-sni",
 			meta: &model.NodeMetadata{
 				TLSClientCertChain: "better-foo.pem",
-				TLSClientKey: "better-bar.pem",
+				TLSClientKey:       "better-bar.pem",
 			},
 			expectTlsCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
