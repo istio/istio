@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
-	"istio.io/istio/galley/pkg/config/source/kube/fs"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/mcp/monitoring"
 )
@@ -36,7 +35,6 @@ var (
 
 	meshcfgNewFS        = func(path string) (event.Source, error) { return mesh.NewMeshConfigFS(path) }
 	processorInitialize = processor.Initialize
-	fsNew               = fs.New
 )
 
 func resetPatchTable() {
@@ -47,5 +45,4 @@ func resetPatchTable() {
 
 	meshcfgNewFS = func(path string) (event.Source, error) { return mesh.NewMeshConfigFS(path) }
 	processorInitialize = processor.Initialize
-	fsNew = fs.New
 }

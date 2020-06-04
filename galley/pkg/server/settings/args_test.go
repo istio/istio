@@ -30,10 +30,6 @@ func TestDefaultArgs(t *testing.T) {
 	if a.DomainSuffix != constants.DefaultKubernetesDomain {
 		t.Fatalf("unexpected DomainSuffix: %s", a.DomainSuffix)
 	}
-
-	if a.InitialConnectionWindowSize != 1024*1024*16 {
-		t.Fatal("Default of InitialConnectionWindowSize should be 1024 * 1024 * 16")
-	}
 }
 
 func TestArgs_String(t *testing.T) {

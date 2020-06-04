@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/config/event"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -74,9 +73,6 @@ loop:
 			processorInitialize = func(processor.Settings) (*processing.Runtime, error) {
 				return nil, e
 			}
-		case 3:
-			args.ConfigPath = "aaa"
-			fsNew = func(_ string, _ collection.Schemas, _ bool) (event.Source, error) { return nil, e }
 		default:
 			break loop
 

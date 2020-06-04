@@ -30,16 +30,12 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
-	"istio.io/istio/galley/pkg/envvar"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/snapshots"
 	"istio.io/istio/pkg/mcp/monitoring"
-	mcprate "istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"istio.io/istio/pkg/mcp/source"
 )
 
 // Processing component is the main config processing component that will listen to a config source and publish
@@ -125,21 +121,6 @@ func (p *Processing) Start() (err error) {
 
 	p.reporter = mcpMetricReporter("galley")
 
-	mcpSourceRateLimiter := mcprate.NewRateLimiter(envvar.MCPSourceReqFreq.Get(), envvar.MCPSourceReqBurstSize.Get())
-	options := &source.Options{
-		Watcher:            p.mcpCache,
-		Reporter:           p.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots(snapshots.SnapshotNames())),
-		ConnRateLimiter:    mcpSourceRateLimiter,
-	}
-
-	// set incremental flag of all collections to true when incremental mcp enabled
-	if envvar.EnableIncrementalMCP.Get() {
-		for i := range options.CollectionsOptions {
-			options.CollectionsOptions[i].Incremental = true
-		}
-	}
-
 	p.serveWG.Add(1)
 	go func() {
 		defer p.serveWG.Done()
@@ -150,9 +131,6 @@ func (p *Processing) Start() (err error) {
 }
 
 func (p *Processing) getKubeInterfaces() (k kube.Interfaces, err error) {
-	if p.args.KubeRestConfig != nil {
-		return kube.NewInterfaces(p.args.KubeRestConfig), nil
-	}
 	if p.k == nil {
 		p.k, err = newInterfaces(p.args.KubeConfig)
 	}
@@ -163,33 +141,27 @@ func (p *Processing) getKubeInterfaces() (k kube.Interfaces, err error) {
 func (p *Processing) createSourceAndStatusUpdater(schemas collection.Schemas) (
 	src event.Source, updater snapshotter.StatusUpdater, err error) {
 
-	if p.args.ConfigPath != "" {
-		if src, err = fsNew(p.args.ConfigPath, schemas, p.args.WatchConfigFiles); err != nil {
-			return
-		}
-		updater = &snapshotter.InMemoryStatusUpdater{}
-	} else {
-		var k kube.Interfaces
-		if k, err = p.getKubeInterfaces(); err != nil {
-			return
-		}
-
-		var statusCtl status.Controller
-		if p.args.EnableConfigAnalysis {
-			statusCtl = status.NewController("validationMessages")
-		}
-
-		o := apiserver.Options{
-			Client:            k,
-			WatchedNamespaces: p.args.WatchedNamespaces,
-			ResyncPeriod:      p.args.ResyncPeriod,
-			Schemas:           schemas,
-			StatusController:  statusCtl,
-		}
-		s := apiserver.New(o)
-		src = s
-		updater = s
+	var k kube.Interfaces
+	if k, err = p.getKubeInterfaces(); err != nil {
+		return
 	}
+
+	var statusCtl status.Controller
+	if p.args.EnableConfigAnalysis {
+		statusCtl = status.NewController("validationMessages")
+	}
+
+	o := apiserver.Options{
+		Client:            k,
+		WatchedNamespaces: p.args.WatchedNamespaces,
+		ResyncPeriod:      p.args.ResyncPeriod,
+		Schemas:           schemas,
+		StatusController:  statusCtl,
+	}
+	s := apiserver.New(o)
+	src = s
+	updater = s
+
 	return
 }
 
