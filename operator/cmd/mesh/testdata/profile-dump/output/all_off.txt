@@ -113,7 +113,6 @@ components.telemetry.k8s.resources.requests.memory="1G"
 components.telemetry.k8s.strategy.rollingUpdate.maxSurge="100%"
 components.telemetry.k8s.strategy.rollingUpdate.maxUnavailable="25%"
 hub="gcr.io/istio-testing"
-installPackagePath="/work/operator/cmd/mesh/testdata/manifest-generate/data-snapshot"
 meshConfig.enablePrometheusMerge=true
 profile="default"
 tag="latest"

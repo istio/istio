@@ -52,6 +52,13 @@ kind: IstioOperator
 `
 )
 
+var (
+	// This path value is not stable and should not be part of the output
+	pathBlacklist = map[string]bool{
+		"installPackagePath": true,
+	}
+)
+
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.configPath, "config-path", "p", "",
@@ -192,6 +199,9 @@ func yamlToFlags(yml string) ([]string, error) {
 }
 
 func walk(path, separator string, obj interface{}) ([]string, error) {
+	if _, ok := pathBlacklist[path]; ok {
+		return []string{}, nil
+	}
 
 	switch v := obj.(type) {
 	case map[string]interface{}:
