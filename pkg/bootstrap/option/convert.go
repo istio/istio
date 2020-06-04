@@ -57,7 +57,7 @@ func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_
 	}
 }
 
-func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata, isH2 bool) convertFunc {
+func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.BootstrapNodeMetadata, isH2 bool) convertFunc {
 
 	return func(*instance) (interface{}, error) {
 		tlsContext := tlsContextConvert(tls, sniName, metadata)
@@ -76,7 +76,7 @@ func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName stri
 	}
 }
 
-func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata) *auth.UpstreamTLSContext {
+func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.BootstrapNodeMetadata) *auth.UpstreamTLSContext {
 	caCertificates := tls.CaCertificates
 	if caCertificates == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
 		caCertificates = constants.DefaultCertChain
@@ -151,7 +151,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 	return tlsContext
 }
 
-func nodeMetadataConverter(metadata *model.NodeMetadata, rawMeta map[string]interface{}) convertFunc {
+func nodeMetadataConverter(metadata *model.BootstrapNodeMetadata, rawMeta map[string]interface{}) convertFunc {
 	return func(*instance) (interface{}, error) {
 		marshalString, err := marshalMetadata(metadata, rawMeta)
 		if err != nil {
@@ -208,7 +208,7 @@ func convertToJSON(v interface{}) string {
 
 // marshalMetadata combines type metadata and untyped metadata and marshals to json
 // This allows passing arbitrary metadata to Envoy, while still supported typed metadata for known types
-func marshalMetadata(metadata *model.NodeMetadata, rawMeta map[string]interface{}) (string, error) {
+func marshalMetadata(metadata *model.BootstrapNodeMetadata, rawMeta map[string]interface{}) (string, error) {
 	b, err := json.Marshal(metadata)
 	if err != nil {
 		return "", err
