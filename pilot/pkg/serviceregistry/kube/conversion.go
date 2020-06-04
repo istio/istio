@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -261,36 +260,6 @@ func ConvertProbePort(c *coreV1.Container, handler *coreV1.Handler) (*model.Port
 	default:
 		return nil, fmt.Errorf("incorrect port type %q", portVal.Type)
 	}
-}
-
-// ConvertProbesToPorts returns a PortList consisting of the ports where the
-// pod is configured to do Liveness and Readiness probes
-func ConvertProbesToPorts(t *coreV1.PodSpec) (model.PortList, error) {
-	set := make(map[string]*model.Port)
-	var errs error
-	for _, container := range t.Containers {
-		for _, probe := range []*coreV1.Probe{container.LivenessProbe, container.ReadinessProbe} {
-			if probe == nil {
-				continue
-			}
-
-			p, err := ConvertProbePort(&container, &probe.Handler)
-			if err != nil {
-				errs = multierror.Append(errs, err)
-			} else if p != nil && set[p.Name] == nil {
-				// Deduplicate along the way. We don't differentiate between HTTP vs TCP mgmt ports
-				set[p.Name] = p
-			}
-		}
-	}
-
-	mgmtPorts := make(model.PortList, 0, len(set))
-	for _, p := range set {
-		mgmtPorts = append(mgmtPorts, p)
-	}
-	sort.Slice(mgmtPorts, func(i, j int) bool { return mgmtPorts[i].Port < mgmtPorts[j].Port })
-
-	return mgmtPorts, errs
 }
 
 func formatUID(namespace, name string) string {

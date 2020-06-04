@@ -63,8 +63,5 @@ components:
   gateways:
     istio-egressgateway:
       enabled: true
-addonComponents:
-  prometheus:
-    enabled: true
 `
 }

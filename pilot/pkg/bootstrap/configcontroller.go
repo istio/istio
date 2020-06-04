@@ -301,13 +301,6 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	processingArgs := settings.DefaultArgs()
 	processingArgs.KubeConfig = args.Config.KubeConfig
 	processingArgs.WatchedNamespaces = args.Config.ControllerOptions.WatchedNamespaces
-	processingArgs.EnableValidationController = false
-	processingArgs.EnableValidationServer = false
-	processingArgs.MonitoringPort = 0
-	processingArgs.Liveness.UpdateInterval = 0
-	processingArgs.Readiness.UpdateInterval = 0
-	processingArgs.Insecure = true // TODO - use sidecar?
-	processingArgs.EnableServer = false
 	processingArgs.MeshConfigFile = args.Mesh.ConfigFile
 	processingArgs.EnableConfigAnalysis = true
 
@@ -320,11 +313,8 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 				if err := processing.Start(); err != nil {
 					log.Fatalf("Error starting Background Analysis: %s", err)
 				}
-
-				go func() {
-					<-stop
-					processing.Stop()
-				}()
+				<-stop
+				processing.Stop()
 			}).Run(stop)
 		return nil
 	})
@@ -346,8 +336,10 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
-					(&status.DistributionController{QPS: float32(features.StatusQPS), Burst: features.StatusBurst}).
-						Start(s.kubeConfig, args.Namespace, stop)
+					controller := &status.DistributionController{
+						QPS:   float32(features.StatusQPS),
+						Burst: features.StatusBurst}
+					controller.Start(s.kubeConfig, args.Namespace, stop)
 				}).Run(stop)
 			return nil
 		})

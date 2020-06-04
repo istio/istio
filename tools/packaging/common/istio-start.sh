@@ -36,7 +36,7 @@ if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
   # shellcheck disable=SC1090
   . "$ISTIO_CLUSTER_CONFIG"
   # Make sure the documented configuration variables are exported
-  export ISTIO_CP_AUTH ISTIO_SERVICE_CIDR ISTIO_INBOUND_PORTS
+  export ISTIO_CP_AUTH ISTIO_SERVICE_CIDR ISTIO_INBOUND_PORTS ISTIO_LOCAL_EXCLUDE_PORTS ISTIO_LOCAL_EXCLUDE_PORTS
 fi
 
 # Set defaults
@@ -96,8 +96,8 @@ if [ -z "${PILOT_ADDRESS:-}" ]; then
 fi
 
 CA_ADDR=${CA_ADDR:-${PILOT_ADDRESS}}
-PROV_CERT=${PROV_CERT:-/etc/certs}
-OUTPUT_CERTS=${OUTPUT_CERTS:-/etc/certs}
+PROV_CERT=${PROV_CERT-/etc/certs}
+OUTPUT_CERTS=${OUTPUT_CERTS-/etc/certs}
 
 export PROV_CERT
 export OUTPUT_CERTS

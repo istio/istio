@@ -107,6 +107,11 @@ func TestNewServer(t *testing.T) {
 		{
 			probe: `{}`,
 		},
+		// A valid input with probing path not starting with /, which happens when HTTPGetAction.Path does not start with a /.
+		{
+			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "hello/sunnyvale", "port": 8080}},
+"/app-health/business/livez": {"httpGet": {"port": 9090}}}`,
+		},
 	}
 	for _, tc := range testCases {
 		_, err := NewServer(Config{
@@ -320,6 +325,30 @@ func TestAppProbe(t *testing.T) {
 							{"Host", testHostValue},
 							{testHeader, testHeaderValue},
 						},
+					},
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath: "app-health/hello-world/readyz",
+			config: KubeAppProbers{
+				"/app-health/hello-world/readyz": &Prober{
+					HTTPGet: &v1.HTTPGetAction{
+						Path: "hello/texas",
+						Port: intstr.IntOrString{IntVal: int32(appPort)},
+					},
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath: "app-health/hello-world/livez",
+			config: KubeAppProbers{
+				"/app-health/hello-world/livez": &Prober{
+					HTTPGet: &v1.HTTPGetAction{
+						Path: "hello/texas",
+						Port: intstr.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},

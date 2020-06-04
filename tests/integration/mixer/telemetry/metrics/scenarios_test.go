@@ -191,10 +191,10 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
+  prometheus:	
+    enabled: true
   meshConfig:
     disablePolicyChecks: false
-  prometheus:
-    enabled: true
   telemetry:
     v1:
       enabled: true
@@ -225,7 +225,9 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	prom, err = prometheus.New(ctx, prometheus.Config{})
+	prom, err = prometheus.New(ctx, prometheus.Config{
+		SkipDeploy: true, // Use istioctl prometheus; sample prometheus does not support mixer.
+	})
 	if err != nil {
 		return err
 	}

@@ -22,9 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 	util_dir "istio.io/istio/tests/integration/security/util/dir"
 )
 
@@ -69,7 +67,6 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, setupConfig)).
-		Setup(testsetup).
 		Run()
 }
 
@@ -82,15 +79,6 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.enabled"] = "true"
 	cfg.Values["telemetry.v1.enabled"] = "false"
 	cfg.Values["telemetry.v2.enabled"] = "true"
-	cfg.Values["prometheus.enabled"] = "true"
 	cfg.Values["meshConfig.enablePrometheusMerge"] = "false"
-}
-
-func testsetup(ctx resource.Context) error {
-	_, err := prometheus.New(ctx, prometheus.Config{})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	cfg.Values["prometheus.enabled"] = "true"
 }
