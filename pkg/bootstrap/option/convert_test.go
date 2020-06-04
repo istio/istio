@@ -30,14 +30,14 @@ func TestTlsContextConvert(t *testing.T) {
 		tls          *networkingAPI.ClientTLSSettings
 		sni          string
 		meta         *model.NodeMetadata
-		expectTlsCtx *auth.UpstreamTLSContext
+		expectTLSCtx *auth.UpstreamTLSContext
 	}{
 		{
 			desc:         "no-tls",
 			tls:          &networkingAPI.ClientTLSSettings{},
 			sni:          "",
 			meta:         &model.NodeMetadata{},
-			expectTlsCtx: nil,
+			expectTLSCtx: nil,
 		},
 		{
 			desc: "tls-simple-no-cert",
@@ -46,7 +46,7 @@ func TestTlsContextConvert(t *testing.T) {
 			},
 			sni:  "",
 			meta: &model.NodeMetadata{},
-			expectTlsCtx: &auth.UpstreamTLSContext{
+			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					ValidationContext: nil,
 					AlpnProtocols:     util.ALPNH2Only,
@@ -62,7 +62,7 @@ func TestTlsContextConvert(t *testing.T) {
 			},
 			sni:  "",
 			meta: &model.NodeMetadata{},
-			expectTlsCtx: &auth.UpstreamTLSContext{
+			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					ValidationContext: &auth.CertificateValidationContext{
 						TrustedCa: &auth.DataSource{
@@ -85,7 +85,7 @@ func TestTlsContextConvert(t *testing.T) {
 			meta: &model.NodeMetadata{
 				TLSClientRootCert: "/foo/bar/baz.pem",
 			},
-			expectTlsCtx: &auth.UpstreamTLSContext{
+			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					ValidationContext: &auth.CertificateValidationContext{
 						TrustedCa: &auth.DataSource{
@@ -102,7 +102,7 @@ func TestTlsContextConvert(t *testing.T) {
 			tls: &networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_MUTUAL,
 			},
-			expectTlsCtx: nil,
+			expectTLSCtx: nil,
 		},
 		{
 			desc: "tls-cli-mutual",
@@ -114,7 +114,7 @@ func TestTlsContextConvert(t *testing.T) {
 			},
 			sni:  "",
 			meta: &model.NodeMetadata{},
-			expectTlsCtx: &auth.UpstreamTLSContext{
+			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					TLSCertificates: []*auth.TLSCertificate{
 						{
@@ -138,7 +138,7 @@ func TestTlsContextConvert(t *testing.T) {
 			},
 			sni:  "i-should-be-sni",
 			meta: &model.NodeMetadata{},
-			expectTlsCtx: &auth.UpstreamTLSContext{
+			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					TLSCertificates: []*auth.TLSCertificate{
 						{
@@ -169,7 +169,7 @@ func TestTlsContextConvert(t *testing.T) {
 			},
 			sni:  "i-should-be-sni",
 			meta: &model.NodeMetadata{},
-			expectTlsCtx: &auth.UpstreamTLSContext{
+			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					TLSCertificates: []*auth.TLSCertificate{
 						{
@@ -203,7 +203,7 @@ func TestTlsContextConvert(t *testing.T) {
 				TLSClientCertChain: "better-foo.pem",
 				TLSClientKey:       "better-bar.pem",
 			},
-			expectTlsCtx: &auth.UpstreamTLSContext{
+			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					TLSCertificates: []*auth.TLSCertificate{
 						{
@@ -229,8 +229,8 @@ func TestTlsContextConvert(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if got := tlsContextConvert(tt.tls, tt.sni, tt.meta); !reflect.DeepEqual(tt.expectTlsCtx, got) {
-				t.Errorf("%s: expected TLS ctx %v got %v", tt.desc, tt.expectTlsCtx, got)
+			if got := tlsContextConvert(tt.tls, tt.sni, tt.meta); !reflect.DeepEqual(tt.expectTLSCtx, got) {
+				t.Errorf("%s: expected TLS ctx %v got %v", tt.desc, tt.expectTLSCtx, got)
 			}
 		})
 	}
