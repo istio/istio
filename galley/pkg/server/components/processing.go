@@ -71,7 +71,6 @@ type Processing struct {
 	runtime       *processing.Runtime
 	mcpSource     *source.Server
 	reporter      monitoring.Reporter
-	callOut       *callout
 	listenerMutex sync.Mutex
 	listener      net.Listener
 	stopCh        chan struct{}
@@ -179,18 +178,6 @@ func (p *Processing) Start() (err error) {
 	md := grpcMetadata.MD{
 		versionMetadataKey: []string{version.Info.Version},
 	}
-	if err = parseSinkMeta(p.args.SinkMeta, md); err != nil {
-		return
-	}
-
-	if p.args.SinkAddress != "" {
-		p.callOut, err = newCallout(p.args.SinkAddress, p.args.SinkAuthMode, md, options)
-		if err != nil {
-			p.callOut = nil
-			err = fmt.Errorf("callout could not be initialized: %v", err)
-			return
-		}
-	}
 
 	sourceServerRateLimiter := rate.NewLimiter(rate.Every(envvar.SourceServerStreamFreq.Get()), envvar.SourceServerStreamBurstSize.Get())
 	serverOptions := &source.ServerOptions{
@@ -238,14 +225,6 @@ func (p *Processing) Start() (err error) {
 			}
 		}
 	}()
-
-	if p.callOut != nil {
-		p.serveWG.Add(1)
-		go func() {
-			defer p.serveWG.Done()
-			p.callOut.run()
-		}()
-	}
 
 	if p.args.EnableServer {
 		startWG.Wait()
@@ -350,12 +329,7 @@ func (p *Processing) Stop() {
 		p.reporter = nil
 	}
 
-	if p.callOut != nil {
-		p.callOut.stop()
-		p.callOut = nil
-	}
-
-	if p.grpcServer != nil || p.callOut != nil {
+	if p.grpcServer != nil {
 		p.serveWG.Wait()
 	}
 
@@ -376,15 +350,4 @@ func (p *Processing) Address() net.Addr {
 		return nil
 	}
 	return l.Addr()
-}
-
-func parseSinkMeta(pairs []string, md grpcMetadata.MD) error {
-	for _, p := range pairs {
-		kv := strings.Split(p, "=")
-		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
-			return fmt.Errorf("sinkMeta not in key=value format: %v", p)
-		}
-		md[kv[0]] = append(md[kv[0]], kv[1])
-	}
-	return nil
 }
