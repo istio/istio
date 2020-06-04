@@ -102,11 +102,8 @@ loop:
 			args.Insecure = false
 			args.CredentialOptions.CACertificateFile = ""
 		case 5:
-			args.SinkAddress = "localhost:8080"
-			args.SinkAuthMode = "foo"
-		case 6:
 			netListen = func(network, address string) (net.Listener, error) { return nil, e }
-		case 7:
+		case 6:
 			args.ConfigPath = "aaa"
 			fsNew = func(_ string, _ collection.Schemas, _ bool) (event.Source, error) { return nil, e }
 		default:
