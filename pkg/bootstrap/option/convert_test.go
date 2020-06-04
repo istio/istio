@@ -99,9 +99,22 @@ func TestTlsContextConvert(t *testing.T) {
 			},
 			sni: "",
 			meta: &model.NodeMetadata{},
-			expectTlsCtx: &auth.CommonTLSContext{
-				// todo finish & add tests for istio mTLS
-			}
+			expectTlsCtx: &auth.UpstreamTLSContext{
+				CommonTLSContext: &auth.CommonTLSContext{
+					TLSCertificates: []*auth.TLSCertificate{
+						{
+							CertificateChain: &auth.DataSource{
+								Filename: "foo",
+							},
+							PrivateKey: &auth.DataSource{
+								Filename: "im-private-foo",
+							},
+						},
+					},
+					AlpnProtocols: []string{"h2"},
+				},
+				Sni: "bar",
+			},
 		},
 	}
 
@@ -109,6 +122,8 @@ func TestTlsContextConvert(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			if got := tlsContextConvert(tt.tls, tt.sni, tt.meta); !reflect.DeepEqual(tt.expectTlsCtx, got) {
 				t.Errorf("%s: expected TLS ctx %v got %v", tt.desc, tt.expectTlsCtx, got)
+				//g, _ := json.Marshal(got)
+				//log.Println(string(g))
 			}
 		})
 	}
