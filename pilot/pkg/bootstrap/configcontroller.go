@@ -320,11 +320,8 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 				if err := processing.Start(); err != nil {
 					log.Fatalf("Error starting Background Analysis: %s", err)
 				}
-
-				go func() {
-					<-stop
-					processing.Stop()
-				}()
+				<-stop
+				processing.Stop()
 			}).Run(stop)
 		return nil
 	})
@@ -346,8 +343,10 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
-					(&status.DistributionController{QPS: float32(features.StatusQPS), Burst: features.StatusBurst}).
-						Start(s.kubeConfig, args.Namespace, stop)
+					controller := &status.DistributionController{
+						QPS:   float32(features.StatusQPS),
+						Burst: features.StatusBurst}
+					controller.Start(s.kubeConfig, args.Namespace, stop)
 				}).Run(stop)
 			return nil
 		})
