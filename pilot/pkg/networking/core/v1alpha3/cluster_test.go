@@ -1840,7 +1840,7 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 		},
 	}
 
-	clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances, []*model.Port{servicePort})
+	clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
@@ -1981,7 +1981,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			}
 
 			env := c.newEnv(serviceDiscovery, configStore)
-			clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances, []*model.Port{servicePort})
+			clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances)
 			g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 			for _, cluster := range clusters {

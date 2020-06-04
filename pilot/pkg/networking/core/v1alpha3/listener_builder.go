@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"sort"
-	"strconv"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -198,24 +197,6 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigGenera
 	return lb
 }
 
-// addressKey takes a *core.Address and coverts it to a unique string identifier
-func addressKey(addr *core.Address) string {
-	switch t := addr.Address.(type) {
-	case *core.Address_SocketAddress:
-		var port string
-		switch pt := t.SocketAddress.PortSpecifier.(type) {
-		case *core.SocketAddress_NamedPort:
-			port = pt.NamedPort
-		case *core.SocketAddress_PortValue:
-			port = strconv.Itoa(int(pt.PortValue))
-		}
-		return t.SocketAddress.Address + "_" + port
-	case *core.Address_Pipe:
-		return t.Pipe.Path
-	}
-	return addr.String()
-}
-
 func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
 	httpProxy := configgen.buildHTTPProxy(lb.node, lb.push)
 	if httpProxy == nil {
@@ -224,54 +205,6 @@ func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl
 	removeListenerFilterTimeout([]*listener.Listener{httpProxy})
 	lb.patchOneListener(httpProxy, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.httpProxyListener = httpProxy
-	return lb
-}
-
-func (lb *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl) *ListenerBuilder {
-	// Do not generate any management port listeners if the user has specified a SidecarScope object
-	// with ingress listeners. Specifying the ingress listener implies that the user wants
-	// to only have those specific listeners and nothing else, in the inbound path.
-	if lb.node.SidecarScope.HasCustomIngressListeners || lb.node.GetInterceptionMode() == model.InterceptionNone {
-		return lb
-	}
-	// Let ServiceDiscovery decide which IP and Port are used for management if
-	// there are multiple IPs
-	mgmtListeners := make([]*listener.Listener, 0)
-	for _, ip := range lb.node.IPAddresses {
-		managementPorts := lb.push.ManagementPorts(ip)
-		management := buildSidecarInboundMgmtListeners(lb.node, lb.push, managementPorts, ip)
-		mgmtListeners = append(mgmtListeners, management...)
-	}
-	addresses := make(map[string]*listener.Listener)
-	for _, listener := range lb.inboundListeners {
-		if listener != nil {
-			addresses[addressKey(listener.Address)] = listener
-		}
-	}
-	for _, listener := range lb.outboundListeners {
-		if listener != nil {
-			addresses[addressKey(listener.Address)] = listener
-		}
-	}
-
-	// If management listener port and service port are same, bad things happen
-	// when running in kubernetes, as the probes stop responding. So, append
-	// non overlapping listeners only.
-	for i := range mgmtListeners {
-		m := mgmtListeners[i]
-		addressString := addressKey(m.Address)
-		existingListener, ok := addresses[addressString]
-		if ok {
-			log.Debugf("Omitting listener for management address %s due to collision with service listener (%s)",
-				m.Name, existingListener.Name)
-			continue
-		} else {
-			// dedup management listeners as well
-			addresses[addressString] = m
-			lb.inboundListeners = append(lb.inboundListeners, m)
-		}
-
-	}
 	return lb
 }
 

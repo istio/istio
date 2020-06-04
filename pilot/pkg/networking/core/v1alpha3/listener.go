@@ -459,7 +459,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushCont
 		// Any build order change need a careful code review
 		builder.buildSidecarInboundListeners(configgen).
 			buildSidecarOutboundListeners(configgen).
-			buildManagementListeners(configgen).
 			buildHTTPProxyListener(configgen).
 			buildVirtualOutboundListener(configgen).
 			buildVirtualInboundListener(configgen)
@@ -1769,76 +1768,6 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 		lastFilterChain.Filters = filters
 	}
 	return ipTablesListener
-}
-
-// buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
-// server (inbound). Management port listeners are slightly different from standard Inbound listeners
-// in that, they do not have mixer filters nor do they have inbound auth.
-// N.B. If a given management port is same as the service instance's endpoint port
-// the pod will fail to start in Kubernetes, because the mixer service tries to
-// lookup the service associated with the Pod. Since the pod is yet to be started
-// and hence not bound to the service), the service lookup fails causing the mixer
-// to fail the health check call. This results in a vicious cycle, where kubernetes
-// restarts the unhealthy pod after successive failed health checks, and the mixer
-// continues to reject the health checks as there is no service associated with
-// the pod.
-// So, if a user wants to use kubernetes probes with Istio, she should ensure
-// that the health check ports are distinct from the service ports.
-func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext, managementPorts model.PortList, managementIP string) []*listener.Listener {
-	listeners := make([]*listener.Listener, 0, len(managementPorts))
-	// assumes that inbound connections/requests are sent to the endpoint address
-	for _, mPort := range managementPorts {
-		switch mPort.Protocol {
-		case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb, protocol.TCP,
-			protocol.HTTPS, protocol.TLS, protocol.Mongo, protocol.Redis, protocol.MySQL:
-
-			instance := &model.ServiceInstance{
-				Service: &model.Service{
-					Hostname: ManagementClusterHostname,
-				},
-				ServicePort: mPort,
-				Endpoint: &model.IstioEndpoint{
-					Address:      managementIP,
-					EndpointPort: uint32(mPort.Port),
-				},
-			}
-			listenerOpts := buildListenerOpts{
-				bind: managementIP,
-				port: mPort.Port,
-				filterChainOpts: []*filterChainOpts{{
-					networkFilters: buildInboundNetworkFilters(push, node, instance),
-				}},
-				// No user filters for the management unless we introduce new listener matches
-				skipUserFilters: true,
-				proxy:           node,
-				push:            push,
-			}
-			l := buildListener(listenerOpts)
-			l.TrafficDirection = core.TrafficDirection_INBOUND
-			mutable := &istionetworking.MutableObjects{
-				Listener:     l,
-				FilterChains: []istionetworking.FilterChain{{}},
-			}
-			pluginParams := &plugin.InputParams{
-				ListenerProtocol: istionetworking.ListenerProtocolTCP,
-				ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-				Push:             push,
-				Node:             node,
-				Port:             mPort,
-			}
-			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we construct listeners.
-			if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
-				log.Warna("buildSidecarInboundMgmtListeners ", err.Error())
-			} else {
-				listeners = append(listeners, l)
-			}
-		default:
-			log.Warnf("Unsupported inbound protocol %v for management port %#v",
-				mPort.Protocol, mPort)
-		}
-	}
-
-	return listeners
 }
 
 // httpListenerOpts are options for an HTTP listener
