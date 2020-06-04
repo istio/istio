@@ -80,7 +80,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 }
 
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
-	framework.NewTest(t).Label(label.Flaky).Run(func(ctx framework.TestContext) {
+	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		ctx.ApplyConfigOrFail(
 			t,
 			bookinfoNs.Name(),
