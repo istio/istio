@@ -22,9 +22,11 @@ import (
 	"golang.org/x/oauth2"
 
 	"istio.io/istio/security/pkg/stsservice"
+	"istio.io/istio/security/pkg/stsservice/server"
 )
 
-// TokenSource specifies a oauth token source based on STS token exchange.
+// TokenSource specifies an oauth token source based on STS token exchange.
+// https://godoc.org/golang.org/x/oauth2#TokenSource
 type TokenSource struct {
 	tm           stsservice.TokenManager
 	subjectToken string
@@ -34,25 +36,21 @@ type TokenSource struct {
 var _ oauth2.TokenSource = &TokenSource{}
 
 // NewTokenSource creates a token source based on STS token exchange.
-func NewTokenSource(trustDomain, subjectToken, authScope string) (*TokenSource, error) {
+func NewTokenSource(trustDomain, subjectToken, authScope string) *TokenSource {
 	return &TokenSource{
 		tm:           CreateTokenManager(GoogleTokenExchange, Config{TrustDomain: trustDomain}),
 		subjectToken: subjectToken,
 		authScope:    authScope,
-	}, nil
-}
-
-func (ts *TokenSource) setTokenManager(tm stsservice.TokenManager) {
-	ts.tm = tm
+	}
 }
 
 // Token returns Oauth token received from sts token exchange.
 func (ts *TokenSource) Token() (*oauth2.Token, error) {
 	params := stsservice.StsRequestParameters{
-		GrantType:        "urn:ietf:params:oauth:grant-type:token-exchange",
+		GrantType:        server.TokenExchangeGrantType,
 		Scope:            ts.authScope,
 		SubjectToken:     ts.subjectToken,
-		SubjectTokenType: "urn:ietf:params:oauth:token-type:jwt",
+		SubjectTokenType: server.SubjectTokenType,
 	}
 	body, err := ts.tm.GenerateToken(params)
 	if err != nil {
