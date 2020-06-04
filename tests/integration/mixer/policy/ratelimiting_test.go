@@ -80,7 +80,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 }
 
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
-	framework.NewTest(t).Label(label.Flaky).Run(func(ctx framework.TestContext) {
+	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		ctx.ApplyConfigOrFail(
 			t,
 			bookinfoNs.Name(),
@@ -157,6 +157,8 @@ func TestMain(m *testing.M) {
 values:
   meshConfig:
     disablePolicyChecks: false
+  prometheus:
+    enabled: true
   telemetry:
     v1:
       enabled: true
@@ -191,7 +193,9 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	prom, err = prometheus.New(ctx, prometheus.Config{})
+	prom, err = prometheus.New(ctx, prometheus.Config{
+		SkipDeploy: true, // Use istioctl prometheus; sample prometheus does not support mixer.
+	})
 	if err != nil {
 		return
 	}
