@@ -5,9 +5,6 @@ spec:
   meshConfig:
     accessLogFile: "/dev/stdout"
   components:
-    ingressGateways:
-    - name: istio-ingressgateway
-      enabled: true
   addonComponents:
     prometheus:
       enabled: false
@@ -24,10 +21,6 @@ spec:
 
     gateways:
       istio-ingressgateway:
-        meshExpansionPorts:
-          - port: 15012
-            targetPort: 15012
-            name: tcp-istiod
         autoscaleMax: 1
         resources:
           requests:

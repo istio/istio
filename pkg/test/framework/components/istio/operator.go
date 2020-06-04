@@ -344,12 +344,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 			if c.environment.Settings().CentralIstiod {
 				installSettings = append(installSettings, "--set", "values.global.centralIstiod=true",
 					"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012",
-					"--set", "values.gateways.istio-ingressgateway.meshExpansionPorts[0].port=15017",
-					"--set", "values.gateways.istio-ingressgateway.meshExpansionPorts[0].targetPort=15017",
-					"--set", "values.gateways.istio-ingressgateway.meshExpansionPorts[0].name=tcp-webhook",
-					"--set", "values.gateways.istio-ingressgateway.meshExpansionPorts[1].port=15012",
-					"--set", "values.gateways.istio-ingressgateway.meshExpansionPorts[1].targetPort=15012",
-					"--set", "values.gateways.istio-ingressgateway.meshExpansionPorts[1].name=tcp-istiod")
+					"-f", filepath.Join(env.IstioSrc, "tests/integration/multicluster/centralistio/testdata/iop-central-istiod.yaml"))
 			}
 		} else {
 			installSettings = append(installSettings, "--set", "profile=remote")
@@ -379,10 +374,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 				baseSettings := make([]string, len(installSettings))
 				_ = copy(baseSettings, installSettings)
 				baseSettings = append(baseSettings,
-					"--set", "components.base.enabled=true",
-					"--set", "components.pilot.enabled=false",
-					"--set", "components.istiodRemote.enabled=false",
-					"--set", "components.ingressGateways[0].enabled=false")
+					"-f", filepath.Join(env.IstioSrc, "tests/integration/multicluster/centralistio/testdata/iop-remote-base.yaml"))
 				if err := applyManifest(c, baseSettings, istioCtl, cluster.Name()); err != nil {
 					return fmt.Errorf("failed to deploy centralIstiod base for cluster %v: %v", cluster.Name(), err)
 				}
@@ -392,11 +384,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 				}
 
 				installSettings = append(installSettings,
-					"--set", "components.base.enabled=true",
-					"--set", "components.pilot.enabled=false",
-					"--set", "components.istiodRemote.enabled=true",
-					"--set", "components.ingressGateways[0].enabled=true",
-					"--set", "components.ingressGateways[0].name=istio-ingressgateway")
+					"-f", filepath.Join(env.IstioSrc, "tests/integration/multicluster/centralistio/testdata/iop-remote.yaml"))
 			}
 		}
 	}
