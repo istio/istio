@@ -25,7 +25,7 @@ docker: docker.all
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar_ubuntu_xenial \
 docker.app_sidecar_ubuntu_bionic docker.app_sidecar_ubuntu_focal docker.app_sidecar_debian_9 \
-docker.app_sidecar_debian_10 docker.test_policybackend docker.mixer docker.mixer_codegen \
+docker.app_sidecar_debian_10 docker.app_sidecar_centos docker.test_policybackend docker.mixer docker.mixer_codegen \
 docker.istioctl docker.operator docker.install-cni
 
 # Echo docker directory and the template to pass image name and version to for VM testing
@@ -162,6 +162,17 @@ docker.app_sidecar_debian_10: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/server
 	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
+
+# Test application bundled with the sidecar (for non-k8s).
+docker.app_sidecar_centos: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.app_sidecar_centos: tools/packaging/common/envoy_bootstrap.json
+docker.app_sidecar_centos: $(ISTIO_OUT_LINUX)/release/istio-sidecar.rpm
+docker.app_sidecar_centos: $(ISTIO_DOCKER)/certs
+docker.app_sidecar_centos: pkg/test/echo/docker/echo-start.sh
+docker.app_sidecar_centos: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar_centos: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_centos: pkg/test/echo/docker/Dockerfile.app_sidecar_centos
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
