@@ -15,8 +15,6 @@
 package components
 
 import (
-	"sync"
-
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
@@ -46,7 +44,6 @@ type Processing struct {
 
 	k kube.Interfaces
 
-	serveWG  sync.WaitGroup
 	runtime  *processing.Runtime
 	reporter monitoring.Reporter
 	stopCh   chan struct{}
@@ -118,11 +115,7 @@ func (p *Processing) Start() (err error) {
 
 	p.reporter = mcpMetricReporter("galley")
 
-	p.serveWG.Add(1)
-	go func() {
-		defer p.serveWG.Done()
-		p.runtime.Start()
-	}()
+	p.runtime.Start()
 
 	return nil
 }
@@ -178,8 +171,6 @@ func (p *Processing) Stop() {
 		_ = p.reporter.Close()
 		p.reporter = nil
 	}
-
-	p.serveWG.Wait()
 
 	// final attempt to purge buffered logs
 	_ = log.Sync()
