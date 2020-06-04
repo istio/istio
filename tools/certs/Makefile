@@ -45,10 +45,10 @@ rawcluster := $(shell kubectl config current-context)
 cluster := $(subst /,-,$(rawcluster))
 pwd := $(shell pwd)
 export KUBECONFIG
-res := $(shell kubectl get secret istio-ca-secret  -n istio-system >/dev/null 2>&1;  echo $$?)
 fetch-root-ca:
 	@echo "fetching root ca from k8s cluster: "$(cluster)""
 	@@mkdir -p $(pwd)/$(cluster)
+	@res=$(shell kubectl get secret istio-ca-secret  -n istio-system >/dev/null 2>&1;  echo $$?)
 ifeq ($(res), 1)
 	@kubectl get secret cacerts  -n istio-system -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > $(cluster)/k8s-root-cert.pem
 	@kubectl get secret cacerts  -n istio-system -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > $(cluster)/k8s-root-key.pem
