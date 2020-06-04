@@ -108,19 +108,6 @@ type Args struct { // nolint:maligned
 	// DNS Domain suffix to use while constructing Ingress based resources.
 	DomainSuffix string
 
-	// SinkAddress should be set to the address of a MCP Resource
-	// Sink service that Galley will dial out to. Leaving empty disables
-	// sink.
-	SinkAddress string
-
-	// SinkAuthMode should be set to a name of an authentication plugin,
-	// see the istio.io/istio/galley/pkg/autplugins package.
-	SinkAuthMode string
-
-	// SinkMeta list of key=values to attach as gRPC stream metadata to
-	// outgoing Sink connections.
-	SinkMeta []string
-
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool
 
@@ -188,7 +175,6 @@ func DefaultArgs() *Args {
 		ConfigPath:                      "",
 		DomainSuffix:                    constants.DefaultKubernetesDomain,
 		ExcludedResourceKinds:           kuberesource.DefaultExcludedResourceKinds(),
-		SinkMeta:                        make([]string, 0),
 		KeepAlive:                       keepalive.DefaultOption(),
 		ValidationWebhookServerArgs:     server.DefaultArgs(),
 		ValidationWebhookControllerArgs: controller.DefaultArgs(),
@@ -236,9 +222,6 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
 	_, _ = fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
 	_, _ = fmt.Fprintf(buf, "ExcludedResourceKinds: %v\n", a.ExcludedResourceKinds)
-	_, _ = fmt.Fprintf(buf, "SinkAddress: %v\n", a.SinkAddress)
-	_, _ = fmt.Fprintf(buf, "SinkAuthMode: %v\n", a.SinkAuthMode)
-	_, _ = fmt.Fprintf(buf, "SinkMeta: %v\n", a.SinkMeta)
 	_, _ = fmt.Fprintf(buf, "KeepAlive.MaxServerConnectionAge: %v\n", a.KeepAlive.MaxServerConnectionAge)
 	_, _ = fmt.Fprintf(buf, "KeepAlive.MaxServerConnectionAgeGrace: %v\n", a.KeepAlive.MaxServerConnectionAgeGrace)
 	_, _ = fmt.Fprintf(buf, "KeepAlive.Time: %v\n", a.KeepAlive.Time)
