@@ -398,7 +398,7 @@ func scopeToSidecar(scope *SidecarScope) string {
 	return scope.Config.Namespace + "/" + scope.Config.Name
 }
 
-func TestSetDestinationRule(t *testing.T) {
+func TestSetDestinationRuleMerging(t *testing.T) {
 	ps := NewPushContext()
 	ps.defaultDestinationRuleExportTo = map[visibility.Instance]bool{visibility.Public: true}
 	testhost := "httpbin.org"
@@ -438,13 +438,80 @@ func TestSetDestinationRule(t *testing.T) {
 	}
 	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2})
 	subsetsLocal := ps.namespaceLocalDestRules["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
-	subsetsExport := ps.namespaceExportedDestRules["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
+	subsetsExport := ps.publicDestRulesByNamespace["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
 	if len(subsetsLocal) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsLocal))
 	}
 
 	if len(subsetsExport) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsExport))
+	}
+}
+
+func TestSetDestinationRuleWithExportTo(t *testing.T) {
+	ps := NewPushContext()
+	testhost := "httpbin.org"
+	destinationRuleNamespace1 := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "rule1",
+			Namespace: "test1",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{".", "ns1"},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset1",
+				},
+				{
+					Name: "subset2",
+				},
+			},
+		},
+	}
+	destinationRuleNamespace2 := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "rule2",
+			Namespace: "test2",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{".", "ns1"},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset3",
+				},
+				{
+					Name: "subset4",
+				},
+			},
+		},
+	}
+	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2})
+	local := ps.namespaceLocalDestRules["test1"].destRule[host.Name(testhost)]
+	public := ps.publicDestRulesByNamespace["test1"]
+	ns1 := ps.destRulesExportedToNamespace["ns1"].destRule[host.Name(testhost)]
+
+	if local == nil {
+		t.Errorf("want local dest rule rule1/test1, but got nil")
+	} else {
+		localSubsets := local.Spec.(*networking.DestinationRule).Subsets
+		if len(localSubsets) != 2 {
+			t.Errorf("want local dest rule rule1/test1 with %d subsets but got %d subsets", 2, len(localSubsets))
+		}
+	}
+
+	if public != nil {
+		t.Errorf("unexpected public dest rule from test1 namespace")
+	}
+
+	if ns1 == nil {
+		t.Errorf("want ns1 dest rule for httpbin.org, but got nil")
+	} else {
+		ns1Subsets := ns1.Spec.(*networking.DestinationRule).Subsets
+		if len(ns1Subsets) != 4 { // should have merged subsets from test1 and test2
+			t.Errorf("want local dest rule rule1/test1 with %d subsets but got %d subsets", 4, len(ns1Subsets))
+		}
 	}
 }
 
