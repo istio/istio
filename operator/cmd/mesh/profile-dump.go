@@ -46,7 +46,7 @@ const (
 )
 
 const (
-	IstioOperatorTreeString = `
+	istioOperatorTreeString = `
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 `
@@ -84,7 +84,7 @@ func prependHeader(yml string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out2, err := util.OverlayYAML(IstioOperatorTreeString, out)
+	out2, err := util.OverlayYAML(istioOperatorTreeString, out)
 	if err != nil {
 		return "", err
 	}
@@ -197,7 +197,7 @@ func walk(path, separator string, obj interface{}) ([]string, error) {
 	case map[string]interface{}:
 		accum := make([]string, 0)
 		for key, vv := range v {
-			childwalk, err := walk(fmt.Sprintf("%s%s%s", path, separator, key), ".", vv)
+			childwalk, err := walk(fmt.Sprintf("%s%s%s", path, separator, pathComponent(key)), ".", vv)
 			if err != nil {
 				return accum, err
 			}
@@ -219,4 +219,11 @@ func walk(path, separator string, obj interface{}) ([]string, error) {
 	default:
 		return []string{fmt.Sprintf("%s=%v", path, v)}, nil
 	}
+}
+
+func pathComponent(component string) string {
+	if !strings.Contains(component, util.PathSeparator) {
+		return component
+	}
+	return strings.ReplaceAll(component, util.PathSeparator, util.EscapedPathSeparator)
 }

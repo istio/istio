@@ -35,7 +35,7 @@ const (
 	// PathSeparatorRune is the separator between path elements, as a rune.
 	pathSeparatorRune = '.'
 	// EscapedPathSeparator is what to use when the path shouldn't separate
-	escapedPathSeparator = "\\" + PathSeparator
+	EscapedPathSeparator = "\\" + PathSeparator
 )
 
 var (
@@ -55,7 +55,7 @@ func PathFromString(path string) Path {
 	var r []string
 	for _, str := range pv {
 		if str != "" {
-			str = strings.ReplaceAll(str, escapedPathSeparator, PathSeparator)
+			str = strings.ReplaceAll(str, EscapedPathSeparator, PathSeparator)
 			// Is str of the form node[expr], convert to "node", "[expr]"?
 			nBracket := strings.IndexRune(str, '[')
 			if nBracket > 0 {
