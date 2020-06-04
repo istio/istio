@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/security/pkg/stsservice"
 )
 
+// TokenSource specifies a oauth token source based on STS token exchange.
 type TokenSource struct {
 	tm           stsservice.TokenManager
 	subjectToken string
@@ -31,7 +32,7 @@ type TokenSource struct {
 
 var _ oauth2.TokenSource = &TokenSource{}
 
-// NewTokenSource creates a token source.
+// NewTokenSource creates a token source based on STS token exchange.
 func NewTokenSource(trustDomain, subjectToken, authScope string) (*TokenSource, error) {
 	return &TokenSource{
 		tm:           CreateTokenManager(GoogleTokenExchange, Config{TrustDomain: trustDomain}),
@@ -44,6 +45,7 @@ func (ts *TokenSource) setTokenManager(tm stsservice.TokenManager) {
 	ts.tm = tm
 }
 
+// Token returns Oauth token received from sts token exchange.
 func (ts *TokenSource) Token() (*oauth2.Token, error) {
 	params := stsservice.StsRequestParameters{
 		GrantType:        "urn:ietf:params:oauth:grant-type:token-exchange",
