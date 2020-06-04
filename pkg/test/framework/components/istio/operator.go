@@ -191,7 +191,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	if env.Settings().CentralIstiod {
 		for _, cluster := range env.KubeClusters {
 			if env.IsControlPlaneCluster(cluster) {
-				if err := patchIstiodCustomHost(i, cfg, cluster); err != nil {
+				if err := patchIstiodCustomHost(cfg, cluster); err != nil {
 					return nil, err
 				}
 			}
@@ -247,7 +247,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func patchIstiodCustomHost(c *operatorComponent, cfg Config, cluster kube.Cluster) error {
+func patchIstiodCustomHost(cfg Config, cluster kube.Cluster) error {
 	var remoteIstiodAddress net.TCPAddr
 	if err := retry.UntilSuccess(func() error {
 		var err error
