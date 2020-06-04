@@ -39,6 +39,27 @@ func TestTlsContextConvert(t *testing.T) {
 			},
 		},
 		{
+			desc: "tls-simple-cert-cli",
+			tls: &networkingAPI.ClientTLSSettings{
+				Mode: networkingAPI.ClientTLSSettings_SIMPLE,
+				CaCertificates: "foo.pem",
+				Sni: "foo",
+			},
+			sni: "",
+			meta: &model.NodeMetadata{},
+			expectTlsCtx: &auth.UpstreamTLSContext{
+				CommonTLSContext: &auth.CommonTLSContext{
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa: &auth.DataSource{
+							Filename: "foo.pem",
+						},
+					},
+					AlpnProtocols: []string{"h2"},
+				},
+				Sni: "foo",
+			},
+		},
+		{
 			desc: "tls-simple-cert-cli-meta",
 			tls: &networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_SIMPLE,
@@ -62,25 +83,25 @@ func TestTlsContextConvert(t *testing.T) {
 			},
 		},
 		{
-			desc: "tls-simple-cert-cli",
+			desc: "tls-cli-mutual-missing-certs",
 			tls: &networkingAPI.ClientTLSSettings{
-				Mode: networkingAPI.ClientTLSSettings_SIMPLE,
-				CaCertificates: "foo.pem",
-				Sni: "foo",
+				Mode: networkingAPI.ClientTLSSettings_MUTUAL,
+			},
+			expectTlsCtx: nil,
+		},
+		{
+			desc: "tls-cli-mutual",
+			tls: &networkingAPI.ClientTLSSettings{
+				Mode: networkingAPI.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "foo",
+				PrivateKey: "im-private-foo",
+				Sni: "bar",
 			},
 			sni: "",
 			meta: &model.NodeMetadata{},
-			expectTlsCtx: &auth.UpstreamTLSContext{
-				CommonTLSContext: &auth.CommonTLSContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &auth.DataSource{
-							Filename: "foo.pem",
-						},
-					},
-					AlpnProtocols: []string{"h2"},
-				},
-				Sni: "foo",
-			},
+			expectTlsCtx: &auth.CommonTLSContext{
+				// todo finish & add tests for istio mTLS
+			}
 		},
 	}
 
