@@ -50,8 +50,7 @@ type workload struct {
 	ctx       resource.Context
 }
 
-func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16,
-	cluster kube2.Cluster, tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
+func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16, cluster kube2.Cluster, tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
 	// Create a forwarder to the command port of the app.
 	forwarder, err := cluster.NewPortForwarder(pod, 0, grpcPort)
 	if err != nil {
