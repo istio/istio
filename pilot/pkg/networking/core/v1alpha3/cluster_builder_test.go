@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -263,11 +264,11 @@ func compareClusters(t *testing.T, ec *cluster.Cluster, gc *cluster.Cluster) {
 }
 
 func TestApplyEdsConfig(t *testing.T) {
-
 	cases := []struct {
-		name      string
-		cluster   *cluster.Cluster
-		edsConfig *cluster.Cluster_EdsClusterConfig
+		name       string
+		cluster    *cluster.Cluster
+		cdsVersion string
+		edsConfig  *cluster.Cluster_EdsClusterConfig
 	}{
 		{
 			name:      "non eds type of cluster",
@@ -287,11 +288,26 @@ func TestApplyEdsConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:    "eds type of cluster v3",
+			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			edsConfig: &cluster.Cluster_EdsClusterConfig{
+				ServiceName: "foo",
+				EdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
+					},
+					InitialFetchTimeout: features.InitialFetchTimeout,
+					ResourceApiVersion:  core.ApiVersion_V3,
+				},
+			},
+			cdsVersion: v3.ClusterType,
+		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			maybeApplyEdsConfig(tt.cluster)
+			maybeApplyEdsConfig(tt.cluster, tt.cdsVersion)
 			if !reflect.DeepEqual(tt.cluster.EdsClusterConfig, tt.edsConfig) {
 				t.Errorf("Unexpected Eds config in cluster. want %v, got %v", tt.edsConfig, tt.cluster.EdsClusterConfig)
 			}
