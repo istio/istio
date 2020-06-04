@@ -483,7 +483,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		if err != nil {
 			return nil, err
 		}
-		cluster.TypeUrl = conn.RequestedTypes.CDS
+		cluster.TypeUrl = conn.node.RequestedTypes.CDS
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cluster})
 	}
 	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
@@ -501,7 +501,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		if err != nil {
 			return nil, err
 		}
-		listener.TypeUrl = conn.RequestedTypes.LDS
+		listener.TypeUrl = conn.node.RequestedTypes.LDS
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
 			Name:        cs.Name,
 			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener}})
@@ -523,7 +523,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 			if err != nil {
 				return nil, err
 			}
-			route.TypeUrl = conn.RequestedTypes.RDS
+			route.TypeUrl = conn.node.RequestedTypes.RDS
 			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: route})
 		}
 		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})

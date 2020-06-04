@@ -104,18 +104,6 @@ type XdsConnection struct {
 	// CDSWatch is set if the remote server is watching Clusters
 	CDSWatch bool
 
-	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
-	// only generate one version or the other, because the protos are wire compatible we can cast to the
-	// requested version. This struct keeps track of the types requested for each resource type.
-	// For example, if Envoy requests Clusters v3, we would track that here. Pilot would generate a v2
-	// cluster response, but change the TypeUrl in the response to be v3.
-	RequestedTypes struct {
-		CDS string
-		EDS string
-		RDS string
-		LDS string
-	}
-
 	// Original node metadata, to avoid unmarshall/marshall. This is included
 	// in internal events.
 	xdsNode *corev3.Node
@@ -318,28 +306,28 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 
 			switch discReq.TypeUrl {
 			case ClusterType, v3.ClusterType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.CDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
 					return err
 				}
 				if err := s.handleCds(con, discReq); err != nil {
 					return err
 				}
 			case ListenerType, v3.ListenerType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.LDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.LDS); err != nil {
 					return err
 				}
 				if err := s.handleLds(con, discReq); err != nil {
 					return err
 				}
 			case RouteType, v3.RouteType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.RDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.RDS); err != nil {
 					return err
 				}
 				if err := s.handleRds(con, discReq); err != nil {
 					return err
 				}
 			case EndpointType, v3.EndpointType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.EDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.EDS); err != nil {
 					return err
 				}
 				if err := s.handleEds(con, discReq); err != nil {

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
 )
@@ -79,7 +80,7 @@ func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, c *cluster.Cl
 
 	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
 	// discovery type.
-	maybeApplyEdsConfig(c)
+	maybeApplyEdsConfig(c, cb.proxy.RequestedTypes.CDS)
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
@@ -127,7 +128,7 @@ func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, c *cluster.Cl
 			applyTrafficPolicy(opts)
 		}
 
-		maybeApplyEdsConfig(subsetCluster)
+		maybeApplyEdsConfig(subsetCluster, cb.proxy.RequestedTypes.CDS)
 
 		subsetCluster.Metadata = util.AddSubsetToMetadata(clusterMetadata, subset.Name)
 		subsetClusters = append(subsetClusters, subsetCluster)
@@ -275,7 +276,7 @@ func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationR
 }
 
 // maybeApplyEdsConfig applies EdsClusterConfig on the passed in cluster if it is an EDS type of cluster.
-func maybeApplyEdsConfig(c *cluster.Cluster) {
+func maybeApplyEdsConfig(c *cluster.Cluster, cdsVersion string) {
 	switch v := c.ClusterDiscoveryType.(type) {
 	case *cluster.Cluster_Type:
 		if v.Type != cluster.Cluster_EDS {
@@ -290,5 +291,10 @@ func maybeApplyEdsConfig(c *cluster.Cluster) {
 			},
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
+	}
+
+	if cdsVersion == v3.ClusterType {
+		// For v3 listeners, send v3 routes
+		c.EdsClusterConfig.EdsConfig.ResourceApiVersion = core.ApiVersion_V3
 	}
 }
