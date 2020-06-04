@@ -125,11 +125,11 @@ func TestStsTokenSource(t *testing.T) {
 		t.Errorf("access token want %v got %v", mock.FakeAccessToken, got.AccessToken)
 	}
 	if got.TokenType != "Bearer" {
-		t.Errorf("access token type want Bearer got %v", got.TokenType)
+		t.Errorf("access token type want %v got %v", "Bearer", got.TokenType)
 	}
 	expireIn := time.Until(got.Expiry)
 	if expireIn < 3500*time.Second {
-		t.Errorf("expiry too short want at least %v, got %v", expireIn, 3500)
+		t.Errorf("expiry too short want at least %v, got %v", 3500*time.Second, expireIn)
 	}
 }
 
