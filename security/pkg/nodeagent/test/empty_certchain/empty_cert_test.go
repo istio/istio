@@ -24,6 +24,7 @@ import (
 )
 
 func TestBadCSRResponse(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/24220")
 	rotateInterval := 1 * time.Second
 	sdsTest.RotateCert(rotateInterval)
 	setup := sdsTest.SetupTest(t, env.BadCSRResponse)
