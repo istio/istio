@@ -15,10 +15,6 @@
 package components
 
 import (
-	"io/ioutil"
-
-	"istio.io/pkg/filewatcher"
-
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
@@ -30,8 +26,6 @@ import (
 var (
 	newInterfaces     = kube.NewInterfacesFromConfigFile
 	mcpMetricReporter = func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) }
-	newFileWatcher    = filewatcher.NewWatcher
-	readFile          = ioutil.ReadFile
 
 	meshcfgNewFS        = func(path string) (event.Source, error) { return mesh.NewMeshConfigFS(path) }
 	processorInitialize = processor.Initialize
@@ -40,8 +34,6 @@ var (
 func resetPatchTable() {
 	newInterfaces = kube.NewInterfacesFromConfigFile
 	mcpMetricReporter = func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) }
-	newFileWatcher = filewatcher.NewWatcher
-	readFile = ioutil.ReadFile
 
 	meshcfgNewFS = func(path string) (event.Source, error) { return mesh.NewMeshConfigFS(path) }
 	processorInitialize = processor.Initialize
