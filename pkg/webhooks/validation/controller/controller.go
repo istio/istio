@@ -128,10 +128,14 @@ type Controller struct {
 	dryRunOfInvalidConfigRejected bool
 	fw                            filewatcher.FileWatcher
 
+	stopCh <-chan struct{}
+
 	// unittest hooks
 	readFile      readFileFunc
 	reconcileDone func()
 }
+
+const QuitSignal = "unblock client on queue.Get return and exit the current go routine"
 
 type reconcileRequest struct {
 	description string
@@ -268,6 +272,7 @@ func newController(
 }
 
 func (c *Controller) Start(stop <-chan struct{}) {
+	c.stopCh = stop
 	go c.startFileWatcher(stop)
 	go c.sharedInformers.Start(stop)
 
@@ -281,6 +286,9 @@ func (c *Controller) Start(stop <-chan struct{}) {
 	c.queue.Add(req)
 
 	go c.runWorker()
+
+	<-stop
+	c.queue.Add(&reconcileRequest{QuitSignal})
 }
 
 func (c *Controller) startFileWatcher(stop <-chan struct{}) {
@@ -314,6 +322,11 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 		// don't retry an invalid reconcileRequest item
 		c.queue.Forget(req)
 		return true
+	}
+
+	// return false when leader lost in case go routine leak.
+	if req.description == QuitSignal {
+		return false
 	}
 
 	if err := c.reconcileRequest(req); err != nil {
