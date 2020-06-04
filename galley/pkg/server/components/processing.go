@@ -15,19 +15,10 @@
 package components
 
 import (
-	"fmt"
 	"net"
-	"strings"
 	"sync"
-	"time"
-
-	"golang.org/x/time/rate"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/keepalive"
-	grpcMetadata "google.golang.org/grpc/metadata"
 
 	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/processing"
@@ -47,12 +38,9 @@ import (
 	"istio.io/istio/pkg/config/schema/snapshots"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcprate "istio.io/istio/pkg/mcp/rate"
-	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 )
-
-const versionMetadataKey = "config.source.version"
 
 // Processing component is the main config processing component that will listen to a config source and publish
 // resources through an MCP server, or a dialout connection.
@@ -65,7 +53,6 @@ type Processing struct {
 
 	serveWG       sync.WaitGroup
 	runtime       *processing.Runtime
-	mcpSource     *source.Server
 	reporter      monitoring.Reporter
 	listenerMutex sync.Mutex
 	listener      net.Listener
@@ -135,12 +122,6 @@ func (p *Processing) Start() (err error) {
 	}
 
 	p.stopCh = make(chan struct{})
-	var checker source.AuthChecker = server.NewAllowAllChecker()
-	if !p.args.Insecure {
-		if checker, err = watchAccessList(p.stopCh, p.args.AccessListFile); err != nil {
-			return
-		}
-	}
 
 	p.reporter = mcpMetricReporter("galley")
 
@@ -159,35 +140,6 @@ func (p *Processing) Start() (err error) {
 		}
 	}
 
-	md := grpcMetadata.MD{
-		versionMetadataKey: []string{version.Info.Version},
-	}
-
-	sourceServerRateLimiter := rate.NewLimiter(rate.Every(envvar.SourceServerStreamFreq.Get()), envvar.SourceServerStreamBurstSize.Get())
-	serverOptions := &source.ServerOptions{
-		AuthChecker: checker,
-		RateLimiter: sourceServerRateLimiter,
-		Metadata:    md,
-	}
-
-	p.mcpSource = source.NewServer(options, serverOptions)
-
-	// get the network stuff setup
-	network := "tcp"
-	var address string
-	idx := strings.Index(p.args.APIAddress, "://")
-	if idx < 0 {
-		address = p.args.APIAddress
-	} else {
-		network = p.args.APIAddress[:idx]
-		address = p.args.APIAddress[idx+3:]
-	}
-
-	if p.listener, err = netListen(network, address); err != nil {
-		err = fmt.Errorf("unable to listen: %v", err)
-		return
-	}
-
 	p.serveWG.Add(1)
 	go func() {
 		defer p.serveWG.Done()
@@ -195,29 +147,6 @@ func (p *Processing) Start() (err error) {
 	}()
 
 	return nil
-}
-
-func (p *Processing) getServerGrpcOptions() []grpc.ServerOption {
-	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions,
-		grpc.MaxConcurrentStreams(uint32(p.args.MaxConcurrentStreams)),
-		grpc.MaxRecvMsgSize(int(p.args.MaxReceivedMessageSize)),
-		grpc.InitialWindowSize(int32(p.args.InitialWindowSize)),
-		grpc.InitialConnWindowSize(int32(p.args.InitialConnectionWindowSize)),
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Timeout:               p.args.KeepAlive.Timeout,
-			Time:                  p.args.KeepAlive.Time,
-			MaxConnectionAge:      p.args.KeepAlive.MaxServerConnectionAge,
-			MaxConnectionAgeGrace: p.args.KeepAlive.MaxServerConnectionAgeGrace,
-		}),
-		// Relax keepalive enforcement policy requirements to avoid dropping connections due to too many pings.
-		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             30 * time.Second,
-			PermitWithoutStream: true,
-		}),
-	)
-
-	return grpcOptions
 }
 
 func (p *Processing) getKubeInterfaces() (k kube.Interfaces, err error) {
@@ -276,13 +205,6 @@ func (p *Processing) Stop() {
 		p.runtime = nil
 	}
 
-	p.listenerMutex.Lock()
-	if p.listener != nil {
-		_ = p.listener.Close()
-		p.listener = nil
-	}
-	p.listenerMutex.Unlock()
-
 	if p.reporter != nil {
 		_ = p.reporter.Close()
 		p.reporter = nil
@@ -292,19 +214,4 @@ func (p *Processing) Stop() {
 
 	// final attempt to purge buffered logs
 	_ = log.Sync()
-}
-
-func (p *Processing) getListener() net.Listener {
-	p.listenerMutex.Lock()
-	defer p.listenerMutex.Unlock()
-	return p.listener
-}
-
-// Address returns the Address of the MCP service.
-func (p *Processing) Address() net.Addr {
-	l := p.getListener()
-	if l == nil {
-		return nil
-	}
-	return l.Addr()
 }

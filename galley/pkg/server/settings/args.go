@@ -30,8 +30,6 @@ import (
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/snapshots"
-	"istio.io/istio/pkg/keepalive"
-	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
 )
@@ -70,29 +68,11 @@ type Args struct { // nolint:maligned
 	// resync period to be passed to the K8s machinery.
 	ResyncPeriod time.Duration
 
-	// Address to use for Galley's gRPC API.
-	APIAddress string
-
-	// Maximum size of individual received gRPC messages
-	MaxReceivedMessageSize uint
-
-	// Maximum number of outstanding RPCs per connection
-	MaxConcurrentStreams uint
-
-	// Initial Window Size for gRPC connections
-	InitialWindowSize uint
-
 	// Initial Connection Window Size for gRPC connections
 	InitialConnectionWindowSize uint
 
-	// The credential options to use for MCP.
-	CredentialOptions *creds.Options
-
 	// The introspection options to use
 	IntrospectionOptions *ctrlz.Options
-
-	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
-	AccessListFile string
 
 	// ConfigPath is the path for Galley specific config files
 	ConfigPath string
@@ -106,12 +86,6 @@ type Args struct { // nolint:maligned
 
 	// DNS Domain suffix to use while constructing Ingress based resources.
 	DomainSuffix string
-
-	// Enables gRPC-level tracing
-	EnableGRPCTracing bool
-
-	// Insecure gRPC service is used for the MCP server. CertificateFile and KeyFile is ignored.
-	Insecure bool
 
 	// Enable service discovery / endpoint processing.
 	EnableServiceDiscovery bool
@@ -128,9 +102,6 @@ type Args struct { // nolint:maligned
 	// WatchConfigFiles if set to true, enables Fsnotify watcher for watching and signaling config file changes.
 	// Default is false
 	WatchConfigFiles bool
-
-	// keep-alive options for the MCP gRPC Server.
-	KeepAlive *keepalive.Options
 
 	// Enable the validating webhook server.
 	EnableValidationServer bool
@@ -151,20 +122,12 @@ func DefaultArgs() *Args {
 		ResyncPeriod:                    0,
 		KubeConfig:                      "",
 		WatchedNamespaces:               metav1.NamespaceAll,
-		APIAddress:                      "tcp://0.0.0.0:9901",
-		MaxReceivedMessageSize:          1024 * 1024,
-		MaxConcurrentStreams:            1024,
-		InitialWindowSize:               1024 * 1024,
 		InitialConnectionWindowSize:     1024 * 1024 * 16,
 		IntrospectionOptions:            ctrlz.DefaultOptions(),
-		Insecure:                        false,
-		AccessListFile:                  defaultAccessListFile,
 		MeshConfigFile:                  defaultMeshConfigFile,
-		CredentialOptions:               creds.DefaultOptions(),
 		ConfigPath:                      "",
 		DomainSuffix:                    constants.DefaultKubernetesDomain,
 		ExcludedResourceKinds:           kuberesource.DefaultExcludedResourceKinds(),
-		KeepAlive:                       keepalive.DefaultOption(),
 		ValidationWebhookServerArgs:     server.DefaultArgs(),
 		ValidationWebhookControllerArgs: controller.DefaultArgs(),
 		EnableValidationController:      true,
@@ -183,26 +146,12 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "KubeConfig: %s\n", a.KubeConfig)
 	_, _ = fmt.Fprintf(buf, "WatchedNamespaces: %s\n", a.WatchedNamespaces)
 	_, _ = fmt.Fprintf(buf, "ResyncPeriod: %v\n", a.ResyncPeriod)
-	_, _ = fmt.Fprintf(buf, "APIAddress: %s\n", a.APIAddress)
-	_, _ = fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.EnableGRPCTracing)
-	_, _ = fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
-	_, _ = fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
-	_, _ = fmt.Fprintf(buf, "InitialWindowSize: %v\n", a.InitialWindowSize)
 	_, _ = fmt.Fprintf(buf, "InitialConnectionWindowSize: %v\n", a.InitialConnectionWindowSize)
 	_, _ = fmt.Fprintf(buf, "IntrospectionOptions: %+v\n", *a.IntrospectionOptions)
-	_, _ = fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
-	_, _ = fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
-	_, _ = fmt.Fprintf(buf, "KeyFile: %s\n", a.CredentialOptions.KeyFile)
-	_, _ = fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
-	_, _ = fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
 	_, _ = fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
 	_, _ = fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
 	_, _ = fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
 	_, _ = fmt.Fprintf(buf, "ExcludedResourceKinds: %v\n", a.ExcludedResourceKinds)
-	_, _ = fmt.Fprintf(buf, "KeepAlive.MaxServerConnectionAge: %v\n", a.KeepAlive.MaxServerConnectionAge)
-	_, _ = fmt.Fprintf(buf, "KeepAlive.MaxServerConnectionAgeGrace: %v\n", a.KeepAlive.MaxServerConnectionAgeGrace)
-	_, _ = fmt.Fprintf(buf, "KeepAlive.Time: %v\n", a.KeepAlive.Time)
-	_, _ = fmt.Fprintf(buf, "KeepAlive.Timeout: %v\n", a.KeepAlive.Timeout)
 
 	return buf.String()
 }

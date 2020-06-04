@@ -16,7 +16,6 @@ package components
 
 import (
 	"io/ioutil"
-	"net"
 
 	"istio.io/pkg/filewatcher"
 
@@ -30,7 +29,6 @@ import (
 
 // The patch table for external dependencies for code in components.
 var (
-	netListen         = net.Listen
 	newInterfaces     = kube.NewInterfacesFromConfigFile
 	mcpMetricReporter = func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) }
 	newFileWatcher    = filewatcher.NewWatcher
@@ -42,7 +40,6 @@ var (
 )
 
 func resetPatchTable() {
-	netListen = net.Listen
 	newInterfaces = kube.NewInterfacesFromConfigFile
 	mcpMetricReporter = func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) }
 	newFileWatcher = filewatcher.NewWatcher
