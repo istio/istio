@@ -146,11 +146,12 @@ func NewServer(config Config) (*Server, error) {
 	return s, nil
 }
 
-// FormatProberURL returns a pair of HTTP URLs that pilot agent will serve to take over Kubernetes
+// FormatProberURL returns a set of HTTP URLs that pilot agent will serve to take over Kubernetes
 // app probers.
-func FormatProberURL(container string) (string, string) {
+func FormatProberURL(container string) (string, string, string) {
 	return fmt.Sprintf("/app-health/%v/readyz", container),
-		fmt.Sprintf("/app-health/%v/livez", container)
+		fmt.Sprintf("/app-health/%v/livez", container),
+		fmt.Sprintf("/app-health/%v/startupz", container)
 }
 
 // Run opens a the status port and begins accepting probes.
