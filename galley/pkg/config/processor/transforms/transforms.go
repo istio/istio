@@ -19,7 +19,6 @@ package transforms
 import (
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor/transforms/direct"
-	"istio.io/istio/galley/pkg/config/processor/transforms/ingress"
 	"istio.io/istio/pkg/config/schema"
 )
 
@@ -27,7 +26,6 @@ import (
 func Providers(m *schema.Metadata) transformer.Providers {
 	providers := make([]transformer.Provider, 0)
 
-	providers = append(providers, ingress.GetProviders()...)
 	providers = append(providers, direct.GetProviders(m)...)
 
 	return providers
