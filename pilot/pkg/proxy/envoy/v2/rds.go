@@ -40,7 +40,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 		}
 	}
 
-	response := routeDiscoveryResponse(rawRoutes, version, push.Version, con.RequestedTypes.RDS)
+	response := routeDiscoveryResponse(rawRoutes, version, push.Version, con.node.RequestedTypes.RDS)
 	err := con.send(response)
 	rdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
