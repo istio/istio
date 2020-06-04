@@ -63,8 +63,8 @@ func TestCNIReachability(t *testing.T) {
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "global-mtls-on.yaml",
-					Namespace:           systemNM,
+					ConfigFile: "global-mtls-on.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {

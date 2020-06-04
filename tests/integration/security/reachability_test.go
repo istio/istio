@@ -122,8 +122,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "global-plaintext.yaml",
-					Namespace:           systemNM,
+					ConfigFile: "global-plaintext.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {

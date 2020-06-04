@@ -40,8 +40,8 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "global-mtls-on-no-dr.yaml",
-					Namespace:           systemNM,
+					ConfigFile: "global-mtls-on-no-dr.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless service.
 						// Auto mtls does not apply to headless service, because for headless service
@@ -61,8 +61,8 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "global-plaintext.yaml",
-					Namespace:           systemNM,
+					ConfigFile: "global-plaintext.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
