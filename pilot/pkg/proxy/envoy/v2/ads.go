@@ -29,6 +29,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
@@ -206,8 +207,10 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 		if !ok {
 			return nil, errors.New("invalid context")
 		}
-		// No authentication info provided
-		if peerInfo.AuthInfo == nil {
+		// Not a TLS connection, we will not authentication
+		// TODO: add a flag to prevent unauthenticated requests ( 15010 )
+		// request not over TLS ( on the insecure port
+		if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok {
 			return nil, nil
 		}
 		var authenticatedID *authenticate.Caller
@@ -225,9 +228,6 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 
 		return authenticatedID.Identities, nil
 	}
-
-	// TODO: add a flag to prevent unauthenticated requests ( 15010 )
-	// request not over TLS ( on the insecure port
 	return nil, nil
 }
 
