@@ -303,11 +303,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	processingArgs.WatchedNamespaces = args.Config.ControllerOptions.WatchedNamespaces
 	processingArgs.EnableValidationController = false
 	processingArgs.EnableValidationServer = false
-	processingArgs.MonitoringPort = 0
-	processingArgs.Liveness.UpdateInterval = 0
-	processingArgs.Readiness.UpdateInterval = 0
 	processingArgs.Insecure = true // TODO - use sidecar?
-	processingArgs.EnableServer = false
 	processingArgs.MeshConfigFile = args.Mesh.ConfigFile
 	processingArgs.EnableConfigAnalysis = true
 

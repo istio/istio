@@ -26,8 +26,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 	grpcMetadata "google.golang.org/grpc/metadata"
 
-	mcp "istio.io/api/mcp/v1alpha1"
-
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
@@ -47,7 +45,6 @@ import (
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/snapshots"
-	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcprate "istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
@@ -67,7 +64,6 @@ type Processing struct {
 	k kube.Interfaces
 
 	serveWG       sync.WaitGroup
-	grpcServer    *grpc.Server
 	runtime       *processing.Runtime
 	mcpSource     *source.Server
 	reporter      monitoring.Reporter
@@ -138,25 +134,13 @@ func (p *Processing) Start() (err error) {
 		return
 	}
 
-	grpcOptions := p.getServerGrpcOptions()
-
 	p.stopCh = make(chan struct{})
 	var checker source.AuthChecker = server.NewAllowAllChecker()
 	if !p.args.Insecure {
 		if checker, err = watchAccessList(p.stopCh, p.args.AccessListFile); err != nil {
 			return
 		}
-
-		var watcher creds.CertificateWatcher
-		if watcher, err = creds.PollFiles(p.stopCh, p.args.CredentialOptions); err != nil {
-			return
-		}
-		credentials := creds.CreateForServer(watcher)
-
-		grpcOptions = append(grpcOptions, grpc.Creds(credentials))
 	}
-	grpc.EnableTracing = p.args.EnableGRPCTracing
-	p.grpcServer = grpc.NewServer(grpcOptions...)
 
 	p.reporter = mcpMetricReporter("galley")
 
@@ -204,31 +188,11 @@ func (p *Processing) Start() (err error) {
 		return
 	}
 
-	mcp.RegisterResourceSourceServer(p.grpcServer, p.mcpSource)
-
-	var startWG sync.WaitGroup
-	startWG.Add(1)
-
 	p.serveWG.Add(1)
 	go func() {
 		defer p.serveWG.Done()
 		p.runtime.Start()
-
-		l := p.getListener()
-		if l != nil && p.args.EnableServer {
-			// start serving
-			gs := p.grpcServer
-			startWG.Done()
-			err = gs.Serve(l)
-			if err != nil {
-				scope.Errorf("Galley Server unexpectedly terminated: %v", err)
-			}
-		}
 	}()
-
-	if p.args.EnableServer {
-		startWG.Wait()
-	}
 
 	return nil
 }
@@ -307,11 +271,6 @@ func (p *Processing) Stop() {
 		p.stopCh = nil
 	}
 
-	if p.grpcServer != nil {
-		p.grpcServer.GracefulStop()
-		p.grpcServer = nil
-	}
-
 	if p.runtime != nil {
 		p.runtime.Stop()
 		p.runtime = nil
@@ -329,9 +288,7 @@ func (p *Processing) Stop() {
 		p.reporter = nil
 	}
 
-	if p.grpcServer != nil {
-		p.serveWG.Wait()
-	}
+	p.serveWG.Wait()
 
 	// final attempt to purge buffered logs
 	_ = log.Sync()

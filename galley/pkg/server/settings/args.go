@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/probe"
 
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/config/constants"
@@ -114,9 +113,6 @@ type Args struct { // nolint:maligned
 	// Insecure gRPC service is used for the MCP server. CertificateFile and KeyFile is ignored.
 	Insecure bool
 
-	// Enable galley server mode
-	EnableServer bool
-
 	// Enable service discovery / endpoint processing.
 	EnableServiceDiscovery bool
 
@@ -145,12 +141,6 @@ type Args struct { // nolint:maligned
 	ValidationWebhookServerArgs     server.Options
 	ValidationWebhookControllerArgs controller.Options
 
-	Liveness        probe.Options
-	Readiness       probe.Options
-	MonitoringPort  uint
-	EnableProfiling bool
-	PprofPort       uint
-
 	Snapshots       []string
 	TriggerSnapshot string
 }
@@ -170,7 +160,6 @@ func DefaultArgs() *Args {
 		Insecure:                        false,
 		AccessListFile:                  defaultAccessListFile,
 		MeshConfigFile:                  defaultMeshConfigFile,
-		EnableServer:                    true,
 		CredentialOptions:               creds.DefaultOptions(),
 		ConfigPath:                      "",
 		DomainSuffix:                    constants.DefaultKubernetesDomain,
@@ -180,19 +169,8 @@ func DefaultArgs() *Args {
 		ValidationWebhookControllerArgs: controller.DefaultArgs(),
 		EnableValidationController:      true,
 		EnableValidationServer:          true,
-		MonitoringPort:                  15014,
-		EnableProfiling:                 false,
-		PprofPort:                       9094,
 		WatchConfigFiles:                false,
 		EnableConfigAnalysis:            false,
-		Liveness: probe.Options{
-			Path:           defaultLivenessProbeFilePath,
-			UpdateInterval: defaultProbeCheckInterval,
-		},
-		Readiness: probe.Options{
-			Path:           defaultReadinessProbeFilePath,
-			UpdateInterval: defaultProbeCheckInterval,
-		},
 		Snapshots:       []string{snapshots.Default},
 		TriggerSnapshot: snapshots.Default,
 	}
@@ -214,7 +192,6 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "IntrospectionOptions: %+v\n", *a.IntrospectionOptions)
 	_, _ = fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
 	_, _ = fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
-	_, _ = fmt.Fprintf(buf, "EnableServer: %v\n", a.EnableServer)
 	_, _ = fmt.Fprintf(buf, "KeyFile: %s\n", a.CredentialOptions.KeyFile)
 	_, _ = fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
 	_, _ = fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
