@@ -761,6 +761,8 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 
 	podSpec.DNSConfig = spec.DNSConfig
 
+	podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets, spec.ImagePullSecrets...)
+
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.
 	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec, meshconfig.DefaultConfig.GetStatusPort())

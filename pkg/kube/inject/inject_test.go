@@ -252,6 +252,18 @@ func TestIntoResourceFile(t *testing.T) {
 			want: "kubevirtInterfaces_list.yaml.injected",
 		},
 		{
+			// Verifies that global.imagePullSecrets are applied properly
+			in:         "hello.yaml",
+			want:       "hello-image-secrets-in-values.yaml.injected",
+			inFilePath: "hello-image-secrets-in-values-iop.yaml",
+		},
+		{
+			// Verifies that global.imagePullSecrets are appended properly
+			in:         "hello-image-pull-secret.yaml",
+			want:       "hello-multiple-image-secrets.yaml.injected",
+			inFilePath: "hello-image-secrets-in-values-iop.yaml",
+		},
+		{
 			// Verifies that global.podDNSSearchNamespaces are applied properly
 			in:         "hello.yaml",
 			want:       "hello-template-in-values.yaml.injected",
