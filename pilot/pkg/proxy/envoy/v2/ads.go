@@ -239,6 +239,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 			}
 
+			if s.StatusReporter != nil {
+				s.StatusReporter.RegisterEvent(con.ConID, TypeURLToEventType(discReq.TypeUrl), discReq.ResponseNonce)
+			}
+
 			switch discReq.TypeUrl {
 			case ClusterType:
 				if con.CDSWatch {
@@ -523,6 +527,15 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.node, pushEv) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
+
+		if s.StatusReporter != nil {
+			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
+			// inform distribution status reporter that this connection has been updated, because it effectively has
+			for _, distributionType := range AllEventTypes {
+				s.StatusReporter.RegisterEvent(con.ConID, distributionType, pushEv.noncePrefix)
+			}
+		}
+
 		return nil
 	}
 
@@ -537,6 +550,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, ClusterEventType, pushEv.noncePrefix)
 	}
 
 	if len(con.Clusters) > 0 && pushTypes[EDS] {
@@ -544,18 +559,24 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, EndpointEventType, pushEv.noncePrefix)
 	}
 	if con.LDSWatch && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, ListenerEventType, pushEv.noncePrefix)
 	}
 	if len(con.Routes) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, RouteEventType, pushEv.noncePrefix)
 	}
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil

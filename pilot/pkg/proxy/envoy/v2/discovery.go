@@ -112,6 +112,8 @@ type DiscoveryServer struct {
 
 	// debugHandlers is the list of all the supported debug handlers.
 	debugHandlers map[string]string
+
+	StatusReporter DistributionStatusCache
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update

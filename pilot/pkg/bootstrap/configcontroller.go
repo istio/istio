@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pilot/pkg/status"
 	"net/url"
 	"os"
 	"path"
@@ -82,6 +83,14 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
 	}
+
+	// startup status reporter for use in istioctl wait
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		statusReporter := &status.Reporter{}
+		s.EnvoyXdsServer.StatusReporter = statusReporter
+		statusReporter.Start(stop)
+		return nil
+	})
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
 	if hasKubeRegistry(args.Service.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
