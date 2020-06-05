@@ -80,6 +80,10 @@ type Config struct {
 
 	// TLS settings for echo server
 	TLSSettings *common.TLSSettings
+
+	// If enabled, echo will be deployed as a "VM". This means it will run Envoy in the same pod as echo,
+	// disable sidecar injection, etc.
+	DeployAsVM bool
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).

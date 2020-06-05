@@ -16,11 +16,14 @@ package kube
 
 import (
 	"fmt"
+	"strconv"
 	"text/template"
 
 	"github.com/Masterminds/sprig"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -184,11 +187,102 @@ data:
 ---
 {{- end}}
 `
+
+	// vmDeploymentYaml aims to simulate a VM, but instead of managing the complex test setup of spinning up a VM,
+	// connecting, etc we run it inside a pod. The pod has pretty much all Kubernetes features disabled (DNS and SA token mount)
+	// such that we can adequately simulate a VM and DIY the bootstrapping.
+	vmDeploymentYaml = `
+{{- $cluster := .Cluster }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Service }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      istio.io/test-vm: {{ $.Service }}
+  template:
+    metadata:
+      annotations:
+        # Sidecar is inside the pod to simulate VMs - do not inject
+        sidecar.istio.io/inject: "false"
+      labels:
+        # Label should not be selected. We will create a workload entry instead
+        istio.io/test-vm: {{ $.Service }}
+    spec:
+      # Disable kube-dns, to mirror VM
+      dnsPolicy: Default
+      # Disable service account mount, to mirror VM
+      automountServiceAccountToken: false
+      containers:
+      - name: istio-proxy
+        image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
+        #image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
+        imagePullPolicy: {{ $.PullPolicy }}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          runAsUser: 1338
+          runAsGroup: 1338
+        command:
+        - bash
+        - -c
+        - |-
+          sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
+          sudo sh -c 'echo "1.1.1.1 pod.{{$.Namespace}}.svc.cluster.local" >> /etc/hosts'
+
+          # TODO: run with systemctl?
+          sudo -E /usr/local/bin/istio-start.sh&
+          /usr/local/bin/server --cluster "{{ $cluster }}" \
+{{- range $i, $p := $.ContainerPorts }}
+{{- if eq .Protocol "GRPC" }}
+             --grpc \
+{{- else if eq .Protocol "TCP" }}
+             --tcp \
+{{- else }}
+             --port \
+{{- end }}
+             "{{ $p.Port }}" \
+{{- end }}
+        env:
+        # We use token not certs
+        - name: PROV_CERT
+          value: ""
+        # By default we do not capture inbound. For these tests we will mark as capture all
+        - name: ISTIO_INBOUND_PORTS
+          value: "*"
+        # Block standard inbound ports
+        - name: ISTIO_LOCAL_EXCLUDE_PORTS
+          value: "15090,15021,15020"
+        readinessProbe:
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        volumeMounts:
+        - mountPath: /var/run/secrets/tokens
+          name: {{ $.Service }}-istio-token
+        - mountPath: /var/run/secrets/istio
+          name: istio-ca-root-cert
+      volumes:
+      - secret:
+          secretName: {{ $.Service }}-istio-token
+        name: {{ $.Service }}-istio-token
+      - configMap:
+          name: istio-ca-root-cert
+        name: istio-ca-root-cert`
 )
 
 var (
-	serviceTemplate    *template.Template
-	deploymentTemplate *template.Template
+	serviceTemplate      *template.Template
+	deploymentTemplate   *template.Template
+	vmDeploymentTemplate *template.Template
 )
 
 func init() {
@@ -201,18 +295,23 @@ func init() {
 	if _, err := deploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(deploymentYAML); err != nil {
 		panic(fmt.Sprintf("unable to parse echo deployment template: %v", err))
 	}
+
+	vmDeploymentTemplate = template.New("echo_vm_deployment")
+	if _, err := vmDeploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(vmDeploymentYaml); err != nil {
+		panic(fmt.Sprintf("unable to parse echo vm deployment template: %v", err))
+	}
 }
 
-func generateYAML(cfg echo.Config) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAML(cfg echo.Config, cluster kube.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Create the parameters for the YAML template.
 	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return "", "", err
 	}
-	return generateYAMLWithSettings(cfg, settings)
+	return generateYAMLWithSettings(cfg, settings, cluster)
 }
 
-func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster kube.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -228,6 +327,23 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (servic
 		}
 	}
 
+	var istiodIP, istiodPort string
+	if cfg.DeployAsVM {
+		s, err := kube.NewSettingsFromCommandLine()
+		if err != nil {
+			return "", "", err
+		}
+		addr, err := istio.GetRemoteDiscoveryAddress("istio-system", cluster, s.Minikube)
+		if err != nil {
+			return "", "", err
+		}
+		istiodIP = addr.IP.String()
+		istiodPort = strconv.Itoa(addr.Port)
+	}
+	namespace := ""
+	if cfg.Namespace != nil {
+		namespace = cfg.Namespace.Name()
+	}
 	params := map[string]interface{}{
 		"Hub":                 settings.Hub,
 		"Tag":                 settings.Tag,
@@ -245,6 +361,11 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (servic
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
 		"Cluster":             cfg.ClusterIndex(),
+		"Namespace":           namespace,
+		"VM": map[string]interface{}{
+			"IstiodIP":   istiodIP,
+			"IstiodPort": istiodPort,
+		},
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)
@@ -252,7 +373,12 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (servic
 		return
 	}
 
+	deploy := deploymentTemplate
+	if cfg.DeployAsVM {
+		deploy = vmDeploymentTemplate
+	}
+
 	// Generate the YAML content.
-	deploymentYAML, err = tmpl.Execute(deploymentTemplate, params)
+	deploymentYAML, err = tmpl.Execute(deploy, params)
 	return
 }

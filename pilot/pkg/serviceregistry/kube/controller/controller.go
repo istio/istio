@@ -22,7 +22,6 @@ import (
 	"net"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -669,82 +668,6 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	return region + "/" + zone + "/" + subzone // Format: "%s/%s/%s"
 }
 
-// ManagementPorts implements a service catalog operation
-func (c *Controller) ManagementPorts(addr string) model.PortList {
-	pod := c.pods.getPodByIP(addr)
-	if pod == nil {
-		return nil
-	}
-
-	managementPorts, err := kube.ConvertProbesToPorts(&pod.Spec)
-	if err != nil {
-		log.Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
-	}
-
-	// We continue despite the error because healthCheckPorts could return a partial
-	// list of management ports
-	return managementPorts
-}
-
-// WorkloadHealthCheckInfo implements a service catalog operation
-func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	pod := c.pods.getPodByIP(addr)
-	if pod == nil {
-		return nil
-	}
-
-	probes := make([]*model.Probe, 0)
-
-	// Obtain probes from the readiness and liveness probes
-	for _, container := range pod.Spec.Containers {
-		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
-			p, err := kube.ConvertProbePort(&container, &container.ReadinessProbe.Handler)
-			if err != nil {
-				log.Infof("Error while parsing readiness probe port =%v", err)
-			}
-			probes = append(probes, &model.Probe{
-				Port: p,
-				Path: container.ReadinessProbe.Handler.HTTPGet.Path,
-			})
-		}
-		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
-			p, err := kube.ConvertProbePort(&container, &container.LivenessProbe.Handler)
-			if err != nil {
-				log.Infof("Error while parsing liveness probe port =%v", err)
-			}
-			probes = append(probes, &model.Probe{
-				Port: p,
-				Path: container.LivenessProbe.Handler.HTTPGet.Path,
-			})
-		}
-	}
-
-	// Obtain probe from prometheus scrape
-	if scrape := pod.Annotations[PrometheusScrape]; scrape == "true" {
-		var port *model.Port
-		path := PrometheusPathDefault
-		if portstr := pod.Annotations[PrometheusPort]; portstr != "" {
-			portnum, err := strconv.Atoi(portstr)
-			if err != nil {
-				log.Warna(err)
-			} else {
-				port = &model.Port{
-					Port: portnum,
-				}
-			}
-		}
-		if pod.Annotations[PrometheusPath] != "" {
-			path = pod.Annotations[PrometheusPath]
-		}
-		probes = append(probes, &model.Probe{
-			Port: port,
-			Path: path,
-		})
-	}
-
-	return probes
-}
-
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
@@ -798,6 +721,9 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 			break
 		}
 	}
+	if servicePort == nil {
+		return nil
+	}
 
 	out := make([]*model.ServiceInstance, 0)
 
@@ -812,6 +738,7 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 			// from service port to endpoint port. Need to figure out a way to map workload entry port to
 			// appropriate k8s service port
 			istioEndpoint := *fi.Endpoint
+			// BUG: reqSvcPort is the Service port - it should instead be the TargetPort
 			istioEndpoint.EndpointPort = uint32(reqSvcPort)
 			istioEndpoint.ServicePortName = servicePort.Name
 			out = append(out, &model.ServiceInstance{
@@ -860,13 +787,21 @@ func (c *Controller) collectAllForeignEndpoints(svc *model.Service) []*model.Ist
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+
 	out := make([]*model.ServiceInstance, 0)
 	if len(proxy.IPAddresses) > 0 {
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
 		proxyIP := proxy.IPAddresses[0]
+
 		pod := c.pods.getPodByIP(proxyIP)
-		if pod != nil {
+		if foreign, f := c.foreignRegistryInstancesByIP[proxyIP]; f {
+			var err error
+			out, err = c.hydrateForeignServiceInstance(foreign)
+			if err != nil {
+				log.Warnf("hydrateForeignServiceInstance for %v failed: %v", proxy.ID, err)
+			}
+		} else if pod != nil {
 			// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
 			// which can happen when multi clusters using same pod cidr.
 			// As we have proxy Network meta, compare it with the network which endpoint belongs to,
@@ -907,6 +842,43 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	return out, nil
 }
 
+func (c *Controller) hydrateForeignServiceInstance(si *model.ServiceInstance) ([]*model.ServiceInstance, error) {
+	out := []*model.ServiceInstance{}
+	// find the workload entry's service by label selector
+	// rather than scanning through our internal map of model.services, get the services via the k8s apis
+	dummyPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Namespace: si.Service.Attributes.Namespace, Labels: si.Endpoint.Labels},
+	}
+
+	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
+	if k8sServices, err := getPodServices(listerv1.NewServiceLister(c.serviceInformer.GetIndexer()), dummyPod); err == nil && len(k8sServices) > 0 {
+		for _, k8sSvc := range k8sServices {
+			var service *model.Service
+			c.RLock()
+			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.domainSuffix)]
+			c.RUnlock()
+			// Note that this cannot be an external service because k8s external services do not have label selectors.
+			if service == nil || service.Resolution != model.ClientSideLB {
+				// may be a headless service
+				continue
+			}
+
+			for _, port := range service.Ports {
+				if port.Protocol == protocol.UDP {
+					continue
+				}
+				// Similar code as UpdateServiceShards in eds.go
+				instances, err := c.InstancesByPort(service, port.Port, labels.Collection{})
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, instances...)
+			}
+		}
+	}
+	return out, nil
+}
+
 // ForeignServiceInstanceHandler defines the handler for service instances generated by other registries
 func (c *Controller) ForeignServiceInstanceHandler(si *model.ServiceInstance, event model.Event) {
 	// ignore malformed workload entries. And ignore any workload entry that does not have a label
@@ -940,7 +912,7 @@ func (c *Controller) ForeignServiceInstanceHandler(si *model.ServiceInstance, ev
 			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.domainSuffix)]
 			c.RUnlock()
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
-			if service.Resolution != model.ClientSideLB {
+			if service == nil || service.Resolution != model.ClientSideLB {
 				// may be a headless service
 				continue
 			}

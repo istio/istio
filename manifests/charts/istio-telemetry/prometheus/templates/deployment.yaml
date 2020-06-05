@@ -139,6 +139,10 @@ spec:
               {{- end }}
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ .Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+            {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
+            - name: {{ $key }}
+              value: "{{ $value }}"
+            {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30

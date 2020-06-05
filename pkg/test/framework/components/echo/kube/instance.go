@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -82,9 +84,9 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	// Generate the service and deployment YAML.
-	serviceYAML, deploymentYAML, err := generateYAML(cfg)
+	serviceYAML, deploymentYAML, err := generateYAML(cfg, c.cluster)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate yaml: %v", err)
 	}
 
 	// Apply the service definition to all clusters.
@@ -99,6 +101,69 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), deploymentYAML); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %d: %v",
 			cfg.FQDN(), c.cluster.Index(), err)
+	}
+
+	if cfg.DeployAsVM {
+		serviceAccount := cfg.Service
+		if !cfg.ServiceAccount {
+			serviceAccount = "default"
+		}
+		token, err := c.cluster.CreateServiceAccountToken(cfg.Namespace.Name(), serviceAccount)
+		if err != nil {
+			return nil, err
+		}
+		if err := c.cluster.CreateSecret(cfg.Namespace.Name(), &kubeCore.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfg.Service + "-istio-token",
+				Namespace: cfg.Namespace.Name(),
+			},
+			Data: map[string][]byte{
+				"istio-token": []byte(token),
+			},
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if cfg.DeployAsVM {
+		var pod kubeCore.Pod
+		if err := retry.UntilSuccess(func() error {
+			pods, err := c.cluster.GetPods(cfg.Namespace.Name(), fmt.Sprintf("istio.io/test-vm=%s", cfg.Service))
+			if err != nil {
+				return err
+			}
+			if len(pods) != 1 {
+				return fmt.Errorf("expected 1 pod, found %v", len(pods))
+			}
+			pod = pods[0]
+			if pod.Status.PodIP == "" {
+				return fmt.Errorf("empty pod ip")
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+		ip := pod.Status.PodIP
+
+		serviceAccount := cfg.Service
+		if !cfg.ServiceAccount {
+			serviceAccount = "default"
+		}
+		wle := fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: %s
+spec:
+  address: %s
+  serviceAccount: %s
+  labels:
+    app: %s
+`, pod.Name, ip, serviceAccount, cfg.Service)
+		// Deploy the workload entry.
+		if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), wle); err != nil {
+			return nil, fmt.Errorf("failed deploying workload entry: %v", err)
+		}
 	}
 
 	// Now retrieve the service information to find the ClusterIP
@@ -242,7 +307,7 @@ func (c *instance) initialize(pods []kubeCore.Pod) error {
 	}
 
 	if len(workloads) == 0 {
-		return fmt.Errorf("no pods found for service %s/%s/%s", c.cfg.Namespace.Name(), c.cfg.Service, c.cfg.Version)
+		return fmt.Errorf("no workloads found for service %s/%s/%s, from %v pods", c.cfg.Namespace.Name(), c.cfg.Service, c.cfg.Version, len(pods))
 	}
 
 	c.workloads = workloads

@@ -33,8 +33,9 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	istiolog "istio.io/pkg/log"
+
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -102,18 +103,6 @@ type XdsConnection struct {
 	LDSWatch bool
 	// CDSWatch is set if the remote server is watching Clusters
 	CDSWatch bool
-
-	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
-	// only generate one version or the other, because the protos are wire compatible we can cast to the
-	// requested version. This struct keeps track of the types requested for each resource type.
-	// For example, if Envoy requests Clusters v3, we would track that here. Pilot would generate a v2
-	// cluster response, but change the TypeUrl in the response to be v3.
-	RequestedTypes struct {
-		CDS string
-		EDS string
-		RDS string
-		LDS string
-	}
 
 	// Original node metadata, to avoid unmarshall/marshall. This is included
 	// in internal events.
@@ -206,26 +195,27 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 		if !ok {
 			return nil, errors.New("invalid context")
 		}
-		if err := credentials.CheckSecurityLevel(ctx, credentials.PrivacyAndIntegrity); err == nil {
-			var authenticatedID *authenticate.Caller
-			for _, authn := range s.Authenticators {
-				u, err := authn.Authenticate(ctx)
-				if u != nil && err == nil {
-					authenticatedID = u
-				}
-			}
-
-			if authenticatedID == nil {
-				adsLog.Errora("Failed to authenticate client ", peerInfo)
-				return nil, errors.New("authentication failure")
-			}
-
-			return authenticatedID.Identities, nil
+		// Not a TLS connection, we will not authentication
+		// TODO: add a flag to prevent unauthenticated requests ( 15010 )
+		// request not over TLS ( on the insecure port
+		if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok {
+			return nil, nil
 		}
-	}
+		var authenticatedID *authenticate.Caller
+		for _, authn := range s.Authenticators {
+			u, err := authn.Authenticate(ctx)
+			if u != nil && err == nil {
+				authenticatedID = u
+			}
+		}
 
-	// TODO: add a flag to prevent unauthenticated requests ( 15010 )
-	// request not over TLS ( on the insecure port
+		if authenticatedID == nil {
+			adsLog.Errora("Failed to authenticate client ", peerInfo)
+			return nil, errors.New("authentication failure")
+		}
+
+		return authenticatedID.Identities, nil
+	}
 	return nil, nil
 }
 
@@ -243,9 +233,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 		return err
 	}
 	if ids != nil {
-		adsLog.Infoa("Authenticated XDS: ", peerInfo, ids)
+		adsLog.Infof("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		adsLog.Infoa("Unauthenticated XDS: ", peerInfo)
+		adsLog.Infoa("Unauthenticated XDS: ", peerAddr)
 	}
 
 	// first call - lazy loading, in tests. This should not happen if readiness
@@ -316,28 +306,28 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 
 			switch discReq.TypeUrl {
 			case ClusterType, v3.ClusterType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.CDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
 					return err
 				}
 				if err := s.handleCds(con, discReq); err != nil {
 					return err
 				}
 			case ListenerType, v3.ListenerType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.LDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.LDS); err != nil {
 					return err
 				}
 				if err := s.handleLds(con, discReq); err != nil {
 					return err
 				}
 			case RouteType, v3.RouteType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.RDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.RDS); err != nil {
 					return err
 				}
 				if err := s.handleRds(con, discReq); err != nil {
 					return err
 				}
 			case EndpointType, v3.EndpointType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.EDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.EDS); err != nil {
 					return err
 				}
 				if err := s.handleEds(con, discReq); err != nil {
