@@ -294,7 +294,7 @@ func maybeApplyEdsConfig(c *cluster.Cluster, cdsVersion string) {
 	}
 
 	if cdsVersion == v3.ClusterType {
-		// For v3 listeners, send v3 routes
+		// For v3 clusters, send v3 eds config.
 		c.EdsClusterConfig.EdsConfig.ResourceApiVersion = core.ApiVersion_V3
 	}
 }
