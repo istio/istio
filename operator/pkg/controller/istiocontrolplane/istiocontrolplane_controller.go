@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -106,9 +107,7 @@ var (
 			if err != nil {
 				return false
 			}
-			if obj.GetLabels()[helmreconciler.OwningResourceName] != "" &&
-				obj.GetLabels()[helmreconciler.OwningResourceNamespace] != "" &&
-				obj.GetLabels()[helmreconciler.IstioComponentLabelStr] != "" {
+			if isOperatorCreatedResource(obj) {
 				crName := obj.GetLabels()[helmreconciler.OwningResourceName]
 				crNamespace := obj.GetLabels()[helmreconciler.OwningResourceNamespace]
 				componentName := obj.GetLabels()[helmreconciler.IstioComponentLabelStr]
@@ -398,4 +397,11 @@ func watchIstioResources(c controller.Controller) error {
 		}
 	}
 	return nil
+}
+
+// Check if the specified object is created by operator
+func isOperatorCreatedResource(obj metav1.Object) bool {
+	return obj.GetLabels()[helmreconciler.OwningResourceName] != "" &&
+		obj.GetLabels()[helmreconciler.OwningResourceNamespace] != "" &&
+		obj.GetLabels()[helmreconciler.IstioComponentLabelStr] != ""
 }
