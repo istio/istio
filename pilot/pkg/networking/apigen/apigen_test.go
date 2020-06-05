@@ -25,8 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
-	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/adsc"
 
 	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
 )

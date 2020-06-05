@@ -33,7 +33,7 @@ import (
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/test/adsc"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )

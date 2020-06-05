@@ -27,7 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
-	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/test/adsc"
 
 	"istio.io/istio/pilot/pkg/model"
 

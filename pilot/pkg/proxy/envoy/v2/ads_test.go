@@ -24,7 +24,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/test/adsc"
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
