@@ -41,6 +41,8 @@ import (
 	mpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 type mixerplugin struct{}
@@ -710,7 +712,18 @@ func getQuotaSpec(in *plugin.InputParams, hostname host.Name, isPolicyCheckDisab
 	quotaSpecs := config.QuotaSpecByDestination(hostname)
 	model.SortQuotaSpec(quotaSpecs)
 	for _, config := range quotaSpecs {
-		quotaSpec = append(quotaSpec, config.Spec.(*mpb.QuotaSpec))
+		// Converting gogo proto used by IstioConfig (istio.io/api/mixer/v1/config/client)
+		// to golang proto(istio.io/istio/pilot/pkg/networking/plugin/mixer/client) passed to Envoy in xDS update.
+		gogoSpec, err := gogoprotomarshal.ToJSON(config.Spec)
+		if err != nil {
+			continue
+		}
+		spec := &mpb.QuotaSpec{}
+		err = protomarshal.ApplyJSON(gogoSpec, spec)
+		if err != nil {
+			continue
+		}
+		quotaSpec = append(quotaSpec, spec)
 	}
 	return quotaSpec
 }
