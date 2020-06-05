@@ -62,7 +62,7 @@ func UpgradeV2Request(v2Req *xdsapi.DiscoveryRequest) *discovery.DiscoveryReques
 	}
 }
 
-// Convert from v2 to v3
+// Convert from v3 to v2
 func DowngradeV3Response(v3Resp *discovery.DiscoveryResponse) *xdsapi.DiscoveryResponse {
 	if v3Resp == nil {
 		return nil
