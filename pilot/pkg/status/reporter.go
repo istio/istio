@@ -15,6 +15,7 @@
 package status
 
 import (
+	"context"
 	"sync"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -36,11 +37,7 @@ func (r *Reporter) Start(stop <-chan struct{}) {
 	scope.Info("Starting status follower controller")
 	r.distributionEventQueue = make(chan distributionEvent, 10^5)
 	r.status = make(map[string]string)
-	go r.readFromEventQueue()
-	go func() {
-		defer close(r.distributionEventQueue)
-		<-stop
-	}()
+	go r.readFromEventQueue(NewIstioContext(stop))
 
 }
 
@@ -70,10 +67,15 @@ func (r *Reporter) RegisterEvent(conID string, distributionType v2.EventType, no
 	}
 }
 
-func (r *Reporter) readFromEventQueue() {
+func (r *Reporter) readFromEventQueue(ctx context.Context) {
 	for ev := range r.distributionEventQueue {
-		// TODO might need to batch this to prevent lock contention
-		r.processEvent(ev.conID, ev.distributionType, ev.nonce)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// TODO might need to batch this to prevent lock contention
+			r.processEvent(ev.conID, ev.distributionType, ev.nonce)
+		}
 	}
 
 }
@@ -98,4 +100,13 @@ func (r *Reporter) RegisterDisconnect(conID string, types []v2.EventType) {
 		key := conID + string(xdsType) // TODO: delimit?
 		delete(r.status, key)
 	}
+}
+
+func NewIstioContext(stop <-chan struct{}) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-stop
+		cancel()
+	}()
+	return ctx
 }
