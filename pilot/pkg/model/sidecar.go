@@ -354,7 +354,10 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		if _, exists := out.listenerHosts[parts[0]]; !exists {
 			out.listenerHosts[parts[0]] = make([]host.Name, 0)
 		}
-
+		if len(parts) < 2 {
+			log.Errorf("Illegal host in sidecar resource: %s, host must be of form namespace/dnsName", h)
+			continue
+		}
 		out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], host.Name(parts[1]))
 	}
 
