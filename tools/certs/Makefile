@@ -19,7 +19,6 @@ KUBECONFIG ?= $(HOME)/.kube/config
 
 #------------------------------------------------------------------------
 # variables: intermediate CA
-INTERMEDIATE_SERIAL ?= $(shell echo $$PPID) 	# certificate serial number (uses current PID)
 INTERMEDIATE_DAYS ?= 730
 INTERMEDIATE_KEYSZ ?= 4096
 INTERMEDIATE_ORG ?= Istio
@@ -45,12 +44,18 @@ help: Makefile
 rawcluster := $(shell kubectl config current-context)
 cluster := $(subst /,-,$(rawcluster))
 pwd := $(shell pwd)
+export KUBECONFIG
 fetch-root-ca:
 	@echo "fetching root ca from k8s cluster: "$(cluster)""
 	@@mkdir -p $(pwd)/$(cluster)
-	@KUBECONFIG=$(KUBECONFIG) kubectl get secret istio-ca-secret  -n istio-system -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > $(cluster)/k8s-root-cert.pem
-	@KUBECONFIG=$(KUBECONFIG) kubectl get secret istio-ca-secret  -n istio-system -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > $(cluster)/k8s-root-key.pem
-
+	@res=$(shell kubectl get secret istio-ca-secret  -n istio-system >/dev/null 2>&1;  echo $$?)
+ifeq ($(res), 1)
+	@kubectl get secret cacerts  -n istio-system -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > $(cluster)/k8s-root-cert.pem
+	@kubectl get secret cacerts  -n istio-system -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > $(cluster)/k8s-root-key.pem
+else
+	@kubectl get secret istio-ca-secret  -n istio-system -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > $(cluster)/k8s-root-cert.pem
+	@kubectl get secret istio-ca-secret  -n istio-system -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > $(cluster)/k8s-root-key.pem
+endif
 
 k8s-root-cert.pem:
 	@cat $(cluster)/k8s-root-cert.pem > $@
@@ -113,7 +118,7 @@ root-key.pem:
 %/ca-cert.pem: %/cluster-ca.csr k8s-root-key.pem k8s-root-cert.pem
 	@echo "generating $@"
 	@openssl x509 -req -days $(INTERMEDIATE_DAYS) \
-		-CA k8s-root-cert.pem -CAkey k8s-root-key.pem -set_serial $(INTERMEDIATE_SERIAL) \
+		-CA k8s-root-cert.pem -CAkey k8s-root-key.pem -CAcreateserial\
 		-extensions req_ext -extfile $(dir $<)/intermediate.conf \
 		-in $< -out $@
 
@@ -142,7 +147,7 @@ root-key.pem:
 %/selfSigned-ca-cert.pem: %/selfSigned-cluster-ca.csr root-key.pem root-cert.pem
 	@echo "generating $@"
 	@openssl x509 -req -days $(INTERMEDIATE_DAYS) \
-		-CA root-cert.pem -CAkey root-key.pem -set_serial $(INTERMEDIATE_SERIAL) \
+		-CA root-cert.pem -CAkey root-key.pem -CAcreateserial\
 		-extensions req_ext -extfile $(dir $<)/intermediate.conf \
 		-in $< -out $@
 
@@ -194,7 +199,7 @@ root-key.pem:
 %/selfSigned-workload-cert.pem: %/workload.csr
 	@echo "generating $@"
 	@openssl x509 -req -days $(WORKLOAD_DAYS) \
-		-CA $(dir $<)/selfSigned-ca-cert.pem  -CAkey $(dir $<)/selfSigned-ca-key.pem -set_serial $(INTERMEDIATE_SERIAL) \
+		-CA $(dir $<)/selfSigned-ca-cert.pem  -CAkey $(dir $<)/selfSigned-ca-key.pem -CAcreateserial\
 		-extensions req_ext -extfile $(dir $<)/workload.conf \
 		-in $< -out $@
 
@@ -248,7 +253,7 @@ root-key.pem:
 %/workload-cert.pem: %/workload.csr
 	@echo "generating $@"
 	@openssl x509 -req -days $(WORKLOAD_DAYS) \
-		-CA $(dir $<)/ca-cert.pem  -CAkey $(dir $<)/ca-key.pem -set_serial $(INTERMEDIATE_SERIAL) \
+		-CA $(dir $<)/ca-cert.pem  -CAkey $(dir $<)/ca-key.pem -CAcreateserial\
 		-extensions req_ext -extfile $(dir $<)/workload.conf \
 		-in $< -out $@
 
