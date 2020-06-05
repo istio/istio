@@ -99,11 +99,9 @@ type PushContext struct {
 
 	// destination rules are of three types:
 	//  namespaceLocalDestRules: all public/private dest rules pertaining to a service defined in a given namespace
-	//  publicDestRulesByNamespace: all public dest rules pertaining to a service defined in a namespace
-	//  destRulesExportedToNamespace: all destination rules pertaining to a service exported to this namespace explicitly
+	//  exportedDestRulesByNamespace: all dest rules pertaining to a service exported by a namespace
 	namespaceLocalDestRules      map[string]*processedDestRules
-	publicDestRulesByNamespace   map[string]*processedDestRules
-	destRulesExportedToNamespace map[string]*processedDestRules
+	exportedDestRulesByNamespace map[string]*processedDestRules
 
 	// clusterLocalHosts extracted from the MeshConfig
 	clusterLocalHosts host.Names
@@ -159,6 +157,8 @@ type Gateway struct {
 type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
 	hosts []host.Name
+	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
+	exportTo map[host.Name]map[visibility.Instance]bool
 	// Map of dest rule host and the merged destination rules for that host
 	destRule map[host.Name]*Config
 }
@@ -454,8 +454,7 @@ func NewPushContext() *PushContext {
 		privateVirtualServicesByNamespace:  map[string][]Config{},
 		virtualServicesExportedToNamespace: map[string][]Config{},
 		namespaceLocalDestRules:            map[string]*processedDestRules{},
-		publicDestRulesByNamespace:         map[string]*processedDestRules{},
-		destRulesExportedToNamespace:       map[string]*processedDestRules{},
+		exportedDestRulesByNamespace:       map[string]*processedDestRules{},
 		sidecarsByNamespace:                map[string][]*SidecarScope{},
 		envoyFiltersByNamespace:            map[string][]*EnvoyFilterWrapper{},
 		gatewaysByNamespace:                map[string][]Config{},
@@ -734,7 +733,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	svcNs := service.Attributes.Namespace
 
 	// This can happen when finding the subset labels for a proxy in root namespace.
-	// Because based on a pure cluster name, we do not know the service and
+	// Because based on a pure cluster's fqdn, we do not know the service and
 	// construct a fake service without setting Attributes at all.
 	if svcNs == "" {
 		for _, svc := range ps.Services(proxy) {
@@ -746,21 +745,29 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	}
 
 	// 3. if no private/public rule matched in the calling proxy's namespace,
-	// check the target service's namespace for public rules
-	if svcNs != "" && ps.publicDestRulesByNamespace[svcNs] != nil {
+	// check the target service's namespace for exported rules
+	if svcNs != "" && ps.exportedDestRulesByNamespace[svcNs] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.publicDestRulesByNamespace[svcNs].hosts); ok {
-			return ps.publicDestRulesByNamespace[svcNs].destRule[hostname]
+			ps.exportedDestRulesByNamespace[svcNs].hosts); ok {
+			// Check if the dest rule for this host is actually exported to the proxy's namespace
+			exportToMap := ps.exportedDestRulesByNamespace[svcNs].exportTo[hostname]
+			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(proxy.ConfigNamespace)] {
+				return ps.exportedDestRulesByNamespace[svcNs].destRule[hostname]
+			}
 		}
 	}
 
 	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
-	// target service's namespace matched, search for any public destination rule in the config root namespace
+	// target service's namespace matched, search for any exported destination rule in the config root namespace
 	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
-	if ps.publicDestRulesByNamespace[ps.Mesh.RootNamespace] != nil {
+	if ps.exportedDestRulesByNamespace[ps.Mesh.RootNamespace] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.publicDestRulesByNamespace[ps.Mesh.RootNamespace].hosts); ok {
-			return ps.publicDestRulesByNamespace[ps.Mesh.RootNamespace].destRule[hostname]
+			ps.exportedDestRulesByNamespace[ps.Mesh.RootNamespace].hosts); ok {
+			// Check if the dest rule for this host is actually exported to the proxy's namespace
+			exportToMap := ps.exportedDestRulesByNamespace[ps.Mesh.RootNamespace].exportTo[hostname]
+			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(proxy.ConfigNamespace)] {
+				return ps.exportedDestRulesByNamespace[ps.Mesh.RootNamespace].destRule[hostname]
+			}
 		}
 	}
 
@@ -951,8 +958,7 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.namespaceLocalDestRules = oldPushContext.namespaceLocalDestRules
-		ps.publicDestRulesByNamespace = oldPushContext.publicDestRulesByNamespace
-		ps.destRulesExportedToNamespace = oldPushContext.destRulesExportedToNamespace
+		ps.exportedDestRulesByNamespace = oldPushContext.exportedDestRulesByNamespace
 	}
 
 	if authnChanged {
@@ -1124,7 +1130,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	// the RDS code. See separateVSHostsAndServices in route/route.go
 	sortConfigByCreationTime(vservices)
 
-	vservices = mergeVirtualServicesIfNeeded(vservices)
+	vservices = mergeVirtualServicesIfNeeded(vservices, ps.defaultVirtualServiceExportTo)
 
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
@@ -1366,8 +1372,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	// we take the first one.
 	sortConfigByCreationTime(configs)
 	namespaceLocalDestRules := make(map[string]*processedDestRules)
-	publicDestRulesByNamespace := make(map[string]*processedDestRules)
-	destRulesExportedToNamespace := make(map[string]*processedDestRules)
+	exportedDestRulesByNamespace := make(map[string]*processedDestRules)
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
@@ -1386,55 +1391,37 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
 				namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
 					hosts:    make([]host.Name, 0),
+					exportTo: map[host.Name]map[visibility.Instance]bool{},
 					destRule: map[host.Name]*Config{},
 				}
 			}
 			// Merge this destination rule with any public/private dest rules for same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
-			ps.mergeDestinationRule(namespaceLocalDestRules[configs[i].Namespace], configs[i])
+			ps.mergeDestinationRule(namespaceLocalDestRules[configs[i].Namespace], configs[i], exportToMap)
 		}
 
-		isPubliclyExported := false
+		isPrivateOnly := false
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in destinationRule. Use the global default
 			// We only honor . and *
-			if ps.defaultDestinationRuleExportTo[visibility.Public] {
-				isPubliclyExported = true
+			if ps.defaultDestinationRuleExportTo[visibility.Private] {
+				isPrivateOnly = true
 			}
-		} else {
-			isPubliclyExported = exportToMap[visibility.Public]
+		} else if len(rule.ExportTo) == 1 && exportToMap[visibility.Private] {
+			isPrivateOnly = true
 		}
 
-		if isPubliclyExported {
-			if _, exist := publicDestRulesByNamespace[configs[i].Namespace]; !exist {
-				publicDestRulesByNamespace[configs[i].Namespace] = &processedDestRules{
+		if !isPrivateOnly {
+			if _, exist := exportedDestRulesByNamespace[configs[i].Namespace]; !exist {
+				exportedDestRulesByNamespace[configs[i].Namespace] = &processedDestRules{
 					hosts:    make([]host.Name, 0),
+					exportTo: map[host.Name]map[visibility.Instance]bool{},
 					destRule: map[host.Name]*Config{},
 				}
 			}
-			// Merge this destination rule with any public dest rule for the same host in the same namespace
+			// Merge this destination rule with any other exported dest rule for the same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
-			ps.mergeDestinationRule(publicDestRulesByNamespace[configs[i].Namespace], configs[i])
-		} else if len(rule.ExportTo) > 0 {
-			// this is not a publicly exported dest rule and we also have some explicit exports in the
-			// dest rule config. Process each exportTo and store the processed dest rule in the
-			// destRulesExportedToNamespaces
-			for exportTo := range exportToMap {
-				if exportTo == visibility.Private || exportTo == visibility.Instance(configs[i].Namespace) {
-					// nothing to do. we have already processed this config in namespaceLocalDestRules
-					continue
-				} else {
-					if _, exist := destRulesExportedToNamespace[string(exportTo)]; !exist {
-						destRulesExportedToNamespace[string(exportTo)] = &processedDestRules{
-							hosts:    make([]host.Name, 0),
-							destRule: map[host.Name]*Config{},
-						}
-					}
-					// Merge this destination rule with any other dest rule for the same host in the same namespace
-					// If there are no duplicates, the dest rule will be added to the list
-					ps.mergeDestinationRule(destRulesExportedToNamespace[string(exportTo)], configs[i])
-				}
-			}
+			ps.mergeDestinationRule(exportedDestRulesByNamespace[configs[i].Namespace], configs[i], exportToMap)
 		}
 	}
 
@@ -1443,16 +1430,12 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	for ns := range namespaceLocalDestRules {
 		sort.Sort(host.Names(namespaceLocalDestRules[ns].hosts))
 	}
-	for ns := range publicDestRulesByNamespace {
-		sort.Sort(host.Names(publicDestRulesByNamespace[ns].hosts))
-	}
-	for ns := range destRulesExportedToNamespace {
-		sort.Sort(host.Names(destRulesExportedToNamespace[ns].hosts))
+	for ns := range exportedDestRulesByNamespace {
+		sort.Sort(host.Names(exportedDestRulesByNamespace[ns].hosts))
 	}
 
 	ps.namespaceLocalDestRules = namespaceLocalDestRules
-	ps.publicDestRulesByNamespace = publicDestRulesByNamespace
-	ps.destRulesExportedToNamespace = destRulesExportedToNamespace
+	ps.exportedDestRulesByNamespace = exportedDestRulesByNamespace
 }
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {

@@ -18,15 +18,18 @@ import (
 	"fmt"
 
 	networking "istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/pkg/config/visibility"
 )
 
 // This function merges one or more destination rules for a given host string
 // into a single destination rule. Note that it does not perform inheritance style merging.
 // IOW, given three dest rules (*.foo.com, *.foo.com, *.com), calling this function for
 // each config will result in a final dest rule set (*.foo.com, and *.com).
-func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfig Config) {
+func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfig Config, exportToMap map[visibility.Instance]bool) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.ConfigMeta)
+
 	if mdr, exists := p.destRule[resolvedHost]; exists {
 		// Deep copy destination rule, to prevent mutate it later when merge with a new one.
 		// This can happen when there are more than one destination rule of same host in one namespace.
@@ -39,6 +42,8 @@ func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfi
 		}
 		// we have an another destination rule for same host.
 		// concatenate both of them -- essentially add subsets from one to other.
+		// Note: we only add the subsets and do not overwrite anything else like exportTo or top level
+		// traffic policies if they already exist
 		for _, subset := range rule.Subsets {
 			if _, ok := existingSubset[subset.Name]; !ok {
 				// if not duplicated, append
@@ -56,10 +61,15 @@ func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfi
 		if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
 			mergedRule.TrafficPolicy = rule.TrafficPolicy
 		}
+		if len(p.exportTo[resolvedHost]) == 0 && len(exportToMap) > 0 {
+			// we have dest rule in same namespace for the same host with updated exportTo. use it.
+			p.exportTo[resolvedHost] = exportToMap
+		}
 		return
 	}
 
 	// DestinationRule does not exist for the resolved host so add it
 	p.hosts = append(p.hosts, resolvedHost)
 	p.destRule[resolvedHost] = &destRuleConfig
+	p.exportTo[resolvedHost] = exportToMap
 }
