@@ -55,7 +55,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	if s.DebugConfigs {
 		con.CDSClusters = rawClusters
 	}
-	response := cdsDiscoveryResponse(rawClusters, push.Version, con.RequestedTypes.CDS)
+	response := cdsDiscoveryResponse(rawClusters, push.Version, con.node.RequestedTypes.CDS)
 	err := con.send(response)
 	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
