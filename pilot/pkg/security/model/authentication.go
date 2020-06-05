@@ -163,11 +163,12 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 		}
 
 		// configure server listeners with SDS.
-		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(
-					model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), sdsPath),
+		tlsContext.ValidationContextType = &tls.CommonTlsContext_ValidationContext{
+			ValidationContext: &tls.CertificateValidationContext{
+				MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames),
+				TrustedCa: &core.DataSource{
+					Specifier: &core.DataSource_Filename{Filename: "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"},
+				},
 			},
 		}
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
@@ -211,16 +212,14 @@ func ApplyCustomSDSToCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts 
 	// If tls mode is MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
 	// at gateway agent. Otherwise, use the static certificate validation context config.
 	if tlsOpts.Mode == networking.ServerTLSSettings_MUTUAL {
-		defaultValidationContext := &tls.CertificateValidationContext{
-			MatchSubjectAltNames:  util.StringToExactMatch(tlsOpts.SubjectAltNames),
-			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,
-			VerifyCertificateHash: tlsOpts.VerifyCertificateHash,
-		}
-		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: defaultValidationContext,
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigWithCustomUds(
-					tlsOpts.CredentialName+SdsCaSuffix, sdsUdsPath),
+		tlsContext.ValidationContextType = &tls.CommonTlsContext_ValidationContext{
+			ValidationContext: &tls.CertificateValidationContext{
+				MatchSubjectAltNames:  util.StringToExactMatch(tlsOpts.SubjectAltNames),
+				VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,
+				VerifyCertificateHash: tlsOpts.VerifyCertificateHash,
+				TrustedCa: &core.DataSource{
+					Specifier: &core.DataSource_Filename{Filename: "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"},
+				},
 			},
 		}
 	} else if len(tlsOpts.SubjectAltNames) > 0 {

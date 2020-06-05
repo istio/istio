@@ -24,9 +24,10 @@ import (
 	"net"
 	"time"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 
 	cert "k8s.io/api/certificates/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -62,6 +63,67 @@ func getRandomCsrName(secretName, namespace string) string {
 		name = name[:maxNameLength]
 	}
 	return name
+}
+
+func SignWorkloadCert(certClient certclient.CertificateSigningRequestInterface, csr string, identities []string) ([]byte, []byte, error) {
+	caFilePath := "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+	// TODO cannot take raw CSR
+	csrPEM := []byte(csr)
+
+	// 2. Submit the CSR
+	csrName := fmt.Sprintf("csr-%s", rand.String(30))
+	numRetries := 3
+	r, err := submitCSR(certClient, csrName, csrPEM, numRetries)
+	if err != nil {
+		return nil, nil, err
+	}
+	if r == nil {
+		return nil, nil, fmt.Errorf("the CSR returned is nil")
+	}
+
+	// 3. Approve a CSR
+	log.Infof("approve CSR (%v) ...", csrName)
+	csrMsg := fmt.Sprintf("CSR (%s) for the certificate (%s) is approved", csrName, identities)
+	r.Status.Conditions = append(r.Status.Conditions, cert.CertificateSigningRequestCondition{
+		Type:    cert.CertificateApproved,
+		Reason:  csrMsg,
+		Message: csrMsg,
+	})
+	reqApproval, err := certClient.UpdateApproval(context.TODO(), r, metav1.UpdateOptions{})
+	if err != nil {
+		log.Errorf("failed to approve CSR (%v): %v", csrName, err)
+		errCsr := cleanUpCertGen(certClient, csrName)
+		if errCsr != nil {
+			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+		}
+		return nil, nil, err
+	}
+	log.Infof("CSR (%v) is approved: %v", csrName, reqApproval)
+
+	// 4. Read the signed certificate
+	certChain, _, err := readSignedCertificate(certClient,
+		csrName, certReadInterval, maxNumCertRead, caFilePath)
+	if err != nil {
+		log.Errorf("failed to read signed cert. (%v): %v", csrName, err)
+		errCsr := cleanUpCertGen(certClient, csrName)
+		if errCsr != nil {
+			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+		}
+		return nil, nil, err
+	}
+
+	// 5. Clean up the artifacts (e.g., delete CSR)
+	err = cleanUpCertGen(certClient, csrName)
+	if err != nil {
+		log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+	}
+	ca, err := readCACert(caFilePath)
+	if err != nil {
+		log.Errorf("failed to read CA for CSR (%v): %v", csrName, err)
+	}
+	// If there is a failure of cleaning up CSR, the error is returned.
+	return certChain, ca, err
 }
 
 // GenKeyCertK8sCA generates a certificate and key from k8s CA

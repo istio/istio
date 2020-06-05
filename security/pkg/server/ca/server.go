@@ -31,6 +31,7 @@ import (
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/security/pkg/k8s/chiron"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
@@ -60,6 +61,7 @@ type CertificateAuthority interface {
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
 type Server struct {
+	kubeclient     kubernetes.Interface
 	monitoring     monitoringMetrics
 	Authenticators []authenticate.Authenticator
 	hostnames      []string
@@ -79,6 +81,10 @@ type Server struct {
 // it is signed by the CA signing key.
 func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
 	*pb.IstioCertificateResponse, error) {
+	t0 := time.Now()
+	defer func() {
+		log.Infof("CSR complete in %v", time.Since(t0))
+	}()
 	s.monitoring.CSR.Increment()
 	caller := s.authenticate(ctx)
 	if caller == nil {
@@ -87,9 +93,15 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 
+	// TODO use other fields from CSR
+	cert, rootCertBytes, err := chiron.SignWorkloadCert(s.kubeclient.CertificatesV1beta1().CertificateSigningRequests(), request.Csr, caller.Identities)
+	log.Errorf("howardjohn: result1: %v", string(cert))
+	log.Errorf("howardjohn: result4: %v", err)
+	log.Errorf("howardjohn: k8s csr complete in %v", time.Since(t0))
+
 	// TODO: Call authorizer.
 
-	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
+	//_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	cert, signErr := s.ca.Sign(
 		[]byte(request.Csr), caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
 	if signErr != nil {
@@ -98,9 +110,9 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
 	}
 	respCertChain := []string{string(cert)}
-	if len(certChainBytes) != 0 {
-		respCertChain = append(respCertChain, string(certChainBytes))
-	}
+	//if len(certChainBytes) != 0 {
+	//	respCertChain = append(respCertChain, string(certChainBytes))
+	//}
 	respCertChain = append(respCertChain, string(rootCertBytes))
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,
@@ -206,6 +218,7 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 		port:           port,
 		grpcServer:     grpc,
 		monitoring:     newMonitoringMetrics(),
+		kubeclient:     kubeClient,
 	}
 	return server, nil
 }
