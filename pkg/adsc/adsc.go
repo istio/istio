@@ -153,7 +153,7 @@ type ADSC struct {
 	// restarts.
 	LocalCacheDir string
 
-	// Synchronization for receiving the gRPC stream.
+	// RecvWg is for letting goroutines know when the goroutine handling the ADS stream finishes.
 	RecvWg sync.WaitGroup
 
 	cfg *Config
