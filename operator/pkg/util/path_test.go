@@ -64,6 +64,43 @@ func TestSplitEscaped(t *testing.T) {
 	}
 }
 
+func TestIsNPathElement(t *testing.T) {
+	tests := []struct{
+		desc string
+		in string
+		expect bool
+	}{
+		{
+			desc:   "empty",
+			in:     "",
+			expect: false,
+		},
+		{
+			desc: "negative",
+			in: "[-45]",
+			expect: false,
+		},
+		{
+			desc: "negative-1",
+			in: "[-1]",
+			expect: false,
+		},
+		{
+			desc: "valid",
+			in: "[0]",
+			expect: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if got := IsNPathElement(tt.in); got != tt.expect {
+				t.Errorf("%s: expect %v got %v", tt.desc, tt.expect, got)
+			}
+		})
+	}
+}
+
 func stringSlicesEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
