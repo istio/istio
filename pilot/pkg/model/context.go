@@ -213,6 +213,18 @@ type Proxy struct {
 	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
 	// It is nil if the Proxy uses the default generator
 	Active map[string]*WatchedResource
+
+	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
+	// only generate one version or the other, because the protos are wire compatible we can cast to the
+	// requested version. This struct keeps track of the types requested for each resource type.
+	// For example, if Envoy requests Clusters v3, we would track that here. Pilot would generate a v2
+	// cluster response, but change the TypeUrl in the response to be v3.
+	RequestedTypes struct {
+		CDS string
+		EDS string
+		RDS string
+		LDS string
+	}
 }
 
 // WatchedResource tracks an active DiscoveryRequest type.
@@ -428,9 +440,6 @@ type NodeMetadata struct {
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
 
-	// LocalityLabel defines the locality specified for the pod
-	LocalityLabel string `json:"istio-locality,omitempty"`
-
 	PolicyCheck                  string `json:"policy.istio.io/check,omitempty"`
 	PolicyCheckRetries           string `json:"policy.istio.io/checkRetries,omitempty"`
 	PolicyCheckBaseRetryWaitTime string `json:"policy.istio.io/checkBaseRetryWaitTime,omitempty"`
@@ -454,19 +463,13 @@ type NodeMetadata struct {
 	// TLSClientRootCert is the absolute path to client root cert file
 	TLSClientRootCert string `json:"TLS_CLIENT_ROOT_CERT,omitempty"`
 
-	// SdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
-	// If not set, Pilot uses the default SDS token path.
-	SdsTokenPath string `json:"SDS_TOKEN_PATH,omitempty"`
-	SdsBase      string `json:"BASE,omitempty"`
+	CertBaseDir string `json:"BASE,omitempty"`
 	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
 	SdsEnabled StringBool `json:"SDS,omitempty"`
-	// SdsTrustJwt indicates if SDS trust jwt is enabled or not. This is are set to "1" if true
-	SdsTrustJwt StringBool `json:"TRUSTJWT,omitempty"`
 
 	// StsPort specifies the port of security token exchange server (STS).
+	// Used by envoy filters
 	StsPort string `json:"STS_PORT,omitempty"`
-
-	InsecurePath string `json:"istio.io/insecurepath,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.

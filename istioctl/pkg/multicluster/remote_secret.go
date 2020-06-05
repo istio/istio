@@ -19,7 +19,6 @@ import (
 	context2 "context"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -109,7 +108,7 @@ istioctl --Kubeconfig=c0.yaml x create-remote-secret --name c0 --auth-type=plugi
 			out, err := CreateRemoteSecret(opts, env)
 			if err != nil {
 				fmt.Fprintf(c.OutOrStderr(), "error: %v\n", err)
-				os.Exit(1)
+				return err
 			}
 			fmt.Fprint(c.OutOrStdout(), out)
 			return nil

@@ -469,8 +469,8 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
-	stsPort int, pc *meshAPI.ProxyConfig) (*model.NodeMetadata, map[string]interface{}, error) {
+func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string, stsPort int,
+	pc *meshAPI.ProxyConfig) (*model.NodeMetadata, map[string]interface{}, error) {
 	meta := &model.NodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
@@ -499,9 +499,8 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	// sds is enabled by default
 	meta.SdsEnabled = true
-	meta.SdsTrustJwt = true
 
-	// Add STS port into node metadata if it is not 0.
+	// Add STS port into node metadata if it is not 0. This is read by envoy telemetry filters
 	if stsPort != 0 {
 		meta.StsPort = strconv.Itoa(stsPort)
 	}

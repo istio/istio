@@ -22,7 +22,6 @@ import (
 	"net"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -667,82 +666,6 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	}
 
 	return region + "/" + zone + "/" + subzone // Format: "%s/%s/%s"
-}
-
-// ManagementPorts implements a service catalog operation
-func (c *Controller) ManagementPorts(addr string) model.PortList {
-	pod := c.pods.getPodByIP(addr)
-	if pod == nil {
-		return nil
-	}
-
-	managementPorts, err := kube.ConvertProbesToPorts(&pod.Spec)
-	if err != nil {
-		log.Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
-	}
-
-	// We continue despite the error because healthCheckPorts could return a partial
-	// list of management ports
-	return managementPorts
-}
-
-// WorkloadHealthCheckInfo implements a service catalog operation
-func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	pod := c.pods.getPodByIP(addr)
-	if pod == nil {
-		return nil
-	}
-
-	probes := make([]*model.Probe, 0)
-
-	// Obtain probes from the readiness and liveness probes
-	for _, container := range pod.Spec.Containers {
-		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
-			p, err := kube.ConvertProbePort(&container, &container.ReadinessProbe.Handler)
-			if err != nil {
-				log.Infof("Error while parsing readiness probe port =%v", err)
-			}
-			probes = append(probes, &model.Probe{
-				Port: p,
-				Path: container.ReadinessProbe.Handler.HTTPGet.Path,
-			})
-		}
-		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
-			p, err := kube.ConvertProbePort(&container, &container.LivenessProbe.Handler)
-			if err != nil {
-				log.Infof("Error while parsing liveness probe port =%v", err)
-			}
-			probes = append(probes, &model.Probe{
-				Port: p,
-				Path: container.LivenessProbe.Handler.HTTPGet.Path,
-			})
-		}
-	}
-
-	// Obtain probe from prometheus scrape
-	if scrape := pod.Annotations[PrometheusScrape]; scrape == "true" {
-		var port *model.Port
-		path := PrometheusPathDefault
-		if portstr := pod.Annotations[PrometheusPort]; portstr != "" {
-			portnum, err := strconv.Atoi(portstr)
-			if err != nil {
-				log.Warna(err)
-			} else {
-				port = &model.Port{
-					Port: portnum,
-				}
-			}
-		}
-		if pod.Annotations[PrometheusPath] != "" {
-			path = pod.Annotations[PrometheusPath]
-		}
-		probes = append(probes, &model.Probe{
-			Port: port,
-			Path: path,
-		})
-	}
-
-	return probes
 }
 
 // InstancesByPort implements a service catalog operation

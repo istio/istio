@@ -26,7 +26,7 @@ import (
 
 const (
 	rotateInterval   = 1500 * time.Millisecond
-	proxyRunningTime = 5 * rotateInterval
+	proxyRunningTime = 6 * rotateInterval
 	sleepTime        = 100 * time.Millisecond
 	retryAttempt     = 3
 )
@@ -72,8 +72,8 @@ func TestCertRotation(t *testing.T) {
 		numSSLConnError := stats[fmt.Sprintf("listener.127.0.0.1_%d.ssl.connection_error", setup.InboundListenerPort)]
 		numSSLVerifyNoCert := stats[fmt.Sprintf("listener.127.0.0.1_%d.ssl.fail_verify_no_cert", setup.InboundListenerPort)]
 		numSSLVerifyCAError := stats[fmt.Sprintf("listener.127.0.0.1_%d.ssl.fail_verify_error", setup.InboundListenerPort)]
-		numOutboundSDSUpdate := stats["cluster.outbound_cluster_tls.client_ssl_socket_factory.ssl_context_update_by_sds"]
-		numInboundSDSUpdate := len(certSet) - 1
+		numOutboundSDSRotate := stats["cluster.outbound_cluster_tls.client_ssl_socket_factory.ssl_context_update_by_sds"]
+		numInboundSDSRotate := len(certSet) - 1
 		// Cluster config max_requests_per_connection is set to 1, the number of requests should match
 		// the number of SSL connections. This guarantees SSL connection is using the latest TLS key/cert loaded in Envoy.
 		if numSSLHandshake != uint64(numReq) {
@@ -89,11 +89,11 @@ func TestCertRotation(t *testing.T) {
 			t.Errorf("Number of SSL handshake failures on CA verification: %d", numSSLVerifyCAError)
 		}
 		// Verify that there are multiple SDS updates. TLS key/cert are loaded multiple times.
-		if numOutboundSDSUpdate <= 1 {
-			t.Errorf("Number of SDS updates at outbound cluster should be greater than one, get %d", numOutboundSDSUpdate)
+		if numOutboundSDSRotate < 1 {
+			t.Errorf("Number of SDS rotate at outbound cluster should be greater than zero, get %d", numOutboundSDSRotate)
 		}
-		if numInboundSDSUpdate <= 1 {
-			t.Errorf("Number of SDS updates at inbound listener should be greater than one, get %d", numInboundSDSUpdate)
+		if numInboundSDSRotate < 1 {
+			t.Errorf("Number of SDS rotate at inbound listener should be greater than zero, get %d", numInboundSDSRotate)
 		}
 	} else {
 		t.Errorf("cannot get Envoy stats: %v", err)

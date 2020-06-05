@@ -114,7 +114,7 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		},
 		{
 			deploymentName: "grafana",
-			want:           "grafana/grafana:6.5.2",
+			want:           "grafana/grafana:1.2.3",
 		},
 		{
 			deploymentName: "istio-ingressgateway",

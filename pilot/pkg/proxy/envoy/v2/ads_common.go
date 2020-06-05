@@ -100,8 +100,8 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 	// In case configTypes is not set, for example mesh configuration updated.
 	// If push scoping is not enabled, we push all xds
 	if len(pushEv.configsUpdated) == 0 {
-		out[CDS] = true
 		out[EDS] = true
+		out[CDS] = true
 		out[LDS] = true
 		out[RDS] = true
 		return out
