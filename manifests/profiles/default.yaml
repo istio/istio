@@ -230,7 +230,7 @@ spec:
       logging:
         level: "default:info"
       logAsJson: false
-      pilotCertProvider: istiod
+      pilotCertProvider: kubernetes
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
