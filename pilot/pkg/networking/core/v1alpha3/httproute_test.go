@@ -127,7 +127,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnvWithVirtualServices(services, virtualServices, nil)
+	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("failed to initialize push context")
