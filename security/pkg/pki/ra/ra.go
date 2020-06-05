@@ -1,4 +1,4 @@
-// Copyright Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
+	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
@@ -59,12 +60,12 @@ func NewIstioRA(backendCAName string, cmGetter corev1.ConfigMapsGetter) (*IstioR
 // Sign takes a PEM-encoded CSR, subject IDs and lifetime, and returns a signed certificate.
 func (ra *IstioRA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error) {
 	if forCA {
-		return nil, fmt.Errorf("istio RA does not support issue certificates for CAs yet")
+		return nil, caerror.NewError(caerror.CSRError, fmt.Errorf("istio RA does not support issue certificates for CAs yet"))
 	}
 	signedCertStrs, err := ra.client.CSRSign(
 		context.Background(), "" /* reqID not used */, csrPEM, "" /* not used */, int64(requestedLifetime.Seconds()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign CSR with the backend CA: %v", err)
+		return nil, caerror.NewError(caerror.CertGenError, fmt.Errorf("failed to sign CSR with the backend CA: %v", err))
 	}
 	// The first returned certificate is the leave certificate.
 	return []byte(signedCertStrs[0]), nil
@@ -73,12 +74,12 @@ func (ra *IstioRA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
 func (ra *IstioRA) SignWithCertChain(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error) {
 	if forCA {
-		return nil, fmt.Errorf("istio RA does not support issue certificates for CAs yet")
+		return nil, caerror.NewError(caerror.CSRError, fmt.Errorf("istio RA does not support issue certificates for CAs yet"))
 	}
 	signedCertStrs, err := ra.client.CSRSign(
 		context.Background(), "" /* reqID not used */, csrPEM, "" /* not used */, int64(requestedLifetime.Seconds()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign CSR with the backend CA: %v", err)
+		return nil, caerror.NewError(caerror.CertGenError, fmt.Errorf("failed to sign CSR with the backend CA: %v", err))
 	}
 	var signedCertBytes []byte
 	for _, cert := range signedCertStrs {

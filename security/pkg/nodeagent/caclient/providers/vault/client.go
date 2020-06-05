@@ -315,6 +315,7 @@ func createVaultTLSClient(vaultAddr, cmName, cmNamespace string, cmGetter corev1
 // role: the login role
 // jwt: the service account used for login
 func loginVaultK8sAuthMethod(client *vaultapi.Client, loginPath, role, jwt string) (string, error) {
+	vaultClientLog.Info("Logging into Vault...")
 	resp, err := client.Logical().Write(
 		loginPath,
 		map[string]interface{}{
@@ -332,6 +333,7 @@ func loginVaultK8sAuthMethod(client *vaultapi.Client, loginPath, role, jwt strin
 	if resp.Auth == nil {
 		return "", fmt.Errorf("login response auth field is nil")
 	}
+	vaultClientLog.Info("Successfully logged into Vault.")
 	return resp.Auth.ClientToken, nil
 }
 
