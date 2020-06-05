@@ -67,6 +67,9 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 # filter out non-standard test directories
 TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
 
+test.integration...local:
+	echo "legacy target. This can be removed once the CI job is removed."
+
 # Generate presubmit integration test targets for each component in kubernetes environment
 test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \

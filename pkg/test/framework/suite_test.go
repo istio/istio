@@ -301,64 +301,6 @@ func TestSuite_SetupFail_Dump(t *testing.T) {
 	g.Expect(runCalled).To(BeFalse())
 }
 
-func TestSuite_SetupOnEnv(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runCalled bool
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runCalled = true
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Kube.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-
-	var setupCalled bool
-	s.Setup(func(c resource.Context) error {
-		setupCalled = true
-		return nil
-	})
-	s.Run()
-
-	g.Expect(setupCalled).To(BeTrue())
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
-}
-
-func TestSuite_SetupOnEnv_Mismatch(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runCalled bool
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runCalled = true
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = "fake"
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-
-	var setupCalled bool
-	s.Setup(func(c resource.Context) error {
-		setupCalled = true
-		return nil
-	})
-	s.Run()
-
-	g.Expect(setupCalled).To(BeFalse())
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
-}
-
 func TestSuite_DoubleInit_Error(t *testing.T) {
 	defer cleanupRT()
 	g := NewGomegaWithT(t)

@@ -232,7 +232,6 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			var (
 				credName = []string{"testsinglemtlsgatewayandnotgeneric-compoundsecretrotation"}
