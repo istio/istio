@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sidecarscope
+package pilot
 
 import (
 	"fmt"
@@ -29,15 +29,16 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/tests/integration/pilot/sidecarscope"
 )
 
 func TestServiceEntryStatic(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		configFn := func(c Config) Config {
+		configFn := func(c sidecarscope.Config) sidecarscope.Config {
 			c.Resolution = "STATIC"
 			return c
 		}
-		p, nodeID := setupTest(t, ctx, configFn)
+		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
 		// Check to ensure only endpoints for imported namespaces
 		req := &xdsapi.DiscoveryRequest{
@@ -75,12 +76,12 @@ func TestServiceEntryStatic(t *testing.T) {
 
 func TestSidecarScopeIngressListener(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		configFn := func(c Config) Config {
+		configFn := func(c sidecarscope.Config) sidecarscope.Config {
 			c.Resolution = "STATIC"
 			c.IngressListener = true
 			return c
 		}
-		p, nodeID := setupTest(t, ctx, configFn)
+		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 		// Change the node's IP so that it does not match with any service entry
 		nodeID.IPAddresses = []string{"100.100.100.100"}
 

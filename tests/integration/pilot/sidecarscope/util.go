@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -197,7 +196,7 @@ type Config struct {
 	IngressListener    bool
 }
 
-func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
+func SetupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
 	p := pilot.NewOrFail(t, ctx, pilot.Config{})
 
 	includedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
@@ -226,7 +225,7 @@ func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 	createConfig(t, ctx, config, AppConfigListener, appNamespace)
 	createConfig(t, ctx, config, ExcludedConfig, excludedNamespace)
 	createConfig(t, ctx, config, IncludedConfig, includedNamespace)
-	createConfig(t, ctx, config, IncludedConfigListener, includedNamespace)
+	createConfig(t, ctx, config, IncludedConfigListener, excludedNamespace)
 	createConfig(t, ctx, config, ExcludedConfigListener, excludedNamespace)
 
 	time.Sleep(time.Second * 2)
@@ -254,10 +253,4 @@ func createConfig(t *testing.T, ctx resource.Context, config Config, yaml string
 	if err := ctx.ApplyConfig(namespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply config: %v. Config: %v", err, buf.String())
 	}
-}
-
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite("sidecar_scope_test", m).
-		Run()
 }
