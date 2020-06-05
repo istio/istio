@@ -15,9 +15,10 @@
 package status
 
 import (
+	"sync"
+
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/pkg/log"
-	"sync"
 )
 
 type Reporter struct {
@@ -38,7 +39,7 @@ func (r *Reporter) Start(stop <-chan struct{}) {
 	go r.readFromEventQueue()
 	go func() {
 		defer close(r.distributionEventQueue)
-		_ = <- stop
+		_ = <-stop
 	}()
 
 }

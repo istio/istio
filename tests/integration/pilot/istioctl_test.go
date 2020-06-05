@@ -72,7 +72,6 @@ Service: a
 `
 )
 
-
 func TestWait(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).

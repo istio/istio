@@ -17,13 +17,14 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pilot/pkg/status"
 	"net/url"
 	"os"
 	"path"
 	"strings"
 	"sync"
 	"time"
+
+	"istio.io/istio/pilot/pkg/status"
 
 	"google.golang.org/grpc/keepalive"
 
