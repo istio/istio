@@ -628,9 +628,9 @@ func pushSDS(con *sdsConnection) error {
 	return nil
 }
 
-func sdsDiscoveryResponse(s *model.SecretItem, resourceName, typeUrl string) (*discovery.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *model.SecretItem, resourceName, typeURL string) (*discovery.DiscoveryResponse, error) {
 	resp := &discovery.DiscoveryResponse{
-		TypeUrl: typeUrl,
+		TypeUrl: typeURL,
 	}
 	conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 	if s == nil {
@@ -675,7 +675,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, resourceName, typeUrl string) (*d
 		sdsServiceLog.Errorf("%s failed to mashal secret for proxy: %v", conIDresourceNamePrefix, err)
 		return nil, err
 	}
-	ms.TypeUrl = typeUrl
+	ms.TypeUrl = typeURL
 	resp.Resources = append(resp.Resources, ms)
 
 	return resp, nil
