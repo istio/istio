@@ -100,8 +100,12 @@ func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, c *cluster.Cl
 		// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
 		// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
-		if c.GetType() != cluster.Cluster_EDS && len(subset.Labels) != 0 {
-			lbEndpoints = buildLocalityLbEndpoints(proxy, cb.push, proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
+		if c.GetType() != cluster.Cluster_EDS {
+			if len(subset.Labels) != 0 {
+				lbEndpoints = buildLocalityLbEndpoints(proxy, cb.push, proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
+			} else {
+				lbEndpoints = buildLocalityLbEndpoints(proxy, cb.push, proxyNetworkView, service, port.Port, nil)
+			}
 		}
 
 		subsetCluster := cb.buildDefaultCluster(subsetClusterName, c.GetType(), lbEndpoints,
