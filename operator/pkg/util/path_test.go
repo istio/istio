@@ -65,9 +65,9 @@ func TestSplitEscaped(t *testing.T) {
 }
 
 func TestIsNPathElement(t *testing.T) {
-	tests := []struct{
-		desc string
-		in string
+	tests := []struct {
+		desc   string
+		in     string
 		expect bool
 	}{
 		{
@@ -76,18 +76,18 @@ func TestIsNPathElement(t *testing.T) {
 			expect: false,
 		},
 		{
-			desc: "negative",
-			in: "[-45]",
+			desc:   "negative",
+			in:     "[-45]",
 			expect: false,
 		},
 		{
-			desc: "negative-1",
-			in: "[-1]",
+			desc:   "negative-1",
+			in:     "[-1]",
 			expect: false,
 		},
 		{
-			desc: "valid",
-			in: "[0]",
+			desc:   "valid",
+			in:     "[0]",
 			expect: true,
 		},
 	}
