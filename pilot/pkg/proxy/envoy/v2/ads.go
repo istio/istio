@@ -187,6 +187,7 @@ func receiveThread(con *XdsConnection, reqChannel chan *discovery.DiscoveryReque
 // If no authenticators are configured, or if the request is on a non-secure
 // stream ( 15010 ) - returns an empty list of principals and no errors.
 func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
+	return nil, nil
 	// Authenticate - currently just checks that request has a certificate signed with the our key.
 	// Protected by flag to avoid breaking upgrades - should be enabled in multi-cluster/meshexpansion where
 	// XDS is exposed.

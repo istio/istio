@@ -102,13 +102,13 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	// TODO: Call authorizer.
 
 	//_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
-	cert, signErr := s.ca.Sign(
-		[]byte(request.Csr), caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
-	if signErr != nil {
-		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
-		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
-		return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
-	}
+	//cert, signErr := s.ca.Sign(
+	//	[]byte(request.Csr), caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
+	//if signErr != nil {
+	//	serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
+	//	s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
+	//	return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
+	//}
 	respCertChain := []string{string(cert)}
 	//if len(certChainBytes) != 0 {
 	//	respCertChain = append(respCertChain, string(certChainBytes))
