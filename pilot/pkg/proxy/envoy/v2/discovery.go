@@ -125,8 +125,8 @@ type DiscoveryServer struct {
 
 	InternalGen *InternalGen
 
-	// nonK8sRegistries are registries that need endpoint reconcilation during push.
-	// Kubernetes and Service Entries does not need special reconcilation.
+	// nonK8sRegistries are registries that need endpoint update during push.
+	// Kubernetes and Service Entries does not need special treatment.
 	nonK8sRegistries []serviceregistry.Instance
 }
 
