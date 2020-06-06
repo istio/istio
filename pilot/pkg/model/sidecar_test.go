@@ -347,6 +347,23 @@ var (
 		},
 	}
 
+	configs13 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name: "sidecar-scope-with-illegal-host",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   7443,
+						Protocol: "http_proxy",
+						Name:     "grpc-tls",
+					},
+					Hosts: []string{"foo", "foo/bar"},
+				},
+			},
+		},
+	}
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -577,6 +594,17 @@ var (
 			Attributes: ServiceAttributes{
 				Name:      "baz",
 				Namespace: "ns3",
+			},
+		},
+	}
+
+	services14 = []*Service{
+		{
+			Hostname: "bar",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "foo",
 			},
 		},
 	}
@@ -952,6 +980,18 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 		},
+		{
+			"sidecar-scope-with-illegal-host",
+			configs13,
+			services14,
+			nil,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    port7443,
+				},
+			},
+		},
 	}
 
 	for idx, tt := range tests {
@@ -992,6 +1032,9 @@ func TestCreateSidecarScope(t *testing.T) {
 				for _, egress := range a.Egress {
 					for _, egressHost := range egress.Hosts {
 						parts := strings.SplitN(egressHost, "/", 2)
+						if len(parts) < 2 {
+							continue
+						}
 						found = false
 						for _, listeners := range sidecarScope.EgressListeners {
 							if sidecarScopeHosts, ok := listeners.listenerHosts[parts[0]]; ok {
