@@ -30,6 +30,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/util/sets"
 )
 
@@ -122,6 +124,10 @@ type DiscoveryServer struct {
 	Authenticators []authenticate.Authenticator
 
 	InternalGen *InternalGen
+
+	// nonK8sRegistries are registries that need endpoint reconcilation during push.
+	// Kubernetes and Service Entries does not need special reconcilation.
+	nonK8sRegistries []serviceregistry.Instance
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -173,6 +179,24 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	// Flush cached discovery responses when detecting jwt public key change.
 	model.JwtKeyResolver.PushFunc = func() {
 		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
+	}
+
+	// Initialize non-k8s registries so that they can be used for updating service shards during push.
+	var registries []serviceregistry.Instance
+	if agg, ok := env.ServiceDiscovery.(*aggregate.Controller); ok {
+		registries = agg.GetRegistries()
+	} else {
+		registries = []serviceregistry.Instance{
+			serviceregistry.Simple{
+				ServiceDiscovery: env.ServiceDiscovery,
+			},
+		}
+	}
+
+	for _, registry := range registries {
+		if registry.Provider() != serviceregistry.Kubernetes && registry.Provider() != serviceregistry.External {
+			out.nonK8sRegistries = append(out.nonK8sRegistries, registry)
+		}
 	}
 
 	return out
