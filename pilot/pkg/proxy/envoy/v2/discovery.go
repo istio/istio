@@ -214,7 +214,7 @@ func (s *DiscoveryServer) initNonK8sRegistries() {
 	}
 
 	for _, registry := range registries {
-		if registry.Provider() != serviceregistry.Kubernetes {
+		if registry.Provider() != serviceregistry.Kubernetes || registry.Provider() != serviceregistry.External {
 			s.nonK8sRegistries = append(s.nonK8sRegistries, registry)
 		}
 	}
