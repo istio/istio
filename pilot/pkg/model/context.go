@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
@@ -166,7 +166,7 @@ type Proxy struct {
 	// Locality is the location of where Envoy proxy runs. This is extracted from
 	// the registry where possible. If the registry doesn't provide a locality for the
 	// proxy it will use the one sent via ADS that can be configured in the Envoy bootstrap
-	Locality *corev3.Locality
+	Locality *core.Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
