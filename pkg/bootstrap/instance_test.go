@@ -28,7 +28,7 @@ import (
 	"strings"
 	"testing"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
@@ -636,6 +636,6 @@ func (f *fakePlatform) Metadata() map[string]string {
 	return f.meta
 }
 
-func (f *fakePlatform) Locality() *corev3.Locality {
-	return &corev3.Locality{}
+func (f *fakePlatform) Locality() *core.Locality {
+	return &core.Locality{}
 }
