@@ -392,6 +392,21 @@ func TestRewriteAppProbe(t *testing.T) {
 			rewriteAppHTTPProbe: true,
 			want:                "ready_live.yaml.injected",
 		},
+		{
+			in:                  "startup_only.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_only.yaml.injected",
+		},
+		{
+			in:                  "startup_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_live.yaml.injected",
+		},
+		{
+			in:                  "startup_ready_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_ready_live.yaml.injected",
+		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.
 	}
