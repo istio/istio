@@ -21,7 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	k8s "sigs.k8s.io/service-apis/api/v1alpha1"
+	k8s "sigs.k8s.io/service-apis/apis/v1alpha1"
 
 	"istio.io/pkg/log"
 
