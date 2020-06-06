@@ -181,24 +181,6 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
 	}
 
-	// Initialize non-k8s registries so that they can be used for updating service shards during push.
-	var registries []serviceregistry.Instance
-	if agg, ok := env.ServiceDiscovery.(*aggregate.Controller); ok {
-		registries = agg.GetRegistries()
-	} else {
-		registries = []serviceregistry.Instance{
-			serviceregistry.Simple{
-				ServiceDiscovery: env.ServiceDiscovery,
-			},
-		}
-	}
-
-	for _, registry := range registries {
-		if registry.Provider() != serviceregistry.Kubernetes && registry.Provider() != serviceregistry.External {
-			out.nonK8sRegistries = append(out.nonK8sRegistries, registry)
-		}
-	}
-
 	return out
 }
 
@@ -211,9 +193,30 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	adsLog.Infof("Starting ADS server")
+	s.initNonK8sRegistries()
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
+}
+
+func (s *DiscoveryServer) initNonK8sRegistries() {
+	// Initialize non-k8s registries so that they can be used for updating service shards during push.
+	var registries []serviceregistry.Instance
+	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
+		registries = agg.GetRegistries()
+	} else {
+		registries = []serviceregistry.Instance{
+			serviceregistry.Simple{
+				ServiceDiscovery: s.Env.ServiceDiscovery,
+			},
+		}
+	}
+
+	for _, registry := range registries {
+		if registry.Provider() != serviceregistry.Kubernetes {
+			s.nonK8sRegistries = append(s.nonK8sRegistries, registry)
+		}
+	}
 }
 
 // Push metrics are updated periodically (10s default)
