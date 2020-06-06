@@ -193,6 +193,8 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	adsLog.Infof("Starting ADS server")
+	// Initialize non-k8s registries so that they can be used
+	// for updating service shards during push.
 	s.initNonK8sRegistries()
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
@@ -200,7 +202,6 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 }
 
 func (s *DiscoveryServer) initNonK8sRegistries() {
-	// Initialize non-k8s registries so that they can be used for updating service shards during push.
 	var registries []serviceregistry.Instance
 	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
 		registries = agg.GetRegistries()
