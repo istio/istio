@@ -92,6 +92,7 @@ done
 
 # Set conditional host mounts
 export CONDITIONAL_HOST_MOUNTS=${CONDITIONAL_HOST_MOUNTS:-}
+container_kubeconfig=''
 
 # docker conditional host mount (needed for make docker push)
 if [[ -d "${HOME}/.docker" ]]; then
@@ -103,12 +104,45 @@ if [[ -d "${HOME}/.config/gcloud" ]]; then
   CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.config/gcloud,destination=/config/.config/gcloud,readonly,consistency=delegated "
 fi
 
-# Conditional host mount if KUBECONFIG is set
-if [[ -n "${KUBECONFIG}" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=$(dirname "${KUBECONFIG}"),destination=/home/.kube,readonly,consistency=delegated "
-elif [[ -f "${HOME}/.kube/config" ]]; then
-  # otherwise execute a conditional host mount if $HOME/.kube/config is set
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.kube,destination=/home/.kube,readonly,consistency=delegated "
+# This function is designed for maximum compatibility with various platforms. This runs on
+# any Mac or Linux platform with bash 4.2+. Please take care not to modify this function
+# without testing properly.
+#
+# This function will properly handle any type of path including those with spaces using the
+# loading pattern specified by *kubectl config*.
+#
+# testcase: "a:b c:d"
+# testcase: "a b:c d:e f"
+# testcase: "a b:c:d e"
+parse_KUBECONFIG () {
+TMPDIR=""
+if [[ "$1" =~ ([^:]*):(.*) ]]; then
+  while true; do
+    rematch=${BASH_REMATCH[1]}
+    kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
+    container_kubeconfig+="/home/${kubeconfig_random}:"
+    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${rematch},destination=/config/${kubeconfig_random},readonly,consistency=delegated "
+    remainder="${BASH_REMATCH[2]}"
+    if [[ ! "$remainder" =~ ([^:]*):(.*) ]]; then
+      if [[ -n "$remainder" ]]; then
+        kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
+        container_kubeconfig+="/home/${kubeconfig_random}:"
+        CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${remainder},destination=/config/${kubeconfig_random},readonly,consistency=delegated "
+        break
+      fi
+    fi
+  done
+else
+  kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
+  container_kubeconfig+="/home/${kubeconfig_random}:"
+  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${1},destination=/config/${kubeconfig_random},readonly,consistency=delegated "
+fi
+}
+
+KUBECONFIG=${KUBECONFIG:="$HOME/.kube/config"}
+parse_KUBECONFIG "${KUBECONFIG}"
+if [[ "$BUILD_WITH_CONTAINER" -eq "1" ]]; then
+  export KUBECONFIG="${container_kubeconfig%?}"
 fi
 
 # Avoid recursive calls to make from attempting to start an additional container
