@@ -102,7 +102,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 	// Each registry acts as a shard - we don't want to combine them because some
 	// may individually update their endpoints incrementally
 	for _, svc := range push.Services(nil) {
-		for _, registry := range s.nonK8sRegistries {
+		for _, registry := range s.getNonK8sRegistries() {
 			// skip the service in case this svc does not belong to the registry.
 			if svc.Attributes.ServiceRegistry != string(registry.Provider()) {
 				continue
