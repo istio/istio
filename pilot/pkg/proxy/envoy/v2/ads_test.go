@@ -306,7 +306,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 			t.Errorf("Expecting %v got %v", v3.EndpointType, res.Resources[0].TypeUrl)
 		}
 
-		cla, err := getLoadAssignment(res)
+		cla, err := getLoadAssignmentV2(res)
 		if err != nil {
 			t.Fatal("Invalid EDS response ", err)
 		}
@@ -755,7 +755,7 @@ func TestAdsUpdate(t *testing.T) {
 	if res1.Resources[0].TypeUrl != v3.EndpointType {
 		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.Resources[0].TypeUrl)
 	}
-	cla, err := getLoadAssignment(res1)
+	cla, err := getLoadAssignmentV2(res1)
 	if err != nil {
 		t.Fatal("Invalid EDS response ", err)
 	}
@@ -790,7 +790,7 @@ func TestAdsUpdate(t *testing.T) {
 	if res1.Resources[0].TypeUrl != v3.EndpointType {
 		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.Resources[0].TypeUrl)
 	}
-	_, err = getLoadAssignment(res1)
+	_, err = getLoadAssignmentV2(res1)
 	if err != nil {
 		t.Fatal("Invalid EDS response ", err)
 	}
