@@ -71,9 +71,9 @@ type PushContext struct {
 	// Service related
 	// TODO: move to a sub struct
 
-	// privateServices are reachable within the same namespace, with exportTo .
+	// privateServices are reachable within the same namespace, with exportTo "."
 	privateServicesByNamespace map[string][]*Service
-	// publicServices are services reachable within the mesh with exportTo *
+	// publicServices are services reachable within the mesh with exportTo "*"
 	publicServices []*Service
 	// servicesExportedToNamespace are services that were made visible to this namespace
 	// by an exportTo explicitly specifying this namespace.
@@ -89,12 +89,12 @@ type PushContext struct {
 	QuotaSpecBinding []Config `json:"-"`
 
 	// VirtualService related
-	// this contains all the virtual services with exportTo . and current namespace
+	// this contains all the virtual services with exportTo "." and current namespace
 	privateVirtualServicesByNamespace map[string][]Config
 	// This contains all virtual services visible to this namespace extracted from
 	// exportTos that explicitly contained this namespace.
 	virtualServicesExportedToNamespace map[string][]Config
-	// This contains all virtual services whose exportTo is *
+	// This contains all virtual services whose exportTo is "*"
 	publicVirtualServices []Config
 
 	// destination rules are of three types:
