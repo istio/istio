@@ -23,7 +23,7 @@ import (
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -50,8 +50,7 @@ var (
 	SendTimeout = 5 * time.Second
 )
 
-// DiscoveryStream is a common interface for EDS and ADS. It also has a
-// shorter name.
+// DiscoveryStream is an interface for ADS.
 type DiscoveryStream interface {
 	Send(*discovery.DiscoveryResponse) error
 	Recv() (*discovery.DiscoveryRequest, error)
@@ -106,7 +105,7 @@ type XdsConnection struct {
 
 	// Original node metadata, to avoid unmarshall/marshall. This is included
 	// in internal events.
-	xdsNode *corev3.Node
+	xdsNode *core.Node
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -534,7 +533,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *corev3.Node, con *XdsConnection) error {
+func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) error {
 	proxy, err := s.initProxy(node)
 	if err != nil {
 		return err
@@ -562,7 +561,7 @@ func (s *DiscoveryServer) initConnection(node *corev3.Node, con *XdsConnection) 
 }
 
 // initProxy initializes the Proxy from node.
-func (s *DiscoveryServer) initProxy(node *corev3.Node) (*model.Proxy, error) {
+func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -588,7 +587,7 @@ func (s *DiscoveryServer) initProxy(node *corev3.Node) (*model.Proxy, error) {
 	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 	// can still help provide some client-side Envoy context when load balancing based on location.
 	if util.IsLocalityEmpty(proxy.Locality) {
-		proxy.Locality = &corev3.Locality{
+		proxy.Locality = &core.Locality{
 			Region:  node.Locality.GetRegion(),
 			Zone:    node.Locality.GetZone(),
 			SubZone: node.Locality.GetSubZone(),

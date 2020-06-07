@@ -21,7 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 const (
@@ -81,8 +81,8 @@ func (a *awsEnv) Metadata() map[string]string {
 	return md
 }
 
-func (a *awsEnv) Locality() *corev3.Locality {
-	return &corev3.Locality{
+func (a *awsEnv) Locality() *core.Locality {
+	return &core.Locality{
 		Zone:   a.identity.AvailabilityZone,
 		Region: a.identity.Region,
 	}
