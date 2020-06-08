@@ -23,6 +23,7 @@ import (
 	"text/tabwriter"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_tcp_proxy_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/golang/protobuf/ptypes"
@@ -245,10 +246,10 @@ func getFilterType(filters []*listener.Filter) string {
 				return err.Error()
 			}
 			if httpProxy.GetRouteConfig() != nil {
-				return "Inline Route"
+				return describeRouteConfig(httpProxy.GetRouteConfig())
 			}
 			if httpProxy.GetRds().GetRouteConfigName() != "" {
-				return httpProxy.GetRds().GetRouteConfigName()
+				return fmt.Sprintf("Route: %s", httpProxy.GetRds().GetRouteConfigName())
 			}
 			return "HTTP"
 		} else if filter.Name == TCPListener {
@@ -260,11 +261,56 @@ func getFilterType(filters []*listener.Filter) string {
 				if err != nil {
 					return err.Error()
 				}
-				return tcpProxy.GetCluster()
+				if strings.Contains(tcpProxy.GetCluster(), "Cluster") {
+					return tcpProxy.GetCluster()
+				}
+				return fmt.Sprintf("Cluster: %s", tcpProxy.GetCluster())
 			}
 		}
 	}
 	return "Non-HTTP/Non-TCP"
+}
+
+func describeRouteConfig(route *route.RouteConfiguration) string {
+	vhosts := []string{}
+	for _, vh := range route.GetVirtualHosts() {
+		if describeDomains(vh) == "" {
+			vhosts = append(vhosts, describeRoutes(vh))
+		} else {
+			vhosts = append(vhosts, fmt.Sprintf("%s %s", describeDomains(vh), describeRoutes(vh)))
+		}
+	}
+	return fmt.Sprintf("Inline Route: %s", strings.Join(vhosts, "; "))
+}
+
+func describeDomains(vh *route.VirtualHost) string {
+	if len(vh.GetDomains()) == 1 && vh.GetDomains()[0] == "*" {
+		return ""
+	}
+	return strings.Join(vh.GetDomains(), "/")
+}
+
+func describeRoutes(vh *route.VirtualHost) string {
+	routes := []string{}
+	for _, route := range vh.GetRoutes() {
+		routes = append(routes, describeMatch(route.GetMatch()))
+	}
+	return strings.Join(routes, ", ")
+}
+
+func describeMatch(match *route.RouteMatch) string {
+	conds := []string{}
+	if match.GetPrefix() != "" {
+		conds = append(conds, fmt.Sprintf("%s*", match.GetPrefix()))
+	}
+	if match.GetPath() != "" {
+		conds = append(conds, fmt.Sprintf("path %s", match.GetPath()))
+	}
+	if match.GetSafeRegex() != nil {
+		conds = append(conds, fmt.Sprintf("regex %s", match.GetSafeRegex().String()))
+	}
+	// Ignore headers
+	return strings.Join(conds, " ")
 }
 
 // PrintListenerDump prints the relevant listeners in the config dump to the ConfigWriter stdout
