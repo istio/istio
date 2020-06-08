@@ -17,10 +17,14 @@ package configdump
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_extensions_filters_network_tcp_proxy_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
@@ -41,6 +45,7 @@ type ListenerFilter struct {
 	Address string
 	Port    uint32
 	Type    string
+	Verbose bool
 }
 
 // Verify returns true if the passed listener matches the filter fields
@@ -102,16 +107,119 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(w, "ADDRESS\tPORT\tTYPE")
-	for _, listener := range listeners {
-		if filter.Verify(listener) {
-			address := retrieveListenerAddress(listener)
-			port := retrieveListenerPort(listener)
-			listenerType := retrieveListenerType(listener)
-			fmt.Fprintf(w, "%v\t%v\t%v\n", address, port, listenerType)
+	if filter.Verbose {
+		fmt.Fprintln(w, "ADDRESS\tPORT\tMATCH\tDESTINATION")
+	} else {
+		fmt.Fprintln(w, "ADDRESS\tPORT\tTYPE")
+	}
+	for _, l := range listeners {
+		if filter.Verify(l) {
+			address := retrieveListenerAddress(l)
+			port := retrieveListenerPort(l)
+			if filter.Verbose {
+
+				matches := retrieveListenerMatches(l)
+				for _, match := range matches {
+					fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", address, port, match.match, match.destination)
+				}
+			} else {
+				listenerType := retrieveListenerType(l)
+				fmt.Fprintf(w, "%v\t%v\t%v\n", address, port, listenerType)
+			}
 		}
 	}
 	return w.Flush()
+}
+
+type filterchain struct {
+	match       string
+	destination string
+}
+
+var (
+	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
+	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	istioHTTPPlaintext = []string{"istio", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	httpTLS            = []string{"http/1.0", "http/1.1", "h2c", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	tcpTLS             = []string{"istio-peer-exchange", "istio"}
+)
+
+func retrieveListenerMatches(l *listener.Listener) []filterchain {
+	resp := []filterchain{}
+	for _, filterChain := range l.GetFilterChains() {
+		match := filterChain.FilterChainMatch
+		if match == nil {
+			match = &listener.FilterChainMatch{}
+		}
+		ms := ""
+		if len(match.ServerNames) > 0 {
+			ms += ", SNI: " + strings.Join(match.ServerNames, ",")
+		}
+		if len(match.TransportProtocol) > 0 {
+			ms += ", Protocol: " + match.TransportProtocol
+		}
+		if len(match.ApplicationProtocols) > 0 {
+			if reflect.DeepEqual(match.ApplicationProtocols, httpTLS) {
+				ms += ", App Protocol: HTTP TLS"
+			} else if reflect.DeepEqual(match.ApplicationProtocols, istioHTTPPlaintext) {
+				ms += ", App Protocol: Istio HTTP Plaintext"
+			} else if reflect.DeepEqual(match.ApplicationProtocols, tcpTLS) {
+				ms += ", App Protocol: TCP TLS"
+			} else if reflect.DeepEqual(match.ApplicationProtocols, plaintextHTTPALPNs) {
+				ms += ", App Protocol: HTTP"
+			} else {
+				ms += ", App Protocol: " + strings.Join(match.ApplicationProtocols, ",")
+			}
+		}
+		if match.DestinationPort != nil {
+			ms += ", Port: " + strconv.Itoa(int(match.DestinationPort.GetValue()))
+		}
+		if match.AddressSuffix != "" {
+			ms += ", Address: " + match.AddressSuffix
+		}
+		if len(match.PrefixRanges) > 0 {
+			pf := []string{}
+			for _, p := range match.PrefixRanges {
+				pf = append(pf, fmt.Sprintf("%s/%d", p.AddressPrefix, p.GetPrefixLen().GetValue()))
+			}
+			ms += ", Address: " + strings.Join(pf, ",")
+		}
+		if len(ms) > 0 {
+			ms = ms[2:]
+		} else {
+			ms = "ALL"
+		}
+		fc := filterchain{
+			match:       ms,
+			destination: getFilterType(filterChain.GetFilters()),
+		}
+		resp = append(resp, fc)
+	}
+	return resp
+}
+
+func getFilterType(filters []*listener.Filter) string {
+	for _, filter := range filters {
+		if filter.Name == HTTPListener {
+
+			httpProxy := &httpConn.HttpConnectionManager{}
+			ptypes.UnmarshalAny(filter.GetTypedConfig(), httpProxy)
+			if httpProxy.GetRouteConfig() != nil {
+				return "Inline Route"
+			}
+			if httpProxy.GetRds().GetRouteConfigName() != "" {
+				return httpProxy.GetRds().GetRouteConfigName()
+			}
+			return "HTTP"
+		} else if filter.Name == TCPListener {
+			if !strings.Contains(string(filter.GetTypedConfig().GetValue()), util.BlackHoleCluster) {
+				tcpProxy := &envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy{}
+				ptypes.UnmarshalAny(filter.GetTypedConfig(), tcpProxy)
+				return tcpProxy.GetCluster()
+			}
+		}
+	}
+	return ""
 }
 
 // PrintListenerDump prints the relevant listeners in the config dump to the ConfigWriter stdout
