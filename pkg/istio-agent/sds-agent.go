@@ -281,7 +281,7 @@ func NewSDSAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outp
 	}
 
 	initXDS(proxyConfig)
-	
+
 	return a
 }
 

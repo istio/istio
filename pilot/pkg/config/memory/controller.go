@@ -32,7 +32,7 @@ type controller struct {
 	schemas     *collection.Schemas
 	sync        map[string]time.Time
 	syncCh      chan string
-	m sync.RWMutex
+	m           sync.RWMutex
 }
 
 // NewController return an implementation of model.ConfigStoreCache
@@ -54,9 +54,9 @@ func NewControllerSync(cs model.ConfigStore, schemas *collection.Schemas, syncCh
 	out := &controller{
 		configStore: cs,
 		monitor:     NewMonitor(cs),
-		schemas: schemas,
-		sync: map[string]time.Time{},
-		syncCh: syncCh,
+		schemas:     schemas,
+		sync:        map[string]time.Time{},
+		syncCh:      syncCh,
 	}
 	return out
 }
@@ -111,9 +111,9 @@ func (c *controller) Get(kind resource.GroupVersionKind, key, namespace string) 
 func (c *controller) Create(config model.Config) (revision string, err error) {
 	if c.sync != nil {
 		key := resource.GroupVersionKind{
-			Group: config.Group,
+			Group:   config.Group,
 			Version: config.Version,
-			Kind: config.Type,
+			Kind:    config.Type,
 		}.String()
 
 		c.m.Lock()
@@ -123,7 +123,7 @@ func (c *controller) Create(config model.Config) (revision string, err error) {
 		if config.Name == "" && config.Namespace == "" {
 			// Empty config - can't use nil due to interface
 			select {
-				case c.syncCh <- key:
+			case c.syncCh <- key:
 			}
 			return "", nil
 		}

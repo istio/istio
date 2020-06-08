@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
@@ -29,7 +30,6 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
-
 
 // xds-agent runs an XDS server in agent, similar with the SDS server. It is using the same
 // UDS socket as the SDS server - envoy will use a single connection/cluster for both.
@@ -56,11 +56,11 @@ var (
 	xdsAddr = env.RegisterStringVar("XDS_LOCAL", "127.0.0.1:15002",
 		"Address for a local XDS proxy.")
 
-	localListener net.Listener
+	localListener   net.Listener
 	localGrpcServer *grpc.Server
 
 	xdsServer *xds.Server
-	cfg *meshconfig.ProxyConfig
+	cfg       *meshconfig.ProxyConfig
 )
 
 func initXDS(mc *meshconfig.ProxyConfig) {
@@ -90,7 +90,7 @@ func initXDS(mc *meshconfig.ProxyConfig) {
 func startXDSClient(addr string) {
 	// TODO: handle certificates and security !
 	ads, err := adsc.Dial(addr, "", &adsc.Config{
-		Meta: model.NodeMetadata {
+		Meta: model.NodeMetadata{
 			Generator: "api",
 		}.ToStruct(),
 	})
@@ -183,4 +183,3 @@ func setUpUds(udsPath string) (net.Listener, error) {
 
 	return udsListener, nil
 }
-
