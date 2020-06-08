@@ -125,7 +125,9 @@ func (e *Environment) GetControlPlaneCluster(cluster resource.Cluster) (resource
 func (e *Environment) ClustersByNetwork() map[string][]*Cluster {
 	out := make(map[string][]*Cluster)
 	for clusterIdx, networkName := range e.s.networkTopology {
-		out[networkName] = append(out[networkName], &e.KubeClusters[clusterIdx])
+		if int(clusterIdx) < len(e.KubeClusters) {
+			out[networkName] = append(out[networkName], &e.KubeClusters[clusterIdx])
+		}
 	}
 	return out
 }
