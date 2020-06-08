@@ -563,6 +563,7 @@ version: ""
 meshConfig:
   enablePrometheusMerge: false
   defaultConfig:
+    proxyMetadata: {}
     tracing:
       tlsSettings:
         mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
