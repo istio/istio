@@ -400,7 +400,7 @@ func proxyConfig() *cobra.Command {
 	listenerConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter listeners by address field")
 	listenerConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 	listenerConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter listeners by Port field")
-	listenerConfigCmd.PersistentFlags().BoolVar(&verboseListener, "verbose", false, "Output filter chain information")
+	listenerConfigCmd.PersistentFlags().BoolVar(&verboseListener, "verbose", true, "Output filter chain information")
 	listenerConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
