@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	coreV1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -535,7 +535,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			metaServices, err := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"1.1.1.1"},
-				Locality:        &corev3.Locality{Region: "r", Zone: "z"},
+				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
@@ -597,7 +597,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			podServices, err := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.1"},
-				Locality:        &corev3.Locality{Region: "r", Zone: "z"},
+				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
@@ -656,7 +656,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			podServices, err = controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.2"},
-				Locality:        &corev3.Locality{Region: "r", Zone: "z"},
+				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
@@ -1200,6 +1200,10 @@ func TestCompareEndpoints(t *testing.T) {
 	addressB := coreV1.EndpointAddress{IP: "1.2.3.4", Hostname: "b"}
 	portA := coreV1.EndpointPort{Name: "a"}
 	portB := coreV1.EndpointPort{Name: "b"}
+	appProtocolA := "http"
+	appProtocolB := "tcp"
+	appProtocolPortA := coreV1.EndpointPort{Name: "a", AppProtocol: &appProtocolA}
+	appProtocolPortB := coreV1.EndpointPort{Name: "a", AppProtocol: &appProtocolB}
 	cases := []struct {
 		name string
 		a    *coreV1.Endpoints
@@ -1255,6 +1259,26 @@ func TestCompareEndpoints(t *testing.T) {
 			}},
 			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
 				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{portB}},
+			}},
+			false,
+		},
+		{
+			"same app protocol",
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{appProtocolPortA}},
+			}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{appProtocolPortA}},
+			}},
+			true,
+		},
+		{
+			"different app protocol",
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{appProtocolPortA}},
+			}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{appProtocolPortB}},
 			}},
 			false,
 		},

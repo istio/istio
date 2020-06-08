@@ -78,8 +78,8 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "apply",
-		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
-		Long:  "The apply subcommand generates an Istio install manifest and applies it to a cluster.",
+		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster. Deprecated, use 'istioctl install' instead.",
+		Long:  "The apply subcommand generates an Istio install manifest and applies it to a cluster. Deprecated, use 'istioctl install' instead.",
 		// nolint: lll
 		Example: `  # Apply a default Istio installation
   istioctl manifest apply

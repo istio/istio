@@ -424,7 +424,7 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		// check if the node exists as this add event could be due to controller resync
 		// if the stored object changes, then fire an update event. Otherwise, ignore this event.
 		currentNode, exists := c.nodeInfoMap[node.Name]
-		if !exists || !reflect.DeepEqual(currentNode, k8sNode) {
+		if !exists || !nodeEquals(currentNode, k8sNode) {
 			c.nodeInfoMap[node.Name] = k8sNode
 			updatedNeeded = true
 		}
@@ -438,6 +438,10 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		})
 	}
 	return nil
+}
+
+func nodeEquals(a, b kubernetesNode) bool {
+	return a.address == b.address && a.labels.Equals(b.labels)
 }
 
 func isNodePortGatewayService(svc *v1.Service) bool {
@@ -483,14 +487,51 @@ func compareEndpoints(a, b *v1.Endpoints) bool {
 		return false
 	}
 	for i := range a.Subsets {
-		if !reflect.DeepEqual(a.Subsets[i].Ports, b.Subsets[i].Ports) {
+		if !portsEqual(a.Subsets[i].Ports, b.Subsets[i].Ports) {
 			return false
 		}
-		if !reflect.DeepEqual(a.Subsets[i].Addresses, b.Subsets[i].Addresses) {
+		if !addressesEqual(a.Subsets[i].Addresses, b.Subsets[i].Addresses) {
 			return false
 		}
 	}
 	return true
+}
+
+func portsEqual(a, b []v1.EndpointPort) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].Name != b[i].Name || a[i].Port != b[i].Port || a[i].Protocol != b[i].Protocol ||
+			ptrValueOrEmpty(a[i].AppProtocol) != ptrValueOrEmpty(b[i].AppProtocol) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func addressesEqual(a, b []v1.EndpointAddress) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].IP != b[i].IP || a[i].Hostname != b[i].Hostname ||
+			ptrValueOrEmpty(a[i].NodeName) != ptrValueOrEmpty(b[i].NodeName) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func ptrValueOrEmpty(ptr *string) string {
+	if ptr != nil {
+		return *ptr
+	}
+	return ""
 }
 
 // HasSynced returns true after the initial state synchronization

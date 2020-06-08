@@ -47,9 +47,12 @@ func TestIntoResourceFile(t *testing.T) {
 		},
 		// verify cni
 		{
-			in:       "hello.yaml",
-			want:     "hello.yaml.cni.injected",
-			setFlags: []string{"components.cni.enabled=true"},
+			in:   "hello.yaml",
+			want: "hello.yaml.cni.injected",
+			setFlags: []string{
+				"components.cni.enabled=true",
+				"values.istio_cni.chained=true",
+			},
 		},
 		{
 			in:   "hello-mtls-not-ready.yaml",
@@ -274,6 +277,24 @@ func TestIntoResourceFile(t *testing.T) {
 			want:     "hello-mount-mtls-certs.yaml.injected",
 			setFlags: []string{`values.global.mountMtlsCerts=true`},
 		},
+		{
+			// Verifies that k8s.v1.cni.cncf.io/networks is set to istio-cni when not chained
+			in:   "hello.yaml",
+			want: "hello-cncf-networks.yaml.injected",
+			setFlags: []string{
+				`components.cni.enabled=true`,
+				`values.istio_cni.chained=false`,
+			},
+		},
+		{
+			// Verifies that istio-cni is appended to k8s.v1.cni.cncf.io/networks value if set
+			in:   "hello-existing-cncf-networks.yaml",
+			want: "hello-existing-cncf-networks.yaml.injected",
+			setFlags: []string{
+				`components.cni.enabled=true`,
+				`values.istio_cni.chained=false`,
+			},
+		},
 	}
 
 	for i, c := range cases {
@@ -370,6 +391,21 @@ func TestRewriteAppProbe(t *testing.T) {
 			in:                  "ready_live.yaml",
 			rewriteAppHTTPProbe: true,
 			want:                "ready_live.yaml.injected",
+		},
+		{
+			in:                  "startup_only.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_only.yaml.injected",
+		},
+		{
+			in:                  "startup_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_live.yaml.injected",
+		},
+		{
+			in:                  "startup_ready_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_ready_live.yaml.injected",
 		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.
