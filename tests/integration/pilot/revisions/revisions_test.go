@@ -43,12 +43,14 @@ func TestMain(m *testing.M) {
 			e.KubeClusters = e.KubeClusters[:1]
 		})).
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
-			cfg.Revision = "stable"
+			cfg.ControlPlaneValues = `
+revision: stable
+`
 		})).
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
-			cfg.Revision = "stable"
 			cfg.ControlPlaneValues = `
 profile: empty
+revision: canary
 components:
   pilot:
     enabled: true

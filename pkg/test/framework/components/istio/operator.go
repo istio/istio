@@ -343,10 +343,6 @@ func (i *operatorComponent) generateIOPFile(operatorYaml string, path string, cf
 
 	spec := operatorCfg["spec"].(map[interface{}]interface{})
 
-	if cfg.Revision != "" {
-		spec["revision"] = cfg.Revision
-	}
-
 	if i.environment.IsMultinetwork() {
 		values := map[interface{}]interface{}{}
 		if spec["values"] != nil {
