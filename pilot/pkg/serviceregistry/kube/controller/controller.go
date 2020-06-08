@@ -504,7 +504,7 @@ func portsEqual(a, b []v1.EndpointPort) bool {
 
 	for i := range a {
 		if a[i].Name != b[i].Name || a[i].Port != b[i].Port || a[i].Protocol != b[i].Protocol ||
-			ptrValueOrDefault(a[i].AppProtocol, "") != ptrValueOrDefault(b[i].AppProtocol, "") {
+			ptrValueOrEmpty(a[i].AppProtocol) != ptrValueOrEmpty(b[i].AppProtocol) {
 			return false
 		}
 	}
@@ -519,7 +519,7 @@ func addressesEqual(a, b []v1.EndpointAddress) bool {
 
 	for i := range a {
 		if a[i].IP != b[i].IP || a[i].Hostname != b[i].Hostname ||
-			ptrValueOrDefault(a[i].NodeName, "") != ptrValueOrDefault(b[i].NodeName, "") {
+			ptrValueOrEmpty(a[i].NodeName) != ptrValueOrEmpty(b[i].NodeName) {
 			return false
 		}
 	}
@@ -527,11 +527,11 @@ func addressesEqual(a, b []v1.EndpointAddress) bool {
 	return true
 }
 
-func ptrValueOrDefault(ptr *string, def string) string {
+func ptrValueOrEmpty(ptr *string) string {
 	if ptr != nil {
 		return *ptr
 	}
-	return def
+	return ""
 }
 
 // HasSynced returns true after the initial state synchronization
