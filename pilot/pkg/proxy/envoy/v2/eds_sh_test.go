@@ -18,10 +18,9 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -162,7 +161,7 @@ func TestSplitHorizonEds(t *testing.T) {
 // Tests whether an EDS response from the provided network matches the expected results
 func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, expected expectedResults) {
 	t.Helper()
-	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADSV3(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +176,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = adsReceive(edsstr, 5*time.Second)
+	_, err = adsReceiveV3(edsstr, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +185,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceive(edsstr, 5*time.Second)
+	res, err := adsReceiveV3(edsstr, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,10 +309,10 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	memRegistry.SetEndpoints("service5.default.svc.cluster.local", "default", istioEndpoints)
 }
 
-func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+	err := edsstr.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &corev2.Node{
+		Node: &core.Node{
 			Id:       node,
 			Metadata: metadata,
 		},
@@ -326,10 +325,10 @@ func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr ads.A
 }
 
 func sendEDSReqWithMetadata(clusters []string, node string, metadata *structpb.Struct,
-	edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+	edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+	err := edsstr.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &corev2.Node{
+		Node: &core.Node{
 			Id:       node,
 			Metadata: metadata,
 		},
