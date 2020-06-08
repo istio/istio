@@ -219,7 +219,7 @@ spec:
       - name: istio-proxy
         image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
         #image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
-        imagePullPreolicy: {{ $.PullPolicy }}
+        imagePullPolicy: {{ $.PullPolicy }}
         securityContext:
           capabilities:
             add:

@@ -209,9 +209,9 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 			}
 
 			settings := resource.DefaultSettings()
-			settings.EnvironmentFactory = newFakeEnvironmentFactory(c.actual)
 
 			s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+			s.envFactory = newFakeEnvironmentFactory(c.actual)
 			s.RequireMinClusters(c.min)
 			s.RequireMaxClusters(c.max)
 			s.Run()

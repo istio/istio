@@ -89,17 +89,11 @@ func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSetti
 		osExit:      osExit,
 		getSettings: getSettingsFn,
 		labels:      label.NewSet(),
+		envFactory: func(name string, ctx resource.Context) (resource.Environment, error) {
+			return nil, nil
+		},
 	}
 
-	return s
-}
-
-// EnvironmentFactory sets a custom function used for creating the resource.Environment for this Suite.
-func (s *Suite) EnvironmentFactory(fn resource.EnvironmentFactory) *Suite {
-	if fn != nil && s.envFactory != nil {
-		scopes.CI.Warn("EnvironmentFactory overridden multiple times for Suite")
-	}
-	s.envFactory = fn
 	return s
 }
 
