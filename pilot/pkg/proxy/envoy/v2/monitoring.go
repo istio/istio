@@ -170,12 +170,13 @@ func recordPushTriggers(reasons ...model.TriggerReason) {
 	}
 }
 
-func recordSendError(metric monitoring.Metric, err error) {
+func recordSendError(xdsType string, conId string, metric monitoring.Metric, err error) {
 	s, ok := status.FromError(err)
 	// Unavailable or canceled code will be sent when a connection is closing down. This is very normal,
 	// due to the XDS connection being dropped every 30 minutes, or a pod shutting down.
 	isError := s.Code() != codes.Unavailable && s.Code() != codes.Canceled
 	if !ok || isError {
+		adsLog.Warnf("%s: Send failure %s: %v", xdsType, conId, err)
 		metric.Increment()
 	}
 }
