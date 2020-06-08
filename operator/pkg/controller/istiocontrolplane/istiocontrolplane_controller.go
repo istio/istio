@@ -99,7 +99,7 @@ var (
 			if err != nil {
 				return false
 			}
-			if object.GetLabels()[helmreconciler.OwnerNameKey] != "" {
+			if object.GetLabels()[helmreconciler.OwningResourceName] != "" && object.GetLabels()[helmreconciler.OwningResourceNamespace] != "" {
 				return true
 			}
 			return false
@@ -373,10 +373,11 @@ func watchIstioResources(c controller.Controller) error {
 		})
 		err := c.Watch(&source.Kind{Type: u}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
-				log.Debugf("watch a change for istio resource: %s.%s", a.Meta.GetName(), a.Meta.GetNamespace())
+				log.Infof("watch a change for istio resource: %s.%s", a.Meta.GetName(), a.Meta.GetNamespace())
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{
-						Name: a.Meta.GetLabels()[helmreconciler.OwnerNameKey],
+						Name:      a.Meta.GetLabels()[helmreconciler.OwningResourceName],
+						Namespace: a.Meta.GetLabels()[helmreconciler.OwningResourceNamespace],
 					}},
 				}
 			}),

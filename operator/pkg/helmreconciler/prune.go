@@ -30,14 +30,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 )
 
-const (
-	// MetadataNamespace is the namespace for mesh metadata (labels, annotations)
-	MetadataNamespace = "install.operator.istio.io"
-
-	// OwnerNameKey represents the name of the owner to which the resource relates
-	OwnerNameKey = MetadataNamespace + "/owner-name"
-)
-
 var (
 	// ordered by which types should be deleted, first to last
 	namespacedResources = []schema.GroupVersionKind{
