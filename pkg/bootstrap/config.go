@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	md "cloud.google.com/go/compute/metadata"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"istio.io/istio/pkg/config/constants"
 
@@ -281,7 +281,7 @@ func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interfa
 }
 
 func getLocalityOptions(meta *model.NodeMetadata, platEnv platform.Environment) []option.Instance {
-	var l *corev3.Locality
+	var l *core.Locality
 	if meta.Labels[model.LocalityLabel] == "" {
 		l = platEnv.Locality()
 		// The locality string was not set, try to get locality from platform
@@ -469,8 +469,8 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
-	stsPort int, pc *meshAPI.ProxyConfig) (*model.NodeMetadata, map[string]interface{}, error) {
+func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string, stsPort int,
+	pc *meshAPI.ProxyConfig) (*model.NodeMetadata, map[string]interface{}, error) {
 	meta := &model.NodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
@@ -499,9 +499,8 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	// sds is enabled by default
 	meta.SdsEnabled = true
-	meta.SdsTrustJwt = true
 
-	// Add STS port into node metadata if it is not 0.
+	// Add STS port into node metadata if it is not 0. This is read by envoy telemetry filters
 	if stsPort != 0 {
 		meta.StsPort = strconv.Itoa(stsPort)
 	}

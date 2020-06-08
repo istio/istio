@@ -30,8 +30,6 @@ import (
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -101,28 +99,10 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endp
 // it with a model where DiscoveryServer keeps track of all endpoint registries
 // directly, and calls them one by one.
 func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
-	var registries []serviceregistry.Instance
-	var nonK8sRegistries []serviceregistry.Instance
-	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
-		registries = agg.GetRegistries()
-	} else {
-		registries = []serviceregistry.Instance{
-			serviceregistry.Simple{
-				ServiceDiscovery: s.Env.ServiceDiscovery,
-			},
-		}
-	}
-
-	for _, registry := range registries {
-		if registry.Provider() != serviceregistry.Kubernetes {
-			nonK8sRegistries = append(nonK8sRegistries, registry)
-		}
-	}
-
 	// Each registry acts as a shard - we don't want to combine them because some
 	// may individually update their endpoints incrementally
 	for _, svc := range push.Services(nil) {
-		for _, registry := range nonK8sRegistries {
+		for _, registry := range s.getNonK8sRegistries() {
 			// skip the service in case this svc does not belong to the registry.
 			if svc.Attributes.ServiceRegistry != string(registry.Provider()) {
 				continue
@@ -463,7 +443,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.RequestedTypes.EDS)
+	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.node.RequestedTypes.EDS)
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {

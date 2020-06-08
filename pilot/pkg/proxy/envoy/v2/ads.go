@@ -23,7 +23,7 @@ import (
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -33,8 +33,9 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	istiolog "istio.io/pkg/log"
+
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -49,8 +50,7 @@ var (
 	SendTimeout = 5 * time.Second
 )
 
-// DiscoveryStream is a common interface for EDS and ADS. It also has a
-// shorter name.
+// DiscoveryStream is an interface for ADS.
 type DiscoveryStream interface {
 	Send(*discovery.DiscoveryResponse) error
 	Recv() (*discovery.DiscoveryRequest, error)
@@ -103,21 +103,9 @@ type XdsConnection struct {
 	// CDSWatch is set if the remote server is watching Clusters
 	CDSWatch bool
 
-	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
-	// only generate one version or the other, because the protos are wire compatible we can cast to the
-	// requested version. This struct keeps track of the types requested for each resource type.
-	// For example, if Envoy requests Clusters v3, we would track that here. Pilot would generate a v2
-	// cluster response, but change the TypeUrl in the response to be v3.
-	RequestedTypes struct {
-		CDS string
-		EDS string
-		RDS string
-		LDS string
-	}
-
 	// Original node metadata, to avoid unmarshall/marshall. This is included
 	// in internal events.
-	xdsNode *corev3.Node
+	xdsNode *core.Node
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -206,26 +194,27 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 		if !ok {
 			return nil, errors.New("invalid context")
 		}
-		if err := credentials.CheckSecurityLevel(ctx, credentials.PrivacyAndIntegrity); err == nil {
-			var authenticatedID *authenticate.Caller
-			for _, authn := range s.Authenticators {
-				u, err := authn.Authenticate(ctx)
-				if u != nil && err == nil {
-					authenticatedID = u
-				}
-			}
-
-			if authenticatedID == nil {
-				adsLog.Errora("Failed to authenticate client ", peerInfo)
-				return nil, errors.New("authentication failure")
-			}
-
-			return authenticatedID.Identities, nil
+		// Not a TLS connection, we will not authentication
+		// TODO: add a flag to prevent unauthenticated requests ( 15010 )
+		// request not over TLS ( on the insecure port
+		if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok {
+			return nil, nil
 		}
-	}
+		var authenticatedID *authenticate.Caller
+		for _, authn := range s.Authenticators {
+			u, err := authn.Authenticate(ctx)
+			if u != nil && err == nil {
+				authenticatedID = u
+			}
+		}
 
-	// TODO: add a flag to prevent unauthenticated requests ( 15010 )
-	// request not over TLS ( on the insecure port
+		if authenticatedID == nil {
+			adsLog.Errora("Failed to authenticate client ", peerInfo)
+			return nil, errors.New("authentication failure")
+		}
+
+		return authenticatedID.Identities, nil
+	}
 	return nil, nil
 }
 
@@ -243,9 +232,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 		return err
 	}
 	if ids != nil {
-		adsLog.Infoa("Authenticated XDS: ", peerInfo, ids)
+		adsLog.Infof("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		adsLog.Infoa("Unauthenticated XDS: ", peerInfo)
+		adsLog.Infoa("Unauthenticated XDS: ", peerAddr)
 	}
 
 	// first call - lazy loading, in tests. This should not happen if readiness
@@ -300,7 +289,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 				}()
 			}
 			if s.StatusReporter != nil {
-				s.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
+				s.StatusReporter.RegisterEvent(con.ConID, TypeURLToEventType(discReq.TypeUrl), discReq.ResponseNonce)
 			}
 
 			// Based on node metadata a different generator was selected, use it instead of the default
@@ -316,28 +305,28 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 
 			switch discReq.TypeUrl {
 			case ClusterType, v3.ClusterType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.CDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
 					return err
 				}
 				if err := s.handleCds(con, discReq); err != nil {
 					return err
 				}
 			case ListenerType, v3.ListenerType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.LDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.LDS); err != nil {
 					return err
 				}
 				if err := s.handleLds(con, discReq); err != nil {
 					return err
 				}
 			case RouteType, v3.RouteType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.RDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.RDS); err != nil {
 					return err
 				}
 				if err := s.handleRds(con, discReq); err != nil {
 					return err
 				}
 			case EndpointType, v3.EndpointType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.RequestedTypes.EDS); err != nil {
+				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.EDS); err != nil {
 					return err
 				}
 				if err := s.handleEds(con, discReq); err != nil {
@@ -544,7 +533,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *corev3.Node, con *XdsConnection) error {
+func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) error {
 	proxy, err := s.initProxy(node)
 	if err != nil {
 		return err
@@ -572,7 +561,7 @@ func (s *DiscoveryServer) initConnection(node *corev3.Node, con *XdsConnection) 
 }
 
 // initProxy initializes the Proxy from node.
-func (s *DiscoveryServer) initProxy(node *corev3.Node) (*model.Proxy, error) {
+func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -598,7 +587,7 @@ func (s *DiscoveryServer) initProxy(node *corev3.Node) (*model.Proxy, error) {
 	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 	// can still help provide some client-side Envoy context when load balancing based on location.
 	if util.IsLocalityEmpty(proxy.Locality) {
-		proxy.Locality = &corev3.Locality{
+		proxy.Locality = &core.Locality{
 			Region:  node.Locality.GetRegion(),
 			Zone:    node.Locality.GetZone(),
 			SubZone: node.Locality.GetSubZone(),
@@ -693,8 +682,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if s.StatusReporter != nil {
 			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
 			// inform distribution status reporter that this connection has been updated, because it effectively has
-			for _, typeURL := range []string{ClusterType, ListenerType, RouteType, EndpointType} {
-				s.StatusReporter.RegisterEvent(con.ConID, typeURL, pushEv.noncePrefix)
+			for _, distributionType := range AllEventTypes {
+				s.StatusReporter.RegisterEvent(con.ConID, distributionType, pushEv.noncePrefix)
 			}
 		}
 		return nil
@@ -726,7 +715,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, ClusterType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, ClusterEventType, pushEv.noncePrefix)
 	}
 
 	if len(con.Clusters) > 0 && pushTypes[EDS] {
@@ -735,7 +724,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, EndpointType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, EndpointEventType, pushEv.noncePrefix)
 	}
 	if con.LDSWatch && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
@@ -743,7 +732,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, ListenerType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, ListenerEventType, pushEv.noncePrefix)
 	}
 	if len(con.Routes) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
@@ -751,7 +740,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, RouteType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, RouteEventType, pushEv.noncePrefix)
 	}
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
@@ -870,7 +859,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 
 	xdsClients.Record(float64(len(s.adsClients)))
 	if s.StatusReporter != nil {
-		go s.StatusReporter.RegisterDisconnect(conID, []string{ClusterType, ListenerType, RouteType, EndpointType})
+		go s.StatusReporter.RegisterDisconnect(conID, AllEventTypes)
 	}
 }
 

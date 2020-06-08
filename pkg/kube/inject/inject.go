@@ -95,6 +95,7 @@ var (
 		annotation.SidecarTrafficKubevirtInterfaces.Name:          alwaysValidFunc,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
 		annotation.ProxyConfig.Name:                               validateProxyConfig,
+		"k8s.v1.cni.cncf.io/networks":                             alwaysValidFunc,
 	}
 )
 
@@ -760,6 +761,8 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
 
 	podSpec.DNSConfig = spec.DNSConfig
+
+	podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets, spec.ImagePullSecrets...)
 
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.

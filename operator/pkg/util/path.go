@@ -74,6 +74,18 @@ func (p Path) String() string {
 	return strings.Join(p, PathSeparator)
 }
 
+func (p Path) Equals(p2 Path) bool {
+	if len(p) != len(p2) {
+		return false
+	}
+	for i, pp := range p {
+		if pp != p2[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // ToYAMLPath converts a path string to path such that the first letter of each path element is lower case.
 func ToYAMLPath(path string) Path {
 	p := PathFromString(path)
@@ -125,7 +137,7 @@ func IsNPathElement(pe string) bool {
 	}
 
 	n, err := strconv.Atoi(pe)
-	return err == nil && n >= InsertIndex
+	return err == nil && n > InsertIndex
 }
 
 // PathKV returns the key and value string parts of the entire key/value path element.

@@ -294,11 +294,11 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
 					ProxyID: con.node.ID,
-					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ClusterType),
+					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ClusterEventType),
 						resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ListenerType),
+					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ListenerEventType),
 						resourceID, knownVersions),
-					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, RouteType),
+					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, RouteEventType),
 						resourceID, knownVersions),
 				})
 			}
@@ -483,7 +483,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		if err != nil {
 			return nil, err
 		}
-		cluster.TypeUrl = conn.RequestedTypes.CDS
+		cluster.TypeUrl = conn.node.RequestedTypes.CDS
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cluster})
 	}
 	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
@@ -501,7 +501,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		if err != nil {
 			return nil, err
 		}
-		listener.TypeUrl = conn.RequestedTypes.LDS
+		listener.TypeUrl = conn.node.RequestedTypes.LDS
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
 			Name:        cs.Name,
 			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener}})
@@ -523,7 +523,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 			if err != nil {
 				return nil, err
 			}
-			route.TypeUrl = conn.RequestedTypes.RDS
+			route.TypeUrl = conn.node.RequestedTypes.RDS
 			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: route})
 		}
 		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})

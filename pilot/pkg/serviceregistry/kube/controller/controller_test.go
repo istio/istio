@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	coreV1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -535,7 +535,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			metaServices, err := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"1.1.1.1"},
-				Locality:        &corev3.Locality{Region: "r", Zone: "z"},
+				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
@@ -597,7 +597,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			podServices, err := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.1"},
-				Locality:        &corev3.Locality{Region: "r", Zone: "z"},
+				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
@@ -656,7 +656,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			podServices, err = controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.2"},
-				Locality:        &corev3.Locality{Region: "r", Zone: "z"},
+				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
@@ -947,119 +947,6 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 }
 
-func TestWorkloadHealthCheckInfo(t *testing.T) {
-	cases := []struct {
-		name     string
-		pod      *coreV1.Pod
-		expected model.ProbeList
-	}{
-		{
-			"health check",
-			generatePodWithProbes("128.0.0.1", "pod1", "nsa1", "", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("9090")),
-			model.ProbeList{
-				{
-					Path: "/ready",
-					Port: &model.Port{
-						Name:     "mgmt-8080",
-						Port:     8080,
-						Protocol: protocol.HTTP,
-					},
-				},
-				{
-					Path: "/live",
-					Port: &model.Port{
-						Name:     "mgmt-9090",
-						Port:     9090,
-						Protocol: protocol.HTTP,
-					},
-				},
-			},
-		},
-		{
-			"prometheus scrape",
-			generatePod("128.0.0.1", "pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
-				map[string]string{PrometheusScrape: "true"}),
-			model.ProbeList{{
-				Path: PrometheusPathDefault,
-			}},
-		},
-		{
-			"prometheus path",
-			generatePod("128.0.0.1", "pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
-				map[string]string{PrometheusScrape: "true", PrometheusPath: "/other"}),
-			model.ProbeList{{
-				Path: "/other",
-			}},
-		},
-		{
-			"prometheus port",
-			generatePod("128.0.0.1", "pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
-				map[string]string{PrometheusScrape: "true", PrometheusPort: "3210"}),
-			model.ProbeList{{
-				Port: &model.Port{
-					Port: 3210,
-				},
-				Path: PrometheusPathDefault,
-			}},
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			controller, _ := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
-			defer controller.Stop()
-
-			addPods(t, controller, tt.pod)
-			if err := waitForPod(controller, tt.pod.Status.PodIP); err != nil {
-				t.Fatalf("wait for pod err: %v", err)
-			}
-
-			probes := controller.WorkloadHealthCheckInfo("128.0.0.1")
-
-			if len(probes) != len(tt.expected) {
-				t.Fatalf("Expecting 1 probe but got %d\r\n", len(probes))
-			}
-			if !reflect.DeepEqual(tt.expected, probes) {
-				t.Fatalf("Probe got:\n%#v\nwanted:\n%#v\n", probes, tt.expected)
-			}
-		})
-	}
-}
-
-func TestManagementPorts(t *testing.T) {
-	controller, _ := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
-	defer controller.Stop()
-
-	pod := generatePodWithProbes("128.0.0.1", "pod1", "nsA", "", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("9090"))
-	addPods(t, controller, pod)
-	if err := waitForPod(controller, pod.Status.PodIP); err != nil {
-		t.Fatalf("wait for pod err: %v", err)
-	}
-	controller.pods.podsByIP["128.0.0.1"] = "nsA/pod1"
-
-	portList := controller.ManagementPorts("128.0.0.1")
-
-	expected := model.PortList{
-		{
-			Name:     "mgmt-8080",
-			Port:     8080,
-			Protocol: protocol.HTTP,
-		},
-		{
-			Name:     "mgmt-9090",
-			Port:     9090,
-			Protocol: protocol.HTTP,
-		},
-	}
-
-	if len(portList) != len(expected) {
-		t.Fatalf("Expecting %d port but got %d\r\n", len(expected), len(portList))
-	}
-
-	if !reflect.DeepEqual(expected, portList) {
-		t.Fatalf("got port, got:\n%#v\nwanted:\n%#v\n", portList, expected)
-	}
-}
-
 func TestController_Service(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
@@ -1313,6 +1200,10 @@ func TestCompareEndpoints(t *testing.T) {
 	addressB := coreV1.EndpointAddress{IP: "1.2.3.4", Hostname: "b"}
 	portA := coreV1.EndpointPort{Name: "a"}
 	portB := coreV1.EndpointPort{Name: "b"}
+	appProtocolA := "http"
+	appProtocolB := "tcp"
+	appProtocolPortA := coreV1.EndpointPort{Name: "a", AppProtocol: &appProtocolA}
+	appProtocolPortB := coreV1.EndpointPort{Name: "a", AppProtocol: &appProtocolB}
 	cases := []struct {
 		name string
 		a    *coreV1.Endpoints
@@ -1368,6 +1259,26 @@ func TestCompareEndpoints(t *testing.T) {
 			}},
 			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
 				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{portB}},
+			}},
+			false,
+		},
+		{
+			"same app protocol",
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{appProtocolPortA}},
+			}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{appProtocolPortA}},
+			}},
+			true,
+		},
+		{
+			"different app protocol",
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{appProtocolPortA}},
+			}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{appProtocolPortB}},
 			}},
 			false,
 		},
@@ -1669,44 +1580,6 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 					Image: "ununtu",
 				},
 			},
-		},
-		// The cache controller uses this as key, required by our impl.
-		Status: coreV1.PodStatus{
-			PodIP:  ip,
-			HostIP: ip,
-			Phase:  coreV1.PodRunning,
-		},
-	}
-}
-
-func generatePodWithProbes(ip, name, namespace, saName, node string, readinessPath string, readinessPort intstr.IntOrString,
-	livenessPath string, livenessPort intstr.IntOrString) *coreV1.Pod {
-	return &coreV1.Pod{
-		ObjectMeta: metaV1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: coreV1.PodSpec{
-			ServiceAccountName: saName,
-			NodeName:           node,
-			Containers: []coreV1.Container{{
-				ReadinessProbe: &coreV1.Probe{
-					Handler: coreV1.Handler{
-						HTTPGet: &coreV1.HTTPGetAction{
-							Path: readinessPath,
-							Port: readinessPort,
-						},
-					},
-				},
-				LivenessProbe: &coreV1.Probe{
-					Handler: coreV1.Handler{
-						HTTPGet: &coreV1.HTTPGetAction{
-							Path: livenessPath,
-							Port: livenessPort,
-						},
-					},
-				},
-			}},
 		},
 		// The cache controller uses this as key, required by our impl.
 		Status: coreV1.PodStatus{

@@ -178,6 +178,6 @@ func buildQuery() (sourceQuery, destinationQuery, appQuery string) {
 	}
 	sourceQuery += "}"
 	destinationQuery += "}"
-	appQuery += `istio_echo_http_requests_total{namespace="` + ns.Name() + `"}`
+	appQuery += `istio_echo_http_requests_total{kubernetes_namespace="` + ns.Name() + `"}`
 	return
 }
