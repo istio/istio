@@ -98,7 +98,7 @@ func TestProfileDumpFlags(t *testing.T) {
 			configPath: "components",
 		},
 	}
-	installPackagePathRegex := regexp.MustCompile("  installPackagePath: .*")
+	installPackagePathRegex := regexp.MustCompile("(?m)^installPackagePath=\".*\"\n")
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
