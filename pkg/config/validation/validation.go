@@ -471,7 +471,9 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 					errs = appendErrors(errs, fmt.Errorf("duplicate entries in exportTo for entry %s", e))
 				}
 			} else {
-				// if this is a serviceEntry, allow ~ in exportTo
+				// if this is a serviceEntry, allow ~ in exportTo as it can be used to create
+				// a service that is not even visible within the local namespace to anyone other
+				// than the proxies of that service.
 				if isServiceEntry && visibility.Instance(e) == visibility.None {
 					exportToMap[key] = struct{}{}
 				} else {

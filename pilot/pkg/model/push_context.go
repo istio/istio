@@ -612,7 +612,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	out := make([]Config, 0)
 
 	// filter out virtual services not reachable
-	// First private virtual service
+	// First add private virtual services and explicitly exportedTo virtual services
 	if proxy == nil {
 		for _, virtualSvcs := range ps.privateVirtualServicesByNamespace {
 			configs = append(configs, virtualSvcs...)
@@ -621,7 +621,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 		configs = append(configs, ps.privateVirtualServicesByNamespace[proxy.ConfigNamespace]...)
 		configs = append(configs, ps.virtualServicesExportedToNamespace[proxy.ConfigNamespace]...)
 	}
-	// Second public virtual service
+	// Second add public virtual services.
 	configs = append(configs, ps.publicVirtualServices...)
 
 	for _, cfg := range configs {
@@ -746,31 +746,32 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 
 	// 3. if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for exported rules
-	if svcNs != "" && ps.exportedDestRulesByNamespace[svcNs] != nil {
-		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.exportedDestRulesByNamespace[svcNs].hosts); ok {
-			// Check if the dest rule for this host is actually exported to the proxy's namespace
-			exportToMap := ps.exportedDestRulesByNamespace[svcNs].exportTo[hostname]
-			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(proxy.ConfigNamespace)] {
-				return ps.exportedDestRulesByNamespace[svcNs].destRule[hostname]
-			}
+	if svcNs != "" {
+		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.Hostname, proxy.ConfigNamespace); out != nil {
+			return out
 		}
 	}
 
 	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any exported destination rule in the config root namespace
 	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
-	if ps.exportedDestRulesByNamespace[ps.Mesh.RootNamespace] != nil {
-		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.exportedDestRulesByNamespace[ps.Mesh.RootNamespace].hosts); ok {
-			// Check if the dest rule for this host is actually exported to the proxy's namespace
-			exportToMap := ps.exportedDestRulesByNamespace[ps.Mesh.RootNamespace].exportTo[hostname]
-			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(proxy.ConfigNamespace)] {
-				return ps.exportedDestRulesByNamespace[ps.Mesh.RootNamespace].destRule[hostname]
+	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.Hostname, proxy.ConfigNamespace); out != nil {
+		return out
+	}
+
+	return nil
+}
+
+func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) *Config {
+	if ps.exportedDestRulesByNamespace[owningNamespace] != nil {
+		if specificHostname, ok := MostSpecificHostMatch(hostname, ps.exportedDestRulesByNamespace[owningNamespace].hosts); ok {
+			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
+			exportToMap := ps.exportedDestRulesByNamespace[owningNamespace].exportTo[specificHostname]
+			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(clientNamespace)] {
+				return ps.exportedDestRulesByNamespace[owningNamespace].destRule[specificHostname]
 			}
 		}
 	}
-
 	return nil
 }
 

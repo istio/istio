@@ -88,6 +88,8 @@ func mergeVirtualServicesIfNeeded(vServices []Config, defaultExportTo map[visibi
 				// make sure that the delegate is visible to root virtual service's namespace
 				exportTo := delegatesExportToMap[key(route.Delegate.Name, route.Delegate.Namespace)]
 				if !exportTo[visibility.Public] && !exportTo[visibility.Instance(root.Namespace)] {
+					log.Debugf("delegate virtual service %s/%s of %s/%s is not exported to %s",
+						route.Delegate.Namespace, route.Delegate.Name, root.Namespace, root.Name, root.Namespace)
 					continue
 				}
 				// DeepCopy to prevent mutate the original delegate, it can conflict
