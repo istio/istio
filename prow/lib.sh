@@ -197,6 +197,8 @@ function setup_kind_clusters() {
 
   KUBECONFIG_DIR="$(mktemp -d)"
 
+  docker network create kind
+
   # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
   trap cleanup_kind_clusters EXIT
 
@@ -205,7 +207,6 @@ function setup_kind_clusters() {
     CLUSTER_NAME="${CLUSTER_NAMES[$IDX]}"
     CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$IDX]}"
     CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$IDX]}"
-
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
     cat <<EOF > "${CLUSTER_YAML}"
       kind: Cluster
