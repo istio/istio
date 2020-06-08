@@ -17,12 +17,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"google.golang.org/grpc/grpclog"
 
 	"istio.io/istio/pkg/dns"
 
@@ -126,6 +128,7 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
+			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			// Extract pod variables.
 			podName := podNameVar.Get()
