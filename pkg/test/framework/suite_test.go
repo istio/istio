@@ -56,7 +56,7 @@ func cleanupRT() {
 func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *Suite {
 	s := newSuite(testID, fn, osExit, getSettingsFn)
 	s.envFactory = func(name string, ctx resource.Context) (resource.Environment, error) {
-		return nil, nil
+		return fakeEnvironment{}, nil
 	}
 	return s
 }

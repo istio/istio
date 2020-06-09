@@ -49,7 +49,6 @@ type client struct {
 
 	args    *server.Args
 	server  *server.Server
-	workdir string
 }
 
 // Report implements DeployedMixer.Report.
