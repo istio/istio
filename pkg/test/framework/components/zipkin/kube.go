@@ -21,9 +21,11 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"time"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -47,6 +49,32 @@ type kubeComponent struct {
 	address   string
 	forwarder testKube.PortForwarder
 	cluster   kube.Cluster
+	close     func()
+}
+
+func getZipkinYaml() (string, error) {
+	yamlBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/extras/zipkin.yaml"))
+	if err != nil {
+		return "", err
+	}
+	yaml := string(yamlBytes)
+	return yaml, nil
+}
+
+func installZipkin(ctx resource.Context, ns string) error {
+	yaml, err := getZipkinYaml()
+	if err != nil {
+		return err
+	}
+	return ctx.ApplyConfig(ns, yaml)
+}
+
+func removeZipkin(ctx resource.Context, ns string) error {
+	yaml, err := getZipkinYaml()
+	if err != nil {
+		return err
+	}
+	return ctx.DeleteConfig(ns, yaml)
 }
 
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
@@ -59,6 +87,14 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	cfg, err := istio.DefaultConfig(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := installZipkin(ctx, cfg.TelemetryNamespace); err != nil {
+		return nil, err
+	}
+
+	c.close = func() {
+		_ = removeZipkin(ctx, cfg.TelemetryNamespace)
 	}
 
 	fetchFn := c.cluster.NewSinglePodFetch(cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
@@ -116,6 +152,9 @@ func (c *kubeComponent) QueryTraces(limit int, spanName, annotationQuery string)
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
+	if c.close != nil {
+		c.close()
+	}
 	return c.forwarder.Close()
 }
 
