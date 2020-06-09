@@ -390,6 +390,7 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	existingNames := make(map[string]struct{})
 	for _, a := range All() {
 		n := a.Metadata().Name
+		fmt.Printf("name being added %s\n", n)
 		_, ok := existingNames[n]
 		// TODO (Nino-K): remove this condition once metadata is clean up
 		if ok == true && n == "schema.ValidationAnalyzer.ServiceEntry" {

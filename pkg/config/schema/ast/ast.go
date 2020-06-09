@@ -44,6 +44,7 @@ type Collection struct {
 	Description  string `json:"description"`
 	Group        string `json:"group"`
 	Kind         string `json:"kind"`
+	Version      string `json:"version"`
 	Disabled     bool   `json:"disabled"`
 	Pilot        bool   `json:"pilot"`
 }
@@ -90,10 +91,10 @@ func (d *DirectTransformSettings) Type() string {
 // for testing purposes
 var jsonUnmarshal = json.Unmarshal
 
-// FindResourceForGroupKind looks up a resource with the given group and kind. Returns nil if not found.
-func (m *Metadata) FindResourceForGroupKind(group, kind string) *Resource {
+// FindResourceForGroupKindVersion looks up a resource with the given group, kind and version. Returns nil if not found.
+func (m *Metadata) FindResourceForGroupKindVersion(group, kind, version string) *Resource {
 	for _, r := range m.Resources {
-		if r.Group == group && r.Kind == kind {
+		if r.Group == group && r.Kind == kind && r.Version == version {
 			return r
 		}
 	}
