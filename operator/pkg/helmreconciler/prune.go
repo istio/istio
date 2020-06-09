@@ -97,7 +97,7 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		// First, we collect all objects for the provided GVK
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
-		componentRequirement, err := klabels.NewRequirement(istioComponentLabelStr, selection.Exists, nil)
+		componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
 		if err != nil {
 			return err
 		}

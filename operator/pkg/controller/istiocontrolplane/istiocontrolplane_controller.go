@@ -18,9 +18,11 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,8 +41,10 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
@@ -94,12 +98,23 @@ var (
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			object, err := meta.Accessor(e.Object)
-			log.Debugf("got delete event for %s.%s", object.GetName(), object.GetNamespace())
+			obj, err := meta.Accessor(e.Object)
+			log.Debugf("got delete event for %s.%s", obj.GetName(), obj.GetNamespace())
 			if err != nil {
 				return false
 			}
-			if object.GetLabels()[helmreconciler.OwningResourceName] != "" && object.GetLabels()[helmreconciler.OwningResourceNamespace] != "" {
+			unsObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(e.Object)
+
+			if err != nil {
+				return false
+			}
+			if isOperatorCreatedResource(obj) {
+				crName := obj.GetLabels()[helmreconciler.OwningResourceName]
+				crNamespace := obj.GetLabels()[helmreconciler.OwningResourceNamespace]
+				componentName := obj.GetLabels()[helmreconciler.IstioComponentLabelStr]
+				crHash := strings.Join([]string{crName, crNamespace, componentName}, "-")
+				oh := object.NewK8sObject(&unstructured.Unstructured{Object: unsObj}, nil, nil).Hash()
+				cache.RemoveObject(crHash, oh)
 				return true
 			}
 			return false
@@ -387,4 +402,11 @@ func watchIstioResources(c controller.Controller) error {
 		}
 	}
 	return nil
+}
+
+// Check if the specified object is created by operator
+func isOperatorCreatedResource(obj metav1.Object) bool {
+	return obj.GetLabels()[helmreconciler.OwningResourceName] != "" &&
+		obj.GetLabels()[helmreconciler.OwningResourceNamespace] != "" &&
+		obj.GetLabels()[helmreconciler.IstioComponentLabelStr] != ""
 }
