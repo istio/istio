@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
+
 	v1alpha12 "istio.io/api/operator/v1alpha1"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
