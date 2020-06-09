@@ -19,6 +19,8 @@ import (
 	"strings"
 	"testing"
 
+	"encoding/json"
+
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -38,6 +40,7 @@ const (
 	invalidFile          = "testdata/invalid.yaml"
 	invalidExtensionFile = "testdata/invalid.md"
 	dirWithConfig        = "testdata/some-dir/"
+	jsonOutput           = "-ojson"
 )
 
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
@@ -180,6 +183,26 @@ func TestJsonInputFile(t *testing.T) {
 		})
 }
 
+func TestJsonOutput(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			// Validation error if we have a gateway with invalid selector.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonGatewayFile, jsonOutput)
+			expectJSONMessages(t, g, output, msg.ReferencedResourceNotFound)
+			g.Expect(err).To(BeNil())
+		})
+}
+
 func TestKubeOnly(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -312,6 +335,23 @@ func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
 	t.Helper()
 	g.Expect(output).To(HaveLen(1))
 	g.Expect(output[0]).To(ContainSubstring("No validation issues found when analyzing"))
+}
+
+func expectJSONMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
+	t.Helper()
+
+	o := strings.Join(outputLines, "")
+	var j []map[string]interface{}
+	if err := json.Unmarshal([]byte(o), &j); err != nil {
+		t.Fatal(err)
+	}
+
+	g.Expect(j).To(HaveLen(len(expected)))
+
+	for i, m := range j {
+		g.Expect(m["level"]).To(Equal(expected[i].Level().String()))
+		g.Expect(m["code"]).To(Equal(expected[i].Code()))
+	}
 }
 
 // istioctlSafe calls istioctl analyze with certain flags set. Stdout and Stderr are merged

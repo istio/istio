@@ -259,6 +259,7 @@ istioctl analyze -L
 				}
 			}
 
+			var returnError error
 			switch msgOutputFormat {
 			case LogOutput:
 				// Print validation message output, or a line indicating that none were found
@@ -282,6 +283,14 @@ istioctl analyze -L
 						fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
 					}
 				}
+
+				// Return code is based on the unfiltered validation message list/parse errors
+				// We're intentionally keeping failure threshold and output threshold decoupled for now
+				returnError = errorIfMessagesExceedThreshold(result.Messages)
+				if returnError == nil && parseErrors > 0 {
+					returnError = FileParseError{}
+				}
+
 			case JSONOutput:
 				jsonOutput, err := json.MarshalIndent(outputMessages, "", "\t")
 				if err != nil {
@@ -298,12 +307,6 @@ istioctl analyze -L
 				panic(fmt.Sprintf("%q not found in output format switch statement post validate?", msgOutputFormat))
 			}
 
-			// Return code is based on the unfiltered validation message list/parse errors
-			// We're intentionally keeping failure threshold and output threshold decoupled for now
-			returnError := errorIfMessagesExceedThreshold(result.Messages)
-			if returnError == nil && parseErrors > 0 {
-				returnError = FileParseError{}
-			}
 			return returnError
 		},
 	}
