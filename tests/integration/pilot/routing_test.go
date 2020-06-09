@@ -182,6 +182,7 @@ func protocolSniffingCases() []TrafficTestCase {
 func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			cases := []TrafficTestCase{}
 			cases = append(cases, virtualServiceCases()...)

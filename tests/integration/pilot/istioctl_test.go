@@ -118,6 +118,7 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 
 func TestWait(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.wait").
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "default",
@@ -137,7 +138,7 @@ spec:
     - destination: 
         host: reviews
 `)
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 			istioCtl.InvokeOrFail(t, []string{"x", "wait", "VirtualService", "reviews." + ns.Name()})
 		})
 }
@@ -147,11 +148,11 @@ spec:
 func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).Features("usability.observability.version").
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
 			output, _ := istioCtl.InvokeOrFail(t, args)
@@ -169,6 +170,7 @@ func TestVersion(t *testing.T) {
 
 func TestDescribe(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.describe").
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
 			ctx.Config().ApplyYAMLOrFail(t, echoNamespace.Name(), deployment)
@@ -229,6 +231,7 @@ func getPodID(i echo.Instance) (string, error) {
 
 func TestAddToAndRemoveFromMesh(t *testing.T) {
 	framework.NewTest(t).Features("usability.helpers.add-to-mesh", "usability.helpers.remove-from-mesh").
+		RequiresSingleCluster().
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-add-to-mesh",
@@ -240,7 +243,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
 			var output string
 			var args []string
@@ -267,6 +270,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-config").
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -330,6 +334,7 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -373,12 +378,13 @@ func TestProxyStatus(t *testing.T) {
 
 func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.authz-check").
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			authPol := file.AsStringOrFail(t, "../istioctl/testdata/authz-a.yaml")
 			ctx.Config().ApplyYAMLOrFail(t, echoNamespace.Name(), authPol)
 			defer ctx.Config().DeleteYAMLOrFail(t, echoNamespace.Name(), authPol)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
 			podID, err := getPodID(a)
 			if err != nil {
