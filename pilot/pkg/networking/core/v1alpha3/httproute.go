@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -269,42 +270,62 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap,
 		virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)
-	uniques := make(map[string]struct{})
+
+	vhosts := sets.Set{}
+	vhdomains := sets.Set{}
+
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
 		if len(virtualHostWrapper.Routes) == 0 {
 			continue
 		}
-
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
+
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
 			name := domainName(hostname, virtualHostWrapper.Port)
-			if _, found := uniques[name]; !found {
-				uniques[name] = struct{}{}
-				virtualHosts = append(virtualHosts, &route.VirtualHost{
-					Name:                       name,
-					Domains:                    []string{hostname, domainName(hostname, virtualHostWrapper.Port)},
-					Routes:                     virtualHostWrapper.Routes,
-					IncludeRequestAttemptCount: true,
-				})
-			} else {
-				push.AddMetric(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
-			}
-		}
-
-		for _, svc := range virtualHostWrapper.Services {
-			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
-			if _, found := uniques[name]; !found {
-				uniques[name] = struct{}{}
-				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
+			duplicate := duplicateVirtualHost(name, vhosts)
+			if !duplicate {
+				domains := []string{hostname, name}
+				dl := len(domains)
+				domains = dedupeDomains(domains, vhdomains)
+				if dl != len(domains) {
+					duplicate = true
+				}
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
 					Name:                       name,
 					Domains:                    domains,
 					Routes:                     virtualHostWrapper.Routes,
 					IncludeRequestAttemptCount: true,
 				})
-			} else {
+			}
+
+			if duplicate {
+				// This means this virtual host has caused duplicate virtual host name/domain.
 				push.AddMetric(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
+			}
+		}
+
+		for _, svc := range virtualHostWrapper.Services {
+			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
+			duplicate := duplicateVirtualHost(name, vhosts)
+			if !duplicate {
+				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
+				dl := len(domains)
+				domains = dedupeDomains(domains, vhdomains)
+				if dl != len(domains) {
+					duplicate = true
+				}
+				virtualHosts = append(virtualHosts, &route.VirtualHost{
+					Name:                       name,
+					Domains:                    domains,
+					Routes:                     virtualHostWrapper.Routes,
+					IncludeRequestAttemptCount: true,
+				})
+			}
+
+			if duplicate {
+				// This means we have hit a duplicate virtual host name/ domain name.
+				push.AddMetric(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from  service: %s", name))
 			}
 		}
 
@@ -319,6 +340,27 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 	}
 
 	return tmpVirtualHosts
+}
+
+// duplicateVirtualHost checks whether the virtual host with the same name exists in the route.
+func duplicateVirtualHost(vhost string, vhosts sets.Set) bool {
+	if vhosts.Contains(vhost) {
+		return true
+	}
+	vhosts.Insert(vhost)
+	return false
+}
+
+// dedupeDomains removes the duplicate domains from the passed in domains.
+func dedupeDomains(domains []string, vhdomains sets.Set) []string {
+	temp := domains[:0]
+	for _, d := range domains {
+		if !vhdomains.Contains(d) {
+			temp = append(temp, d)
+			vhdomains.Insert(d)
+		}
+	}
+	return temp
 }
 
 // Returns the set of virtual hosts that correspond to the listener that has HTTP protocol detection
