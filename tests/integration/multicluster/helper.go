@@ -16,6 +16,7 @@ package multicluster
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -33,6 +34,30 @@ var (
 	retryTimeout = time.Second * 30
 	retryDelay   = time.Millisecond * 100
 )
+
+// SetupPilots populates a non-nil map from cluster indices to pilot component instances.
+// Returns an error if used in a non-kubernetes environment.
+func SetupPilots(pilots *[]pilot.Instance) resource.SetupFn {
+	return func(ctx resource.Context) error {
+		env := ctx.Environment().(*kube.Environment)
+		p := make([]pilot.Instance, len(env.KubeClusters))
+		for _, c := range env.KubeClusters {
+			cp, err := env.GetControlPlaneCluster(c)
+			if err != nil {
+				return err
+			}
+			if inst := p[cp.Index()]; inst == nil {
+				p[cp.Index()], err = pilot.New(ctx, pilot.Config{Cluster: cp})
+				if err != nil {
+					return fmt.Errorf("error creating pilot instance for cluster %d: %v", cp.Index(), err)
+				}
+			}
+			p[c.Index()] = p[cp.Index()]
+		}
+		*pilots = p
+		return nil
+	}
+}
 
 func Setup(controlPlaneValues *string, clusterLocalNS, mcReachabilityNS *namespace.Instance) func(ctx resource.Context) error {
 	return func(ctx resource.Context) (err error) {
