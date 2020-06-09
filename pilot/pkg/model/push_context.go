@@ -1402,12 +1402,10 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		}
 
 		isPrivateOnly := false
-		if len(rule.ExportTo) == 0 {
-			// No exportTo in destinationRule. Use the global default
-			// We only honor . and *
-			if ps.defaultDestinationRuleExportTo[visibility.Private] {
-				isPrivateOnly = true
-			}
+		// No exportTo in destinationRule. Use the global default
+		// We only honor . and *
+		if len(rule.ExportTo) == 0 && ps.defaultDestinationRuleExportTo[visibility.Private] {
+			isPrivateOnly = true
 		} else if len(rule.ExportTo) == 1 && exportToMap[visibility.Private] {
 			isPrivateOnly = true
 		}
