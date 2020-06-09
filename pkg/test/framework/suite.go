@@ -98,7 +98,7 @@ func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSetti
 // EnvironmentFactory sets a custom function used for creating the resource.Environment for this Suite.
 func (s *Suite) EnvironmentFactory(fn resource.EnvironmentFactory) *Suite {
 	if fn != nil && s.envFactory != nil {
-		scopes.CI.Warn("EnvironmentFactory overridden multiple times for Suite")
+		scopes.Framework.Warn("EnvironmentFactory overridden multiple times for Suite")
 	}
 	s.envFactory = fn
 	return s
@@ -301,22 +301,22 @@ func (s *Suite) run() (errLevel int) {
 
 	defer func() {
 		end := time.Now()
-		scopes.CI.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
+		scopes.Framework.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
 	}()
 
 	attempt := 0
 	for attempt <= ctx.settings.Retries {
 		attempt++
-		scopes.CI.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
+		scopes.Framework.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
 		errLevel = s.mRun(ctx)
 		if errLevel == 0 {
-			scopes.CI.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
 			break
 		} else {
-			scopes.CI.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
+			scopes.Framework.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
 				ctx.Settings().TestID, errLevel)
 			if attempt <= ctx.settings.Retries {
-				scopes.CI.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
+				scopes.Framework.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
 			}
 		}
 	}
@@ -357,7 +357,7 @@ func (s *Suite) writeOutput() {
 }
 
 func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
-	scopes.CI.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
 
 	// Run all the require functions first, then the setup functions.
 	setupFns := append(append([]resource.SetupFn{}, s.requireFns...), s.setupFns...)
@@ -366,7 +366,7 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 		err := s.runSetupFn(fn, ctx)
 		if err != nil {
 			scopes.Framework.Errorf("Test setup error: %v", err)
-			scopes.CI.Infof("=== FAILED: Setup: '%s' (%v) ===", ctx.Settings().TestID, err)
+			scopes.Framework.Infof("=== FAILED: Setup: '%s' (%v) ===", ctx.Settings().TestID, err)
 			return err
 		}
 
@@ -374,7 +374,7 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 			return nil
 		}
 	}
-	scopes.CI.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
 	return nil
 }
 
@@ -404,9 +404,9 @@ func initRuntime(s *Suite) error {
 		return err
 	}
 
-	scopes.CI.Infof("=== Test Framework Settings ===")
-	scopes.CI.Info(settings.String())
-	scopes.CI.Infof("===============================")
+	scopes.Framework.Infof("=== Test Framework Settings ===")
+	scopes.Framework.Info(settings.String())
+	scopes.Framework.Infof("===============================")
 
 	// Ensure that the work dir is set.
 	if err := os.MkdirAll(settings.RunDir(), os.ModePerm); err != nil {

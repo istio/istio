@@ -21,7 +21,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -44,7 +43,7 @@ type Network struct {
 
 // NewNetwork creates a new user-defined Docker network.
 func NewNetwork(dockerClient *client.Client, cfg NetworkConfig) (out *Network, err error) {
-	scopes.CI.Infof("Creating Docker network %s", cfg.Name)
+	scopes.Framework.Infof("Creating Docker network %s", cfg.Name)
 	resp, err := dockerClient.NetworkCreate(context.Background(), cfg.Name, types.NetworkCreate{
 		CheckDuplicate: true,
 		Labels:         cfg.Labels,
@@ -53,7 +52,7 @@ func NewNetwork(dockerClient *client.Client, cfg NetworkConfig) (out *Network, e
 		return nil, err
 	}
 
-	scopes.CI.Infof("Docker network %s created (ID=%s)", cfg.Name, resp.ID)
+	scopes.Framework.Infof("Docker network %s created (ID=%s)", cfg.Name, resp.ID)
 
 	n := &Network{
 		NetworkConfig: cfg,
@@ -80,6 +79,6 @@ func NewNetwork(dockerClient *client.Client, cfg NetworkConfig) (out *Network, e
 
 // Close removes this network. All attached containers must already have been stopped.
 func (n *Network) Close() error {
-	scopes.CI.Infof("Closing Docker network %s (ID=%s)", n.Name, n.id)
+	scopes.Framework.Infof("Closing Docker network %s (ID=%s)", n.Name, n.id)
 	return n.dockerClient.NetworkRemove(context.Background(), n.id)
 }

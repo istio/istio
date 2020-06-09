@@ -49,14 +49,14 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
-	scopes.CI.Info("=== BEGIN: Deploy Redis ===")
+	scopes.Framework.Info("=== BEGIN: Deploy Redis ===")
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("redis deployment failed: %v", err) // nolint:golint
-			scopes.CI.Infof("=== FAILED: Deploy Redis ===")
+			scopes.Framework.Infof("=== FAILED: Deploy Redis ===")
 			_ = c.Close()
 		} else {
-			scopes.CI.Info("=== SUCCEEDED: Deploy Redis ===")
+			scopes.Framework.Info("=== SUCCEEDED: Deploy Redis ===")
 		}
 	}()
 
@@ -112,7 +112,7 @@ func (c *kubeComponent) ID() resource.ID {
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	scopes.CI.Infof("Deleting Redis Install")
+	scopes.Framework.Infof("Deleting Redis Install")
 	_ = c.cluster.DeleteNamespace(redisNamespace)
 	_ = c.cluster.WaitForNamespaceDeletion(redisNamespace)
 	return nil

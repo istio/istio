@@ -50,7 +50,7 @@ func (d *Deployment) Deploy(wait bool, opts ...retry.Option) (err error) {
 
 	if wait {
 		if _, err := d.accessor.WaitUntilPodsAreReady(d.accessor.NewPodFetch(d.namespace), opts...); err != nil {
-			scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
+			scopes.Framework.Errorf("Wait for Istio pods failed: %v", err)
 			return err
 		}
 	}
@@ -67,11 +67,11 @@ func (d *Deployment) Delete(wait bool, opts ...retry.Option) (err error) {
 		}
 	} else if d.yamlFilePath != "" {
 		if err = d.accessor.Delete(d.namespace, d.yamlFilePath); err != nil {
-			scopes.CI.Warnf("Error deleting deployment: %v", err)
+			scopes.Framework.Warnf("Error deleting deployment: %v", err)
 		}
 	} else {
 		if err = d.accessor.DeleteContents(d.namespace, d.yamlContents); err != nil {
-			scopes.CI.Warnf("Error deleting deployment: %v", err)
+			scopes.Framework.Warnf("Error deleting deployment: %v", err)
 		}
 	}
 
@@ -79,7 +79,7 @@ func (d *Deployment) Delete(wait bool, opts ...retry.Option) (err error) {
 		// TODO: Just for waiting for deployment namespace deletion may not be enough. There are CRDs
 		// and roles/rolebindings in other parts of the system as well. We should also wait for deletion of them.
 		if e := d.accessor.WaitForNamespaceDeletion(d.namespace, opts...); e != nil {
-			scopes.CI.Warnf("Error waiting for environment deletion: %v", e)
+			scopes.Framework.Warnf("Error waiting for environment deletion: %v", e)
 			err = multierror.Append(err, e)
 		}
 	}
