@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes"
 
@@ -71,6 +72,15 @@ type Server struct {
 	grpcServer     *grpc.Server
 }
 
+func getConnectionAddress(ctx context.Context) string {
+	peerInfo, ok := peer.FromContext(ctx)
+	peerAddr := "unknown"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+	return peerAddr
+}
+
 // CreateCertificate handles an incoming certificate signing request (CSR). It does
 // authentication and authorization. Upon validated, signs a certificate that:
 // the SAN is the identity of the caller in authentication result.
@@ -82,7 +92,6 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	s.monitoring.CSR.Increment()
 	caller := s.authenticate(ctx)
 	if caller == nil {
-		serverCaLog.Warn("request authentication failure")
 		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
@@ -336,7 +345,7 @@ func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 			return u
 		}
 	}
-	serverCaLog.Warnf("Authentication failed: %s", errMsg)
+	serverCaLog.Warnf("Authentication failed for %v: %s", getConnectionAddress(ctx), errMsg)
 	return nil
 }
 
