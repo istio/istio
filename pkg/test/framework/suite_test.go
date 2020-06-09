@@ -52,6 +52,15 @@ func cleanupRT() {
 	rt = nil
 }
 
+// Create a bogus environment for testing. This can be removed when "environments" are removed
+func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *Suite {
+	s := newSuite(testID, fn, osExit, getSettingsFn)
+	s.envFactory = func(name string, ctx resource.Context) (resource.Environment, error) {
+		return nil, nil
+	}
+	return s
+}
+
 func TestSuite_Basic(t *testing.T) {
 	defer cleanupRT()
 	g := NewGomegaWithT(t)
@@ -68,7 +77,7 @@ func TestSuite_Basic(t *testing.T) {
 		exitCode = code
 	}
 
-	s := newSuite("tid", runFn, exitFn, defaultSettingsFn)
+	s := newTestSuite("tid", runFn, exitFn, defaultSettingsFn)
 	s.Run()
 
 	g.Expect(runCalled).To(BeTrue())
@@ -91,7 +100,7 @@ func TestSuite_Label_SuiteFilter(t *testing.T) {
 	settings := resource.DefaultSettings()
 	settings.Selector = sel
 
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+	s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 	s.Label(label.CustomSetup)
 	s.Run()
 
@@ -115,7 +124,7 @@ func TestSuite_Label_SuiteAllow(t *testing.T) {
 	settings := resource.DefaultSettings()
 	settings.Selector = sel
 
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+	s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 	s.Label(label.CustomSetup)
 	s.Run()
 
@@ -210,7 +219,7 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 
 			settings := resource.DefaultSettings()
 
-			s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+			s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 			s.envFactory = newFakeEnvironmentFactory(c.actual)
 			s.RequireMinClusters(c.min)
 			s.RequireMaxClusters(c.max)
@@ -238,7 +247,7 @@ func TestSuite_Setup(t *testing.T) {
 		return 0
 	}
 
-	s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+	s := newTestSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
 
 	var setupCalled bool
 	s.Setup(func(c resource.Context) error {
@@ -262,7 +271,7 @@ func TestSuite_SetupFail(t *testing.T) {
 		return 0
 	}
 
-	s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+	s := newTestSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
 
 	var setupCalled bool
 	s.Setup(func(c resource.Context) error {
@@ -288,7 +297,7 @@ func TestSuite_SetupFail_Dump(t *testing.T) {
 	settings := resource.DefaultSettings()
 	settings.CIMode = true
 
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+	s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 
 	var setupCalled bool
 	s.Setup(func(c resource.Context) error {
@@ -334,9 +343,9 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 		errCode2 = errCode
 	}
 
-	s := newSuite("tid1", runFn1, exitFn1, defaultSettingsFn)
+	s := newTestSuite("tid1", runFn1, exitFn1, defaultSettingsFn)
 
-	s2 := newSuite("tid2", runFn2, exitFn2, defaultSettingsFn)
+	s2 := newTestSuite("tid2", runFn2, exitFn2, defaultSettingsFn)
 
 	go s.Run()
 	waitForRun1.Wait()
@@ -359,7 +368,7 @@ func TestSuite_GetResource(t *testing.T) {
 			err = ctx.GetResource(refPtr)
 			return 0
 		}
-		s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+		s := newTestSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
 		s.Setup(func(c resource.Context) error {
 			c.TrackResource(trackedResource)
 			return nil

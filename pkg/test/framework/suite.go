@@ -89,9 +89,6 @@ func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSetti
 		osExit:      osExit,
 		getSettings: getSettingsFn,
 		labels:      label.NewSet(),
-		envFactory: func(name string, ctx resource.Context) (resource.Environment, error) {
-			return nil, nil
-		},
 	}
 
 	return s
