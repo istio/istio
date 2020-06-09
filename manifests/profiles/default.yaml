@@ -203,20 +203,6 @@ spec:
       enabled: false
 
   addonComponents:
-    prometheus:
-      enabled: true
-      k8s:
-        replicaCount: 1
-    kiali:
-      enabled: false
-      k8s:
-        replicaCount: 1
-    grafana:
-      enabled: false
-      k8s:
-        replicaCount: 1
-    tracing:
-      enabled: false
     istiocoredns:
       enabled: false
 
