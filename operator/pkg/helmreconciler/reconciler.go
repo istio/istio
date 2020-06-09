@@ -308,7 +308,7 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 		labels[label.IstioRev] = revision
 	}
 
-	labels[istioComponentLabelStr] = componentName
+	labels[IstioComponentLabelStr] = componentName
 
 	return labels
 }

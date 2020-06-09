@@ -37,8 +37,8 @@ const (
 	operatorLabelStr = name.OperatorAPINamespace + "/managed"
 	// operatorReconcileStr indicates that the operator will reconcile the resource.
 	operatorReconcileStr = "Reconcile"
-	// istioComponentLabelStr indicates which Istio component a resource belongs to.
-	istioComponentLabelStr = name.OperatorAPINamespace + "/component"
+	// IstioComponentLabelStr indicates which Istio component a resource belongs to.
+	IstioComponentLabelStr = name.OperatorAPINamespace + "/component"
 	// istioVersionLabelStr indicates the Istio version of the installation.
 	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
 )
