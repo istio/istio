@@ -69,6 +69,8 @@ spec:
       caCertificates: /etc/certs/custom/root-cert.pem
 `)
 
+			p := pilots[0]
+
 			var client, server echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&client, echo.Config{

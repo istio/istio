@@ -75,6 +75,7 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 		},
 	}
 
+	p := pilots[0]
 	var fromWithSidecar, fromWithoutSidecar, to echo.Instance
 	echoboot.NewBuilderOrFail(t, ctx).
 		With(&fromWithSidecar, echo.Config{

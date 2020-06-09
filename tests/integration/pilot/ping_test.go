@@ -70,6 +70,7 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		},
 	}
 
+	p := pilots[0]
 	var inoutUnitedApp0, inoutUnitedApp1, inoutSplitApp0, inoutSplitApp1 echo.Instance
 	echoboot.NewBuilderOrFail(t, ctx).
 		With(&inoutSplitApp0, echo.Config{

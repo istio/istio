@@ -38,8 +38,8 @@ func TestTrafficRouting(t *testing.T) {
 
 			var client, server echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&client, echoConfig(ns, "client")).
-				With(&server, echoConfig(ns, "server")).
+				With(&client, echoConfig(ns, "client", ctx.Environment().Clusters()[0])).
+				With(&server, echoConfig(ns, "server", ctx.Environment().Clusters()[0])).
 				BuildOrFail(t)
 
 			cases := []struct {

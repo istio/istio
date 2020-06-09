@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/resource"
 	"math"
 	"strings"
 	"testing"
@@ -84,10 +85,10 @@ func TestTrafficShifting(t *testing.T) {
 
 			var instances [4]echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&instances[0], echoConfig(ns, "a")).
-				With(&instances[1], echoConfig(ns, "b")).
-				With(&instances[2], echoConfig(ns, "c")).
-				With(&instances[3], echoConfig(ns, "d")).
+				With(&instances[0], echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
+				With(&instances[1], echoConfig(ns, "b", ctx.Environment().Clusters()[0])).
+				With(&instances[2], echoConfig(ns, "c", ctx.Environment().Clusters()[0])).
+				With(&instances[3], echoConfig(ns, "d", ctx.Environment().Clusters()[0])).
 				BuildOrFail(t)
 
 			hosts := []string{"b", "c", "d"}
@@ -116,7 +117,7 @@ func TestTrafficShifting(t *testing.T) {
 		})
 }
 
-func echoConfig(ns namespace.Instance, name string) echo.Config {
+func echoConfig(ns namespace.Instance, name string, cluster resource.Cluster) echo.Config {
 	return echo.Config{
 		Service:   name,
 		Namespace: ns,
@@ -129,7 +130,8 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 			},
 		},
 		Subsets: []echo.SubsetConfig{{}},
-		Pilot:   p,
+		Pilot:   pilots[cluster.Index()],
+		Cluster: cluster,
 	}
 }
 

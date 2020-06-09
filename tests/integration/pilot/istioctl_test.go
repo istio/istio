@@ -155,7 +155,7 @@ func TestDescribe(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
 				BuildOrFail(ctx)
 
 			if err := a.WaitUntilCallable(a); err != nil {
@@ -212,7 +212,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
 				BuildOrFail(ctx)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
@@ -250,7 +250,7 @@ func TestProxyConfig(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
 				BuildOrFail(ctx)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
@@ -323,7 +323,7 @@ func TestProxyStatus(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
 				BuildOrFail(ctx)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
@@ -365,7 +365,7 @@ func TestAuthZCheck(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
 				BuildOrFail(ctx)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})

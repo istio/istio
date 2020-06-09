@@ -20,12 +20,13 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/multicluster"
 )
 
+
 var (
-	i istio.Instance
-	p pilot.Instance
+	i      istio.Instance
+	pilots []pilot.Instance
 )
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -34,13 +35,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Setup(istio.Setup(&i, nil)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
+		Setup(multicluster.SetupPilots(&pilots)).
 		Run()
 }
