@@ -21,6 +21,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	goruntime "runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -73,9 +76,26 @@ type Suite struct {
 	envFactory  resource.EnvironmentFactory
 }
 
+// Given the filename of a test, derive its suite name
+func deriveSuiteName(caller string) string {
+	d := filepath.Dir(caller)
+	matches := []string{"istio.io/istio.io", "istio.io/istio", "tests/integration"}
+	// We will trim out paths preceding some well known paths. This should handle anything in istio or docs repo,
+	// as well as special case tests/integration. The end result is a test under ./tests/integration/pilot/ingress
+	// will become pilot_ingress
+	// Note: if this fails to trim, we end up with "ugly" suite names but otherwise no real impact.
+	for _, match := range matches {
+		if i := strings.Index(d, match); i >= 0 {
+			d = d[i+len(match)+1:]
+		}
+	}
+	return strings.ReplaceAll(d, "/", "_")
+}
+
 // NewSuite returns a new suite instance.
 func NewSuite(testID string, m *testing.M) *Suite {
-	return newSuite(testID,
+	_, f, _, _ := goruntime.Caller(1)
+	return newSuite(deriveSuiteName(f),
 		func(_ *suiteContext) int {
 			return m.Run()
 		},
