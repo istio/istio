@@ -5,11 +5,11 @@ metadata:
   namespace: {{.Namespace}}
 spec:
   hosts:
-    - b
+    - {{.TargetHost}}
   http:
     - route:
         - destination:
-            host: b
+            host: {{.TargetHost}}
       mirror:
         host: {{.MirrorHost}}
 {{- if not .Absent }}
