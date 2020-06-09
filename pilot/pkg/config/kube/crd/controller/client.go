@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ type restClientBuilder struct {
 	types          []*crd.SchemaType
 }
 
-var scope = log.RegisterScope("kube", "", 0)
+var scope = log.RegisterScope("kube", "Kubernetes client messages", 0)
 
 func (b *restClientBuilder) build() *restClient {
 	return &restClient{

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,10 @@ import (
 	"strings"
 	"testing"
 
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-
 	"istio.io/istio/pilot/pkg/features"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -50,8 +48,8 @@ func getDefaultProxy() model.Proxy {
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			IstioVersion:    "1.4",
-			ConfigNamespace: "not-default",
+			IstioVersion: "1.4",
+			Namespace:    "not-default",
 		},
 		IstioVersion:    model.ParseIstioVersion("1.4"),
 		ConfigNamespace: "not-default",
@@ -72,7 +70,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
 	services := []*model.Service{service}
 
-	env := buildListenerEnv(services, nil)
+	env := buildListenerEnv(services)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
@@ -114,11 +112,11 @@ func setInboundCaptureAllOnThisNode(proxy *model.Proxy, mode model.TrafficInterc
 
 var testServices = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
 
-func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int, mode model.TrafficInterceptionMode) []*listener.Listener {
+func prepareListeners(t *testing.T, services []*model.Service, mode model.TrafficInterceptionMode) []*listener.Listener {
 	// prepare
 	ldsEnv := getDefaultLdsEnv()
 
-	env := buildListenerEnv(services, mgmtPort)
+	env := buildListenerEnv(services)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
@@ -140,7 +138,6 @@ func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int, m
 
 	builder := NewListenerBuilder(&proxy, env.PushContext)
 	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
-		buildManagementListeners(ldsEnv.configgen).
 		buildHTTPProxyListener(ldsEnv.configgen).
 		buildVirtualOutboundListener(ldsEnv.configgen).
 		buildVirtualInboundListener(ldsEnv.configgen).
@@ -154,7 +151,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t, testServices, nil, model.InterceptionRedirect)
+	listeners := prepareListeners(t, testServices, model.InterceptionRedirect)
 	// virtual inbound and outbound listener
 	if len(listeners) != 2 {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
@@ -199,7 +196,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t, testServices, nil, model.InterceptionRedirect)
+	listeners := prepareListeners(t, testServices, model.InterceptionRedirect)
 	// virtual inbound and outbound listener
 	if len(listeners) != 2 {
 		t.Fatalf("expect %d listeners, found %d", 2, len(listeners))
@@ -216,7 +213,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			t.Fatalf("expect passthrough filter chain sets transport protocol to tls if transport socket is set")
 		}
 
-		if len(fc.Filters) == 2 && fc.Filters[1].Name == xdsutil.TCPProxy &&
+		if len(fc.Filters) == 2 && fc.Filters[1].Name == wellknown.TCPProxy &&
 			fc.Name == VirtualInboundListenerName {
 			if fc.Filters[0].Name == fakePluginTCPFilter {
 				sawFakePluginFilter = true
@@ -247,7 +244,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			}
 		}
 
-		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.HTTPConnectionManager &&
+		if len(fc.Filters) == 1 && fc.Filters[0].Name == wellknown.HTTPConnectionManager &&
 			fc.Name == virtualInboundCatchAllHTTPFilterChainName {
 			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, append(plaintextHTTPALPNs, mtlsHTTPALPNs...)) {
 				t.Fatalf("expect %v application protocols, found %v", append(plaintextHTTPALPNs, mtlsHTTPALPNs...), fc.FilterChainMatch.ApplicationProtocols)
@@ -283,25 +280,19 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		t.Fatalf("expected %d listener filters, found %d", 3, len(l.ListenerFilters))
 	}
 
-	if l.ListenerFilters[0].Name != xdsutil.OriginalDestination ||
-		l.ListenerFilters[1].Name != xdsutil.TlsInspector ||
-		l.ListenerFilters[2].Name != xdsutil.HttpInspector {
+	if l.ListenerFilters[0].Name != wellknown.OriginalDestination ||
+		l.ListenerFilters[1].Name != wellknown.TlsInspector ||
+		l.ListenerFilters[2].Name != wellknown.HttpInspector {
 		t.Fatalf("expect listener filters [%q, %q, %q], found [%q, %q, %q]",
-			xdsutil.OriginalDestination, xdsutil.TlsInspector, xdsutil.HttpInspector,
+			wellknown.OriginalDestination, wellknown.TlsInspector, wellknown.HttpInspector,
 			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
 	}
-}
-
-func TestManagementListenerBuilder(t *testing.T) {
-	listeners := prepareListeners(t, nil, []int{9876}, model.InterceptionRedirect)
-	l := expectListener(t, listeners, "virtualInbound")
-	expectTCPProxy(t, l.FilterChains, "inbound|9876||mgmtCluster")
 }
 
 func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t, testServices, nil, model.InterceptionTproxy)
+	listeners := prepareListeners(t, testServices, model.InterceptionTproxy)
 
 	if len(listeners) != 2 {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
@@ -317,38 +308,4 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	if !originalSrcFilterFound {
 		t.Fatalf("listener filter %s expected", OriginalSrc)
 	}
-}
-
-func expectTCPProxy(t *testing.T, chains []*listener.FilterChain, s string) {
-	t.Helper()
-	got := ""
-	for _, c := range chains {
-		for _, f := range c.Filters {
-			if f.Name != "envoy.tcp_proxy" {
-				continue
-			}
-			fc := &tcp_proxy.TcpProxy{}
-			if err := getFilterConfig(f, fc); err != nil {
-				t.Fatalf("failed to get TCP Proxy config: %s", err)
-			}
-			if s == fc.GetCluster() {
-				return
-			}
-		}
-	}
-
-	if got != s {
-		t.Fatalf("expected destination %v, got %v", s, got)
-	}
-}
-
-func expectListener(t *testing.T, listeners []*listener.Listener, name string) *listener.Listener {
-	t.Helper()
-	for _, l := range listeners {
-		if l.Name == name {
-			return l
-		}
-	}
-	t.Fatalf("could not find listener %v", name)
-	return nil
 }

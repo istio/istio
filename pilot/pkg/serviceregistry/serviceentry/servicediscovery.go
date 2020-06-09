@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -371,20 +371,6 @@ func (s *ServiceEntryStore) getServices() []*model.Service {
 		services = append(services, convertServices(cfg)...)
 	}
 	return services
-}
-
-// ManagementPorts retrieves set of health check ports by instance IP.
-// This does not apply to Service Entry registry, as Service entries do not
-// manage the service instances.
-func (s *ServiceEntryStore) ManagementPorts(_ string) model.PortList {
-	return nil
-}
-
-// WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
-// This does not apply to Service Entry registry, as Service entries do not
-// manage the service instances.
-func (s *ServiceEntryStore) WorkloadHealthCheckInfo(_ string) model.ProbeList {
-	return nil
 }
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that

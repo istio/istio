@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -153,7 +153,7 @@ func TestPrintMetrics(t *testing.T) {
 			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m]))": prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 0.04},
 			},
-			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\",response_code!=\"200\"}[1m]))": prometheus_model.Vector{}, // nolint: lll
+			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m]))": prometheus_model.Vector{}, // nolint: lll
 			"histogram_quantile(0.500000, sum(rate(istio_request_duration_seconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m])) by (le))": prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 0.0025},
 			},

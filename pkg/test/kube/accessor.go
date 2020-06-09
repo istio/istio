@@ -29,6 +29,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	kubeApiAdmissions "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/api/autoscaling/v2beta1"
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -201,6 +202,21 @@ type PodFetchFunc func() ([]kubeApiCore.Pod, error)
 func (a *Accessor) NewPodFetch(namespace string, selectors ...string) PodFetchFunc {
 	return func() ([]kubeApiCore.Pod, error) {
 		return a.GetPods(namespace, selectors...)
+	}
+}
+
+// NewPodMustFetch creates a new PodFetchFunction that fetches all pods matching the namespace and label selectors.
+// If no pods are found, an error is returned
+func (a *Accessor) NewPodMustFetch(namespace string, selectors ...string) PodFetchFunc {
+	return func() ([]kubeApiCore.Pod, error) {
+		pods, err := a.GetPods(namespace, selectors...)
+		if err != nil {
+			return nil, err
+		}
+		if len(pods) == 0 {
+			return nil, fmt.Errorf("no pods found for %v", selectors)
+		}
+		return pods, nil
 	}
 }
 
@@ -637,6 +653,22 @@ func (a *Accessor) GetClusterRole(role string) (*v1.ClusterRole, error) {
 // GetClusterRoleBinding gets a ClusterRoleBinding with the given name
 func (a *Accessor) GetClusterRoleBinding(role string) (*v1.ClusterRoleBinding, error) {
 	return a.clientSet.RbacV1().ClusterRoleBindings().Get(context.TODO(), role, kubeApiMeta.GetOptions{})
+}
+
+// CreateNamespace with the given name. Also adds an "istio-testing" annotation.
+func (a *Accessor) CreateServiceAccountToken(ns string, serviceAccount string) (string, error) {
+	scopes.Framework.Debugf("Creating service account token for: %s/%s", ns, serviceAccount)
+
+	token, err := a.clientSet.CoreV1().ServiceAccounts(ns).CreateToken(context.TODO(), serviceAccount, &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			Audiences: []string{"istio-ca"},
+		},
+	}, kubeApiMeta.CreateOptions{})
+
+	if err != nil {
+		return "", err
+	}
+	return token.Status.Token, nil
 }
 
 // GetUnstructured returns an unstructured k8s resource object based on the provided schema, namespace, and name.

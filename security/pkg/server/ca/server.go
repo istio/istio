@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes"
 
@@ -33,7 +34,6 @@ import (
 
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 )
@@ -46,11 +46,6 @@ const (
 )
 
 var serverCaLog = log.RegisterScope("serverca", "Citadel server log", 0)
-
-type authenticator interface {
-	Authenticate(ctx context.Context) (*authenticate.Caller, error)
-	AuthenticatorType() string
-}
 
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
@@ -67,15 +62,23 @@ type CertificateAuthority interface {
 // specified port.
 type Server struct {
 	monitoring     monitoringMetrics
-	Authenticators []authenticator
+	Authenticators []authenticate.Authenticator
 	hostnames      []string
-	authorizer     authorizer
 	ca             CertificateAuthority
 	serverCertTTL  time.Duration
 	certificate    *tls.Certificate
 	port           int
 	forCA          bool
 	grpcServer     *grpc.Server
+}
+
+func getConnectionAddress(ctx context.Context) string {
+	peerInfo, ok := peer.FromContext(ctx)
+	peerAddr := "unknown"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+	return peerAddr
 }
 
 // CreateCertificate handles an incoming certificate signing request (CSR). It does
@@ -89,7 +92,6 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	s.monitoring.CSR.Increment()
 	caller := s.authenticate(ctx)
 	if caller == nil {
-		serverCaLog.Warn("request authentication failure")
 		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
@@ -242,7 +244,7 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
-	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
+	authenticators := []authenticate.Authenticator{&authenticate.ClientCertAuthenticator{}}
 	serverCaLog.Info("added client certificate authenticator")
 
 	// Only add k8s jwt authenticator if SDS is enabled.
@@ -253,24 +255,10 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 		serverCaLog.Info("added K8s JWT authenticator")
 	}
 
-	// Temporarily disable ID token authenticator by resetting the hostlist.
-	// [TODO](myidpt): enable ID token authenticator when the CSR API authz can work correctly.
-	hostlistForJwtAuth := make([]string, 0)
-	for _, host := range hostlistForJwtAuth {
-		aud := fmt.Sprintf("grpc://%s:%d", host, port)
-		if jwtAuthenticator, err := authenticate.NewIDTokenAuthenticator(aud); err != nil {
-			serverCaLog.Errorf("failed to create JWT authenticator (error %v)", err)
-		} else {
-			authenticators = append(authenticators, jwtAuthenticator)
-			serverCaLog.Infof("added general JWT authenticator")
-		}
-	}
-
 	recordCertsExpiry(ca.GetCAKeyCertBundle())
 
 	server := &Server{
 		Authenticators: authenticators,
-		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
 		serverCertTTL:  ttl,
 		ca:             ca,
 		hostnames:      hostlist,
@@ -357,7 +345,7 @@ func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 			return u
 		}
 	}
-	serverCaLog.Warnf("Authentication failed: %s", errMsg)
+	serverCaLog.Warnf("Authentication failed for %v: %s", getConnectionAddress(ctx), errMsg)
 	return nil
 }
 

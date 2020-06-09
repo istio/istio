@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,14 +22,13 @@ import (
 	"time"
 
 	"istio.io/api/annotation"
-	"istio.io/istio/pilot/pkg/model"
+
 	"istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -404,93 +403,6 @@ func TestLBServiceConversion(t *testing.T) {
 		got := service.Attributes.ClusterExternalAddresses[clusterID][i]
 		if got != want {
 			t.Fatalf("Expected address %s but got %s", want, got)
-		}
-	}
-}
-
-func TestProbesToPortsConversion(t *testing.T) {
-
-	expected := model.PortList{
-		{
-			Name:     "mgmt-3306",
-			Port:     3306,
-			Protocol: protocol.TCP,
-		},
-		{
-			Name:     "mgmt-9080",
-			Port:     9080,
-			Protocol: protocol.HTTP,
-		},
-	}
-
-	handlers := []coreV1.Handler{
-		{
-			TCPSocket: &coreV1.TCPSocketAction{
-				Port: intstr.IntOrString{StrVal: "mysql", Type: intstr.String},
-			},
-		},
-		{
-			TCPSocket: &coreV1.TCPSocketAction{
-				Port: intstr.IntOrString{IntVal: 3306, Type: intstr.Int},
-			},
-		},
-		{
-			HTTPGet: &coreV1.HTTPGetAction{
-				Path: "/foo",
-				Port: intstr.IntOrString{StrVal: "http-two", Type: intstr.String},
-			},
-		},
-		{
-			HTTPGet: &coreV1.HTTPGetAction{
-				Path: "/foo",
-				Port: intstr.IntOrString{IntVal: 9080, Type: intstr.Int},
-			},
-		},
-	}
-
-	podSpec := &coreV1.PodSpec{
-		Containers: []coreV1.Container{
-			{
-				Name: "scooby",
-				Ports: []coreV1.ContainerPort{
-					{
-						Name:          "mysql",
-						ContainerPort: 3306,
-					},
-					{
-						Name:          "http-two",
-						ContainerPort: 9080,
-					},
-					{
-						Name:          "http",
-						ContainerPort: 80,
-					},
-				},
-				LivenessProbe:  &coreV1.Probe{},
-				ReadinessProbe: &coreV1.Probe{},
-			},
-		},
-	}
-
-	for _, handler1 := range handlers {
-		for _, handler2 := range handlers {
-			if (handler1.TCPSocket != nil && handler2.TCPSocket != nil) ||
-				(handler1.HTTPGet != nil && handler2.HTTPGet != nil) {
-				continue
-			}
-
-			podSpec.Containers[0].LivenessProbe.Handler = handler1
-			podSpec.Containers[0].ReadinessProbe.Handler = handler2
-
-			mgmtPorts, err := ConvertProbesToPorts(podSpec)
-			if err != nil {
-				t.Fatalf("Failed to convert Probes to Ports: %v", err)
-			}
-
-			if !reflect.DeepEqual(mgmtPorts, expected) {
-				t.Fatalf("incorrect number of management ports => %v, want %v",
-					len(mgmtPorts), len(expected))
-			}
 		}
 	}
 }

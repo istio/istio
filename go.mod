@@ -33,7 +33,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.3 // indirect
 	github.com/DataDog/datadog-go v2.2.0+incompatible
-	github.com/Masterminds/semver v1.4.2
+	github.com/Masterminds/semver v1.4.2 // indirect
 	github.com/Masterminds/sprig v2.20.0+incompatible
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v2.5.0+incompatible
@@ -157,15 +157,15 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
 	helm.sh/helm/v3 v3.2.0
-	istio.io/api v0.0.0-20200521171657-32375f234cc1
+	istio.io/api v0.0.0-20200609010548-0fa3393654fe
 	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
 	istio.io/pkg v0.0.0-20200504224939-261164cc57da
-	k8s.io/api v0.18.1
-	k8s.io/apiextensions-apiserver v0.18.0
-	k8s.io/apimachinery v0.18.1
-	k8s.io/cli-runtime v0.18.0
-	k8s.io/client-go v0.18.0
-	k8s.io/kubectl v0.18.0
+	k8s.io/api v0.18.3
+	k8s.io/apiextensions-apiserver v0.18.3
+	k8s.io/apimachinery v0.18.3
+	k8s.io/cli-runtime v0.18.3
+	k8s.io/client-go v0.18.3
+	k8s.io/kubectl v0.18.3
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	sigs.k8s.io/controller-runtime v0.5.1-0.20200327213554-2d4c4877f906
 	sigs.k8s.io/service-apis v0.0.0-20200227172328-b9010cfacdbe

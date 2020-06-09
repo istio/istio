@@ -1,4 +1,4 @@
-# Copyright 2017 Istio Authors
+# Copyright Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
       - name: mongodb 
-        image: istio/examples-bookinfo-mongodb:1.16.0
+        image: docker.io/istio/examples-bookinfo-mongodb:1.16.1
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 27017

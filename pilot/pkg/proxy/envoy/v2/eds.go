@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -30,8 +30,6 @@ import (
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -101,28 +99,10 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endp
 // it with a model where DiscoveryServer keeps track of all endpoint registries
 // directly, and calls them one by one.
 func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
-	var registries []serviceregistry.Instance
-	var nonK8sRegistries []serviceregistry.Instance
-	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
-		registries = agg.GetRegistries()
-	} else {
-		registries = []serviceregistry.Instance{
-			serviceregistry.Simple{
-				ServiceDiscovery: s.Env.ServiceDiscovery,
-			},
-		}
-	}
-
-	for _, registry := range registries {
-		if registry.Provider() != serviceregistry.Kubernetes {
-			nonK8sRegistries = append(nonK8sRegistries, registry)
-		}
-	}
-
 	// Each registry acts as a shard - we don't want to combine them because some
 	// may individually update their endpoints incrementally
 	for _, svc := range push.Services(nil) {
-		for _, registry := range nonK8sRegistries {
+		for _, registry := range s.getNonK8sRegistries() {
 			// skip the service in case this svc does not belong to the registry.
 			if svc.Attributes.ServiceRegistry != string(registry.Provider()) {
 				continue
@@ -366,11 +346,10 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	}
 }
 
-func (s *DiscoveryServer) generateEndpoints(
-	clusterName string, proxy *model.Proxy, push *model.PushContext, edsUpdatedServices map[string]struct{},
-) *endpoint.ClusterLoadAssignment {
-	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+func (s *DiscoveryServer) generateEndpoints(clusterName string, proxy *model.Proxy, push *model.PushContext,
+	edsUpdatedServices map[string]struct{}) *endpoint.ClusterLoadAssignment {
 	if edsUpdatedServices != nil {
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
 			// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
 			// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
@@ -464,12 +443,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.RequestedTypes.EDS)
+	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.node.RequestedTypes.EDS)
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
-		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
-		recordSendError(edsSendErrPushes, err)
+		recordSendError("EDS", con.ConID, edsSendErrPushes, err)
 		return err
 	}
 	edsPushes.Increment()
@@ -532,8 +510,8 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment, version, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
-	out := &xdsapi.DiscoveryResponse{
+func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment, version, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+	out := &discovery.DiscoveryResponse{
 		TypeUrl: typeURL,
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject EDS

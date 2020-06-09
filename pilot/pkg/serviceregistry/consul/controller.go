@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -104,22 +104,6 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		return service, nil
 	}
 	return nil, nil
-}
-
-// ManagementPorts retrieves set of health check ports by instance IP.
-// This does not apply to Consul service registry, as Consul does not
-// manage the service instances. In future, when we integrate Nomad, we
-// might revisit this function.
-func (c *Controller) ManagementPorts(addr string) model.PortList {
-	return nil
-}
-
-// WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
-// This does not apply to Consul service registry, as Consul does not
-// manage the service instances. In future, when we integrate Nomad, we
-// might revisit this function.
-func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	return nil
 }
 
 // InstancesByPort retrieves instances for a service that match

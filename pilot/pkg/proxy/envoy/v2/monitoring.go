@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -170,12 +170,13 @@ func recordPushTriggers(reasons ...model.TriggerReason) {
 	}
 }
 
-func recordSendError(metric monitoring.Metric, err error) {
+func recordSendError(xdsType string, conID string, metric monitoring.Metric, err error) {
 	s, ok := status.FromError(err)
 	// Unavailable or canceled code will be sent when a connection is closing down. This is very normal,
 	// due to the XDS connection being dropped every 30 minutes, or a pod shutting down.
 	isError := s.Code() != codes.Unavailable && s.Code() != codes.Canceled
 	if !ok || isError {
+		adsLog.Warnf("%s: Send failure %s: %v", xdsType, conID, err)
 		metric.Increment()
 	}
 }

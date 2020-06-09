@@ -106,8 +106,6 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
       name: istio-ingressgateway
-    istiodRemote:
-      enabled: false
     pilot:
       enabled: false
       k8s:
@@ -196,13 +194,12 @@ spec:
   hub: gcr.io/istio-testing
 
   meshConfig:
-    enablePrometheusMerge: false
+    enablePrometheusMerge: true
   profile: default
   tag: latest
   values:
     base:
       enableCRDTemplates: false
-      validationURL: ""
     clusterResources: true
     gateways:
       istio-egressgateway:
@@ -266,7 +263,6 @@ spec:
       istioNamespace: istio-system
       istiod:
         enableAnalysis: false
-        enabled: true
       jwtPolicy: third-party-jwt
       logAsJson: false
       logging:
@@ -290,8 +286,6 @@ spec:
         clusterDomain: cluster.local
         componentLogLevel: misc:error
         enableCoreDump: false
-        envoyStatsd:
-          enabled: false
         excludeIPRanges: ""
         excludeInboundPorts: ""
         excludeOutboundPorts: ""
@@ -382,8 +376,6 @@ spec:
       coreDNSImage: coredns/coredns
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       coreDNSTag: 1.6.2
-    istiodRemote:
-      injectionURL: ""
     kiali:
       contextPath: /kiali
       createDemoSecret: false
@@ -515,7 +507,7 @@ spec:
         persist: false
         spanStorageType: badger
         storageClassName: ""
-        tag: "1.18"
+        tag: "1.16"
       nodeSelector: {}
       opencensus:
         exporters:

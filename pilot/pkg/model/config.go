@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@ import (
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	"github.com/gogo/protobuf/proto"
 
+	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
-	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -210,18 +210,6 @@ type ConfigStore interface {
 // Key function for the configuration objects
 func Key(typ, name, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
-}
-
-func ParseKey(key string) (typ, name, namespace string, err error) {
-	out := strings.Split(key, "/")
-	if len(out) != 3 {
-		err = fmt.Errorf("key '%s' could not be parsed into a key", key)
-	} else {
-		typ = out[0]
-		name = out[1]
-		namespace = out[2]
-	}
-	return
 }
 
 // Key is the unique identifier for a configuration object

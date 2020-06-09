@@ -77,11 +77,11 @@ func TestMyLogic(t *testing.T) {
         NewTest(t).
         Run(func(ctx framework.TestContext) {
             // Create a component
-            g := galley.NewOrFail(ctx, ctx, cfg)
+            p := pilot.NewOrFail(ctx, ctx, cfg)
 
             // Use the component.
-            g.ApplyConfigOrFail(ctx, nil, mycfg)
-            defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+            // Apply Kubernetes Config
+            ctx.ApplyConfigOrFail(ctx, nil, mycfg)
 
             // Do more stuff here.
         }
@@ -136,8 +136,7 @@ func TestMyLogic(t *testing.T) {
             for _, cfg := range configs {
                 ctx.NewSubTest(cfg.name).
                     Run(func(ctx framework.TestContext) {
-                        g.ApplyConfigOrFail(ctx, nil, mycfg)
-                        defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+                        ctx.ApplyConfigOrFail(ctx, nil, mycfg)
                         // Do more stuff here.
                     })
             }
@@ -236,8 +235,7 @@ func TestMyLogic(t *testing.T) {
             p := pilot.NewOrFail(ctx, ctx, pilot.Config {})
 
             // Apply configuration via Galley.
-            g.ApplyConfigOrFail(ctx, nil, mycfg)
-            defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+            ctx.ApplyConfigOrFail(ctx, nil, mycfg)
 
             // Wait until Pilot has received the configuration update.
             p.StartDiscoveryOrFail(t, discoveryRequest)

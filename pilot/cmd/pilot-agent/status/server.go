@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -146,11 +146,12 @@ func NewServer(config Config) (*Server, error) {
 	return s, nil
 }
 
-// FormatProberURL returns a pair of HTTP URLs that pilot agent will serve to take over Kubernetes
+// FormatProberURL returns a set of HTTP URLs that pilot agent will serve to take over Kubernetes
 // app probers.
-func FormatProberURL(container string) (string, string) {
+func FormatProberURL(container string) (string, string, string) {
 	return fmt.Sprintf("/app-health/%v/readyz", container),
-		fmt.Sprintf("/app-health/%v/livez", container)
+		fmt.Sprintf("/app-health/%v/livez", container),
+		fmt.Sprintf("/app-health/%v/startupz", container)
 }
 
 // Run opens a the status port and begins accepting probes.
@@ -183,9 +184,15 @@ func (s *Server) Run(ctx context.Context) {
 	go func() {
 		if err := http.Serve(l, mux); err != nil {
 			log.Errora(err)
-			// If the server errors then pilot-agent can never pass readiness or liveness probes
-			// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
-			notifyExit()
+			select {
+			case <-ctx.Done():
+				// We are shutting down already, don't trigger SIGTERM
+				return
+			default:
+				// If the server errors then pilot-agent can never pass readiness or liveness probes
+				// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
+				notifyExit()
+			}
 		}
 	}()
 
@@ -358,11 +365,15 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
+	proberPath := prober.HTTPGet.Path
+	if !strings.HasPrefix(proberPath, "/") {
+		proberPath = "/" + proberPath
+	}
 	var url string
 	if prober.HTTPGet.Scheme == corev1.URISchemeHTTPS {
-		url = fmt.Sprintf("https://localhost:%v%s", prober.HTTPGet.Port.IntValue(), prober.HTTPGet.Path)
+		url = fmt.Sprintf("https://localhost:%v%s", prober.HTTPGet.Port.IntValue(), proberPath)
 	} else {
-		url = fmt.Sprintf("http://localhost:%v%s", prober.HTTPGet.Port.IntValue(), prober.HTTPGet.Path)
+		url = fmt.Sprintf("http://localhost:%v%s", prober.HTTPGet.Port.IntValue(), proberPath)
 	}
 	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -382,14 +393,15 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		if h.Name == "Host" || h.Name == ":authority" {
 			// Probe has specific host header override; honor it
 			appReq.Host = h.Value
-			break
+		} else {
+			appReq.Header.Add(h.Name, h.Value)
 		}
 	}
 
 	// Send the request.
 	response, err := httpClient.Do(appReq)
 	if err != nil {
-		log.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, prober.HTTPGet.Path)
+		log.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, proberPath)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

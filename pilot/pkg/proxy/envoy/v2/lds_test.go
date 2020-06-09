@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -207,9 +207,9 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: model.NodeMetadata{
-			InstanceIPs:     []string{"100.1.1.2"},
-			ConfigNamespace: "ns1",
-			IstioVersion:    "1.3.0",
+			InstanceIPs:  []string{"100.1.1.2"},
+			Namespace:    "ns1",
+			IstioVersion: "1.3.0",
 		}.ToStruct(),
 		IP:        "100.1.1.2",
 		Namespace: "ns1",
@@ -268,9 +268,9 @@ func TestLDSWithIngressGateway(t *testing.T) {
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: model.NodeMetadata{
-			InstanceIPs:     []string{"99.1.1.1"}, // as service instance of ingress gateway
-			ConfigNamespace: "istio-system",
-			IstioVersion:    "1.3.0",
+			InstanceIPs:  []string{"99.1.1.1"}, // as service instance of ingress gateway
+			Namespace:    "istio-system",
+			IstioVersion: "1.3.0",
 		}.ToStruct(),
 		IP:        "99.1.1.1",
 		Namespace: "istio-system",
@@ -392,9 +392,9 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: model.NodeMetadata{
-			InstanceIPs:     []string{"98.1.1.1"}, // as service instance of ingress gateway
-			ConfigNamespace: "consumerns",
-			IstioVersion:    "1.3.0",
+			InstanceIPs:  []string{"98.1.1.1"}, // as service instance of ingress gateway
+			Namespace:    "consumerns",
+			IstioVersion: "1.3.0",
 		}.ToStruct(),
 		IP:        "98.1.1.1",
 		Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
@@ -496,9 +496,9 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 				Meta: model.NodeMetadata{
-					InstanceIPs:     []string{test.ip}, // as service instance of ingress gateway
-					ConfigNamespace: "istio-system",
-					IstioVersion:    "1.4.0",
+					InstanceIPs:  []string{test.ip}, // as service instance of ingress gateway
+					Namespace:    "istio-system",
+					IstioVersion: "1.4.0",
 				}.ToStruct(),
 				IP:        test.ip,
 				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
@@ -551,7 +551,7 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 		if !ok {
 			t.Fatalf("Expected Http Connection Manager Config Filter_TypedConfig, found %T", filter.ConfigType)
 		}
-		connectionManagerCfg := xdsapi_http_connection_manager.HttpConnectionManager{}
+		connectionManagerCfg := hcm.HttpConnectionManager{}
 		err := ptypes.UnmarshalAny(httpCfg.TypedConfig, &connectionManagerCfg)
 		if err != nil {
 			t.Fatalf("Could not deserialize http connection manager config: %v", err)

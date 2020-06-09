@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +16,11 @@ package v1alpha3
 
 import (
 	"sort"
-	"strconv"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -81,12 +80,14 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *li
 				log.Debugf("Intercepted inbound listener %s have neither 0 or 1 prefix ranges. Actual:  %d",
 					l.Name, len(chain.FilterChainMatch.PrefixRanges))
 			}
-			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
+			if sockAddr.Address != WildcardAddress && sockAddr.Address != WildcardIPv6Address {
+				chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
+			}
 		}
 		chain.Name = l.Name
 	}
 	for _, filter := range l.ListenerFilters {
-		if needTLS = needTLS || filter.Name == xdsutil.TlsInspector; needTLS {
+		if needTLS = needTLS || filter.Name == wellknown.TlsInspector; needTLS {
 			break
 		}
 	}
@@ -198,24 +199,6 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigGenera
 	return lb
 }
 
-// addressKey takes a *core.Address and coverts it to a unique string identifier
-func addressKey(addr *core.Address) string {
-	switch t := addr.Address.(type) {
-	case *core.Address_SocketAddress:
-		var port string
-		switch pt := t.SocketAddress.PortSpecifier.(type) {
-		case *core.SocketAddress_NamedPort:
-			port = pt.NamedPort
-		case *core.SocketAddress_PortValue:
-			port = strconv.Itoa(int(pt.PortValue))
-		}
-		return t.SocketAddress.Address + "_" + port
-	case *core.Address_Pipe:
-		return t.Pipe.Path
-	}
-	return addr.String()
-}
-
 func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
 	httpProxy := configgen.buildHTTPProxy(lb.node, lb.push)
 	if httpProxy == nil {
@@ -224,54 +207,6 @@ func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl
 	removeListenerFilterTimeout([]*listener.Listener{httpProxy})
 	lb.patchOneListener(httpProxy, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.httpProxyListener = httpProxy
-	return lb
-}
-
-func (lb *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl) *ListenerBuilder {
-	// Do not generate any management port listeners if the user has specified a SidecarScope object
-	// with ingress listeners. Specifying the ingress listener implies that the user wants
-	// to only have those specific listeners and nothing else, in the inbound path.
-	if lb.node.SidecarScope.HasCustomIngressListeners || lb.node.GetInterceptionMode() == model.InterceptionNone {
-		return lb
-	}
-	// Let ServiceDiscovery decide which IP and Port are used for management if
-	// there are multiple IPs
-	mgmtListeners := make([]*listener.Listener, 0)
-	for _, ip := range lb.node.IPAddresses {
-		managementPorts := lb.push.ManagementPorts(ip)
-		management := buildSidecarInboundMgmtListeners(lb.node, lb.push, managementPorts, ip)
-		mgmtListeners = append(mgmtListeners, management...)
-	}
-	addresses := make(map[string]*listener.Listener)
-	for _, listener := range lb.inboundListeners {
-		if listener != nil {
-			addresses[addressKey(listener.Address)] = listener
-		}
-	}
-	for _, listener := range lb.outboundListeners {
-		if listener != nil {
-			addresses[addressKey(listener.Address)] = listener
-		}
-	}
-
-	// If management listener port and service port are same, bad things happen
-	// when running in kubernetes, as the probes stop responding. So, append
-	// non overlapping listeners only.
-	for i := range mgmtListeners {
-		m := mgmtListeners[i]
-		addressString := addressKey(m.Address)
-		existingListener, ok := addresses[addressString]
-		if ok {
-			log.Debugf("Omitting listener for management address %s due to collision with service listener (%s)",
-				m.Name, existingListener.Name)
-			continue
-		} else {
-			// dedup management listeners as well
-			addresses[addressString] = m
-			lb.inboundListeners = append(lb.inboundListeners, m)
-		}
-
-	}
 	return lb
 }
 
@@ -412,9 +347,9 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 
 	needTLS := false
 	for _, clusterName := range ipVersions {
-		tcpProxy := &tcp_proxy.TcpProxy{
+		tcpProxy := &tcp.TcpProxy{
 			StatPrefix:       clusterName,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
+			ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
 		}
 
 		matchingIP := ""
@@ -426,7 +361,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 
 		setAccessLog(push, tcpProxy)
 		tcpProxyFilter := &listener.Filter{
-			Name:       xdsutil.TCPProxy,
+			Name:       wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 		}
 
@@ -483,7 +418,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 				}
 			}
 			for _, filter := range chain.ListenerFilters {
-				if filter.Name == xdsutil.TlsInspector {
+				if filter.Name == wellknown.TlsInspector {
 					needTLS = true
 					break
 				}
@@ -571,7 +506,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 			connectionManager := buildHTTPConnectionManager(in, httpOpts, chain.HTTP)
 
 			filter := &listener.Filter{
-				Name:       xdsutil.HTTPConnectionManager,
+				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
 			}
 
@@ -618,13 +553,13 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		egressCluster = util.BlackHoleCluster
 	}
 
-	tcpProxy := &tcp_proxy.TcpProxy{
+	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       egressCluster,
-		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: egressCluster},
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
 	}
 	setAccessLog(push, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
-		Name:       xdsutil.TCPProxy,
+		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	})
 

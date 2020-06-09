@@ -119,13 +119,16 @@
   },
   "dynamic_resources": {
     "lds_config": {
-      "ads": {}
+      "ads": {},
+      "resource_api_version": "V3"
     },
     "cds_config": {
-      "ads": {}
+      "ads": {},
+      "resource_api_version": "V3"
     },
     "ads_config": {
       "api_type": "GRPC",
+      "transport_api_version": "V3",
       "grpc_services": [
         {
           "envoy_grpc": {
@@ -213,7 +216,7 @@
         "transport_socket": {
           "name": "envoy.transport_sockets.tls",
           "typed_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext",
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
             "common_tls_context": {
               "alpn_protocols": [
                 "h2"
@@ -438,7 +441,7 @@
               {
                 "name": "envoy.http_connection_manager",
                 "typed_config": {
-                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "stats",
                   "route_config": {
@@ -464,7 +467,7 @@
                   "http_filters": [{
                     "name": "envoy.router",
                     "typed_config": {
-                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
                   }]
                 }
@@ -487,7 +490,7 @@
               {
                 "name": "envoy.http_connection_manager",
                 "typed_config": {
-                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "agent",
                   "route_config": {
@@ -513,7 +516,7 @@
                   "http_filters": [{
                     "name": "envoy.router",
                     "typed_config": {
-                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
                   }]
                 }
@@ -530,7 +533,7 @@
     "http": {
       "name": "envoy.zipkin",
       "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.trace.v2.ZipkinConfig",
+        "@type": "type.googleapis.com/envoy.config.trace.v3.ZipkinConfig",
         "collector_cluster": "zipkin",
         "collector_endpoint": "/api/v2/spans",
         "collector_endpoint_version": "HTTP_JSON",
@@ -545,7 +548,7 @@
     "http": {
       "name": "envoy.lightstep",
       "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.trace.v2.LightstepConfig",
+        "@type": "type.googleapis.com/envoy.config.trace.v3.LightstepConfig",
         "collector_cluster": "lightstep",
         "access_token_file": "{{ .lightstepToken}}"
       }
@@ -557,7 +560,7 @@
     "http": {
       "name": "envoy.tracers.datadog",
       "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.trace.v2.DatadogConfig",
+        "@type": "type.googleapis.com/envoy.config.trace.v3.DatadogConfig",
         "collector_cluster": "datadog_agent",
         "service_name": "{{ .cluster }}"
       }
@@ -569,7 +572,7 @@
     "http": {
       "name": "envoy.tracers.opencensus",
       "typed_config": {
-      "@type": "type.googleapis.com/envoy.config.trace.v2.OpenCensusConfig",
+      "@type": "type.googleapis.com/envoy.config.trace.v3.OpenCensusConfig",
       "stackdriver_exporter_enabled": true,
       "stackdriver_project_id": "{{ .stackdriverProjectID }}",
       {{ if .sts_port }}

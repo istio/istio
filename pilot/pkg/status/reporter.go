@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,14 +65,15 @@ type Reporter struct {
 	distributionEventQueue chan distributionEvent
 }
 
+var _ v2.DistributionStatusCache = &Reporter{}
+
 const labelKey = "internal.istio.io/distribution-report"
 const dataField = "distribution-report"
 
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
-// with distribution information
-func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store model.ConfigStore, stop <-chan struct{}) {
+// with distribution information.  To run in read-only mode, (for supporting istioctl wait), set writeMode = false
+func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store model.ConfigStore, writeMode bool, stop <-chan struct{}) {
 	scope.Info("Starting status follower controller")
-	ctx := NewIstioContext(stop)
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
 	}
@@ -81,10 +82,14 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 	if r.UpdateInterval == 0 {
 		r.UpdateInterval = 500 * time.Millisecond
 	}
-	r.distributionEventQueue = make(chan distributionEvent, 10^5)
+	r.distributionEventQueue = make(chan distributionEvent, 100_000)
 	r.status = make(map[string]string)
 	r.reverseStatus = make(map[string][]string)
 	r.inProgressResources = make(map[string]*inProgressEntry)
+	go r.readFromEventQueue()
+	if !writeMode {
+		return
+	}
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
 	r.cm = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -94,13 +99,14 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 		Data: make(map[string]string),
 	}
 	t := r.clock.Tick(r.UpdateInterval)
+	ctx := NewIstioContext(stop)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				if r.cm != nil {
 					// TODO: is the use of a cancelled context here a problem?  Maybe set a short timeout context?
-					if err := r.client.Delete(ctx, r.cm.Name, metav1.DeleteOptions{}); err != nil {
+					if err := r.client.Delete(context.Background(), r.cm.Name, metav1.DeleteOptions{}); err != nil {
 						scope.Errorf("failed to properly clean up distribution report: %v", err)
 					}
 				}
@@ -112,7 +118,6 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 			}
 		}
 	}()
-	go r.readFromEventQueue()
 }
 
 // build a distribution report to send to status leader
@@ -236,16 +241,23 @@ func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v
 }
 
 type distributionEvent struct {
-	conID   string
-	xdsType string
-	nonce   string
+	conID            string
+	distributionType v2.EventType
+	nonce            string
+}
+
+func (r *Reporter) QueryLastNonce(conID string, distributionType v2.EventType) (noncePrefix string) {
+	key := conID + string(distributionType)
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.status[key]
 }
 
 // Register that a dataplane has acknowledged a new version of the config.
 // Theoretically, we could use the ads connections themselves to harvest this data,
 // but the mutex there is pretty hot, and it seems best to trade memory for time.
-func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
-	d := distributionEvent{nonce: nonce, xdsType: xdsType, conID: conID}
+func (r *Reporter) RegisterEvent(conID string, distributionType v2.EventType, nonce string) {
+	d := distributionEvent{nonce: nonce, distributionType: distributionType, conID: conID}
 	select {
 	case r.distributionEventQueue <- d:
 		return
@@ -257,15 +269,15 @@ func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
 func (r *Reporter) readFromEventQueue() {
 	for ev := range r.distributionEventQueue {
 		// TODO might need to batch this to prevent lock contention
-		r.processEvent(ev.conID, ev.xdsType, ev.nonce)
+		r.processEvent(ev.conID, ev.distributionType, ev.nonce)
 	}
 
 }
-func (r *Reporter) processEvent(conID string, xdsType string, nonce string) {
+func (r *Reporter) processEvent(conID string, distributionType v2.EventType, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true
-	key := conID + xdsType // TODO: delimit?
+	key := conID + string(distributionType) // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
 	var version string
 	if len(nonce) > 12 {
@@ -297,12 +309,12 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 }
 
 // When a dataplane disconnects, we should no longer count it, nor expect it to ack config.
-func (r *Reporter) RegisterDisconnect(conID string, xdsTypes []string) {
+func (r *Reporter) RegisterDisconnect(conID string, types []v2.EventType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true
-	for _, xdsType := range xdsTypes {
-		key := conID + xdsType // TODO: delimit?
+	for _, xdsType := range types {
+		key := conID + string(xdsType) // TODO: delimit?
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}

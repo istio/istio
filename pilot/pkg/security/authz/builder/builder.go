@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,8 +39,8 @@ var (
 // Builder builds Istio authorization policy to Envoy RBAC filter.
 type Builder struct {
 	trustDomainBundle  trustdomain.Bundle
-	denyPolicies       []model.AuthorizationPolicyConfig
-	allowPolicies      []model.AuthorizationPolicyConfig
+	denyPolicies       []model.AuthorizationPolicy
+	allowPolicies      []model.AuthorizationPolicy
 	isIstioVersionGE15 bool
 }
 
@@ -92,7 +92,7 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 	return filters
 }
 
-func build(policies []model.AuthorizationPolicyConfig, tdBundle trustdomain.Bundle, forTCP, forDeny, isIstioVersionGE15 bool) *rbachttppb.RBAC {
+func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle, forTCP, forDeny, isIstioVersionGE15 bool) *rbachttppb.RBAC {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -105,7 +105,7 @@ func build(policies []model.AuthorizationPolicyConfig, tdBundle trustdomain.Bund
 		rules.Action = rbacpb.RBAC_DENY
 	}
 	for _, policy := range policies {
-		for i, rule := range policy.AuthorizationPolicy.Rules {
+		for i, rule := range policy.Spec.Rules {
 			name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", policy.Namespace, policy.Name, i)
 			if rule == nil {
 				authzLog.Errorf("skipped nil rule %s", name)

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -115,6 +115,7 @@ var (
 
 func TestDashboard(t *testing.T) {
 	framework.NewTest(t).
+		Features("observability.telemetry.dashboard").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
@@ -202,7 +203,7 @@ func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 		}
 	} else {
 		if numSamples != 0 {
-			scopes.CI.Debugf("Filtered out metric '%v', but got samples: %v", query, value)
+			scopes.CI.Infof("Filtered out metric '%v', but got samples: %v", query, value)
 		}
 	}
 	return nil

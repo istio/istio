@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,11 +62,6 @@ const (
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"
-
-	// IstioJwtFilterName is the name for the Istio Jwt filter. This should be the same
-	// as the name defined in
-	// https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/http_filter_factory.cc#L50
-	IstioJwtFilterName = "jwt-auth"
 
 	// EnvoyJwtFilterName is the name of the Envoy JWT filter. This should be the same as the name defined
 	// in https://github.com/envoyproxy/envoy/blob/v1.9.1/source/extensions/filters/http/well_known_names.h#L48
@@ -181,7 +176,7 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 	} else {
 		// TODO(ramaraochavali): Clean this codepath later as we default to SDS.
 		// SDS disabled, fall back on using mounted certificates
-		base := metadata.SdsBase + constants.AuthCertsPath
+		base := metadata.CertBaseDir + constants.AuthCertsPath
 		tlsServerRootCert := model.GetOrDefault(metadata.TLSServerRootCert, base+constants.RootCertFilename)
 
 		tlsContext.ValidationContextType = ConstructValidationContext(tlsServerRootCert, subjectAltNames)

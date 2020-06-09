@@ -1,4 +1,4 @@
-## Copyright 2017 Istio Authors
+## Copyright Istio Authors
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -260,7 +260,7 @@ ${GEN_CERT}:
 # If pre-commit script is not used, please run this manually.
 precommit: format lint
 
-format: fmt
+format: fmt ## Auto formats all code. This should be run before sending a PR.
 
 fmt: format-go format-python tidy-go
 
@@ -285,7 +285,7 @@ BINARIES:=./istioctl/cmd/istioctl \
 RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
 
 .PHONY: build
-build: depend
+build: depend ## Builds all go binaries.
 	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
@@ -319,23 +319,11 @@ $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
-# To save on memory, run for each folder
-lint-go-split:
-	@golangci-lint run -c ./common/config/.golangci.yml ./galley/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./istioctl/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./mixer/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./pilot/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./pkg/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./samples/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./security/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./operator/...
-
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/charts/global.yaml
 
-lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
+
+lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
 	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
 	@testlinter
@@ -356,7 +344,7 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden
+gen: go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
 
 check-no-modify:
 	@bin/check_no_modify.sh
@@ -523,7 +511,8 @@ common-coverage:
 .PHONY: racetest
 
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest operator-racetest
-racetest: $(JUNIT_REPORT)
+
+racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
 	$(MAKE) -e -f Makefile.core.mk --keep-going $(RACE_TESTS) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
@@ -560,7 +549,7 @@ common-racetest: ${BUILD_DEPS}
 #-----------------------------------------------------------------------------
 .PHONY: clean
 
-clean:
+clean: ## Cleans all the intermediate files and folders previously generated.
 	rm -rf $(DIRS_TO_CLEAN)
 	rm -f $(FILES_TO_CLEAN)
 
@@ -572,16 +561,9 @@ clean:
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
-push: docker.push
+push: docker.push ## Build and push docker images to registry defined by $HUB and $TAG
 
 FILES_TO_CLEAN+=install/consul/istio.yaml \
-                install/kubernetes/istio-auth.yaml \
-                install/kubernetes/istio-citadel-plugin-certs.yaml \
-                install/kubernetes/istio-citadel-with-health-check.yaml \
-                install/kubernetes/istio-one-namespace-auth.yaml \
-                install/kubernetes/istio-one-namespace-trust-domain.yaml \
-                install/kubernetes/istio-one-namespace.yaml \
-                install/kubernetes/istio.yaml \
                 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 
 #-----------------------------------------------------------------------------

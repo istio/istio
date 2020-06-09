@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ import (
 )
 
 var scope = log.RegisterScope("status",
-	"component for writing distribution status to istiio CRDs", 0)
+	"CRD distribution status debugging", 0)
 
 type Progress struct {
 	AckedInstances int

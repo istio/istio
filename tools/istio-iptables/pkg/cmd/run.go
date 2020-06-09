@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,8 +44,9 @@ func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) *Iptables
 }
 
 type NetworkRange struct {
-	IsWildcard bool
-	IPNets     []*net.IPNet
+	IsWildcard    bool
+	IPNets        []*net.IPNet
+	HasLoopBackIP bool
 }
 
 func split(s string) []string {
@@ -72,8 +73,14 @@ func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (Netw
 		}
 		if ip.To4() != nil {
 			ipv4Ranges.IPNets = append(ipv4Ranges.IPNets, ipNet)
+			if ip.IsLoopback() {
+				ipv4Ranges.HasLoopBackIP = true
+			}
 		} else {
 			ipv6Ranges.IPNets = append(ipv6Ranges.IPNets, ipNet)
+			if ip.IsLoopback() {
+				ipv6Ranges.HasLoopBackIP = true
+			}
 		}
 	}
 	return ipv4Ranges, ipv6Ranges, nil
@@ -90,6 +97,7 @@ func (iptConfigurator *IptablesConfigurator) logConfig() {
 	fmt.Printf("ISTIO_INBOUND_TPROXY_MARK=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_MARK"))
 	fmt.Printf("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE"))
 	fmt.Printf("ISTIO_INBOUND_PORTS=%s\n", os.Getenv("ISTIO_INBOUND_PORTS"))
+	fmt.Printf("ISTIO_OUTBOUND_PORTS=%s\n", os.Getenv("ISTIO_OUTBOUND_PORTS"))
 	fmt.Printf("ISTIO_LOCAL_EXCLUDE_PORTS=%s\n", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS"))
 	fmt.Printf("ISTIO_SERVICE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_CIDR"))
 	fmt.Printf("ISTIO_SERVICE_EXCLUDE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR"))
@@ -375,7 +383,10 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
+		if !ipv4RangesInclude.HasLoopBackIP && !ipv6RangesInclude.HasLoopBackIP {
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
@@ -390,7 +401,10 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
+		if !ipv4RangesInclude.HasLoopBackIP && !ipv6RangesInclude.HasLoopBackIP {
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
@@ -408,6 +422,8 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
 		iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 	}
+
+	iptConfigurator.handleOutboundPortsInclude()
 
 	iptConfigurator.handleInboundIpv4Rules(ipv4RangesInclude)
 	if iptConfigurator.cfg.EnableInboundIPv6 {
@@ -434,6 +450,15 @@ func (iptConfigurator *IptablesConfigurator) run() {
 			"-j", constants.MARK, "--set-mark", iptConfigurator.cfg.InboundTProxyMark)
 	}
 	iptConfigurator.executeCommands()
+}
+
+func (iptConfigurator *IptablesConfigurator) handleOutboundPortsInclude() {
+	if iptConfigurator.cfg.OutboundPortsInclude != "" {
+		for _, port := range split(iptConfigurator.cfg.OutboundPortsInclude) {
+			iptConfigurator.iptables.AppendRuleV4(
+				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
+		}
+	}
 }
 
 func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, contents string) error {

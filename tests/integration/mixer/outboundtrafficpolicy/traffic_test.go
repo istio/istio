@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,8 +50,8 @@ components:
   - enabled: true
   telemetry:
     enabled: true
-addonComponents:
-  prometheus:
+addonComponents:	
+  prometheus:	
     enabled: true
 values:
   telemetry:
@@ -62,6 +62,8 @@ values:
 }
 
 func setupPrometheus(ctx resource.Context) (err error) {
-	prom, err = prometheus.New(ctx, prometheus.Config{})
+	prom, err = prometheus.New(ctx, prometheus.Config{
+		SkipDeploy: true, // Use istioctl prometheus; sample prometheus does not support mixer.
+	})
 	return err
 }

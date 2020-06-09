@@ -27,6 +27,9 @@ spec:
         service.istio.io/canonical-name: istio-ingressgateway
         service.istio.io/canonical-revision: latest
       annotations:
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/stats/prometheus"
         sidecar.istio.io/inject: "false"
     spec:
       securityContext:
@@ -197,7 +200,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "amd64"
@@ -207,21 +210,21 @@ spec:
           - weight: 2
             preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "amd64"
           - weight: 2
             preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "ppc64le"
           - weight: 2
             preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "s390x"

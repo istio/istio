@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pkg/test/framework"
 )
 
@@ -44,7 +45,7 @@ func TestServiceEntryStatic(t *testing.T) {
 				Id: nodeID.ServiceNode(),
 			},
 			ResourceNames: []string{"outbound|80||app.com"},
-			TypeUrl:       v2.EndpointTypeV3,
+			TypeUrl:       v3.EndpointType,
 		}
 
 		if err := p.StartDiscovery(req); err != nil {
@@ -87,7 +88,7 @@ func TestSidecarScopeIngressListener(t *testing.T) {
 			Node: &xdscore.Node{
 				Id: nodeID.ServiceNode(),
 			},
-			TypeUrl: v2.ClusterTypeV3,
+			TypeUrl: v3.ClusterType,
 		}
 
 		if err := p.StartDiscovery(req); err != nil {

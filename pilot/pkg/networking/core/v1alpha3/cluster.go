@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/gogo/protobuf/types"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -105,13 +105,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		// DO NOT CALL PLUGINS for these two clusters.
 		outboundClusters = append(outboundClusters, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
-		// Let ServiceDiscovery decide which IP and Port are used for management if
-		// there are multiple IPs
-		managementPorts := make([]*model.Port, 0)
-		for _, ip := range proxy.IPAddresses {
-			managementPorts = append(managementPorts, push.ManagementPorts(ip)...)
-		}
-		inboundClusters := configgen.buildInboundClusters(proxy, push, instances, managementPorts)
+		inboundClusters := configgen.buildInboundClusters(proxy, push, instances)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		inboundClusters = append(inboundClusters, cb.buildInboundPassthroughClusters()...)
 		inboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_INBOUND, proxy, push, inboundClusters)
@@ -328,10 +322,9 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
-	push *model.PushContext, instances []*model.ServiceInstance, managementPorts []*model.Port) []*cluster.Cluster {
+	push *model.PushContext, instances []*model.ServiceInstance) []*cluster.Cluster {
 
 	clusters := make([]*cluster.Cluster, 0)
-	cb := NewClusterBuilder(proxy, push)
 
 	// The inbound clusters for a node depends on whether the node has a SidecarScope with inbound listeners
 	// or not. If the node has a sidecarscope with ingress listeners, we only return clusters corresponding
@@ -369,17 +362,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 				clusters = append(clusters, localCluster)
 				have[instance.ServicePort] = true
 			}
-		}
-
-		// Add a passthrough cluster for traffic to management ports (health check ports)
-		for _, port := range managementPorts {
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, port.Name,
-				ManagementClusterHostname, port.Port)
-			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, uint32(port.Port))
-			mgmtCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
-				model.TrafficDirectionInbound, nil, false)
-			setUpstreamProtocol(proxy, mgmtCluster, port, model.TrafficDirectionInbound)
-			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
@@ -818,16 +800,6 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 
 	out := &cluster.OutlierDetection{}
-	if outlier.BaseEjectionTime != nil {
-		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
-	}
-	if outlier.ConsecutiveErrors > 0 {
-		// Only listen to gateway errors, see https://github.com/istio/api/pull/617
-		out.EnforcingConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: uint32(100)} // defaults to 0
-		out.EnforcingConsecutive_5Xx = &wrappers.UInt32Value{Value: uint32(0)}             // defaults to 100
-		out.ConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: uint32(outlier.ConsecutiveErrors)}
-	}
-
 	if e := outlier.Consecutive_5XxErrors; e != nil {
 		v := e.GetValue()
 
@@ -852,6 +824,9 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	if outlier.Interval != nil {
 		out.Interval = gogo.DurationToProtoDuration(outlier.Interval)
 	}
+	if outlier.BaseEjectionTime != nil {
+		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
+	}
 	if outlier.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
 	}
@@ -866,7 +841,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		if c.CommonLbConfig == nil {
 			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 		}
-		c.CommonLbConfig.HealthyPanicThreshold = &typev3.Percent{Value: float64(outlier.MinHealthPercent)} // defaults to 50
+		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(outlier.MinHealthPercent)} // defaults to 50
 	}
 }
 
@@ -961,15 +936,6 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 
 	c := opts.cluster
 	proxy := opts.proxy
-
-	// Disable transport socket when cluster type is `Cluster_ORIGINAL_DST` and mtls is autoDetected
-	// We don't know whether headless service instance has sidecar injected or not.
-	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
-		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
-			return
-		}
-	}
-
 	certValidationContext := &auth.CertificateValidationContext{}
 	var trustedCa *core.DataSource
 	if len(tls.CaCertificates) != 0 {
@@ -1067,15 +1033,27 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		if len(tls.Sni) == 0 && tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 			tlsContext.Sni = c.Name
 		}
+
+		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
+		// We add `istio-peer-exchange` to the list of alpn strings.
+		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				// Enable sending `istio-peer-exchange`	ALPN in ALPN list if TCP
+				// metadataexchange is enabled.
+				if util.IsTCPMetadataExchangeEnabled(node) {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
+				} else {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				}
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		} else if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
+			// Also, Enable sending `istio-peer-exchange` ALPN in ALPN list if TCP
+			// metadataexchange is enabled.
 			if util.IsTCPMetadataExchangeEnabled(node) {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
 			} else {

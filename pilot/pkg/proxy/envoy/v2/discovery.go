@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,14 +19,19 @@ import (
 	"sync"
 	"time"
 
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/security/pkg/server/ca/authenticate"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/util/sets"
 )
 
@@ -54,25 +59,6 @@ var (
 
 	// enableEDSDebounce indicates whether EDS pushes should be debounced.
 	enableEDSDebounce bool
-)
-
-const (
-	typePrefix = "type.googleapis.com/envoy.api.v2."
-
-	// Constants used for XDS
-
-	// ClusterType is used for cluster discovery. Typically first request received
-	ClusterType = typePrefix + "Cluster"
-	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
-	EndpointType = typePrefix + "ClusterLoadAssignment"
-	// ListenerType is sent after clusters and endpoints.
-	ListenerType = typePrefix + "Listener"
-	// RouteType is sent after listeners.
-	RouteType = typePrefix + "RouteConfiguration"
-
-	// EndpointTypeV3 is used for EDS and ADS endpoint discovery. Typically second request.
-	EndpointTypeV3 = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
-	ClusterTypeV3  = "type.googleapis.com/envoy.config.cluster.v3.Cluster"
 )
 
 func init() {
@@ -132,7 +118,12 @@ type DiscoveryServer struct {
 	adsClients      map[string]*XdsConnection
 	adsClientsMutex sync.RWMutex
 
-	StatusReporter DistributionEventHandler
+	StatusReporter DistributionStatusCache
+
+	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
+	Authenticators []authenticate.Authenticator
+
+	InternalGen *InternalGen
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -170,6 +161,17 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		adsClients:              map[string]*XdsConnection{},
 	}
 
+	if features.XDSAuth {
+		// This is equivalent with the mTLS authentication for workload-to-workload.
+		// The GRPC server is configured in bootstrap.initSecureDiscoveryService, using the root
+		// certificate as 'ClientCAs'. To accept additional signers for client identities - add them
+		// there, will be used for CA signing as well.
+		out.Authenticators = append(out.Authenticators, &authenticate.ClientCertAuthenticator{})
+
+		// TODO: we may want to support JWT/OIDC auth as well - using the same list of auth as
+		// CA. Will require additional refactoring - probably best for 1.7.
+	}
+
 	// Flush cached discovery responses when detecting jwt public key change.
 	model.JwtKeyResolver.PushFunc = func() {
 		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
@@ -180,7 +182,9 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 
 // Register adds the ADS and EDS handles to the grpc server
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
-	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+	// Register v2 and v3 servers
+	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
@@ -188,6 +192,28 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
+}
+
+func (s *DiscoveryServer) getNonK8sRegistries() []serviceregistry.Instance {
+	var registries []serviceregistry.Instance
+	var nonK8sRegistries []serviceregistry.Instance
+
+	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
+		registries = agg.GetRegistries()
+	} else {
+		registries = []serviceregistry.Instance{
+			serviceregistry.Simple{
+				ServiceDiscovery: s.Env.ServiceDiscovery,
+			},
+		}
+	}
+
+	for _, registry := range registries {
+		if registry.Provider() != serviceregistry.Kubernetes || registry.Provider() != serviceregistry.External {
+			nonK8sRegistries = append(nonK8sRegistries, registry)
+		}
+	}
+	return nonK8sRegistries
 }
 
 // Push metrics are updated periodically (10s default)

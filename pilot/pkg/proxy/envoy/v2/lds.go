@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ package v2
 import (
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -32,12 +32,11 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	if s.DebugConfigs {
 		con.LDSListeners = rawListeners
 	}
-	response := ldsDiscoveryResponse(rawListeners, version, push.Version, con.RequestedTypes.LDS)
+	response := ldsDiscoveryResponse(rawListeners, version, push.Version, con.node.RequestedTypes.LDS)
 	err := con.send(response)
 	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
-		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
-		recordSendError(ldsSendErrPushes, err)
+		recordSendError("LDS", con.ConID, ldsSendErrPushes, err)
 		return err
 	}
 	ldsPushes.Increment()
@@ -47,8 +46,8 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*listener.Listener, version, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
-	resp := &xdsapi.DiscoveryResponse{
+func ldsDiscoveryResponse(ls []*listener.Listener, version, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+	resp := &discovery.DiscoveryResponse{
 		TypeUrl:     typeURL,
 		VersionInfo: version,
 		Nonce:       nonce(noncePrefix),

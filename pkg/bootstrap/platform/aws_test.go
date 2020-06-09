@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 var (
@@ -53,10 +53,10 @@ func TestAWSLocality(t *testing.T) {
 	cases := []struct {
 		name string
 		env  *awsEnv
-		want *corev3.Locality
+		want *core.Locality
 	}{
-		{"empty", &awsEnv{}, &corev3.Locality{}},
-		{"locality", &awsEnv{identity: localityIdentity}, &corev3.Locality{Region: "region", Zone: "zone"}},
+		{"empty", &awsEnv{}, &core.Locality{}},
+		{"locality", &awsEnv{identity: localityIdentity}, &core.Locality{Region: "region", Zone: "zone"}},
 	}
 
 	for _, v := range cases {

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -104,7 +104,6 @@ spec:
         - from: region
           to: closeregion
     outlierDetection:
-      consecutiveErrors: 100
       interval: 1s
       baseEjectionTime: 3m
       maxEjectionPercent: 100
@@ -127,7 +126,6 @@ spec:
             notregion: 80
             region: 20
     outlierDetection:
-      consecutiveErrors: 100
       interval: 1s
       baseEjectionTime: 3m
       maxEjectionPercent: 100
@@ -146,7 +144,6 @@ spec:
       localityLbSetting:
         enabled: false
     outlierDetection:
-      consecutiveErrors: 100
       interval: 1s
       baseEjectionTime: 3m
       maxEjectionPercent: 100

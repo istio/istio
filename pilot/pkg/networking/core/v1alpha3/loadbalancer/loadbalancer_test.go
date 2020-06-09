@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
@@ -35,7 +35,7 @@ import (
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
-	locality := &corev3.Locality{
+	locality := &core.Locality{
 		Region:  "region1",
 		Zone:    "zone1",
 		SubZone: "subzone1",
@@ -277,9 +277,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
-					OutlierDetection: &networking.OutlierDetection{
-						ConsecutiveErrors: 5,
-					},
+					OutlierDetection: &networking.OutlierDetection{},
 				},
 			},
 		}})
@@ -339,9 +337,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
-					OutlierDetection: &networking.OutlierDetection{
-						ConsecutiveErrors: 5,
-					},
+					OutlierDetection: &networking.OutlierDetection{},
 				},
 			},
 		}})
@@ -356,49 +352,49 @@ func buildFakeCluster() *cluster.Cluster {
 			ClusterName: "outbound|8080||test.example.org",
 			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone3",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone2",
 						SubZone: "",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region2",
 						Zone:    "",
 						SubZone: "",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region3",
 						Zone:    "",
 						SubZone: "",
@@ -417,21 +413,21 @@ func buildSmallCluster() *cluster.Cluster {
 			ClusterName: "outbound|8080||test.example.org",
 			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region2",
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region2",
 						Zone:    "zone1",
 						SubZone: "subzone2",
@@ -449,7 +445,7 @@ func buildSmallClusterWithNilLocalities() *cluster.Cluster {
 			ClusterName: "outbound|8080||test.example.org",
 			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone2",
@@ -457,7 +453,7 @@ func buildSmallClusterWithNilLocalities() *cluster.Cluster {
 				},
 				{},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region2",
 						Zone:    "zone1",
 						SubZone: "subzone2",

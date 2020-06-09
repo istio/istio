@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,16 +17,16 @@ package v2
 import (
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
-	out := &xdsapi.DiscoveryResponse{
+func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+	out := &discovery.DiscoveryResponse{
 		// All resources for CDS ought to be of the type Cluster
 		TypeUrl: typeURL,
 
@@ -55,12 +55,11 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	if s.DebugConfigs {
 		con.CDSClusters = rawClusters
 	}
-	response := cdsDiscoveryResponse(rawClusters, push.Version, con.RequestedTypes.CDS)
+	response := cdsDiscoveryResponse(rawClusters, push.Version, con.node.RequestedTypes.CDS)
 	err := con.send(response)
 	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
-		adsLog.Warnf("CDS: Send failure %s: %v", con.ConID, err)
-		recordSendError(cdsSendErrPushes, err)
+		recordSendError("CDS", con.ConID, cdsSendErrPushes, err)
 		return err
 	}
 	cdsPushes.Increment()

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -123,6 +123,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
 	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
+	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
 
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
@@ -290,12 +291,15 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 			con.mu.RLock()
 
 			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
-				// TODO: handle skipped nodes
+				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
-					ProxyID:         con.node.ID,
-					ClusterVersion:  s.getResourceVersion(con.ClusterNonceAcked, resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(con.ListenerNonceAcked, resourceID, knownVersions),
-					RouteVersion:    s.getResourceVersion(con.RouteNonceAcked, resourceID, knownVersions),
+					ProxyID: con.node.ID,
+					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ClusterEventType),
+						resourceID, knownVersions),
+					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ListenerEventType),
+						resourceID, knownVersions),
+					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, RouteEventType),
+						resourceID, knownVersions),
 				})
 			}
 			con.mu.RUnlock()
@@ -479,7 +483,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		if err != nil {
 			return nil, err
 		}
-		cluster.TypeUrl = conn.RequestedTypes.CDS
+		cluster.TypeUrl = conn.node.RequestedTypes.CDS
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cluster})
 	}
 	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
@@ -497,7 +501,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		if err != nil {
 			return nil, err
 		}
-		listener.TypeUrl = conn.RequestedTypes.LDS
+		listener.TypeUrl = conn.node.RequestedTypes.LDS
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
 			Name:        cs.Name,
 			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener}})
@@ -519,7 +523,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 			if err != nil {
 				return nil, err
 			}
-			route.TypeUrl = conn.RequestedTypes.RDS
+			route.TypeUrl = conn.node.RequestedTypes.RDS
 			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: route})
 		}
 		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
@@ -735,4 +739,23 @@ func (s *DiscoveryServer) getProxyConnection(proxyID string) *XdsConnection {
 	}
 
 	return nil
+}
+
+func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+
+	instances := map[string][]*model.ServiceInstance{}
+	s.adsClientsMutex.RLock()
+	for _, con := range s.adsClients {
+		con.mu.RLock()
+		if con.node != nil {
+			instances[con.node.ID] = con.node.ServiceInstances
+		}
+		con.mu.RUnlock()
+	}
+	s.adsClientsMutex.RUnlock()
+	by, _ := json.MarshalIndent(instances, "", "  ")
+
+	_, _ = w.Write(by)
 }

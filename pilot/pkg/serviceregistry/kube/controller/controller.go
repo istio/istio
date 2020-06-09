@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,12 +22,10 @@ import (
 	"net"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -72,8 +70,6 @@ const (
 	IstioSubzoneLabel = "topology.istio.io/subzone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
-	// IstioConfigMap is used by default
-	IstioConfigMap = "istio"
 	// PrometheusScrape is the annotation used by prometheus to determine if service metrics should be scraped (collected)
 	PrometheusScrape = "prometheus.io/scrape"
 	// PrometheusPort is the annotation used to explicitly specify the port to use for scraping metrics
@@ -182,7 +178,10 @@ type Controller struct {
 	serviceLister   listerv1.ServiceLister
 	endpoints       kubeEndpointsController
 
+	// For k8s >=1.15
 	nodeMetadataInformer cache.SharedIndexInformer
+	// For k8s < 1.15
+	nodeInformer cache.SharedIndexInformer
 	// Used to watch node accessible from remote cluster.
 	// In multi-cluster(shared control plane multi-networks) scenario, ingress gateway service can be of nodePort type.
 	// With this, we can populate mesh's gateway address with the node ips.
@@ -271,11 +270,24 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		c.endpoints = newEndpointSliceController(c, options)
 	}
 
-	// This is for getting the pod to node mapping, so that we can get the pod's locality.
-	metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
-	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-	c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
+	// check k8s apiserver version, only apply metadata informer when version >= 1.15
+	// https://github.com/kubernetes/kubernetes/issues/91582
+	k8sVersion, _ := client.Discovery().ServerVersion()
+	if k8sVersion != nil && k8sVersion.Major != "" {
+		if k8sVersion.Major < "1" || (k8sVersion.Major == "1" && k8sVersion.Minor < "15") {
+			c.nodeInformer = coreinformers.NewNodeInformer(client, options.ResyncPeriod, cache.Indexers{})
+		}
+	}
+
+	if c.nodeInformer == nil {
+		// This is for getting the pod to node mapping, so that we can get the pod's locality.
+		metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
+		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+		c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
+	}
+
 	// This is for getting the node IPs of a selected set of nodes
+	// TODO(hzxuzhonghu): optimize don't list-watch all nodes.
 	c.filteredNodeInformer = coreinformers.NewFilteredNodeInformer(client, options.ResyncPeriod,
 		cache.Indexers{},
 		func(options *metav1.ListOptions) {})
@@ -412,7 +424,7 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		// check if the node exists as this add event could be due to controller resync
 		// if the stored object changes, then fire an update event. Otherwise, ignore this event.
 		currentNode, exists := c.nodeInfoMap[node.Name]
-		if !exists || !reflect.DeepEqual(currentNode, k8sNode) {
+		if !exists || !nodeEquals(currentNode, k8sNode) {
 			c.nodeInfoMap[node.Name] = k8sNode
 			updatedNeeded = true
 		}
@@ -426,6 +438,10 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		})
 	}
 	return nil
+}
+
+func nodeEquals(a, b kubernetesNode) bool {
+	return a.address == b.address && a.labels.Equals(b.labels)
 }
 
 func isNodePortGatewayService(svc *v1.Service) bool {
@@ -471,22 +487,63 @@ func compareEndpoints(a, b *v1.Endpoints) bool {
 		return false
 	}
 	for i := range a.Subsets {
-		if !reflect.DeepEqual(a.Subsets[i].Ports, b.Subsets[i].Ports) {
+		if !portsEqual(a.Subsets[i].Ports, b.Subsets[i].Ports) {
 			return false
 		}
-		if !reflect.DeepEqual(a.Subsets[i].Addresses, b.Subsets[i].Addresses) {
+		if !addressesEqual(a.Subsets[i].Addresses, b.Subsets[i].Addresses) {
 			return false
 		}
 	}
 	return true
 }
 
+func portsEqual(a, b []v1.EndpointPort) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].Name != b[i].Name || a[i].Port != b[i].Port || a[i].Protocol != b[i].Protocol ||
+			ptrValueOrEmpty(a[i].AppProtocol) != ptrValueOrEmpty(b[i].AppProtocol) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func addressesEqual(a, b []v1.EndpointAddress) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].IP != b[i].IP || a[i].Hostname != b[i].Hostname ||
+			ptrValueOrEmpty(a[i].NodeName) != ptrValueOrEmpty(b[i].NodeName) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func ptrValueOrEmpty(ptr *string) string {
+	if ptr != nil {
+		return *ptr
+	}
+	return ""
+}
+
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
+	nodeInformer := c.nodeMetadataInformer
+	if nodeInformer == nil {
+		nodeInformer = c.nodeInformer
+	}
 	if !c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
-		!c.nodeMetadataInformer.HasSynced() ||
+		!nodeInformer.HasSynced() ||
 		!c.filteredNodeInformer.HasSynced() {
 		return false
 	}
@@ -505,13 +562,17 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 
+	nodeInformer := c.nodeMetadataInformer
+	if nodeInformer == nil {
+		nodeInformer = c.nodeInformer
+	}
 	go c.serviceInformer.Run(stop)
 	go c.pods.informer.Run(stop)
-	go c.nodeMetadataInformer.Run(stop)
+	go nodeInformer.Run(stop)
 	go c.filteredNodeInformer.Run(stop)
 
 	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, c.nodeMetadataInformer.HasSynced, c.filteredNodeInformer.HasSynced,
+	cache.WaitForCacheSync(stop, nodeInformer.HasSynced, c.filteredNodeInformer.HasSynced,
 		c.pods.informer.HasSynced,
 		c.serviceInformer.HasSynced)
 
@@ -609,18 +670,29 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
-	raw, exists, err := c.nodeMetadataInformer.GetStore().GetByKey(pod.Spec.NodeName)
-	if !exists || err != nil {
-		log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
-		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-		raw, err = c.metadataClient.Resource(nodeResource).Get(context.TODO(), pod.Spec.NodeName, metav1.GetOptions{})
-		if err != nil {
-			log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+	var obj interface{}
+	if c.nodeMetadataInformer != nil {
+		raw, exists, err := c.nodeMetadataInformer.GetStore().GetByKey(pod.Spec.NodeName)
+		if !exists || err != nil {
+			log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
+			nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+			raw, err = c.metadataClient.Resource(nodeResource).Get(context.TODO(), pod.Spec.NodeName, metav1.GetOptions{})
+			if err != nil {
+				log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+				return ""
+			}
+		}
+		obj = raw
+	} else {
+		node, exists, err := c.nodeInformer.GetStore().GetByKey(pod.Spec.NodeName)
+		if !exists || err != nil {
+			log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
 			return ""
 		}
+		obj = node
 	}
 
-	nodeMeta, err := meta.Accessor(raw)
+	nodeMeta, err := meta.Accessor(obj)
 	if err != nil {
 		log.Warnf("unable to get node meta: %v", nodeMeta)
 		return ""
@@ -637,93 +709,12 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	return region + "/" + zone + "/" + subzone // Format: "%s/%s/%s"
 }
 
-// ManagementPorts implements a service catalog operation
-func (c *Controller) ManagementPorts(addr string) model.PortList {
-	pod := c.pods.getPodByIP(addr)
-	if pod == nil {
-		return nil
-	}
-
-	managementPorts, err := kube.ConvertProbesToPorts(&pod.Spec)
-	if err != nil {
-		log.Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
-	}
-
-	// We continue despite the error because healthCheckPorts could return a partial
-	// list of management ports
-	return managementPorts
-}
-
-// WorkloadHealthCheckInfo implements a service catalog operation
-func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	pod := c.pods.getPodByIP(addr)
-	if pod == nil {
-		return nil
-	}
-
-	probes := make([]*model.Probe, 0)
-
-	// Obtain probes from the readiness and liveness probes
-	for _, container := range pod.Spec.Containers {
-		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
-			p, err := kube.ConvertProbePort(&container, &container.ReadinessProbe.Handler)
-			if err != nil {
-				log.Infof("Error while parsing readiness probe port =%v", err)
-			}
-			probes = append(probes, &model.Probe{
-				Port: p,
-				Path: container.ReadinessProbe.Handler.HTTPGet.Path,
-			})
-		}
-		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
-			p, err := kube.ConvertProbePort(&container, &container.LivenessProbe.Handler)
-			if err != nil {
-				log.Infof("Error while parsing liveness probe port =%v", err)
-			}
-			probes = append(probes, &model.Probe{
-				Port: p,
-				Path: container.LivenessProbe.Handler.HTTPGet.Path,
-			})
-		}
-	}
-
-	// Obtain probe from prometheus scrape
-	if scrape := pod.Annotations[PrometheusScrape]; scrape == "true" {
-		var port *model.Port
-		path := PrometheusPathDefault
-		if portstr := pod.Annotations[PrometheusPort]; portstr != "" {
-			portnum, err := strconv.Atoi(portstr)
-			if err != nil {
-				log.Warna(err)
-			} else {
-				port = &model.Port{
-					Port: portnum,
-				}
-			}
-		}
-		if pod.Annotations[PrometheusPath] != "" {
-			path = pod.Annotations[PrometheusPath]
-		}
-		probes = append(probes, &model.Probe{
-			Port: port,
-			Path: path,
-		})
-	}
-
-	return probes
-}
-
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 	// First get k8s standard service instances and the workload entry instances
 	outInstances, err := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
-	foreignInstances, err2 := c.getForeignServiceInstancesByPort(svc, reqSvcPort)
-
-	if err2 != nil {
-		err = multierror.Append(err, err2)
-	}
-	outInstances = append(outInstances, foreignInstances...)
+	outInstances = append(outInstances, c.getForeignServiceInstancesByPort(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
 	if len(outInstances) > 0 || err != nil {
@@ -746,7 +737,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	return nil, nil
 }
 
-func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvcPort int) ([]*model.ServiceInstance, error) {
+func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// Run through all the foreign instances, select ones that match the service labels
 	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
 	// as InstancesByPort is called by the aggregate controller. We dont want to include
@@ -758,25 +749,10 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 
 	if !foreignInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
 		svc.MeshExternal || svc.Resolution != model.ClientSideLB {
-		return nil, nil
+		return nil
 	}
 
-	item, exists, err := c.serviceInformer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
-	if err != nil {
-		log.Infof("get foreignServiceInstancesByPort(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return nil, err
-	}
-
-	if !exists {
-		return nil, nil
-	}
-
-	k8sService := item.(*v1.Service)
-	if k8sService.Spec.Selector == nil {
-		// services with nil selectors match nothing, not everything.
-		return nil, nil
-	}
-	selector := klabels.Set(k8sService.Spec.Selector).AsSelectorPreValidated()
+	selector := labels.Instance(svc.Attributes.LabelSelectors)
 
 	// Get the service port name so that we can construct the service instance
 	var servicePort *model.Port
@@ -786,6 +762,9 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 			break
 		}
 	}
+	if servicePort == nil {
+		return nil
+	}
 
 	out := make([]*model.ServiceInstance, 0)
 
@@ -794,12 +773,13 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 		if fi.Service.Attributes.Namespace != svc.Attributes.Namespace {
 			continue
 		}
-		if selector.Matches(klabels.Set(fi.Endpoint.Labels)) {
+		if selector.SubsetOf(fi.Endpoint.Labels) {
 			// create an instance with endpoint whose service port name matches
 			// TODO(rshriram): we currently ignore the workload entry (endpoint) ports and setup 1-1 mapping
 			// from service port to endpoint port. Need to figure out a way to map workload entry port to
 			// appropriate k8s service port
 			istioEndpoint := *fi.Endpoint
+			// BUG: reqSvcPort is the Service port - it should instead be the TargetPort
 			istioEndpoint.EndpointPort = uint32(reqSvcPort)
 			istioEndpoint.ServicePortName = servicePort.Name
 			out = append(out, &model.ServiceInstance{
@@ -810,24 +790,21 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 		}
 	}
 	c.RUnlock()
-	return out, nil
+	return out
 }
 
 // convenience function to collect all workload entry endpoints in updateEDS calls.
-func (c *Controller) collectAllForeignEndpoints(svc *model.Service) ([]*model.IstioEndpoint, error) {
+func (c *Controller) collectAllForeignEndpoints(svc *model.Service) []*model.IstioEndpoint {
 	var foreignInstancesExist bool
 	c.RLock()
 	foreignInstancesExist = len(c.foreignRegistryInstancesByIP) > 0
 	c.RUnlock()
 
 	if !foreignInstancesExist || svc.Resolution != model.ClientSideLB || len(svc.Ports) == 0 {
-		return nil, nil
+		return nil
 	}
 
-	instances, err := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
-	if err != nil {
-		return nil, err
-	}
+	instances := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
 	endpoints := make([]*model.IstioEndpoint, 0)
 
 	// all endpoints for ports[0]
@@ -844,20 +821,28 @@ func (c *Controller) collectAllForeignEndpoints(svc *model.Service) ([]*model.Is
 			endpoints = append(endpoints, &ep)
 		}
 	}
-	return endpoints, nil
+	return endpoints
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+
 	out := make([]*model.ServiceInstance, 0)
 	if len(proxy.IPAddresses) > 0 {
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
 		proxyIP := proxy.IPAddresses[0]
+
 		pod := c.pods.getPodByIP(proxyIP)
-		if pod != nil {
+		if foreign, f := c.foreignRegistryInstancesByIP[proxyIP]; f {
+			var err error
+			out, err = c.hydrateForeignServiceInstance(foreign)
+			if err != nil {
+				log.Warnf("hydrateForeignServiceInstance for %v failed: %v", proxy.ID, err)
+			}
+		} else if pod != nil {
 			// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
 			// which can happen when multi clusters using same pod cidr.
 			// As we have proxy Network meta, compare it with the network which endpoint belongs to,
@@ -898,6 +883,43 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	return out, nil
 }
 
+func (c *Controller) hydrateForeignServiceInstance(si *model.ServiceInstance) ([]*model.ServiceInstance, error) {
+	out := []*model.ServiceInstance{}
+	// find the workload entry's service by label selector
+	// rather than scanning through our internal map of model.services, get the services via the k8s apis
+	dummyPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Namespace: si.Service.Attributes.Namespace, Labels: si.Endpoint.Labels},
+	}
+
+	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
+	if k8sServices, err := getPodServices(listerv1.NewServiceLister(c.serviceInformer.GetIndexer()), dummyPod); err == nil && len(k8sServices) > 0 {
+		for _, k8sSvc := range k8sServices {
+			var service *model.Service
+			c.RLock()
+			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.domainSuffix)]
+			c.RUnlock()
+			// Note that this cannot be an external service because k8s external services do not have label selectors.
+			if service == nil || service.Resolution != model.ClientSideLB {
+				// may be a headless service
+				continue
+			}
+
+			for _, port := range service.Ports {
+				if port.Protocol == protocol.UDP {
+					continue
+				}
+				// Similar code as UpdateServiceShards in eds.go
+				instances, err := c.InstancesByPort(service, port.Port, labels.Collection{})
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, instances...)
+			}
+		}
+	}
+	return out, nil
+}
+
 // ForeignServiceInstanceHandler defines the handler for service instances generated by other registries
 func (c *Controller) ForeignServiceInstanceHandler(si *model.ServiceInstance, event model.Event) {
 	// ignore malformed workload entries. And ignore any workload entry that does not have a label
@@ -931,7 +953,7 @@ func (c *Controller) ForeignServiceInstanceHandler(si *model.ServiceInstance, ev
 			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.domainSuffix)]
 			c.RUnlock()
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
-			if service.Resolution != model.ClientSideLB {
+			if service == nil || service.Resolution != model.ClientSideLB {
 				// may be a headless service
 				continue
 			}
@@ -1222,10 +1244,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
-	fep, err := c.collectAllForeignEndpoints(svc)
-	if err != nil {
-		log.Debugf("Handle EDS: error collecting foreign endpoints of svc %s in namespace %s", hostname, ep.Namespace)
-	}
+	fep := c.collectAllForeignEndpoints(svc)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, append(endpoints, fep...))
 	// fire instance handles for k8s endpoints only

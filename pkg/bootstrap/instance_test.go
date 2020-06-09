@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,11 +28,11 @@ import (
 	"strings"
 	"testing"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
-	tracev2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
+	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
@@ -172,12 +172,12 @@ func TestGolden(t *testing.T) {
 			check: func(got *v2.Bootstrap, t *testing.T) {
 				// nolint: staticcheck
 				cfg := got.Tracing.Http.GetTypedConfig()
-				sdMsg := tracev2.OpenCensusConfig{}
+				sdMsg := trace.OpenCensusConfig{}
 				if err := ptypes.UnmarshalAny(cfg, &sdMsg); err != nil {
 					t.Fatalf("unable to parse: %v %v", cfg, err)
 				}
 
-				want := tracev2.OpenCensusConfig{
+				want := trace.OpenCensusConfig{
 					TraceConfig: &v1.TraceConfig{
 						Sampler: &v1.TraceConfig_ConstantSampler{
 							ConstantSampler: &v1.ConstantSampler{
@@ -192,16 +192,16 @@ func TestGolden(t *testing.T) {
 					StackdriverExporterEnabled: true,
 					StdoutExporterEnabled:      true,
 					StackdriverProjectId:       "my-sd-project",
-					IncomingTraceContext: []tracev2.OpenCensusConfig_TraceContext{
-						tracev2.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_GRPC_TRACE_BIN,
-						tracev2.OpenCensusConfig_B3},
-					OutgoingTraceContext: []tracev2.OpenCensusConfig_TraceContext{
-						tracev2.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_GRPC_TRACE_BIN,
-						tracev2.OpenCensusConfig_B3},
+					IncomingTraceContext: []trace.OpenCensusConfig_TraceContext{
+						trace.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
+						trace.OpenCensusConfig_TRACE_CONTEXT,
+						trace.OpenCensusConfig_GRPC_TRACE_BIN,
+						trace.OpenCensusConfig_B3},
+					OutgoingTraceContext: []trace.OpenCensusConfig_TraceContext{
+						trace.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
+						trace.OpenCensusConfig_TRACE_CONTEXT,
+						trace.OpenCensusConfig_GRPC_TRACE_BIN,
+						trace.OpenCensusConfig_B3},
 				}
 
 				p, equal := diff.PrettyDiff(sdMsg, want)
@@ -636,6 +636,6 @@ func (f *fakePlatform) Metadata() map[string]string {
 	return f.meta
 }
 
-func (f *fakePlatform) Locality() *corev3.Locality {
-	return &corev3.Locality{}
+func (f *fakePlatform) Locality() *core.Locality {
+	return &core.Locality{}
 }

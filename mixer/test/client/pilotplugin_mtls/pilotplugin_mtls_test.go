@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -326,9 +326,7 @@ func (mock) GetService(_ host.Name) (*model.Service, error) { return nil, nil }
 func (mock) InstancesByPort(_ *model.Service, _ int, _ labels.Collection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) ManagementPorts(_ string) model.PortList                        { return nil }
 func (mock) Services() ([]*model.Service, error)                            { return nil, nil }
-func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList               { return nil }
 func (mock) GetIstioServiceAccounts(_ *model.Service, ports []int) []string { return nil }
 
 const (

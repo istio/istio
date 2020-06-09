@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -818,7 +818,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnvWithVirtualServices(services, virtualServices, nil)
+	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("failed to initialize push context")

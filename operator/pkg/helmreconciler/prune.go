@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,12 +97,12 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		// First, we collect all objects for the provided GVK
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
-		componentRequirement, err := klabels.NewRequirement(istioComponentLabelStr, selection.Exists, nil)
+		componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
 		if err != nil {
 			return err
 		}
 		selector = selector.Add(*componentRequirement)
-		if err := h.client.List(context.TODO(), objects, client.MatchingLabelsSelector{Selector: selector}, client.InNamespace(h.iop.Namespace)); err != nil {
+		if err := h.client.List(context.TODO(), objects, client.MatchingLabelsSelector{Selector: selector}); err != nil {
 			// we only want to retrieve resources clusters
 			scope.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
 			continue
