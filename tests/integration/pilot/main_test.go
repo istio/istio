@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/tests/integration/multicluster"
 )
 
+
 var (
 	i      istio.Instance
 	pilots []pilot.Instance

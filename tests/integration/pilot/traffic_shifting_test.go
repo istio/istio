@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/resource"
 	"math"
 	"strings"
 	"testing"
