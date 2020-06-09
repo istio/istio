@@ -179,6 +179,7 @@ func TestMirroringExternalService(t *testing.T) {
 func runMirrorTest(options mirrorTestOptions) {
 	framework.
 		NewTest(options.t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(options.t, ctx, namespace.Config{
 				Prefix: "mirroring",

@@ -33,9 +33,11 @@ import (
 )
 
 func TestSniffing(t *testing.T) {
-	framework.NewTest(t).Run(func(ctx framework.TestContext) {
-		runTest(t, ctx)
-	})
+	framework.NewTest(t).
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
+			runTest(t, ctx)
+		})
 }
 
 func runTest(t *testing.T, ctx framework.TestContext) {
@@ -75,6 +77,7 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 		},
 	}
 
+	p := pilots[0]
 	var fromWithSidecar, fromWithoutSidecar, to echo.Instance
 	echoboot.NewBuilderOrFail(t, ctx).
 		With(&fromWithSidecar, echo.Config{

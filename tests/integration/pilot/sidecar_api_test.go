@@ -45,6 +45,7 @@ func mustReadFile(t *testing.T, f string) string {
 func TestSidecarListeners(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 
 			// Simulate proxy identity of a sidecar ...
@@ -56,6 +57,8 @@ func TestSidecarListeners(t *testing.T) {
 				DNSDomain:    "testns.cluster.local",
 				IstioVersion: model.MaxIstioVersion,
 			}
+
+			p := pilots[0]
 
 			// Start the xDS stream containing the listeners for this node
 			p.StartDiscoveryOrFail(t, pilot.NewDiscoveryRequest(nodeID.ServiceNode(), v3.ListenerType))

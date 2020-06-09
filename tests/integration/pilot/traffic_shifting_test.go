@@ -23,13 +23,14 @@ import (
 
 	"istio.io/istio/tests/integration/pilot/vm"
 
-	"istio.io/istio/pkg/test/util/retry"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -79,6 +80,7 @@ func TestTrafficShifting(t *testing.T) {
 
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "traffic-shifting",
@@ -87,10 +89,10 @@ func TestTrafficShifting(t *testing.T) {
 
 			var instances [4]echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&instances[0], echoVMConfig(ns, "a")).
-				With(&instances[1], echoVMConfig(ns, "b")).
-				With(&instances[2], echoVMConfig(ns, "c", vm.DefaultVMImage)).
-				With(&instances[3], echoVMConfig(ns, "d")).
+				With(&instances[0], echoVMConfig(ns, "a", ctx.Environment().Clusters()[0])).
+				With(&instances[1], echoVMConfig(ns, "b", ctx.Environment().Clusters()[0])).
+				With(&instances[2], echoVMConfig(ns, "c", ctx.Environment().Clusters()[0], vm.DefaultVMImage)).
+				With(&instances[3], echoVMConfig(ns, "d", ctx.Environment().Clusters()[0])).
 				BuildOrFail(t)
 
 			hosts := []string{"b", "c", "d"}
@@ -121,12 +123,12 @@ func TestTrafficShifting(t *testing.T) {
 
 // Wrapper to initialize instance with ServicePort without affecting other tests
 // If ServicePort is set to InstancePort, tests such as TestDescribe would fail
-func echoVMConfig(ns namespace.Instance, name string, vmImage ...string) echo.Config {
+func echoVMConfig(ns namespace.Instance, name string, cluster resource.Cluster, vmImage ...string) echo.Config {
 	image := ""
 	if len(vmImage) > 0 {
 		image = vmImage[0]
 	}
-	config := echoConfig(ns, name)
+	config := echoConfig(ns, name, cluster)
 	config.DeployAsVM = image != ""
 	config.VMImage = image
 

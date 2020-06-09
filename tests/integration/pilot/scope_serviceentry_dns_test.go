@@ -32,52 +32,56 @@ import (
 )
 
 func TestServiceEntryDNS(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		configFn := func(c sidecarscope.Config) sidecarscope.Config {
-			c.Resolution = "DNS"
-			return c
-		}
-		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
+	framework.NewTest(t).
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
+			configFn := func(c sidecarscope.Config) sidecarscope.Config {
+				c.Resolution = "DNS"
+				return c
+			}
+			p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
-		req := &discovery.DiscoveryRequest{
-			Node: &core.Node{
-				Id: nodeID.ServiceNode(),
-			},
-			TypeUrl: v3.ClusterType,
-		}
+			req := &discovery.DiscoveryRequest{
+				Node: &core.Node{
+					Id: nodeID.ServiceNode(),
+				},
+				TypeUrl: v3.ClusterType,
+			}
 
-		if err := p.StartDiscovery(req); err != nil {
-			t.Fatal(err)
-		}
-		if err := p.WatchDiscovery(time.Second*5, checkEndpoint("app.com")); err != nil {
-			t.Fatal(err)
-		}
-	})
+			if err := p.StartDiscovery(req); err != nil {
+				t.Fatal(err)
+			}
+			if err := p.WatchDiscovery(time.Second*5, checkEndpoint("app.com")); err != nil {
+				t.Fatal(err)
+			}
+		})
 }
 
 func TestServiceEntryDNSNoSelfImport(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		configFn := func(c sidecarscope.Config) sidecarscope.Config {
-			c.Resolution = "DNS"
-			c.ImportedNamespaces = []string{c.IncludedNamespace + "/*"}
-			return c
-		}
-		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
+	framework.NewTest(t).
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
+			configFn := func(c sidecarscope.Config) sidecarscope.Config {
+				c.Resolution = "DNS"
+				c.ImportedNamespaces = []string{c.IncludedNamespace + "/*"}
+				return c
+			}
+			p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
-		req := &discovery.DiscoveryRequest{
-			Node: &core.Node{
-				Id: nodeID.ServiceNode(),
-			},
-			TypeUrl: v3.ClusterType,
-		}
+			req := &discovery.DiscoveryRequest{
+				Node: &core.Node{
+					Id: nodeID.ServiceNode(),
+				},
+				TypeUrl: v3.ClusterType,
+			}
 
-		if err := p.StartDiscovery(req); err != nil {
-			t.Fatal(err)
-		}
-		if err := p.WatchDiscovery(time.Second*5, checkEndpoint("included.com")); err != nil {
-			t.Fatal(err)
-		}
-	})
+			if err := p.StartDiscovery(req); err != nil {
+				t.Fatal(err)
+			}
+			if err := p.WatchDiscovery(time.Second*5, checkEndpoint("included.com")); err != nil {
+				t.Fatal(err)
+			}
+		})
 }
 
 func checkEndpoint(name string) func(resp *discovery.DiscoveryResponse) (success bool, e error) {

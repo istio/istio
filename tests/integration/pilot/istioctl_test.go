@@ -75,6 +75,7 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 
 func TestWait(t *testing.T) {
 	framework.NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "default",
@@ -94,7 +95,7 @@ spec:
     - destination: 
         host: reviews
 `)
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 			istioCtl.InvokeOrFail(t, []string{"x", "wait", "VirtualService", "reviews." + ns.Name()})
 		})
 }
@@ -104,11 +105,11 @@ spec:
 func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
 			output, _ := istioCtl.InvokeOrFail(t, args)
@@ -144,6 +145,7 @@ func TestVersion(t *testing.T) {
 
 func TestDescribe(t *testing.T) {
 	framework.NewTest(t).
+		RequiresSingleCluster().
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-describe",
@@ -152,16 +154,17 @@ func TestDescribe(t *testing.T) {
 
 			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
+			cluster := ctx.Environment().Clusters()[0]
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a", cluster)).
 				BuildOrFail(ctx)
 
 			if err := a.WaitUntilCallable(a); err != nil {
 				t.Fatal(err)
 			}
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
 			podID, err := getPodID(a)
 			if err != nil {
@@ -204,6 +207,7 @@ func getPodID(i echo.Instance) (string, error) {
 
 func TestAddToAndRemoveFromMesh(t *testing.T) {
 	framework.NewTest(t).
+		RequiresSingleCluster().
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-add-to-mesh",
@@ -212,10 +216,10 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
 			var output string
 			var args []string
@@ -242,6 +246,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-pc",
@@ -250,10 +255,10 @@ func TestProxyConfig(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
 			podID, err := getPodID(a)
 			if err != nil {
@@ -315,6 +320,7 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-ps",
@@ -323,10 +329,10 @@ func TestProxyStatus(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
 			podID, err := getPodID(a)
 			if err != nil {
@@ -354,6 +360,7 @@ func TestProxyStatus(t *testing.T) {
 
 func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-authz",
@@ -365,10 +372,10 @@ func TestAuthZCheck(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
 			podID, err := getPodID(a)
 			if err != nil {

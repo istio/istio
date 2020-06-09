@@ -18,18 +18,18 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/multicluster"
 )
 
 var (
-	i istio.Instance
-	p pilot.Instance
+	i      istio.Instance
+	pilots []pilot.Instance
 )
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -38,27 +38,23 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
+			// allow VMs to get discovery via ingress-gateway
 			cfg.ControlPlaneValues = `
 values:
   global:
     meshExpansion:
       enabled: true`
 		})).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
+		Setup(multicluster.SetupPilots(&pilots)).
 		Run()
 }
 
-func echoConfig(ns namespace.Instance, name string) echo.Config {
+func echoConfig(ns namespace.Instance, name string, cluster resource.Cluster) echo.Config {
 	return echo.Config{
 		Service:   name,
 		Namespace: ns,
+		Cluster:   cluster,
 		Ports: []echo.Port{
 			{
 				Name:     "http",
@@ -68,6 +64,6 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 			},
 		},
 		Subsets: []echo.SubsetConfig{{}},
-		Pilot:   p,
+		Pilot:   pilots[cluster.Index()],
 	}
 }

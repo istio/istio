@@ -35,86 +35,90 @@ import (
 )
 
 func TestServiceEntryStatic(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		configFn := func(c sidecarscope.Config) sidecarscope.Config {
-			c.Resolution = "STATIC"
-			return c
-		}
-		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
+	framework.NewTest(t).
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
+			configFn := func(c sidecarscope.Config) sidecarscope.Config {
+				c.Resolution = "STATIC"
+				return c
+			}
+			p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
-		// Check to ensure only endpoints for imported namespaces
-		req := &discovery.DiscoveryRequest{
-			Node: &core.Node{
-				Id: nodeID.ServiceNode(),
-			},
-			ResourceNames: []string{"outbound|80||app.com"},
-			TypeUrl:       v3.EndpointType,
-		}
+			// Check to ensure only endpoints for imported namespaces
+			req := &discovery.DiscoveryRequest{
+				Node: &core.Node{
+					Id: nodeID.ServiceNode(),
+				},
+				ResourceNames: []string{"outbound|80||app.com"},
+				TypeUrl:       v3.EndpointType,
+			}
 
-		if err := p.StartDiscovery(req); err != nil {
-			t.Fatal(err)
-		}
+			if err := p.StartDiscovery(req); err != nil {
+				t.Fatal(err)
+			}
 
-		if err := p.WatchDiscovery(time.Second*500, checkResultStatic); err != nil {
-			t.Error(err)
-		}
+			if err := p.WatchDiscovery(time.Second*500, checkResultStatic); err != nil {
+				t.Error(err)
+			}
 
-		// Check to ensure only listeners for own namespace
-		ListenerReq := &discovery.DiscoveryRequest{
-			Node: &core.Node{
-				Id: nodeID.ServiceNode(),
-			},
-			TypeUrl: v2.ListenerType,
-		}
+			// Check to ensure only listeners for own namespace
+			ListenerReq := &discovery.DiscoveryRequest{
+				Node: &core.Node{
+					Id: nodeID.ServiceNode(),
+				},
+				TypeUrl: v2.ListenerType,
+			}
 
-		if err := p.StartDiscovery(ListenerReq); err != nil {
-			t.Fatal(err)
-		}
-		if err := p.WatchDiscovery(time.Second*500, checkResultStaticListener); err != nil {
-			t.Error(err)
-		}
-	})
+			if err := p.StartDiscovery(ListenerReq); err != nil {
+				t.Fatal(err)
+			}
+			if err := p.WatchDiscovery(time.Second*500, checkResultStaticListener); err != nil {
+				t.Error(err)
+			}
+		})
 }
 
 func TestSidecarScopeIngressListener(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		configFn := func(c sidecarscope.Config) sidecarscope.Config {
-			c.Resolution = "STATIC"
-			c.IngressListener = true
-			return c
-		}
-		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
-		// Change the node's IP so that it does not match with any service entry
-		nodeID.IPAddresses = []string{"100.100.100.100"}
+	framework.NewTest(t).
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
+			configFn := func(c sidecarscope.Config) sidecarscope.Config {
+				c.Resolution = "STATIC"
+				c.IngressListener = true
+				return c
+			}
+			p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
+			// Change the node's IP so that it does not match with any service entry
+			nodeID.IPAddresses = []string{"100.100.100.100"}
 
-		req := &discovery.DiscoveryRequest{
-			Node: &core.Node{
-				Id: nodeID.ServiceNode(),
-			},
-			TypeUrl: v3.ClusterType,
-		}
+			req := &discovery.DiscoveryRequest{
+				Node: &core.Node{
+					Id: nodeID.ServiceNode(),
+				},
+				TypeUrl: v3.ClusterType,
+			}
 
-		if err := p.StartDiscovery(req); err != nil {
-			t.Fatal(err)
-		}
-		if err := p.WatchDiscovery(time.Second*5, checkSidecarIngressCluster); err != nil {
-			t.Fatal(err)
-		}
+			if err := p.StartDiscovery(req); err != nil {
+				t.Fatal(err)
+			}
+			if err := p.WatchDiscovery(time.Second*5, checkSidecarIngressCluster); err != nil {
+				t.Fatal(err)
+			}
 
-		listenerReq := &discovery.DiscoveryRequest{
-			Node: &core.Node{
-				Id: nodeID.ServiceNode(),
-			},
-			TypeUrl: v2.ListenerType,
-		}
+			listenerReq := &discovery.DiscoveryRequest{
+				Node: &core.Node{
+					Id: nodeID.ServiceNode(),
+				},
+				TypeUrl: v2.ListenerType,
+			}
 
-		if err := p.StartDiscovery(listenerReq); err != nil {
-			t.Fatal(err)
-		}
-		if err := p.WatchDiscovery(time.Second*500, checkSidecarIngressListener); err != nil {
-			t.Error(err)
-		}
-	})
+			if err := p.StartDiscovery(listenerReq); err != nil {
+				t.Fatal(err)
+			}
+			if err := p.WatchDiscovery(time.Second*500, checkSidecarIngressListener); err != nil {
+				t.Error(err)
+			}
+		})
 }
 
 func checkSidecarIngressCluster(resp *discovery.DiscoveryResponse) (success bool, e error) {
