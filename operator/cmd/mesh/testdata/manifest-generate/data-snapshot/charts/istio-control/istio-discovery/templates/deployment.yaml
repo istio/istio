@@ -207,7 +207,6 @@ spec:
       - name: inject
         configMap:
           name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-          optional: true
       - name: config-volume
         configMap:
           name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}

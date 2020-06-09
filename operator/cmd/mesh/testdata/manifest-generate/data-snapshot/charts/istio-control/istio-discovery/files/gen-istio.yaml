@@ -845,7 +845,6 @@ spec:
       - name: inject
         configMap:
           name: istio-sidecar-injector
-          optional: true
       - name: config-volume
         configMap:
           name: istio

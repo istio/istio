@@ -447,8 +447,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
-		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
-		recordSendError(edsSendErrPushes, err)
+		recordSendError("EDS", con.ConID, edsSendErrPushes, err)
 		return err
 	}
 	edsPushes.Increment()
