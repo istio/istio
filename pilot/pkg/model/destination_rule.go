@@ -26,6 +26,12 @@ import (
 // into a single destination rule. Note that it does not perform inheritance style merging.
 // IOW, given three dest rules (*.foo.com, *.foo.com, *.com), calling this function for
 // each config will result in a final dest rule set (*.foo.com, and *.com).
+//
+// The following is the merge logic:
+// 1. Unique subsets (based on subset name) are concatenated to the original rule's list of subsets
+// 2. If the original rule did not have any top level traffic policy, traffic policies from the new rule will be
+// used.
+// 3. If the original rule did not have any exportTo, exportTo settings from the new rule will be used.
 func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfig Config, exportToMap map[visibility.Instance]bool) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.ConfigMeta)
@@ -61,8 +67,11 @@ func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfi
 		if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
 			mergedRule.TrafficPolicy = rule.TrafficPolicy
 		}
+
+		// If there is no exportTo in the existing rule and
+		// the incoming rule has an explicit exportTo, use the
+		// one from the incoming rule.
 		if len(p.exportTo[resolvedHost]) == 0 && len(exportToMap) > 0 {
-			// we have dest rule in same namespace for the same host with updated exportTo. use it.
 			p.exportTo[resolvedHost] = exportToMap
 		}
 		return
