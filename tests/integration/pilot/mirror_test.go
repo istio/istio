@@ -142,7 +142,7 @@ func TestMirroringExternalService(t *testing.T) {
 		cases:         cases,
 		mirrorHostFmt: fakeExternalURL,
 		skipCondition: func(src, dest kube.Cluster) (string, bool) {
-			return "external service via serviceentry doesn't work accross networks", src.NetworkName() != dest.NetworkName()
+			return "external service via serviceentry doesn't work across networks", src.NetworkName() != dest.NetworkName()
 		},
 		fnInjectConfig: func(ns namespace.Instance, ctx resource.Context, mirrorHost string, client, target, mirrored echo.Instance) (cleanup func()) {
 			cfg := ExternalServiceMirrorConfig{
