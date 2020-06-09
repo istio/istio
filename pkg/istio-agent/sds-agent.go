@@ -199,6 +199,7 @@ type SDSAgent struct {
 
 	// FileMountedCerts indicates whether the proxy is using file mounted certs.
 	FileMountedCerts bool
+	proxyConfig      *mesh.ProxyConfig
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -209,8 +210,10 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir, clusterID string) *SDSAgent {
-	a := &SDSAgent{}
+func NewAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir, clusterID string) *SDSAgent {
+	a := &SDSAgent{
+		proxyConfig: proxyConfig,
+	}
 
 	discAddr := proxyConfig.DiscoveryAddress
 
@@ -280,6 +283,7 @@ func NewSDSAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outp
 		a.RequireCerts = true
 	}
 
+	// Init the XDS proxy part of the agent.
 	initXDS(proxyConfig)
 
 	return a
@@ -335,6 +339,12 @@ func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, err
 	}
 
 	server, err := sds.NewServer(serverOptions, workloadSecretCache, gatewaySecretCache)
+	if err != nil {
+		return nil, err
+	}
+
+	// Start the XDS for envoy.
+	err = startXDS(sa.proxyConfig, workloadSecretCache)
 	if err != nil {
 		return nil, err
 	}

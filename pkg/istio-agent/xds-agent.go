@@ -15,13 +15,12 @@
 package istioagent
 
 import (
-	"fmt"
+	"context"
 	"net"
-	"os"
-	"path/filepath"
 	"time"
 
 	"google.golang.org/grpc"
+	"istio.io/istio/security/pkg/nodeagent/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -31,18 +30,10 @@ import (
 	"istio.io/pkg/log"
 )
 
-// xds-agent runs an XDS server in agent, similar with the SDS server. It is using the same
-// UDS socket as the SDS server - envoy will use a single connection/cluster for both.
+// xds-agent runs an XDS server in agent, similar with the SDS server.
 //
-// Envoy will connect to the agent using UDS. Agent will handle connection to one
-// or more upstream XDS servers, and return aggregated and possibly patched results.
-
-// This is part of an optimization experiment and exploring federation and local
-// transformations - not enabled by default and not intended for production use yet.
 
 var (
-	udsListener net.Listener
-
 	// Used for debugging. Will also be used to recover in case XDS is unavailable, and to evaluate the
 	// caching. Key format and content should follow the new resource naming spec, will evolve with the spec.
 	// As Envoy implements the spec, they should be used directly by Envoy - while prototyping they can
@@ -54,8 +45,9 @@ var (
 var (
 	// Can be used by Envoy or istioctl debug tools.
 	xdsAddr = env.RegisterStringVar("XDS_LOCAL", "127.0.0.1:15002",
-		"Address for a local XDS proxy.")
+		"Address for a local XDS proxy. If empty, the proxy is disabled")
 
+	// used for XDS portion.
 	localListener   net.Listener
 	localGrpcServer *grpc.Server
 
@@ -72,11 +64,6 @@ func initXDS(mc *meshconfig.ProxyConfig) {
 	serverOptions.GrpcServer = grpc.NewServer()
 
 	var err error
-	udsListener, err = setUpUds(serverOptions.WorkloadUDSPath)
-	if err != nil {
-		log.Errorf("Failed to set up UDS path: %v", err)
-	}
-
 	if xdsAddr.Get() != "" {
 		localListener, err = net.Listen("tcp", xdsAddr.Get())
 		if err != nil {
@@ -87,13 +74,18 @@ func initXDS(mc *meshconfig.ProxyConfig) {
 	}
 }
 
-func startXDSClient(addr string) {
-	// TODO: handle certificates and security !
-	ads, err := adsc.Dial(addr, "", &adsc.Config{
-		Meta: model.NodeMetadata{
-			Generator: "api",
-		}.ToStruct(),
-	})
+func startXDS(proxyConfig *meshconfig.ProxyConfig, secrets *cache.SecretCache) error {
+	// TODO: handle certificates and security - similar with the
+	// code we generate for envoy !
+
+	ads, err := adsc.Dial(proxyConfig.DiscoveryAddress,
+		"",
+		&adsc.Config{
+			Meta: model.NodeMetadata{
+				Generator: "api",
+			}.ToStruct(),
+			Secrets: secrets,
+		})
 	if err != nil {
 		log.Fatalf("Failed to connect to XDS server")
 	}
@@ -111,13 +103,6 @@ func startXDSClient(addr string) {
 	// TODO: wait for config to sync before starting the rest
 	// TODO: handle push
 
-	if udsListener != nil {
-		go func() {
-			if err := serverOptions.GrpcServer.Serve(udsListener); err != nil {
-				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
-			}
-		}()
-	}
 	if localListener != nil {
 		go func() {
 			if err := localGrpcServer.Serve(localListener); err != nil {
@@ -125,61 +110,5 @@ func startXDSClient(addr string) {
 			}
 		}()
 	}
-}
-
-func startXDS() {
-	startXDSClient(cfg.DiscoveryAddress)
-
-	// TODO: wait for config to sync before starting the rest
-	// TODO: handle push
-
-	if udsListener != nil {
-		go func() {
-			if err := serverOptions.GrpcServer.Serve(udsListener); err != nil {
-				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
-			}
-		}()
-	}
-	if localListener != nil {
-		go func() {
-			if err := localGrpcServer.Serve(localListener); err != nil {
-				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
-			}
-		}()
-	}
-}
-
-// copied from sds agent - will be removed from there in next cleanup.
-func setUpUds(udsPath string) (net.Listener, error) {
-	// Remove unix socket before use.
-	if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
-		// Anything other than "file not found" is an error.
-		log.Errorf("Failed to remove unix://%s: %v", udsPath, err)
-		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
-	}
-
-	// Attempt to create the folder in case it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(udsPath), 0750); err != nil {
-		// If we cannot create it, just warn here - we will fail later if there is a real error
-		log.Warnf("Failed to create directory for %v: %v", udsPath, err)
-	}
-
-	var err error
-	udsListener, err := net.Listen("unix", udsPath)
-	if err != nil {
-		log.Errorf("Failed to listen on unix socket %q: %v", udsPath, err)
-		return nil, err
-	}
-
-	// Update SDS UDS file permission so that istio-proxy has permission to access it.
-	if _, err := os.Stat(udsPath); err != nil {
-		log.Errorf("SDS uds file %q doesn't exist", udsPath)
-		return nil, fmt.Errorf("sds uds file %q doesn't exist", udsPath)
-	}
-	if err := os.Chmod(udsPath, 0666); err != nil {
-		log.Errorf("Failed to update %q permission", udsPath)
-		return nil, fmt.Errorf("failed to update %q permission", udsPath)
-	}
-
-	return udsListener, nil
+	return nil
 }

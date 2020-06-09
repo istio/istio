@@ -50,7 +50,6 @@ func TestADSC_Run(t *testing.T) {
 		{
 			desc: "stream-no-resources",
 			inAdsc: &ADSC{
-				certDir:    "",
 				url:        "127.0.0.1:49133",
 				Received:   make(map[string]*v2.DiscoveryResponse),
 				Updates:    make(chan string),
@@ -71,7 +70,6 @@ func TestADSC_Run(t *testing.T) {
 		{
 			desc: "stream-2-unnamed-resources",
 			inAdsc: &ADSC{
-				certDir:    "",
 				url:        "127.0.0.1:49133",
 				Received:   make(map[string]*v2.DiscoveryResponse),
 				Updates:    make(chan string),

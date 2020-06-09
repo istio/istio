@@ -25,33 +25,33 @@ import (
 	"strings"
 	"sync"
 	"time"
-
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-
-	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
-
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/networking/util"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/security/pkg/nodeagent/cache"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // Config for the ADS connection.
@@ -85,6 +85,9 @@ type Config struct {
 	// If empty reconnect will not be attempted.
 	// TODO: client will use exponential backoff to reconnect.
 	InitialReconnectDelay time.Duration
+
+	// Secrets is the interface used for getting keys and rootCA.
+	Secrets               *cache.SecretCache
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -99,7 +102,9 @@ type ADSC struct {
 	// NodeID is the node identity sent to Pilot.
 	nodeID string
 
+	// certDir is used if the key and secrets are stored in file system.
 	certDir string
+
 	url     string
 
 	watchTime time.Time
@@ -175,6 +180,14 @@ var (
 	adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 )
 
+// markSynced is an optional inteface implemented by a store that
+// needs to be notified explicitly that a resource got all results -
+// like MemoryStore. This is WIP - we may promote it to model, or we
+// may change the way we handle 'sync status'.
+type markSynced interface {
+	MarkSynced(key string)
+}
+
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	if opts == nil {
@@ -184,7 +197,6 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		Updates:     make(chan string, 100),
 		XDSUpdates:  make(chan *xdsapi.DiscoveryResponse, 100),
 		VersionInfo: map[string]string{},
-		certDir:     certDir,
 		url:         url,
 		Received:    map[string]*xdsapi.DiscoveryResponse{},
 		RecvWg:      sync.WaitGroup{},
@@ -237,17 +249,41 @@ func getPrivateIPIfAvailable() net.IP {
 	return net.IPv4zero
 }
 
-func tlsConfig(certDir string) (*tls.Config, error) {
-	clientCert, err := tls.LoadX509KeyPair(certDir+"/cert-chain.pem",
-		certDir+"/key.pem")
-	if err != nil {
-		return nil, err
+func tlsConfig(certDir string, secrets *cache.SecretCache) (*tls.Config, error) {
+	var clientCert tls.Certificate
+	var serverCABytes []byte
+	var err error
+
+	if secrets != nil {
+		key, err := secrets.GenerateSecret(context.Background(), "agent",
+			cache.WorkloadKeyCertResourceName, "")
+		if err != nil {
+			return nil, err
+		}
+		clientCert, err = tls.X509KeyPair(key.CertificateChain, key.PrivateKey)
+		if err != nil {
+			return nil, err
+		}
+		// This is a bit crazy - we could just use the file
+		rootCA, err := secrets.GenerateSecret(context.Background(), "agent",
+			cache.RootCertReqResourceName, "")
+		if err != nil {
+			return nil, err
+		}
+
+		serverCABytes = rootCA.RootCert
+	} else {
+		clientCert, err = tls.LoadX509KeyPair(certDir+"/cert-chain.pem",
+			certDir+"/key.pem")
+		if err != nil {
+			return nil, err
+		}
+		serverCABytes, err = ioutil.ReadFile(certDir + "/root-cert.pem")
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	serverCABytes, err := ioutil.ReadFile(certDir + "/root-cert.pem")
-	if err != nil {
-		return nil, err
-	}
 	serverCAs := x509.NewCertPool()
 	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
 		return nil, err
@@ -275,8 +311,8 @@ func (a *ADSC) Run() error {
 
 	// TODO: pass version info, nonce properly
 	var err error
-	if len(a.certDir) > 0 {
-		tlsCfg, err := tlsConfig(a.certDir)
+	if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
+		tlsCfg, err := tlsConfig(a.certDir, a.cfg.Secrets)
 		if err != nil {
 			return err
 		}
@@ -446,15 +482,12 @@ func (a *ADSC) handleRecv() {
 		// or to support large sets - memory store has a special handling by calling Create
 		// with an empty resource. This is used to avoid sleep loop on HasSynced
 		if a.Store != nil && len(gvk) == 3 {
-			_, err = a.Store.Create(model.Config{
-				ConfigMeta: model.ConfigMeta{
+			if ms, ok := a.Store.(markSynced); ok {
+				ms.MarkSynced(resource.GroupVersionKind{
 					Group:   gvk[0],
 					Version: gvk[1],
-					Type:    gvk[2],
-				},
-			})
-			if err != nil {
-				continue
+					Kind:    gvk[2],
+				}.String())
 			}
 			log.Infoa("Sync for ", gvk, len(msg.Resources))
 		}

@@ -108,6 +108,13 @@ func (c *controller) Get(kind resource.GroupVersionKind, key, namespace string) 
 	return c.configStore.Get(kind, key, namespace)
 }
 
+func (c *controller) MarkSynced(key string) {
+	// Empty config - can't use nil due to interface
+	select {
+	case c.syncCh <- key:
+	}
+}
+
 func (c *controller) Create(config model.Config) (revision string, err error) {
 	if c.sync != nil {
 		key := resource.GroupVersionKind{
@@ -119,14 +126,6 @@ func (c *controller) Create(config model.Config) (revision string, err error) {
 		c.m.Lock()
 		c.sync[key] = time.Now()
 		c.m.Unlock()
-
-		if config.Name == "" && config.Namespace == "" {
-			// Empty config - can't use nil due to interface
-			select {
-			case c.syncCh <- key:
-			}
-			return "", nil
-		}
 	}
 	if revision, err = c.configStore.Create(config); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{

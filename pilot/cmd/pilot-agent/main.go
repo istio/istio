@@ -209,8 +209,7 @@ var (
 				log.Info("Using existing certs")
 			}
 
-			sa := istio_agent.NewSDSAgent(&proxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir,
-				clusterIDVar.Get())
+			sa := istio_agent.NewAgent(&proxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir, clusterIDVar.Get())
 
 			// Connection to Istiod secure port
 			if sa.RequireCerts {

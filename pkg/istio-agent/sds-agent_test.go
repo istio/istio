@@ -16,6 +16,8 @@ package istioagent
 
 import (
 	"testing"
+
+	mesh "istio.io/api/mesh/v1alpha1"
 )
 
 // Validate that SDSAgent comes up without errors when configured with file mounted certs.
@@ -24,7 +26,9 @@ func TestSDSAgentWithFileMountedCerts(t *testing.T) {
 	fileMountedCertsEnv = true
 	defer func() { fileMountedCertsEnv = fm }()
 	// Validate that SDS server can start without any error.
-	sa := NewSDSAgent("istiod.istio-system:15012", false, "custom", "", "", "kubernetes")
+	sa := NewAgent(&mesh.ProxyConfig{
+		DiscoveryAddress: "istiod.istio-system:15012",
+	}, "custom", "", "", "kubernetes")
 	_, err := sa.Start(true, "test")
 	if err != nil {
 		t.Fatalf("Unexpected error starting SDSAgent %v", err)
