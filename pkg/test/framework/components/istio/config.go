@@ -105,7 +105,13 @@ type Config struct {
 
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
+	// These values are applied to non-remote clusters
 	ControlPlaneValues string
+
+	// Override values specifically for the ICP crd
+	// This is mostly required for cases where --set cannot be used
+	// These values are only applied to remote clusters
+	RemoteClusterValues string
 
 	// Overrides for the Helm values file.
 	Values map[string]string
@@ -122,9 +128,9 @@ type Config struct {
 	CustomSidecarInjectorNamespace string
 }
 
-func (c *Config) IstioOperatorConfigYAML() string {
+func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {
 	data := ""
-	if c.ControlPlaneValues != "" {
+	if iopYaml != "" {
 		data = Indent(c.ControlPlaneValues, "  ")
 	}
 

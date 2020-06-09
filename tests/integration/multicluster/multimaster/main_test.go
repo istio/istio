@@ -45,6 +45,7 @@ func TestMain(m *testing.M) {
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
+			cfg.RemoteClusterValues = controlPlaneValues
 		})).
 		Setup(func(ctx resource.Context) (err error) {
 			pilots = make([]pilot.Instance, len(ctx.Environment().Clusters()))
