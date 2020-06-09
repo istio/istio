@@ -16,11 +16,12 @@ package pilot
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/resource"
 	"math"
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/resource"
 
 	"istio.io/istio/pkg/test/util/retry"
 

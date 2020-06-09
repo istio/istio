@@ -16,8 +16,9 @@ package multicluster
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"

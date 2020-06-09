@@ -189,8 +189,10 @@ func runMirrorTest(options mirrorTestOptions) {
 				for _, dstCluster := range ctx.Environment().Clusters() {
 					for _, c := range options.cases {
 						options.t.Run(c.name, func(t *testing.T) {
-							if msg, skip := options.skipCondition(srcCluster.(kube.Cluster), dstCluster.(kube.Cluster)); skip {
-								t.Skip(msg)
+							if options.skipCondition != nil {
+								if msg, skip := options.skipCondition(srcCluster.(kube.Cluster), dstCluster.(kube.Cluster)); skip {
+									t.Skip(msg)
+								}
 							}
 
 							client := clusterInstances[srcCluster.Index()][0]
