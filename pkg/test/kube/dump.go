@@ -20,8 +20,10 @@ import (
 	"os"
 	"path"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"istio.io/istio/pkg/test/scopes"
+
+	"github.com/gogo/protobuf/jsonpb"
+
 	kubeApiCore "k8s.io/api/core/v1"
 )
 
