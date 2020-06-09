@@ -59,8 +59,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	err := con.send(response)
 	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
-		adsLog.Warnf("CDS: Send failure %s: %v", con.ConID, err)
-		recordSendError(cdsSendErrPushes, err)
+		recordSendError("CDS", con.ConID, cdsSendErrPushes, err)
 		return err
 	}
 	cdsPushes.Increment()

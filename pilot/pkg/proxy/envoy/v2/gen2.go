@@ -121,8 +121,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discove
 
 	err := con.send(resp)
 	if err != nil {
-		adsLog.Warnf("ADS: Send failure %s: %v", con.ConID, err)
-		recordSendError(apiSendErrPushes, err)
+		recordSendError("ADS", con.ConID, apiSendErrPushes, err)
 		return err
 	}
 	apiPushes.Increment()
@@ -167,8 +166,7 @@ func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushCo
 
 	err := con.send(resp)
 	if err != nil {
-		adsLog.Warnf("ADS: Send failure %s %s: %v", w.TypeUrl, con.ConID, err)
-		recordSendError(apiSendErrPushes, err)
+		recordSendError("ADS", con.ConID, apiSendErrPushes, err)
 		return err
 	}
 	w.LastSent = time.Now()

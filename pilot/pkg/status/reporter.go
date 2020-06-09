@@ -82,7 +82,7 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 	if r.UpdateInterval == 0 {
 		r.UpdateInterval = 500 * time.Millisecond
 	}
-	r.distributionEventQueue = make(chan distributionEvent, 10^5)
+	r.distributionEventQueue = make(chan distributionEvent, 100_000)
 	r.status = make(map[string]string)
 	r.reverseStatus = make(map[string][]string)
 	r.inProgressResources = make(map[string]*inProgressEntry)
