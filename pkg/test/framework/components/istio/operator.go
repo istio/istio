@@ -172,9 +172,12 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return nil, err
 	}
 
-	remoteIopFile := filepath.Join(workDir, "remote.yaml")
-	if err := initIOPFile(cfg, env, remoteIopFile, cfg.RemoteClusterValues); err != nil {
-		return nil, err
+	remoteIopFile := iopFile
+	if cfg.RemoteClusterValues != "" {
+		remoteIopFile = filepath.Join(workDir, "remote.yaml")
+		if err := initIOPFile(cfg, env, remoteIopFile, cfg.RemoteClusterValues); err != nil {
+			return nil, err
+		}
 	}
 
 	// Deploy the Istio control plane(s)

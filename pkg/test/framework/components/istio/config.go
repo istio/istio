@@ -111,6 +111,7 @@ type Config struct {
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
 	// These values are only applied to remote clusters
+	// Default value will be ControlPlaneValues if no remote values provided
 	RemoteClusterValues string
 
 	// Overrides for the Helm values file.
