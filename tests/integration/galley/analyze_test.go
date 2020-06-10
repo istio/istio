@@ -196,10 +196,31 @@ func TestJsonOutput(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			// Validation error if we have a gateway with invalid selector.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonGatewayFile, jsonOutput)
-			expectJSONMessages(t, g, output, msg.ReferencedResourceNotFound)
-			g.Expect(err).To(BeNil())
+			testcases := []struct {
+				name     string
+				args     []string
+				messages []*diag.MessageType
+			}{
+				{
+					name:     "no other output except analysis json output",
+					args:     []string{jsonGatewayFile, jsonOutput},
+					messages: []*diag.MessageType{msg.ReferencedResourceNotFound},
+				},
+				{
+					name:     "invalid file does not output error in stdout",
+					args:     []string{invalidExtensionFile, jsonOutput},
+					messages: []*diag.MessageType{},
+				},
+			}
+
+			for _, tc := range testcases {
+				ctx.NewSubTest(tc.name).Run(func(ctx framework.TestContext) {
+					stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, tc.args...)
+					expectJSONMessages(t, g, stdout, tc.messages...)
+					g.Expect(err).To(BeNil())
+				})
+			}
+
 		})
 }
 
@@ -337,12 +358,11 @@ func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
 	g.Expect(output[0]).To(ContainSubstring("No validation issues found when analyzing"))
 }
 
-func expectJSONMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
+func expectJSONMessages(t *testing.T, g *GomegaWithT, output string, expected ...*diag.MessageType) {
 	t.Helper()
 
-	o := strings.Join(outputLines, "")
 	var j []map[string]interface{}
-	if err := json.Unmarshal([]byte(o), &j); err != nil {
+	if err := json.Unmarshal([]byte(output), &j); err != nil {
 		t.Fatal(err)
 	}
 
@@ -356,6 +376,11 @@ func expectJSONMessages(t *testing.T, g *GomegaWithT, outputLines []string, expe
 
 // istioctlSafe calls istioctl analyze with certain flags set. Stdout and Stderr are merged
 func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, extraArgs ...string) ([]string, error) {
+	output, stderr, err := istioctlWithStderr(t, i, ns, useKube, extraArgs...)
+	return strings.Split(strings.TrimSpace(output+"\n"+stderr), "\n"), err
+}
+
+func istioctlWithStderr(t *testing.T, i istioctl.Instance, ns string, useKube bool, extraArgs ...string) (string, string, error) {
 	t.Helper()
 
 	args := []string{"analyze"}
@@ -365,8 +390,7 @@ func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, ex
 	args = append(args, fmt.Sprintf("--use-kube=%t", useKube))
 	args = append(args, extraArgs...)
 
-	output, stderr, err := i.Invoke(args)
-	return strings.Split(strings.TrimSpace(output+"\n"+stderr), "\n"), err
+	return i.Invoke(args)
 }
 
 func applyFileOrFail(t *testing.T, ns, filename string) {

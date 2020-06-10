@@ -347,7 +347,7 @@ func gatherFiles(cmd *cobra.Command, args []string) ([]local.ReaderSource, error
 
 		// Handle "-" as stdin as a special case.
 		if f == "-" {
-			if isatty.IsTerminal(os.Stdin.Fd()) {
+			if isatty.IsTerminal(os.Stdin.Fd()) && !isJSONorYAMLOutputFormat() {
 				fmt.Fprint(cmd.OutOrStdout(), "Reading from stdin:\n")
 			}
 			r = os.Stdin
@@ -368,7 +368,7 @@ func gatherFiles(cmd *cobra.Command, args []string) ([]local.ReaderSource, error
 			readers = append(readers, dirReaders...)
 		} else {
 			if !isValidFile(f) {
-				fmt.Fprintf(cmd.OutOrStderr(), "Skipping file %v, recognized file extensions are: %v\n", f, fileExtensions)
+				fmt.Fprintf(cmd.ErrOrStderr(), "Skipping file %v, recognized file extensions are: %v\n", f, fileExtensions)
 				continue
 			}
 			rs, err := gatherFile(f)
@@ -407,7 +407,7 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		}
 
 		if !isValidFile(path) {
-			fmt.Fprintf(cmd.OutOrStdout(), "Skipping file %v, recognized file extensions are: %v\n", path, fileExtensions)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Skipping file %v, recognized file extensions are: %v\n", path, fileExtensions)
 			return nil
 		}
 
@@ -554,4 +554,9 @@ func analyzeTargetAsString() string {
 		return "all namespaces"
 	}
 	return fmt.Sprintf("namespace: %s", selectedNamespace)
+}
+
+// TODO: Refactor output writer so that it is smart enough to know when to output what.
+func isJSONorYAMLOutputFormat() bool {
+	return msgOutputFormat == JSONOutput || msgOutputFormat == YamlOutput
 }
