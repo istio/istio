@@ -65,6 +65,7 @@ values:
 func TestWebhookManagement(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.control-plane.k8s-certs").
 		Run(func(ctx framework.TestContext) {
 			ctx.Skip("TODO(github.com/istio/istio/issues/20289)")
 

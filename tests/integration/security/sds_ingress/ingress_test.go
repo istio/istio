@@ -49,6 +49,7 @@ func TestMain(m *testing.M) {
 func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.ingress.tls").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
@@ -107,6 +108,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.ingress.mtls").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
@@ -173,6 +175,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.ingress.mtls").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			var (
@@ -235,6 +238,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.ingress.mtls").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			var (
@@ -294,6 +298,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 func TestTlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.ingress.tls").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ingressutil.RunTestMultiTLSGateways(ctx, inst)
@@ -306,6 +311,7 @@ func TestTlsGateways(t *testing.T) {
 func TestMtlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.ingress.mtls").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ingressutil.RunTestMultiMtlsGateways(ctx, inst)
@@ -317,6 +323,7 @@ func TestMtlsGateways(t *testing.T) {
 func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.ingress.mtls").
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 

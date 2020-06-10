@@ -5665,3 +5665,101 @@ func TestValidateMeshNetworks(t *testing.T) {
 		})
 	}
 }
+
+func Test_validateExportTo(t *testing.T) {
+	tests := []struct {
+		name           string
+		namespace      string
+		exportTo       []string
+		isServiceEntry bool
+		wantErr        bool
+	}{
+		{
+			name:      "empty exportTo is okay",
+			namespace: "ns5",
+			wantErr:   false,
+		},
+		{
+			name:      "* is allowed",
+			namespace: "ns5",
+			exportTo:  []string{"*"},
+			wantErr:   false,
+		},
+		{
+			name:      ". and ns1 are allowed",
+			namespace: "ns5",
+			exportTo:  []string{".", "ns1"},
+			wantErr:   false,
+		},
+		{
+			name:      "bunch of namespaces in exportTo is okay",
+			namespace: "ns5",
+			exportTo:  []string{"ns1", "ns2", "ns5"},
+			wantErr:   false,
+		},
+		{
+			name:           "~ is allowed for service entry configs",
+			namespace:      "ns5",
+			exportTo:       []string{"~"},
+			isServiceEntry: true,
+			wantErr:        false,
+		},
+		{
+			name:      "~ not allowed for non service entry configs",
+			namespace: "ns5",
+			exportTo:  []string{"~", "ns1"},
+			wantErr:   true,
+		},
+		{
+			name:      ". and * together are not allowed",
+			namespace: "ns5",
+			exportTo:  []string{".", "*"},
+			wantErr:   true,
+		},
+		{
+			name:      "* and ns1 together are not allowed",
+			namespace: "ns5",
+			exportTo:  []string{"*", "ns1"},
+			wantErr:   true,
+		},
+		{
+			name:      ". and same namespace in exportTo is not okay",
+			namespace: "ns5",
+			exportTo:  []string{".", "ns5"},
+			wantErr:   true,
+		},
+		{
+			name:      "duplicate namespaces in exportTo is not okay",
+			namespace: "ns5",
+			exportTo:  []string{"ns1", "ns2", "ns1"},
+			wantErr:   true,
+		},
+		{
+			name:           "duplicate none in service entry exportTo is not okay",
+			namespace:      "ns5",
+			exportTo:       []string{"~", "~", "ns1"},
+			isServiceEntry: true,
+			wantErr:        true,
+		},
+		{
+			name:      "invalid namespace names are not okay",
+			namespace: "ns5",
+			exportTo:  []string{"ns1_"},
+			wantErr:   true,
+		},
+		{
+			name:           "none and other namespaces cannot be combined in service entry exportTo",
+			namespace:      "ns5",
+			exportTo:       []string{"~", "ns1"},
+			isServiceEntry: true,
+			wantErr:        true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateExportTo(tt.namespace, tt.exportTo, tt.isServiceEntry); (err != nil) != tt.wantErr {
+				t.Errorf("validateExportTo() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

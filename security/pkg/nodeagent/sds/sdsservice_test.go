@@ -27,13 +27,13 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -166,7 +166,7 @@ func TestStreamSecretsInvalidResourceName(t *testing.T) {
 	testHelper(t, arg, sdsRequestStream, true)
 }
 
-type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse, error)
+type secretCallback func(string, *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error)
 
 func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourceNames bool) {
 	var wst, gst cache.SecretManager
@@ -213,7 +213,8 @@ func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourc
 }
 
 func sendRequestForRootCertAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string) {
-	rootCertReq := &api.DiscoveryRequest{
+	rootCertReq := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{"ROOTCA"},
 		Node: &core.Node{
 			Id: proxyID,
@@ -230,7 +231,8 @@ func sendRequestForFileRootCertAndVerifyResponse(t *testing.T, cb secretCallback
 	rootCertPath, _ := filepath.Abs("./testdata/root-cert.pem")
 	rootResource := "file-root:" + rootCertPath
 
-	rootCertReq := &api.DiscoveryRequest{
+	rootCertReq := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{rootResource},
 		Node: &core.Node{
 			Id: proxyID,
@@ -250,8 +252,9 @@ func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxy
 	if testInvalidResourceNames {
 		rn = append(rn, extraResourceName)
 	}
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
 		ResourceNames: rn,
+		TypeUrl:       SecretTypeV3,
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -329,7 +332,8 @@ func createSDSStream(t *testing.T, socket, token string) (*grpc.ClientConn, sds.
 // "close stream" -----------> (close stream)
 func testSDSStreamTwo(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
@@ -369,7 +373,8 @@ func testSDSStreamTwo(stream sds.SecretDiscoveryService_StreamSecretsClient, pro
 // "close stream" -----------> (close stream)
 func testSDSStreamOne(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
@@ -567,7 +572,8 @@ func TestStreamSecretsPush(t *testing.T) {
 
 func testSDSStreamMultiplePush(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
@@ -627,7 +633,8 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 
 func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
@@ -808,7 +815,7 @@ func (s *Setup) generatePushSecret(conID, token string) *model.SecretItem {
 	return pushSecret
 }
 
-func verifySDSSResponse(resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) error {
+func verifySDSSResponse(resp *discovery.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) error {
 	var pb authapi.Secret
 	if resp == nil {
 		return fmt.Errorf("response is nil")
@@ -841,7 +848,7 @@ func verifySDSSResponse(resp *api.DiscoveryResponse, expectedPrivateKey []byte, 
 	return nil
 }
 
-func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, expectedRootCert []byte) {
+func verifySDSSResponseForRootCert(t *testing.T, resp *discovery.DiscoveryResponse, expectedRootCert []byte) {
 	var pb authapi.Secret
 	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
@@ -864,7 +871,7 @@ func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, ex
 	}
 }
 
-func sdsRequestStream(socket string, req *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
+func sdsRequestStream(socket string, req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
 	conn, err := setupConnection(socket)
 	if err != nil {
 		return nil, err
@@ -889,7 +896,7 @@ func sdsRequestStream(socket string, req *api.DiscoveryRequest) (*api.DiscoveryR
 	return res, nil
 }
 
-func sdsRequestFetch(socket string, req *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
+func sdsRequestFetch(socket string, req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
 	conn, err := setupConnection(socket)
 	if err != nil {
 		return nil, err
