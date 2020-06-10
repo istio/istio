@@ -40,7 +40,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 	var processedObjects object.K8sObjects
 	var deployedObjects int
 	var errs util.Errors
-	cname := string(manifest.Name)+h.restConfig.Host
+	cname := string(manifest.Name)
 	crHash, err := h.getCRHash(cname)
 	if err != nil {
 		return nil, 0, err
