@@ -96,13 +96,13 @@ func newNative(ctx resource.Context) (Instance, error) {
 	c.id = ctx.TrackResource(c)
 
 	var err error
-	scopes.CI.Infof("=== BEGIN: Start local PolicyBackend ===")
+	scopes.Framework.Infof("=== BEGIN: Start local PolicyBackend ===")
 	defer func() {
 		if err != nil {
-			scopes.CI.Infof("=== FAILED: Start local PolicyBackend ===")
+			scopes.Framework.Infof("=== FAILED: Start local PolicyBackend ===")
 			_ = c.Close()
 		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Start local PolicyBackend ===")
+			scopes.Framework.Infof("=== SUCCEEDED: Start local PolicyBackend ===")
 		}
 	}()
 
@@ -135,7 +135,7 @@ func (c *nativeComponent) CreateConfigSnippet(name string, namespace string, am 
 	case OutOfProcess:
 		return fmt.Sprintf(outOfProcessHandlerNative, c.backend.Port(), c.backend.Port())
 	default:
-		scopes.CI.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
+		scopes.Framework.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
 		return ""
 	}
 }

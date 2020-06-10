@@ -54,14 +54,14 @@ func deploy(ctx resource.Context, cfg Config) (undeployFunc func(), err error) {
 	}
 
 	name := string(cfg.Cfg)
-	scopes.CI.Infof("=== BEGIN: Deployment %q ===", name)
+	scopes.Framework.Infof("=== BEGIN: Deployment %q ===", name)
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("deployment %q failed: %v", name, err) // nolint:golint
 			scopes.Framework.Errorf("Error deploying %q: %v", name, err)
-			scopes.CI.Errorf("=== FAILED: Deployment %q ===", name)
+			scopes.Framework.Errorf("=== FAILED: Deployment %q ===", name)
 		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deployment %q ===", name)
+			scopes.Framework.Infof("=== SUCCEEDED: Deployment %q ===", name)
 		}
 	}()
 
