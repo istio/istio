@@ -20,10 +20,11 @@ import (
 	"os"
 	"path"
 
-	"github.com/gogo/protobuf/jsonpb"
-	kubeApiCore "k8s.io/api/core/v1"
-
 	"istio.io/istio/pkg/test/scopes"
+
+	"github.com/gogo/protobuf/jsonpb"
+
+	kubeApiCore "k8s.io/api/core/v1"
 )
 
 // podDumper will dump information from all the pods into the given workDir.
@@ -45,7 +46,7 @@ func (a *Accessor) DumpPods(workDir, namespace string, dumpers ...podDumper) {
 
 	pods, err := a.GetPods(namespace)
 	if err != nil {
-		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
+		scopes.Framework.Errorf("Error getting pods list via kubectl: %v", err)
 		return
 	}
 
@@ -59,7 +60,7 @@ func (a *Accessor) podsOrFetch(pods []kubeApiCore.Pod, namespace string) []kubeA
 		var err error
 		pods, err = a.GetPods(namespace)
 		if err != nil {
-			scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
+			scopes.Framework.Errorf("Error getting pods list via kubectl: %v", err)
 			return nil
 		}
 	}
@@ -77,14 +78,14 @@ func (a *Accessor) DumpPodState(workDir string, namespace string, pods ...kubeAp
 	for _, pod := range pods {
 		str, err := marshaler.MarshalToString(&pod)
 		if err != nil {
-			scopes.CI.Errorf("Error marshaling pod state for output: %v", err)
+			scopes.Framework.Errorf("Error marshaling pod state for output: %v", err)
 			continue
 		}
 
 		outPath := path.Join(workDir, fmt.Sprintf("pod_%s_%s.yaml", namespace, pod.Name))
 
 		if err := ioutil.WriteFile(outPath, []byte(str), os.ModePerm); err != nil {
-			scopes.CI.Infof("Error writing out pod state to file: %v", err)
+			scopes.Framework.Infof("Error writing out pod state to file: %v", err)
 		}
 	}
 }
@@ -100,7 +101,7 @@ func (a *Accessor) DumpPodEvents(workDir, namespace string, pods ...kubeApiCore.
 	for _, pod := range pods {
 		events, err := a.GetEvents(namespace, pod.Name)
 		if err != nil {
-			scopes.CI.Errorf("Error getting events list for pod %s/%s via kubectl: %v", namespace, pod.Name, err)
+			scopes.Framework.Errorf("Error getting events list for pod %s/%s via kubectl: %v", namespace, pod.Name, err)
 			return
 		}
 
@@ -110,7 +111,7 @@ func (a *Accessor) DumpPodEvents(workDir, namespace string, pods ...kubeApiCore.
 		for _, event := range events {
 			eventStr, err := marshaler.MarshalToString(&event)
 			if err != nil {
-				scopes.CI.Errorf("Error marshaling pod event for output: %v", err)
+				scopes.Framework.Errorf("Error marshaling pod event for output: %v", err)
 				continue
 			}
 
@@ -119,7 +120,7 @@ func (a *Accessor) DumpPodEvents(workDir, namespace string, pods ...kubeApiCore.
 		}
 
 		if err := ioutil.WriteFile(outPath, []byte(eventsStr), os.ModePerm); err != nil {
-			scopes.CI.Infof("Error writing out pod events to file: %v", err)
+			scopes.Framework.Infof("Error writing out pod events to file: %v", err)
 		}
 	}
 }
@@ -134,13 +135,13 @@ func (a *Accessor) DumpPodLogs(workDir, namespace string, pods ...kubeApiCore.Po
 		for _, container := range containers {
 			l, err := a.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
 			if err != nil {
-				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+				scopes.Framework.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue
 			}
 
 			fname := path.Join(workDir, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
 			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
-				scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+				scopes.Framework.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 			}
 		}
 	}
@@ -161,19 +162,19 @@ func (a *Accessor) DumpPodProxies(workDir, namespace string, pods ...kubeApiCore
 			if cfgDump, err := a.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET config_dump"); err == nil {
 				fname := path.Join(workDir, fmt.Sprintf("%s-%s.config.json", pod.Name, container.Name))
 				if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
-					scopes.CI.Errorf("Unable to write config dump for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+					scopes.Framework.Errorf("Unable to write config dump for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				}
 			} else {
-				scopes.CI.Errorf("Unable to get istio-proxy config dump for pod: %s/%s", pod.Namespace, pod.Name)
+				scopes.Framework.Errorf("Unable to get istio-proxy config dump for pod: %s/%s", pod.Namespace, pod.Name)
 			}
 
 			if cfgDump, err := a.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET clusters"); err == nil {
 				fname := path.Join(workDir, fmt.Sprintf("%s-%s.clusters.txt", pod.Name, container.Name))
 				if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
-					scopes.CI.Errorf("Unable to write clusters for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+					scopes.Framework.Errorf("Unable to write clusters for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				}
 			} else {
-				scopes.CI.Errorf("Unable to get istio-proxy clusters for pod: %s/%s", pod.Namespace, pod.Name)
+				scopes.Framework.Errorf("Unable to get istio-proxy clusters for pod: %s/%s", pod.Namespace, pod.Name)
 			}
 		}
 	}

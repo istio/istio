@@ -236,7 +236,7 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 	var pods []kubeApiCore.Pod
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		scopes.CI.Infof("Checking pods ready...")
+		scopes.Framework.Infof("Checking pods ready...")
 
 		fetched, err := a.CheckPodsAreReady(fetchFunc)
 		if err != nil {
@@ -251,11 +251,11 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 
 // CheckPodsAreReady checks whether the pods that are selected by the given function is in ready state or not.
 func (a *Accessor) CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
-	scopes.CI.Infof("Checking pods ready...")
+	scopes.Framework.Infof("Checking pods ready...")
 
 	fetched, err := fetchFunc()
 	if err != nil {
-		scopes.CI.Infof("Failed retrieving pods: %v", err)
+		scopes.Framework.Infof("Failed retrieving pods: %v", err)
 		return nil, err
 	}
 
@@ -265,7 +265,7 @@ func (a *Accessor) CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod,
 			msg = e.Error()
 			err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
 		}
-		scopes.CI.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
+		scopes.Framework.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
 	}
 
 	if err != nil {
@@ -281,7 +281,7 @@ func (a *Accessor) WaitUntilPodsAreDeleted(fetchFunc PodFetchFunc, opts ...retry
 
 		pods, err := fetchFunc()
 		if err != nil {
-			scopes.CI.Infof("Failed retrieving pods: %v", err)
+			scopes.Framework.Infof("Failed retrieving pods: %v", err)
 			return nil, false, err
 		}
 
@@ -744,9 +744,9 @@ func (a *Accessor) applyInternal(namespace string, files []string, dryRun bool) 
 
 func (a *Accessor) applyFile(namespace string, file string, dryRun bool) error {
 	if dryRun {
-		scopes.CI.Infof("Applying YAML file (DryRun mode): %v", file)
+		scopes.Framework.Infof("Applying YAML file (DryRun mode): %v", file)
 	} else {
-		scopes.CI.Infof("Applying YAML file: %v", file)
+		scopes.Framework.Infof("Applying YAML file: %v", file)
 	}
 
 	dynamicClient, err := a.clientFactory.DynamicClient()
@@ -810,7 +810,7 @@ func (a *Accessor) applyFile(namespace string, file string, dryRun bool) error {
 	if err := opts.Run(); err != nil {
 		// Concatenate the stdout and stderr
 		s := stdout.String() + stderr.String()
-		scopes.CI.Infof("(FAILED) Executing kubectl apply: %s (err: %v): %s", file, err, s)
+		scopes.Framework.Infof("(FAILED) Executing kubectl apply: %s (err: %v): %s", file, err, s)
 		return fmt.Errorf("%v: %s", err, s)
 	}
 	return nil
@@ -844,7 +844,7 @@ func (a *Accessor) deleteInternal(namespace string, files []string) (err error) 
 }
 
 func (a *Accessor) deleteFile(namespace string, file string) error {
-	scopes.CI.Infof("Deleting YAML file: %v", file)
+	scopes.Framework.Infof("Deleting YAML file: %v", file)
 	// Create the options.
 	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
 
@@ -907,7 +907,7 @@ func (a *Accessor) deleteFile(namespace string, file string) error {
 	if err := opts.RunDelete(a.clientFactory); err != nil {
 		// Concatenate the stdout and stderr
 		s := stdout.String() + stderr.String()
-		scopes.CI.Infof("(FAILED) Executing kubectl delete: %s (err: %v): %s", file, err, s)
+		scopes.Framework.Infof("(FAILED) Executing kubectl delete: %s (err: %v): %s", file, err, s)
 		return fmt.Errorf("%v: %s", err, s)
 	}
 	return nil
@@ -955,7 +955,7 @@ func (a *Accessor) Logs(namespace string, pod string, container string, previous
 
 	if err != nil {
 		// Concatenate the stdout and stderr
-		scopes.CI.Infof("(FAILED) Executing kubectl logs (ns: %s, pod: %s, container: %s) (err: %v): %s",
+		scopes.Framework.Infof("(FAILED) Executing kubectl logs (ns: %s, pod: %s, container: %s) (err: %v): %s",
 			namespace, pod, container, err, s)
 		return s, fmt.Errorf("%v: %s", err, s)
 	}
@@ -1017,7 +1017,7 @@ func (a *Accessor) Exec(namespace, podName, containerName, command string) (stri
 
 	combined := stdout.String() + stderr.String()
 	if err != nil {
-		scopes.CI.Infof("(FAILED) Executing kubectl exec (ns: %s, pod: %s, container: %s, command: %s: %v: %s",
+		scopes.Framework.Infof("(FAILED) Executing kubectl exec (ns: %s, pod: %s, container: %s, command: %s: %v: %s",
 			namespace, podName, containerName, command, err, combined)
 		return combined, err
 	}
@@ -1210,11 +1210,11 @@ func removeEmptyFiles(files []string) []string {
 func isEmptyFile(f string) bool {
 	fileInfo, err := os.Stat(f)
 	if err != nil {
-		scopes.CI.Warnf("Error stating YAML file %s: %v", f, err)
+		scopes.Framework.Warnf("Error stating YAML file %s: %v", f, err)
 		return true
 	}
 	if fileInfo.Size() == 0 {
-		scopes.CI.Warnf("Unable to process empty YAML file: %s", f)
+		scopes.Framework.Warnf("Unable to process empty YAML file: %s", f)
 		return true
 	}
 	return false
