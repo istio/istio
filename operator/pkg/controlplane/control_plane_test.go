@@ -84,7 +84,7 @@ func TestNewIstioOperator(t *testing.T) {
 			wantErr: nil,
 			wantIstioOperator: &IstioControlPlane{
 				components: []component.IstioComponent{
-					&component.CRDComponent{
+					&component.BaseComponent{
 						CommonComponentFields: &component.CommonComponentFields{
 							Options:       coreComponentOptions,
 							ComponentName: name.IstioBaseComponentName,
@@ -151,7 +151,7 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 			desc: "components-not-started-operator-started",
 			testOperator: &IstioControlPlane{
 				components: []component.IstioComponent{
-					&component.CRDComponent{
+					&component.BaseComponent{
 						CommonComponentFields: &component.CommonComponentFields{
 							Options:       coreComponentOptions,
 							ComponentName: name.IstioBaseComponentName,
@@ -201,7 +201,7 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 			desc: "operator-not-started",
 			testOperator: &IstioControlPlane{
 				components: []component.IstioComponent{
-					&component.CRDComponent{
+					&component.BaseComponent{
 						CommonComponentFields: &component.CommonComponentFields{
 							Options:       coreComponentOptions,
 							ComponentName: name.IstioBaseComponentName,
