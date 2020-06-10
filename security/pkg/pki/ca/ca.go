@@ -21,6 +21,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -196,6 +197,33 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
 	}
+	if _, err := os.Stat(signingKeyFile); err != nil {
+		// self generating for testing or local, non-k8s run
+		options := util.CertOptions{
+			TTL:           3650 * 24 * time.Hour, // TODO: pass the flag here as well (or pass MeshConfig )
+			Org:          "cluster.local", // TODO: pass trustDomain ( or better - pass MeshConfig )
+			IsCA:         true,
+			IsSelfSigned: true,
+			RSAKeySize:   caKeySize,
+			IsDualUse:    true, // hardcoded to true for K8S as well
+		}
+		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
+		if ckErr != nil {
+			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
+		}
+
+		rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
+		}
+
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
+			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
+		}
+
+		return caOpts, nil
+	}
+
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
