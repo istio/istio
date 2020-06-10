@@ -141,7 +141,7 @@ spec:
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
-        - containerPort: 853
+        - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
