@@ -63,7 +63,7 @@ func TestSidecarListeners(t *testing.T) {
 			config := mustReadFile(t, "../../config/se-example.yaml")
 			ctx.ApplyConfigOrFail(t, "", config)
 			defer func() {
-				if err := ctx.DeleteConfigDir("", path); err != nil {
+				if err := ctx.DeleteConfig("", config); err != nil {
 					scopes.Framework.Errorf("failed to delete directory: %v", err)
 				}
 			}()
