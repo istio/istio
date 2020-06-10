@@ -20,4 +20,6 @@ ROOT=$(dirname "$WD")
 
 set -eux
 
+docker info
+
 DRY_RUN=true "${ROOT}"/prow/release-commit.sh
