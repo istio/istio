@@ -430,8 +430,7 @@ If you need to add a new test suite, it can be added to the [job configuration](
 
 ## Environments
 
-The test binaries run in a Kubernetes cluster, but the test logic runs in the test binary. To specify the Kubernetes
-environment:
+The test binaries run in a Kubernetes cluster, but the test logic runs in the test binary.
 
 ```console
 $ go test ./... -p 1
@@ -440,8 +439,7 @@ $ go test ./... -p 1
 | WARNING: ```-p 1``` is required when running directly in the ```tests/integration/``` folder. |
 | --- |
 
-When running the tests against the Kubernetes environment, you will need to provide a K8s cluster to run the tests
-against.
+You will need to provide a K8s cluster to run the tests against.
 (See [here](https://github.com/istio/istio/blob/master/tests/integration/GKE.md)
 for info about how to set up a suitable GKE cluster.)
 You can specify the kube config file that should be used to use for connecting to the cluster, through
