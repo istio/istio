@@ -95,7 +95,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *lo
 `,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Println("! istioctl manifest apply has graduated. Use istioctl install instead")
+			cmd.Println("! istioctl manifest apply is deprecated. Use istioctl install instead")
 			return runApplyCmd(cmd, rootArgs, maArgs, logOpts)
 		}}
 }
