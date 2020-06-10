@@ -1,3 +1,7 @@
+# Default ASM Profile for GCP Projects.
+#   * Security: Mesh CA
+#   * Telemetry: Stackdriver
+#   * Networking: istiod
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:

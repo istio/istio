@@ -1,3 +1,7 @@
+# Default ASM Profile for multicloud installations.
+#   * Security: citadel
+#   * Telemetry: prometheus
+#   * Networking: istiod
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
