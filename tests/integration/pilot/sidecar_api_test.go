@@ -72,7 +72,7 @@ func TestSidecarListeners(t *testing.T) {
 			}
 			defer func() {
 				if err := ctx.DeleteConfigDir("", path); err != nil {
-					scopes.CI.Errorf("failed to delete directory: %v", err)
+					scopes.Framework.Errorf("failed to delete directory: %v", err)
 				}
 			}()
 

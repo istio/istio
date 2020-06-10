@@ -56,7 +56,7 @@ func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
 		}
 	}()
 
-	scopes.CI.Info("Creating dummy rule to check for validation webhook readiness")
+	scopes.Framework.Info("Creating dummy rule to check for validation webhook readiness")
 	return retry.UntilSuccess(func() error {
 		_, err := accessor.ApplyContents("", dummyValidationRule)
 		if err == nil {
