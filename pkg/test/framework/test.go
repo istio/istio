@@ -198,6 +198,14 @@ func (t *Test) runInternal(fn func(ctx TestContext), parallel bool) {
 		return
 	}
 
+	// TODO: should we also block new cases?
+	suiteName := t.s.settings.TestID
+	if len(t.featureLabels) < 1 && !features.GlobalWhitelist.Contains(suiteName, t.name) {
+		scopes.Framework.Errorf("Detected new test %s in suite %s with no feature labels.  "+
+			"See istio/istio/pkg/test/framework/features/README.md", suiteName, t.name)
+		t.goTest.FailNow()
+	}
+
 	if t.parent != nil {
 		// Create a new subtest under the parent's test.
 		parentGoTest := t.parent.goTest
