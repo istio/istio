@@ -57,7 +57,7 @@ func TestSidecarListeners(t *testing.T) {
 					return true, nil
 				})
 
-			namespace.ClaimOrFail(ctx, ctx, "se-examples")
+			namespace.ClaimOrFail(ctx, ctx, "seexamples")
 			// Apply some config
 			config := mustReadFile(t, "../../config/se-example.yaml")
 			ctx.ApplyConfigOrFail(t, "", config)
