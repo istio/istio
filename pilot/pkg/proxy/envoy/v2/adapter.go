@@ -39,19 +39,18 @@ type DiscoveryStreamV2Adapter struct {
 var _ DiscoveryStream = &DiscoveryStreamV2Adapter{}
 
 func (d DiscoveryStreamV2Adapter) Send(v3Resp *discovery.DiscoveryResponse) error {
-	return d.AggregatedDiscoveryService_StreamAggregatedResourcesServer.Send(&xdsapi.DiscoveryResponse{
-		VersionInfo: v3Resp.VersionInfo,
-		Resources:   v3Resp.Resources,
-		Canary:      v3Resp.Canary,
-		TypeUrl:     v3Resp.TypeUrl,
-		Nonce:       v3Resp.Nonce,
-	})
+	return d.AggregatedDiscoveryService_StreamAggregatedResourcesServer.Send(DowngradeV3Response(v3Resp))
 }
 
 func (d DiscoveryStreamV2Adapter) Recv() (*discovery.DiscoveryRequest, error) {
 	v2Req, err := d.AggregatedDiscoveryService_StreamAggregatedResourcesServer.Recv()
+	return UpgradeV2Request(v2Req), err
+}
+
+// Convert from v2 to v3
+func UpgradeV2Request(v2Req *xdsapi.DiscoveryRequest) *discovery.DiscoveryRequest {
 	if v2Req == nil {
-		return nil, err
+		return nil
 	}
 	return &discovery.DiscoveryRequest{
 		VersionInfo:   v2Req.VersionInfo,
@@ -60,7 +59,21 @@ func (d DiscoveryStreamV2Adapter) Recv() (*discovery.DiscoveryRequest, error) {
 		TypeUrl:       v2Req.TypeUrl,
 		ResponseNonce: v2Req.ResponseNonce,
 		ErrorDetail:   v2Req.ErrorDetail,
-	}, err
+	}
+}
+
+// Convert from v3 to v2
+func DowngradeV3Response(v3Resp *discovery.DiscoveryResponse) *xdsapi.DiscoveryResponse {
+	if v3Resp == nil {
+		return nil
+	}
+	return &xdsapi.DiscoveryResponse{
+		VersionInfo: v3Resp.VersionInfo,
+		Resources:   v3Resp.Resources,
+		Canary:      v3Resp.Canary,
+		TypeUrl:     v3Resp.TypeUrl,
+		Nonce:       v3Resp.Nonce,
+	}
 }
 
 func convertToV3Node(node *corev2.Node) *corev3.Node {
