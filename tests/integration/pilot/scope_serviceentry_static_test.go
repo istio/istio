@@ -21,9 +21,11 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/proto"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -41,8 +43,8 @@ func TestServiceEntryStatic(t *testing.T) {
 		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
 		// Check to ensure only endpoints for imported namespaces
-		req := &xdsapi.DiscoveryRequest{
-			Node: &xdscore.Node{
+		req := &discovery.DiscoveryRequest{
+			Node: &core.Node{
 				Id: nodeID.ServiceNode(),
 			},
 			ResourceNames: []string{"outbound|80||app.com"},
@@ -58,8 +60,8 @@ func TestServiceEntryStatic(t *testing.T) {
 		}
 
 		// Check to ensure only listeners for own namespace
-		ListenerReq := &xdsapi.DiscoveryRequest{
-			Node: &xdscore.Node{
+		ListenerReq := &discovery.DiscoveryRequest{
+			Node: &core.Node{
 				Id: nodeID.ServiceNode(),
 			},
 			TypeUrl: v2.ListenerType,
@@ -85,8 +87,8 @@ func TestSidecarScopeIngressListener(t *testing.T) {
 		// Change the node's IP so that it does not match with any service entry
 		nodeID.IPAddresses = []string{"100.100.100.100"}
 
-		req := &xdsapi.DiscoveryRequest{
-			Node: &xdscore.Node{
+		req := &discovery.DiscoveryRequest{
+			Node: &core.Node{
 				Id: nodeID.ServiceNode(),
 			},
 			TypeUrl: v3.ClusterType,
@@ -99,8 +101,8 @@ func TestSidecarScopeIngressListener(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		listenerReq := &xdsapi.DiscoveryRequest{
-			Node: &xdscore.Node{
+		listenerReq := &discovery.DiscoveryRequest{
+			Node: &core.Node{
 				Id: nodeID.ServiceNode(),
 			},
 			TypeUrl: v2.ListenerType,
@@ -115,7 +117,7 @@ func TestSidecarScopeIngressListener(t *testing.T) {
 	})
 }
 
-func checkSidecarIngressCluster(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+func checkSidecarIngressCluster(resp *discovery.DiscoveryResponse) (success bool, e error) {
 	expectedClusterNamePrefix := "inbound|9080|custom-http|sidecar."
 	expectedEndpoints := map[string]int{
 		"/var/run/someuds.sock": 1,
@@ -125,7 +127,7 @@ func checkSidecarIngressCluster(resp *xdsapi.DiscoveryResponse) (success bool, e
 	}
 
 	for _, res := range resp.Resources {
-		c := &xdsapi.Cluster{}
+		c := &cluster.Cluster{}
 		if err := proto.Unmarshal(res.Value, c); err != nil {
 			return false, err
 		}
@@ -151,13 +153,13 @@ func checkSidecarIngressCluster(resp *xdsapi.DiscoveryResponse) (success bool, e
 	return false, fmt.Errorf("did not find expected cluster %s", expectedClusterNamePrefix)
 }
 
-func checkResultStatic(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+func checkResultStatic(resp *discovery.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]int{
 		"1.1.1.1": 1,
 	}
 
 	for _, res := range resp.Resources {
-		c := &xdsapi.ClusterLoadAssignment{}
+		c := &endpoint.ClusterLoadAssignment{}
 		if err := proto.Unmarshal(res.Value, c); err != nil {
 			return false, err
 		}
@@ -178,7 +180,7 @@ func checkResultStatic(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	return true, nil
 }
 
-func checkResultStaticListener(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+func checkResultStaticListener(resp *discovery.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]struct{}{
 		"0.0.0.0_80":      {},
 		"5.5.5.5_443":     {},
@@ -200,7 +202,7 @@ func checkResultStaticListener(resp *xdsapi.DiscoveryResponse) (success bool, e 
 	return true, nil
 }
 
-func checkSidecarIngressListener(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+func checkSidecarIngressListener(resp *discovery.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]struct{}{
 		"0.0.0.0_80":      {},
 		"5.5.5.5_443":     {},

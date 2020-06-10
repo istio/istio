@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -42,6 +41,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+
+	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -141,7 +142,6 @@ const (
 	// So the meta data can be erased when pushing to envoy.
 	PilotMetaKey = "pilot_meta"
 
-
 	ThriftRLSDefaultTimeoutMS = 50
 )
 
@@ -165,7 +165,6 @@ var (
 
 	mtlsTCPALPNs        = []string{"istio"}
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
-
 
 	// ALPN used for TCP Metadata Exchange.
 	tcpMxcALPN = "istio-peer-exchange"
@@ -1826,7 +1825,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	copy(filters, httpFilters)
 
 	if httpOpts.addGRPCWebFilter {
-		filters = append(filters, grpcWebFilter)
+		filters = append(filters, xdsfilters.GrpcWebFilter)
 	}
 
 	if pluginParams.ServiceInstance != nil &&
@@ -1847,7 +1846,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		filters = append(filters, xdsfilters.AlpnFilter)
 	}
 
-	filters = append(filters, corsFilter, faultFilter, routerFilter)
+	filters = append(filters, xdsfilters.CorsFilter, xdsfilters.FaultFilter, xdsfilters.RouterFilter)
 
 	if httpOpts.connectionManager == nil {
 		httpOpts.connectionManager = &hcm.HttpConnectionManager{}
@@ -2077,16 +2076,16 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 	}
 	if needTLSInspector || opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.TlsInspector] = true
-		listenerFilters = append(listenerFilters, tlsInspectorFilter)
+		listenerFilters = append(listenerFilters, xdsfilters.TlsInspectorFilter)
 	}
 
 	if opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.HttpInspector] = true
-		listenerFilters = append(listenerFilters, httpInspectorFilter)
+		listenerFilters = append(listenerFilters, xdsfilters.HttpInspectorFilter)
 	}
 
 	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy {
-		listenerFiltersMap[OriginalSrc] = true
+		listenerFiltersMap[xdsfilters.OriginalSrcFilterName] = true
 		listenerFilters = append(listenerFilters, xdsfilters.OriginalSrcFilter)
 	}
 
@@ -2528,12 +2527,12 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 
 	if !hasTLSInspector {
 		filters =
-			append(filters, tlsInspectorFilter)
+			append(filters, xdsfilters.TlsInspectorFilter)
 	}
 
 	if !hasHTTPInspector {
 		filters =
-			append(filters, httpInspectorFilter)
+			append(filters, xdsfilters.HttpInspectorFilter)
 	}
 
 	return filters
