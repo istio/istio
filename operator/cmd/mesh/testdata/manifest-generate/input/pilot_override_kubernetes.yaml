@@ -7,6 +7,18 @@ spec:
   meshConfig:
     rootNamespace: istio-control
   components:
+    base:
+      enabled: true
+      k8s:
+        # Base component only allows overlays field.
+        overlays:
+          - kind: ClusterRoleBinding
+            name: istio-reader-istio-system
+            patches:
+              # Select list item by value
+              - path: subjects.[name:istio-reader-service-account].name
+                value: my-service-role
+
     pilot:
       enabled: true
       namespace: istio-control
