@@ -17,6 +17,7 @@ package cmd
 import (
 	"bytes"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -78,4 +79,17 @@ func TestHideInheritedFlags(t *testing.T) {
 	checkHelpForFlag(t, got, parentFlag1, false)
 	checkHelpForFlag(t, got, parentFlag1, false)
 	checkHelpForFlag(t, got, childFlag2, true)
+}
+
+func TestParallel(t *testing.T) {
+	// ensures no panics occur when creating multiple instances of rootCmd
+	wg := sync.WaitGroup{}
+	for i := 0; i < 30; i++ {
+		wg.Add(1)
+		go func() {
+			GetRootCmd([]string{})
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 }
