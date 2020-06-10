@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -140,8 +141,6 @@ const (
 	// So the meta data can be erased when pushing to envoy.
 	PilotMetaKey = "pilot_meta"
 
-	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
-	AlpnFilterName = "istio.alpn"
 
 	ThriftRLSDefaultTimeoutMS = 50
 )
@@ -167,12 +166,6 @@ var (
 	mtlsTCPALPNs        = []string{"istio"}
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 
-	// These ALPNs are injected in the client side by the ALPN filter.
-	// "istio" is added for each upstream protocol in order to make it
-	// backward compatible. e.g., 1.4 proxy -> 1.3 proxy.
-	mtlsHTTP10ALPN = []string{"istio-http/1.0", "istio"}
-	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio"}
-	mtlsHTTP2ALPN  = []string{"istio-h2", "istio"}
 
 	// ALPN used for TCP Metadata Exchange.
 	tcpMxcALPN = "istio-peer-exchange"
@@ -1851,7 +1844,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND {
-		filters = append(filters, alpnFilter)
+		filters = append(filters, xdsfilters.AlpnFilter)
 	}
 
 	filters = append(filters, corsFilter, faultFilter, routerFilter)
@@ -2094,7 +2087,7 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 
 	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy {
 		listenerFiltersMap[OriginalSrc] = true
-		listenerFilters = append(listenerFilters, originalSrcFilter)
+		listenerFilters = append(listenerFilters, xdsfilters.OriginalSrcFilter)
 	}
 
 	for _, chain := range opts.filterChainOpts {
