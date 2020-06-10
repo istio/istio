@@ -50,10 +50,10 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 				if ctxFn != nil {
 					err := ctxFn(ctx)
 					if err != nil {
-						scopes.CI.Infof("=== FAILED: context setup function [err=%v] ===", err)
+						scopes.Framework.Infof("=== FAILED: context setup function [err=%v] ===", err)
 						return err
 					}
-					scopes.CI.Info("=== SUCCESS: context setup function ===")
+					scopes.Framework.Info("=== SUCCESS: context setup function ===")
 				}
 			}
 			ins, err := Deploy(ctx, &cfg)
@@ -80,12 +80,12 @@ func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	}
 
 	var err error
-	scopes.CI.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
 	defer func() {
 		if err != nil {
-			scopes.CI.Infof("=== FAILED: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== FAILED: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
 		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio [Suite=%s]===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== SUCCEEDED: Deploy Istio [Suite=%s]===", ctx.Settings().TestID)
 		}
 	}()
 

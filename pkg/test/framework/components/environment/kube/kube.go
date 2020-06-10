@@ -36,7 +36,7 @@ var _ resource.Environment = &Environment{}
 
 // New returns a new Kubernetes environment
 func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
-	scopes.CI.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
+	scopes.Framework.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
 
 	workDir, err := ctx.CreateTmpDirectory("env-kube")
 	if err != nil {

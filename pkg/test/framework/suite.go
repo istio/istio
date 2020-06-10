@@ -21,6 +21,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	goruntime "runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -72,9 +75,26 @@ type Suite struct {
 	envFactory  resource.EnvironmentFactory
 }
 
+// Given the filename of a test, derive its suite name
+func deriveSuiteName(caller string) string {
+	d := filepath.Dir(caller)
+	matches := []string{"istio.io/istio.io", "istio.io/istio", "tests/integration"}
+	// We will trim out paths preceding some well known paths. This should handle anything in istio or docs repo,
+	// as well as special case tests/integration. The end result is a test under ./tests/integration/pilot/ingress
+	// will become pilot_ingress
+	// Note: if this fails to trim, we end up with "ugly" suite names but otherwise no real impact.
+	for _, match := range matches {
+		if i := strings.Index(d, match); i >= 0 {
+			d = d[i+len(match)+1:]
+		}
+	}
+	return strings.ReplaceAll(d, "/", "_")
+}
+
 // NewSuite returns a new suite instance.
 func NewSuite(testID string, m *testing.M) *Suite {
-	return newSuite(testID,
+	_, f, _, _ := goruntime.Caller(1)
+	return newSuite(deriveSuiteName(f),
 		func(_ *suiteContext) int {
 			return m.Run()
 		},
@@ -264,22 +284,22 @@ func (s *Suite) run() (errLevel int) {
 
 	defer func() {
 		end := time.Now()
-		scopes.CI.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
+		scopes.Framework.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
 	}()
 
 	attempt := 0
 	for attempt <= ctx.settings.Retries {
 		attempt++
-		scopes.CI.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
+		scopes.Framework.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
 		errLevel = s.mRun(ctx)
 		if errLevel == 0 {
-			scopes.CI.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
 			break
 		} else {
-			scopes.CI.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
+			scopes.Framework.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
 				ctx.Settings().TestID, errLevel)
 			if attempt <= ctx.settings.Retries {
-				scopes.CI.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
+				scopes.Framework.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
 			}
 		}
 	}
@@ -320,7 +340,7 @@ func (s *Suite) writeOutput() {
 }
 
 func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
-	scopes.CI.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
 
 	// Run all the require functions first, then the setup functions.
 	setupFns := append(append([]resource.SetupFn{}, s.requireFns...), s.setupFns...)
@@ -329,7 +349,7 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 		err := s.runSetupFn(fn, ctx)
 		if err != nil {
 			scopes.Framework.Errorf("Test setup error: %v", err)
-			scopes.CI.Infof("=== FAILED: Setup: '%s' (%v) ===", ctx.Settings().TestID, err)
+			scopes.Framework.Infof("=== FAILED: Setup: '%s' (%v) ===", ctx.Settings().TestID, err)
 			return err
 		}
 
@@ -337,7 +357,7 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 			return nil
 		}
 	}
-	scopes.CI.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
 	return nil
 }
 
@@ -367,9 +387,9 @@ func initRuntime(s *Suite) error {
 		return err
 	}
 
-	scopes.CI.Infof("=== Test Framework Settings ===")
-	scopes.CI.Info(settings.String())
-	scopes.CI.Infof("===============================")
+	scopes.Framework.Infof("=== Test Framework Settings ===")
+	scopes.Framework.Info(settings.String())
+	scopes.Framework.Infof("===============================")
 
 	// Ensure that the work dir is set.
 	if err := os.MkdirAll(settings.RunDir(), os.ModePerm); err != nil {

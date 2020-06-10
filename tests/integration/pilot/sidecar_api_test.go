@@ -62,7 +62,9 @@ func TestSidecarListeners(t *testing.T) {
 			config := mustReadFile(t, "../../config/se-example.yaml")
 			ctx.ApplyConfigOrFail(t, "", config)
 			defer func() {
-				ctx.DeleteConfigOrFail(t, "", config)
+				if err := ctx.DeleteConfigDir("", path); err != nil {
+					scopes.Framework.Errorf("failed to delete directory: %v", err)
+				}
 			}()
 
 			// Now continue to watch on the same stream

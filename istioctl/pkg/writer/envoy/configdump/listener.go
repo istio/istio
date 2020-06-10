@@ -17,10 +17,15 @@ package configdump
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_extensions_filters_network_tcp_proxy_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
@@ -41,6 +46,7 @@ type ListenerFilter struct {
 	Address string
 	Port    uint32
 	Type    string
+	Verbose bool
 }
 
 // Verify returns true if the passed listener matches the filter fields
@@ -102,16 +108,209 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(w, "ADDRESS\tPORT\tTYPE")
-	for _, listener := range listeners {
-		if filter.Verify(listener) {
-			address := retrieveListenerAddress(listener)
-			port := retrieveListenerPort(listener)
-			listenerType := retrieveListenerType(listener)
+
+	verifiedListeners := []*listener.Listener{}
+	for _, l := range listeners {
+		if filter.Verify(l) {
+			verifiedListeners = append(verifiedListeners, l)
+		}
+	}
+
+	// Sort by port, addr, type
+	sort.Slice(verifiedListeners, func(i, j int) bool {
+		iPort := retrieveListenerPort(verifiedListeners[i])
+		jPort := retrieveListenerPort(verifiedListeners[j])
+		if iPort != jPort {
+			return iPort < jPort
+		}
+		iAddr := retrieveListenerAddress(verifiedListeners[i])
+		jAddr := retrieveListenerAddress(verifiedListeners[j])
+		if iAddr != jAddr {
+			return iAddr < jAddr
+		}
+		iType := retrieveListenerType(verifiedListeners[i])
+		jType := retrieveListenerType(verifiedListeners[j])
+		return iType < jType
+	})
+
+	if filter.Verbose {
+		fmt.Fprintln(w, "ADDRESS\tPORT\tMATCH\tDESTINATION")
+	} else {
+		fmt.Fprintln(w, "ADDRESS\tPORT\tTYPE")
+	}
+	for _, l := range verifiedListeners {
+		address := retrieveListenerAddress(l)
+		port := retrieveListenerPort(l)
+		if filter.Verbose {
+
+			matches := retrieveListenerMatches(l)
+			sort.Slice(matches, func(i, j int) bool {
+				return matches[i].destination > matches[j].destination
+			})
+			for _, match := range matches {
+				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", address, port, match.match, match.destination)
+			}
+		} else {
+			listenerType := retrieveListenerType(l)
 			fmt.Fprintf(w, "%v\t%v\t%v\n", address, port, listenerType)
 		}
 	}
 	return w.Flush()
+}
+
+type filterchain struct {
+	match       string
+	destination string
+}
+
+var (
+	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
+	istioHTTPPlaintext = []string{"istio", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	httpTLS            = []string{"http/1.0", "http/1.1", "h2c", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	tcpTLS             = []string{"istio-peer-exchange", "istio"}
+
+	protDescrs = map[string][]string{
+		"App: HTTP TLS":         httpTLS,
+		"App: Istio HTTP Plain": istioHTTPPlaintext,
+		"App: TCP TLS":          tcpTLS,
+		"App: HTTP":             plaintextHTTPALPNs,
+	}
+)
+
+func retrieveListenerMatches(l *listener.Listener) []filterchain {
+	resp := []filterchain{}
+	for _, filterChain := range l.GetFilterChains() {
+		match := filterChain.FilterChainMatch
+		if match == nil {
+			match = &listener.FilterChainMatch{}
+		}
+		// filterChaince also has SuffixLen, SourceType, SourcePrefixRanges which are not rendered.
+
+		descrs := []string{}
+		if len(match.ServerNames) > 0 {
+			descrs = append(descrs, fmt.Sprintf("SNI: %s", strings.Join(match.ServerNames, ",")))
+		}
+		if len(match.TransportProtocol) > 0 {
+			descrs = append(descrs, fmt.Sprintf("Trans: %s", match.TransportProtocol))
+		}
+
+		if len(match.ApplicationProtocols) > 0 {
+			found := false
+			for protDescr, protocols := range protDescrs {
+				if reflect.DeepEqual(match.ApplicationProtocols, protocols) {
+					found = true
+					descrs = append(descrs, protDescr)
+					break
+				}
+			}
+			if !found {
+				descrs = append(descrs, fmt.Sprintf("App: %s", strings.Join(match.ApplicationProtocols, ",")))
+			}
+		}
+
+		port := ""
+		if match.DestinationPort != nil {
+			port = fmt.Sprintf(":%d", match.DestinationPort.GetValue())
+		}
+		if match.AddressSuffix != "" {
+			descrs = append(descrs, fmt.Sprintf("Addr: %s%s", match.AddressSuffix, port))
+		}
+		if len(match.PrefixRanges) > 0 {
+			pf := []string{}
+			for _, p := range match.PrefixRanges {
+				pf = append(pf, fmt.Sprintf("%s/%d", p.AddressPrefix, p.GetPrefixLen().GetValue()))
+			}
+			descrs = append(descrs, fmt.Sprintf("Addr: %s%s", strings.Join(pf, ","), port))
+		}
+		if len(descrs) == 0 {
+			descrs = []string{"ALL"}
+		}
+		fc := filterchain{
+			destination: getFilterType(filterChain.GetFilters()),
+			match:       strings.Join(descrs, "; "),
+		}
+		resp = append(resp, fc)
+	}
+	return resp
+}
+
+func getFilterType(filters []*listener.Filter) string {
+	for _, filter := range filters {
+		if filter.Name == HTTPListener {
+
+			httpProxy := &httpConn.HttpConnectionManager{}
+			// Allow Unmarshal to work even if Envoy and istioctl are different
+			filter.GetTypedConfig().TypeUrl = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+			err := ptypes.UnmarshalAny(filter.GetTypedConfig(), httpProxy)
+			if err != nil {
+				return err.Error()
+			}
+			if httpProxy.GetRouteConfig() != nil {
+				return describeRouteConfig(httpProxy.GetRouteConfig())
+			}
+			if httpProxy.GetRds().GetRouteConfigName() != "" {
+				return fmt.Sprintf("Route: %s", httpProxy.GetRds().GetRouteConfigName())
+			}
+			return "HTTP"
+		} else if filter.Name == TCPListener {
+			if !strings.Contains(string(filter.GetTypedConfig().GetValue()), util.BlackHoleCluster) {
+				tcpProxy := &envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy{}
+				// Allow Unmarshal to work even if Envoy and istioctl are different
+				filter.GetTypedConfig().TypeUrl = "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy"
+				err := ptypes.UnmarshalAny(filter.GetTypedConfig(), tcpProxy)
+				if err != nil {
+					return err.Error()
+				}
+				if strings.Contains(tcpProxy.GetCluster(), "Cluster") {
+					return tcpProxy.GetCluster()
+				}
+				return fmt.Sprintf("Cluster: %s", tcpProxy.GetCluster())
+			}
+		}
+	}
+	return "Non-HTTP/Non-TCP"
+}
+
+func describeRouteConfig(route *route.RouteConfiguration) string {
+	vhosts := []string{}
+	for _, vh := range route.GetVirtualHosts() {
+		if describeDomains(vh) == "" {
+			vhosts = append(vhosts, describeRoutes(vh))
+		} else {
+			vhosts = append(vhosts, fmt.Sprintf("%s %s", describeDomains(vh), describeRoutes(vh)))
+		}
+	}
+	return fmt.Sprintf("Inline Route: %s", strings.Join(vhosts, "; "))
+}
+
+func describeDomains(vh *route.VirtualHost) string {
+	if len(vh.GetDomains()) == 1 && vh.GetDomains()[0] == "*" {
+		return ""
+	}
+	return strings.Join(vh.GetDomains(), "/")
+}
+
+func describeRoutes(vh *route.VirtualHost) string {
+	routes := []string{}
+	for _, route := range vh.GetRoutes() {
+		routes = append(routes, describeMatch(route.GetMatch()))
+	}
+	return strings.Join(routes, ", ")
+}
+
+func describeMatch(match *route.RouteMatch) string {
+	conds := []string{}
+	if match.GetPrefix() != "" {
+		conds = append(conds, fmt.Sprintf("%s*", match.GetPrefix()))
+	}
+	if match.GetPath() != "" {
+		conds = append(conds, match.GetPath())
+	}
+	if match.GetSafeRegex() != nil {
+		conds = append(conds, fmt.Sprintf("regex %s", match.GetSafeRegex().String()))
+	}
+	// Ignore headers
+	return strings.Join(conds, " ")
 }
 
 // PrintListenerDump prints the relevant listeners in the config dump to the ConfigWriter stdout
@@ -139,7 +338,7 @@ func (c *ConfigWriter) setupListenerConfigWriter() (*tabwriter.Writer, []*listen
 	if err != nil {
 		return nil, nil, err
 	}
-	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
+	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 1, ' ', 0)
 	return w, listeners, nil
 }
 

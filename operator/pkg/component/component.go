@@ -113,14 +113,14 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 	return component
 }
 
-// CRDComponent is the pilot component.
-type CRDComponent struct {
+// BaseComponent is the base component.
+type BaseComponent struct {
 	*CommonComponentFields
 }
 
-// NewCRDComponent creates a new CRDComponent and returns a pointer to it.
-func NewCRDComponent(opts *Options) *CRDComponent {
-	return &CRDComponent{
+// NewCRDComponent creates a new BaseComponent and returns a pointer to it.
+func NewCRDComponent(opts *Options) *BaseComponent {
+	return &BaseComponent{
 		&CommonComponentFields{
 			Options:       opts,
 			ComponentName: name.IstioBaseComponentName,
@@ -129,32 +129,32 @@ func NewCRDComponent(opts *Options) *CRDComponent {
 }
 
 // Run implements the IstioComponent interface.
-func (c *CRDComponent) Run() error {
+func (c *BaseComponent) Run() error {
 	return runComponent(c.CommonComponentFields)
 }
 
 // RenderManifest implements the IstioComponent interface.
-func (c *CRDComponent) RenderManifest() (string, error) {
+func (c *BaseComponent) RenderManifest() (string, error) {
 	return renderManifest(c, c.CommonComponentFields)
 }
 
 // ComponentName implements the IstioComponent interface.
-func (c *CRDComponent) ComponentName() name.ComponentName {
+func (c *BaseComponent) ComponentName() name.ComponentName {
 	return c.CommonComponentFields.ComponentName
 }
 
 // ResourceName implements the IstioComponent interface.
-func (c *CRDComponent) ResourceName() string {
+func (c *BaseComponent) ResourceName() string {
 	return c.CommonComponentFields.ResourceName
 }
 
 // Namespace implements the IstioComponent interface.
-func (c *CRDComponent) Namespace() string {
+func (c *BaseComponent) Namespace() string {
 	return c.CommonComponentFields.Namespace
 }
 
 // Enabled implements the IstioComponent interface.
-func (c *CRDComponent) Enabled() bool {
+func (c *BaseComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 

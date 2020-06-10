@@ -95,8 +95,8 @@ var leaderElectionConfigMaps = []string{
 }
 
 func (i *operatorComponent) Close() (err error) {
-	scopes.CI.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
-	defer scopes.CI.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
+	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
+	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
 		for _, cluster := range i.environment.KubeClusters {
 			if e := cluster.DeleteContents("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
@@ -122,12 +122,12 @@ func (i *operatorComponent) Close() (err error) {
 }
 
 func (i *operatorComponent) Dump() {
-	scopes.CI.Errorf("=== Dumping Istio Deployment State...")
+	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
 
 	for _, cluster := range i.environment.KubeClusters {
 		d, err := i.ctx.CreateTmpDirectory(fmt.Sprintf("istio-state-%s", cluster.Name()))
 		if err != nil {
-			scopes.CI.Errorf("Unable to create directory for dumping Istio contents: %v", err)
+			scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 			return
 		}
 		cluster.DumpPods(d, i.settings.SystemNamespace)
@@ -135,9 +135,9 @@ func (i *operatorComponent) Dump() {
 }
 
 func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {
-	scopes.CI.Infof("=== Istio Component Config ===")
-	scopes.CI.Infof("\n%s", cfg.String())
-	scopes.CI.Infof("================================")
+	scopes.Framework.Infof("=== Istio Component Config ===")
+	scopes.Framework.Infof("\n%s", cfg.String())
+	scopes.Framework.Infof("================================")
 
 	i := &operatorComponent{
 		environment:     env,
@@ -231,7 +231,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 }
 
 func createCrossNetworkGateway(cluster kube.Cluster, cfg Config) error {
-	scopes.CI.Infof("Setting up cross-network-gateway in cluster: %s namespace: %s", cluster.Name(), cfg.SystemNamespace)
+	scopes.Framework.Infof("Setting up cross-network-gateway in cluster: %s namespace: %s", cluster.Name(), cfg.SystemNamespace)
 	_, err := cluster.ApplyContents(cfg.SystemNamespace, fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -332,7 +332,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		"--skip-confirmation",
 	}
 	cmd = append(cmd, installSettings...)
-	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
+	scopes.Framework.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
 	if _, _, err := istioCtl.Invoke(cmd); err != nil {
 		return fmt.Errorf("manifest apply failed: %v", err)
 	}
@@ -413,7 +413,7 @@ func createRemoteSecret(ctx resource.Context, cluster kube.Cluster) (string, err
 		"--name", cluster.Name(),
 	}
 
-	scopes.CI.Infof("Creating remote secret for cluster cluster %d %v", cluster.Index(), cmd)
+	scopes.Framework.Infof("Creating remote secret for cluster cluster %d %v", cluster.Index(), cmd)
 	out, _, err := istioCtl.Invoke(cmd)
 	if err != nil {
 		return "", fmt.Errorf("create remote secret failed for cluster %d: %v", cluster.Index(), err)
@@ -460,13 +460,13 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 
 		// Create the system namespace.
 		if err := cluster.CreateNamespace(cfg.SystemNamespace, ""); err != nil {
-			scopes.CI.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+
+			scopes.Framework.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+
 				"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
 		}
 
 		// Create the secret for the cacerts.
 		if err := cluster.CreateSecret(cfg.SystemNamespace, secret); err != nil {
-			scopes.CI.Infof("failed to create CA secrets on cluster %s. This can happen when deploying "+
+			scopes.Framework.Infof("failed to create CA secrets on cluster %s. This can happen when deploying "+
 				"multiple control planes. Error: %v", cluster.Name(), err)
 		}
 	}

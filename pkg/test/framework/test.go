@@ -22,11 +22,13 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -248,7 +250,7 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 
 	start := time.Now()
 
-	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
+	scopes.Framework.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
 	defer func() {
 		doneFn := func() {
 			message := "passed"
@@ -256,7 +258,7 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 				message = "failed"
 			}
 			end := time.Now()
-			scopes.CI.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
+			scopes.Framework.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
 				message,
 				rt.suiteContext().Settings().TestID,
 				t.goTest.Name(),

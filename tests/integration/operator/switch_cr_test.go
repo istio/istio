@@ -106,7 +106,7 @@ func TestController(t *testing.T) {
 			installWithCRFile(t, ctx, cs, s, istioCtl, "demo")
 			// cleanup created resources
 			t.Cleanup(func() {
-				scopes.CI.Infof("cleaning up resources")
+				scopes.Framework.Infof("cleaning up resources")
 				if err := cs.Delete(IstioNamespace, iopCRFile); err != nil {
 					t.Errorf("faild to delete test IstioOperator CR: %v", err)
 				}
@@ -119,7 +119,7 @@ func TestController(t *testing.T) {
 
 // checkInstallStatus check the status of IstioOperator CR from the cluster
 func checkInstallStatus(cs kube.Cluster) error {
-	scopes.CI.Infof("checking IstioOperator CR status")
+	scopes.Framework.Infof("checking IstioOperator CR status")
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
 		Version:  "v1alpha1",
@@ -176,7 +176,7 @@ func checkInstallStatus(cs kube.Cluster) error {
 
 func installWithCRFile(t *testing.T, ctx resource.Context, cs kube.Cluster, s *image.Settings,
 	istioCtl istioctl.Instance, profileName string) {
-	scopes.CI.Infof(fmt.Sprintf("=== install istio with profile: %s===\n", profileName))
+	scopes.Framework.Infof(fmt.Sprintf("=== install istio with profile: %s===\n", profileName))
 	metadataYAML := `
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
@@ -207,7 +207,7 @@ spec:
 // verifyInstallation verify IOP CR status and compare in-cluster resources with generated ones.
 func verifyInstallation(t *testing.T, ctx resource.Context,
 	istioCtl istioctl.Instance, profileName string, cs kube.Cluster) {
-	scopes.CI.Infof("=== verifying istio installation === ")
+	scopes.Framework.Infof("=== verifying istio installation === ")
 	if err := checkInstallStatus(cs); err != nil {
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
@@ -220,11 +220,11 @@ func verifyInstallation(t *testing.T, ctx resource.Context,
 		t.Fatalf("in cluster resources does not match with the generated ones: %v", err)
 	}
 	sanityCheck(t, ctx)
-	scopes.CI.Infof("=== succeeded ===")
+	scopes.Framework.Infof("=== succeeded ===")
 }
 
 func sanityCheck(t *testing.T, ctx resource.Context) {
-	scopes.CI.Infof("running sanity test")
+	scopes.Framework.Infof("running sanity test")
 	var client, server echo.Instance
 	test := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "default",
