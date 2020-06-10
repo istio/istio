@@ -102,7 +102,7 @@ func CreateCASecret(ctx resource.Context) error {
 		},
 	}
 
-	err = kubeAccessor.CreateSecret(systemNs.Name(), secret)
+	_, err = kubeAccessor.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,8 @@ func CreateCASecret(ctx resource.Context) error {
 	// the resources from a previous integration test are not deleted.
 	configMapName := "istio-ca-root-cert"
 	kEnv := ctx.Environment().(*kube.Environment)
-	err = kEnv.KubeClusters[0].DeleteConfigMap(configMapName, systemNs.Name())
+	err = kEnv.KubeClusters[0].CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
+		metav1.DeleteOptions{})
 	if err == nil {
 		log.Infof("configmap %v is deleted", configMapName)
 	} else {

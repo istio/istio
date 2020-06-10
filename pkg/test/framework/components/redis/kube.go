@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -98,7 +99,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.RedisInstallFilePath, err)
 	}
 
-	fetchFn := c.cluster.NewPodFetch(c.ns.Name(), "app=redis")
+	fetchFn := kube2.NewPodFetch(c.cluster.Accessor, c.ns.Name(), "app=redis")
 	if _, err := c.cluster.WaitUntilPodsAreReady(fetchFn); err != nil {
 		return nil, err
 	}
