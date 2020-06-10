@@ -232,7 +232,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 	go receiveThread(con, reqChannel, &receiveError)
 
-	var node *core.Node
 	for {
 		// Block until a request is received.
 		select {
@@ -241,12 +240,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				// Remote side closed connection.
 				sdsServiceLog.Errorf("Remote side closed connection")
 				return receiveError
-			}
-
-			if discReq.Node == nil {
-				discReq.Node = node
-			} else {
-				node = discReq.Node
 			}
 
 			resourceName, err := getResourceName(discReq)
