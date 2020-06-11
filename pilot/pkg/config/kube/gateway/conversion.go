@@ -79,14 +79,14 @@ func findByName(name, namespace string, cfgs []model.Config) *model.Config {
 
 func convertResources(r *KubernetesResources) IstioResources {
 	result := IstioResources{}
-	gw, routeMap := convertGateway(r)
-	vs := convertVirtualService(r, routeMap)
+	gw, routeMap := convertGateways(r)
+	vs := convertVirtualServices(r, routeMap)
 	result.Gateway = gw
 	result.VirtualService = vs
 	return result
 }
 
-func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSpec][]string) []model.Config {
+func convertVirtualServices(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSpec][]string) []model.Config {
 	result := []model.Config{}
 	// TODO implement this once the API does. For now just iterate to make sure types work
 	for _, obj := range r.TrafficSplit {
@@ -97,67 +97,71 @@ func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSp
 		_ = obj.Spec.(*k8s.TcpRouteSpec)
 	}
 	for _, obj := range r.HTTPRoute {
-		route := obj.Spec.(*k8s.HTTPRouteSpec)
-		name := obj.Name + "-" + constants.KubernetesGatewayName
-
-		gateways, f := routeMap[route]
-		if !f {
-			continue
-		}
-
-		httproutes := []*istio.HTTPRoute{}
-		hosts := []string{}
-		for _, h := range route.Hosts {
-			// TODO does flattening here work?
-			hosts = append(hosts, h.Hostname)
-			for _, r := range h.Rules {
-				vs := &istio.HTTPRoute{
-					Match:            nil,
-					Route:            nil,
-					Redirect:         nil,
-					Rewrite:          nil,
-					Timeout:          nil,
-					Retries:          nil,
-					Fault:            nil,
-					Mirror:           nil,
-					MirrorPercentage: nil,
-					CorsPolicy:       nil,
-					//Headers:               nil,
-				}
-				if r.Match != nil {
-					vs.Match = []*istio.HTTPMatchRequest{{
-						Uri:     createURIMatch(r.Match),
-						Headers: createHeadersMatch(r.Match),
-					}}
-				}
-				if r.Filter != nil {
-					vs.Headers = createHeadersFilter(r.Filter.Headers)
-				}
-				// TODO this should be required? in the spec
-				if r.Action != nil {
-					vs.Route = createRoute(r.Action, obj.Namespace)
-				}
-				httproutes = append(httproutes, vs)
-			}
-		}
-		vsConfig := model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-				Group:     collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group(),
-				Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-				Name:      name,
-				Namespace: obj.Namespace,
-				Domain:    "", // TODO hardcoded
-			},
-			Spec: &istio.VirtualService{
-				Hosts:    hosts,
-				Gateways: gateways,
-				Http:     httproutes,
-			},
-		}
-		result = append(result, vsConfig)
+		result = append(result, convertVirtualService(obj, routeMap))
 	}
 	return result
+}
+
+func convertVirtualService(obj model.Config, routeMap map[*k8s.HTTPRouteSpec][]string) model.Config {
+	route := obj.Spec.(*k8s.HTTPRouteSpec)
+	name := obj.Name + "-" + constants.KubernetesGatewayName
+
+	gateways, f := routeMap[route]
+	if !f {
+		return model.Config{}
+	}
+
+	httproutes := []*istio.HTTPRoute{}
+	hosts := []string{}
+	for _, h := range route.Hosts {
+		// TODO does flattening here work?
+		hosts = append(hosts, h.Hostname)
+		for _, r := range h.Rules {
+			vs := &istio.HTTPRoute{
+				Match:            nil,
+				Route:            nil,
+				Redirect:         nil,
+				Rewrite:          nil,
+				Timeout:          nil,
+				Retries:          nil,
+				Fault:            nil,
+				Mirror:           nil,
+				MirrorPercentage: nil,
+				CorsPolicy:       nil,
+				//Headers:               nil,
+			}
+			if r.Match != nil {
+				vs.Match = []*istio.HTTPMatchRequest{{
+					Uri:     createURIMatch(r.Match),
+					Headers: createHeadersMatch(r.Match),
+				}}
+			}
+			if r.Filter != nil {
+				vs.Headers = createHeadersFilter(r.Filter.Headers)
+			}
+			// TODO this should be required? in the spec
+			if r.Action != nil {
+				vs.Route = createRoute(r.Action, obj.Namespace)
+			}
+			httproutes = append(httproutes, vs)
+		}
+	}
+	vsConfig := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+			Group:     collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group(),
+			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+			Name:      name,
+			Namespace: obj.Namespace,
+			Domain:    "", // TODO hardcoded
+		},
+		Spec: &istio.VirtualService{
+			Hosts:    hosts,
+			Gateways: gateways,
+			Http:     httproutes,
+		},
+	}
+	return vsConfig
 }
 
 // TODO support traffic split
@@ -248,46 +252,16 @@ func getGatewayClasses(r *KubernetesResources) map[string]struct{} {
 	return classes
 }
 
-func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteSpec][]string) {
+func convertGateways(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteSpec][]string) {
 	result := []model.Config{}
 	routeToGateway := map[*k8s.HTTPRouteSpec][]string{}
 	classes := getGatewayClasses(r)
 	for _, obj := range r.Gateway {
+		name := obj.Name + "-" + constants.KubernetesGatewayName
 		kgw := obj.Spec.(*k8s.GatewaySpec)
 		if _, f := classes[kgw.Class]; !f {
 			// No gateway class found, this may be meant for another controller; should be skipped.
 			continue
-		}
-		name := obj.Name + "-" + constants.KubernetesGatewayName
-		var servers []*istio.Server
-		for _, l := range kgw.Listeners {
-			if l.Port == nil {
-				// TODO this is optional in spec
-				// TODO propagate errors to status
-				log.Warnf("invalid listener, port is nil: %v", l)
-				continue
-			}
-			if l.Protocol == nil {
-				// TODO this is optional in spec
-				// TODO propagate errors to status
-				log.Warnf("invalid listener, protocol is nil: %v", l)
-				continue
-			}
-			server := &istio.Server{
-				Port: &istio.Port{
-					Number:   uint32(*l.Port),
-					Protocol: *l.Protocol,
-					Name:     fmt.Sprintf("%v-%v-gateway-%s-%s", strings.ToLower(*l.Protocol), *l.Port, obj.Name, obj.Namespace),
-				},
-			}
-			if l.Address == nil {
-				server.Hosts = []string{"*"}
-			} else {
-				// TODO: support addressType
-				server.Hosts = []string{l.Address.Value}
-			}
-
-			servers = append(servers, server)
 		}
 		for _, route := range kgw.Routes {
 			r, f := r.LookupReference(route, obj.Namespace)
@@ -307,22 +281,59 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 				continue
 			}
 		}
-		gatewayConfig := model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(),
-				Group:     collections.IstioNetworkingV1Alpha3Gateways.Resource().Group(),
-				Version:   collections.IstioNetworkingV1Alpha3Gateways.Resource().Version(),
-				Name:      name,
-				Namespace: obj.Namespace,
-				Domain:    "", // TODO hardcoded
-			},
-			Spec: &istio.Gateway{
-				Servers: servers,
-				// TODO derive this from gatewayclass param ref
-				Selector: labels.Instance{constants.IstioLabel: "ingressgateway"},
-			},
-		}
+		gatewayConfig := convertGateway(obj)
 		result = append(result, gatewayConfig)
 	}
 	return result, routeToGateway
+}
+
+func convertGateway(obj model.Config) model.Config {
+	name := obj.Name + "-" + constants.KubernetesGatewayName
+	var servers []*istio.Server
+	kgw := obj.Spec.(*k8s.GatewaySpec)
+	for _, l := range kgw.Listeners {
+		if l.Port == nil {
+			// TODO this is optional in spec
+			// TODO propagate errors to status
+			log.Warnf("invalid listener, port is nil: %v", l)
+			continue
+		}
+		if l.Protocol == nil {
+			// TODO this is optional in spec
+			// TODO propagate errors to status
+			log.Warnf("invalid listener, protocol is nil: %v", l)
+			continue
+		}
+		server := &istio.Server{
+			Port: &istio.Port{
+				Number:   uint32(*l.Port),
+				Protocol: *l.Protocol,
+				Name:     fmt.Sprintf("%v-%v-gateway-%s-%s", strings.ToLower(*l.Protocol), *l.Port, obj.Name, obj.Namespace),
+			},
+		}
+		if l.Address == nil {
+			server.Hosts = []string{"*"}
+		} else {
+			// TODO: support addressType
+			server.Hosts = []string{l.Address.Value}
+		}
+
+		servers = append(servers, server)
+	}
+	gatewayConfig := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(),
+			Group:     collections.IstioNetworkingV1Alpha3Gateways.Resource().Group(),
+			Version:   collections.IstioNetworkingV1Alpha3Gateways.Resource().Version(),
+			Name:      name,
+			Namespace: obj.Namespace,
+			Domain:    "", // TODO hardcoded
+		},
+		Spec: &istio.Gateway{
+			Servers: servers,
+			// TODO derive this from gatewayclass param ref
+			Selector: labels.Instance{constants.IstioLabel: "ingressgateway"},
+		},
+	}
+	return gatewayConfig
 }

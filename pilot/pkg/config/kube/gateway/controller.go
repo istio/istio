@@ -18,24 +18,35 @@ import (
 	"fmt"
 
 	"k8s.io/client-go/kubernetes"
+	k8s "sigs.k8s.io/service-apis/api/v1alpha1"
 	svc "sigs.k8s.io/service-apis/api/v1alpha1"
 
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/pkg/ledger"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 )
 
 var (
-	vsType      = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
-	gatewayType = collections.IstioNetworkingV1Alpha3Gateways.Resource()
+	vsType             = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+	gatewayType        = collections.IstioNetworkingV1Alpha3Gateways.Resource()
+	errUnsupportedOp   = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
+	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway & virutal service resource type")
+	_                  = svc.HTTPRoute{}
+	_                  = svc.GatewayClass{}
 )
 
 type controller struct {
 	client kubernetes.Interface
 	cache  model.ConfigStoreCache
+}
+
+// NewController provides a new Controller controller
+func NewController(client kubernetes.Interface, c model.ConfigStoreCache) model.ConfigStoreCache {
+	return &controller{client, c}
 }
 
 func (c *controller) GetLedger() ledger.Ledger {
@@ -54,15 +65,71 @@ func (c *controller) Schemas() collection.Schemas {
 }
 
 func (c controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
-	panic("implement me")
-}
+	if typ != gatewayType.GroupVersionKind() && typ != vsType.GroupVersionKind() {
+		log.Warn(errUnsupportedType.Error())
+		return nil
+	}
 
-var _ = svc.HTTPRoute{}
-var _ = svc.GatewayClass{}
+	gatewayClass := c.cache.Get(collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(), name, namespace)
+	if gatewayClass == nil {
+		return nil
+	}
+	gateway := c.cache.Get(collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(), name, namespace)
+	if gateway == nil {
+		return nil
+	}
+
+	httpRoute := c.cache.Get(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), name, namespace)
+	tcpRoute := c.cache.Get(collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(), name, namespace)
+	trafficSplit := c.cache.Get(collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(), name, namespace)
+
+	input := &KubernetesResources{
+		GatewayClass: []model.Config{*gatewayClass},
+		Gateway:      []model.Config{*gateway},
+		HTTPRoute:    []model.Config{*httpRoute},
+		TCPRoute:     []model.Config{*tcpRoute},
+		TrafficSplit: []model.Config{*trafficSplit},
+	}
+	classes := getGatewayClasses(input)
+	kgw := gateway.Spec.(*k8s.GatewaySpec)
+	if _, f := classes[kgw.Class]; !f {
+		// No gateway class found, this may be meant for another controller; should be skipped.
+		return nil
+	}
+	routeToGateway := map[*k8s.HTTPRouteSpec][]string{}
+	for _, route := range kgw.Routes {
+		r, f := input.LookupReference(route, gateway.Namespace)
+		if !f {
+			// TODO propagate errors to status
+			log.Warnf("route %v/%v not found", route.Resource, route.Name)
+			continue
+		}
+		switch r.Type {
+		case collections.K8SServiceApisV1Alpha1Httproutes.Resource().Kind():
+			http := r.Spec.(*k8s.HTTPRouteSpec)
+			routeToGateway[http] = append(routeToGateway[http], name)
+		case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().Kind():
+			// TODO implement this once the spec is defined
+		default:
+			log.Warnf("unsupported typed %v", r.Type)
+			continue
+		}
+	}
+	gwCfg := convertGateway(*gateway)
+	vsCfg := convertVirtualService(*httpRoute, routeToGateway)
+
+	switch typ {
+	case gatewayType.GroupVersionKind():
+		return &gwCfg
+	case vsType.GroupVersionKind():
+		return &vsCfg
+	}
+	return nil
+}
 
 func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	if typ != gatewayType.GroupVersionKind() && typ != vsType.GroupVersionKind() {
-		return nil, errUnsupportedOp
+		return nil, errUnsupportedType
 	}
 
 	gatewayClass, err := c.cache.List(collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(), namespace)
@@ -104,10 +171,6 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 	return nil, errUnsupportedOp
 }
 
-var (
-	errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
-)
-
 func (c controller) Create(config model.Config) (revision string, err error) {
 	return "", errUnsupportedOp
 }
@@ -139,8 +202,4 @@ func (c controller) Run(stop <-chan struct{}) {
 
 func (c controller) HasSynced() bool {
 	return c.cache.HasSynced()
-}
-
-func NewController(client kubernetes.Interface, c model.ConfigStoreCache) model.ConfigStoreCache {
-	return &controller{client, c}
 }
