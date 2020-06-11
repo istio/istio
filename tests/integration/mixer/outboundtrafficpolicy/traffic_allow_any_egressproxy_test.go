@@ -22,11 +22,11 @@ import (
 	"text/template"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -121,8 +121,8 @@ func TestSidecarConfig(t *testing.T) {
 		}
 		p, nodeID := setupTest(t, ctx, configFn)
 
-		listenerReq := &xdsapi.DiscoveryRequest{
-			Node: &xdscore.Node{
+		listenerReq := &discovery.DiscoveryRequest{
+			Node: &core.Node{
 				Id: nodeID.ServiceNode(),
 			},
 			TypeUrl: v2.ListenerType,
@@ -135,8 +135,8 @@ func TestSidecarConfig(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		routeReq := &xdsapi.DiscoveryRequest{
-			Node: &xdscore.Node{
+		routeReq := &discovery.DiscoveryRequest{
+			Node: &core.Node{
 				Id: nodeID.ServiceNode(),
 			},
 			TypeUrl:       v2.RouteType,
@@ -152,7 +152,7 @@ func TestSidecarConfig(t *testing.T) {
 	})
 }
 
-func checkFallThroughRouteConfig(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+func checkFallThroughRouteConfig(resp *discovery.DiscoveryResponse) (success bool, e error) {
 	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
 	for _, res := range resp.Resources {
 		rc := &route.RouteConfiguration{}
@@ -178,7 +178,7 @@ func checkFallThroughRouteConfig(resp *xdsapi.DiscoveryResponse) (success bool, 
 	return true, nil
 }
 
-func checkFallThroughNetworkFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+func checkFallThroughNetworkFilter(resp *discovery.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]struct{}{
 		"virtualInbound":  {},
 		"virtualOutbound": {},

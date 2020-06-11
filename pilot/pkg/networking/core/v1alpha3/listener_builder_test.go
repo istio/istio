@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/features"
+	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -300,12 +301,12 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	l := listeners[1]
 	originalSrcFilterFound := false
 	for _, lf := range l.ListenerFilters {
-		if lf.Name == OriginalSrc {
+		if lf.Name == xdsfilters.OriginalSrcFilterName {
 			originalSrcFilterFound = true
 			break
 		}
 	}
 	if !originalSrcFilterFound {
-		t.Fatalf("listener filter %s expected", OriginalSrc)
+		t.Fatalf("listener filter %s expected", xdsfilters.OriginalSrcFilterName)
 	}
 }

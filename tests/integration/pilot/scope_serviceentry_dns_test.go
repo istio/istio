@@ -20,8 +20,9 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/proto"
 
 	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
@@ -38,8 +39,8 @@ func TestServiceEntryDNS(t *testing.T) {
 		}
 		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
-		req := &xdsapi.DiscoveryRequest{
-			Node: &xdscore.Node{
+		req := &discovery.DiscoveryRequest{
+			Node: &core.Node{
 				Id: nodeID.ServiceNode(),
 			},
 			TypeUrl: v3.ClusterType,
@@ -63,8 +64,8 @@ func TestServiceEntryDNSNoSelfImport(t *testing.T) {
 		}
 		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
-		req := &xdsapi.DiscoveryRequest{
-			Node: &xdscore.Node{
+		req := &discovery.DiscoveryRequest{
+			Node: &core.Node{
 				Id: nodeID.ServiceNode(),
 			},
 			TypeUrl: v3.ClusterType,
@@ -79,19 +80,19 @@ func TestServiceEntryDNSNoSelfImport(t *testing.T) {
 	})
 }
 
-func checkEndpoint(name string) func(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
-	return func(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+func checkEndpoint(name string) func(resp *discovery.DiscoveryResponse) (success bool, e error) {
+	return func(resp *discovery.DiscoveryResponse) (success bool, e error) {
 		return checkResultDNS(name, resp)
 	}
 }
 
-func checkResultDNS(expect string, resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+func checkResultDNS(expect string, resp *discovery.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]int{
 		expect: 1,
 	}
 
 	for _, res := range resp.Resources {
-		c := &xdsapi.Cluster{}
+		c := &cluster.Cluster{}
 		if err := proto.Unmarshal(res.Value, c); err != nil {
 			return false, err
 		}

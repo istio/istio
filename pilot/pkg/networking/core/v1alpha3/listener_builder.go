@@ -35,6 +35,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -134,7 +135,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// UseOriginalDst: proto.BoolTrue,
 	lb.virtualInboundListener.HiddenEnvoyDeprecatedUseOriginalDst = nil
 	lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters,
-		originalDestinationFilter,
+		xdsfilters.OriginalDestination,
 	)
 	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
@@ -148,12 +149,12 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 
 	if needTLS || needTLSForPassThroughFilterChain {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, tlsInspectorFilter)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.TLSInspector)
 	}
 
 	if lb.node.GetInterceptionMode() == model.InterceptionTproxy {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, originalSrcFilter)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.OriginalSrc)
 	}
 
 	// Note: the HTTP inspector should be after TLS inspector.
@@ -161,7 +162,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// won't inspect the packet.
 	if features.EnableProtocolSniffingForInbound {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, httpInspectorFilter)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.HTTPInspector)
 	}
 
 	timeout := features.InboundProtocolDetectionTimeout

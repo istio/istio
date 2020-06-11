@@ -18,10 +18,11 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -45,11 +46,11 @@ func TestSidecarListeners(t *testing.T) {
 			}
 
 			// Start the xDS stream containing the listeners for this node
-			p.StartDiscoveryOrFail(t, pilot.NewDiscoveryRequest(nodeID.ServiceNode(), pilot.Listener))
+			p.StartDiscoveryOrFail(t, pilot.NewDiscoveryRequest(nodeID.ServiceNode(), v3.ListenerType))
 
 			// Test the empty case where no config is loaded
 			p.WatchDiscoveryOrFail(t, time.Second*10,
-				func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
+				func(response *discovery.DiscoveryResponse) (b bool, e error) {
 					validator := structpath.ForProto(response)
 					if validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", 15001).Check() != nil {
 						return false, nil
@@ -70,7 +71,7 @@ func TestSidecarListeners(t *testing.T) {
 
 			// Now continue to watch on the same stream
 			err := p.WatchDiscovery(time.Second*10,
-				func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
+				func(response *discovery.DiscoveryResponse) (b bool, e error) {
 					validator := structpath.ForProto(response)
 					if validator.Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").Check() != nil {
 						return false, nil
@@ -93,7 +94,7 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.cluster}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.statPrefix}").
-			Equals(true, "{.useOriginalDst}").
+			Equals(true, "{.hiddenEnvoyDeprecatedUseOriginalDst}").
 			CheckOrFail(t)
 	})
 }
