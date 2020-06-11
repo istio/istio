@@ -94,7 +94,7 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.cluster}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.statPrefix}").
-			Equals(true, "{.useOriginalDst}").
+			Equals(true, "{.hiddenEnvoyDeprecatedUseOriginalDst}").
 			CheckOrFail(t)
 	})
 }
