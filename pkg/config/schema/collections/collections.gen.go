@@ -946,7 +946,7 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Gatewayclasses",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
+			Group:         "networking.x-k8s.io",
 			Kind:          "GatewayClass",
 			Plural:        "gatewayclasses",
 			Version:       "v1alpha1",
@@ -964,7 +964,7 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Gateways",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
+			Group:         "networking.x-k8s.io",
 			Kind:          "Gateway",
 			Plural:        "gateways",
 			Version:       "v1alpha1",
@@ -982,7 +982,7 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Httproutes",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
+			Group:         "networking.x-k8s.io",
 			Kind:          "HTTPRoute",
 			Plural:        "httproutes",
 			Version:       "v1alpha1",
@@ -1000,7 +1000,7 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Tcproutes",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
+			Group:         "networking.x-k8s.io",
 			Kind:          "TcpRoute",
 			Plural:        "tcproutes",
 			Version:       "v1alpha1",
@@ -1018,7 +1018,7 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Trafficsplits",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
+			Group:         "networking.x-k8s.io",
 			Kind:          "TrafficSplit",
 			Plural:        "trafficsplits",
 			Version:       "v1alpha1",

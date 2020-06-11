@@ -6,9 +6,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
-  name: gatewayclasses.networking.x.k8s.io
+  name: gatewayclasses.networking.x-k8s.io
 spec:
-  group: networking.x.k8s.io
+  group: networking.x-k8s.io
   names:
     kind: GatewayClass
     listKind: GatewayClassList
@@ -126,9 +126,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
-  name: gateways.networking.x.k8s.io
+  name: gateways.networking.x-k8s.io
 spec:
-  group: networking.x.k8s.io
+  group: networking.x-k8s.io
   names:
     kind: Gateway
     listKind: GatewayList
@@ -296,7 +296,7 @@ spec:
                 A route is a resource capable of servicing a request and allows a
                 cluster operator to expose a cluster resource (i.e. Service) by externally-reachable
                 URL, load-balance traffic and terminate SSL/TLS. Typically, a route
-                is a \"httproute\" or \"tcproute\" in group \"networking.x.k8s.io\".
+                is a \"httproute\" or \"tcproute\" in group \"networking.x-k8s.io\".
                 However, an implementation may support other resources. \n If unspecified,
                 no routes will be associated to the Gateway. \n Support: Core"
               items:
@@ -444,9 +444,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
-  name: httproutes.networking.x.k8s.io
+  name: httproutes.networking.x-k8s.io
 spec:
-  group: networking.x.k8s.io
+  group: networking.x-k8s.io
   names:
     kind: HTTPRoute
     listKind: HTTPRouteList
@@ -926,9 +926,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
-  name: tcproutes.networking.x.k8s.io
+  name: tcproutes.networking.x-k8s.io
 spec:
-  group: networking.x.k8s.io
+  group: networking.x-k8s.io
   names:
     kind: TcpRoute
     listKind: TcpRouteList
@@ -976,9 +976,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
-  name: trafficsplits.networking.x.k8s.io
+  name: trafficsplits.networking.x-k8s.io
 spec:
-  group: networking.x.k8s.io
+  group: networking.x-k8s.io
   names:
     kind: TrafficSplit
     listKind: TrafficSplitList
