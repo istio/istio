@@ -192,22 +192,21 @@ func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers {
 func createHeadersMatch(match *k8s.HTTPRouteMatch) map[string]*istio.StringMatch {
 	res := map[string]*istio.StringMatch{}
 	for k, v := range match.Header {
-		// TODO use well known types
-		if match.HeaderType == nil || *match.HeaderType == "Exact" {
+		if match.HeaderType == nil || *match.HeaderType == k8s.HeaderTypeExact {
 			res[k] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: v},
 			}
-		} else if match.PathType == "Prefix" {
+		} else if match.PathType == k8s.PathTypePrefix {
 			res[k] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Prefix{Prefix: v},
 			}
-		} else if match.PathType == "RegularExpression" {
+		} else if match.PathType == k8s.PathTypeRegularExpression {
 			res[k] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{Regex: v},
 			}
 		} else {
-			// TODO do not panic
-			panic("unknown type")
+			log.Warnf("unknown type: %s is not supported PathType", match.PathType)
+			return nil
 		}
 	}
 	return res
@@ -217,22 +216,21 @@ func createURIMatch(match *k8s.HTTPRouteMatch) *istio.StringMatch {
 	if match.Path == nil {
 		return nil
 	}
-	// TODO use well known types
-	if match.PathType == "" || match.PathType == "Exact" {
+	if match.PathType == "" || match.PathType == k8s.PathTypeExact {
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Exact{Exact: *match.Path},
 		}
-	} else if match.PathType == "Prefix" {
+	} else if match.PathType == k8s.PathTypePrefix {
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Prefix{Prefix: *match.Path},
 		}
-	} else if match.PathType == "RegularExpression" {
+	} else if match.PathType == k8s.PathTypeRegularExpression {
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Regex{Regex: *match.Path},
 		}
 	} else {
-		// TODO do not panic
-		panic("unknown type")
+		log.Warnf("unknown type: %s is not supported PathType", match.PathType)
+		return nil
 	}
 }
 
