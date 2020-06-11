@@ -30,9 +30,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
