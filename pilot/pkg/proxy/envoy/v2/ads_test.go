@@ -14,6 +14,7 @@
 package v2_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -22,6 +23,7 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
+	secretmodel "istio.io/istio/security/pkg/nodeagent/model"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/adsc"
@@ -41,6 +43,49 @@ const (
 	routeA = "http.80"
 	routeB = "https.443.https.my-gateway.testns"
 )
+
+type clientSecrets struct {
+	secretmodel.SecretItem
+}
+
+func (sc *clientSecrets) GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*secretmodel.SecretItem, error) {
+	return &sc.SecretItem, nil
+}
+
+
+func TestAuth(t *testing.T) {
+	bs, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	cert, key, err := bs.CA.GenKeyCert([]string {"dummy.client"}, 1 * time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ldsr, close1, err := connectADSC(util.MockPilotSGrpcAddr,
+		&adsc.Config{
+			Secrets: &clientSecrets{
+				secretmodel.SecretItem{
+					PrivateKey: key,
+					CertificateChain: cert,
+					RootCert: bs.CA.GetCAKeyCertBundle().GetRootCertPem(),
+				},
+			},
+			Watch: []string{v2.TypeURLConnections},
+			Meta: model.NodeMetadata{
+				Generator: "event",
+			}.ToStruct(),
+	})
+	if err != nil {
+		t.Fatal("Failed to connect", err)
+	}
+	defer close1()
+
+	_, err = ldsr.WaitVersion(5*time.Second, v2.TypeURLConnections, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestInternalEvents(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)

@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/security/pkg/nodeagent/cache"
+	secretmodel "istio.io/istio/security/pkg/nodeagent/model"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/golang/protobuf/jsonpb"
@@ -87,7 +89,12 @@ type Config struct {
 	InitialReconnectDelay time.Duration
 
 	// Secrets is the interface used for getting keys and rootCA.
-	Secrets               *cache.SecretCache
+	Secrets               SecretProvider
+}
+
+// SecretProvider is an interface implemented by the SDS layer to generate secrets.
+type SecretProvider interface {
+	 GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*secretmodel.SecretItem, error)
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -249,7 +256,7 @@ func getPrivateIPIfAvailable() net.IP {
 	return net.IPv4zero
 }
 
-func tlsConfig(certDir string, secrets *cache.SecretCache) (*tls.Config, error) {
+func tlsConfig(server, certDir string, secrets SecretProvider) (*tls.Config, error) {
 	var clientCert tls.Certificate
 	var serverCABytes []byte
 	var err error
@@ -289,10 +296,11 @@ func tlsConfig(certDir string, secrets *cache.SecretCache) (*tls.Config, error) 
 		return nil, err
 	}
 
+	shost, _, _ := net.SplitHostPort(server)
 	return &tls.Config{
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      serverCAs,
-		ServerName:   "istio-pilot.istio-system",
+		ServerName:   shost,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			return nil
 		},
@@ -312,7 +320,7 @@ func (a *ADSC) Run() error {
 	// TODO: pass version info, nonce properly
 	var err error
 	if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
-		tlsCfg, err := tlsConfig(a.certDir, a.cfg.Secrets)
+		tlsCfg, err := tlsConfig(a.url, a.certDir, a.cfg.Secrets)
 		if err != nil {
 			return err
 		}

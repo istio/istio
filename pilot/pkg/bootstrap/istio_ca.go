@@ -259,7 +259,7 @@ func (s *Server) initPublicKey() error {
 			// We have direct access to the self-signed
 			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
 
-			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+			rootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
 				return err
 			}
@@ -272,7 +272,7 @@ func (s *Server) initPublicKey() error {
 						case <-stop:
 							return
 						case <-time.After(controller.NamespaceResyncPeriod):
-							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+							newRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 							if !bytes.Equal(rootCert, newRootCert) {
 								rootCert = newRootCert
 								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
