@@ -213,7 +213,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	podFetchFunc := c.cluster.NewSinglePodFetch(c.namespace.Name(), "app=policy-backend", "version=test")
+	podFetchFunc := testKube.NewSinglePodFetch(c.cluster.Accessor, c.namespace.Name(), "app=policy-backend", "version=test")
 	pods, err := c.cluster.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
 		scopes.Framework.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
@@ -285,8 +285,8 @@ func (c *kubeComponent) Dump() {
 		scopes.Framework.Errorf("Unable to create dump folder for policy-backend-state: %v", err)
 		return
 	}
-	c.cluster.DumpPods(workDir, c.namespace.Name(),
-		c.cluster.DumpPodEvents,
-		c.cluster.DumpPodLogs,
+	testKube.DumpPods(c.cluster, workDir, c.namespace.Name(),
+		testKube.DumpPodEvents,
+		testKube.DumpPodLogs,
 	)
 }

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/pkg/log"
 
@@ -126,7 +127,8 @@ func TestDashboard(t *testing.T) {
 			for _, d := range dashboards {
 				d := d
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
-					cm, err := kenv.KubeClusters[0].GetConfigMap(d.configmap, i.Settings().TelemetryNamespace)
+					cm, err := kenv.KubeClusters[0].CoreV1().ConfigMaps(i.Settings().TelemetryNamespace).Get(
+						context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
 					if err != nil {
 						t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
 					}
