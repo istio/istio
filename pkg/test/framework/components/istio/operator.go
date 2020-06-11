@@ -172,14 +172,16 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	// Generate the istioctl config file
 	iopFile := filepath.Join(workDir, "iop.yaml")
-	operatorYaml := cfg.IstioOperatorConfigYAML()
-	if env.IsMultinetwork() {
-		meshNetworksYaml := meshNetworkSettings(cfg, env)
-		operatorYaml += Indent("global:\n", "    ")
-		operatorYaml += Indent(meshNetworksYaml, "      ")
+	if err := initIOPFile(cfg, env, iopFile, cfg.ControlPlaneValues); err != nil {
+		return nil, err
 	}
-	if err := ioutil.WriteFile(iopFile, []byte(operatorYaml), os.ModePerm); err != nil {
-		return nil, fmt.Errorf("failed to write iop: %v", err)
+
+	remoteIopFile := iopFile
+	if cfg.RemoteClusterValues != "" {
+		remoteIopFile = filepath.Join(workDir, "remote.yaml")
+		if err := initIOPFile(cfg, env, remoteIopFile, cfg.RemoteClusterValues); err != nil {
+			return nil, err
+		}
 	}
 
 	// Deploy the Istio control plane(s)
@@ -202,7 +204,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Deploy Istio to remote clusters
 	for _, cluster := range env.KubeClusters {
 		if !env.IsControlPlaneCluster(cluster) {
-			if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
+			if err := deployControlPlane(i, cfg, cluster, remoteIopFile); err != nil {
 				return nil, fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
 			}
 		}
@@ -233,6 +235,20 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	return i, nil
+}
+
+func initIOPFile(cfg Config, env *kube.Environment, iopFile string, values string) error {
+	operatorYaml := cfg.IstioOperatorConfigYAML(values)
+	if env.IsMultinetwork() {
+		meshNetworksYaml := meshNetworkSettings(cfg, env)
+		operatorYaml += Indent("global:\n", "    ")
+		operatorYaml += Indent(meshNetworksYaml, "      ")
+	}
+	if err := ioutil.WriteFile(iopFile, []byte(operatorYaml), os.ModePerm); err != nil {
+		return fmt.Errorf("failed to write iop: %v", err)
+	}
+
+	return nil
 }
 
 func createCrossNetworkGateway(cluster kube.Cluster, cfg Config) error {
