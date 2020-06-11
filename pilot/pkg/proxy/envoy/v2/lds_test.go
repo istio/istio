@@ -312,7 +312,7 @@ func TestLDS(t *testing.T) {
 	defer tearDown()
 
 	t.Run("sidecar", func(t *testing.T) {
-		ldsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+		ldsr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -338,7 +338,7 @@ func TestLDS(t *testing.T) {
 
 	// 'router' or 'gateway' type of listener
 	t.Run("gateway", func(t *testing.T) {
-		ldsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+		ldsr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
