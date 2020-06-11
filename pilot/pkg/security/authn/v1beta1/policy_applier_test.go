@@ -22,7 +22,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	protovalue "istio.io/istio/pkg/proto"
 	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
@@ -1255,10 +1255,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 				ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
 			},
 			ListenerFilters: []*listener.ListenerFilter{
-				{
-					Name:       "envoy.listener.tls_inspector",
-					ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: pilotutil.MessageToAny(&tlsinspector.TlsInspector{})},
-				},
+				xdsfilters.TLSInspector,
 			},
 		},
 		{

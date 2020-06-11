@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
 
@@ -32,25 +32,17 @@ import (
 // TypeURL for making discovery requests.
 type TypeURL string
 
-const (
-	typeURLPrefix                 = "type.googleapis.com/envoy.api.v2."
-	Listener              TypeURL = typeURLPrefix + "Listener"
-	Cluster               TypeURL = typeURLPrefix + "Cluster"
-	ClusterLoadAssignment TypeURL = typeURLPrefix + "ClusterLoadAssignment"
-	Route                 TypeURL = typeURLPrefix + "RouteConfiguration"
-)
-
 // Instance of Pilot
 type Instance interface {
 	resource.Resource
 
-	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
-	CallDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse
+	CallDiscovery(req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error)
+	CallDiscoveryOrFail(t test.Failer, req *discovery.DiscoveryRequest) *discovery.DiscoveryResponse
 
-	StartDiscovery(req *xdsapi.DiscoveryRequest) error
-	StartDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest)
-	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
-	WatchDiscoveryOrFail(t test.Failer, duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error))
+	StartDiscovery(req *discovery.DiscoveryRequest) error
+	StartDiscoveryOrFail(t test.Failer, req *discovery.DiscoveryRequest)
+	WatchDiscovery(duration time.Duration, accept func(*discovery.DiscoveryResponse) (bool, error)) error
+	WatchDiscoveryOrFail(t test.Failer, duration time.Duration, accept func(*discovery.DiscoveryResponse) (bool, error))
 }
 
 // Structured config for the Pilot component
@@ -86,9 +78,9 @@ func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {
 }
 
 // NewDiscoveryRequest is a utility method for creating a new request for the given node and type.
-func NewDiscoveryRequest(nodeID string, typeURL TypeURL) *xdsapi.DiscoveryRequest {
-	return &xdsapi.DiscoveryRequest{
-		Node: &xdscore.Node{
+func NewDiscoveryRequest(nodeID string, typeURL TypeURL) *discovery.DiscoveryRequest {
+	return &discovery.DiscoveryRequest{
+		Node: &core.Node{
 			Id: nodeID,
 		},
 		TypeUrl: string(typeURL),
