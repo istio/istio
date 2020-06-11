@@ -20,47 +20,47 @@ import (
 
 func TestStringMatch(t *testing.T) {
 	tests := []struct {
-		desc   string
-		a      string
-		list   []string
-		expect bool
+		desc     string
+		element  string
+		list     []string
+		expected bool
 	}{
 		{
-			desc:   "wildcard",
-			a:      "*",
-			list:   []string{"match-me"},
-			expect: true,
+			desc:     "wildcard",
+			element:  "*",
+			list:     []string{"match-me"},
+			expected: true,
 		},
 		{
-			desc:   "suffix=match",
-			a:      "yo*",
-			list:   []string{"yo", "yolo", "yo-yo"},
-			expect: true,
+			desc:     "suffix=match",
+			element:  "yo*",
+			list:     []string{"yo", "yolo", "yo-yo"},
+			expected: true,
 		},
 		{
-			desc:   "no-sub",
-			a:      "foo",
-			list:   []string{"bar"},
-			expect: false,
+			desc:     "no-sub",
+			element:  "foo",
+			list:     []string{"bar"},
+			expected: false,
 		},
 		{
-			desc:   "prefix-match",
-			a:      "*yo",
-			list:   []string{"yoyo", "goyo"},
-			expect: true,
+			desc:     "prefix-match",
+			element:  "*yo",
+			list:     []string{"yoyo", "goyo"},
+			expected: true,
 		},
 		{
-			desc:   "empty",
-			a:      "",
-			list:   []string{"yo", "tawg"},
-			expect: false,
+			desc:     "empty",
+			element:  "",
+			list:     []string{"yo", "tawg"},
+			expected: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if got := stringMatch(tt.a, tt.list); got != tt.expect {
-				t.Errorf("%s: expect %v got %v", tt.desc, tt.expect, got)
+			if got := stringMatch(tt.element, tt.list); got != tt.expected {
+				t.Errorf("%s: expected %v got %v", tt.desc, tt.expected, got)
 			}
 		})
 	}
