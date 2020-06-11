@@ -80,7 +80,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	var dumpDir string
 	dumpDir, err = ctx.CreateTmpDirectory(cfg.FQDN())
 	if err != nil {
-		scopes.CI.Errorf("Unable to create output directory for %s: %v", cfg.FQDN(), err)
+		scopes.Framework.Errorf("Unable to create output directory for %s: %v", cfg.FQDN(), err)
 		return
 	}
 
@@ -216,7 +216,7 @@ func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.Pars
 }
 
 func (i *instance) Dump() {
-	scopes.CI.Errorf("=== Dumping state for Echo %s..,", i.cfg.FQDN())
+	scopes.Framework.Errorf("=== Dumping state for Echo %s..,", i.cfg.FQDN())
 
 	for _, w := range i.workloads {
 		if w != nil {

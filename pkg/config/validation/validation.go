@@ -435,7 +435,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 
 // ValidateDestinationRule checks proxy policies
 var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
-	func(_, _ string, msg proto.Message) (errs error) {
+	func(_, namespace string, msg proto.Message) (errs error) {
 		rule, ok := msg.(*networking.DestinationRule)
 		if !ok {
 			return fmt.Errorf("cannot cast to destination rule")
@@ -449,16 +449,57 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			errs = appendErrors(errs, validateSubset(subset))
 		}
 
-		errs = appendErrors(errs, validateExportTo(rule.ExportTo))
+		errs = appendErrors(errs, validateExportTo(namespace, rule.ExportTo, false))
 		return
 	})
 
-func validateExportTo(exportTo []string) (errs error) {
+func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) (errs error) {
 	if len(exportTo) > 0 {
-		if len(exportTo) > 1 {
-			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
-		} else {
-			errs = appendErrors(errs, visibility.Instance(exportTo[0]).Validate())
+		// Make sure there are no duplicates
+		exportToMap := make(map[string]struct{})
+		for _, e := range exportTo {
+			key := e
+			if visibility.Instance(e) == visibility.Private {
+				// substitute this with the current namespace so that we
+				// can check for duplicates like ., namespace
+				key = namespace
+			}
+			if _, exists := exportToMap[key]; exists {
+				if key != e {
+					errs = appendErrors(errs, fmt.Errorf("duplicate entries in exportTo: . and current namespace %s", namespace))
+				} else {
+					errs = appendErrors(errs, fmt.Errorf("duplicate entries in exportTo for entry %s", e))
+				}
+			} else {
+				// if this is a serviceEntry, allow ~ in exportTo as it can be used to create
+				// a service that is not even visible within the local namespace to anyone other
+				// than the proxies of that service.
+				if isServiceEntry && visibility.Instance(e) == visibility.None {
+					exportToMap[key] = struct{}{}
+				} else {
+					if err := visibility.Instance(key).Validate(); err != nil {
+						errs = appendErrors(errs, err)
+					} else {
+						exportToMap[key] = struct{}{}
+					}
+				}
+			}
+		}
+
+		// Make sure we have only one of . or *
+		if _, public := exportToMap[string(visibility.Public)]; public {
+			// make sure that there are no other entries in the exportTo
+			// i.e. no point in saying ns1,ns2,*. Might as well say *
+			if len(exportTo) > 1 {
+				errs = appendErrors(errs, fmt.Errorf("cannot have both public (*) and non-public exportTo values for a resource"))
+			}
+		}
+
+		// if this is a service entry, then we need to disallow * and ~ together. Or ~ and other namespaces
+		if _, none := exportToMap[string(visibility.None)]; none {
+			if len(exportTo) > 1 {
+				errs = appendErrors(errs, fmt.Errorf("cannot export service entry to no one (~) and someone"))
+			}
 		}
 	}
 
@@ -1799,7 +1840,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
-	func(_, _ string, msg proto.Message) (errs error) {
+	func(_, namespace string, msg proto.Message) (errs error) {
 		virtualService, ok := msg.(*networking.VirtualService)
 		if !ok {
 			return errors.New("cannot cast to virtual service")
@@ -1889,7 +1930,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendErrors(errs, validateTCPRoute(tcpRoute))
 		}
 
-		errs = appendErrors(errs, validateExportTo(virtualService.ExportTo))
+		errs = appendErrors(errs, validateExportTo(namespace, virtualService.ExportTo, false))
 		return
 	})
 
@@ -2411,7 +2452,7 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
-	func(_, _ string, config proto.Message) (errs error) {
+	func(_, namespace string, config proto.Message) (errs error) {
 		serviceEntry, ok := config.(*networking.ServiceEntry)
 		if !ok {
 			return fmt.Errorf("cannot cast to service entry")
@@ -2555,7 +2596,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				ValidatePort(int(port.Number)))
 		}
 
-		errs = appendErrors(errs, validateExportTo(serviceEntry.ExportTo))
+		errs = appendErrors(errs, validateExportTo(namespace, serviceEntry.ExportTo, true))
 		return
 	})
 

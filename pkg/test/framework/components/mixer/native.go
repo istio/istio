@@ -63,13 +63,13 @@ func newNative(ctx resource.Context, _ Config) (Instance, error) {
 	}
 
 	var err error
-	scopes.CI.Info("=== BEGIN: Starting local Mixer ===")
+	scopes.Framework.Info("=== BEGIN: Starting local Mixer ===")
 	defer func() {
 		if err != nil {
-			scopes.CI.Infof("=== FAILED: Start local Mixer ===")
+			scopes.Framework.Infof("=== FAILED: Start local Mixer ===")
 			_ = n.Close()
 		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Start local Mixer ===")
+			scopes.Framework.Infof("=== SUCCEEDED: Start local Mixer ===")
 		}
 	}()
 

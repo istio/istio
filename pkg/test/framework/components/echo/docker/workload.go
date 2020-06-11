@@ -256,15 +256,15 @@ func (w *workload) Dump() {
 		return
 	}
 
-	scopes.CI.Errorf("=== Dumping state for Echo container %s to:\n%s", w.container.Name, w.dumpDir)
+	scopes.Framework.Errorf("=== Dumping state for Echo container %s to:\n%s", w.container.Name, w.dumpDir)
 	l, err := w.container.Logs()
 	if err != nil {
-		scopes.CI.Errorf("Unable to get logs for Echo container %s: %v", w.container.Name, err)
+		scopes.Framework.Errorf("Unable to get logs for Echo container %s: %v", w.container.Name, err)
 	}
 
 	fname := filepath.Join(w.dumpDir, "echo.log")
 	if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
-		scopes.CI.Errorf("Unable to write logs for Echo container %s: %v", w.container.Name, err)
+		scopes.Framework.Errorf("Unable to write logs for Echo container %s: %v", w.container.Name, err)
 	}
 
 	if w.sidecar != nil {
@@ -277,14 +277,14 @@ func (w *workload) Dump() {
 		for _, srcFile := range srcFiles {
 			result, err := w.container.Exec(context.Background(), "cat", srcFile)
 			if err != nil {
-				scopes.CI.Errorf("Unable to retrieve %s for Echo container %s: %v", srcFile, w.container.Name, err)
+				scopes.Framework.Errorf("Unable to retrieve %s for Echo container %s: %v", srcFile, w.container.Name, err)
 				continue
 			}
 
 			base := filepath.Base(srcFile)
 			fname = filepath.Join(w.dumpDir, base)
 			if err = ioutil.WriteFile(fname, result.StdOut, os.ModePerm); err != nil {
-				scopes.CI.Errorf("Unable to write %s for Echo container %s: %v", base, w.container.Name, err)
+				scopes.Framework.Errorf("Unable to write %s for Echo container %s: %v", base, w.container.Name, err)
 			}
 		}
 
@@ -301,7 +301,7 @@ func (w *workload) Dump() {
 			}
 		}
 		if err != nil {
-			scopes.CI.Errorf("Unable to retrieve config_dump for Echo container %s: %v", w.container.Name, err)
+			scopes.Framework.Errorf("Unable to retrieve config_dump for Echo container %s: %v", w.container.Name, err)
 		}
 	}
 }

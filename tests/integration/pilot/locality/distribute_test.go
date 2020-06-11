@@ -89,7 +89,7 @@ func TestDistribute(t *testing.T) {
 					"b": 20,
 					"c": 80,
 				})
-				scopes.CI.Errorf("%v: ", e)
+				scopes.Framework.Errorf("%v: ", e)
 				return e
 			}, retry.Timeout(time.Second*5)); err != nil {
 				ctx.Fatal(err)
@@ -118,7 +118,7 @@ func TestDistribute(t *testing.T) {
 					"b": 33,
 					"c": 33,
 				})
-				scopes.CI.Errorf("%v: ", e)
+				scopes.Framework.Errorf("%v: ", e)
 				return e
 			}, retry.Delay(time.Second*5)); err != nil {
 				ctx.Fatal(err)

@@ -15,9 +15,12 @@
 package istio
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
+
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubeenv "istio.io/istio/pkg/test/framework/components/environment/kube"
 
@@ -47,7 +50,7 @@ var (
 	discoveryPort  = 15012
 )
 
-func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
+func waitForValidationWebhook(accessor kube.Accessor, cfg Config) error {
 	dummyValidationRule := fmt.Sprintf(dummyValidationRuleTemplate, cfg.SystemNamespace)
 	defer func() {
 		e := accessor.DeleteContents("", dummyValidationRule)
@@ -56,7 +59,7 @@ func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
 		}
 	}()
 
-	scopes.CI.Info("Creating dummy rule to check for validation webhook readiness")
+	scopes.Framework.Info("Creating dummy rule to check for validation webhook readiness")
 	return retry.UntilSuccess(func() error {
 		_, err := accessor.ApplyContents("", dummyValidationRule)
 		if err == nil {
@@ -68,7 +71,7 @@ func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
 }
 
 func GetRemoteDiscoveryAddress(namespace string, cluster kubeenv.Cluster, useNodePort bool) (net.TCPAddr, error) {
-	svc, err := cluster.GetService(namespace, igwServiceName)
+	svc, err := cluster.CoreV1().Services(namespace).Get(context.TODO(), igwServiceName, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return net.TCPAddr{}, err
 	}

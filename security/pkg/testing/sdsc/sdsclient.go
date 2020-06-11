@@ -138,7 +138,7 @@ func (c *Client) Send() error {
 		ResourceNames: []string{
 			sdscache.WorkloadKeyCertResourceName,
 		},
-		TypeUrl: agent_sds.SecretType,
+		TypeUrl: agent_sds.SecretTypeV3,
 	})
 }
 
