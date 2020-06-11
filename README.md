@@ -46,11 +46,11 @@ Istio is composed of these components:
 
 - **Istiod** - The Istio control plane. It provides service discovery, configuration and certificate management. It consists of the following sub-components:
 
-   - **Pilot** - Responsible for configuring the proxies at runtime.
+    - **Pilot** - Responsible for configuring the proxies at runtime.
 
-   - **Citadel** - Responsible for certificate issuance and rotation.
+    - **Citadel** - Responsible for certificate issuance and rotation.
 
-   - **Galley** - Responsible for validating, ingesting, aggregating, transforming and distributing config within Istio.
+    - **Galley** - Responsible for validating, ingesting, aggregating, transforming and distributing config within Istio.
 
 - **Operator** - The component provides user friendly options to operate the Istio service mesh.
 
