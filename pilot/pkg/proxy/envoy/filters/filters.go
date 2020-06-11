@@ -64,13 +64,13 @@ var (
 			TypedConfig: util.MessageToAny(&grpcweb.GrpcWeb{}),
 		},
 	}
-	TlsInspector = &listener.ListenerFilter{
+	TLSInspector = &listener.ListenerFilter{
 		Name: wellknown.TlsInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&tlsinspector.TlsInspector{}),
 		},
 	}
-	HttpInspector = &listener.ListenerFilter{
+	HTTPInspector = &listener.ListenerFilter{
 		Name: wellknown.HttpInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&httpinspector.HttpInspector{}),

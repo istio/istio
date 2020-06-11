@@ -131,7 +131,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
 					},
 					ListenerFilters: []*listener.ListenerFilter{
-						xdsfilters.TlsInspector,
+						xdsfilters.TLSInspector,
 					},
 				},
 				{

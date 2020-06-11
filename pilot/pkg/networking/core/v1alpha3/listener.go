@@ -2076,12 +2076,12 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 	}
 	if needTLSInspector || opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.TlsInspector] = true
-		listenerFilters = append(listenerFilters, xdsfilters.TlsInspector)
+		listenerFilters = append(listenerFilters, xdsfilters.TLSInspector)
 	}
 
 	if opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.HttpInspector] = true
-		listenerFilters = append(listenerFilters, xdsfilters.HttpInspector)
+		listenerFilters = append(listenerFilters, xdsfilters.HTTPInspector)
 	}
 
 	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy {
@@ -2527,12 +2527,12 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 
 	if !hasTLSInspector {
 		filters =
-			append(filters, xdsfilters.TlsInspector)
+			append(filters, xdsfilters.TLSInspector)
 	}
 
 	if !hasHTTPInspector {
 		filters =
-			append(filters, xdsfilters.HttpInspector)
+			append(filters, xdsfilters.HTTPInspector)
 	}
 
 	return filters

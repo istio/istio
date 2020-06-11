@@ -149,7 +149,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 
 	if needTLS || needTLSForPassThroughFilterChain {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.TlsInspector)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.TLSInspector)
 	}
 
 	if lb.node.GetInterceptionMode() == model.InterceptionTproxy {
@@ -162,7 +162,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// won't inspect the packet.
 	if features.EnableProtocolSniffingForInbound {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.HttpInspector)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.HTTPInspector)
 	}
 
 	timeout := features.InboundProtocolDetectionTimeout
