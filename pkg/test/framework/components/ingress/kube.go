@@ -15,6 +15,7 @@
 package ingress
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -25,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -77,7 +80,7 @@ func (c *kubeComponent) getAddressInner(ns string, port int) (interface{}, bool,
 			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
 		}
 
-		svc, err := c.cluster.GetService(ns, serviceName)
+		svc, err := c.cluster.CoreV1().Services(ns).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
 		if err != nil {
 			return nil, false, err
 		}
@@ -102,7 +105,7 @@ func (c *kubeComponent) getAddressInner(ns string, port int) (interface{}, bool,
 	}
 
 	// Otherwise, get the load balancer IP.
-	svc, err := c.cluster.GetService(ns, serviceName)
+	svc, err := c.cluster.CoreV1().Services(ns).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return nil, false, err
 	}
@@ -134,7 +137,7 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
 		}
 
-		svc, err := env.KubeClusters[0].GetService(ns, serviceName)
+		svc, err := env.KubeClusters[0].CoreV1().Services(ns).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
 		if err != nil {
 			return nil, false, err
 		}
@@ -158,7 +161,7 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
 	}
 
-	svc, err := env.KubeClusters[0].GetService(ns, serviceName)
+	svc, err := env.KubeClusters[0].CoreV1().Services(ns).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return nil, false, err
 	}

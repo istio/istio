@@ -15,13 +15,16 @@
 package kube
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -32,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 
 	kubeCore "k8s.io/api/core/v1"
@@ -108,11 +112,11 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		if !cfg.ServiceAccount {
 			serviceAccount = "default"
 		}
-		token, err := c.cluster.CreateServiceAccountToken(cfg.Namespace.Name(), serviceAccount)
+		token, err := createServiceAccountToken(c.cluster, cfg.Namespace.Name(), serviceAccount)
 		if err != nil {
 			return nil, err
 		}
-		if err := c.cluster.CreateSecret(cfg.Namespace.Name(), &kubeCore.Secret{
+		if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), &kubeCore.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cfg.Service + "-istio-token",
 				Namespace: cfg.Namespace.Name(),
@@ -120,7 +124,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 			Data: map[string][]byte{
 				"istio-token": []byte(token),
 			},
-		}); err != nil {
+		}, metav1.CreateOptions{}); err != nil {
 			return nil, err
 		}
 	}
@@ -167,7 +171,7 @@ spec:
 	}
 
 	// Now retrieve the service information to find the ClusterIP
-	s, err := c.cluster.GetService(cfg.Namespace.Name(), cfg.Service)
+	s, err := c.cluster.CoreV1().Services(cfg.Namespace.Name()).Get(context.TODO(), cfg.Service, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -185,6 +189,22 @@ spec:
 	}
 
 	return c, nil
+}
+
+func createServiceAccountToken(client kubernetes.Interface, ns string, serviceAccount string) (string, error) {
+	scopes.Framework.Debugf("Creating service account token for: %s/%s", ns, serviceAccount)
+
+	token, err := client.CoreV1().ServiceAccounts(ns).CreateToken(context.TODO(), serviceAccount,
+		&authenticationv1.TokenRequest{
+			Spec: authenticationv1.TokenRequestSpec{
+				Audiences: []string{"istio-ca"},
+			},
+		}, metav1.CreateOptions{})
+
+	if err != nil {
+		return "", err
+	}
+	return token.Status.Token, nil
 }
 
 // getContainerPorts converts the ports to a port list of container ports.

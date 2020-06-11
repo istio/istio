@@ -15,11 +15,13 @@
 package mixer
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 
 	"google.golang.org/grpc"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
 
@@ -27,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -69,7 +72,7 @@ func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 		if serviceType == policyService {
 			ns = cfg.PolicyNamespace
 		}
-		fetchFn := c.cluster.NewSinglePodFetch(ns, "istio=mixer", "istio-mixer-type="+serviceType)
+		fetchFn := kube2.NewSinglePodFetch(c.cluster.Accessor, ns, "istio=mixer", "istio-mixer-type="+serviceType)
 		pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 		if err != nil {
 			return nil, err
@@ -130,7 +133,7 @@ func (c *kubeComponent) Close() error {
 }
 
 func (c *kubeComponent) getGrpcPort(ns, serviceType string) (uint16, error) {
-	svc, err := c.cluster.GetService(ns, "istio-"+serviceType)
+	svc, err := c.cluster.CoreV1().Services(ns).Get(context.TODO(), "istio-"+serviceType, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
 	}

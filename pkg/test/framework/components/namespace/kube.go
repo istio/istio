@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -55,7 +56,7 @@ func (n *kubeNamespace) Dump() {
 	}
 
 	for _, cluster := range n.env.KubeClusters {
-		cluster.DumpPods(d, n.name)
+		kube2.DumpPods(cluster, d, n.name)
 	}
 }
 
