@@ -15,7 +15,10 @@
 package galley
 
 import (
+	"context"
 	"testing"
+
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -37,7 +40,7 @@ func TestNamespace(t *testing.T) {
 				t.Fatalf("The namespace %q should have existed.", ns.Name())
 			}
 
-			n, err := cluster.GetNamespace(ns.Name())
+			n, err := cluster.CoreV1().Namespaces().Get(context.TODO(), ns.Name(), kubeApiMeta.GetOptions{})
 			if err != nil {
 				t.Fatalf("Error getting the namespace(%q): %v", ns.Name(), err)
 			}

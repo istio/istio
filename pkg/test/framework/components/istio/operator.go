@@ -15,6 +15,7 @@
 package istio
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,8 +27,11 @@ import (
 	"strings"
 	"time"
 
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/leaderelection"
+	kube2 "istio.io/istio/pkg/test/kube"
 
 	"istio.io/api/mesh/v1alpha1"
 
@@ -104,7 +108,8 @@ func (i *operatorComponent) Close() (err error) {
 			}
 			// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
 			for _, cm := range leaderElectionConfigMaps {
-				if e := cluster.DeleteConfigMap(cm, i.settings.SystemNamespace); e != nil {
+				if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
+					kubeApiMeta.DeleteOptions{}); e != nil {
 					err = multierror.Append(err, e)
 				}
 			}
@@ -130,7 +135,7 @@ func (i *operatorComponent) Dump() {
 			scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 			return
 		}
-		cluster.DumpPods(d, i.settings.SystemNamespace)
+		kube2.DumpPods(cluster, d, i.settings.SystemNamespace)
 	}
 }
 
@@ -459,13 +464,14 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		}
 
 		// Create the system namespace.
-		if err := cluster.CreateNamespace(cfg.SystemNamespace, ""); err != nil {
+		if err := cluster.CreateNamespaceWithLabels(cfg.SystemNamespace, "", nil); err != nil {
 			scopes.Framework.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+
 				"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
 		}
 
 		// Create the secret for the cacerts.
-		if err := cluster.CreateSecret(cfg.SystemNamespace, secret); err != nil {
+		if _, err := cluster.CoreV1().Secrets(cfg.SystemNamespace).Create(context.TODO(), secret,
+			kubeApiMeta.CreateOptions{}); err != nil {
 			scopes.Framework.Infof("failed to create CA secrets on cluster %s. This can happen when deploying "+
 				"multiple control planes. Error: %v", cluster.Name(), err)
 		}

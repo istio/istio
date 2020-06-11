@@ -15,11 +15,14 @@
 package mtlscertplugincasecurenaming
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -223,7 +226,8 @@ func verifyCertificatesWithPluginCA(t *testing.T, dump string) {
 func checkCACert(testCtx framework.TestContext, t *testing.T, testNamespace namespace.Instance) error {
 	configMapName := "istio-ca-root-cert"
 	env := testCtx.Environment().(*kube.Environment)
-	cm, err := env.KubeClusters[0].GetConfigMap(configMapName, testNamespace.Name())
+	cm, err := env.KubeClusters[0].CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
+		kubeApiMeta.GetOptions{})
 	if err != nil {
 		return err
 	}

@@ -85,7 +85,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.StackdriverInstallFilePath, err)
 	}
 
-	fetchFn := c.cluster.NewSinglePodFetch(c.ns.Name(), "app=stackdriver")
+	fetchFn := testKube.NewSinglePodFetch(c.cluster.Accessor, c.ns.Name(), "app=stackdriver")
 	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err

@@ -23,9 +23,9 @@ import (
 	"regexp"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
-	"k8s.io/kubectl/pkg/cmd/util"
 )
 
 var (
@@ -83,8 +83,9 @@ func (f *defaultPortForwarder) Close() error {
 	return nil
 }
 
-func newPortForwarder(clientFactory util.Factory, pod v1.Pod, localPort, remotePort uint16) (PortForwarder, error) {
-	restClient, err := clientFactory.RESTClient()
+// NewPortForwarder creates a new PortForwarder to the given pod.
+func NewPortForwarder(restConfig *rest.Config, pod v1.Pod, localPort, remotePort uint16) (PortForwarder, error) {
+	restClient, err := rest.RESTClientFor(restConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -92,11 +93,7 @@ func newPortForwarder(clientFactory util.Factory, pod v1.Pod, localPort, remoteP
 	req := restClient.Post().Resource("pods").Namespace(pod.Namespace).Name(pod.Name).SubResource("portforward")
 	serverURL := req.URL()
 
-	restConfig, err := clientFactory.ToRESTConfig()
-	if err != nil {
-		return nil, err
-	}
-	roundTripper, upgrader, err := spdy.RoundTripperFor(restConfig)
+	roundTripper, upgrader, err := roundTripperFor(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failure creating roundtripper: %v", err)
 	}

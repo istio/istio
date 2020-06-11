@@ -29,19 +29,18 @@ import (
 
 // podDumper will dump information from all the pods into the given workDir.
 // If no pods are provided, accessor will be used to fetch all the pods in a namespace.
-type podDumper func(workDir string, namespace string, pods ...kubeApiCore.Pod)
+type podDumper func(a Accessor, workDir string, namespace string, pods ...kubeApiCore.Pod)
 
 // DumpPods runs each dumper with all the pods in the given namespace.
 // If no dumpers are provided, their resource state, events, container logs and Envoy information will be dumped.
-func (a *Accessor) DumpPods(workDir, namespace string, dumpers ...podDumper) {
+func DumpPods(a Accessor, workDir, namespace string, dumpers ...podDumper) {
 	if len(dumpers) == 0 {
 		dumpers = []podDumper{
-			a.DumpPodState,
-			a.DumpPodEvents,
-			a.DumpPodLogs,
-			a.DumpPodProxies,
+			DumpPodState,
+			DumpPodEvents,
+			DumpPodLogs,
+			DumpPodProxies,
 		}
-
 	}
 
 	pods, err := a.GetPods(namespace)
@@ -51,11 +50,11 @@ func (a *Accessor) DumpPods(workDir, namespace string, dumpers ...podDumper) {
 	}
 
 	for _, dump := range dumpers {
-		dump(workDir, namespace, pods...)
+		dump(a, workDir, namespace, pods...)
 	}
 }
 
-func (a *Accessor) podsOrFetch(pods []kubeApiCore.Pod, namespace string) []kubeApiCore.Pod {
+func podsOrFetch(a Accessor, pods []kubeApiCore.Pod, namespace string) []kubeApiCore.Pod {
 	if len(pods) == 0 {
 		var err error
 		pods, err = a.GetPods(namespace)
@@ -68,8 +67,8 @@ func (a *Accessor) podsOrFetch(pods []kubeApiCore.Pod, namespace string) []kubeA
 }
 
 // DumpPodState dumps the pod state for either the provided pods or all pods in the namespace if none are provided.
-func (a *Accessor) DumpPodState(workDir string, namespace string, pods ...kubeApiCore.Pod) {
-	pods = a.podsOrFetch(pods, namespace)
+func DumpPodState(a Accessor, workDir string, namespace string, pods ...kubeApiCore.Pod) {
+	pods = podsOrFetch(a, pods, namespace)
 
 	marshaler := jsonpb.Marshaler{
 		Indent: "  ",
@@ -91,8 +90,8 @@ func (a *Accessor) DumpPodState(workDir string, namespace string, pods ...kubeAp
 }
 
 // DumpPodEvents dumps the pod events for either the provided pods or all pods in the namespace if none are provided.
-func (a *Accessor) DumpPodEvents(workDir, namespace string, pods ...kubeApiCore.Pod) {
-	pods = a.podsOrFetch(pods, namespace)
+func DumpPodEvents(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod) {
+	pods = podsOrFetch(a, pods, namespace)
 
 	marshaler := jsonpb.Marshaler{
 		Indent: "  ",
@@ -127,8 +126,8 @@ func (a *Accessor) DumpPodEvents(workDir, namespace string, pods ...kubeApiCore.
 
 // DumpPodLogs will dump logs from each container in each of the provided pods
 // or all pods in the namespace if none are provided.
-func (a *Accessor) DumpPodLogs(workDir, namespace string, pods ...kubeApiCore.Pod) {
-	pods = a.podsOrFetch(pods, namespace)
+func DumpPodLogs(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod) {
+	pods = podsOrFetch(a, pods, namespace)
 
 	for _, pod := range pods {
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
@@ -149,8 +148,8 @@ func (a *Accessor) DumpPodLogs(workDir, namespace string, pods ...kubeApiCore.Po
 
 // DumpPodProxies will dump Envoy proxy config and clusters in each of the provided pods
 // or all pods in the namespace if none are provided.
-func (a *Accessor) DumpPodProxies(workDir, namespace string, pods ...kubeApiCore.Pod) {
-	pods = a.podsOrFetch(pods, namespace)
+func DumpPodProxies(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod) {
+	pods = podsOrFetch(a, pods, namespace)
 
 	for _, pod := range pods {
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
