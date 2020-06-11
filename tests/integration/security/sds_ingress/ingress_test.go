@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
@@ -33,7 +32,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("sds_ingress", m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
+		Setup(istio.Setup(&inst, nil)).
 		Run()
 }
 
@@ -50,7 +49,6 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.ingress.tls").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			var (
@@ -109,7 +107,6 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.ingress.mtls").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			var (
@@ -176,7 +173,6 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.ingress.mtls").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			var (
 				credName = []string{"testsinglemtlsgateway-compoundsecretrotation"}
@@ -239,7 +235,6 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.ingress.mtls").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			var (
 				credName = []string{"testsinglemtlsgatewayandnotgeneric-compoundsecretrotation"}
@@ -299,7 +294,6 @@ func TestTlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.ingress.tls").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ingressutil.RunTestMultiTLSGateways(ctx, inst)
 		})
@@ -312,7 +306,6 @@ func TestMtlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.ingress.mtls").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ingressutil.RunTestMultiMtlsGateways(ctx, inst)
 		})
@@ -324,7 +317,6 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.ingress.mtls").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			ns := ingressutil.SetupTest(ctx)
@@ -468,7 +460,6 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := ingressutil.SetupTest(ctx)
 

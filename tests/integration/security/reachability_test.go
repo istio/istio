@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
@@ -42,9 +41,8 @@ func TestReachability(t *testing.T) {
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "beta-mtls-on.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-mtls-on.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
@@ -59,9 +57,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "beta-mtls-permissive.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-mtls-permissive.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the naked app.
 						return opts.Target != rctx.Naked
@@ -71,9 +68,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "beta-mtls-off.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-mtls-off.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
@@ -82,9 +78,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "beta-per-port-mtls.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-per-port-mtls.yaml",
+					Namespace:  rctx.Namespace,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Include all tests that target app B, which has the single-port config.
 						return opts.Target == rctx.B
@@ -94,9 +89,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "beta-mtls-automtls.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-mtls-automtls.yaml",
+					Namespace:  rctx.Namespace,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
@@ -110,9 +104,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "beta-mtls-partial-automtls.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-mtls-partial-automtls.yaml",
+					Namespace:  rctx.Namespace,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
@@ -129,9 +122,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "global-plaintext.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "global-plaintext.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
@@ -149,9 +141,8 @@ func TestReachability(t *testing.T) {
 				// The follow three consecutive test together ensures the auto mtls works as intended
 				// for sidecar migration scenario.
 				{
-					ConfigFile:          "automtls-partial-sidecar-dr-no-tls.yaml",
-					RequiredEnvironment: environment.Kube,
-					Namespace:           rctx.Namespace,
+					ConfigFile: "automtls-partial-sidecar-dr-no-tls.yaml",
+					Namespace:  rctx.Namespace,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
@@ -173,9 +164,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "automtls-partial-sidecar-dr-disable.yaml",
-					RequiredEnvironment: environment.Kube,
-					Namespace:           rctx.Namespace,
+					ConfigFile: "automtls-partial-sidecar-dr-disable.yaml",
+					Namespace:  rctx.Namespace,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
@@ -198,9 +188,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "automtls-partial-sidecar-dr-mutual.yaml",
-					RequiredEnvironment: environment.Kube,
-					Namespace:           rctx.Namespace,
+					ConfigFile: "automtls-partial-sidecar-dr-mutual.yaml",
+					Namespace:  rctx.Namespace,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",

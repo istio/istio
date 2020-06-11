@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -39,8 +38,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("vm_test", m).
 		RequireSingleCluster().
-		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
+		Setup(func(ctx resource.Context) error {
 			var err error
 			ns, err = namespace.New(ctx, namespace.Config{
 				Prefix: "virtual-machine",
@@ -48,7 +46,7 @@ func TestMain(m *testing.M) {
 			})
 			return err
 		}).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+		Setup(istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   global:

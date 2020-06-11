@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
 	promUtil "istio.io/istio/tests/integration/telemetry/stats/prometheus"
@@ -64,7 +63,6 @@ func GetPromInstance() prometheus.Instance {
 func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			sourceQuery, destinationQuery, appQuery := buildQuery()
 			retry.UntilSuccessOrFail(t, func() error {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package egressproxy
+package outboundtrafficpolicy
 
 import (
 	"bytes"
@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 const (
@@ -56,7 +55,7 @@ metadata:
 spec:
   outboundTrafficPolicy:
     mode: ALLOW_ANY
-    egress_proxy:
+    egressProxy:
       host: foo.bar
       subset: shiny
       port:
@@ -69,13 +68,6 @@ spec:
 
 type Config struct {
 	AppNamespace string
-}
-
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite("outbound_traffic_policy_egressproxy_test", m).
-		RequireEnvironment(environment.Native).
-		Run()
 }
 
 func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {

@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -48,7 +47,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("pilot_test", m).
 		Label(label.CustomSetup).
-		RequireEnvironment(environment.Kube).
+
 		// IngressClass is only present in 1.18+
 		RequireEnvironmentVersion("1.18").
 		RequireSingleCluster().
@@ -58,7 +57,7 @@ func TestMain(m *testing.M) {
 			}
 			return nil
 		}).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
+		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.Values["pilot.env.PILOT_ENABLED_SERVICE_APIS"] = "true"
 		})).
 		Setup(func(ctx resource.Context) (err error) {
@@ -78,7 +77,6 @@ func TestMain(m *testing.M) {
 func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "gateway",
@@ -172,7 +170,6 @@ spec:
 func TestIngress(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "ingress",

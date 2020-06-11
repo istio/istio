@@ -51,7 +51,6 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 	// Turn it back on once issue is fixed.
 	t.Skip("https://github.com/istio/istio/issues/17933")
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)

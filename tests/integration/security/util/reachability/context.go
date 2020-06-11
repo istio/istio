@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -45,8 +44,6 @@ type TestCase struct {
 	// CallOpts specified the call options for destination service. If not specified, use the default
 	// framework provided ones.
 	CallOpts []echo.CallOptions
-
-	RequiredEnvironment environment.Name
 
 	// Indicates whether a test should be created for the given configuration.
 	Include func(src echo.Instance, opts echo.CallOptions) bool
@@ -136,10 +133,6 @@ func (rc *Context) Run(testCases []TestCase) {
 		c := c
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		test := rc.ctx.NewSubTest(testName)
-
-		if c.RequiredEnvironment != "" {
-			test.RequiresEnvironment(c.RequiredEnvironment)
-		}
 
 		test.Run(func(ctx framework.TestContext) {
 			// Apply the policy.

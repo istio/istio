@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	util_dir "istio.io/istio/tests/integration/security/util/dir"
 )
 
@@ -41,7 +40,6 @@ var (
 func TestPrometheusCert(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			systemNs := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 			util_dir.ListDir(systemNs, t, prometheusLabel, prometheusContainter,
@@ -66,10 +64,9 @@ func validateCertDir(out string) error {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("cert_provision_prometheus", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		Setup(istio.Setup(&ist, setupConfig)).
 		Run()
 }
 
