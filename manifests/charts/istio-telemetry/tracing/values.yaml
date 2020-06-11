@@ -43,6 +43,7 @@ tracing:
     spanStorageType: badger
     persist: false
     storageClassName: ""
+    storageSize: 5Gi
     accessMode: ReadWriteMany
     podAnnotations: {}
 
