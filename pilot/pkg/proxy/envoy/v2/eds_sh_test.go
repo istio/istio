@@ -25,7 +25,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
-	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -224,7 +223,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
 	initMutex.Lock()
 	defer initMutex.Unlock()
-	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
+	testEnv = env.NewTestSetup(env.XDSTest, t)
 	server, tearDown := util.EnsureTestServer()
 
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
