@@ -92,7 +92,7 @@ func TestInternalEvents(t *testing.T) {
 func TestAdsReconnectWithNonce(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
-	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceive(edsstr, 15*time.Second)
+	res, err := adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	// closes old process
 	cancel()
 
-	edsstr, cancel, err = connectADS(util.MockPilotGrpcAddr)
+	edsstr, cancel, err = connectADSv2(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, _ = adsReceive(edsstr, 15*time.Second)
+	res, _ = adsReceivev2(edsstr, 15*time.Second)
 
 	t.Log("Received ", res)
 }
@@ -132,7 +132,7 @@ func TestAdsReconnect(t *testing.T) {
 	s, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,10 +141,10 @@ func TestAdsReconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _ = adsReceive(edsstr, 15*time.Second)
+	_, _ = adsReceivev2(edsstr, 15*time.Second)
 
 	// envoy restarts and reconnects
-	edsstr2, cancel2, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr2, cancel2, err := connectADSv2(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestAdsReconnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _ = adsReceive(edsstr2, 15*time.Second)
+	_, _ = adsReceivev2(edsstr2, 15*time.Second)
 
 	// closes old process
 	cancel()
@@ -164,7 +164,7 @@ func TestAdsReconnect(t *testing.T) {
 	v2.AdsPushAll(s.EnvoyXdsServer)
 	// will trigger recompute and push (we may need to make a change once diff is implemented
 
-	m, err := adsReceive(edsstr2, 3*time.Second)
+	m, err := adsReceivev2(edsstr2, 3*time.Second)
 	if err != nil {
 		t.Fatal("Recv failed", err)
 	}
@@ -172,10 +172,10 @@ func TestAdsReconnect(t *testing.T) {
 }
 
 func sendAndReceive(t *testing.T, node string, client AdsClient, typeURL string, errMsg string) *xdsapi.DiscoveryResponse {
-	if err := sendXds(node, client, typeURL, errMsg); err != nil {
+	if err := sendXdsv2(node, client, typeURL, errMsg); err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceive(client, 15*time.Second)
+	res, err := adsReceivev2(client, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,10 +183,10 @@ func sendAndReceive(t *testing.T, node string, client AdsClient, typeURL string,
 }
 
 func sendAndReceiveV3(t *testing.T, node string, client AdsClientV3, typeURL string, errMsg string) *discovery.DiscoveryResponse {
-	if err := sendXdsV3(node, client, typeURL, errMsg); err != nil {
+	if err := sendXds(node, client, typeURL, errMsg); err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceiveV3(client, 15*time.Second)
+	res, err := adsReceive(client, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func xdsTest(t *testing.T, name string, fn func(t *testing.T, client AdsClient))
 		_, tearDown := initLocalPilotTestEnv(t)
 		defer tearDown()
 
-		client, cancel, err := connectADS(util.MockPilotGrpcAddr)
+		client, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -217,7 +217,7 @@ func xdsV3Test(t *testing.T, name string, fn func(t *testing.T, client AdsClient
 		_, tearDown := initLocalPilotTestEnv(t)
 		defer tearDown()
 
-		client, cancel, err := connectADSV3(util.MockPilotGrpcAddr)
+		client, cancel, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -237,10 +237,10 @@ func TestAdsVersioning(t *testing.T) {
 		}
 
 		// Follow up with a v3 CDS request - this is an error. A client should be consistent
-		if err := sendXds(node, client, v3.ClusterType, ""); err != nil {
+		if err := sendXdsv2(node, client, v3.ClusterType, ""); err != nil {
 			t.Fatal(err)
 		}
-		res, err := adsReceive(client, 15*time.Second)
+		res, err := adsReceivev2(client, 15*time.Second)
 		if err == nil {
 			t.Fatalf("expected an error because we sent a different version, got no error: %v", res)
 		}
@@ -283,7 +283,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +294,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		res, err := adsReceive(edsstr, 15*time.Second)
+		res, err := adsReceivev2(edsstr, 15*time.Second)
 		if err != nil {
 			t.Fatal("Recv failed", err)
 		}
@@ -713,7 +713,7 @@ func TestAdsUpdate(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -744,7 +744,7 @@ func TestAdsUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res1, err := adsReceive(edsstr, 15*time.Second)
+	res1, err := adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal("Recv failed", err)
 	}
@@ -779,7 +779,7 @@ func TestAdsUpdate(t *testing.T) {
 	// This reproduced the 'push on closed connection' bug.
 	v2.AdsPushAll(server.EnvoyXdsServer)
 
-	res1, err = adsReceive(edsstr, 15*time.Second)
+	res1, err = adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
@@ -800,7 +800,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -810,7 +810,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceive(edsstr, 15*time.Second)
+	res, err := adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -820,7 +820,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
 
-	res, err = adsReceive(edsstr, 15*time.Second)
+	res, err = adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -839,7 +839,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err = adsReceive(edsstr, 15*time.Second)
+	res, err = adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -853,7 +853,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -863,7 +863,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceive(edsstr, 15*time.Second)
+	res, err := adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -880,7 +880,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
 
-	res, err = adsReceive(edsstr, 15*time.Second)
+	res, err = adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -900,7 +900,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err = adsReceive(edsstr, 15*time.Second)
+	res, err = adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -918,7 +918,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err = adsReceive(edsstr, 15*time.Second)
+	res, err = adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -949,7 +949,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err = adsReceive(edsstr, 15*time.Second)
+	res, err = adsReceivev2(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}

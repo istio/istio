@@ -33,7 +33,7 @@ func TestSyncz(t *testing.T) {
 		s, tearDown := initLocalPilotTestEnv(t)
 		defer tearDown()
 
-		adsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+		adsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -59,7 +59,7 @@ func TestSyncz(t *testing.T) {
 			t.Fatal(err)
 		}
 		for i := 0; i < 3; i++ {
-			_, err := adsReceive(adsstr, 5*time.Second)
+			_, err := adsReceivev2(adsstr, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv failed", err)
 			}
@@ -67,7 +67,7 @@ func TestSyncz(t *testing.T) {
 		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, "", adsstr); err != nil {
 			t.Fatal(err)
 		}
-		rdsResponse, err := adsReceive(adsstr, 5*time.Second)
+		rdsResponse, err := adsReceivev2(adsstr, 5*time.Second)
 		if err != nil {
 			t.Fatal("Recv failed", err)
 		}
@@ -82,7 +82,7 @@ func TestSyncz(t *testing.T) {
 		s, tearDown := initLocalPilotTestEnv(t)
 		defer tearDown()
 
-		adsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+		adsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -107,7 +107,7 @@ func TestSyncz(t *testing.T) {
 			t.Fatal(err)
 		}
 		for i := 0; i < 3; i++ {
-			_, err := adsReceive(adsstr, 5*time.Second)
+			_, err := adsReceivev2(adsstr, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv failed", err)
 			}
@@ -115,7 +115,7 @@ func TestSyncz(t *testing.T) {
 		if err := sendRDSReq(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, "", adsstr); err != nil {
 			t.Fatal(err)
 		}
-		rdsResponse, err := adsReceive(adsstr, 5*time.Second)
+		rdsResponse, err := adsReceivev2(adsstr, 5*time.Second)
 		if err != nil {
 			t.Fatal("Recv failed", err)
 		}
@@ -217,7 +217,7 @@ func TestConfigDump(t *testing.T) {
 			s, tearDown := initLocalPilotTestEnv(t)
 			defer tearDown()
 
-			envoy, cancel, err := connectADS(util.MockPilotGrpcAddr)
+			envoy, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -233,15 +233,15 @@ func TestConfigDump(t *testing.T) {
 				t.Fatal(err)
 			}
 			// Expect CDS, LDS, then RDS
-			_, err = adsReceive(envoy, 5*time.Second)
+			_, err = adsReceivev2(envoy, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv cds failed", err)
 			}
-			_, err = adsReceive(envoy, 5*time.Second)
+			_, err = adsReceivev2(envoy, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv lds failed", err)
 			}
-			_, err = adsReceive(envoy, 5*time.Second)
+			_, err = adsReceivev2(envoy, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv rds failed", err)
 			}
