@@ -34,8 +34,10 @@ import (
 //nolint: gocognit
 func main() {
 	var rootDir string
+	var includeFmt bool
 
 	flag.StringVar(&rootDir, "d", ".", "Path to root dir. Current working dir is used if unset.")
+	flag.BoolVar(&includeFmt, "f", false, "Include fmt.Errorf in counts.")
 	flag.Parse()
 
 	files, err := util.FindFiles(rootDir, goFileFilter)
@@ -57,7 +59,7 @@ func main() {
 
 		for i := 0; i < len(lines); {
 			l := lines[i]
-			if hasErrorStatement(l) {
+			if hasErrorStatement(l, includeFmt) {
 				totErr++
 				incAllSubpaths(fileErr, file)
 			}
@@ -98,9 +100,14 @@ func goFileFilter(path string) bool {
 	return strings.HasSuffix(base, ".go") && !strings.HasSuffix(base, "_test.go")
 }
 
-// hasErrorStatement reports whether s contains an error logging statement.
-func hasErrorStatement(s string) bool {
-	return strings.Contains(s, "log.Error") || strings.Contains(s, "scope.Error")
+// hasErrorStatement reports whether s contains an error logging statement. includeFmt selects whether fmt.Error
+// statements are included.
+func hasErrorStatement(s string, includeFmt bool) bool {
+	ret := strings.Contains(s, "log.Error") || strings.Contains(s, "scope.Error")
+	if includeFmt {
+		ret = ret || strings.Contains(s, "fmt.Error")
+	}
+	return ret
 }
 
 // hasWarningStatement reports whether s contains a warning logging statement.
