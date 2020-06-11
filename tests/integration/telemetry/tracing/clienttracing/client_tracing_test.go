@@ -23,7 +23,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -43,7 +42,6 @@ var (
 func TestClientTracing(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.tracing.client").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			bookinfoNsInst := tracing.GetBookinfoNamespaceInstance()
 			ingress := tracing.GetIngressInstance()
@@ -70,10 +68,9 @@ func TestClientTracing(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("client_tracing_test", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(tracing.GetIstioInstance(), setupConfig)).
+		Setup(istio.Setup(tracing.GetIstioInstance(), setupConfig)).
 		Setup(tracing.TestSetup).
 		Run()
 }

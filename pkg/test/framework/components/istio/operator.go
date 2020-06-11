@@ -96,7 +96,6 @@ var leaderElectionConfigMaps = []string{
 	leaderelection.IngressController,
 	leaderelection.NamespaceController,
 	leaderelection.ValidationController,
-	leaderelection.StatusController,
 }
 
 func (i *operatorComponent) Close() (err error) {

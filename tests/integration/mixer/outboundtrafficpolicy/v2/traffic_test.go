@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -32,10 +31,9 @@ var (
 func TestMain(m *testing.M) {
 	var ist istio.Instance
 	framework.NewSuite("outbound_traffic_policy_telemetry_v2", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(setupPrometheus).
 		Run()
 }

@@ -24,8 +24,8 @@ import (
 var (
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
-		Hub:        env.HUB.Value(),
-		Tag:        env.TAG.Value(),
+		Hub:        env.HUB.ValueOrDefault("gcr.io/istio-testing"),
+		Tag:        env.TAG.ValueOrDefault("latest"),
 		PullPolicy: env.PULL_POLICY.Value(),
 		BitnamiHub: env.BITNAMIHUB.ValueOrDefault("docker.io/bitnami"),
 	}

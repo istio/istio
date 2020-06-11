@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -117,7 +116,6 @@ var (
 func TestDashboard(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.dashboard").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			p := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sidecarscope
+package pilot
 
 import (
 	"fmt"
@@ -25,17 +25,18 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	"istio.io/istio/tests/integration/pilot/sidecarscope"
 
 	"istio.io/istio/pkg/test/framework"
 )
 
 func TestServiceEntryDNS(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		configFn := func(c Config) Config {
+		configFn := func(c sidecarscope.Config) sidecarscope.Config {
 			c.Resolution = "DNS"
 			return c
 		}
-		p, nodeID := setupTest(t, ctx, configFn)
+		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
 		req := &xdsapi.DiscoveryRequest{
 			Node: &xdscore.Node{
@@ -55,12 +56,12 @@ func TestServiceEntryDNS(t *testing.T) {
 
 func TestServiceEntryDNSNoSelfImport(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		configFn := func(c Config) Config {
+		configFn := func(c sidecarscope.Config) sidecarscope.Config {
 			c.Resolution = "DNS"
 			c.ImportedNamespaces = []string{c.IncludedNamespace + "/*"}
 			return c
 		}
-		p, nodeID := setupTest(t, ctx, configFn)
+		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
 		req := &xdsapi.DiscoveryRequest{
 			Node: &xdscore.Node{

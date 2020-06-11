@@ -22,14 +22,12 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 func TestNamespace(t *testing.T) {
 	var namespaceName string
 	var noCleanup bool
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			noCleanup = ctx.Settings().NoCleanup
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{

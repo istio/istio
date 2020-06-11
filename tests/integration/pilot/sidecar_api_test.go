@@ -15,7 +15,6 @@
 package pilot
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -24,8 +23,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -33,7 +32,6 @@ import (
 func TestSidecarListeners(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Native).
 		Run(func(ctx framework.TestContext) {
 
 			// Simulate proxy identity of a sidecar ...
@@ -60,24 +58,18 @@ func TestSidecarListeners(t *testing.T) {
 					return true, nil
 				})
 
-			// TODO: The code below is flaky. We should re-enable this once we have explicit config loading trigger support in Galley.
+			namespace.ClaimOrFail(ctx, ctx, "seexamples")
 			// Apply some config
-			path, err := filepath.Abs("../../testdata/config")
-			if err != nil {
-				t.Fatalf("No such directory: %v", err)
-			}
-			err = ctx.ApplyConfigDir("", path)
-			if err != nil {
-				t.Fatalf("Error applying directory: %v", err)
-			}
+			config := mustReadFile(t, "../../config/se-example.yaml")
+			ctx.ApplyConfigOrFail(t, "", config)
 			defer func() {
-				if err := ctx.DeleteConfigDir("", path); err != nil {
+				if err := ctx.DeleteConfig("", config); err != nil {
 					scopes.Framework.Errorf("failed to delete directory: %v", err)
 				}
 			}()
 
 			// Now continue to watch on the same stream
-			err = p.WatchDiscovery(time.Second*10,
+			err := p.WatchDiscovery(time.Second*10,
 				func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
 					validator := structpath.ForProto(response)
 					if validator.Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").Check() != nil {

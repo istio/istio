@@ -26,7 +26,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -37,7 +36,7 @@ const (
 func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
 		// Limit to Kube environment as we're testing integration of webhook with K8s.
-		RequiresEnvironment(environment.Kube).
+
 		Run(func(ctx framework.TestContext) {
 			env := ctx.Environment().(*kube.Environment)
 

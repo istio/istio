@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -71,7 +70,7 @@ func TestMain(m *testing.M) {
 		NewSuite("meshnetwork_test", m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
+		Setup(istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
@@ -111,7 +110,6 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 	framework.
 		NewTest(t).
 		Label(label.CustomSetup).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "meshnetwork",

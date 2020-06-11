@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/tmpl"
 	util "istio.io/istio/tests/integration/mixer"
 )
@@ -46,7 +45,6 @@ func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
 		NewTest(t).
 		// TODO(https://github.com/istio/istio/issues/14819)
 		Label(label.Flaky).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			label := "source_workload"
 			labelValue := "istio-ingressgateway"
@@ -58,7 +56,6 @@ func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
 func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("SetupAndPrometheus").
 				Run(func(ctx framework.TestContext) {
@@ -144,7 +141,6 @@ func TestTcpMetric(t *testing.T) {
 		NewTest(t).
 		// TODO(https://github.com/istio/istio/issues/18105)
 		Label(label.Flaky).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			undeploy1 := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
 			undeploy2 := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDB})
@@ -190,10 +186,9 @@ func TestTcpMetric(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_metrics", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   prometheus:	

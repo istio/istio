@@ -70,9 +70,6 @@ type Config struct {
 // New returns a new instance of echo.
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Native, func() {
-		i, err = newNative(ctx, cfg)
-	})
 	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx, cfg)
 	})
