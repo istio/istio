@@ -570,7 +570,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	// Bad client - will not read any response. This triggers Write to block, which should
 	// be detected
 	// This is not using adsc, which consumes the events automatically.
-	ads, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	ads, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}

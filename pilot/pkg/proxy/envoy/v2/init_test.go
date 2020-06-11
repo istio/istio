@@ -84,8 +84,8 @@ func testIP(id uint32) string {
 	return net.IP(ipb).String()
 }
 
-// connectADS creates a direct, insecure connection using raw GRPC
-func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
+// connectADSv2 creates a direct, insecure connection using raw GRPC
+func connectADSv2(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
 	conn, err := grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, nil, fmt.Errorf("GRPC dial failed: %s", err)
@@ -126,7 +126,7 @@ func connectADSC(url string, cfg *adsc.Config) (*adsc.ADSC, util.TearDownFunc, e
 	}, err
 }
 
-func connectADSV3(url string) (discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
+func connectADS(url string) (discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
 	conn, err := grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, nil, fmt.Errorf("GRPC dial failed: %s", err)
@@ -143,7 +143,7 @@ func connectADSV3(url string) (discovery.AggregatedDiscoveryService_StreamAggreg
 	}, nil
 }
 
-func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
+func adsReceivev2(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
 	done := make(chan int, 1)
 	t := time.NewTimer(to)
 	defer func() {
@@ -160,7 +160,7 @@ func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClie
 	return ads.Recv()
 }
 
-func adsReceiveV3(ads discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*discovery.DiscoveryResponse, error) {
+func adsReceive(ads discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*discovery.DiscoveryResponse, error) {
 	done := make(chan int, 1)
 	t := time.NewTimer(to)
 	defer func() {
@@ -195,7 +195,7 @@ func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoverySe
 }
 
 func sendEDSNack(_ []string, node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	return sendXds(node, client, v3.EndpointType, "NOPE!")
+	return sendXdsv2(node, client, v3.EndpointType, "NOPE!")
 }
 
 // If pilot is reset, envoy will connect with a nonce/version info set on the previous
@@ -219,7 +219,7 @@ func sendEDSReqReconnect(clusters []string, client ads.AggregatedDiscoveryServic
 }
 
 func sendLDSReq(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	return sendXds(node, client, v2.ListenerType, "")
+	return sendXdsv2(node, client, v2.ListenerType, "")
 }
 
 func sendLDSReqWithLabels(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, labels map[string]string) error {
@@ -238,7 +238,7 @@ func sendLDSReqWithLabels(node string, ldsstr ads.AggregatedDiscoveryService_Str
 }
 
 func sendLDSNack(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	return sendXds(node, client, v2.ListenerType, "NOPE!")
+	return sendXdsv2(node, client, v2.ListenerType, "NOPE!")
 }
 
 func sendRDSReq(node string, routes []string, nonce string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
@@ -274,14 +274,14 @@ func sendRDSNack(node string, _ []string, nonce string, rdsstr ads.AggregatedDis
 }
 
 func sendCDSReq(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	return sendXds(node, client, v2.ClusterType, "")
+	return sendXdsv2(node, client, v2.ClusterType, "")
 }
 
 func sendCDSNack(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	return sendXds(node, client, v2.ClusterType, "NOPE!")
+	return sendXdsv2(node, client, v2.ClusterType, "NOPE!")
 }
 
-func sendXds(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, typeURL string, errMsg string) error {
+func sendXdsv2(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, typeURL string, errMsg string) error {
 	var errorDetail *status.Status
 	if errMsg != "" {
 		errorDetail = &status.Status{Message: errMsg}
@@ -301,7 +301,7 @@ func sendXds(node string, client ads.AggregatedDiscoveryService_StreamAggregated
 	return nil
 }
 
-func sendXdsV3(node string, client discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient, typeURL string, errMsg string) error {
+func sendXds(node string, client discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient, typeURL string, errMsg string) error {
 	var errorDetail *status.Status
 	if errMsg != "" {
 		errorDetail = &status.Status{Message: errMsg}

@@ -54,7 +54,7 @@ func TestRDS(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+			rdsr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 			if err != nil {
 				t.Fatal(err)
 			}

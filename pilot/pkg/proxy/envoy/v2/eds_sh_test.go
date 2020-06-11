@@ -160,7 +160,7 @@ func TestSplitHorizonEds(t *testing.T) {
 // Tests whether an EDS response from the provided network matches the expected results
 func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, expected expectedResults) {
 	t.Helper()
-	edsstr, cancel, err := connectADSV3(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = adsReceiveV3(edsstr, 5*time.Second)
+	_, err = adsReceive(edsstr, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceiveV3(edsstr, 5*time.Second)
+	res, err := adsReceive(edsstr, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
