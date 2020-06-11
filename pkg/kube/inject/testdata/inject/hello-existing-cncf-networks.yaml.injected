@@ -1,0 +1,210 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: hello
+spec:
+  replicas: 7
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: alt_cni, istio-cni
+        sidecar.istio.io/interceptionMode: REDIRECT
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-validation"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeInboundPorts: "80"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+      creationTimestamp: null
+      labels:
+        app: hello
+        istio.io/rev: ""
+        security.istio.io/tlsMode: istio
+        tier: backend
+        track: stable
+    spec:
+      containers:
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
+      - args:
+        - proxy
+        - sidecar
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --serviceCluster
+        - hello.$(POD_NAMESPACE)
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
+        - --trust-domain=cluster.local
+        - --concurrency
+        - "2"
+        env:
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: istiod
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: PROXY_CONFIG
+          value: |
+            {}
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"name":"http","containerPort":80}
+            ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+                hello
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: REDIRECT
+        - name: ISTIO_METAJSON_ANNOTATIONS
+          value: |
+            {"k8s.v1.cni.cncf.io/networks":"alt_cni"}
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: hello
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{}'
+        image: gcr.io/istio-testing/proxyv2:latest
+        imagePullPolicy: Always
+        name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15090
+          initialDelaySeconds: 1
+          periodSeconds: 2
+        resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        volumeMounts:
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        - mountPath: /etc/istio/pod
+          name: istio-podinfo
+      initContainers:
+      - args:
+        - istio-iptables
+        - -p
+        - "15001"
+        - -z
+        - "15006"
+        - -u
+        - "1337"
+        - -m
+        - REDIRECT
+        - -i
+        - '*'
+        - -x
+        - ""
+        - -b
+        - '*'
+        - -d
+        - 15090,15020
+        - --run-validation
+        - --skip-rule-apply
+        image: gcr.io/istio-testing/proxyv2:latest
+        imagePullPolicy: Always
+        name: istio-validation
+        resources:
+          limits:
+            cpu: 100m
+            memory: 50Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: istio-podinfo
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - configMap:
+          name: istio-ca-root-cert
+        name: istiod-ca-cert
+status: {}
+---

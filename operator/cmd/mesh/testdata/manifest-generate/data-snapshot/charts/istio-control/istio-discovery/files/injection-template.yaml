@@ -403,6 +403,13 @@ template: |
       {{- end }}
   {{- end }}
   podRedirectAnnot:
+  {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}
+  {{ if isset .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks` }}
+    k8s.v1.cni.cncf.io/networks: "{{ index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`}}, istio-cni"
+  {{- else }}
+    k8s.v1.cni.cncf.io/networks: "istio-cni"
+  {{- end }}
+  {{- end }}
     sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
     traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
     traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
