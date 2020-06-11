@@ -16,6 +16,7 @@ package operator
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -25,6 +26,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
+	kubeApiCore "k8s.io/api/core/v1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	api "istio.io/api/operator/v1alpha1"
@@ -41,6 +44,7 @@ import (
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
@@ -94,8 +98,12 @@ func TestController(t *testing.T) {
 			// install istio with default config for the first time by running operator init command
 			istioCtl.InvokeOrFail(t, initCmd)
 
-			if err := cs.CreateNamespace(IstioNamespace, ""); err != nil {
-				_, err := cs.GetNamespace(IstioNamespace)
+			if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+				ObjectMeta: kubeApiMeta.ObjectMeta{
+					Name: IstioNamespace,
+				},
+			}, kubeApiMeta.CreateOptions{}); err != nil {
+				_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
 				if err == nil {
 					log.Info("istio namespace already exist")
 				} else {
@@ -136,10 +144,11 @@ func checkInstallStatus(cs kube.Cluster) error {
 		}
 		usIOPStatus := us.UnstructuredContent()["status"]
 		if usIOPStatus == nil {
-			if _, err := cs.GetService(OperatorNamespace, "istio-operator"); err != nil {
+			if _, err := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), "istio-operator",
+				kubeApiMeta.GetOptions{}); err != nil {
 				return fmt.Errorf("istio operator svc is not ready: %v", err)
 			}
-			if _, err := cs.CheckPodsAreReady(cs.NewPodFetch(OperatorNamespace)); err != nil {
+			if _, err := cs.CheckPodsAreReady(kube2.NewPodFetch(cs.Accessor, OperatorNamespace)); err != nil {
 				return fmt.Errorf("istio operator pod is not ready: %v", err)
 			}
 
@@ -214,7 +223,7 @@ func verifyInstallation(t *testing.T, ctx resource.Context,
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
 
-	if _, err := cs.CheckPodsAreReady(cs.NewSinglePodFetch(IstioNamespace, "app=istiod")); err != nil {
+	if _, err := cs.CheckPodsAreReady(kube2.NewSinglePodFetch(cs.Accessor, IstioNamespace, "app=istiod")); err != nil {
 		t.Fatalf("istiod pod is not ready: %v", err)
 	}
 
@@ -290,31 +299,35 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 		retry.UntilSuccessOrFail(t, func() error {
 			switch kind {
 			case "Service":
-				if _, err := cs.GetService(ns, name); err != nil {
+				if _, err := cs.CoreV1().Services(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected service: %s from cluster", name)
 				}
 			case "ServiceAccount":
-				if _, err := cs.GetServiceAccount(ns, name); err != nil {
+				if _, err := cs.CoreV1().ServiceAccounts(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected serviceAccount: %s from cluster", name)
 				}
 			case "Deployment":
-				if _, err := cs.GetDeployment(IstioNamespace, name); err != nil {
+				if _, err := cs.AppsV1().Deployments(IstioNamespace).Get(context.TODO(), name,
+					kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected deployment: %s from cluster", name)
 				}
 			case "ConfigMap":
-				if _, err := cs.GetConfigMap(name, ns); err != nil {
+				if _, err := cs.CoreV1().ConfigMaps(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected configMap: %s from cluster", name)
 				}
 			case "ValidatingWebhookConfiguration":
-				if exist := cs.ValidatingWebhookConfigurationExists(name); !exist {
+				if _, err := cs.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.TODO(),
+					name, kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected ValidatingWebhookConfiguration: %s from cluster", name)
 				}
 			case "MutatingWebhookConfiguration":
-				if exist := cs.MutatingWebhookConfigurationExists(name); !exist {
+				if _, err := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.TODO(),
+					name, kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected MutatingWebhookConfiguration: %s from cluster", name)
 				}
 			case "CustomResourceDefinition":
-				if _, err := cs.GetCustomResourceDefinition(name); err != nil {
+				if _, err := cs.Ext().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), name,
+					kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name)
 				}
 			case "EnvoyFilter":
@@ -322,11 +335,13 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 					return fmt.Errorf("failed to get expected Envoyfilter: %s from cluster", name)
 				}
 			case "PodDisruptionBudget":
-				if _, err := cs.GetPodDisruptionBudget(ns, name); err != nil {
+				if _, err := cs.PolicyV1beta1().PodDisruptionBudgets(ns).Get(context.TODO(), name,
+					kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected PodDisruptionBudget: %s from cluster", name)
 				}
 			case "HorizontalPodAutoscaler":
-				if _, err := cs.GetHorizontalPodAutoscaler(ns, name); err != nil {
+				if _, err := cs.AutoscalingV2beta1().HorizontalPodAutoscalers(ns).Get(context.TODO(), name,
+					kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected HorizontalPodAutoscaler: %s from cluster", name)
 				}
 			}

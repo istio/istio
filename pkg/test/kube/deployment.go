@@ -24,7 +24,7 @@ import (
 // Deployment is a utility that absracts the operation of deploying and deleting
 // Kubernetes deployments.
 type Deployment struct {
-	accessor *Accessor
+	accessor Accessor
 
 	// The deployment namespace.
 	namespace string
@@ -49,7 +49,7 @@ func (d *Deployment) Deploy(wait bool, opts ...retry.Option) (err error) {
 	}
 
 	if wait {
-		if _, err := d.accessor.WaitUntilPodsAreReady(d.accessor.NewPodFetch(d.namespace), opts...); err != nil {
+		if _, err := d.accessor.WaitUntilPodsAreReady(NewPodFetch(d.accessor, d.namespace), opts...); err != nil {
 			scopes.Framework.Errorf("Wait for Istio pods failed: %v", err)
 			return err
 		}
@@ -88,7 +88,7 @@ func (d *Deployment) Delete(wait bool, opts ...retry.Option) (err error) {
 }
 
 // NewYamlContentDeployment creates a new deployment from the contents of a yaml document.
-func NewYamlContentDeployment(namespace, yamlContents string, a *Accessor) *Deployment {
+func NewYamlContentDeployment(namespace, yamlContents string, a Accessor) *Deployment {
 	return &Deployment{
 		accessor:     a,
 		namespace:    namespace,

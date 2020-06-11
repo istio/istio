@@ -26,6 +26,7 @@ import (
 	prometheusApi "github.com/prometheus/client_golang/api"
 	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -108,14 +109,14 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 			return removePrometheus(ctx, cfg.TelemetryNamespace)
 		}
 	}
-	fetchFn := c.cluster.NewSinglePodFetch(cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
+	fetchFn := testKube.NewSinglePodFetch(c.cluster.Accessor, cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
 	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 	pod := pods[0]
 
-	svc, err := c.cluster.GetService(cfg.TelemetryNamespace, serviceName)
+	svc, err := c.cluster.CoreV1().Services(cfg.TelemetryNamespace).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

@@ -97,7 +97,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		_ = removeZipkin(ctx, cfg.TelemetryNamespace)
 	}
 
-	fetchFn := c.cluster.NewSinglePodFetch(cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
+	fetchFn := testKube.NewSinglePodFetch(c.cluster.Accessor, cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
 	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
