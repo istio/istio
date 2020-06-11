@@ -185,11 +185,11 @@ func (t *Test) RunParallel(fn func(ctx TestContext)) {
 
 func (t *Test) runInternal(fn func(ctx TestContext), parallel bool) {
 	// Disallow running the same test more than once.
+	testName := t.name
+	if testName == "" && t.goTest != nil {
+		testName = t.goTest.Name()
+	}
 	if t.ctx != nil {
-		testName := t.name
-		if testName == "" && t.goTest != nil {
-			testName = t.goTest.Name()
-		}
 		panic(fmt.Sprintf("Attempting to run test `%s` more than once", testName))
 	}
 
@@ -200,9 +200,9 @@ func (t *Test) runInternal(fn func(ctx TestContext), parallel bool) {
 
 	// TODO: should we also block new cases?
 	suiteName := t.s.settings.TestID
-	if len(t.featureLabels) < 1 && !features.GlobalWhitelist.Contains(suiteName, t.goTest.Name()) {
+	if len(t.featureLabels) < 1 && !features.GlobalWhitelist.Contains(suiteName, testName) {
 		t.goTest.Fatalf("Detected new test %s in suite %s with no feature labels.  "+
-			"See istio/istio/pkg/test/framework/features/README.md", t.goTest.Name(), suiteName)
+			"See istio/istio/pkg/test/framework/features/README.md", testName, suiteName)
 	}
 
 	if t.parent != nil {
