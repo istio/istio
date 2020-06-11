@@ -23,6 +23,8 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
+	mesh "istio.io/api/mesh/v1alpha1"
+	istioagent "istio.io/istio/pkg/istio-agent"
 	secretmodel "istio.io/istio/security/pkg/nodeagent/model"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -52,36 +54,61 @@ func (sc *clientSecrets) GenerateSecret(ctx context.Context, connectionID, resou
 	return &sc.SecretItem, nil
 }
 
+// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
+func (sc *clientSecrets) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
+	return false
+}
 
+// TODO: must fix SDS, it uses existence to detect it's an ACK !!
+func (sc *clientSecrets) SecretExist(connectionID, resourceName, token, version string) bool {
+	return false
+}
+
+// DeleteSecret deletes a secret by its key from cache.
+func (sc *clientSecrets) DeleteSecret(connectionID, resourceName string) {
+}
+
+// TestAuth will start istiod with TLS enabled, use the istio-agent to connect, and then
+// use the ADSC to connect to the agent proxy.
 func TestAuth(t *testing.T) {
+	// Start Istiod
 	bs, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
+	// TODO: when auth
 	cert, key, err := bs.CA.GenKeyCert([]string {"dummy.client"}, 1 * time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ldsr, close1, err := connectADSC(util.MockPilotSGrpcAddr,
+	// Start the istio-agent (proxy and SDS part)
+	sa := istioagent.NewAgent(&mesh.ProxyConfig{
+		DiscoveryAddress: util.MockPilotSGrpcAddr,
+		ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
+	}, "custom", "", "", "kubernetes")
+
+	sa.WorkloadSecrets = &clientSecrets{
+		secretmodel.SecretItem{
+			PrivateKey:       key,
+			CertificateChain: cert,
+			RootCert:         bs.CA.GetCAKeyCertBundle().GetRootCertPem(),
+		},
+	}
+	_, err = sa.Start(true, "test")
+
+	// connect to the local XDS proxy - it's using a transient port.
+	ldsr, close1, err := connectADSC(sa.LocalXDSListener.Addr().String(),
 		&adsc.Config{
-			Secrets: &clientSecrets{
-				secretmodel.SecretItem{
-					PrivateKey: key,
-					CertificateChain: cert,
-					RootCert: bs.CA.GetCAKeyCertBundle().GetRootCertPem(),
-				},
-			},
-			Watch: []string{v2.TypeURLConnections},
-			Meta: model.NodeMetadata{
-				Generator: "event",
-			}.ToStruct(),
+			Watch: []string{v2.TypeURLConnections, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
 	})
 	if err != nil {
 		t.Fatal("Failed to connect", err)
 	}
 	defer close1()
 
-	_, err = ldsr.WaitVersion(5*time.Second, v2.TypeURLConnections, "")
+	ldsr.WatchConfig()
+	select {}
+	_, err = ldsr.WaitVersion(5*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
 	if err != nil {
 		t.Fatal(err)
 	}

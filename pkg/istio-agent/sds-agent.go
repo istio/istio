@@ -186,7 +186,7 @@ type SDSAgent struct {
 
 	// WorkloadSecrets is the interface used to get secrets. The SDS agent
 	// is calling this.
-	WorkloadSecrets *cache.SecretCache
+	WorkloadSecrets cache.SecretManager
 
 	// If set, this is the Citadel client, used to retrieve certificates.
 	CitadelClient caClientInterface.Client
@@ -200,6 +200,14 @@ type SDSAgent struct {
 	// FileMountedCerts indicates whether the proxy is using file mounted certs.
 	FileMountedCerts bool
 	proxyConfig      *mesh.ProxyConfig
+
+	// LocalXDSAddr is the address of the XDS proxy. If not set, the env variable will be used.
+	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
+	// Set for tests to 127.0.0.1:0
+	LocalXDSAddr     string
+
+	// Listener for the XDS proxy
+	LocalXDSListener net.Listener
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -220,7 +228,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputK
 	a.SDSAddress = "unix:" + LocalSDS
 	a.ClusterID = clusterID
 
-	// If a workload is using file mounted certs, we do not to have to process CA relaated configuration.
+	// If a workload is using file mounted certs, we do not to have to process CA related configuration.
 	if !shouldProvisionCertificates() {
 		log.Info("Workload is using file mounted certificates. Skipping setting CA related configuration")
 		a.FileMountedCerts = true
@@ -284,7 +292,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputK
 	}
 
 	// Init the XDS proxy part of the agent.
-	initXDS(proxyConfig)
+	a.initXDS(proxyConfig)
 
 	return a
 }
@@ -323,7 +331,10 @@ func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, err
 	}
 
 	// TODO: remove the caching, workload has a single cert
-	workloadSecretCache, _ := sa.newSecretCache(serverOptions)
+	if sa.WorkloadSecrets == nil {
+		workloadSecretCache, _ := sa.newSecretCache(serverOptions)
+		sa.WorkloadSecrets = workloadSecretCache
+	}
 
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
@@ -338,13 +349,13 @@ func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, err
 		}
 	}
 
-	server, err := sds.NewServer(serverOptions, workloadSecretCache, gatewaySecretCache)
+	server, err := sds.NewServer(serverOptions, sa.WorkloadSecrets, gatewaySecretCache)
 	if err != nil {
 		return nil, err
 	}
 
 	// Start the XDS for envoy.
-	err = startXDS(sa.proxyConfig, workloadSecretCache)
+	err = startXDS(sa.proxyConfig, sa.WorkloadSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +382,6 @@ func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCac
 
 	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, workloadSdsCacheOptions)
-	sa.WorkloadSecrets = workloadSecretCache
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
 	if !shouldProvisionCertificates() {

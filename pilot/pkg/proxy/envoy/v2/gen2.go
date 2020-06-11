@@ -111,6 +111,16 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discove
 	if cg, f := s.Generators[con.node.Metadata.Generator+"/"+w.TypeUrl]; f {
 		g = cg
 	}
+	if cg, f := s.Generators[w.TypeUrl]; f {
+		g = cg
+	}
+	if g == nil {
+		g = s.Generators["api"] // default to MCS generators - any type supported by store
+ 	}
+
+ 	if g == nil {
+ 		return nil
+	}
 
 	cl := g.Generate(con.node, push, w, nil)
 	sz := 0

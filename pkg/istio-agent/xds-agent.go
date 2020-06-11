@@ -15,7 +15,6 @@
 package istioagent
 
 import (
-	"context"
 	"net"
 	"time"
 
@@ -23,7 +22,6 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/pkg/env"
@@ -55,7 +53,7 @@ var (
 	cfg       *meshconfig.ProxyConfig
 )
 
-func initXDS(mc *meshconfig.ProxyConfig) {
+func (sa *SDSAgent) initXDS(mc *meshconfig.ProxyConfig) {
 	s := xds.NewXDS()
 	xdsServer = s
 	cfg = mc
@@ -64,42 +62,55 @@ func initXDS(mc *meshconfig.ProxyConfig) {
 	serverOptions.GrpcServer = grpc.NewServer()
 
 	var err error
-	if xdsAddr.Get() != "" {
-		localListener, err = net.Listen("tcp", xdsAddr.Get())
+	if sa.LocalXDSAddr == "" {
+		sa.LocalXDSAddr = xdsAddr.Get() // default using the env.
+	}
+	if sa.LocalXDSAddr != "" {
+		localListener, err = net.Listen("tcp", sa.LocalXDSAddr)
 		if err != nil {
 			log.Errorf("Failed to set up TCP path: %v", err)
 		}
 		localGrpcServer = grpc.NewServer()
 		s.DiscoveryServer.Register(localGrpcServer)
+		sa.LocalXDSListener = localListener
 	}
 }
 
-func startXDS(proxyConfig *meshconfig.ProxyConfig, secrets *cache.SecretCache) error {
+// startXDS will start the XDS proxy and client. Will connect to Istiod (or XDS server),
+// and start fetching configs to be cached.
+func startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.SecretManager) error {
 	// TODO: handle certificates and security - similar with the
 	// code we generate for envoy !
 
 	ads, err := adsc.Dial(proxyConfig.DiscoveryAddress,
 		"",
 		&adsc.Config{
-			Meta: model.NodeMetadata{
-				Generator: "api",
-			}.ToStruct(),
 			Secrets: secrets,
 		})
 	if err != nil {
-		log.Fatalf("Failed to connect to XDS server")
+		// Exit immediately - the XDS server is not reachable. The sidecar should restart.
+		// TODO: we can also return an error, but eventually it should still exit - and let
+		// k8s report and deal with restarts.
+		log.Fatala("Failed to connect to XDS server ", err)
 	}
 
 	ads.LocalCacheDir = savePath.Get()
 	ads.Store = xdsServer.MemoryConfigStore
 	ads.Registry = xdsServer.DiscoveryServer.MemRegistry
 
+	// Send requests for MCP configs, for caching/debugging.
 	ads.WatchConfig()
-	syncOk := xdsServer.WaitConfigSync(10 * time.Second)
+
+	// Send requests for normal envoy configs
+	ads.Watch()
+
+	syncOk := ads.WaitConfigSync(10 * time.Second)
 	if !syncOk {
 		// TODO: have the store return a sync map, or better expose sync events/status
 		log.Warna("Incomplete sync")
 	}
+
+
 	// TODO: wait for config to sync before starting the rest
 	// TODO: handle push
 

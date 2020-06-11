@@ -27,6 +27,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -34,6 +35,8 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -45,11 +48,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	secretmodel "istio.io/istio/security/pkg/nodeagent/model"
-
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 
 	"istio.io/pkg/log"
 
@@ -89,12 +87,7 @@ type Config struct {
 	InitialReconnectDelay time.Duration
 
 	// Secrets is the interface used for getting keys and rootCA.
-	Secrets               SecretProvider
-}
-
-// SecretProvider is an interface implemented by the SDS layer to generate secrets.
-type SecretProvider interface {
-	 GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*secretmodel.SecretItem, error)
+	Secrets               cache.SecretManager
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -172,6 +165,10 @@ type ADSC struct {
 
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
 	sendNodeMeta bool
+
+	sync        map[string]time.Time
+	syncCh      chan string
+	m           sync.RWMutex
 }
 
 const (
@@ -187,14 +184,6 @@ var (
 	adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 )
 
-// markSynced is an optional inteface implemented by a store that
-// needs to be notified explicitly that a resource got all results -
-// like MemoryStore. This is WIP - we may promote it to model, or we
-// may change the way we handle 'sync status'.
-type markSynced interface {
-	MarkSynced(key string)
-}
-
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	if opts == nil {
@@ -208,6 +197,8 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		Received:    map[string]*xdsapi.DiscoveryResponse{},
 		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
+		syncCh:      make(chan string, len(collections.Pilot.All())),
+		sync: map[string]time.Time{},
 	}
 	if certDir != "" {
 		opts.CertDir = certDir
@@ -256,7 +247,7 @@ func getPrivateIPIfAvailable() net.IP {
 	return net.IPv4zero
 }
 
-func tlsConfig(server, certDir string, secrets SecretProvider) (*tls.Config, error) {
+func tlsConfig(server, certDir string, secrets cache.SecretManager) (*tls.Config, error) {
 	var clientCert tls.Certificate
 	var serverCABytes []byte
 	var err error
@@ -358,6 +349,19 @@ func (a *ADSC) Run() error {
 
 	go a.handleRecv()
 	return nil
+}
+
+// HasSyncedConfig returns true if MCP configs have synced
+func (a *ADSC) hasSynced() bool {
+		for _, s := range collections.Pilot.All() {
+			a.m.RLock()
+			t := a.sync[s.Resource().GroupVersionKind().String()]
+			a.m.RUnlock()
+			if t.IsZero() {
+				return false
+			}
+		}
+	return true
 }
 
 func (a *ADSC) handleRecv() {
@@ -490,13 +494,16 @@ func (a *ADSC) handleRecv() {
 		// or to support large sets - memory store has a special handling by calling Create
 		// with an empty resource. This is used to avoid sleep loop on HasSynced
 		if a.Store != nil && len(gvk) == 3 {
-			if ms, ok := a.Store.(markSynced); ok {
-				ms.MarkSynced(resource.GroupVersionKind{
-					Group:   gvk[0],
-					Version: gvk[1],
-					Kind:    gvk[2],
-				}.String())
-			}
+			key := resource.GroupVersionKind{
+				Group:   gvk[0],
+				Version: gvk[1],
+				Kind:    gvk[2],
+			}.String()
+			a.m.Lock()
+			a.sync[key] = time.Now()
+			a.m.Unlock()
+			a.syncCh <- key
+
 			log.Infoa("Sync for ", gvk, len(msg.Resources))
 		}
 
@@ -957,6 +964,28 @@ func (a *ADSC) WatchConfig() {
 		})
 	}
 }
+
+// WaitConfigSync will wait for the memory controller to sync.
+func (a *ADSC) WaitConfigSync(max time.Duration) bool {
+	// TODO: when adding support for multiple config controllers (matching MCP), make sure the
+	// new stores support reporting sync events on the syncCh, to avoid the sleep loop from MCP.
+	if a.hasSynced() {
+		return true
+	}
+	maxCh := time.After(max)
+	for {
+		select {
+		case <-a.syncCh:
+			if a.hasSynced() {
+				return true
+			}
+		case <-maxCh:
+			return a.hasSynced()
+		}
+	}
+}
+
+
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{

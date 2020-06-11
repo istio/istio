@@ -16,7 +16,6 @@ package xds
 
 import (
 	"net"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -82,7 +81,7 @@ func NewXDS() *Server {
 		DiscoveryServer: ds,
 	}
 	s.syncCh = make(chan string, len(schemas.All()))
-	configController := memory.NewControllerSync(store, &schemas, s.syncCh)
+	configController := memory.NewController(store)
 	s.MemoryConfigStore = model.MakeIstioStore(configController)
 
 	// Endpoints/Clusters - using the config store for ServiceEntries
@@ -121,26 +120,6 @@ func NewXDS() *Server {
 	env.IstioConfigStore = model.MakeIstioStore(aggregateConfigController)
 
 	return s
-}
-
-// WaitConfigSync will wait for the memory controller to sync.
-func (s *Server) WaitConfigSync(max time.Duration) bool {
-	// TODO: when adding support for multiple config controllers (matching MCP), make sure the
-	// new stores support reporting sync events on the syncCh, to avoid the sleep loop from MCP.
-	if s.ConfigStoreCache.HasSynced() {
-		return true
-	}
-	maxCh := time.After(max)
-	for {
-		select {
-		case <-s.syncCh:
-			if s.ConfigStoreCache.HasSynced() {
-				return true
-			}
-		case <-maxCh:
-			return s.ConfigStoreCache.HasSynced()
-		}
-	}
 }
 
 func (s *Server) StartGRPC(addr string) error {
