@@ -20,10 +20,12 @@ import (
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -217,15 +219,15 @@ func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP str
 	}
 
 	// make an eds request, simulating a VM, asking for a cluster on k8s
-	request := pilot.NewDiscoveryRequest(node.ServiceNode(), pilot.ClusterLoadAssignment)
+	request := pilot.NewDiscoveryRequest(node.ServiceNode(), v3.EndpointType)
 	request.ResourceNames = []string{k8sSvcClusterName}
 	if err := p.StartDiscovery(request); err != nil {
 		return err
 	}
 
-	return p.WatchDiscovery(time.Second*10, func(resp *xdsapi.DiscoveryResponse) (b bool, e error) {
+	return p.WatchDiscovery(time.Second*10, func(resp *discovery.DiscoveryResponse) (b bool, e error) {
 		for _, res := range resp.Resources {
-			c := &xdsapi.ClusterLoadAssignment{}
+			c := &endpoint.ClusterLoadAssignment{}
 			if err := proto.Unmarshal(res.Value, c); err != nil {
 				return false, err
 			}
