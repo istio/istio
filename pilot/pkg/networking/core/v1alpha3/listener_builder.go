@@ -135,7 +135,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// UseOriginalDst: proto.BoolTrue,
 	lb.virtualInboundListener.HiddenEnvoyDeprecatedUseOriginalDst = nil
 	lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters,
-		xdsfilters.OriginalDestinationFilter,
+		xdsfilters.OriginalDestination,
 	)
 	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
@@ -149,12 +149,12 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 
 	if needTLS || needTLSForPassThroughFilterChain {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.TlsInspectorFilter)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.TlsInspector)
 	}
 
 	if lb.node.GetInterceptionMode() == model.InterceptionTproxy {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.OriginalSrcFilter)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.OriginalSrc)
 	}
 
 	// Note: the HTTP inspector should be after TLS inspector.
@@ -162,7 +162,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// won't inspect the packet.
 	if features.EnableProtocolSniffingForInbound {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.HttpInspectorFilter)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.HttpInspector)
 	}
 
 	timeout := features.InboundProtocolDetectionTimeout

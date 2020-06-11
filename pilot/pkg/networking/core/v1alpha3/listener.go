@@ -1825,7 +1825,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	copy(filters, httpFilters)
 
 	if httpOpts.addGRPCWebFilter {
-		filters = append(filters, xdsfilters.GrpcWebFilter)
+		filters = append(filters, xdsfilters.GrpcWeb)
 	}
 
 	if pluginParams.ServiceInstance != nil &&
@@ -1843,10 +1843,10 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND {
-		filters = append(filters, xdsfilters.AlpnFilter)
+		filters = append(filters, xdsfilters.Alpn)
 	}
 
-	filters = append(filters, xdsfilters.CorsFilter, xdsfilters.FaultFilter, xdsfilters.RouterFilter)
+	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault, xdsfilters.Router)
 
 	if httpOpts.connectionManager == nil {
 		httpOpts.connectionManager = &hcm.HttpConnectionManager{}
@@ -2076,17 +2076,17 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 	}
 	if needTLSInspector || opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.TlsInspector] = true
-		listenerFilters = append(listenerFilters, xdsfilters.TlsInspectorFilter)
+		listenerFilters = append(listenerFilters, xdsfilters.TlsInspector)
 	}
 
 	if opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.HttpInspector] = true
-		listenerFilters = append(listenerFilters, xdsfilters.HttpInspectorFilter)
+		listenerFilters = append(listenerFilters, xdsfilters.HttpInspector)
 	}
 
 	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy {
 		listenerFiltersMap[xdsfilters.OriginalSrcFilterName] = true
-		listenerFilters = append(listenerFilters, xdsfilters.OriginalSrcFilter)
+		listenerFilters = append(listenerFilters, xdsfilters.OriginalSrc)
 	}
 
 	for _, chain := range opts.filterChainOpts {
@@ -2527,12 +2527,12 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 
 	if !hasTLSInspector {
 		filters =
-			append(filters, xdsfilters.TlsInspectorFilter)
+			append(filters, xdsfilters.TlsInspector)
 	}
 
 	if !hasHTTPInspector {
 		filters =
-			append(filters, xdsfilters.HttpInspectorFilter)
+			append(filters, xdsfilters.HttpInspector)
 	}
 
 	return filters

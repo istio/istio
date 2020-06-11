@@ -88,7 +88,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 				FilterChainMatch: alpnIstioMatch,
 				TLSContext:       ctx,
 				ListenerFilters: []*listener.ListenerFilter{
-					filters.TlsInspectorFilter,
+					filters.TlsInspector,
 				},
 			},
 			{

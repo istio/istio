@@ -40,56 +40,55 @@ const (
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
 // This should not be used for filters that will be mutated
 var (
-	CorsFilter = &hcm.HttpFilter{
+	Cors = &hcm.HttpFilter{
 		Name: wellknown.CORS,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&cors.Cors{}),
 		},
 	}
-	FaultFilter = &hcm.HttpFilter{
+	Fault = &hcm.HttpFilter{
 		Name: wellknown.Fault,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&fault.HTTPFault{}),
 		},
 	}
-	RouterFilter = &hcm.HttpFilter{
+	Router = &hcm.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&router.Router{}),
 		},
 	}
-	GrpcWebFilter = &hcm.HttpFilter{
+	GrpcWeb = &hcm.HttpFilter{
 		Name: wellknown.GRPCWeb,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&grpcweb.GrpcWeb{}),
 		},
 	}
-
-	TlsInspectorFilter = &listener.ListenerFilter{
+	TlsInspector = &listener.ListenerFilter{
 		Name: wellknown.TlsInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&tlsinspector.TlsInspector{}),
 		},
 	}
-	HttpInspectorFilter = &listener.ListenerFilter{
+	HttpInspector = &listener.ListenerFilter{
 		Name: wellknown.HttpInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&httpinspector.HttpInspector{}),
 		},
 	}
-	OriginalDestinationFilter = &listener.ListenerFilter{
+	OriginalDestination = &listener.ListenerFilter{
 		Name: wellknown.OriginalDestination,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
 		},
 	}
-	OriginalSrcFilter = &listener.ListenerFilter{
+	OriginalSrc = &listener.ListenerFilter{
 		Name: OriginalSrcFilterName,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{}),
 		},
 	}
-	AlpnFilter = &hcm.HttpFilter{
+	Alpn = &hcm.HttpFilter{
 		Name: AlpnFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&alpn.FilterConfig{
