@@ -224,6 +224,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	errG = multierror.Group{}
 	for _, cluster := range env.KubeClusters {
 		if !env.IsControlPlaneCluster(cluster) {
+			cluster := cluster
 			errG.Go(func() error {
 				if err := deployControlPlane(i, cfg, cluster, remoteIopFile); err != nil {
 					return fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
