@@ -24,6 +24,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/bootstrap"
 	istioagent "istio.io/istio/pkg/istio-agent"
 	secretmodel "istio.io/istio/security/pkg/nodeagent/model"
 
@@ -68,50 +69,82 @@ func (sc *clientSecrets) SecretExist(connectionID, resourceName, token, version 
 func (sc *clientSecrets) DeleteSecret(connectionID, resourceName string) {
 }
 
-// TestAuth will start istiod with TLS enabled, use the istio-agent to connect, and then
+// TestAgent will start istiod with TLS enabled, use the istio-agent to connect, and then
 // use the ADSC to connect to the agent proxy.
-func TestAuth(t *testing.T) {
+func TestAgent(t *testing.T) {
 	// Start Istiod
 	bs, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	// TODO: when auth
-	cert, key, err := bs.CA.GenKeyCert([]string {"dummy.client"}, 1 * time.Hour)
+	// TODO: when authz is implemented, verify labels are checked.
+	cert, key, err := bs.CA.GenKeyCert([]string {"fake.test"}, 1 * time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Start the istio-agent (proxy and SDS part)
-	sa := istioagent.NewAgent(&mesh.ProxyConfig{
-		DiscoveryAddress: util.MockPilotSGrpcAddr,
-		ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
-	}, "custom", "", "", "kubernetes")
-
-	sa.WorkloadSecrets = &clientSecrets{
+	creds := &clientSecrets{
 		secretmodel.SecretItem{
 			PrivateKey:       key,
 			CertificateChain: cert,
 			RootCert:         bs.CA.GetCAKeyCertBundle().GetRootCertPem(),
 		},
 	}
+
+	t.Run("adscTLS", func(t *testing.T) {
+		testAdscTLS(t, bs, creds)
+	})
+
+	// Start the istio-agent (proxy and SDS part) - will connect to XDS
+	sa := istioagent.NewAgent(
+		&mesh.ProxyConfig{
+		DiscoveryAddress: util.MockPilotSGrpcAddr,
+		ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
+	}, "custom", "", "", "kubernetes")
+
+	// Override agent auth - start will use this instead of a gRPC
+	// TODO: add a test for cert-based config.
+	// TODO: add a test for JWT-based ( using some mock OIDC in Istiod)
+	sa.WorkloadSecrets = creds
 	_, err = sa.Start(true, "test")
 
 	// connect to the local XDS proxy - it's using a transient port.
-	ldsr, close1, err := connectADSC(sa.LocalXDSListener.Addr().String(),
+	ldsr, err := adsc.Dial(sa.LocalXDSListener.Addr().String(), "",
 		&adsc.Config{
-			Watch: []string{v2.TypeURLConnections, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
+		  IP: "10.11.10.1",
+		  Namespace: "test",
+			Watch: []string{
+				v3.ClusterType,
+				v2.TypeURLConnections,
+				collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
 	})
 	if err != nil {
 		t.Fatal("Failed to connect", err)
 	}
-	defer close1()
+	defer ldsr.Close()
 
-	ldsr.WatchConfig()
-	select {}
 	_, err = ldsr.WaitVersion(5*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// testAdscTLS tests that ADSC helper can connect using TLS to Istiod
+func testAdscTLS(t *testing.T, bs *bootstrap.Server, creds *clientSecrets) {
+	// connect to the local XDS proxy - it's using a transient port.
+	ldsr, err := adsc.Dial(bs.SecureGrpcListener.Addr().String(), "",
+		&adsc.Config{
+			IP: "10.11.10.1",
+			Namespace: "test",
+			Secrets: creds,
+			Watch: []string{
+				v3.ClusterType,
+				v2.TypeURLConnections,
+				collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
+		})
+	if err != nil {
+		t.Fatal("Failed to connect", err)
+	}
+	defer ldsr.Close()
 }
 
 func TestInternalEvents(t *testing.T) {

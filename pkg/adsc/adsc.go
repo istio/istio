@@ -37,6 +37,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/any"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -403,6 +404,7 @@ func (a *ADSC) handleRecv() {
 			continue
 		}
 
+		// Process the resources.
 		listeners := []*listener.Listener{}
 		clusters := []*cluster.Cluster{}
 		routes := []*route.RouteConfiguration{}
@@ -440,54 +442,7 @@ func (a *ADSC) handleRecv() {
 				}
 
 			default:
-				if len(gvk) != 3 {
-					continue
-				}
-				// Generic - fill up the store
-				if a.Store != nil {
-					m := &mcp.Resource{}
-					err = types.UnmarshalAny(&types.Any{
-						TypeUrl: rsc.TypeUrl,
-						Value:   rsc.Value,
-					}, m)
-					if err != nil {
-						continue
-					}
-					val, err := mcpToPilot(m)
-					if err != nil {
-						continue
-					}
-					val.Group = gvk[0]
-					val.Version = gvk[1]
-					val.Type = gvk[2]
-					if err != nil {
-						adscLog.Warna("Invalid data ", err, " ", string(valBytes))
-					} else {
-						cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
-						if cfg == nil {
-							_, err = a.Store.Create(*val)
-							if err != nil {
-								continue
-							}
-						} else {
-							_, err = a.Store.Update(*val)
-							if err != nil {
-								continue
-							}
-						}
-					}
-					if a.LocalCacheDir != "" {
-						strResponse, err := json.MarshalIndent(val, "  ", "  ")
-						if err != nil {
-							continue
-						}
-						err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-							val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
-						if err != nil {
-							continue
-						}
-					}
-				}
+				a.handleMCP(gvk, rsc, valBytes)
 			}
 		}
 		// last resource of this type. IstioStore doesn't yet have a way to indicate this
@@ -1045,4 +1000,56 @@ func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	return a.eds
+}
+
+func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
+	if len(gvk) != 3 {
+		return nil // Not MCP
+	}
+	// Generic - fill up the store
+	if a.Store != nil {
+		m := &mcp.Resource{}
+		err := types.UnmarshalAny(&types.Any{
+			TypeUrl: rsc.TypeUrl,
+			Value:   rsc.Value,
+		}, m)
+		if err != nil {
+			return err
+		}
+		val, err := mcpToPilot(m)
+		if err != nil {
+			return err
+		}
+		val.Group = gvk[0]
+		val.Version = gvk[1]
+		val.Type = gvk[2]
+		if err != nil {
+			adscLog.Warna("Invalid data ", err, " ", string(valBytes))
+		} else {
+			cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
+			if cfg == nil {
+				_, err = a.Store.Create(*val)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = a.Store.Update(*val)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if a.LocalCacheDir != "" {
+			strResponse, err := json.MarshalIndent(val, "  ", "  ")
+			if err != nil {
+				return err
+			}
+			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
+					val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

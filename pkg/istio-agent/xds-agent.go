@@ -53,6 +53,10 @@ var (
 	cfg       *meshconfig.ProxyConfig
 )
 
+// initXDS starts an XDS proxy server, using the adsc connection.
+// Note that using 'xds.NewXDS' will create a generating server - i.e.
+// adsc would be used to get MCP-over-XDS, and the server would generate
+// configs.
 func (sa *SDSAgent) initXDS(mc *meshconfig.ProxyConfig) {
 	s := xds.NewXDS()
 	xdsServer = s
