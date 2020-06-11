@@ -59,7 +59,7 @@ type operatorComponent struct {
 	ctx         resource.Context
 	environment *kube.Environment
 
-	mu          sync.Mutex
+	mu sync.Mutex
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
 	installManifest map[string]string

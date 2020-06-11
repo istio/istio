@@ -197,7 +197,7 @@ function setup_kind_clusters() {
 
   KUBECONFIG_DIR="$(mktemp -d)"
 
-  # The kind tool will error when trying to create clusters in paralell unless we pre-create the network
+  # The kind tool will error when trying to create clusters in paralell unless we create the network first
   docker network inspect kind > /dev/null 2>&1 || docker network create kind
 
   # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
