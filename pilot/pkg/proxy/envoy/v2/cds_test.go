@@ -26,7 +26,7 @@ func TestCDS(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	cdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	cdsr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
