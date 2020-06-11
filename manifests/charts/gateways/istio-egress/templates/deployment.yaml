@@ -205,6 +205,10 @@ spec:
             value: {{ $val }}
           {{- end }}
           {{ end }}
+          {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
 {{- if $gateway.podAnnotations }}
           - name: "ISTIO_METAJSON_ANNOTATIONS"
             value: |
