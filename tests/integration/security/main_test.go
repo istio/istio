@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -34,7 +33,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("security", m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err

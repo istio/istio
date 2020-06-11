@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
@@ -49,7 +48,6 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 	framework.
 		NewTest(t).
 		Features("observability.telemetry.stats.prometheus.tcp").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			addr := ing.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
@@ -99,10 +97,9 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("stats_tcp_filter", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(testsetup).
 		Run()
 }

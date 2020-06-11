@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 const (
@@ -48,7 +47,6 @@ var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
 func TestEmptyCluster(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -227,7 +225,6 @@ func TestJsonOutput(t *testing.T) {
 func TestKubeOnly(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -250,7 +247,6 @@ func TestKubeOnly(t *testing.T) {
 func TestFileAndKubeCombined(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -274,7 +270,6 @@ func TestFileAndKubeCombined(t *testing.T) {
 func TestAllNamespaces(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -317,7 +312,6 @@ func TestAllNamespaces(t *testing.T) {
 func TestTimeout(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 

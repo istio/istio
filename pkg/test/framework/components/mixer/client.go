@@ -47,9 +47,8 @@ type client struct {
 	clients    map[string]istioMixerV1.MixerClient
 	forwarders []kube.PortForwarder
 
-	args    *server.Args
-	server  *server.Server
-	workdir string
+	args   *server.Args
+	server *server.Server
 }
 
 // Report implements DeployedMixer.Report.

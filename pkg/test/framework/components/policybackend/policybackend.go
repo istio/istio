@@ -71,9 +71,6 @@ type Config struct {
 // New returns a new instance of policybackend.Instance.
 func New(ctx resource.Context, c Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Native, func() {
-		i, err = newNative(ctx)
-	})
 	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx, c)
 	})

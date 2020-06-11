@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -42,10 +41,10 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mtlscert_pluginca_securenaming_test", m).
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
-		RequireEnvironment(environment.Kube).
+
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil, cert.CreateCASecret)).
+		Setup(istio.Setup(&inst, nil, cert.CreateCASecret)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err

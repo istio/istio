@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
@@ -33,7 +32,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("sds_ingress_k8sca", m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 
 }
@@ -54,7 +53,6 @@ func TestMtlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.control-plane.k8s-certs", "security.ingress.mtls").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			util.RunTestMultiMtlsGateways(ctx, inst)
 		})
@@ -64,7 +62,6 @@ func TestTlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.control-plane.k8s-certs", "security.ingress.tls").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			util.RunTestMultiTLSGateways(ctx, inst)
 		})

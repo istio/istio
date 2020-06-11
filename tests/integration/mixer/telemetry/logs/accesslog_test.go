@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -40,7 +39,6 @@ var (
 func TestIstioAccessLog(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			_, ing := setupComponentsOrFail(t)
 
@@ -69,10 +67,9 @@ func TestIstioAccessLog(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_logs", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   meshConfig:

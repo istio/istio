@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 
@@ -112,7 +111,6 @@ func getWantServerLogEntry() (srvLogEntry loggingpb.LogEntry, err error) {
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			srvReceived := false
 			cltReceived := false
@@ -175,10 +173,9 @@ func TestStackdriverMonitoring(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("stackdriver_filter_test", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(getIstioInstance(), setupConfig)).
+		Setup(istio.Setup(getIstioInstance(), setupConfig)).
 		Setup(testSetup).
 		Run()
 }
