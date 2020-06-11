@@ -163,14 +163,14 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:       con.node.ID,
 				IstioVersion:  con.node.Metadata.IstioVersion,
-				ClusterSent:   con.ClusterNonceSent,
-				ClusterAcked:  con.ClusterNonceAcked,
-				ListenerSent:  con.ListenerNonceSent,
-				ListenerAcked: con.ListenerNonceAcked,
-				RouteSent:     con.RouteNonceSent,
-				RouteAcked:    con.RouteNonceAcked,
-				EndpointSent:  con.EndpointNonceSent,
-				EndpointAcked: con.EndpointNonceAcked,
+				ClusterSent:   con.NoncesSent["CDS"],
+				ClusterAcked:  con.NoncesAcked["CDS"],
+				ListenerSent:  con.NoncesSent["LDS"],
+				ListenerAcked: con.NoncesAcked["LDS"],
+				RouteSent:     con.NoncesSent["RDS"],
+				RouteAcked:    con.NoncesAcked["RDS"],
+				EndpointSent:  con.NoncesSent["EDS"],
+				EndpointAcked: con.NoncesAcked["EDS"],
 			})
 		}
 		con.mu.RUnlock()

@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 )
 
 // gen2 provides experimental support for extended generation mechanism.
@@ -86,6 +87,67 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *discovery.Di
 	}
 
 	return w, isAck
+}
+
+func getShortType(typeURL string) string {
+	switch typeURL {
+	case ClusterType, v3.ClusterType:
+		return "CDS"
+	case ListenerType, v3.ListenerType:
+		return "LDS"
+	case RouteType, v3.RouteType:
+		return "RDS"
+	case EndpointType, v3.EndpointType:
+		return "EDS"
+	default:
+		return typeURL
+	}
+}
+
+func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *discovery.DiscoveryRequest) bool {
+	shortType := getShortType(discReq.TypeUrl)
+	if discReq.ErrorDetail != nil {
+		errCode := codes.Code(discReq.ErrorDetail.Code)
+		adsLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", shortType, con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
+		if s.InternalGen != nil {
+			s.InternalGen.OnNack(con.node, discReq)
+		}
+		return true
+	}
+
+	// Nonce is empty on initial requests
+	if discReq.ResponseNonce == "" {
+		return false
+	}
+
+	// This is an ACK response to a previous message - but it may refer to an old message, not our most recent response
+	nonceSent := con.NoncesSent[shortType]
+
+	if nonceSent == "" {
+		adsLog.Debugf("ADS:%s: got connection for nonce from another connection for %v received %s",
+			shortType, con.ConID, discReq.ResponseNonce)
+		return false
+	}
+
+	// Nonce matches previously sent; this is an ACK for the most recent response
+	adsLog.Debugf("ADS:%s: ACK %s %s %s", shortType, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+
+	// This is an ACK for a resource sent on an older stream, or out of sync. Handle the same, but log differently
+	if nonceSent != discReq.ResponseNonce {
+		adsLog.Debugf("ADS:%s: Expired nonce received %s: sent %s, received %s",
+			shortType, con.ConID, nonceSent, discReq.ResponseNonce)
+		// TODO don't use "RDS" in metric name
+		rdsExpiredNonce.Increment()
+	}
+	con.NoncesAcked[shortType] = discReq.ResponseNonce
+	return true
+
+	// Change in the set of watched resource - regardless of ack, send new data.
+	// TODO handle
+	//if !listEqualUnordered(w.ResourceNames, discReq.ResourceNames) {
+	//	isAck = false
+	//	w.ResourceNames = discReq.ResourceNames
+	//}
 }
 
 // handleCustomGenerator uses model.Generator to generate the response.

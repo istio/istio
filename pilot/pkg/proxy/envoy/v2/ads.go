@@ -82,12 +82,8 @@ type XdsConnection struct {
 	RouteConfigs map[string]*route.RouteConfiguration `json:"-"`
 	CDSClusters  []*cluster.Cluster
 
-	// Last nonce sent and ack'd (timestamps) used for debugging
-	ClusterNonceSent, ClusterNonceAcked   string
-	ListenerNonceSent, ListenerNonceAcked string
-	RouteNonceSent, RouteNonceAcked       string
-	RouteVersionInfoSent                  string
-	EndpointNonceSent, EndpointNonceAcked string
+	NoncesSent map[string]string
+	NoncesAcked map[string]string
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -136,6 +132,8 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 		stream:       stream,
 		LDSListeners: []*listener.Listener{},
 		RouteConfigs: map[string]*route.RouteConfiguration{},
+		NoncesSent:       map[string]string{},
+		NoncesAcked:       map[string]string{},
 	}
 }
 
@@ -303,6 +301,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 				continue
 			}
 
+			if s.handleAck(con, discReq) {
+				continue
+			}
+
 			switch discReq.TypeUrl {
 			case ClusterType, v3.ClusterType:
 				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
@@ -373,16 +375,10 @@ func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *discovery.Disco
 	if con.LDSWatch {
 		// Already received a cluster watch request, this is an ACK
 		if discReq.ErrorDetail != nil {
-			errCode := codes.Code(discReq.ErrorDetail.Code)
-			adsLog.Warnf("ADS:LDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
-			incrementXDSRejects(ldsReject, con.node.ID, errCode.String())
-			if s.InternalGen != nil {
-				s.InternalGen.OnNack(con.node, discReq)
-			}
+			panic("handle nack")
 		} else if discReq.ResponseNonce != "" {
-			con.ListenerNonceAcked = discReq.ResponseNonce
+			panic("handle aack")
 		}
-		adsLog.Debugf("ADS:LDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 		return nil
 	}
 	adsLog.Debugf("ADS:LDS: REQ %s", con.ConID)
@@ -398,17 +394,10 @@ func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *discovery.Disco
 	if con.CDSWatch {
 		// Already received a cluster watch request, this is an ACK
 		if discReq.ErrorDetail != nil {
-			errCode := codes.Code(discReq.ErrorDetail.Code)
-			adsLog.Warnf("ADS:CDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
-			incrementXDSRejects(cdsReject, con.node.ID, errCode.String())
-			if s.InternalGen != nil {
-				s.InternalGen.OnNack(con.node, discReq)
-			}
-
-		} else if discReq.ResponseNonce != "" {
-			con.ClusterNonceAcked = discReq.ResponseNonce
+			panic("nack should have been handled")
 		}
-		adsLog.Debugf("ADS:CDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+
+		panic("ACK should have been handled")
 		return nil
 	}
 	// CDS REQ is the first request an envoy makes. This shows up
@@ -424,22 +413,9 @@ func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *discovery.Disco
 }
 
 func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
-	if discReq.ErrorDetail != nil {
-		errCode := codes.Code(discReq.ErrorDetail.Code)
-		adsLog.Warnf("ADS:EDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
-		incrementXDSRejects(edsReject, con.node.ID, errCode.String())
-		if s.InternalGen != nil {
-			s.InternalGen.OnNack(con.node, discReq)
-		}
-		return nil
-	}
 	clusters := discReq.GetResourceNames()
 	if clusters == nil && discReq.ResponseNonce != "" {
-		// There is no requirement that ACK includes clusters. The test doesn't.
-		con.mu.Lock()
-		con.EndpointNonceAcked = discReq.ResponseNonce
-		con.mu.Unlock()
-		return nil
+		panic("ACK should have been handled")
 	}
 
 	// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
@@ -449,12 +425,6 @@ func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.Disco
 
 	// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 	if listEqualUnordered(con.Clusters, clusters) {
-		adsLog.Debugf("ADS:EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
-		if discReq.ResponseNonce != "" {
-			con.mu.Lock()
-			con.EndpointNonceAcked = discReq.ResponseNonce
-			con.mu.Unlock()
-		}
 		return nil
 	}
 
@@ -468,42 +438,7 @@ func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.Disco
 }
 
 func (s *DiscoveryServer) handleRds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
-	if discReq.ErrorDetail != nil {
-		errCode := codes.Code(discReq.ErrorDetail.Code)
-		adsLog.Warnf("ADS:RDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
-		incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
-		if s.InternalGen != nil {
-			s.InternalGen.OnNack(con.node, discReq)
-		}
-		return nil
-	}
 	routes := discReq.GetResourceNames()
-	if discReq.ResponseNonce != "" {
-		con.mu.RLock()
-		routeNonceSent := con.RouteNonceSent
-		routeVersionInfoSent := con.RouteVersionInfoSent
-		con.mu.RUnlock()
-		if routeNonceSent != "" && routeNonceSent != discReq.ResponseNonce {
-			adsLog.Debugf("ADS:RDS: Expired nonce received %s, sent %s, received %s",
-				con.ConID, routeNonceSent, discReq.ResponseNonce)
-			rdsExpiredNonce.Increment()
-			return nil
-		}
-		if discReq.VersionInfo == routeVersionInfoSent {
-			if listEqualUnordered(con.Routes, routes) {
-				adsLog.Debugf("ADS:RDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
-				con.mu.Lock()
-				con.RouteNonceAcked = discReq.ResponseNonce
-				con.mu.Unlock()
-				return nil
-			}
-		} else if len(routes) == 0 {
-			// XDS protocol indicates an empty request means to send all route information
-			// In practice we can just skip this request, as this seems to happen when
-			// we don't have any routes to send.
-			return nil
-		}
-	}
 	con.Routes = routes
 	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes))
 	err := s.pushRoute(con, s.globalPushContext(), versionInfo())
@@ -872,19 +807,7 @@ func (conn *XdsConnection) send(res *discovery.DiscoveryResponse) error {
 		err := conn.stream.Send(res)
 		conn.mu.Lock()
 		if res.Nonce != "" {
-			switch res.TypeUrl {
-			case ClusterType, v3.ClusterType:
-				conn.ClusterNonceSent = res.Nonce
-			case ListenerType, v3.ListenerType:
-				conn.ListenerNonceSent = res.Nonce
-			case RouteType, v3.RouteType:
-				conn.RouteNonceSent = res.Nonce
-			case EndpointType, v3.EndpointType:
-				conn.EndpointNonceSent = res.Nonce
-			}
-		}
-		if res.TypeUrl == RouteType || res.TypeUrl == v3.RouteType {
-			conn.RouteVersionInfoSent = res.VersionInfo
+			conn.NoncesSent[getShortType(res.TypeUrl)] = res.Nonce
 		}
 		conn.mu.Unlock()
 		done <- err
