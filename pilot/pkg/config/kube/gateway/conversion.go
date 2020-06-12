@@ -123,6 +123,15 @@ func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSp
 			// There are no gateways using this route
 			continue
 		}
+
+		// Matches * and "/". Currently not supported - would conflict
+		// with any other explicit VirtualService.
+		// TODO re-evaluate this decision. Since Gateway will be bound by certain hostnames this may
+		// be feasible as long as our merging logic is smart enough to put this last
+		if route.Default != nil {
+			log.Warnf("Ignoring default route for %v/%v", obj.Name, obj.Namespace)
+		}
+
 		for _, h := range route.Hosts {
 			namePrefix := strings.Replace(h.Hostname, ".", "-", -1)
 			name := namePrefix + "-" + obj.Name + "-" + constants.KubernetesGatewayName
@@ -300,7 +309,7 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 			// TODO support TCP Route
 			// TODO support VirtualService
 			for _, http := range r.fetchHTTPRoutes(l.Routes) {
-				routeToGateway[http] = append(routeToGateway[http], obj.Namespace + "/" + name)
+				routeToGateway[http] = append(routeToGateway[http], obj.Namespace+"/"+name)
 			}
 		}
 		gatewayConfig := model.Config{
