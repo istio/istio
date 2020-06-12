@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package gatewayegressorigination
+package egressgatewayorigination
 
 import (
 	"context"
@@ -36,11 +36,12 @@ import (
 const (
 	// should be templated into YAML, and made interchangeable with other sites
 	externalURL      = "http://edition.cnn.com/politics"
-	externalReqCount = 1
+	externalReqCount = 2
 	egressName       = "istio-egressgateway"
 	// paths to test configs
-	simpleTLSGatewayConfig         = "testdata/gateway-tls-origination.yaml"
-	simpleTLSDestinationRuleConfig = "testdata/destination-rule-tls-origination.yaml"
+	simpleTLSGatewayConfig          = "testdata/gateway-tls-origination.yaml"
+	simpleTLSDestinationRuleConfig  = "testdata/destination-rule-tls-origination.yaml"
+	disableTLSDestinationRuleConfig = "testdata/destination-rule-no-tls-origination.yaml"
 )
 
 // TestEgressGatewayTls brings up an SDS enabled cluster and will ensure that the TLS origination at
@@ -69,6 +70,11 @@ func TestSdsEgressGatewayTls(t *testing.T) {
 					destinationRulePath: simpleTLSDestinationRuleConfig,
 					configPath:          simpleTLSGatewayConfig,
 					response:            response.StatusCodeOK,
+				},
+				"No TLS origination from egress gateway returns 503 response": {
+					destinationRulePath: disableTLSDestinationRuleConfig,
+					configPath:          simpleTLSGatewayConfig,
+					response:            response.StatusCodeUnavailable,
 				},
 			}
 

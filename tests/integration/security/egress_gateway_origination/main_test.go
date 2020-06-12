@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package gatewayegressorigination
+package egressgatewayorigination
 
 import (
 	"testing"
@@ -59,7 +59,7 @@ func setupConfig(cfg *istio.Config) {
 	}
 	cfg.ControlPlaneValues = `
 components:
-  gateways:
+  gateway:
     istio-egressgateway:
       enabled: true
 `
