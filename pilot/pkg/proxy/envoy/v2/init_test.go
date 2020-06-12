@@ -281,7 +281,7 @@ func sendCDSReq(node string, client AdsClient) error {
 }
 
 func sendCDSReqv2(node string, client AdsClientv2) error {
-	return sendXdsv2(node, client, v3.ClusterType, "")
+	return sendXdsv2(node, client, v2.ClusterType, "")
 }
 
 func sendCDSNackv2(node string, client AdsClientv2) error {
