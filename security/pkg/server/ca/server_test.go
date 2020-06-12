@@ -15,7 +15,6 @@
 package ca
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -48,23 +47,6 @@ Y29tL25hbWVzcGFjZS9ucy9zZXJ2aWNlYWNjb3VudC9zYTANBgkqhkiG9w0BAQsF
 AAOBgQCw9dL6xRQSjdYKt7exqlTJliuNEhw/xDVGlNUbDZnT0uL3zXI//Z8tsejn
 8IFzrDtm0Z2j4BmBzNMvYBKL/4JPZ8DFywOyQqTYnGtHIkt41CNjGfqJRk8pIqVC
 hKldzzeCKNgztEvsUKVqltFZ3ZYnkj/8/Cg8zUtTkOhHOjvuig==
------END CERTIFICATE REQUEST-----`
-
-const badSanCsr = `
-MIICdzCCAV8CAQAwCzEJMAcGA1UEChMAMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
-MIIBCgKCAQEAr8uTt9MSXAHugljyfxCS1BE3X0U5YQnN8Cgj1qn5cnu43LDdwA/x
-Zgsd7ZfkuA+fpxBW2x4yR4LOSEwZAav6z45f9dxoZea0/wTPUHXam2tHIuhz1F1F
-LlZX0EbZErBcjiPs6Y/FUaVROZZftOkq+sfNExTiXR7q5fAyYP/9L57OHOEx6RA3
-kNEFBaa190j4ITvuS8fqsMT3lsRqLQ7fTCd5Ygw8rGZWOT6GSpLm1YJvSXhDUdxL
-hYvoMoDgJ+SRpXWvG/YlzP6nMvJN45flTcIGXSMFvqaFGs5HhYxIviX8dE1Vso+/
-1GV5MNPksTuGh/QqCjjcKvzZ6cMRuUeziQIDAQABoCcwJQYJKoZIhvcNAQkOMRgw
-FjAUBgNVHREEDTALgglsb2NhbGhvc3QwDQYJKoZIhvcNAQELBQADggEBAEHIduLz
-5oei9NHapvYsDDe6A+Q2nUm9uvWn/mMBujbstY9ZmLc73gWS0A8maXFFCjtMf7+n
-u8naR7rmw0MjbVJPL2gbbqWjlNqvfm/upiYT2o8UtXyi0ZIQwfxL/iLqHZOVfm//
-GGpTOohc7joR0EUnBa5piK3XXc4U5aCWMwlnmENMBAtNlRBuAzYJsMydv0Be72ga
-gCojNs0xyJ77JA80HLY7iR4J6BRYsZQ/5UB/pYR55e4TGFDbI+C/6NBqLkzEfyX0
-5KLq/6IJesVZLnKoxOt07OYriZS+U4b+Lx3++vWVnI8z2iOdGPUuJj7ys57zKJZ3
-1sT/u25qExkefck=
 -----END CERTIFICATE REQUEST-----`
 
 type mockAuthenticator struct {
@@ -168,113 +150,6 @@ func TestCreateCertificate(t *testing.T) {
 				}
 			}
 
-		}
-	}
-}
-
-func TestHandleCSR(t *testing.T) {
-	testCases := map[string]struct {
-		authenticators []authenticate.Authenticator
-		ca             *mockca.FakeCA
-		csr            string
-		cert           string
-		certChain      string
-		expectedIDs    []string
-		code           codes.Code
-	}{
-		"No authenticator": {
-			authenticators: nil,
-			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
-			code:           codes.Unauthenticated,
-		},
-		"Unauthenticated request": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{
-				errMsg: "Not authorized",
-			}},
-			ca:   &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
-			code: codes.Unauthenticated,
-		},
-		"No caller authenticated": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{}},
-			code:           codes.Unauthenticated,
-		},
-		"Corrupted CSR": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
-			csr:            "deadbeef",
-			code:           codes.InvalidArgument,
-		},
-		"Invalid SAN CSR": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
-			csr:            badSanCsr,
-			code:           codes.InvalidArgument,
-		},
-		"Failed to sign": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
-			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
-			csr:            csr,
-			code:           codes.Internal,
-		},
-		"Successful signing": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test"}}},
-			ca: &mockca.FakeCA{
-				SignedCert:    []byte("generated cert"),
-				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
-			},
-			csr:         csr,
-			cert:        "generated cert",
-			certChain:   "cert chain",
-			expectedIDs: []string{"test"},
-			code:        codes.OK,
-		},
-		"Multiple identities received by CA signer": {
-			authenticators: []authenticate.Authenticator{&mockAuthenticator{identities: []string{"test1", "test2"}}},
-			ca: &mockca.FakeCA{
-				SignedCert:    []byte("generated cert"),
-				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
-			},
-			csr:         csr,
-			cert:        "generated cert",
-			certChain:   "cert chain",
-			expectedIDs: []string{"test1", "test2"},
-			code:        codes.OK,
-		},
-	}
-
-	for id, c := range testCases {
-		server := &Server{
-			ca:             c.ca,
-			hostnames:      []string{"hostname"},
-			port:           8080,
-			Authenticators: c.authenticators,
-			monitoring:     newMonitoringMetrics(),
-		}
-		request := &pb.CsrRequest{CsrPem: []byte(c.csr)}
-
-		response, err := server.HandleCSR(context.Background(), request)
-		s, _ := status.FromError(err)
-		code := s.Code()
-		if c.code != code {
-			t.Errorf("Case %s: expecting code to be (%d) but got (%d: %s)", id, c.code, code, s.Message())
-		} else if c.code == codes.OK {
-			if !bytes.Equal(response.SignedCert, []byte(c.cert)) {
-				t.Errorf("Case %s: expecting cert to be (%s) but got (%s)", id, c.cert, response.SignedCert)
-			}
-			if !bytes.Equal(response.CertChain, []byte(c.certChain)) {
-				t.Errorf("Case %s: expecting cert chain to be (%s) but got (%s)", id, c.certChain, response.CertChain)
-			}
-		}
-		if c.expectedIDs != nil {
-			receivedIDs := c.ca.ReceivedIDs
-			if len(receivedIDs) != len(c.expectedIDs) {
-				t.Errorf("Case %s: CA received different IDs (%v) than the callers (%v)",
-					id, receivedIDs, c.expectedIDs)
-			}
-			for i, v := range receivedIDs {
-				if v != c.expectedIDs[i] {
-					t.Errorf("Case %s: CA received different IDs (%v) than the callers (%v)",
-						id, receivedIDs, c.expectedIDs)
-				}
-			}
 		}
 	}
 }
