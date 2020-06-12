@@ -526,6 +526,7 @@ func applyEnvVars() {
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
+	workloadSdsCacheOptions.TrustDomain = trustDomainEnv
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 	// Disable the secret eviction for istio agent.
 	workloadSdsCacheOptions.EvictionDuration = 0

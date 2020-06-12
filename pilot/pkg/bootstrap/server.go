@@ -608,7 +608,7 @@ func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Opt
 
 	cfg := &tls.Config{
 		Certificates: []tls.Certificate{certP},
-		ClientAuth:   tls.VerifyClientCertIfGiven,
+		ClientAuth:   tls.NoClientCert,
 		ClientCAs:    cp,
 	}
 
