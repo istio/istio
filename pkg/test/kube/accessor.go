@@ -30,14 +30,12 @@ import (
 	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -45,9 +43,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Needed for auth
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/kubectl/pkg/cmd/apply"
-	"k8s.io/kubectl/pkg/cmd/delete"
-	"k8s.io/kubectl/pkg/cmd/util"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
@@ -58,6 +53,7 @@ import (
 
 const (
 	workDirPrefix = "istio-kube-accessor-"
+	fieldManager  = "istio-accessor"
 )
 
 var (
@@ -156,29 +152,30 @@ var _ Accessor = &accessorImpl{}
 type accessorImpl struct {
 	kubernetes.Interface
 
-	clientFactory util.Factory
 	baseDir       string
 	workDir       string
 	workDirMutex  sync.Mutex
 	restConfig    *rest.Config
 	extSet        *kubeExtClient.Clientset
 	dynamicClient dynamic.Interface
+	clientGetter  resource.RESTClientGetter
 }
 
 // NewAccessor returns a new Accessor from a kube config file.
 func NewAccessor(kubeConfig string, baseWorkDir string) (Accessor, error) {
-	clientFactory := istioKube.NewClientFactory(istioKube.BuildClientCmd(kubeConfig, ""), "")
-	return NewAccessorForClientFactory(clientFactory, baseWorkDir)
-}
-
-// NewAccessorForClientFactory creates a new Accessor from a ClientConfig.
-func NewAccessorForClientFactory(clientFactory util.Factory, baseWorkDir string) (Accessor, error) {
-	clientSet, err := clientFactory.KubernetesClientSet()
+	cmd := istioKube.BuildClientCmd(kubeConfig, "")
+	restConfig, err := cmd.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
+	return NewAccessorForRestConfig(restConfig, baseWorkDir)
+}
 
-	restConfig, err := clientFactory.ToRESTConfig()
+// NewAccessorForRestConfig creates a new Accessor from a REST config.
+func NewAccessorForRestConfig(restConfig *rest.Config, baseWorkDir string) (Accessor, error) {
+	restConfig = istioKube.SetRestDefaults(restConfig)
+
+	clientSet, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -188,24 +185,25 @@ func NewAccessorForClientFactory(clientFactory util.Factory, baseWorkDir string)
 		return nil, err
 	}
 
-	dynamicClient, err := clientFactory.DynamicClient()
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
 
+	clientGetter := newClientGetter(restConfig)
 	return &accessorImpl{
 		Interface:     clientSet,
-		clientFactory: clientFactory,
 		restConfig:    restConfig,
 		extSet:        extSet,
 		dynamicClient: dynamicClient,
+		clientGetter:  clientGetter,
 		baseDir:       baseWorkDir,
 	}, nil
 }
 
 // RESTConfig returns the Kubernetes rest config used to configure the clients.
 func (a *accessorImpl) RESTConfig() *rest.Config {
-	return a.restConfig
+	return copyRestConfig(a.restConfig)
 }
 
 // Ext returns the API extensions client.
@@ -215,7 +213,7 @@ func (a *accessorImpl) Ext() kubeExtClient.Interface {
 
 // NewPortForwarder creates a new port forwarder for the given pod.
 func (a *accessorImpl) NewPortForwarder(pod kubeApiCore.Pod, localPort, remotePort uint16) (PortForwarder, error) {
-	return NewPortForwarder(a.restConfig, pod, localPort, remotePort)
+	return NewPortForwarder(copyRestConfig(a.restConfig), pod, localPort, remotePort)
 }
 
 // GetPods returns pods in the given namespace, based on the selectors. If no selectors are given, then
@@ -418,7 +416,7 @@ func (a *accessorImpl) WaitForNamespaceDeletion(ns string, opts ...retry.Option)
 			return nil, false, nil
 		}
 
-		if errors.IsNotFound(err2) {
+		if kubeErrors.IsNotFound(err2) {
 			return nil, true, nil
 		}
 
@@ -449,7 +447,7 @@ func (a *accessorImpl) DeleteUnstructured(gvr schema.GroupVersionResource, names
 // PatchDeployment patches a deployment with the specificed yaml
 func (a *accessorImpl) PatchDeployment(namespace string, deployment string, contents string) error {
 	patchOptions := kubeApiMeta.PatchOptions{
-		FieldManager: "istio-ci",
+		FieldManager: fieldManager,
 		TypeMeta: kubeApiMeta.TypeMeta{
 			Kind:       "Deployment",
 			APIVersion: "apps/v1",
@@ -459,230 +457,6 @@ func (a *accessorImpl) PatchDeployment(namespace string, deployment string, cont
 		return fmt.Errorf("failed patch deployment %s: %v", deployment, err)
 	}
 
-	return nil
-}
-
-// ApplyContents applies the given config contents using kubectl.
-func (a *accessorImpl) ApplyContents(namespace string, contents string) ([]string, error) {
-	return a.applyContents(namespace, contents, false)
-}
-
-// ApplyContentsDryRun applies the given config contents using kubectl with DryRun mode.
-func (a *accessorImpl) ApplyContentsDryRun(namespace string, contents string) ([]string, error) {
-	return a.applyContents(namespace, contents, true)
-}
-
-// Apply applies the config in the given filename using kubectl.
-func (a *accessorImpl) Apply(namespace string, filename string) error {
-	return a.apply(namespace, filename, false)
-}
-
-// ApplyDryRun applies the config in the given filename using kubectl with DryRun mode.
-func (a *accessorImpl) ApplyDryRun(namespace string, filename string) error {
-	return a.apply(namespace, filename, true)
-}
-
-// applyContents applies the given config contents using kubectl.
-func (a *accessorImpl) applyContents(namespace string, contents string, dryRun bool) ([]string, error) {
-	files, err := a.contentsToFileList(contents, "accessor_applyc")
-	if err != nil {
-		return nil, err
-	}
-
-	if err := a.applyInternal(namespace, files, dryRun); err != nil {
-		return nil, err
-	}
-
-	return files, nil
-}
-
-// apply the config in the given filename using kubectl.
-func (a *accessorImpl) apply(namespace string, filename string, dryRun bool) error {
-	files, err := a.fileToFileList(filename)
-	if err != nil {
-		return err
-	}
-
-	return a.applyInternal(namespace, files, dryRun)
-}
-
-func (a *accessorImpl) applyInternal(namespace string, files []string, dryRun bool) error {
-	for _, f := range removeEmptyFiles(files) {
-		if err := a.applyFile(namespace, f, dryRun); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (a *accessorImpl) applyFile(namespace string, file string, dryRun bool) error {
-	if dryRun {
-		scopes.Framework.Infof("Applying YAML file (DryRun mode): %v", file)
-	} else {
-		scopes.Framework.Infof("Applying YAML file: %v", file)
-	}
-
-	dynamicClient, err := a.clientFactory.DynamicClient()
-	if err != nil {
-		return err
-	}
-	discoveryClient, err := a.clientFactory.ToDiscoveryClient()
-	if err != nil {
-		return err
-	}
-
-	// Create the options.
-	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
-	opts := apply.NewApplyOptions(streams)
-	opts.DynamicClient = dynamicClient
-	opts.DryRunVerifier = resource.NewDryRunVerifier(dynamicClient, discoveryClient)
-	opts.FieldManager = "kubectl"
-	if dryRun {
-		opts.DryRunStrategy = util.DryRunServer
-	}
-
-	// allow for a success message operation to be specified at print time
-	opts.ToPrinter = func(operation string) (printers.ResourcePrinter, error) {
-		opts.PrintFlags.NamePrintFlags.Operation = operation
-		util.PrintFlagsWithDryRunStrategy(opts.PrintFlags, opts.DryRunStrategy)
-		return opts.PrintFlags.ToPrinter()
-	}
-
-	if len(namespace) > 0 {
-		opts.Namespace = namespace
-		opts.EnforceNamespace = true
-	} else {
-		var err error
-		opts.Namespace, opts.EnforceNamespace, err = a.clientFactory.ToRawKubeConfigLoader().Namespace()
-		if err != nil {
-			return err
-		}
-	}
-
-	opts.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
-	opts.DeleteOptions = &delete.DeleteOptions{
-		DynamicClient:   dynamicClient,
-		IOStreams:       streams,
-		FilenameOptions: opts.DeleteFlags.FileNameFlags.ToOptions(),
-	}
-
-	opts.OpenAPISchema, _ = a.clientFactory.OpenAPISchema()
-
-	opts.Validator, err = a.clientFactory.Validator(true)
-	if err != nil {
-		return err
-	}
-	opts.Builder = a.clientFactory.NewBuilder()
-	opts.Mapper, err = a.clientFactory.ToRESTMapper()
-	if err != nil {
-		return err
-	}
-
-	opts.PostProcessorFn = opts.PrintAndPrunePostProcessor()
-
-	if err := opts.Run(); err != nil {
-		// Concatenate the stdout and stderr
-		s := stdout.String() + stderr.String()
-		scopes.Framework.Infof("(FAILED) Executing kubectl apply: %s (err: %v): %s", file, err, s)
-		return fmt.Errorf("%v: %s", err, s)
-	}
-	return nil
-}
-
-// DeleteContents deletes the given config contents using kubectl.
-func (a *accessorImpl) DeleteContents(namespace string, contents string) error {
-	files, err := a.contentsToFileList(contents, "accessor_deletec")
-	if err != nil {
-		return err
-	}
-
-	return a.deleteInternal(namespace, files)
-}
-
-// Delete the config in the given filename using kubectl.
-func (a *accessorImpl) Delete(namespace string, filename string) error {
-	files, err := a.fileToFileList(filename)
-	if err != nil {
-		return err
-	}
-
-	return a.deleteInternal(namespace, files)
-}
-
-func (a *accessorImpl) deleteInternal(namespace string, files []string) (err error) {
-	for _, f := range removeEmptyFiles(files) {
-		err = multierror.Append(err, a.deleteFile(namespace, f)).ErrorOrNil()
-	}
-	return err
-}
-
-func (a *accessorImpl) deleteFile(namespace string, file string) error {
-	scopes.Framework.Infof("Deleting YAML file: %v", file)
-	// Create the options.
-	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
-
-	cmdNamespace, enforceNamespace, err := a.clientFactory.ToRawKubeConfigLoader().Namespace()
-	if err != nil {
-		return err
-	}
-
-	if len(namespace) > 0 {
-		cmdNamespace = namespace
-		enforceNamespace = true
-	}
-
-	fileOpts := resource.FilenameOptions{
-		Filenames: []string{file},
-	}
-
-	dynamicClient, err := a.clientFactory.DynamicClient()
-	if err != nil {
-		return err
-	}
-	discoveryClient, err := a.clientFactory.ToDiscoveryClient()
-	if err != nil {
-		return err
-	}
-	opts := delete.DeleteOptions{
-		FilenameOptions:  fileOpts,
-		Cascade:          true,
-		GracePeriod:      -1,
-		IgnoreNotFound:   true,
-		WaitForDeletion:  true,
-		WarnClusterScope: enforceNamespace,
-		DynamicClient:    dynamicClient,
-		DryRunVerifier:   resource.NewDryRunVerifier(dynamicClient, discoveryClient),
-		IOStreams:        streams,
-	}
-
-	r := a.clientFactory.NewBuilder().
-		Unstructured().
-		ContinueOnError().
-		NamespaceParam(cmdNamespace).DefaultNamespace().
-		FilenameParam(enforceNamespace, &fileOpts).
-		LabelSelectorParam(opts.LabelSelector).
-		FieldSelectorParam(opts.FieldSelector).
-		SelectAllParam(opts.DeleteAll).
-		AllNamespaces(opts.DeleteAllNamespaces).
-		Flatten().
-		Do()
-	err = r.Err()
-	if err != nil {
-		return err
-	}
-	opts.Result = r
-
-	opts.Mapper, err = a.clientFactory.ToRESTMapper()
-	if err != nil {
-		return err
-	}
-
-	if err := opts.RunDelete(a.clientFactory); err != nil {
-		// Concatenate the stdout and stderr
-		s := stdout.String() + stderr.String()
-		scopes.Framework.Infof("(FAILED) Executing kubectl delete: %s (err: %v): %s", file, err, s)
-		return fmt.Errorf("%v: %s", err, s)
-	}
 	return nil
 }
 
@@ -729,12 +503,8 @@ func (a *accessorImpl) Exec(namespace, podName, containerName, command string) (
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	restConfig, err := a.clientFactory.ToRESTConfig()
-	if err != nil {
-		return "", err
-	}
-
-	restClient, err := a.clientFactory.RESTClient()
+	restConfig := copyRestConfig(a.restConfig)
+	restClient, err := rest.RESTClientFor(restConfig)
 	if err != nil {
 		return "", err
 	}
@@ -927,6 +697,20 @@ func CheckPodReady(pod *kubeApiCore.Pod) error {
 	default:
 		return fmt.Errorf("%s", pod.Status.Phase)
 	}
+}
+
+func (a *accessorImpl) getSchema() (*openAPISchema, error) {
+	discoveryClient, err := a.clientGetter.ToDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+
+	openAPIDoc, err := discoveryClient.OpenAPISchema()
+	if err != nil {
+		return nil, err
+	}
+
+	return newOpenAPISchema(openAPIDoc)
 }
 
 func deleteOptionsForeground() *kubeApiMeta.DeleteOptions {

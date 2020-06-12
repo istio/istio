@@ -12,11 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+Copyright 2016 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package helmreconciler
 
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -25,13 +42,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	appsclient "k8s.io/client-go/kubernetes/typed/apps/v1"
 	"k8s.io/client-go/rest"
-	kctldeployment "k8s.io/kubectl/pkg/util/deployment"
 
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -86,9 +104,9 @@ func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kub
 }
 
 func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *progress.ManifestLog) (bool, []string, error) {
-	pods := []corev1.Pod{}
-	deployments := []deployment{}
-	namespaces := []corev1.Namespace{}
+	pods := make([]corev1.Pod, 0)
+	deployments := make([]deployment, 0)
+	namespaces := make([]corev1.Namespace, 0)
 
 	for _, o := range objects {
 		kind := o.GroupVersionKind().Kind
@@ -120,7 +138,7 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *pro
 			if err != nil {
 				return false, nil, err
 			}
-			_, _, newReplicaSet, err := kctldeployment.GetAllReplicaSets(currentDeployment, cs.AppsV1())
+			_, _, newReplicaSet, err := getAllReplicaSets(currentDeployment, cs.AppsV1())
 			if err != nil || newReplicaSet == nil {
 				return false, nil, err
 			}
@@ -225,7 +243,10 @@ func getPods(client kubernetes.Interface, namespace string, selector map[string]
 		FieldSelector: fields.Everything().String(),
 		LabelSelector: labels.Set(selector).AsSelector().String(),
 	})
-	return list.Items, err
+	if list != nil {
+		return list.Items, err
+	}
+	return nil, err
 }
 
 func namespacesReady(namespaces []corev1.Namespace) (bool, []string) {
@@ -268,4 +289,125 @@ func deploymentsReady(deployments []deployment) (bool, []string) {
 		}
 	}
 	return len(notReady) == 0, notReady
+}
+
+// getAllReplicaSets returns the old and new replica sets targeted by the given Deployment. It gets PodList and
+// ReplicaSetList from client interface. Note that the first set of old replica sets doesn't include the ones
+// with no pods, and the second set of old replica sets include all old replica sets. The third returned value
+// is the new replica set, and it may be nil if it doesn't exist yet.
+func getAllReplicaSets(deployment *appsv1.Deployment,
+	c appsclient.ReplicaSetsGetter) ([]*appsv1.ReplicaSet, []*appsv1.ReplicaSet, *appsv1.ReplicaSet, error) {
+	rsList, err := listReplicaSets(deployment, rsListFromClient(c))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	newRS := findNewReplicaSet(deployment, rsList)
+	oldRSes, allOldRSes := findOldReplicaSets(rsList, newRS)
+	return oldRSes, allOldRSes, newRS, nil
+}
+
+// RsListFromClient returns an rsListFunc that wraps the given client.
+func rsListFromClient(c appsclient.ReplicaSetsGetter) rsListFunc {
+	return func(namespace string, options metav1.ListOptions) ([]*appsv1.ReplicaSet, error) {
+		rsList, err := c.ReplicaSets(namespace).List(context.TODO(), options)
+		if err != nil {
+			return nil, err
+		}
+		var ret []*appsv1.ReplicaSet
+		for i := range rsList.Items {
+			ret = append(ret, &rsList.Items[i])
+		}
+		return ret, err
+	}
+}
+
+// TODO: switch this to full namespacers
+type rsListFunc func(string, metav1.ListOptions) ([]*appsv1.ReplicaSet, error)
+
+// listReplicaSets returns a slice of RSes the given deployment targets.
+// Note that this does NOT attempt to reconcile ControllerRef (adopt/orphan),
+// because only the controller itself should do that.
+// However, it does filter out anything whose ControllerRef doesn't match.
+func listReplicaSets(deployment *appsv1.Deployment, getRSList rsListFunc) ([]*appsv1.ReplicaSet, error) {
+	// TODO: Right now we list replica sets by their labels. We should list them by selector, i.e. the replica set's selector
+	//       should be a superset of the deployment's selector, see https://github.com/kubernetes/kubernetes/issues/19830.
+	namespace := deployment.Namespace
+	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+	if err != nil {
+		return nil, err
+	}
+	options := metav1.ListOptions{LabelSelector: selector.String()}
+	all, err := getRSList(namespace, options)
+	if err != nil {
+		return nil, err
+	}
+	// Only include those whose ControllerRef matches the Deployment.
+	owned := make([]*appsv1.ReplicaSet, 0, len(all))
+	for _, rs := range all {
+		if metav1.IsControlledBy(rs, deployment) {
+			owned = append(owned, rs)
+		}
+	}
+	return owned, nil
+}
+
+// EqualIgnoreHash returns true if two given podTemplateSpec are equal, ignoring the diff in value of Labels[pod-template-hash]
+// We ignore pod-template-hash because:
+// 1. The hash result would be different upon podTemplateSpec API changes
+//    (e.g. the addition of a new field will cause the hash code to change)
+// 2. The deployment template won't have hash labels
+func equalIgnoreHash(template1, template2 *corev1.PodTemplateSpec) bool {
+	t1Copy := template1.DeepCopy()
+	t2Copy := template2.DeepCopy()
+	// Remove hash labels from template.Labels before comparing
+	delete(t1Copy.Labels, appsv1.DefaultDeploymentUniqueLabelKey)
+	delete(t2Copy.Labels, appsv1.DefaultDeploymentUniqueLabelKey)
+	return apiequality.Semantic.DeepEqual(t1Copy, t2Copy)
+}
+
+// FindNewReplicaSet returns the new RS this given deployment targets (the one with the same pod template).
+func findNewReplicaSet(deployment *appsv1.Deployment, rsList []*appsv1.ReplicaSet) *appsv1.ReplicaSet {
+	sort.Sort(replicaSetsByCreationTimestamp(rsList))
+	for i := range rsList {
+		if equalIgnoreHash(&rsList[i].Spec.Template, &deployment.Spec.Template) {
+			// In rare cases, such as after cluster upgrades, Deployment may end up with
+			// having more than one new ReplicaSets that have the same template as its template,
+			// see https://github.com/kubernetes/kubernetes/issues/40415
+			// We deterministically choose the oldest new ReplicaSet.
+			return rsList[i]
+		}
+	}
+	// new ReplicaSet does not exist.
+	return nil
+}
+
+// replicaSetsByCreationTimestamp sorts a list of ReplicaSet by creation timestamp, using their names as a tie breaker.
+type replicaSetsByCreationTimestamp []*appsv1.ReplicaSet
+
+func (o replicaSetsByCreationTimestamp) Len() int      { return len(o) }
+func (o replicaSetsByCreationTimestamp) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o replicaSetsByCreationTimestamp) Less(i, j int) bool {
+	if o[i].CreationTimestamp.Equal(&o[j].CreationTimestamp) {
+		return o[i].Name < o[j].Name
+	}
+	return o[i].CreationTimestamp.Before(&o[j].CreationTimestamp)
+}
+
+// FindOldReplicaSets returns the old replica sets targeted by the given Deployment, with the given slice of RSes.
+// Note that the first set of old replica sets doesn't include the ones with no pods, and the second set of old
+// replica sets include all old replica sets.
+func findOldReplicaSets(rsList []*appsv1.ReplicaSet, newRS *appsv1.ReplicaSet) ([]*appsv1.ReplicaSet, []*appsv1.ReplicaSet) {
+	var requiredRSs []*appsv1.ReplicaSet
+	var allRSs []*appsv1.ReplicaSet
+	for _, rs := range rsList {
+		// Filter out new replica set
+		if newRS != nil && rs.UID == newRS.UID {
+			continue
+		}
+		allRSs = append(allRSs, rs)
+		if *(rs.Spec.Replicas) != 0 {
+			requiredRSs = append(requiredRSs, rs)
+		}
+	}
+	return requiredRSs, allRSs
 }

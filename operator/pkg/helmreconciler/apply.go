@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
-	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/cache"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/kube"
 )
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
@@ -159,7 +159,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 		return errs.ToError()
 	}
 
-	if err := util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme); err != nil {
+	if err := kube.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme); err != nil {
 		scope.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 

@@ -64,6 +64,7 @@ require (
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
 	github.com/envoyproxy/go-control-plane v0.9.5-0.20200326174812-e8bd2869ff56
 	github.com/evanphx/json-patch v4.5.0+incompatible
+	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d
 	github.com/fatih/color v1.7.0
 	github.com/fluent/fluent-logger-golang v1.3.0
 	github.com/frankban/quicktest v1.4.1 // indirect
@@ -85,6 +86,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gax-go v2.0.2+incompatible
 	github.com/googleapis/gax-go/v2 v2.0.5
+	github.com/googleapis/gnostic v0.3.1
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.1
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
@@ -168,7 +170,8 @@ require (
 	k8s.io/apimachinery v0.18.3
 	k8s.io/cli-runtime v0.18.3
 	k8s.io/client-go v0.18.3
-	k8s.io/kubectl v0.18.3
+	k8s.io/klog v1.0.0
+	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	sigs.k8s.io/controller-runtime v0.5.1-0.20200327213554-2d4c4877f906
 	sigs.k8s.io/service-apis v0.0.0-20200610082005-c8dc1033d310
