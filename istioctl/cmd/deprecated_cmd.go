@@ -24,10 +24,10 @@ import (
 
 var (
 	// Create a model.ConfigStore (or sortedConfigStore)
-	clientFactory = newClient
+	configStoreFactory = newConfigStore
 )
 
-func newClient() (model.ConfigStore, error) {
+func newConfigStore() (model.ConfigStore, error) {
 	return controller.NewClient(kubeconfig, configContext, collections.Pilot,
 		"", &model.DisabledLedger{}, "")
 }

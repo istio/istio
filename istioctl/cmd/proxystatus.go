@@ -15,15 +15,16 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+	"istio.io/istio/pkg/kube"
 )
 
 func statusCommand() *cobra.Command {
@@ -44,20 +45,20 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
+			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return err
 			}
 			if len(args) > 0 {
 				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 				path := "config_dump"
-				envoyDump, err := kubeClient.EnvoyDo(podName, ns, "GET", path, nil)
+				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
 				if err != nil {
 					return err
 				}
 
 				path = fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
-				pilotDumps, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, path)
+				pilotDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
 				if err != nil {
 					return err
 				}
@@ -67,7 +68,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 				}
 				return c.Diff()
 			}
-			statuses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "/debug/syncz")
+			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "/debug/syncz")
 			if err != nil {
 				return err
 			}
@@ -81,10 +82,18 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 	return statusCmd
 }
 
-func newPilotExecClient(kubeconfig, configContext string, opts clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
-	return kubernetes.NewExtendedClient(kubeconfig, configContext, opts)
+func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.Client, error) {
+	config, err := kube.DefaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	return kube.NewClientWithRevision(config, revision)
 }
 
-func newEnvoyClient(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
-	return kubernetes.NewClient(kubeconfig, configContext)
+func newKubeClient(kubeconfig, configContext string) (kube.Client, error) {
+	config, err := kube.DefaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	return kube.NewClient(config)
 }

@@ -132,6 +132,15 @@ func CreateDynamicInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config)
 	return dynamic.NewForConfig(restConfig)
 }
 
+// DefaultRestConfig returns the rest.Config for the given kube config file and context.
+func DefaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
+	config, err := BuildClientConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	return SetRestDefaults(config), nil
+}
+
 // SetRestDefaults is a helper function that sets default values for the given rest.Config.
 func SetRestDefaults(config *rest.Config) *rest.Config {
 	if config.GroupVersion == nil || config.GroupVersion.Empty() {
