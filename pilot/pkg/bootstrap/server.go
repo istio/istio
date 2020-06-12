@@ -592,6 +592,10 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error 
 		ClientCAs:      root,
 	}
 
+	if features.XDSAuth {
+		cfg.ClientAuth = tls.VerifyClientCertIfGiven
+	}
+
 	tlsCreds := credentials.NewTLS(cfg)
 
 	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect.
