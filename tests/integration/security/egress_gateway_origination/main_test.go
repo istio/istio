@@ -59,7 +59,7 @@ func setupConfig(cfg *istio.Config) {
 	}
 	cfg.ControlPlaneValues = `
 components:
-  gateways:
+  gateway:
     istio-egressgateway:
       enabled: true
 `

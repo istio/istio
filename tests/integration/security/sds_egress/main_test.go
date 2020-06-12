@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
 		RequireSingleCluster().
-		Setup(istio.Setup(&inst, nil)).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
@@ -52,4 +52,16 @@ func TestMain(m *testing.M) {
 		}).
 		Run()
 
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.ControlPlaneValues = `
+components:
+  gateways:
+    istio-egressgateway:
+      enabled: true
+`
 }
