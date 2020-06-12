@@ -588,7 +588,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error 
 
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
-		ClientAuth:     tls.VerifyClientCertIfGiven,
+		ClientAuth:     tls.NoClientCert,
 		ClientCAs:      root,
 	}
 
