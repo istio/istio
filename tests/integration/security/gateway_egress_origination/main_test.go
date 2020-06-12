@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package sdsgatewayegress
+package gatewayegressorigination
 
 import (
 	"testing"
@@ -33,8 +33,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("sds_egress_egress_mtls_test", m).
-		Skip("https://github.com/istio/istio/issues/17933").
+		NewSuite("egress_gateway_origination_test", m).
 		Label(label.CustomSetup).
 
 		// SDS requires Kubernetes 1.13

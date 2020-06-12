@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package sdsgatewayegress
+package gatewayegressorigination
 
 import (
 	"context"
@@ -43,10 +43,10 @@ const (
 	simpleTLSDestinationRuleConfig = "testdata/destination-rule-tls-origination.yaml"
 )
 
-// TestSdsEgressGatewayTls brings up an SDS enabled cluster and will ensure that the TLS origination at
+// TestEgressGatewayTls brings up an SDS enabled cluster and will ensure that the TLS origination at
 // egress gateway allows secure communication between the egress gateway and external workload.
-//This test brings up an egress gateway to originate TLS connection. The test will ensure that requests
-//are routed securely through the egress gateway and that the TLS origination happens at the gateway.
+// This test brings up an egress gateway to originate TLS connection. The test will ensure that requests
+// are routed securely through the egress gateway and that the TLS origination happens at the gateway.
 func TestSdsEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -55,7 +55,7 @@ func TestSdsEgressGatewayTls(t *testing.T) {
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "sds-egress-gateway-tls-origination",
+				Prefix: "egress-gateway-tls-origination",
 				Inject: true,
 			})
 			applySetupConfig(ctx, ns)

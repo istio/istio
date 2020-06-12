@@ -12,4 +12,3 @@ spec:
           number: 443
         tls:
           mode: SIMPLE # initiates HTTPS for connections to edition.cnn.com
-  EOF
