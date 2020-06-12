@@ -206,7 +206,7 @@ spec:
     # Istio CNI feature
     cni:
       enabled: false
-    
+
     # istiod remote configuration wwhen istiod isn't installed on the cluster
     istiodRemote:
       enabled: false
@@ -417,7 +417,7 @@ spec:
 
     istiodRemote:
       injectionURL: ""
-      
+
     gateways:
       istio-egressgateway:
         zvpn: {}
@@ -489,7 +489,7 @@ spec:
     grafana:
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 6.7.4
       persist: false
       storageClassName: ""
       accessMode: ReadWriteMany
