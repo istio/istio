@@ -279,7 +279,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// Reset SDS push time for new SDS push.
 			con.sdsPushTime = time.Time{}
 			con.mutex.Unlock()
-			defer recycleConnection(conID, resourceName)
+			defer func() {
+				recycleConnection(conID, resourceName)
+				// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
+				// and cause some confusing logs like 'fails to notify because connection isn't found'.
+				s.st.DeleteSecret(conID, resourceName)
+			}()
 
 			conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 			if s.localJWT {
@@ -354,10 +359,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
-
-			// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
-			// and cause some confusing logs like 'fails to notify because connection isn't found'.
-			defer s.st.DeleteSecret(conID, resourceName)
 
 			con.mutex.Lock()
 			con.secret = secret
