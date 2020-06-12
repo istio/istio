@@ -35,7 +35,7 @@ var (
 	vsType             = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 	gatewayType        = collections.IstioNetworkingV1Alpha3Gateways.Resource()
 	errUnsupportedOp   = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
-	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway & virutal service resource type")
+	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway & virtual service resource type")
 	_                  = svc.HTTPRoute{}
 	_                  = svc.GatewayClass{}
 )

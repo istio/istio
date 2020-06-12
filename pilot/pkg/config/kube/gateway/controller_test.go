@@ -18,14 +18,15 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/kubernetes/fake"
+	svc "sigs.k8s.io/service-apis/api/v1alpha1"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/aggregate/fakes"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
-	"k8s.io/client-go/kubernetes/fake"
-	svc "sigs.k8s.io/service-apis/api/v1alpha1"
 )
 
 var (
@@ -42,26 +43,7 @@ var (
 					Value: "1.2.3.4",
 				},
 				Port:     func(i int32) *int32 { return &i }(9009),
-				Protocol: func(s string) *string { return &s }(svc.HTTPProcotol),
-			},
-		},
-		Routes: []svc.RouteObjectReference{
-			{
-
-				Resource: "HTTPRoute",
-				Name:     "http-route",
-			},
-		},
-	}
-	gateway = &networking.Gateway{
-		Servers: []*networking.Server{
-			{
-				Port: &networking.Port{
-					Number:   443,
-					Name:     "https",
-					Protocol: "HTTP",
-				},
-				Hosts: []string{"*.secure.example.com"},
+				Protocol: func(s string) *string { return &s }(svc.HTTPProtocol),
 			},
 		},
 	}
