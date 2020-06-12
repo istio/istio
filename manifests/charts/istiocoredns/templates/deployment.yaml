@@ -27,6 +27,16 @@ spec:
 {{ toYaml .Values.istiocoredns.podAnnotations | indent 8 }}
         {{- end }}
     spec:
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        privileged: false
+        runAsGroup: 1337
+        fsGroup: 1337
+        runAsNonRoot: true
+        runAsUser: 1337
       serviceAccountName: istiocoredns-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
