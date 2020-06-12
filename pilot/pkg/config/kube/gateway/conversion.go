@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/service-apis/api/v1alpha1"
 
 	"istio.io/pkg/log"
@@ -34,30 +37,53 @@ const (
 	ControllerName = "istio.io/gateway-controller"
 )
 
+var (
+	istioVsResource = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+	istioGwResource = collections.IstioNetworkingV1Alpha3Gateways.Resource()
+
+	k8sServiceResource = collections.K8SCoreV1Services.Resource()
+)
+
 type KubernetesResources struct {
 	GatewayClass []model.Config
 	Gateway      []model.Config
 	HTTPRoute    []model.Config
 	TCPRoute     []model.Config
 	TrafficSplit []model.Config
+	Namespaces   map[string]*corev1.Namespace
 }
 
-func (r *KubernetesResources) LookupReference(ref k8s.LocalObjectReference, ns string) (model.Config, bool) {
-	switch ref.Resource {
-	case "HTTPRoute":
-		c := findByName(ref.Name, ns, r.HTTPRoute)
-		if c != nil {
-			return *c, true
-		}
-	case "TcpRoute":
-		c := findByName(ref.Name, ns, r.TCPRoute)
-		if c != nil {
-			return *c, true
-		}
-	default:
-		panic("kind not supported: " + ref.String())
+func (r *KubernetesResources) fetchHTTPRoutes(routes k8s.RouteBindingSelector) []*k8s.HTTPRouteSpec {
+	ls, err := metav1.LabelSelectorAsSelector(routes.RouteSelector)
+	if err != nil {
+		log.Errorf("failed to create route selector: %v", err)
+		return nil
 	}
-	return model.Config{}, false
+	// TODO(https://github.com/kubernetes-sigs/service-apis/issues/197)
+	// Selecting namespaces is problematic
+	ns, err := metav1.LabelSelectorAsSelector(&routes.NamespaceSelector)
+	if err != nil {
+		log.Errorf("failed to create namespace selector: %v", err)
+		return nil
+	}
+	result := []*k8s.HTTPRouteSpec{}
+	for _, http := range r.HTTPRoute {
+		if routes.RouteSelector == nil || ls.Matches(klabels.Set(http.Labels)) {
+			if !ns.Empty() {
+				namespace := r.Namespaces[http.Namespace]
+				if namespace == nil {
+					log.Errorf("missing namespace %v for route %v, skipping", http.Namespace, http.Name)
+					continue
+				}
+				if !ns.Matches(klabels.Set(namespace.Labels)) {
+					continue
+				}
+			}
+			result = append(result, http.Spec.(*k8s.HTTPRouteSpec))
+		}
+	}
+
+	return result
 }
 
 type IstioResources struct {
@@ -66,16 +92,6 @@ type IstioResources struct {
 }
 
 var _ = k8s.HTTPRoute{}
-
-func findByName(name, namespace string, cfgs []model.Config) *model.Config {
-	for _, c := range cfgs {
-		// TODO this will change to non-local, remove ns check
-		if c.Name == name && c.Namespace == namespace {
-			return &c
-		}
-	}
-	return nil
-}
 
 func convertResources(r *KubernetesResources) IstioResources {
 	result := IstioResources{}
@@ -142,9 +158,9 @@ func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSp
 		}
 		vsConfig := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-				Group:     collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group(),
-				Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+				Type:      istioVsResource.Kind(),
+				Group:     istioVsResource.Group(),
+				Version:   istioVsResource.Version(),
 				Name:      name,
 				Namespace: obj.Namespace,
 				Domain:    "", // TODO hardcoded
@@ -168,13 +184,24 @@ func createRoute(action *k8s.HTTPRouteAction, ns string) []*istio.HTTPRouteDesti
 
 	// TODO this is really bad. What types does object point to?
 	return []*istio.HTTPRouteDestination{{
-		Destination: &istio.Destination{
-			// TODO cluster.local hardcode
-			// TODO is this the right format?
-			Host: action.ForwardTo.Name + "." + ns + ".svc." + constants.DefaultKubernetesDomain,
-		},
+		Destination: buildHTTPDestination(action.ForwardTo, ns),
 	}}
 
+}
+
+func buildHTTPDestination(to *k8s.ForwardToTarget, ns string) *istio.Destination {
+	res := &istio.Destination{}
+	if to.TargetPort != nil {
+		res.Port = &istio.PortSelector{Number: uint32(*to.TargetPort)}
+	}
+	// Referencing a Service or default
+	if to.TargetRef.Group == k8sServiceResource.Group() && to.TargetRef.Resource == k8sServiceResource.Plural() ||
+		to.TargetRef.Group == "" && to.TargetRef.Resource == "" {
+		res.Host = fmt.Sprintf("%s.%s.svc.%s", to.TargetRef.Name, ns, constants.DefaultKubernetesDomain)
+	} else {
+		log.Warnf("referencing unsupported destination %v", to.TargetRef)
+	}
+	return res
 }
 
 func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers {
@@ -289,29 +316,16 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 
 			servers = append(servers, server)
 		}
-		for _, route := range kgw.Routes {
-			r, f := r.LookupReference(route, obj.Namespace)
-			if !f {
-				// TODO propagate errors to status
-				log.Warnf("route %v/%v not found", route.Resource, route.Name)
-				continue
-			}
-			switch r.Type {
-			case collections.K8SServiceApisV1Alpha1Httproutes.Resource().Kind():
-				http := r.Spec.(*k8s.HTTPRouteSpec)
-				routeToGateway[http] = append(routeToGateway[http], name)
-			case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().Kind():
-				// TODO implement this once the spec is defined
-			default:
-				log.Warnf("unsupported typed %v", r.Type)
-				continue
-			}
+		// TODO support TCP Route
+		// TODO support VirtualService
+		for _, http := range r.fetchHTTPRoutes(kgw.Routes) {
+			routeToGateway[http] = append(routeToGateway[http], name)
 		}
 		gatewayConfig := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(),
-				Group:     collections.IstioNetworkingV1Alpha3Gateways.Resource().Group(),
-				Version:   collections.IstioNetworkingV1Alpha3Gateways.Resource().Version(),
+				Type:      istioGwResource.Kind(),
+				Group:     istioGwResource.Group(),
+				Version:   istioGwResource.Version(),
 				Name:      name,
 				Namespace: obj.Namespace,
 				Domain:    "", // TODO hardcoded

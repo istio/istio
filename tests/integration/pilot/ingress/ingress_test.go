@@ -101,14 +101,14 @@ func TestGateway(t *testing.T) {
 				BuildOrFail(t)
 			instance.Address()
 			if err := ctx.ApplyConfig(ns.Name(), `
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controller: istio.io/gateway-controller
 ---
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
@@ -122,11 +122,9 @@ spec:
     port: 80
     protocol: http
   routes:
-  - group: networking.x-k8s.io/v1alpha1
-    resource: HTTPRoute
-    name: http
+    namespaceSelector: {}
 ---
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
   name: http
@@ -139,9 +137,10 @@ spec:
         path: /get
       action:
         forwardTo:
-          group: v1
-          resource: Service
-          name: server`,
+          targetRef:
+            name: server
+            group: ""
+            resource: ""`,
 			); err != nil {
 				t.Fatal(err)
 			}
