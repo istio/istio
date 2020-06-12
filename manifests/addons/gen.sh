@@ -62,7 +62,7 @@ helm3 template prometheus stable/prometheus \
 {
   helm3 template grafana stable/grafana \
     --namespace istio-system \
-    --version 5.0.7 \
+    --version 5.0.26 \
     -f "${WD}/values-grafana.yaml"
 
   # Set up grafana dashboards. Split into 2 to avoid Kubernetes size limits
