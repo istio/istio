@@ -354,9 +354,9 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 			VMTag = cfg.VMTag
 		}
 
-		// image name must be provided
+		// if image is not provided, default to app_sidecar
 		if cfg.VMImage == "" {
-			return "", "", fmt.Errorf(" vm docker image must be provided.")
+			VMImage = "app_sidecar"
 		}
 		VMImage = cfg.VMImage
 	}
