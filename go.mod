@@ -168,6 +168,6 @@ require (
 	k8s.io/kubectl v0.18.3
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	sigs.k8s.io/controller-runtime v0.5.1-0.20200327213554-2d4c4877f906
-	sigs.k8s.io/service-apis v0.0.0-20200227172328-b9010cfacdbe
+	sigs.k8s.io/service-apis v0.0.0-20200519184137-2b66cd7216e9
 	sigs.k8s.io/yaml v1.2.0
 )

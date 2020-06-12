@@ -179,11 +179,11 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 			}
 			// These CRDs are validated outside of Istio
 			for _, gvk := range []string{
-				"networking.x.k8s.io/v1alpha1/Gateway",
-				"networking.x.k8s.io/v1alpha1/GatewayClass",
-				"networking.x.k8s.io/v1alpha1/HTTPRoute",
-				"networking.x.k8s.io/v1alpha1/TcpRoute",
-				"networking.x.k8s.io/v1alpha1/TrafficSplit",
+				"networking.x-k8s.io/v1alpha1/Gateway",
+				"networking.x-k8s.io/v1alpha1/GatewayClass",
+				"networking.x-k8s.io/v1alpha1/HTTPRoute",
+				"networking.x-k8s.io/v1alpha1/TcpRoute",
+				"networking.x-k8s.io/v1alpha1/TrafficSplit",
 			} {
 				delete(recognized, gvk)
 			}
