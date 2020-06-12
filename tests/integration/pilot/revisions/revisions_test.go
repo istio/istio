@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -37,13 +36,12 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("pilot_test", m).
 		RequireSingleCluster().
-		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+		Setup(istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 revision: stable
 `
 		})).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+		Setup(istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 profile: empty
 revision: canary
@@ -59,7 +57,6 @@ components:
 // belong to different control planes.
 func TestMultiRevision(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			stable := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix:   "stable",

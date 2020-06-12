@@ -40,9 +40,6 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	// You need to provide environment specific implementations of your component. If you support only specific
 	// environments, then return resource.UnsupportedEnvironment to signal the situation.
 	switch ctx.Environment().EnvironmentName() {
-	case environment.Native:
-		i = newNative(ctx, cfg)
-
 	case environment.Kube:
 		i = newKube(ctx, cfg)
 

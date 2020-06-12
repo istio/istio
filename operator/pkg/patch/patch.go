@@ -177,7 +177,7 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_P
 			continue
 		}
 		scope.Debugf("applying path=%s, value=%s\n", p.Path, p.Value)
-		inc, _, err := tpath.GetPathContext(bo, util.PathFromString(p.Path), false)
+		inc, _, err := tpath.GetPathContext(bo, util.PathFromString(p.Path), true)
 		if err != nil {
 			errs = util.AppendErr(errs, err)
 			continue

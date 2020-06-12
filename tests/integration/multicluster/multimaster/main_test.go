@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -39,10 +38,9 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("multicluster/multimaster", m).
 		Label(label.Multicluster).
-		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
 		})).

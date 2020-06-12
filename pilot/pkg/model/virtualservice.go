@@ -22,20 +22,36 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/visibility"
 )
 
-func mergeVirtualServicesIfNeeded(vServices []Config) (out []Config) {
+func mergeVirtualServicesIfNeeded(vServices []Config, defaultExportTo map[visibility.Instance]bool) (out []Config) {
 	out = make([]Config, 0, len(vServices))
 	delegatesMap := map[string]Config{}
+	delegatesExportToMap := map[string]map[visibility.Instance]bool{}
 	// root virtualservices with delegate
 	var rootVses []Config
 
 	// 1. classify virtualservices
 	for _, vs := range vServices {
 		rule := vs.Spec.(*networking.VirtualService)
-		// it is delegate, add it to the indexer cache
+		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
 		if len(rule.Hosts) == 0 {
 			delegatesMap[key(vs.Name, vs.Namespace)] = vs
+			if len(rule.ExportTo) == 0 {
+				// No exportTo in virtualService. Use the global default
+				delegatesExportToMap[key(vs.Name, vs.Namespace)] = defaultExportTo
+			} else {
+				exportToMap := make(map[visibility.Instance]bool)
+				for _, e := range rule.ExportTo {
+					if e == string(visibility.Private) {
+						exportToMap[visibility.Instance(vs.Namespace)] = true
+					} else {
+						exportToMap[visibility.Instance(e)] = true
+					}
+				}
+				delegatesExportToMap[key(vs.Name, vs.Namespace)] = exportToMap
+			}
 			continue
 		}
 
@@ -67,6 +83,13 @@ func mergeVirtualServicesIfNeeded(vServices []Config) (out []Config) {
 					log.Debugf("delegate virtual service %s/%s of %s/%s not found",
 						route.Delegate.Namespace, route.Delegate.Name, root.Namespace, root.Name)
 					// delegate not found, ignore only the current HTTP route
+					continue
+				}
+				// make sure that the delegate is visible to root virtual service's namespace
+				exportTo := delegatesExportToMap[key(route.Delegate.Name, route.Delegate.Namespace)]
+				if !exportTo[visibility.Public] && !exportTo[visibility.Instance(root.Namespace)] {
+					log.Debugf("delegate virtual service %s/%s of %s/%s is not exported to %s",
+						route.Delegate.Namespace, route.Delegate.Name, root.Namespace, root.Name, root.Namespace)
 					continue
 				}
 				// DeepCopy to prevent mutate the original delegate, it can conflict

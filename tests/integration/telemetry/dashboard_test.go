@@ -23,6 +23,7 @@ import (
 	"time"
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/pkg/log"
 
@@ -37,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -116,7 +116,6 @@ var (
 func TestDashboard(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.dashboard").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			p := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
@@ -126,7 +125,8 @@ func TestDashboard(t *testing.T) {
 			for _, d := range dashboards {
 				d := d
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
-					cm, err := kenv.KubeClusters[0].GetConfigMap(d.configmap, i.Settings().TelemetryNamespace)
+					cm, err := kenv.KubeClusters[0].CoreV1().ConfigMaps(i.Settings().TelemetryNamespace).Get(
+						context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
 					if err != nil {
 						t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
 					}
@@ -203,7 +203,7 @@ func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 		}
 	} else {
 		if numSamples != 0 {
-			scopes.CI.Debugf("Filtered out metric '%v', but got samples: %v", query, value)
+			scopes.Framework.Infof("Filtered out metric '%v', but got samples: %v", query, value)
 		}
 	}
 	return nil

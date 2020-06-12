@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 
 	kubeCore "k8s.io/api/core/v1"
@@ -98,6 +99,7 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 		wg.Add(1)
 
 		instanceIndex := i
+		inst := inst
 		serviceName := inst.Config().Service
 		serviceNamespace := inst.Config().Namespace.Name()
 		timeout := inst.Config().ReadinessTimeout
@@ -107,8 +109,11 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 		go func() {
 			defer wg.Done()
 			selector := "app"
-			fetch := cluster.NewPodMustFetch(serviceNamespace, fmt.Sprintf("%s=%s", selector, serviceName))
+			if inst.Config().DeployAsVM {
+				selector = "istio.io/test-vm"
+			}
 			// Wait until all the pods are ready for this service
+			fetch := kube.NewPodMustFetch(cluster.Accessor, serviceNamespace, fmt.Sprintf("%s=%s", selector, serviceName))
 			pods, err := cluster.WaitUntilPodsAreReady(fetch, retry.Timeout(timeout))
 			if err != nil {
 				aggregateErrMux.Lock()

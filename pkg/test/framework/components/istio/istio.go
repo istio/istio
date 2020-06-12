@@ -38,9 +38,6 @@ type SetupContextFn func(ctx resource.Context) error
 func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.SetupFn {
 	return func(ctx resource.Context) error {
 		switch ctx.Environment().EnvironmentName() {
-		case environment.Native:
-			scopes.Framework.Debugf("istio.Setup: Skipping deployment of Istio on native")
-
 		case environment.Kube:
 			cfg, err := DefaultConfig(ctx)
 			if err != nil {
@@ -53,10 +50,10 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 				if ctxFn != nil {
 					err := ctxFn(ctx)
 					if err != nil {
-						scopes.CI.Infof("=== FAILED: context setup function [err=%v] ===", err)
+						scopes.Framework.Infof("=== FAILED: context setup function [err=%v] ===", err)
 						return err
 					}
-					scopes.CI.Info("=== SUCCESS: context setup function ===")
+					scopes.Framework.Info("=== SUCCESS: context setup function ===")
 				}
 			}
 			ins, err := Deploy(ctx, &cfg)
@@ -83,12 +80,12 @@ func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	}
 
 	var err error
-	scopes.CI.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
 	defer func() {
 		if err != nil {
-			scopes.CI.Infof("=== FAILED: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== FAILED: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
 		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio [Suite=%s]===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== SUCCEEDED: Deploy Istio [Suite=%s]===", ctx.Settings().TestID)
 		}
 	}()
 

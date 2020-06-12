@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -46,16 +47,16 @@ type kubeNamespace struct {
 }
 
 func (n *kubeNamespace) Dump() {
-	scopes.CI.Errorf("=== Dumping Namespace %s State...", n.name)
+	scopes.Framework.Errorf("=== Dumping Namespace %s State...", n.name)
 
 	d, err := n.ctx.CreateTmpDirectory(n.name + "-state")
 	if err != nil {
-		scopes.CI.Errorf("Unable to create directory for dumping %s contents: %v", n.name, err)
+		scopes.Framework.Errorf("Unable to create directory for dumping %s contents: %v", n.name, err)
 		return
 	}
 
 	for _, cluster := range n.env.KubeClusters {
-		cluster.DumpPods(d, n.name)
+		kube2.DumpPods(cluster, d, n.name)
 	}
 }
 

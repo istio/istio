@@ -142,8 +142,6 @@ func TestProxyNeedsPush(t *testing.T) {
 }
 
 func TestPushTypeFor(t *testing.T) {
-	t.Parallel()
-
 	sidecar := &model.Proxy{Type: model.SidecarProxy}
 	gateway := &model.Proxy{Type: model.Router}
 

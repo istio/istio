@@ -21,6 +21,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	goruntime "runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -30,7 +33,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/environment/native"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -73,9 +75,26 @@ type Suite struct {
 	envFactory  resource.EnvironmentFactory
 }
 
+// Given the filename of a test, derive its suite name
+func deriveSuiteName(caller string) string {
+	d := filepath.Dir(caller)
+	matches := []string{"istio.io/istio.io", "istio.io/istio", "tests/integration"}
+	// We will trim out paths preceding some well known paths. This should handle anything in istio or docs repo,
+	// as well as special case tests/integration. The end result is a test under ./tests/integration/pilot/ingress
+	// will become pilot_ingress
+	// Note: if this fails to trim, we end up with "ugly" suite names but otherwise no real impact.
+	for _, match := range matches {
+		if i := strings.Index(d, match); i >= 0 {
+			d = d[i+len(match)+1:]
+		}
+	}
+	return strings.ReplaceAll(d, "/", "_")
+}
+
 // NewSuite returns a new suite instance.
 func NewSuite(testID string, m *testing.M) *Suite {
-	return newSuite(testID,
+	_, f, _, _ := goruntime.Caller(1)
+	return newSuite(deriveSuiteName(f),
 		func(_ *suiteContext) int {
 			return m.Run()
 		},
@@ -95,15 +114,6 @@ func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSetti
 	return s
 }
 
-// EnvironmentFactory sets a custom function used for creating the resource.Environment for this Suite.
-func (s *Suite) EnvironmentFactory(fn resource.EnvironmentFactory) *Suite {
-	if fn != nil && s.envFactory != nil {
-		scopes.CI.Warn("EnvironmentFactory overridden multiple times for Suite")
-	}
-	s.envFactory = fn
-	return s
-}
-
 // Label all the tests in suite with the given labels
 func (s *Suite) Label(labels ...label.Instance) *Suite {
 	s.labels = s.labels.Add(labels...)
@@ -113,21 +123,6 @@ func (s *Suite) Label(labels ...label.Instance) *Suite {
 // Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
 func (s *Suite) Skip(reason string) *Suite {
 	s.skipMessage = reason
-	return s
-}
-
-// RequireEnvironment ensures that the current environment matches what the suite expects. Otherwise it
-// stops test execution. This also applies the appropriate label to the suite implicitly.
-func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
-	fn := func(ctx resource.Context) error {
-		if name != ctx.Environment().EnvironmentName() {
-			s.Skip(fmt.Sprintf("Required environment (%v) does not match current: %v",
-				name, ctx.Environment().EnvironmentName()))
-		}
-		return nil
-	}
-
-	s.requireFns = append(s.requireFns, fn)
 	return s
 }
 
@@ -214,18 +209,6 @@ func (s *Suite) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error) {
 	return
 }
 
-// SetupOnEnv runs the given setup function conditionally, based on the current environment.
-func (s *Suite) SetupOnEnv(e environment.Name, fn resource.SetupFn) *Suite {
-	s.Setup(func(ctx resource.Context) error {
-		if ctx.Environment().EnvironmentName() != e {
-			return nil
-		}
-		return fn(ctx)
-	})
-
-	return s
-}
-
 // Run the suite. This method calls os.Exit and does not return.
 func (s *Suite) Run() {
 	s.osExit(s.run())
@@ -301,22 +284,22 @@ func (s *Suite) run() (errLevel int) {
 
 	defer func() {
 		end := time.Now()
-		scopes.CI.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
+		scopes.Framework.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
 	}()
 
 	attempt := 0
 	for attempt <= ctx.settings.Retries {
 		attempt++
-		scopes.CI.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
+		scopes.Framework.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
 		errLevel = s.mRun(ctx)
 		if errLevel == 0 {
-			scopes.CI.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
 			break
 		} else {
-			scopes.CI.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
+			scopes.Framework.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
 				ctx.Settings().TestID, errLevel)
 			if attempt <= ctx.settings.Retries {
-				scopes.CI.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
+				scopes.Framework.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
 			}
 		}
 	}
@@ -357,7 +340,7 @@ func (s *Suite) writeOutput() {
 }
 
 func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
-	scopes.CI.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
 
 	// Run all the require functions first, then the setup functions.
 	setupFns := append(append([]resource.SetupFn{}, s.requireFns...), s.setupFns...)
@@ -366,7 +349,7 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 		err := s.runSetupFn(fn, ctx)
 		if err != nil {
 			scopes.Framework.Errorf("Test setup error: %v", err)
-			scopes.CI.Infof("=== FAILED: Setup: '%s' (%v) ===", ctx.Settings().TestID, err)
+			scopes.Framework.Infof("=== FAILED: Setup: '%s' (%v) ===", ctx.Settings().TestID, err)
 			return err
 		}
 
@@ -374,7 +357,7 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 			return nil
 		}
 	}
-	scopes.CI.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
 	return nil
 }
 
@@ -404,9 +387,9 @@ func initRuntime(s *Suite) error {
 		return err
 	}
 
-	scopes.CI.Infof("=== Test Framework Settings ===")
-	scopes.CI.Info(settings.String())
-	scopes.CI.Infof("===============================")
+	scopes.Framework.Infof("=== Test Framework Settings ===")
+	scopes.Framework.Info(settings.String())
+	scopes.Framework.Infof("===============================")
 
 	// Ensure that the work dir is set.
 	if err := os.MkdirAll(settings.RunDir(), os.ModePerm); err != nil {
@@ -420,8 +403,6 @@ func initRuntime(s *Suite) error {
 
 func newEnvironment(name string, ctx resource.Context) (resource.Environment, error) {
 	switch name {
-	case environment.Native.String():
-		return native.New(ctx)
 	case environment.Kube.String():
 		s, err := kube.NewSettingsFromCommandLine()
 		if err != nil {

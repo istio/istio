@@ -90,6 +90,9 @@ func (s *scope) get(ref interface{}) error {
 	target := fmt.Sprintf("%v", targetT)
 	fmt.Printf("target: %s\n", target)
 	for _, res := range s.resources {
+		if res == nil {
+			continue
+		}
 		resVal := reflect.ValueOf(res)
 		if resVal.Type().AssignableTo(targetT) {
 			if refVal.Kind() == reflect.Slice {

@@ -15,12 +15,16 @@
 package kube
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -31,6 +35,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -82,9 +88,9 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	// Generate the service and deployment YAML.
-	serviceYAML, deploymentYAML, err := generateYAML(cfg)
+	serviceYAML, deploymentYAML, err := generateYAML(cfg, c.cluster)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate yaml: %v", err)
 	}
 
 	// Apply the service definition to all clusters.
@@ -101,8 +107,71 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 			cfg.FQDN(), c.cluster.Index(), err)
 	}
 
+	if cfg.DeployAsVM {
+		serviceAccount := cfg.Service
+		if !cfg.ServiceAccount {
+			serviceAccount = "default"
+		}
+		token, err := createServiceAccountToken(c.cluster, cfg.Namespace.Name(), serviceAccount)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), &kubeCore.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfg.Service + "-istio-token",
+				Namespace: cfg.Namespace.Name(),
+			},
+			Data: map[string][]byte{
+				"istio-token": []byte(token),
+			},
+		}, metav1.CreateOptions{}); err != nil {
+			return nil, err
+		}
+	}
+
+	if cfg.DeployAsVM {
+		var pod kubeCore.Pod
+		if err := retry.UntilSuccess(func() error {
+			pods, err := c.cluster.GetPods(cfg.Namespace.Name(), fmt.Sprintf("istio.io/test-vm=%s", cfg.Service))
+			if err != nil {
+				return err
+			}
+			if len(pods) != 1 {
+				return fmt.Errorf("expected 1 pod, found %v", len(pods))
+			}
+			pod = pods[0]
+			if pod.Status.PodIP == "" {
+				return fmt.Errorf("empty pod ip")
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+		ip := pod.Status.PodIP
+
+		serviceAccount := cfg.Service
+		if !cfg.ServiceAccount {
+			serviceAccount = "default"
+		}
+		wle := fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: %s
+spec:
+  address: %s
+  serviceAccount: %s
+  labels:
+    app: %s
+`, pod.Name, ip, serviceAccount, cfg.Service)
+		// Deploy the workload entry.
+		if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), wle); err != nil {
+			return nil, fmt.Errorf("failed deploying workload entry: %v", err)
+		}
+	}
+
 	// Now retrieve the service information to find the ClusterIP
-	s, err := c.cluster.GetService(cfg.Namespace.Name(), cfg.Service)
+	s, err := c.cluster.CoreV1().Services(cfg.Namespace.Name()).Get(context.TODO(), cfg.Service, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -120,6 +189,22 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	return c, nil
+}
+
+func createServiceAccountToken(client kubernetes.Interface, ns string, serviceAccount string) (string, error) {
+	scopes.Framework.Debugf("Creating service account token for: %s/%s", ns, serviceAccount)
+
+	token, err := client.CoreV1().ServiceAccounts(ns).CreateToken(context.TODO(), serviceAccount,
+		&authenticationv1.TokenRequest{
+			Spec: authenticationv1.TokenRequestSpec{
+				Audiences: []string{"istio-ca"},
+			},
+		}, metav1.CreateOptions{})
+
+	if err != nil {
+		return "", err
+	}
+	return token.Status.Token, nil
 }
 
 // getContainerPorts converts the ports to a port list of container ports.
@@ -242,7 +327,7 @@ func (c *instance) initialize(pods []kubeCore.Pod) error {
 	}
 
 	if len(workloads) == 0 {
-		return fmt.Errorf("no pods found for service %s/%s/%s", c.cfg.Namespace.Name(), c.cfg.Service, c.cfg.Version)
+		return fmt.Errorf("no workloads found for service %s/%s/%s, from %v pods", c.cfg.Namespace.Name(), c.cfg.Service, c.cfg.Version, len(pods))
 	}
 
 	c.workloads = workloads

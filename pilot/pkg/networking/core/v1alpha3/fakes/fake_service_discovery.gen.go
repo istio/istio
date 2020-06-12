@@ -76,17 +76,6 @@ type ServiceDiscovery struct {
 		result1 []*model.ServiceInstance
 		result2 error
 	}
-	ManagementPortsStub        func(string) model.PortList
-	managementPortsMutex       sync.RWMutex
-	managementPortsArgsForCall []struct {
-		arg1 string
-	}
-	managementPortsReturns struct {
-		result1 model.PortList
-	}
-	managementPortsReturnsOnCall map[int]struct {
-		result1 model.PortList
-	}
 	ServicesStub        func() ([]*model.Service, error)
 	servicesMutex       sync.RWMutex
 	servicesArgsForCall []struct {
@@ -98,17 +87,6 @@ type ServiceDiscovery struct {
 	servicesReturnsOnCall map[int]struct {
 		result1 []*model.Service
 		result2 error
-	}
-	WorkloadHealthCheckInfoStub        func(string) model.ProbeList
-	workloadHealthCheckInfoMutex       sync.RWMutex
-	workloadHealthCheckInfoArgsForCall []struct {
-		arg1 string
-	}
-	workloadHealthCheckInfoReturns struct {
-		result1 model.ProbeList
-	}
-	workloadHealthCheckInfoReturnsOnCall map[int]struct {
-		result1 model.ProbeList
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -434,66 +412,6 @@ func (fake *ServiceDiscovery) InstancesByPortReturnsOnCall(i int, result1 []*mod
 	}{result1, result2}
 }
 
-func (fake *ServiceDiscovery) ManagementPorts(arg1 string) model.PortList {
-	fake.managementPortsMutex.Lock()
-	ret, specificReturn := fake.managementPortsReturnsOnCall[len(fake.managementPortsArgsForCall)]
-	fake.managementPortsArgsForCall = append(fake.managementPortsArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	fake.recordInvocation("ManagementPorts", []interface{}{arg1})
-	fake.managementPortsMutex.Unlock()
-	if fake.ManagementPortsStub != nil {
-		return fake.ManagementPortsStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.managementPortsReturns
-	return fakeReturns.result1
-}
-
-func (fake *ServiceDiscovery) ManagementPortsCallCount() int {
-	fake.managementPortsMutex.RLock()
-	defer fake.managementPortsMutex.RUnlock()
-	return len(fake.managementPortsArgsForCall)
-}
-
-func (fake *ServiceDiscovery) ManagementPortsCalls(stub func(string) model.PortList) {
-	fake.managementPortsMutex.Lock()
-	defer fake.managementPortsMutex.Unlock()
-	fake.ManagementPortsStub = stub
-}
-
-func (fake *ServiceDiscovery) ManagementPortsArgsForCall(i int) string {
-	fake.managementPortsMutex.RLock()
-	defer fake.managementPortsMutex.RUnlock()
-	argsForCall := fake.managementPortsArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *ServiceDiscovery) ManagementPortsReturns(result1 model.PortList) {
-	fake.managementPortsMutex.Lock()
-	defer fake.managementPortsMutex.Unlock()
-	fake.ManagementPortsStub = nil
-	fake.managementPortsReturns = struct {
-		result1 model.PortList
-	}{result1}
-}
-
-func (fake *ServiceDiscovery) ManagementPortsReturnsOnCall(i int, result1 model.PortList) {
-	fake.managementPortsMutex.Lock()
-	defer fake.managementPortsMutex.Unlock()
-	fake.ManagementPortsStub = nil
-	if fake.managementPortsReturnsOnCall == nil {
-		fake.managementPortsReturnsOnCall = make(map[int]struct {
-			result1 model.PortList
-		})
-	}
-	fake.managementPortsReturnsOnCall[i] = struct {
-		result1 model.PortList
-	}{result1}
-}
-
 func (fake *ServiceDiscovery) Services() ([]*model.Service, error) {
 	fake.servicesMutex.Lock()
 	ret, specificReturn := fake.servicesReturnsOnCall[len(fake.servicesArgsForCall)]
@@ -549,66 +467,6 @@ func (fake *ServiceDiscovery) ServicesReturnsOnCall(i int, result1 []*model.Serv
 	}{result1, result2}
 }
 
-func (fake *ServiceDiscovery) WorkloadHealthCheckInfo(arg1 string) model.ProbeList {
-	fake.workloadHealthCheckInfoMutex.Lock()
-	ret, specificReturn := fake.workloadHealthCheckInfoReturnsOnCall[len(fake.workloadHealthCheckInfoArgsForCall)]
-	fake.workloadHealthCheckInfoArgsForCall = append(fake.workloadHealthCheckInfoArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	fake.recordInvocation("WorkloadHealthCheckInfo", []interface{}{arg1})
-	fake.workloadHealthCheckInfoMutex.Unlock()
-	if fake.WorkloadHealthCheckInfoStub != nil {
-		return fake.WorkloadHealthCheckInfoStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.workloadHealthCheckInfoReturns
-	return fakeReturns.result1
-}
-
-func (fake *ServiceDiscovery) WorkloadHealthCheckInfoCallCount() int {
-	fake.workloadHealthCheckInfoMutex.RLock()
-	defer fake.workloadHealthCheckInfoMutex.RUnlock()
-	return len(fake.workloadHealthCheckInfoArgsForCall)
-}
-
-func (fake *ServiceDiscovery) WorkloadHealthCheckInfoCalls(stub func(string) model.ProbeList) {
-	fake.workloadHealthCheckInfoMutex.Lock()
-	defer fake.workloadHealthCheckInfoMutex.Unlock()
-	fake.WorkloadHealthCheckInfoStub = stub
-}
-
-func (fake *ServiceDiscovery) WorkloadHealthCheckInfoArgsForCall(i int) string {
-	fake.workloadHealthCheckInfoMutex.RLock()
-	defer fake.workloadHealthCheckInfoMutex.RUnlock()
-	argsForCall := fake.workloadHealthCheckInfoArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *ServiceDiscovery) WorkloadHealthCheckInfoReturns(result1 model.ProbeList) {
-	fake.workloadHealthCheckInfoMutex.Lock()
-	defer fake.workloadHealthCheckInfoMutex.Unlock()
-	fake.WorkloadHealthCheckInfoStub = nil
-	fake.workloadHealthCheckInfoReturns = struct {
-		result1 model.ProbeList
-	}{result1}
-}
-
-func (fake *ServiceDiscovery) WorkloadHealthCheckInfoReturnsOnCall(i int, result1 model.ProbeList) {
-	fake.workloadHealthCheckInfoMutex.Lock()
-	defer fake.workloadHealthCheckInfoMutex.Unlock()
-	fake.WorkloadHealthCheckInfoStub = nil
-	if fake.workloadHealthCheckInfoReturnsOnCall == nil {
-		fake.workloadHealthCheckInfoReturnsOnCall = make(map[int]struct {
-			result1 model.ProbeList
-		})
-	}
-	fake.workloadHealthCheckInfoReturnsOnCall[i] = struct {
-		result1 model.ProbeList
-	}{result1}
-}
-
 func (fake *ServiceDiscovery) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -622,12 +480,8 @@ func (fake *ServiceDiscovery) Invocations() map[string][][]interface{} {
 	defer fake.getServiceMutex.RUnlock()
 	fake.instancesByPortMutex.RLock()
 	defer fake.instancesByPortMutex.RUnlock()
-	fake.managementPortsMutex.RLock()
-	defer fake.managementPortsMutex.RUnlock()
 	fake.servicesMutex.RLock()
 	defer fake.servicesMutex.RUnlock()
-	fake.workloadHealthCheckInfoMutex.RLock()
-	defer fake.workloadHealthCheckInfoMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

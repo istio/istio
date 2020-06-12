@@ -37,21 +37,21 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - ppc64le
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - s390x
@@ -59,7 +59,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
@@ -141,7 +141,7 @@ spec:
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
-        - containerPort: 853
+        - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP

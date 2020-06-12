@@ -100,7 +100,7 @@ spec:
             - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
             {{- range $key, $val := $gateway.meshExpansionPorts }}
-            - containerPort: {{ $val.port }}
+            - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP

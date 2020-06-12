@@ -45,7 +45,7 @@ pilot:
       memory: 1G
   replicaCount: 1
   nodeSelector:
-    beta.kubernetes.io/os: linux
+    kubernetes.io/os: linux
   tolerations:
   - key: dedicated
     operator: Exists
@@ -113,7 +113,7 @@ components:
                targetAverageUtilization: 80
              type: Resource
        nodeSelector:
-          beta.kubernetes.io/os: linux
+          kubernetes.io/os: linux
        tolerations:
        - key: dedicated
          operator: Exists

@@ -42,6 +42,8 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
@@ -52,6 +54,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -139,9 +142,6 @@ const (
 	// So the meta data can be erased when pushing to envoy.
 	PilotMetaKey = "pilot_meta"
 
-	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
-	AlpnFilterName = "istio.alpn"
-
 	ThriftRLSDefaultTimeoutMS = 50
 )
 
@@ -165,13 +165,6 @@ var (
 
 	mtlsTCPALPNs        = []string{"istio"}
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
-
-	// These ALPNs are injected in the client side by the ALPN filter.
-	// "istio" is added for each upstream protocol in order to make it
-	// backward compatible. e.g., 1.4 proxy -> 1.3 proxy.
-	mtlsHTTP10ALPN = []string{"istio-http/1.0", "istio"}
-	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio"}
-	mtlsHTTP2ALPN  = []string{"istio-h2", "istio"}
 
 	// ALPN used for TCP Metadata Exchange.
 	tcpMxcALPN = "istio-peer-exchange"
@@ -459,7 +452,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushCont
 		// Any build order change need a careful code review
 		builder.buildSidecarInboundListeners(configgen).
 			buildSidecarOutboundListeners(configgen).
-			buildManagementListeners(configgen).
 			buildHTTPProxyListener(configgen).
 			buildVirtualOutboundListener(configgen).
 			buildVirtualInboundListener(configgen)
@@ -475,7 +467,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 	push *model.PushContext) []*listener.Listener {
 
 	var listeners []*listener.Listener
-	listenerMap := make(map[string]*inboundListenerEntry)
+	listenerMap := make(map[int]*inboundListenerEntry)
 
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
@@ -513,7 +505,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		//
 		for _, instance := range node.ServiceInstances {
 			endpoint := instance.Endpoint
-			bind := endpoint.Address
+			// Inbound listeners will be aggregated into a single virtual listener (port 15006)
+			// As a result, we don't need to worry about binding to the endpoint IP; we already know
+			// all traffic for these listeners is inbound.
+			// TODO: directly build filter chains rather than translating listeneners to filter chains
+			wildcard, _ := getActualWildcardAndLocalHost(node)
+			bind := wildcard
 
 			// Local service instances can be accessed through one of three
 			// addresses: localhost, endpoint IP, and service
@@ -683,23 +680,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
 // for a given port or unix domain socket
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
-	pluginParams *plugin.InputParams, listenerMap map[string]*inboundListenerEntry) *listener.Listener {
+	pluginParams *plugin.InputParams, listenerMap map[int]*inboundListenerEntry) *listener.Listener {
 	// Local service instances can be accessed through one of four addresses:
 	// unix domain socket, localhost, endpoint IP, and service
 	// VIP. Localhost bypasses the proxy and doesn't need any TCP
 	// route config. Endpoint IP is handled below and Service IP is handled
 	// by outbound routes. Traffic sent to our service VIP is redirected by
 	// remote services' kubeproxy to our specific endpoint IP.
-	listenerMapKey := listenerKey(listenerOpts.bind, listenerOpts.port)
 
-	if old, exists := listenerMap[listenerMapKey]; exists {
-		// For sidecar specified listeners, the caller is expected to supply a dummy service instance
-		// with the right port and a hostname constructed from the sidecar config's name+namespace
-		pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node,
-			fmt.Sprintf("Conflicting inbound listener:%s. existing: %s, incoming: %s", listenerMapKey,
-				old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
-
-		// Skip building listener for the same ip port
+	if old, exists := listenerMap[listenerOpts.port]; exists {
+		// If we already setup this hostname, its not a conflict. This may just mean there are multiple
+		// IPs for this hostname
+		if old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
+			// For sidecar specified listeners, the caller is expected to supply a dummy service instance
+			// with the right port and a hostname constructed from the sidecar config's name+namespace
+			pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node,
+				fmt.Sprintf("Conflicting inbound listener:%d. existing: %s, incoming: %s", listenerOpts.port,
+					old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
+		}
+		// Skip building listener for the same port
 		return nil
 	}
 
@@ -836,15 +835,13 @@ allChainsLabel:
 		return nil
 	}
 
-	listenerMap[listenerMapKey] = &inboundListenerEntry{
-		bind:             listenerOpts.bind,
+	listenerMap[listenerOpts.port] = &inboundListenerEntry{
 		instanceHostname: pluginParams.ServiceInstance.Service.Hostname,
 	}
 	return mutable.Listener
 }
 
 type inboundListenerEntry struct {
-	bind             string
 	instanceHostname host.Name // could be empty if generated via Sidecar CRD
 }
 
@@ -1771,76 +1768,6 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 	return ipTablesListener
 }
 
-// buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
-// server (inbound). Management port listeners are slightly different from standard Inbound listeners
-// in that, they do not have mixer filters nor do they have inbound auth.
-// N.B. If a given management port is same as the service instance's endpoint port
-// the pod will fail to start in Kubernetes, because the mixer service tries to
-// lookup the service associated with the Pod. Since the pod is yet to be started
-// and hence not bound to the service), the service lookup fails causing the mixer
-// to fail the health check call. This results in a vicious cycle, where kubernetes
-// restarts the unhealthy pod after successive failed health checks, and the mixer
-// continues to reject the health checks as there is no service associated with
-// the pod.
-// So, if a user wants to use kubernetes probes with Istio, she should ensure
-// that the health check ports are distinct from the service ports.
-func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext, managementPorts model.PortList, managementIP string) []*listener.Listener {
-	listeners := make([]*listener.Listener, 0, len(managementPorts))
-	// assumes that inbound connections/requests are sent to the endpoint address
-	for _, mPort := range managementPorts {
-		switch mPort.Protocol {
-		case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb, protocol.TCP,
-			protocol.HTTPS, protocol.TLS, protocol.Mongo, protocol.Redis, protocol.MySQL:
-
-			instance := &model.ServiceInstance{
-				Service: &model.Service{
-					Hostname: ManagementClusterHostname,
-				},
-				ServicePort: mPort,
-				Endpoint: &model.IstioEndpoint{
-					Address:      managementIP,
-					EndpointPort: uint32(mPort.Port),
-				},
-			}
-			listenerOpts := buildListenerOpts{
-				bind: managementIP,
-				port: mPort.Port,
-				filterChainOpts: []*filterChainOpts{{
-					networkFilters: buildInboundNetworkFilters(push, node, instance),
-				}},
-				// No user filters for the management unless we introduce new listener matches
-				skipUserFilters: true,
-				proxy:           node,
-				push:            push,
-			}
-			l := buildListener(listenerOpts)
-			l.TrafficDirection = core.TrafficDirection_INBOUND
-			mutable := &istionetworking.MutableObjects{
-				Listener:     l,
-				FilterChains: []istionetworking.FilterChain{{}},
-			}
-			pluginParams := &plugin.InputParams{
-				ListenerProtocol: istionetworking.ListenerProtocolTCP,
-				ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-				Push:             push,
-				Node:             node,
-				Port:             mPort,
-			}
-			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we construct listeners.
-			if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
-				log.Warna("buildSidecarInboundMgmtListeners ", err.Error())
-			} else {
-				listeners = append(listeners, l)
-			}
-		default:
-			log.Warnf("Unsupported inbound protocol %v for management port %#v",
-				mPort.Protocol, mPort)
-		}
-	}
-
-	return listeners
-}
-
 // httpListenerOpts are options for an HTTP listener
 type httpListenerOpts struct {
 	routeConfig *route.RouteConfiguration
@@ -1898,7 +1825,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	copy(filters, httpFilters)
 
 	if httpOpts.addGRPCWebFilter {
-		filters = append(filters, grpcWebFilter)
+		filters = append(filters, xdsfilters.GrpcWeb)
 	}
 
 	if pluginParams.ServiceInstance != nil &&
@@ -1916,10 +1843,10 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND {
-		filters = append(filters, alpnFilter)
+		filters = append(filters, xdsfilters.Alpn)
 	}
 
-	filters = append(filters, corsFilter, faultFilter, routerFilter)
+	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault, xdsfilters.Router)
 
 	if httpOpts.connectionManager == nil {
 		httpOpts.connectionManager = &hcm.HttpConnectionManager{}
@@ -1964,6 +1891,10 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 			},
 		}
 		connectionManager.RouteSpecifier = rds
+		if pluginParams.Node.RequestedTypes.LDS == v3.ListenerType {
+			// For v3 listeners, send v3 routes
+			rds.Rds.ConfigSource.ResourceApiVersion = core.ApiVersion_V3
+		}
 	} else {
 		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
@@ -2145,17 +2076,17 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 	}
 	if needTLSInspector || opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.TlsInspector] = true
-		listenerFilters = append(listenerFilters, tlsInspectorFilter)
+		listenerFilters = append(listenerFilters, xdsfilters.TLSInspector)
 	}
 
 	if opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.HttpInspector] = true
-		listenerFilters = append(listenerFilters, httpInspectorFilter)
+		listenerFilters = append(listenerFilters, xdsfilters.HTTPInspector)
 	}
 
 	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy {
-		listenerFiltersMap[OriginalSrc] = true
-		listenerFilters = append(listenerFilters, originalSrcFilter)
+		listenerFiltersMap[xdsfilters.OriginalSrcFilterName] = true
+		listenerFilters = append(listenerFilters, xdsfilters.OriginalSrc)
 	}
 
 	for _, chain := range opts.filterChainOpts {
@@ -2596,12 +2527,12 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 
 	if !hasTLSInspector {
 		filters =
-			append(filters, tlsInspectorFilter)
+			append(filters, xdsfilters.TLSInspector)
 	}
 
 	if !hasHTTPInspector {
 		filters =
-			append(filters, httpInspectorFilter)
+			append(filters, xdsfilters.HTTPInspector)
 	}
 
 	return filters

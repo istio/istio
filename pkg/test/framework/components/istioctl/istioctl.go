@@ -42,10 +42,6 @@ type Config struct {
 // New returns a new instance of "istioctl".
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Native, func() {
-		i = newNative(ctx, cfg)
-		err = nil
-	})
 	ctx.Environment().Case(environment.Kube, func() {
 		i = newKube(ctx, cfg)
 		err = nil

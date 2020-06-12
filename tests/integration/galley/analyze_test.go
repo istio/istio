@@ -19,6 +19,8 @@ import (
 	"strings"
 	"testing"
 
+	"encoding/json"
+
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -27,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 const (
@@ -38,6 +39,7 @@ const (
 	invalidFile          = "testdata/invalid.yaml"
 	invalidExtensionFile = "testdata/invalid.md"
 	dirWithConfig        = "testdata/some-dir/"
+	jsonOutput           = "-ojson"
 )
 
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
@@ -45,7 +47,6 @@ var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
 func TestEmptyCluster(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -180,10 +181,50 @@ func TestJsonInputFile(t *testing.T) {
 		})
 }
 
+func TestJsonOutput(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			testcases := []struct {
+				name     string
+				args     []string
+				messages []*diag.MessageType
+			}{
+				{
+					name:     "no other output except analysis json output",
+					args:     []string{jsonGatewayFile, jsonOutput},
+					messages: []*diag.MessageType{msg.ReferencedResourceNotFound},
+				},
+				{
+					name:     "invalid file does not output error in stdout",
+					args:     []string{invalidExtensionFile, jsonOutput},
+					messages: []*diag.MessageType{},
+				},
+			}
+
+			for _, tc := range testcases {
+				ctx.NewSubTest(tc.name).Run(func(ctx framework.TestContext) {
+					stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, tc.args...)
+					expectJSONMessages(t, g, stdout, tc.messages...)
+					g.Expect(err).To(BeNil())
+				})
+			}
+
+		})
+}
+
 func TestKubeOnly(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -206,7 +247,6 @@ func TestKubeOnly(t *testing.T) {
 func TestFileAndKubeCombined(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -230,7 +270,6 @@ func TestFileAndKubeCombined(t *testing.T) {
 func TestAllNamespaces(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -273,7 +312,6 @@ func TestAllNamespaces(t *testing.T) {
 func TestTimeout(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -314,8 +352,29 @@ func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
 	g.Expect(output[0]).To(ContainSubstring("No validation issues found when analyzing"))
 }
 
+func expectJSONMessages(t *testing.T, g *GomegaWithT, output string, expected ...*diag.MessageType) {
+	t.Helper()
+
+	var j []map[string]interface{}
+	if err := json.Unmarshal([]byte(output), &j); err != nil {
+		t.Fatal(err)
+	}
+
+	g.Expect(j).To(HaveLen(len(expected)))
+
+	for i, m := range j {
+		g.Expect(m["level"]).To(Equal(expected[i].Level().String()))
+		g.Expect(m["code"]).To(Equal(expected[i].Code()))
+	}
+}
+
 // istioctlSafe calls istioctl analyze with certain flags set. Stdout and Stderr are merged
 func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, extraArgs ...string) ([]string, error) {
+	output, stderr, err := istioctlWithStderr(t, i, ns, useKube, extraArgs...)
+	return strings.Split(strings.TrimSpace(output+"\n"+stderr), "\n"), err
+}
+
+func istioctlWithStderr(t *testing.T, i istioctl.Instance, ns string, useKube bool, extraArgs ...string) (string, string, error) {
 	t.Helper()
 
 	args := []string{"analyze"}
@@ -325,8 +384,7 @@ func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, ex
 	args = append(args, fmt.Sprintf("--use-kube=%t", useKube))
 	args = append(args, extraArgs...)
 
-	output, stderr, err := i.Invoke(args)
-	return strings.Split(strings.TrimSpace(output+"\n"+stderr), "\n"), err
+	return i.Invoke(args)
 }
 
 func applyFileOrFail(t *testing.T, ns, filename string) {

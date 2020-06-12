@@ -105,13 +105,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		// DO NOT CALL PLUGINS for these two clusters.
 		outboundClusters = append(outboundClusters, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
-		// Let ServiceDiscovery decide which IP and Port are used for management if
-		// there are multiple IPs
-		managementPorts := make([]*model.Port, 0)
-		for _, ip := range proxy.IPAddresses {
-			managementPorts = append(managementPorts, push.ManagementPorts(ip)...)
-		}
-		inboundClusters := configgen.buildInboundClusters(proxy, push, instances, managementPorts)
+		inboundClusters := configgen.buildInboundClusters(proxy, push, instances)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		inboundClusters = append(inboundClusters, cb.buildInboundPassthroughClusters()...)
 		inboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_INBOUND, proxy, push, inboundClusters)
@@ -328,10 +322,9 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
-	push *model.PushContext, instances []*model.ServiceInstance, managementPorts []*model.Port) []*cluster.Cluster {
+	push *model.PushContext, instances []*model.ServiceInstance) []*cluster.Cluster {
 
 	clusters := make([]*cluster.Cluster, 0)
-	cb := NewClusterBuilder(proxy, push)
 
 	// The inbound clusters for a node depends on whether the node has a SidecarScope with inbound listeners
 	// or not. If the node has a sidecarscope with ingress listeners, we only return clusters corresponding
@@ -369,17 +362,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 				clusters = append(clusters, localCluster)
 				have[instance.ServicePort] = true
 			}
-		}
-
-		// Add a passthrough cluster for traffic to management ports (health check ports)
-		for _, port := range managementPorts {
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, port.Name,
-				ManagementClusterHostname, port.Port)
-			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, uint32(port.Port))
-			mgmtCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
-				model.TrafficDirectionInbound, nil, false)
-			setUpstreamProtocol(proxy, mgmtCluster, port, model.TrafficDirectionInbound)
-			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)

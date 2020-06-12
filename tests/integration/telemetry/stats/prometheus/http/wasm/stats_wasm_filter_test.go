@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -37,10 +36,9 @@ func TestWasmStatsFilter(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("stats_filter_wasm_test", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(common.GetIstioInstance(), setupConfig)).
+		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).
 		Run()
 }
@@ -56,5 +54,4 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "true"
 	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
 	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "true"
-	cfg.Values["prometheus.enabled"] = "true"
 }

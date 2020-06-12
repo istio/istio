@@ -18,13 +18,18 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"path/filepath"
+	"strings"
 	"time"
 
 	prometheusApi "github.com/prometheus/client_golang/api"
 	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -53,6 +58,35 @@ type kubeComponent struct {
 	api       prometheusApiV1.API
 	forwarder testKube.PortForwarder
 	cluster   kube.Cluster
+	cleanup   func() error
+}
+
+func getPrometheusYaml() (string, error) {
+	yamlBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/prometheus.yaml"))
+	if err != nil {
+		return "", err
+	}
+	yaml := string(yamlBytes)
+	// For faster tests, drop scrape interval
+	yaml = strings.ReplaceAll(yaml, "scrape_interval: 15s", "scrape_interval: 5s")
+	yaml = strings.ReplaceAll(yaml, "scrape_timeout: 10s", "scrape_timeout: 5s")
+	return yaml, nil
+}
+
+func installPrometheus(ctx resource.Context, ns string) error {
+	yaml, err := getPrometheusYaml()
+	if err != nil {
+		return err
+	}
+	return ctx.ApplyConfig(ns, yaml)
+}
+
+func removePrometheus(ctx resource.Context, ns string) error {
+	yaml, err := getPrometheusYaml()
+	if err != nil {
+		return err
+	}
+	return ctx.DeleteConfig(ns, yaml)
 }
 
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
@@ -60,21 +94,29 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		cluster: kube.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
-
 	// Find the Prometheus pod and service, and start forwarding a local port.
 	cfg, err := istio.DefaultConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	fetchFn := c.cluster.NewSinglePodFetch(cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
+	if !cfgIn.SkipDeploy {
+		if err := installPrometheus(ctx, cfg.TelemetryNamespace); err != nil {
+			return nil, err
+		}
+
+		c.cleanup = func() error {
+			return removePrometheus(ctx, cfg.TelemetryNamespace)
+		}
+	}
+	fetchFn := testKube.NewSinglePodFetch(c.cluster.Accessor, cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
 	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 	pod := pods[0]
 
-	svc, err := c.cluster.GetService(cfg.TelemetryNamespace, serviceName)
+	svc, err := c.cluster.CoreV1().Services(cfg.TelemetryNamespace).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +302,11 @@ func (c *kubeComponent) SumOrFail(t test.Failer, val model.Value, labels map[str
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	return c.forwarder.Close()
+	_ = c.forwarder.Close()
+	if c.cleanup != nil {
+		return c.cleanup()
+	}
+	return nil
 }
 
 // check equality without considering timestamps

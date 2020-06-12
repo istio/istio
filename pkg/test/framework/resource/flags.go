@@ -20,7 +20,6 @@ import (
 	"os"
 
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -57,8 +56,8 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.BaseDir, "istio.test.work_dir", os.TempDir(),
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 
-	flag.StringVar(&settingsFromCommandLine.Environment, "istio.test.env", settingsFromCommandLine.Environment,
-		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: %v", environment.Names()))
+	var env string
+	flag.StringVar(&env, "istio.test.env", "", "Deprecated. This flag does nothing")
 
 	flag.BoolVar(&settingsFromCommandLine.NoCleanup, "istio.test.nocleanup", settingsFromCommandLine.NoCleanup,
 		"Do not cleanup resources after test completion")

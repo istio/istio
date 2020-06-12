@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
+	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -435,7 +436,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-			env := buildListenerEnv(services, nil)
+			env := buildListenerEnv(services)
 			serviceDiscovery := new(fakes.ServiceDiscovery)
 			serviceDiscovery.ServicesReturns(services, nil)
 			serviceDiscovery.InstancesByPortReturns(tt.instances, nil)
@@ -951,7 +952,7 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 
 func hasAlpnFilter(filters []*hcm.HttpFilter) bool {
 	for _, f := range filters {
-		if f.Name == AlpnFilterName {
+		if f.Name == xdsfilters.AlpnFilterName {
 			return true
 		}
 	}
@@ -1354,7 +1355,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
-	env := buildListenerEnv(nil, nil)
+	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
 	listeners := buildAllListeners(p, nil, env)
 	found := false
@@ -1409,7 +1410,7 @@ func TestHttpProxyListener(t *testing.T) {
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnv(nil, nil)
+	env := buildListenerEnv(nil)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("error in initializing push context: %s", err)
 	}
@@ -1727,7 +1728,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			featuresSet = true
 		}
 
-		env := buildListenerEnv(nil, nil)
+		env := buildListenerEnv(nil)
 		if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 			t.Fatalf("error in initializing push context: %s", err)
 		}
@@ -2009,9 +2010,9 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 
 	var env model.Environment
 	if virtualService != nil {
-		env = buildListenerEnvWithVirtualServices(services, []*model.Config{virtualService}, nil)
+		env = buildListenerEnvWithVirtualServices(services, []*model.Config{virtualService})
 	} else {
-		env = buildListenerEnv(services, nil)
+		env = buildListenerEnv(services)
 	}
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
@@ -2038,7 +2039,7 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*listener.Listener {
 	t.Helper()
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
-	env := buildListenerEnv(services, nil)
+	env := buildListenerEnv(services)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
@@ -2237,11 +2238,11 @@ func buildServiceInstance(service *model.Service, instanceIP string) *model.Serv
 	}
 }
 
-func buildListenerEnv(services []*model.Service, mgmtPort []int) model.Environment {
-	return buildListenerEnvWithVirtualServices(services, nil, mgmtPort)
+func buildListenerEnv(services []*model.Service) model.Environment {
+	return buildListenerEnvWithVirtualServices(services, nil)
 }
 
-func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config, mgmtPort []int) model.Environment {
+func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 	serviceDiscovery.ServicesReturns(services, nil)
 
@@ -2257,11 +2258,6 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		}
 	}
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
-	mgmt := []*model.Port{}
-	for _, p := range mgmtPort {
-		mgmt = append(mgmt, &model.Port{Port: p, Protocol: protocol.HTTP})
-	}
-	serviceDiscovery.ManagementPortsReturns(mgmt)
 
 	envoyFilter := model.Config{
 		ConfigMeta: model.ConfigMeta{

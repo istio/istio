@@ -17,7 +17,6 @@ package components
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"testing"
@@ -33,32 +32,14 @@ import (
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/config/event"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
-	"istio.io/istio/pkg/testcerts"
 )
 
 func TestProcessing_StartErrors(t *testing.T) {
 	g := NewGomegaWithT(t)
 	defer resetPatchTable()
 
-	fakeCACertFile, err := ioutil.TempFile("", "")
-	g.Expect(err).To(BeNil())
-	fakeCertFile, err := ioutil.TempFile("", "")
-	g.Expect(err).To(BeNil())
-	fakeKeyFile, err := ioutil.TempFile("", "")
-	g.Expect(err).To(BeNil())
-
-	g.Expect(ioutil.WriteFile(fakeCACertFile.Name(), testcerts.CACert, 0)).To(BeNil())
-	g.Expect(ioutil.WriteFile(fakeCertFile.Name(), testcerts.ServerCert, 0)).To(BeNil())
-	g.Expect(ioutil.WriteFile(fakeKeyFile.Name(), testcerts.ServerKey, 0)).To(BeNil())
-
-	defer func() {
-		_ = os.Remove(fakeCACertFile.Name())
-		_ = os.Remove(fakeCertFile.Name())
-		_ = os.Remove(fakeKeyFile.Name())
-	}()
 loop:
 	for i := 0; ; i++ {
 		resetPatchTable()
@@ -79,36 +60,19 @@ loop:
 		g.Expect(err).To(BeNil())
 
 		args := settings.DefaultArgs()
-		args.APIAddress = "tcp://0.0.0.0:0"
-		args.Insecure = true
 		args.MeshConfigFile = meshCfgFile
-		args.CredentialOptions.CACertificateFile = fakeCACertFile.Name()
-		args.CredentialOptions.CertificateFile = fakeCertFile.Name()
-		args.CredentialOptions.KeyFile = fakeKeyFile.Name()
 
 		switch i {
 		case 0:
-			newInterfaces = func(string) (kube.Interfaces, error) { return nil, e }
+			newInterfaces = func(string) (kube.Interfaces, error) {
+				return nil, e
+			}
 		case 1:
 			meshcfgNewFS = func(path string) (event.Source, error) { return nil, e }
 		case 2:
 			processorInitialize = func(processor.Settings) (*processing.Runtime, error) {
 				return nil, e
 			}
-		case 3:
-			args.Insecure = false
-			args.AccessListFile = os.TempDir()
-		case 4:
-			args.Insecure = false
-			args.CredentialOptions.CACertificateFile = ""
-		case 5:
-			args.SinkAddress = "localhost:8080"
-			args.SinkAuthMode = "foo"
-		case 6:
-			netListen = func(network, address string) (net.Listener, error) { return nil, e }
-		case 7:
-			args.ConfigPath = "aaa"
-			fsNew = func(_ string, _ collection.Schemas, _ bool) (event.Source, error) { return nil, e }
 		default:
 			break loop
 
@@ -138,16 +102,10 @@ func TestProcessing_Basic(t *testing.T) {
 	meshcfgNewFS = func(path string) (event.Source, error) { return mesh.NewInmemoryMeshCfg(), nil }
 
 	args := settings.DefaultArgs()
-	args.APIAddress = "tcp://0.0.0.0:0"
-	args.Insecure = true
 
 	p := NewProcessing(args)
 	err := p.Start()
 	g.Expect(err).To(BeNil())
 
-	g.Expect(p.Address()).NotTo(BeNil())
-
 	p.Stop()
-
-	g.Expect(p.Address()).To(BeNil())
 }

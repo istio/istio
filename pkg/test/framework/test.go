@@ -21,13 +21,11 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/env"
-
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -42,7 +40,6 @@ type Test struct {
 	featureLabels       map[features.Feature][]string
 	notImplemented      bool
 	s                   *suiteContext
-	requiredEnv         environment.Name
 	requiredMinClusters int
 	requiredMaxClusters int
 
@@ -109,13 +106,6 @@ func (t *Test) NotImplementedYet(features ...features.Feature) *Test {
 	t.notImplemented = true
 	t.Features(features...).
 		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Implemented") })
-	return t
-}
-
-// RequiresEnvironment ensures that the current environment matches what the suite expects. Otherwise it stops test
-// execution and skips the test.
-func (t *Test) RequiresEnvironment(name environment.Name) *Test {
-	t.requiredEnv = name
 	return t
 }
 
@@ -241,12 +231,6 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 
 	t.ctx = ctx
 
-	if t.requiredEnv != "" && t.s.Environment().EnvironmentName() != t.requiredEnv {
-		ctx.Done()
-		t.goTest.Skipf("Skipping %q: expected environment not found: %s", t.goTest.Name(), t.requiredEnv)
-		return
-	}
-
 	if t.requiredMinClusters > 0 && len(t.s.Environment().Clusters()) < t.requiredMinClusters {
 		ctx.Done()
 		t.goTest.Skipf("Skipping %q: number of clusters %d is below required min %d",
@@ -263,7 +247,7 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 
 	start := time.Now()
 
-	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
+	scopes.Framework.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
 	defer func() {
 		doneFn := func() {
 			message := "passed"
@@ -271,7 +255,7 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 				message = "failed"
 			}
 			end := time.Now()
-			scopes.CI.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
+			scopes.Framework.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
 				message,
 				rt.suiteContext().Settings().TestID,
 				t.goTest.Name(),

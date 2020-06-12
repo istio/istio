@@ -23,16 +23,15 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("cni", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+		Setup(istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 components:
   cni:
@@ -56,7 +55,7 @@ func TestCNIReachability(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			kenv := ctx.Environment().(*kube.Environment)
 			cluster := kenv.KubeClusters[0]
-			_, err := cluster.WaitUntilPodsAreReady(cluster.NewSinglePodFetch("kube-system", "k8s-app=istio-cni-node"))
+			_, err := cluster.WaitUntilPodsAreReady(kube2.NewSinglePodFetch(cluster.Accessor, "kube-system", "k8s-app=istio-cni-node"))
 			if err != nil {
 				ctx.Fatal(err)
 			}
@@ -65,9 +64,8 @@ func TestCNIReachability(t *testing.T) {
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "global-mtls-on.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "global-mtls-on.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {

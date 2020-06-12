@@ -19,11 +19,12 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/mixer/test/client/env"
+	"istio.io/istio/pkg/test/env"
 	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
 )
 
 func TestBadCSRResponse(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/24220")
 	rotateInterval := 1 * time.Second
 	sdsTest.RotateCert(rotateInterval)
 	setup := sdsTest.SetupTest(t, env.BadCSRResponse)

@@ -8,6 +8,8 @@ spec:
 
   # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
+    defaultConfig:
+      proxyMetadata: {}
     enablePrometheusMerge: true
     # Opt-out of global http2 upgrades.
     # Destination rule is used to opt-in.
@@ -201,20 +203,6 @@ spec:
       enabled: false
 
   addonComponents:
-    prometheus:
-      enabled: true
-      k8s:
-        replicaCount: 1
-    kiali:
-      enabled: false
-      k8s:
-        replicaCount: 1
-    grafana:
-      enabled: false
-      k8s:
-        replicaCount: 1
-    tracing:
-      enabled: false
     istiocoredns:
       enabled: false
 
@@ -458,7 +446,7 @@ spec:
 
     prometheus:
       hub: docker.io/prom
-      tag: v2.15.1
+      tag: v2.18.1
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
@@ -474,7 +462,7 @@ spec:
     grafana:
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 7.0.3
       persist: false
       storageClassName: ""
       accessMode: ReadWriteMany

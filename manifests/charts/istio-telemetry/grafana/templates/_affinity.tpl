@@ -11,7 +11,7 @@
 {{- define "nodeAffinityRequiredDuringScheduling" }}
       nodeSelectorTerms:
       - matchExpressions:
-        - key: beta.kubernetes.io/arch
+        - key: kubernetes.io/arch
           operator: In
           values:
         {{- range $key, $val := .Values.global.arch }}
@@ -34,7 +34,7 @@
     - weight: {{ $val | int }}
       preference:
         matchExpressions:
-        - key: beta.kubernetes.io/arch
+        - key: kubernetes.io/arch
           operator: In
           values:
           - {{ $key | quote }}

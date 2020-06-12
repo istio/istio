@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -49,14 +50,14 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
-	scopes.CI.Info("=== BEGIN: Deploy Redis ===")
+	scopes.Framework.Info("=== BEGIN: Deploy Redis ===")
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("redis deployment failed: %v", err) // nolint:golint
-			scopes.CI.Infof("=== FAILED: Deploy Redis ===")
+			scopes.Framework.Infof("=== FAILED: Deploy Redis ===")
 			_ = c.Close()
 		} else {
-			scopes.CI.Info("=== SUCCEEDED: Deploy Redis ===")
+			scopes.Framework.Info("=== SUCCEEDED: Deploy Redis ===")
 		}
 	}()
 
@@ -98,7 +99,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.RedisInstallFilePath, err)
 	}
 
-	fetchFn := c.cluster.NewPodFetch(c.ns.Name(), "app=redis")
+	fetchFn := kube2.NewPodFetch(c.cluster.Accessor, c.ns.Name(), "app=redis")
 	if _, err := c.cluster.WaitUntilPodsAreReady(fetchFn); err != nil {
 		return nil, err
 	}
@@ -112,7 +113,7 @@ func (c *kubeComponent) ID() resource.ID {
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	scopes.CI.Infof("Deleting Redis Install")
+	scopes.Framework.Infof("Deleting Redis Install")
 	_ = c.cluster.DeleteNamespace(redisNamespace)
 	_ = c.cluster.WaitForNamespaceDeletion(redisNamespace)
 	return nil

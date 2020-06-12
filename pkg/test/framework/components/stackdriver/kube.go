@@ -57,14 +57,14 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
-	scopes.CI.Info("=== BEGIN: Deploy Stackdriver ===")
+	scopes.Framework.Info("=== BEGIN: Deploy Stackdriver ===")
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("stackdriver deployment failed: %v", err) // nolint:golint
-			scopes.CI.Infof("=== FAILED: Deploy Stackdriver ===")
+			scopes.Framework.Infof("=== FAILED: Deploy Stackdriver ===")
 			_ = c.Close()
 		} else {
-			scopes.CI.Info("=== SUCCEEDED: Deploy Stackdriver ===")
+			scopes.Framework.Info("=== SUCCEEDED: Deploy Stackdriver ===")
 		}
 	}()
 
@@ -85,7 +85,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.StackdriverInstallFilePath, err)
 	}
 
-	fetchFn := c.cluster.NewSinglePodFetch(c.ns.Name(), "app=stackdriver")
+	fetchFn := testKube.NewSinglePodFetch(c.cluster.Accessor, c.ns.Name(), "app=stackdriver")
 	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err

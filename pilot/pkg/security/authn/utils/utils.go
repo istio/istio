@@ -15,16 +15,15 @@
 package utils
 
 import (
-	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	protovalue "istio.io/istio/pkg/proto"
 )
@@ -89,10 +88,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 				FilterChainMatch: alpnIstioMatch,
 				TLSContext:       ctx,
 				ListenerFilters: []*listener.ListenerFilter{
-					{
-						Name:       xdsutil.TlsInspector,
-						ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: util.MessageToAny(&tlsinspector.TlsInspector{})},
-					},
+					filters.TLSInspector,
 				},
 			},
 			{

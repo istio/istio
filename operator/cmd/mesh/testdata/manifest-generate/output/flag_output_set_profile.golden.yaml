@@ -100,7 +100,7 @@ rules:
     verbs: ["get", "watch", "list"]
 
   # Use for Kubernetes Service APIs
-  - apiGroups: ["networking.x.k8s.io"]
+  - apiGroups: ["networking.x-k8s.io"]
     resources: ["*"]
     verbs: ["get", "watch", "list"]
 ---
@@ -5477,7 +5477,6 @@ spec:
           secretName: cacerts
       - configMap:
           name: istio-sidecar-injector
-          optional: true
         name: inject
       - configMap:
           name: istio
@@ -6071,6 +6070,13 @@ data:
           {{- end }}
       {{- end }}
       podRedirectAnnot:
+      {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}
+      {{ if isset .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks` }}
+        k8s.v1.cni.cncf.io/networks: "{{ index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`}}, istio-cni"
+      {{- else }}
+        k8s.v1.cni.cncf.io/networks: "istio-cni"
+      {{- end }}
+      {{- end }}
         sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
         traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
         traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
@@ -6083,6 +6089,12 @@ data:
         traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
       {{- end }}
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
 ---
 
 

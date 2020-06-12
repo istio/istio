@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
-	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/adsc"
@@ -196,7 +195,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
-	testEnv = testenv.NewTestSetup(testenv.SidecarTest, t)
+	testEnv = env.NewTestSetup(env.SidecarTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
@@ -257,7 +256,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/ingress-gateway/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
-	testEnv = testenv.NewTestSetup(testenv.GatewayTest, t)
+	testEnv = env.NewTestSetup(env.GatewayTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
@@ -313,7 +312,7 @@ func TestLDS(t *testing.T) {
 	defer tearDown()
 
 	t.Run("sidecar", func(t *testing.T) {
-		ldsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+		ldsr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -339,7 +338,7 @@ func TestLDS(t *testing.T) {
 
 	// 'router' or 'gateway' type of listener
 	t.Run("gateway", func(t *testing.T) {
-		ldsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+		ldsr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -381,7 +380,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	registry := memServiceDiscovery(server, t)
 	registry.AddWorkload("98.1.1.1", labels.Instance{"app": "consumeronly"}) // These labels must match the sidecars workload selector
 
-	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
+	testEnv = env.NewTestSetup(env.SidecarConsumerOnlyTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
@@ -460,7 +459,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	registry.AddWorkload("98.1.1.2", labels.Instance{"app": "no-envoyfilter-test-app"})
 	registry.AddWorkload("98.1.1.3", labels.Instance{})
 
-	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
+	testEnv = env.NewTestSetup(env.SidecarConsumerOnlyTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc

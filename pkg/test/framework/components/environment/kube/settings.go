@@ -26,7 +26,7 @@ import (
 
 // ClientFactoryFunc is a transformation function that creates the k8s client factories
 // from the provided k8s config files.
-type AccessorFactoryFunc func(kubeConfig string, workDir string) (*kube.Accessor, error)
+type AccessorFactoryFunc func(kubeConfig string, workDir string) (kube.Accessor, error)
 
 // Settings provide kube-specific Settings from flags.
 type Settings struct {

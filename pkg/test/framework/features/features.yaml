@@ -42,9 +42,14 @@ features:
   # features that allow users to secure their services and service mesh.
   security:
     peer:
+      secure-naming:
     user:
+    ingress:
+      mtls:
+      tls:
     control-plane:
       k8s-certs:
+      plugin-cert:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
   # features releated to the lifecycle of istio installations
