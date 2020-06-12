@@ -46,10 +46,10 @@ func TestSyncz(t *testing.T) {
 		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendCDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
+		if err := sendCDSReqv2(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendCDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
+		if err := sendCDSReqv2(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
 			t.Fatal(err)
 		}
 		if err := sendLDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
@@ -94,10 +94,10 @@ func TestSyncz(t *testing.T) {
 		if err := sendEDSNack([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendCDSReq(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
+		if err := sendCDSReqv2(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendCDSNack(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
+		if err := sendCDSNackv2(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
 			t.Fatal(err)
 		}
 		if err := sendLDSReq(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
@@ -222,7 +222,7 @@ func TestConfigDump(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer cancel()
-			if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+			if err := sendCDSReqv2(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
 				t.Fatal(err)
 			}
 			if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
