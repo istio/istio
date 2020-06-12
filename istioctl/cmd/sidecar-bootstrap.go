@@ -589,7 +589,7 @@ Istio will be started on the host network as a docker container in capture mode.
 			var configClient model.ConfigStore
 			var err error
 
-			if configClient, err = clientFactory(); err != nil {
+			if configClient, err = configStoreFactory(); err != nil {
 				return err
 			}
 
