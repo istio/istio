@@ -31,6 +31,7 @@ features:
         client:
         server:
       dashboard:
+      istioctl:
   # features relating to controlling the traffic of the service mesh.
   traffic:
     routing:

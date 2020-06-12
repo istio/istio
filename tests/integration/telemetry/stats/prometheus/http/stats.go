@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package prometheus
+package http
 
 import (
 	"fmt"
@@ -66,10 +66,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 		Run(func(ctx framework.TestContext) {
 			sourceQuery, destinationQuery, appQuery := buildQuery()
 			retry.UntilSuccessOrFail(t, func() error {
-				if _, err := client.Call(echo.CallOptions{
-					Target:   server,
-					PortName: "http",
-				}); err != nil {
+				if err := SendTraffic(); err != nil {
 					return err
 				}
 				// Query client side metrics
@@ -138,6 +135,15 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 	return nil
+}
+
+// SendTraffic makes a client call to the "server" service on the http port.
+func SendTraffic() error {
+	_, err := client.Call(echo.CallOptions{
+		Target:   server,
+		PortName: "http",
+	})
+	return err
 }
 
 func SetupStrictMTLS(ctx resource.Context) error {
