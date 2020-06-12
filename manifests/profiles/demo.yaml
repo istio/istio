@@ -55,14 +55,6 @@ spec:
             cpu: 10m
             memory: 100Mi
 
-  addonComponents:
-    kiali:
-      enabled: true
-    grafana:
-      enabled: true
-    tracing:
-      enabled: true
-
   values:
     global:
       proxy:
