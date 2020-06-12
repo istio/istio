@@ -15,8 +15,11 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	svc "sigs.k8s.io/service-apis/api/v1alpha1"
 
@@ -86,12 +89,21 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 		return nil, fmt.Errorf("failed to list type TrafficSplit: %v", err)
 	}
 
+	nsl, err := c.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list type Namespaces: %v", err)
+	}
+	namespaces := map[string]*corev1.Namespace{}
+	for _, ns := range nsl.Items {
+		namespaces[ns.Name] = &ns
+	}
 	input := &KubernetesResources{
 		GatewayClass: gatewayClass,
 		Gateway:      gateway,
 		HTTPRoute:    httpRoute,
 		TCPRoute:     tcpRoute,
 		TrafficSplit: trafficSplit,
+		Namespaces:   namespaces,
 	}
 	output := convertResources(input)
 
