@@ -23,6 +23,15 @@ spec:
 {{ toYaml .Values.prometheus.podAnnotations | indent 8 }}
         {{- end }}
     spec:
+      securityContext:
+        fsGroup: 2000
+        runAsNonRoot: true
+        runAsUser: 1000        
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL       
+        privileged: false   
       serviceAccountName: prometheus
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
