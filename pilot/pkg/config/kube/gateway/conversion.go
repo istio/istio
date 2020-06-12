@@ -300,7 +300,7 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 			// TODO support TCP Route
 			// TODO support VirtualService
 			for _, http := range r.fetchHTTPRoutes(l.Routes) {
-				routeToGateway[http] = append(routeToGateway[http], name)
+				routeToGateway[http] = append(routeToGateway[http], obj.Namespace + "/" + name)
 			}
 		}
 		gatewayConfig := model.Config{
