@@ -14,7 +14,6 @@ import (
 var (
 	i istio.Instance
 	p pilot.Instance
-	//ingr ingress.Instance
 	ns namespace.Instance
 )
 
@@ -26,56 +25,15 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
-# Add an additional TCP port, 31400
-components:
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: true
-    k8s:
-      service:
-        ports:
-          - port: 15020
-            targetPort: 15020
-            name: status-port
-          - port: 80
-            targetPort: 8080
-            name: http2
-          - port: 443
-            targetPort: 8443
-            name: https
-          - port: 31400
-            targetPort: 31400
-            name: tcp
 values:
   global:
     meshExpansion:
       enabled: true`
-			//meshConfig:
-			// accessLogFile: "/dev/stdout"
-			//grafana:
-			// enabled: true
-			//telemetry:
-			// enabled: true
-			//telemetry:
-			// v1:
-			//   enabled: true
-			//telemetry:
-			// v2:
-			//   enabled: true
-			//telemetry:
-			// v2:
-			//   prometheus:
-			//     enabled: true`
 		})).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
-			//if ingr, err = ingress.New(ctx, ingress.Config{
-			//	Istio: i,
-			//}); err != nil {
-			//	return err
-			//}
 			return nil
 		}).
 		Run()
