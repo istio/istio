@@ -24,13 +24,11 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/env"
-	util "istio.io/istio/tests/integration/mixer"
-
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -41,6 +39,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
+	promtest "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
 const (
@@ -292,7 +291,7 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
 
 					if tc.Expected.Metric != "" {
-						util.ValidateMetric(t, prometheus, tc.Expected.PromQueryFormat, tc.Expected.Metric, 1)
+						promtest.ValidateMetric(t, prometheus, tc.Expected.PromQueryFormat, tc.Expected.Metric, 1)
 					}
 				})
 			}
