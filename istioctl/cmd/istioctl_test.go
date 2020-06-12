@@ -161,7 +161,7 @@ func verifyOutput(t *testing.T, c testCase) {
 	t.Helper()
 
 	// Override the client factory used by main.go
-	clientFactory = mockClientFactoryGenerator(c.configs)
+	configStoreFactory = mockClientFactoryGenerator(c.configs)
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)

@@ -19,11 +19,10 @@ import (
 	"strings"
 	"testing"
 
-	v1 "k8s.io/api/core/v1"
-
-	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/kube"
+	testKube "istio.io/istio/pkg/test/kube"
+
 	"istio.io/pkg/version"
 )
 
@@ -34,7 +33,7 @@ var meshInfo = version.MeshInfo{
 }
 
 func TestVersion(t *testing.T) {
-	clientExecFactory = mockExecClientVersionTest
+	kubeClientWithRevision = mockExecClientVersionTest
 
 	cases := []testCase{
 		{ // case 0 client-side only, normal output
@@ -73,30 +72,8 @@ func TestVersion(t *testing.T) {
 	}
 }
 
-type mockExecVersionConfig struct {
-}
-
-func (client mockExecVersionConfig) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[string][]byte, error) {
-	return nil, nil
-}
-
-func (client mockExecVersionConfig) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
-	return nil, nil
-}
-
-// nolint: unparam
-func (client mockExecVersionConfig) GetIstioVersions(namespace string) (*version.MeshInfo, error) {
-	return &meshInfo, nil
-}
-
-func mockExecClientVersionTest(_, _ string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
-	return &mockExecVersionConfig{}, nil
-}
-
-func (client mockExecVersionConfig) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
-	return &v1.PodList{}, nil
-}
-
-func (client mockExecVersionConfig) BuildPortForwarder(podName, ns, localAddr string, localPort, podPort int) (*kubernetes.PortForward, error) {
-	return nil, fmt.Errorf("mock k8s does not forward")
+func mockExecClientVersionTest(_, _ string, _ string) (kube.Client, error) {
+	return testKube.MockClient{
+		IstioVersions: &meshInfo,
+	}, nil
 }
