@@ -1,0 +1,6 @@
+app_sidecar_trusty
+app_sidecar_xenial
+app_sidecar_focal
+app_sidecar_debian8
+app_sidecar_debian9
+app_sidecar_debian10
