@@ -12,20 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package outboundtrafficpolicy
 
 import (
 	"testing"
-
-	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
-func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
-	cases := []*outboundtrafficpolicy.TestCase{
+func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
+	cases := []*TestCase{
 		{
 			Name:     "HTTP Traffic",
 			PortName: "http",
-			Expected: outboundtrafficpolicy.Expected{
+			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
 				ResponseCode:    []string{"200"},
@@ -34,7 +32,7 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 		{
 			Name:     "HTTPS Traffic",
 			PortName: "https",
-			Expected: outboundtrafficpolicy.Expected{
+			Expected: Expected{
 				Metric:          "istio_tcp_connections_opened_total",
 				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
 				ResponseCode:    []string{"200"},
@@ -43,7 +41,7 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 		{
 			Name:     "HTTPS Traffic Conflict",
 			PortName: "https-conflict",
-			Expected: outboundtrafficpolicy.Expected{
+			Expected: Expected{
 				Metric:          "istio_tcp_connections_opened_total",
 				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
 				ResponseCode:    []string{"200"},
@@ -54,7 +52,7 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 			PortName: "http",
 			Host:     "some-external-site.com",
 			Gateway:  true,
-			Expected: outboundtrafficpolicy.Expected{
+			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway.istio-system.svc.cluster.local",response_code="200"})`, // nolint: lll
 				ResponseCode:    []string{"200"},
@@ -64,7 +62,7 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 		{
 			Name:     "TCP",
 			PortName: "tcp",
-			Expected: outboundtrafficpolicy.Expected{
+			Expected: Expected{
 				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
 				//Metric:          "istio_tcp_connections_closed_total",
 				//PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
@@ -74,7 +72,7 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 		{
 			Name:     "TCP Conflict",
 			PortName: "tcp",
-			Expected: outboundtrafficpolicy.Expected{
+			Expected: Expected{
 				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
 				//Metric:          "istio_tcp_connections_closed_total",
 				//PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
@@ -83,5 +81,5 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 		},
 	}
 
-	outboundtrafficpolicy.RunExternalRequest(cases, prom, outboundtrafficpolicy.AllowAny, t)
+	RunExternalRequest(cases, prom, AllowAny, t)
 }
