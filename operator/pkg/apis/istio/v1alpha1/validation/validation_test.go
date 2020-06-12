@@ -73,8 +73,9 @@ func TestValidateConfig(t *testing.T) {
 					},
 				},
 			},
-			warnings: `! Using deprecated setting: Values.telemetry.v1.enabled,Components.Telemetry.Enabled. Mixer is deprecated and will be removed from Istio with the 1.8 release.
- Please consult our docs on the replacement.`,
+			warnings: "! Values.telemetry.v1.enabled, Components.Telemetry.Enabled is deprecated." +
+				" Mixer is deprecated and will be removed from Istio with the 1.8 release." +
+				" Please consult our docs on the replacement.",
 		},
 	}
 	for _, tt := range tests {

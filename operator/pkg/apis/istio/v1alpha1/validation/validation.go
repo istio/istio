@@ -76,7 +76,6 @@ func firstCharsToLower(s string) string {
 }
 
 func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
-	const mixerDeprecatedMessage = "! Using deprecated setting: %s. Mixer is deprecated and will be removed from Istio with the 1.8 release.\n Please consult our docs on the replacement."
 	messages := []string{}
 	deprecations := []deprecatedSettings{
 		{"Values.global.certificates", "meshConfig.certificates", nil},
@@ -129,8 +128,10 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 			mds = append(mds, d.old)
 		}
 	}
+	const mixerDeprecatedMessage = "! %s is deprecated. Mixer is deprecated and will be removed" +
+		" from Istio with the 1.8 release. Please consult our docs on the replacement."
 	if useMixerSettings {
-		messages = append(messages, fmt.Sprintf(mixerDeprecatedMessage, strings.Join(mds, ",")))
+		messages = append(messages, fmt.Sprintf(mixerDeprecatedMessage, strings.Join(mds, ", ")))
 	}
 
 	return strings.Join(messages, "\n")
