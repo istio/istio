@@ -30,14 +30,14 @@ import (
 )
 
 func TestConvertResources(t *testing.T) {
-	cases := []string{"simple", "mismatch"}
+	cases := []string{"simple", "mismatch", "tls"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
 			output := convertResources(splitInput(input))
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
-			if util.Refresh() {
+			if true || util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
 				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0644); err != nil {
 					t.Fatal(err)
