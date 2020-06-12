@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -22,9 +23,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/authz"
-	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/pkg/kube"
+
 	"istio.io/pkg/log"
 )
 
@@ -109,12 +111,12 @@ func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
 }
 
 func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, error) {
-	kubeClient, err := kubernetes.NewClient(kubeconfig, configContext)
+	kubeClient, err := kube.NewClientForKubeConfig(kubeconfig, configContext)
 	if err != nil {
 		return nil, err
 	}
 
-	pods, err := kubeClient.GetIstioPods(podNamespace, map[string]string{
+	pods, err := kubeClient.GetIstioPods(context.TODO(), podNamespace, map[string]string{
 		"fieldSelector": "metadata.name=" + podName,
 	})
 	if err != nil {
@@ -124,7 +126,7 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 		return nil, fmt.Errorf("expecting only 1 pod for %s.%s, found: %d", podName, podNamespace, len(pods))
 	}
 
-	data, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", "config_dump", nil)
+	data, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", "config_dump", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get proxy config for %s.%s: %s", podName, podNamespace, err)
 	}
