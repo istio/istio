@@ -15,8 +15,11 @@
 package features
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strings"
+
+	"istio.io/istio/pkg/test/env"
 
 	"github.com/ghodss/yaml"
 
@@ -25,6 +28,7 @@ import (
 
 type Feature string
 
+// Checker ensures that the values passed to Features() are in the features.yaml file
 type Checker interface {
 	Check(feature Feature) (check bool, scenario string)
 }
@@ -65,4 +69,32 @@ func checkPathSegment(m map[string]interface{}, path []string) (check bool, scen
 		}
 	}
 	return false, ""
+}
+
+var GlobalWhitelist = fromFile(env.IstioSrc + "/pkg/test/framework/features/whitelist.txt")
+
+type Whitelist struct {
+	hashset map[string]bool
+}
+
+func fromFile(path string) *Whitelist {
+	result := &Whitelist{hashset: map[string]bool{}}
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Errorf("Error reading whitelist file: %s", path)
+		return nil
+	}
+	for _, i := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(i, "//") {
+			continue
+		}
+		result.hashset[i] = true
+	}
+	return result
+
+}
+
+func (w *Whitelist) Contains(suite, test string) bool {
+	_, ok := w.hashset[fmt.Sprintf("%s,%s", suite, test)]
+	return ok
 }
