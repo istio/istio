@@ -84,16 +84,16 @@ func validateDefaultOutput(t *testing.T, ctx framework.TestContext, workload str
 	lines := strings.Split(output, "\n")
 	if len(lines) != 3 {
 		t.Logf("Expected 2 lines of output, got %q", output)
-		return errors.New("Unexpected output (incorrect number of lines)")
+		return errors.New("unexpected output (incorrect number of lines)")
 	}
 	fields := strings.Fields(lines[1])
 	if len(fields) != 6 {
 		t.Logf("Expected 6 columns, got %#v", fields)
-		return errors.New("Unexpected output (incorrect number of columns)")
+		return errors.New("unexpected output (incorrect number of columns)")
 	}
 	if fields[0] != workload {
 		t.Logf("Expected column 1 to be %q, got %#v", workload, fields)
-		return errors.New("Unexpected output (incorrect workload)")
+		return errors.New("unexpected output (incorrect workload)")
 	}
 	totalRPS, fErr := strconv.ParseFloat(fields[1], 32)
 	if fErr != nil {
@@ -102,7 +102,7 @@ func validateDefaultOutput(t *testing.T, ctx framework.TestContext, workload str
 	}
 	if totalRPS <= 0.001 {
 		t.Logf("Expected column 2 to show totalRPS more than 0.001, got %#v", fields)
-		return errors.New("Unexpected output (incorrect RPS)")
+		return errors.New("unexpected output (incorrect RPS)")
 	}
 	return nil
 }
