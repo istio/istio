@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"unicode"
 
 	"istio.io/istio/operator/pkg/tpath"
 
 	"istio.io/api/operator/v1alpha1"
+
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 )
@@ -31,11 +33,10 @@ const (
 )
 
 // ValidateConfig  calls validation func for every defined element in Values
-func ValidateConfig(failOnMissingValidation bool, iopvalues map[string]interface{},
-	iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
+func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
 	var validationErrors util.Errors
 	var warningMessage string
-	iopvalString := util.ToYAML(iopvalues)
+	iopvalString := util.ToYAML(iopls.Values)
 	values := &valuesv1alpha1.Values{}
 	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
 		return util.NewErrs(err), ""
@@ -45,21 +46,30 @@ func ValidateConfig(failOnMissingValidation bool, iopvalues map[string]interface
 	if err := validateFeatures(values, iopls).ToError(); err != nil {
 		warningMessage = fmt.Sprintf("feature validation warning: %v\n", err.Error())
 	}
-	warningMessage += deprecatedSettingsMessage(values)
+	warningMessage += deprecatedSettingsMessage(iopls)
 	return validationErrors, warningMessage
 }
 
-// Converts from helm paths to struct paths
-// global.proxy.accessLogFormat -> Global.Proxy.AccessLogFormat
-func firstCharsToUpper(s string) string {
-	res := []string{}
-	for _, ss := range strings.Split(s, ".") {
-		res = append(res, strings.Title(ss))
-	}
-	return strings.Join(res, ".")
+// Converts from struct paths to helm paths
+// Global.Proxy.AccessLogFormat -> global.proxy.accessLogFormat
+func firstCharsToLower(s string) string {
+	// Use a closure here to remember state.
+	// Hackish but effective. Depends on Map scanning in order and calling
+	// the closure once per rune.
+	prev := '.'
+	return strings.Map(
+		func(r rune) rune {
+			if prev == '.' {
+				prev = r
+				return unicode.ToLower(r)
+			}
+			prev = r
+			return r
+		},
+		s)
 }
 
-func deprecatedSettingsMessage(values *valuesv1alpha1.Values) string {
+func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 	messages := []string{}
 	deprecations := []struct {
 		old string
@@ -67,30 +77,40 @@ func deprecatedSettingsMessage(values *valuesv1alpha1.Values) string {
 		// In ordered to distinguish between unset for non-pointer values, we need to specify the default value
 		def interface{}
 	}{
-		{"global.certificates", "meshConfig.certificates", nil},
-		{"global.trustDomainAliases", "meshConfig.trustDomainAliases", nil},
-		{"global.outboundTrafficPolicy", "meshConfig.outboundTrafficPolicy", nil},
-		{"global.localityLbSetting", "meshConfig.localityLbSetting", nil},
-		{"global.policyCheckFailOpen", "meshConfig.policyCheckFailOpen", false},
-		{"global.enableTracing", "meshConfig.enableTracing", false},
-		{"global.proxy.accessLogFormat", "meshConfig.accessLogFormat", ""},
-		{"global.proxy.accessLogFile", "meshConfig.accessLogFile", ""},
-		{"global.proxy.accessLogEncoding", "meshConfig.accessLogEncoding", valuesv1alpha1.AccessLogEncoding_JSON},
-		{"global.proxy.concurrency", "meshConfig.concurrency", uint32(0)},
-		{"global.disablePolicyChecks", "meshConfig.disablePolicyChecks", nil},
-		{"global.proxy.envoyAccessLogService", "meshConfig.envoyAccessLogService", nil},
-		{"global.proxy.envoyMetricsService", "meshConfig.envoyMetricsService", nil},
-		{"global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", ""},
-		{"mixer.telemetry.reportBatchMaxEntries", "meshConfig.reportBatchMaxEntries", uint32(0)},
-		{"mixer.telemetry.reportBatchMaxTime", "meshConfig.reportBatchMaxTime", ""},
-		{"pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil},
-		{"global.mtls.enabled", "the PeerAuthentication resource", nil},
-		{"global.mtls.auto", "meshConfig.enableAutoMtls", nil},
+		{"Values.global.certificates", "meshConfig.certificates", nil},
+		{"Values.global.trustDomainAliases", "meshConfig.trustDomainAliases", nil},
+		{"Values.global.outboundTrafficPolicy", "meshConfig.outboundTrafficPolicy", nil},
+		{"Values.global.localityLbSetting", "meshConfig.localityLbSetting", nil},
+		{"Values.global.policyCheckFailOpen", "meshConfig.policyCheckFailOpen", false},
+		{"Values.global.enableTracing", "meshConfig.enableTracing", false},
+		{"Values.global.proxy.accessLogFormat", "meshConfig.accessLogFormat", ""},
+		{"Values.global.proxy.accessLogFile", "meshConfig.accessLogFile", ""},
+		{"Values.global.proxy.accessLogEncoding", "meshConfig.accessLogEncoding", valuesv1alpha1.AccessLogEncoding_JSON},
+		{"Values.global.proxy.concurrency", "meshConfig.concurrency", uint32(0)},
+		{"Values.global.disablePolicyChecks", "meshConfig.disablePolicyChecks", nil},
+		{"Values.global.proxy.envoyAccessLogService", "meshConfig.envoyAccessLogService", nil},
+		{"Values.global.proxy.envoyMetricsService", "meshConfig.envoyMetricsService", nil},
+		{"Values.global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", ""},
+		{"Values.mixer.telemetry.reportBatchMaxEntries", "meshConfig.reportBatchMaxEntries", uint32(0)},
+		{"Values.mixer.telemetry.reportBatchMaxTime", "meshConfig.reportBatchMaxTime", ""},
+		{"Values.pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil},
+		{"Values.global.mtls.enabled", "the PeerAuthentication resource", nil},
+		{"Values.global.mtls.auto", "meshConfig.enableAutoMtls", nil},
+		{"Values.grafana.enabled", "the samples/addons/ deployments", false},
+		{"Values.tracing.enabled", "the samples/addons/ deployments", false},
+		{"Values.kiali.enabled", "the samples/addons/ deployments", false},
+		{"Values.prometheus.enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.grafana.Enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.prometheus.Enabled", "the samples/addons/ deployments", false},
 	}
 	for _, d := range deprecations {
-		v, f, _ := tpath.GetFromStructPath(values, firstCharsToUpper(d.old))
+		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
+		// the types, but since this is deprecated this is easier
+		v, f, _ := tpath.GetFromStructPath(iop, d.old)
 		if f && v != d.def {
-			messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", d.old, d.new))
+			messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
 		}
 	}
 

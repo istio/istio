@@ -49,7 +49,11 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 		if path[0] == "" {
 			return nil, false, fmt.Errorf("getFromStructPath path %s, empty map key value", path)
 		}
-		return getFromStructPath(val.MapIndex(reflect.ValueOf(path[0])).Interface(), path[1:])
+		mapVal := val.MapIndex(reflect.ValueOf(path[0]))
+		if !mapVal.IsValid() {
+			return nil, false, fmt.Errorf("getFromStructPath path %s, path does not exist", path)
+		}
+		return getFromStructPath(mapVal.Interface(), path[1:])
 	case reflect.Slice:
 		idx, err := strconv.Atoi(path[0])
 		if err != nil {
