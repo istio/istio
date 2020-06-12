@@ -115,14 +115,13 @@ metadata:
 spec:
   class: istio
   listeners:
-  - name: primary
-    address:
-      type: NamedAddress
-      value: my.domain.example
+  - hostname:
+      match: Domain
+      name: domain.example
     port: 80
-    protocol: http
-  routes:
-    namespaceSelector: {}
+    protocol: HTTP
+    routes:
+      namespaceSelector: {}
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute

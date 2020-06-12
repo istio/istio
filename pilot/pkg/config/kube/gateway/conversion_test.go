@@ -37,7 +37,7 @@ func TestConvertResources(t *testing.T) {
 			output := convertResources(splitInput(input))
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
-			if true || util.Refresh() {
+			if util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
 				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0644); err != nil {
 					t.Fatal(err)
