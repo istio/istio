@@ -204,6 +204,8 @@ spec:
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
   meshConfig:
+    defaultConfig:
+      proxyMetadata: {}
     enablePrometheusMerge: false
   profile: default
   tag: latest
@@ -368,7 +370,7 @@ spec:
       envSecrets: {}
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 6.7.4
       nodeSelector: {}
       persist: false
       podAntiAffinityLabelSelector: []
