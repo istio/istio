@@ -102,8 +102,11 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 		t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s - %+v)",
 			totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs, res.RetCodes)
 
+		// We expect to receive 50 429's as the rate limit is set to allow 50 requests in 30s.
+		// Thus, to make test less flaky, we just wait to validate that we receive atlease 50
+		// requests reported from prometheus.
 		got429s, _ := util.FetchRequestCount(t, prom, destinationService, "", bookInfoNameSpaceStr,
-			0)
+			50)
 		if got429s == 0 {
 			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
 				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
