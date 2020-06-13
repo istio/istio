@@ -161,13 +161,13 @@ func validateGlobalLoggingLevel(path util.Path, val interface{}) (errs util.Erro
 
 	lvc := strings.Split(val.(string), ":")
 	if len(lvc) != 2 || lvc[0] != "default" {
-		err := fmt.Errorf("validateGlobalLoggingLevel %s got logging level scope '%s', want 'default' scope across all components", path, lvc[0])
+		err := fmt.Errorf("validateGlobalLoggingLevel got logging level scope '%s', want 'default' scope across all components", lvc[0])
 		printError(err)
 		return util.NewErrs(err)
 	}
 
 	if !IsValidLogginLevel(lvc[1]) {
-		err := fmt.Errorf("validateGlobalLoggingLevel %s got logging level value '%s', want one of '%+q'", path, lvc[1], logginglevels)
+		err := fmt.Errorf("validateGlobalLoggingLevel got logging level value '%s', want one of '%+q'", lvc[1], logginglevels)
 		printError(err)
 		return util.NewErrs(err)
 	}

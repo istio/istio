@@ -39,17 +39,17 @@ func TestValidateGlobalLoggingLevel(t *testing.T) {
 		{
 			desc:     "invalid logging level scope",
 			val:      "ads:debug",
-			wantErrs: makeErrors([]string{`validateGlobalLoggingLevel global.logging.level got logging level scope 'ads', want 'default' scope across all components`}),
+			wantErrs: makeErrors([]string{`validateGlobalLoggingLevel got logging level scope 'ads', want 'default' scope across all components`}),
 		},
 		{
 			desc:     "invalid logging level value",
 			val:      "default:xxx",
-			wantErrs: makeErrors([]string{`validateGlobalLoggingLevel global.logging.level got logging level value 'xxx', want one of '["none" "error" "warning" "info" "debug"]'`}),
+			wantErrs: makeErrors([]string{`validateGlobalLoggingLevel got logging level value 'xxx', want one of '["none" "error" "warning" "info" "debug"]'`}),
 		},
 		{
 			desc:     "invalid logging level settings",
 			val:      "ads:debug,default:debug",
-			wantErrs: makeErrors([]string{`validateGlobalLoggingLevel global.logging.level got logging level scope 'ads', want 'default' scope across all components`}),
+			wantErrs: makeErrors([]string{`validateGlobalLoggingLevel got logging level scope 'ads', want 'default' scope across all components`}),
 		},
 	}
 	path := "global.logging.level"
