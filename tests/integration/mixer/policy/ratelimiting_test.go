@@ -93,9 +93,6 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 		util.AllowRuleSync(t)
 
 		res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
-		_, _ = util.FetchRequestCount(t, prom, destinationService, "",
-			bookInfoNameSpaceStr, 300)
-
 		totalReqs := res.DurationHistogram.Count
 		succReqs := float64(res.RetCodes[http.StatusOK])
 		badReqs := res.RetCodes[http.StatusBadRequest]
@@ -106,7 +103,7 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 			totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs, res.RetCodes)
 
 		got429s, _ := util.FetchRequestCount(t, prom, destinationService, "", bookInfoNameSpaceStr,
-			300)
+			0)
 		if got429s == 0 {
 			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
 				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
