@@ -132,6 +132,7 @@ dns_certificate_test,TestDNSCertificate/rotateDNSCertificatesWhenCertExpired
 envoyfilter_test,TestEnvoyFilterHTTPFilterInsertBefore
 examples,TestBookinfo
 framework,TestStyle1
+framework,TestStyle2
 framework_test,TestParallel
 framework_test,TestParallel/top
 framework_test,TestParallel/top/l1a
