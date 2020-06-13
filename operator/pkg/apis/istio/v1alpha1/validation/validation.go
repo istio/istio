@@ -107,8 +107,16 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
 		// the types, but since this is deprecated this is easier
 		v, f, _ := tpath.GetFromStructPath(iop, d.old)
-		if f && v != d.def {
-			messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
+		if f {
+			switch v.(type) {
+			// need to do conversion for bool value defined in IstioOperator component spec.
+			case *v1alpha1.BoolValueForPB:
+				value := v.(*v1alpha1.BoolValueForPB)
+				v = value.Value
+			}
+			if v != d.def {
+				messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
+			}
 		}
 	}
 	mixerDeprecations := []deprecatedSettings{
@@ -123,9 +131,16 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 	mds := []string{}
 	for _, d := range mixerDeprecations {
 		v, f, _ := tpath.GetFromStructPath(iop, d.old)
-		if f && v != d.def {
-			useMixerSettings = true
-			mds = append(mds, d.old)
+		if f {
+			switch v.(type) {
+			case *v1alpha1.BoolValueForPB:
+				value := v.(*v1alpha1.BoolValueForPB)
+				v = value.Value
+			}
+			if v != d.def {
+				useMixerSettings = true
+				mds = append(mds, d.old)
+			}
 		}
 	}
 	const mixerDeprecatedMessage = "! %s is deprecated. Mixer is deprecated and will be removed" +
