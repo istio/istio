@@ -58,6 +58,7 @@ spec:
   - name: {{ $p.Name }}
     port: {{ $p.ServicePort }}
     targetPort: {{ $p.InstancePort }}
+    protocol: TCP
 {{- end }}
   selector:
     app: {{ .Service }}
@@ -143,7 +144,8 @@ spec:
 {{- end }}
         ports:
 {{- range $i, $p := $.ContainerPorts }}
-        - containerPort: {{ $p.Port }} 
+        - containerPort: {{ $p.Port }}
+          protocol: TCP
 {{- if eq .Port 3333 }}
           name: tcp-health-port
 {{- end }}

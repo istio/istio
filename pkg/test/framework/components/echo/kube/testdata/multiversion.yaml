@@ -10,12 +10,15 @@ spec:
   - name: http
     port: 8090
     targetPort: 8090
+    protocol: TCP
   - name: tcp
     port: 9000
     targetPort: 9000
+    protocol: TCP
   - name: grpc
     port: 9090
     targetPort: 9090
+    protocol: TCP
   selector:
     app: multiversion
 ---
@@ -62,10 +65,15 @@ spec:
           - "v-istio"
         ports:
         - containerPort: 8090
+          protocol: TCP
         - containerPort: 9000
+          protocol: TCP
         - containerPort: 9090
+          protocol: TCP
         - containerPort: 8080
+          protocol: TCP
         - containerPort: 3333
+          protocol: TCP
           name: tcp-health-port
         readinessProbe:
           httpGet:
@@ -125,10 +133,15 @@ spec:
           - "v-legacy"
         ports:
         - containerPort: 8090
+          protocol: TCP
         - containerPort: 9000
+          protocol: TCP
         - containerPort: 9090
+          protocol: TCP
         - containerPort: 8080
+          protocol: TCP
         - containerPort: 3333
+          protocol: TCP
           name: tcp-health-port
         readinessProbe:
           httpGet:

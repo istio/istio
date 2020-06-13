@@ -10,6 +10,7 @@ spec:
   - name: http-8080
     port: 8080
     targetPort: 8080
+    protocol: TCP
   selector:
     app: healthcheck
 ---
@@ -51,7 +52,9 @@ spec:
           - "v1"
         ports:
         - containerPort: 8080
+          protocol: TCP
         - containerPort: 3333
+          protocol: TCP
           name: tcp-health-port
         readinessProbe:
           httpGet:

@@ -10,6 +10,7 @@ spec:
   - name: http
     port: 8090
     targetPort: 8090
+    protocol: TCP
   selector:
     app: foo
 ---
@@ -52,8 +53,11 @@ spec:
           - "v1"
         ports:
         - containerPort: 8090
+          protocol: TCP
         - containerPort: 8080
+          protocol: TCP
         - containerPort: 3333
+          protocol: TCP
           name: tcp-health-port
         readinessProbe:
           httpGet:
@@ -109,8 +113,11 @@ spec:
           - "nosidecar"
         ports:
         - containerPort: 8090
+          protocol: TCP
         - containerPort: 8080
+          protocol: TCP
         - containerPort: 3333
+          protocol: TCP
           name: tcp-health-port
         readinessProbe:
           httpGet:
