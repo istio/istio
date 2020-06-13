@@ -89,6 +89,8 @@ var (
 
 	// ObjectNameRegexp is a legal name for a k8s object.
 	ObjectNameRegexp = match(`[a-z0-9.-]{1,254}`)
+
+	logginglevels = []string{"none", "error", "warning", "info", "debug"}
 )
 
 // validateWithRegex checks whether the given value matches the regexp r.
@@ -141,6 +143,45 @@ func validatePortNumberString(path util.Path, val interface{}) util.Errors {
 // validatePortNumber checks whether val is an integer representing a valid port number.
 func validatePortNumber(path util.Path, val interface{}) util.Errors {
 	return validateIntRange(path, val, 0, 65535)
+}
+
+// validateGlobalLoggingLevel validates global loggin level and also allow empty, examples: "default:debug", ""
+func validateGlobalLoggingLevel(path util.Path, val interface{}) (errs util.Errors) {
+	scope.Debugf("validateGlobalLoggingLevel at %v: %v", path, val)
+
+	if !util.IsString(val) {
+		err := fmt.Errorf("validateGlobalLoggingLevel %s got %T, want string", path, val)
+		printError(err)
+		return util.NewErrs(err)
+	}
+
+	if val.(string) == "" {
+		return nil
+	}
+
+	lvc := strings.Split(val.(string), ":")
+	if len(lvc) != 2 || lvc[0] != "default" {
+		err := fmt.Errorf("validateGlobalLoggingLevel %s got logging level scope '%s', want 'default' scope across all components", path, lvc[0])
+		printError(err)
+		return util.NewErrs(err)
+	}
+
+	if !IsValidLogginLevel(lvc[1]) {
+		err := fmt.Errorf("validateGlobalLoggingLevel %s got logging level value '%s', want one of '%+q'", path, lvc[1], logginglevels)
+		printError(err)
+		return util.NewErrs(err)
+	}
+
+	return nil
+}
+
+func IsValidLogginLevel(lv string) bool {
+	for _, v := range logginglevels {
+		if v == lv {
+			return true
+		}
+	}
+	return false
 }
 
 // validateIPRangesOrStar validates IP ranges and also allow star, examples: "1.1.0.256/16,2.2.0.257/16", "*"

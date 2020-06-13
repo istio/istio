@@ -24,6 +24,7 @@ import (
 var (
 	// DefaultValuesValidations maps a data path to a validation function.
 	DefaultValuesValidations = map[string]ValidatorFunc{
+		"global.logging.level":             validateGlobalLoggingLevel,
 		"global.proxy.includeIPRanges":     validateIPRangesOrStar,
 		"global.proxy.excludeIPRanges":     validateIPRangesOrStar,
 		"global.proxy.includeInboundPorts": validateStringList(validatePortNumberString),
