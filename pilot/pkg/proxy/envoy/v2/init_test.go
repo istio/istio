@@ -50,22 +50,6 @@ var nodeMetadata = &structpb.Struct{Fields: map[string]*structpb.Value{
 	"ISTIO_VERSION": {Kind: &structpb.Value_StringValue{StringValue: "1.3"}}, // actual value doesn't matter
 }}
 
-// Extract cluster load assignment from a discovery response.
-func getLoadAssignmentV2(res1 *xdsapi.DiscoveryResponse) (*endpoint.ClusterLoadAssignment, error) {
-	if res1.TypeUrl != v3.EndpointType {
-		return nil, errors.New("Invalid typeURL" + res1.TypeUrl)
-	}
-	if res1.Resources[0].TypeUrl != v3.EndpointType {
-		return nil, errors.New("Invalid resource typeURL" + res1.Resources[0].TypeUrl)
-	}
-	cla := &endpoint.ClusterLoadAssignment{}
-	err := ptypes.UnmarshalAny(res1.Resources[0], cla)
-	if err != nil {
-		return nil, err
-	}
-	return cla, nil
-}
-
 func getLoadAssignment(res1 *discovery.DiscoveryResponse) (*endpoint.ClusterLoadAssignment, error) {
 	if res1.TypeUrl != v3.EndpointType {
 		return nil, errors.New("Invalid typeURL" + res1.TypeUrl)

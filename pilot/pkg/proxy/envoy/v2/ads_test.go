@@ -279,18 +279,18 @@ func TestAdsClusterUpdate(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cancel()
 
 	var sendEDSReqAndVerify = func(clusterName string) {
-		err = sendEDSReqv2([]string{clusterName}, sidecarID("1.1.1.1", "app3"), edsstr)
+		err = sendEDSReq([]string{clusterName}, sidecarID("1.1.1.1", "app3"), edsstr)
 		if err != nil {
 			t.Fatal(err)
 		}
-		res, err := adsReceivev2(edsstr, 15*time.Second)
+		res, err := adsReceive(edsstr, 15*time.Second)
 		if err != nil {
 			t.Fatal("Recv failed", err)
 		}
@@ -302,7 +302,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 			t.Errorf("Expecting %v got %v", v3.EndpointType, res.Resources[0].TypeUrl)
 		}
 
-		cla, err := getLoadAssignmentV2(res)
+		cla, err := getLoadAssignment(res)
 		if err != nil {
 			t.Fatal("Invalid EDS response ", err)
 		}
@@ -709,7 +709,7 @@ func TestAdsUpdate(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -735,12 +735,12 @@ func TestAdsUpdate(t *testing.T) {
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints("adsupdate.default.svc.cluster.local", "default",
 		newEndpointWithAccount("10.2.0.1", "hello-sa", "v1"))
 
-	err = sendEDSReqv2([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	res1, err := adsReceivev2(edsstr, 15*time.Second)
+	res1, err := adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal("Recv failed", err)
 	}
@@ -751,7 +751,7 @@ func TestAdsUpdate(t *testing.T) {
 	if res1.Resources[0].TypeUrl != v3.EndpointType {
 		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.Resources[0].TypeUrl)
 	}
-	cla, err := getLoadAssignmentV2(res1)
+	cla, err := getLoadAssignment(res1)
 	if err != nil {
 		t.Fatal("Invalid EDS response ", err)
 	}
@@ -775,7 +775,7 @@ func TestAdsUpdate(t *testing.T) {
 	// This reproduced the 'push on closed connection' bug.
 	v2.AdsPushAll(server.EnvoyXdsServer)
 
-	res1, err = adsReceivev2(edsstr, 15*time.Second)
+	res1, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
@@ -786,7 +786,7 @@ func TestAdsUpdate(t *testing.T) {
 	if res1.Resources[0].TypeUrl != v3.EndpointType {
 		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.Resources[0].TypeUrl)
 	}
-	_, err = getLoadAssignmentV2(res1)
+	_, err = getLoadAssignment(res1)
 	if err != nil {
 		t.Fatal("Invalid EDS response ", err)
 	}
