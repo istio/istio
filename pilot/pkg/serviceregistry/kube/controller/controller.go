@@ -261,7 +261,7 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	c.serviceInformer = cache.NewSharedIndexInformer(svcMlw, &v1.Service{}, options.ResyncPeriod,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
-	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent)
+	registerHandlers(c.serviceInformer, c.queue, "Services", deepEqual, c.onServiceEvent)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
@@ -291,10 +291,10 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	c.filteredNodeInformer = coreinformers.NewFilteredNodeInformer(client, options.ResyncPeriod,
 		cache.Indexers{},
 		func(options *metav1.ListOptions) {})
-	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", c.onNodeEvent)
+	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", deepEqual, c.onNodeEvent)
 
 	c.pods = newPodCache(c, options)
-	registerHandlers(c.pods.informer, c.queue, "Pods", c.pods.onEvent)
+	registerHandlers(c.pods.informer, c.queue, "Pods", deepEqual, c.pods.onEvent)
 
 	return c
 }
@@ -450,7 +450,7 @@ func isNodePortGatewayService(svc *v1.Service) bool {
 }
 
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
-	handler func(interface{}, model.Event) error) {
+	equalsFunc func(old, cur interface{}) bool, handler func(interface{}, model.Event) error) {
 
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -462,7 +462,7 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				if !reflect.DeepEqual(old, cur) {
+				if !equalsFunc(old, cur) {
 					incrementEvent(otype, "update")
 					q.Push(func() error {
 						return handler(cur, model.EventUpdate)
@@ -480,21 +480,9 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 		})
 }
 
-// compareEndpoints returns true if the two endpoints are the same in aspects Pilot cares about
-// This currently means only looking at "Ready" endpoints
-func compareEndpoints(a, b *v1.Endpoints) bool {
-	if len(a.Subsets) != len(b.Subsets) {
-		return false
-	}
-	for i := range a.Subsets {
-		if !portsEqual(a.Subsets[i].Ports, b.Subsets[i].Ports) {
-			return false
-		}
-		if !addressesEqual(a.Subsets[i].Addresses, b.Subsets[i].Addresses) {
-			return false
-		}
-	}
-	return true
+// deepEqual is an equality func that uses costly reflect.DeepEqual to check equality.
+func deepEqual(a, b interface{}) bool {
+	return reflect.DeepEqual(a, b)
 }
 
 func portsEqual(a, b []v1.EndpointPort) bool {
@@ -1195,69 +1183,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
-}
-
-// TODO: This code will return only the k8s pods but we actually need to return k8s pods and workload entries
-func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
-	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
-
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-	if svc == nil {
-		log.Infof("Handle EDS endpoints: skip updating, service %s/%s has not been populated", ep.Name, ep.Namespace)
-		return
-	}
-	endpoints := make([]*model.IstioEndpoint, 0)
-	if event != model.EventDelete {
-		for _, ss := range ep.Subsets {
-			for _, ea := range ss.Addresses {
-				pod := c.pods.getPodByIP(ea.IP)
-				if pod == nil {
-					// This means, the endpoint event has arrived before pod event. This might happen because
-					// PodCache is eventually consistent. We should try to get the pod from kube-api server.
-					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
-						pod = c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
-						if pod == nil {
-							// If pod is still not available, this an unusual case.
-							endpointsWithNoPods.Increment()
-							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-							if c.metrics != nil {
-								c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, ea.IP)
-							}
-							continue
-						}
-					}
-				}
-
-				builder := NewEndpointBuilder(c, pod)
-
-				// EDS and ServiceEntry use name for service port - ADS will need to
-				// map to numbers.
-				for _, port := range ss.Ports {
-					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
-					endpoints = append(endpoints, istioEndpoint)
-				}
-			}
-		}
-	}
-
-	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
-
-	fep := c.collectAllForeignEndpoints(svc)
-
-	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, append(endpoints, fep...))
-	// fire instance handles for k8s endpoints only
-	for _, handler := range c.instanceHandlers {
-		for _, ep := range endpoints {
-			si := &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: nil,
-				Endpoint:    ep,
-			}
-			handler(si, event)
-		}
-	}
 }
 
 // namedRangerEntry for holding network's CIDR and name
