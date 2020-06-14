@@ -108,11 +108,10 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		// the types, but since this is deprecated this is easier
 		v, f, _ := tpath.GetFromStructPath(iop, d.old)
 		if f {
-			switch v.(type) {
+			switch t := v.(type) {
 			// need to do conversion for bool value defined in IstioOperator component spec.
 			case *v1alpha1.BoolValueForPB:
-				value := v.(*v1alpha1.BoolValueForPB)
-				v = value.Value
+				v = t.Value
 			}
 			if v != d.def {
 				messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
@@ -132,10 +131,9 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 	for _, d := range mixerDeprecations {
 		v, f, _ := tpath.GetFromStructPath(iop, d.old)
 		if f {
-			switch v.(type) {
+			switch t := v.(type) {
 			case *v1alpha1.BoolValueForPB:
-				value := v.(*v1alpha1.BoolValueForPB)
-				v = value.Value
+				v = t.Value
 			}
 			if v != d.def {
 				useMixerSettings = true
