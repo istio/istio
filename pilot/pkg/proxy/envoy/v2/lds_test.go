@@ -317,7 +317,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer cancel()
-		err = sendLDSReq(sidecarID(app3Ip, "app3"), ldsr)
+		err = sendLDSReqv2(sidecarID(app3Ip, "app3"), ldsr)
 		if err != nil {
 			t.Fatal(err)
 		}
