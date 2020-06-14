@@ -15,10 +15,17 @@
 package spiffe
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
+	"github.com/spiffe/spire/pkg/common/bundleutil"
+	"github.com/spiffe/spire/pkg/common/idutil"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
@@ -89,4 +96,57 @@ func GenCustomSpiffe(identity string) string {
 	}
 
 	return URIPrefix + GetTrustDomain() + "/" + identity
+}
+
+// RetrieveSpiffeBundleRootCerts retrieves the trusted CA certificates from a SPIFFE bundle endpoint.
+// It can use the system cert pool and the supplied certificates to validate the endpoint.
+func RetrieveSpiffeBundleRootCerts(endpoint string, extraTrustedCerts []*x509.Certificate) ([]*x509.Certificate, error) {
+	httpClient := &http.Client{}
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get SystemCertPool: %v", err)
+	}
+	for _, cert := range extraTrustedCerts {
+		caCertPool.AddCert(cert)
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to split the SPIFFE endpoint: %v", err)
+	}
+
+	config := &tls.Config{
+		ServerName: u.Hostname(),
+		RootCAs:    caCertPool,
+	}
+
+	httpClient.Transport = &http.Transport{
+		TLSClientConfig: config,
+	}
+
+	if !strings.HasPrefix(endpoint, "https://") {
+		endpoint = "https://" + endpoint
+	}
+	resp, err := httpClient.Get(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch bundle: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d fetching bundle: %s", resp.StatusCode, tryRead(resp.Body))
+	}
+
+	b, err := bundleutil.Decode(idutil.TrustDomainID(""), resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return b.RootCAs(), nil
+}
+
+func tryRead(r io.Reader) string {
+	b := make([]byte, 1024)
+	n, _ := r.Read(b)
+	return string(b[:n])
 }

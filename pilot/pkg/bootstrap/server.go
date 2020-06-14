@@ -68,6 +68,7 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 )
@@ -902,7 +903,8 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 	return key, cert
 }
 
-// getRootCertificate returns the root certificate from TLSOptions if available or from ca.
+// getRootCertificate returns the root certificate from TLSOptions if available or from ca, or from SPIFFE bundle
+// endpoint.
 func (s *Server) getRootCertificate(tlsOptions TLSOptions) (*x509.CertPool, error) {
 	var rootCertBytes []byte
 	var err error
@@ -915,6 +917,17 @@ func (s *Server) getRootCertificate(tlsOptions TLSOptions) (*x509.CertPool, erro
 	}
 	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(rootCertBytes)
+
+	if features.AuthnSpiffeBundlePath != "" {
+		certs, err != spiffe.RetrieveSpiffeBundleRootCerts(features.AuthnSpiffeBundlePath, []*x509.Certificate{})
+		if err != nil {
+			return err
+		}
+		for cert in certs {
+			cp.AddCert(cert)
+		}
+	}
+
 	return cp, nil
 }
 

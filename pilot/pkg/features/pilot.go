@@ -322,4 +322,7 @@ var (
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
+
+	AuthnSpiffeBundlePath = env.RegisterStringVar("AUTHN_SPIFFE_BUNDLE_PATH", "",
+		"Defines the path to the SPIFFE bundle used for istiod XDS server authentication")
 )
