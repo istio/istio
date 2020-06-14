@@ -21,6 +21,7 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -34,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
-	"time"
 )
 
 var (
