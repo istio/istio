@@ -25,7 +25,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
 
@@ -72,25 +71,18 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 	httpAddr := ":" + pilotHTTP
 
-	meshConfig := mesh.DefaultMeshConfig()
-	meshConfig.EnableAutoMtls.Value = false
 	additionalArgs = append([]func(p *bootstrap.PilotArgs){func(p *bootstrap.PilotArgs) {
 		p.Namespace = "testing"
-		p.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
+		p.ServerOptions = bootstrap.DiscoveryServerOptions{
 			HTTPAddr:        httpAddr,
-			GrpcAddr:        ":0",
+			GRPCAddr:        ":0",
 			EnableProfiling: true,
 		}
-		//TODO: start mixer first, get its address
-		p.Mesh = bootstrap.MeshArgs{
-			MixerAddress: "istio-mixer.istio-system:9091",
-		}
-		p.Config = bootstrap.ConfigArgs{
+		p.RegistryOptions = bootstrap.RegistryOptions{
 			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
 			// Static testdata, should include all configs we want to test.
 			FileDir: env.IstioSrc + "/tests/testdata/config",
 		}
-		p.MeshConfig = &meshConfig
 		p.MCPOptions.MaxMessageSize = 1024 * 1024 * 4
 		p.KeepaliveOptions = keepalive.DefaultOption()
 

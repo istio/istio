@@ -39,28 +39,15 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 		}
 	}()
 
-	// If a config file was specified, use it.
-	if args.MeshConfig != nil {
-		s.environment.Watcher = mesh.NewFixedWatcher(args.MeshConfig)
-		return
-	}
-
 	var err error
-	s.environment.Watcher, err = mesh.NewWatcher(fileWatcher, args.Mesh.ConfigFile)
+	s.environment.Watcher, err = mesh.NewWatcher(fileWatcher, args.MeshConfigFile)
 	if err == nil {
 		return
 	}
 
 	// Config file either wasn't specified or failed to load - use a default mesh.
-	mc := mesh.DefaultMeshConfig()
-	meshConfig := &mc
-
-	// Allow some overrides for testing purposes.
-	if args.Mesh.MixerAddress != "" {
-		meshConfig.MixerCheckServer = args.Mesh.MixerAddress
-		meshConfig.MixerReportServer = args.Mesh.MixerAddress
-	}
-	s.environment.Watcher = mesh.NewFixedWatcher(meshConfig)
+	meshConfig := mesh.DefaultMeshConfig()
+	s.environment.Watcher = mesh.NewFixedWatcher(&meshConfig)
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided
