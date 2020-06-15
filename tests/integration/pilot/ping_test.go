@@ -30,6 +30,10 @@ import (
 	"istio.io/pkg/log"
 )
 
+type appSet struct {
+	inoutUnitedApp0, inoutUnitedApp1, inoutSplitApp0, inoutSplitApp1 echo.Instance
+}
+
 type appConnectionPair struct {
 	src, dst echo.Instance
 }
@@ -70,59 +74,71 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		},
 	}
 
-	p := pilots[0]
-	var inoutUnitedApp0, inoutUnitedApp1, inoutSplitApp0, inoutSplitApp1 echo.Instance
-	echoboot.NewBuilderOrFail(t, ctx).
-		With(&inoutSplitApp0, echo.Config{
-			Service:             "inoutsplitapp0",
-			Namespace:           ns,
-			Ports:               ports,
-			Subsets:             []echo.SubsetConfig{{}},
-			Pilot:               p,
-			IncludeInboundPorts: "*",
-		}).
-		With(&inoutSplitApp1, echo.Config{
-			Service:             "inoutsplitapp1",
-			Namespace:           ns,
-			Subsets:             []echo.SubsetConfig{{}},
-			Ports:               ports,
-			Pilot:               p,
-			IncludeInboundPorts: "*",
-		}).
-		With(
-			&inoutUnitedApp0, echo.Config{
+	builder := echoboot.NewBuilderOrFail(t, ctx)
+	apps := make([]appSet, len(ctx.Environment().Clusters()))
+	for _, c := range ctx.Environment().Clusters() {
+		builder = builder.
+			With(&apps[c.Index()].inoutSplitApp0, echo.Config{
+				Service:             "inoutsplitapp0",
+				Namespace:           ns,
+				Ports:               ports,
+				Subsets:             []echo.SubsetConfig{{}},
+				Pilot:               pilots[c.Index()],
+				Cluster:             c,
+				IncludeInboundPorts: "*",
+			}).
+			With(&apps[c.Index()].inoutSplitApp1, echo.Config{
+				Service:             "inoutsplitapp1",
+				Namespace:           ns,
+				Subsets:             []echo.SubsetConfig{{}},
+				Ports:               ports,
+				Pilot:               pilots[c.Index()],
+				Cluster:             c,
+				IncludeInboundPorts: "*",
+			}).
+			With(&apps[c.Index()].inoutUnitedApp0, echo.Config{
 				Service:   "inoutunitedapp0",
 				Namespace: ns,
 				Subsets:   []echo.SubsetConfig{{}},
 				Ports:     ports,
-				Pilot:     p,
+				Pilot:     pilots[c.Index()],
+				Cluster:   c,
 			}).
-		With(&inoutUnitedApp1, echo.Config{
-			Service:   "inoutunitedapp1",
-			Namespace: ns,
-			Subsets:   []echo.SubsetConfig{{}},
-			Ports:     ports,
-			Pilot:     p,
-		}).
-		BuildOrFail(ctx)
+			With(&apps[c.Index()].inoutUnitedApp1, echo.Config{
+				Service:   "inoutunitedapp1",
+				Namespace: ns,
+				Subsets:   []echo.SubsetConfig{{}},
+				Ports:     ports,
+				Pilot:     pilots[c.Index()],
+				Cluster:   c,
+			})
+	}
+	builder.BuildOrFail(ctx)
 
-	inoutUnitedApp0.WaitUntilCallableOrFail(t, inoutUnitedApp1)
-	log.Infof("%s app ready: %s", ctx.Name(), inoutSplitApp0.Config().Service)
-	inoutSplitApp0.WaitUntilCallableOrFail(t, inoutUnitedApp1)
-	log.Infof("%s app ready: %s", ctx.Name(), inoutSplitApp0.Config().Service)
+	var connectivityPairs []appConnectionPair
+	for _, src := range ctx.Environment().Clusters() {
+		for _, dst := range ctx.Environment().Clusters() {
+			inoutUnitedApp0, inoutSplitApp0 := apps[src.Index()].inoutUnitedApp0, apps[src.Index()].inoutSplitApp0
+			inoutUnitedApp1 := apps[dst.Index()].inoutUnitedApp1
+			inoutUnitedApp0.WaitUntilCallableOrFail(t, inoutUnitedApp1)
+			log.Infof("%s app ready: %s", ctx.Name(), inoutSplitApp0.Config().Service)
+			inoutSplitApp0.WaitUntilCallableOrFail(t, inoutUnitedApp1)
+			log.Infof("%s app ready: %s", ctx.Name(), inoutSplitApp0.Config().Service)
 
-	connectivityPairs := []appConnectionPair{
-		// source is inout united
-		{inoutUnitedApp0, inoutUnitedApp1},
-		{inoutUnitedApp0, inoutSplitApp1},
+			connectivityPairs = append(connectivityPairs,
+				// source is inout united
+				appConnectionPair{apps[src.Index()].inoutUnitedApp0, apps[dst.Index()].inoutUnitedApp1},
+				appConnectionPair{apps[src.Index()].inoutUnitedApp0, apps[dst.Index()].inoutSplitApp1},
 
-		// source is inout split
-		{inoutSplitApp0, inoutUnitedApp1},
-		{inoutSplitApp0, inoutSplitApp1},
+				// source is inout split
+				appConnectionPair{apps[src.Index()].inoutSplitApp0, apps[dst.Index()].inoutUnitedApp1},
+				appConnectionPair{apps[src.Index()].inoutSplitApp0, apps[dst.Index()].inoutSplitApp1},
 
-		// self connectivity (is it required?)
-		{inoutUnitedApp0, inoutUnitedApp0},
-		{inoutSplitApp0, inoutSplitApp0},
+				// self connectivity (is it required?)
+				appConnectionPair{apps[src.Index()].inoutUnitedApp0, apps[dst.Index()].inoutUnitedApp0},
+				appConnectionPair{apps[src.Index()].inoutSplitApp0, apps[dst.Index()].inoutSplitApp0},
+			)
+		}
 	}
 
 	// TODO(yxue): support sending raw TCP traffic instead of HTTP
@@ -148,12 +164,11 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 				pair.dst.Config().Service,
 				connChecker.Options.PortName)
 
-			t.Run(subTestName,
-				func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, connChecker.Check,
-						retry.Delay(time.Second),
-						retry.Timeout(10*time.Second))
-				})
+			ctx.NewSubTest(subTestName).RunParallel(func(ctx framework.TestContext) {
+				retry.UntilSuccessOrFail(ctx, connChecker.Check,
+					retry.Delay(time.Second),
+					retry.Timeout(10*time.Second))
+			})
 		}
 	}
 }
