@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
 
+	"istio.io/istio/pilot/pkg/gcpmonitoring"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -41,8 +42,12 @@ func addMonitor(mux *http.ServeMux) error {
 	if err != nil {
 		return fmt.Errorf("could not set up prometheus exporter: %v", err)
 	}
-	view.RegisterExporter(exporter)
-	mux.Handle(metricsPath, exporter)
+	asmExporter, err := gcpmonitoring.NewASMExporter(exporter)
+	if err != nil {
+		return err
+	}
+	view.RegisterExporter(asmExporter)
+	mux.Handle(metricsPath, asmExporter.PromExporter)
 
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {
@@ -101,7 +106,8 @@ func (m *monitor) Close() error {
 // initMonitor initializes the configuration for the pilot monitoring server.
 func (s *Server) initMonitor(addr string) error { // nolint: unparam
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		monitor, err := startMonitor(addr, s.monitoringMux)
+		gcpmonitoring.SetTrustDomain(s.environment.Mesh().TrustDomain)
+		monitor, err := startMonitor(addr, s.monitoringMuxMux)
 		if err != nil {
 			return err
 		}
