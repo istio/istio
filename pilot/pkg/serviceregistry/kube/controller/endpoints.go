@@ -197,7 +197,7 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 		}
 	}
 
-	return triggerConfigUpdate(e.c, e, ep.Name, ep.Namespace, event, curr)
+	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, curr)
 }
 
 func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {

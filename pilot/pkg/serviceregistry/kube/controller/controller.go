@@ -261,7 +261,7 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	c.serviceInformer = cache.NewSharedIndexInformer(svcMlw, &v1.Service{}, options.ResyncPeriod,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
-	registerHandlers(c.serviceInformer, c.queue, "Services", deepEqual, c.onServiceEvent)
+	registerHandlers(c.serviceInformer, c.queue, "Services", reflect.DeepEqual, c.onServiceEvent)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
@@ -291,10 +291,10 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	c.filteredNodeInformer = coreinformers.NewFilteredNodeInformer(client, options.ResyncPeriod,
 		cache.Indexers{},
 		func(options *metav1.ListOptions) {})
-	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", deepEqual, c.onNodeEvent)
+	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", reflect.DeepEqual, c.onNodeEvent)
 
 	c.pods = newPodCache(c, options)
-	registerHandlers(c.pods.informer, c.queue, "Pods", deepEqual, c.pods.onEvent)
+	registerHandlers(c.pods.informer, c.queue, "Pods", reflect.DeepEqual, c.pods.onEvent)
 
 	return c
 }
@@ -478,11 +478,6 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 				})
 			},
 		})
-}
-
-// deepEqual is an equality func that uses costly reflect.DeepEqual to check equality.
-func deepEqual(a, b interface{}) bool {
-	return reflect.DeepEqual(a, b)
 }
 
 func portsEqual(a, b []v1.EndpointPort) bool {

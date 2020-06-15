@@ -16,6 +16,7 @@ package controller
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -70,7 +71,7 @@ func newEndpointSliceController(c *Controller, options Options) *endpointSliceCo
 		},
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers(informer, c.queue, "EndpointSlice", deepEqual, out.onEvent)
+	registerHandlers(informer, c.queue, "EndpointSlice", reflect.DeepEqual, out.onEvent)
 	return out
 }
 
@@ -93,7 +94,7 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 		}
 	}
 
-	return triggerConfigUpdate(esc.c, esc, ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, event, curr)
+	return processEndpointEvent(esc.c, esc, ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, event, curr)
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
