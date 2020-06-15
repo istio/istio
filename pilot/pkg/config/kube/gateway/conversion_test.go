@@ -30,7 +30,7 @@ import (
 )
 
 func TestConvertResources(t *testing.T) {
-	cases := []string{"simple", "mismatch"}
+	cases := []string{"simple", "mismatch", "tls"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
