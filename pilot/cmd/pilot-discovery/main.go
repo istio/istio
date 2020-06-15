@@ -37,9 +37,9 @@ import (
 )
 
 const (
-	defaultMCPMaxMessageSize        = 1024 * 1024 * 4 // default grpc maximum message size
-	defaultMCPInitialConnWindowSize = 1024 * 1024     // default grpc InitialWindowSize
-	defaultMCPInitialWindowSize     = 1024 * 1024     // default grpc ConnWindowSize
+	defaultMCPMaxMessageSize        = 1024 * 1024 * 4 // default gRPC maximum message size
+	defaultMCPInitialConnWindowSize = 1024 * 1024     // default gRPC InitialWindowSize
+	defaultMCPInitialWindowSize     = 1024 * 1024     // default gRPC ConnWindowSize
 )
 
 var (
@@ -130,7 +130,7 @@ func init() {
 
 	// MCP client flags
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.MaxMessageSize, "mcpMaxMsgSize", defaultMCPMaxMessageSize,
-		"Max message size received by MCP's grpc client")
+		"Max message size received by MCP's gRPC client")
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.InitialWindowSize, "mcpInitialWindowSize", defaultMCPInitialWindowSize,
 		"Initial window size for MCP's gRPC connection")
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.InitialConnWindowSize, "mcpInitialConnWindowSize", defaultMCPInitialConnWindowSize,
@@ -163,7 +163,7 @@ func init() {
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPSAddr, "httpsAddr", ":15017",
 		"Injection and validation service HTTPS address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.GrpcAddr, "grpcAddr", ":15010",
-		"Discovery service grpc address")
+		"Discovery service gRPC address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.MonitoringAddr, "monitoringAddr", ":15014",
 		"HTTP address to use for pilot's self-monitoring information")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
