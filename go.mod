@@ -74,7 +74,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/golang/protobuf v1.3.5
+	github.com/golang/protobuf v1.4.2
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/gomodule/redigo v1.8.0 // indirect
 	github.com/google/cel-go v0.4.1
@@ -156,7 +156,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
-	helm.sh/helm/v3 v3.2.0
+	helm.sh/helm/v3 v3.2.3
 	istio.io/api v0.0.0-20200609235057-2f6a9b136356
 	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
 	istio.io/pkg v0.0.0-20200504224939-261164cc57da
@@ -167,7 +167,7 @@ require (
 	k8s.io/client-go v0.18.3
 	k8s.io/kubectl v0.18.3
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
-	sigs.k8s.io/controller-runtime v0.5.1-0.20200327213554-2d4c4877f906
+	sigs.k8s.io/controller-runtime v0.6.0
 	sigs.k8s.io/service-apis v0.0.0-20200610082005-c8dc1033d310
 	sigs.k8s.io/yaml v1.2.0
 )
