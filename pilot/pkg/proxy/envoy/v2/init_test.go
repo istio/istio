@@ -230,14 +230,14 @@ func sendLDSReqv2(node string, client AdsClientv2) error {
 	return sendXdsv2(node, client, v2.ListenerType, "")
 }
 
-func sendLDSReqWithLabels(node string, ldsclient AdsClientv2, labels map[string]string) error {
-	err := ldsclient.Send(&xdsapi.DiscoveryRequest{
+func sendLDSReqWithLabels(node string, ldsclient AdsClient, labels map[string]string) error {
+	err := ldsclient.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &corev2.Node{
+		Node: &corev3.Node{
 			Id:       node,
 			Metadata: model.NodeMetadata{Labels: labels}.ToStruct(),
 		},
-		TypeUrl: v2.ListenerType})
+		TypeUrl: v3.ListenerType})
 	if err != nil {
 		return fmt.Errorf("LDS request failed: %s", err)
 	}
