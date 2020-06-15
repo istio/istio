@@ -308,7 +308,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go leaderelection.
-			NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
 				if err := processing.Start(); err != nil {
 					log.Fatalf("Error starting Background Analysis: %s", err)
