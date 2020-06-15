@@ -343,8 +343,9 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		// if image is not provided, default to app_sidecar
 		if cfg.VMImage == "" {
 			vmImage = "app_sidecar_bionic"
+		} else {
+			vmImage = cfg.VMImage
 		}
-		vmImage = cfg.VMImage
 	}
 	namespace := ""
 	if cfg.Namespace != nil {
