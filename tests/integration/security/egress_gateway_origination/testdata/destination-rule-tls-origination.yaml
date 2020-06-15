@@ -1,9 +1,9 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: originate-tls-for-edition-cnn-com
+  name: originate-tls-for-server
 spec:
-  host: edition.cnn.com
+  host: some-external-site.com
   trafficPolicy:
     loadBalancer:
       simple: ROUND_ROBIN
@@ -11,4 +11,4 @@ spec:
       - port:
           number: 443
         tls:
-          mode: SIMPLE # initiates HTTPS for connections to edition.cnn.com
+          mode: SIMPLE # initiates HTTP for connections to server

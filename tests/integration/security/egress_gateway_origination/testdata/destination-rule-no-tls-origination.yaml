@@ -3,7 +3,7 @@ kind: DestinationRule
 metadata:
   name: originate-tls-for-edition-cnn-com
 spec:
-  host: edition.cnn.com
+  host: some-external-site.com
   trafficPolicy:
     portLevelSettings:
       - port:

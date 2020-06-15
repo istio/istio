@@ -16,26 +16,28 @@ package egressgatewayorigination
 
 import (
 	"fmt"
-	"reflect"
 	"path"
+	"reflect"
 	"testing"
 	"time"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"io/ioutil"
+
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/structpath"
 	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/structpath"
 )
 
 func mustReadCert(t *testing.T, f string) string {
@@ -58,6 +60,7 @@ const (
 // are routed securely through the egress gateway and that the TLS origination happens at the gateway.
 func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.egress.tls").
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
 
@@ -125,8 +128,6 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 		Inject: true,
 	})
 
-	applySetupConfig(ctx, appsNamespace)
-
 	var client, server echo.Instance
 	echoboot.NewBuilderOrFail(t, ctx).
 		With(&client, echo.Config{
@@ -145,7 +146,7 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 			}},
 		}).
 		With(&server, echo.Config{
-			Service:   "server",
+			Service:   "destination",
 			Namespace: appsNamespace,
 			Ports: []echo.Port{
 				{
@@ -170,7 +171,7 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 				ClientCert: mustReadCert(t, "cert-chain.pem"),
 				Key:        mustReadCert(t, "key.pem"),
 				// Override hostname to match the SAN in the cert we are using
-				Hostname: "server.default.svc",
+				Hostname: "destination.default.svc",
 			},
 			// Do not inject, as we are testing non-Istio TLS here
 			Subsets: []echo.SubsetConfig{{
@@ -194,22 +195,6 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 	}
 
 	return client, server, appsNamespace
-}
-
-// sets up the destination rule to route through egress, virtual service, and service entry
-func applySetupConfig(ctx framework.TestContext, nsClient namespace.Instance) {
-	ctx.Helper()
-
-	configFiles := []string{
-		"testdata/service-entry-cnn.yaml",
-		"testdata/destination-rule-to-gateway.yaml",
-	}
-
-	for _, c := range configFiles {
-		if err := ctx.ApplyConfig(nsClient.Name(), file.AsStringOrFail(ctx, c)); err != nil {
-			ctx.Fatalf("failed to apply configuration file %s; err: %v", c, err)
-		}
-	}
 }
 
 func clusterName(target echo.Instance, port echo.Port) string {
