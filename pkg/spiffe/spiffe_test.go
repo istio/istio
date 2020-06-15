@@ -15,19 +15,11 @@
 package spiffe
 
 import (
-	"crypto"
-	"crypto/tls"
 	"crypto/x509"
-	"math/big"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/spiffe/spire/test/spiretest"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -170,41 +162,29 @@ func TestGenCustomSpiffe(t *testing.T) {
 	}
 }
 
-func TestRetrieveSpiffeBundleRootCerts(t *testing.T) {
+func TestRetrieveSpiffeBundleRootCert(t *testing.T) {
 	testCases := []struct {
 		name        string
-		certDNSName string
 		trustCert   bool
 		status      int
 		body        string
 		errContains string
 	}{
 		{
-			name:        "success",
-			certDNSName: "localhost",
-			trustCert:   true,
-			status:      http.StatusOK,
-			body:        validResponse,
+			name:      "success",
+			trustCert: true,
+			status:    http.StatusOK,
+			body:      validResponse,
 		},
 		{
 			name:        "Unauthenticated cert",
-			certDNSName: "localhost",
 			trustCert:   false,
 			status:      http.StatusOK,
 			body:        validResponse,
 			errContains: "x509: certificate signed by unknown authority",
 		},
 		{
-			name:        "Cert DNS name unmatch",
-			certDNSName: "mismatch",
-			trustCert:   true,
-			status:      http.StatusOK,
-			body:        validResponse,
-			errContains: "x509: certificate is valid for mismatch, not localhost",
-		},
-		{
 			name:        "non-200 status",
-			certDNSName: "localhost",
 			trustCert:   true,
 			status:      http.StatusServiceUnavailable,
 			body:        "tHe SYsTEm iS DowN",
@@ -212,7 +192,6 @@ func TestRetrieveSpiffeBundleRootCerts(t *testing.T) {
 		},
 		{
 			name:        "invalid bundle content",
-			certDNSName: "localhost",
 			trustCert:   true,
 			status:      http.StatusOK,
 			body:        "NOT JSON",
@@ -223,48 +202,26 @@ func TestRetrieveSpiffeBundleRootCerts(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			serverCert, serverKey := createServerCertificate(t, testCase.certDNSName)
-
-			server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				w.WriteHeader(testCase.status)
 				_, _ = w.Write([]byte(testCase.body))
-			}))
-			server.TLS = &tls.Config{
-				Certificates: []tls.Certificate{
-					{
-						Certificate: [][]byte{serverCert.Raw},
-						PrivateKey:  serverKey,
-					},
-				},
-			}
-			server.StartTLS()
-			defer server.Close()
-
-			_, port, err := net.SplitHostPort(server.Listener.Addr().String())
-			if err != nil {
-				t.Fatalf("Failed to split the SPIFFE endpoint host port: %v", err)
-			}
-
-			trustedCerts := []*x509.Certificate{}
+			})
+			server := httptest.NewTLSServer(handler)
+			var trustedCerts []*x509.Certificate
 			if testCase.trustCert {
-				trustedCerts = append(trustedCerts, serverCert)
+				trustedCerts = append(trustedCerts, server.Certificate())
 			}
-			rootCerts, err := RetrieveSpiffeBundleRootCerts("https://localhost:"+port, trustedCerts)
+			rootCert, err := RetrieveSpiffeBundleRootCert(server.Listener.Addr().String(), trustedCerts)
 			if testCase.errContains != "" {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), testCase.errContains)
+				if !strings.Contains(err.Error(), testCase.errContains) {
+					t.Errorf("unexpected error returned: %s. The error should contain: %s",
+						err.Error(), testCase.errContains)
+				}
 				return
 			}
-			require.NoError(t, err)
-			require.NotNil(t, rootCerts)
+			if rootCert == nil {
+				t.Errorf("returned root cert is nil")
+			}
 		})
 	}
-}
-
-func createServerCertificate(t *testing.T, dnsName string) (*x509.Certificate, crypto.Signer) {
-	return spiretest.SelfSignCertificate(t, &x509.Certificate{
-		SerialNumber: big.NewInt(0),
-		DNSNames:     []string{dnsName},
-		NotAfter:     time.Now().Add(time.Hour),
-	})
 }

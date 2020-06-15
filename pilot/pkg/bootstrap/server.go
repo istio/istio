@@ -919,13 +919,11 @@ func (s *Server) getRootCertificate(tlsOptions TLSOptions) (*x509.CertPool, erro
 	cp.AppendCertsFromPEM(rootCertBytes)
 
 	if features.AuthnSpiffeBundlePath != "" {
-		certs, err != spiffe.RetrieveSpiffeBundleRootCerts(features.AuthnSpiffeBundlePath, []*x509.Certificate{})
+		cert, err := spiffe.RetrieveSpiffeBundleRootCert(features.AuthnSpiffeBundlePath, []*x509.Certificate{})
 		if err != nil {
-			return err
+			return nil, err
 		}
-		for cert in certs {
-			cp.AddCert(cert)
-		}
+		cp.AddCert(cert)
 	}
 
 	return cp, nil
