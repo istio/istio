@@ -88,6 +88,10 @@ func (a *awsEnv) Locality() *core.Locality {
 	}
 }
 
+func (a *awsEnv) Labels() map[string]string {
+	return map[string]string{}
+}
+
 func getEC2MetadataClient() *ec2metadata.EC2Metadata {
 	sess, err := session.NewSession(&aws.Config{
 		// eliminate retries to prevent 20s wait for Available() on non-aws platforms.

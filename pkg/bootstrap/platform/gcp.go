@@ -15,6 +15,7 @@
 package platform
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -22,6 +23,9 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/option"
 
 	"istio.io/pkg/env"
 
@@ -33,6 +37,7 @@ const (
 	GCPProjectNumber     = "gcp_project_number"
 	GCPCluster           = "gcp_gke_cluster_name"
 	GCPLocation          = "gcp_location"
+	GCEInstance          = "gcp_gce_instance"
 	GCEInstanceID        = "gcp_gce_instance_id"
 	GCEInstanceTemplate  = "gcp_gce_instance_template"
 	GCEInstanceCreatedBy = "gcp_gce_instance_created_by"
@@ -56,6 +61,13 @@ var (
 			return cl, nil
 		}
 		return metadata.Zone()
+	}
+	instanceNameFn = func() (string, error) {
+		in, err := metadata.InstanceName()
+		if err != nil {
+			return "", err
+		}
+		return in, nil
 	}
 	instanceTemplateFn = func() (string, error) {
 		it, err := metadata.InstanceAttributeValue("instance-template")
@@ -82,6 +94,7 @@ type gcpEnv struct {
 	numericProjectIDFn metadataFn
 	locationFn         metadataFn
 	clusterNameFn      metadataFn
+	instanceNameFn     metadataFn
 	instanceIDFn       metadataFn
 	instanceTemplateFn metadataFn
 	createdByFn        metadataFn
@@ -106,6 +119,7 @@ func NewGCP() Environment {
 		numericProjectIDFn: metadata.NumericProjectID,
 		locationFn:         clusterLocationFn,
 		clusterNameFn:      clusterNameFn,
+		instanceNameFn:     instanceNameFn,
 		instanceIDFn:       metadata.InstanceID,
 		instanceTemplateFn: instanceTemplateFn,
 		createdByFn:        createdByFn,
@@ -142,6 +156,9 @@ func (e *gcpEnv) Metadata() map[string]string {
 		md[GCPCluster] = envCN
 	} else if cn, err := e.clusterNameFn(); err == nil {
 		md[GCPCluster] = cn
+	}
+	if in, err := e.instanceNameFn(); err == nil {
+		md[GCEInstance] = in
 	}
 	if id, err := e.instanceIDFn(); err == nil {
 		md[GCEInstanceID] = id
@@ -210,4 +227,49 @@ func (e *gcpEnv) Locality() *core.Locality {
 	}
 
 	return &l
+}
+
+// Labels attempts to retrieve the GCE instance labels from provided metadata within the timeout
+func (e *gcpEnv) Labels() map[string]string {
+	project, _ := e.projectIDFn()
+	zone, _ := e.locationFn()
+	instance, _ := e.instanceNameFn()
+
+	labels := map[string]string{}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	// use explicit credentials with compute.instances.get IAM permissions
+	creds, err := google.FindDefaultCredentials(ctx, compute.CloudPlatformScope)
+	if err != nil {
+		log.Warnf("failed to find default credentials: %v", err)
+		labels["err"] = fmt.Sprintf("failed to find default credentials: %v", err)
+		return labels
+	}
+	computeService, err := compute.NewService(ctx, option.WithCredentials(creds))
+	if err != nil {
+		log.Warnf("failed to create new service: %v", err)
+		labels["err"] = fmt.Sprintf("failed to create new service: %v", err)
+		return labels
+	}
+
+	success := make(chan bool)
+	go func() {
+		instance, err := computeService.Instances.Get(project, zone, instance).Do()
+		if err != nil {
+			log.Warnf("unable to retrieve instance: %v", err)
+			labels["err"] = fmt.Sprintf("unable to retrieve instance: %v", err)
+			success <- false
+		} else {
+			labels = instance.Labels
+			success <- true
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		log.Warnf("context deadline exceeded for instance get request: %v", ctx.Err())
+		labels["err"] = fmt.Sprintf("context deadline exceeded for instance get request: %v", ctx.Err())
+	case <-success:
+		labels["status"] = "success"
+	}
+	return labels
 }

@@ -31,6 +31,7 @@ func TestGCPMetadata(t *testing.T) {
 		numericProjectIDFn  metadataFn
 		locationFn          metadataFn
 		clusterNameFn       metadataFn
+		instanceNameFn      metadataFn
 		instanceIDFn        metadataFn
 		instanceTemplateFn  metadataFn
 		instanceCreatedByFn metadataFn
@@ -44,6 +45,7 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "npid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
@@ -57,12 +59,13 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "npid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
-			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstanceID: "instance",
-				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
+			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
+				GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
 		},
 		{
 			"project id error",
@@ -71,11 +74,12 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "npid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
-			map[string]string{GCPLocation: "location", GCPProjectNumber: "npid", GCPCluster: "cluster", GCEInstanceID: "instance",
+			map[string]string{GCPLocation: "location", GCPProjectNumber: "npid", GCPCluster: "cluster", GCEInstance: "instanceName", GCEInstanceID: "instance",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
 		},
 		{
@@ -85,11 +89,12 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "", errors.New("error") },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
-			map[string]string{GCPLocation: "location", GCPProject: "pid", GCPCluster: "cluster", GCEInstanceID: "instance",
+			map[string]string{GCPLocation: "location", GCPProject: "pid", GCPCluster: "cluster", GCEInstance: "instanceName", GCEInstanceID: "instance",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
 		},
 		{
@@ -99,11 +104,12 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "npid", nil },
 			func() (string, error) { return "location", errors.New("error") },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
-			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPCluster: "cluster", GCEInstanceID: "instance",
+			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPCluster: "cluster", GCEInstance: "instanceName", GCEInstanceID: "instance",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
 		},
 		{
@@ -113,11 +119,27 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "npid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", errors.New("error") },
+			func() (string, error) { return "instanceName", nil },
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
-			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCEInstanceID: "instance",
+			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCEInstance: "instanceName", GCEInstanceID: "instance",
+				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
+		},
+		{
+			"instance name error",
+			func() bool { return true },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", errors.New("error") },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
+			map[string]string{},
+			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstanceID: "instance",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
 		},
 		{
@@ -127,11 +149,12 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "npid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
 			func() (string, error) { return "", errors.New("error") },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
-			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster",
+			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
 		},
 		{
@@ -141,11 +164,12 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "npid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "", errors.New("error") },
 			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
-			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster",
+			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
 				GCEInstanceID: "instance", GCEInstanceCreatedBy: "createdBy"},
 		},
 		{
@@ -155,11 +179,12 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "npid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "", errors.New("error") },
 			map[string]string{},
-			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster",
+			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
 				GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate"},
 		},
 		{
@@ -169,12 +194,13 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "npid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
 			map[string]string{"GCP_METADATA": "env_pid|env_pn|env_cluster|env_location"},
-			map[string]string{GCPProject: "env_pid", GCPProjectNumber: "env_pn", GCPLocation: "env_location", GCPCluster: "env_cluster", GCEInstanceID: "instance",
-				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
+			map[string]string{GCPProject: "env_pid", GCPProjectNumber: "env_pn", GCPLocation: "env_location", GCPCluster: "env_cluster",
+				GCEInstance: "instanceName", GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
 		},
 	}
 
@@ -184,7 +210,7 @@ func TestGCPMetadata(t *testing.T) {
 				os.Setenv(e, v)
 			}
 			once = sync.Once{}
-			mg := gcpEnv{tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceIDFn,
+			mg := gcpEnv{tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn,
 				tt.instanceTemplateFn, tt.instanceCreatedByFn}
 			got := mg.Metadata()
 			if !reflect.DeepEqual(got, tt.want) {
