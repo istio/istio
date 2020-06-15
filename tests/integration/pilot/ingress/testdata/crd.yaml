@@ -1,4 +1,4 @@
-# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=2b66cd7216e96583eb63345d0c63159515888c74"`
+# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=c8dc1033d310"`
 # The SHA should match what is in go.mod
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -47,7 +47,12 @@ spec:
                   An empty selector (default) indicates that Gateways can use this
                   GatewayClass from any namespace. This field is intentionally not
                   a pointer because the nil behavior (no namespaces) is undesirable
-                  here. \n Support: Core"
+                  here. \n When a Gateway attempts to use this class from a namespace
+                  that is not allowed by this selector, the controller implementing
+                  the GatewayClass may add a new \"ForbiddenNamespaceForClass\" condition
+                  to the Gateway status. Adding this condition is considered optional
+                  since not all controllers will have access to all namespaces. \n
+                  Support: Core"
                   properties:
                     matchExpressions:
                       description: matchExpressions is a list of label selector requirements.
@@ -100,7 +105,12 @@ spec:
                   reference Routes within the same namespace. An empty selector indicates
                   that Gateways can reference Routes in any namespace. This field
                   is intentionally a pointer to support the nil behavior (only local
-                  Routes allowed). \n Support: Core"
+                  Routes allowed). \n When any Routes are selected by a Gateway in
+                  a namespace that is not allowed by this selector, the controller
+                  implementing the GatewayClass may add a new \"ForbiddenRoutesForClass\"
+                  condition to the Gateway status. Adding this condition is considered
+                  optional since not all controllers will have access to all namespaces.
+                  \n Support: Core"
                   properties:
                     matchExpressions:
                       description: matchExpressions is a list of label selector requirements.
@@ -271,7 +281,7 @@ spec:
       schema:
         openAPIV3Schema:
           description: Gateway represents an instantiation of a service-traffic handling
-            infrastructure.
+            infrastructure by binding Listeners to a set of IP addresses.
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation
@@ -294,92 +304,241 @@ spec:
               but there are many cases that will require asynchronous signaling via
               the GatewayStatus block."
               properties:
+                addresses:
+                  description: "Addresses requested for this gateway. This is optional
+                  and behavior can depend on the GatewayClass. If a value is set in
+                  the spec and the requested address is invalid, the GatewayClass
+                  MUST indicate this in the associated entry in GatewayStatus.Listeners.
+                  \n If no ListenerAddresses are specified, the GatewayClass may schedule
+                  the Gateway in an implementation-defined manner, assigning an appropriate
+                  set of ListenerAddresses. \n The GatewayClass MUST bind all Listeners
+                  to every ListenerAddress that it assigns to the Gateway. \n Support:
+                  Core"
+                  items:
+                    description: ListenerAddress describes an address for the Listener.
+                    properties:
+                      type:
+                        description: "Type of the Address. This is one of the *AddressType
+                        constants. \n Support: Extended"
+                        type: string
+                      value:
+                        description: 'Value. Examples: "1.2.3.4", "128::1", "my-ip-address".
+                        Validity of the values will depend on `Type` and support by
+                        the controller.'
+                        type: string
+                    required:
+                      - type
+                      - value
+                    type: object
+                  type: array
                 class:
                   description: Class used for this Gateway. This is the name of a GatewayClass
                     resource.
                   type: string
                 listeners:
-                  description: Listeners associated with this Gateway. Listeners define
-                    what addresses, ports, protocols are bound on this Gateway.
+                  description: "Listeners associated with this Gateway. Listeners define
+                  logical endpoints that are bound on this Gateway's addresses. At
+                  least one Listener MUST be specified. \n Each Listener in this array
+                  must have a unique Port field, however a GatewayClass may collapse
+                  compatible Listener definitions into single implementation-defined
+                  acceptor configuration even if their Port fields would otherwise
+                  conflict. \n Listeners are compatible if all of the following conditions
+                  are true: \n 1. all their Protocol fields are \"HTTP\", or all their
+                  Protocol fields are \"HTTPS\" or TLS\" 2. their Hostname fields
+                  are specified with a match type other than \"Any\" 3. their Hostname
+                  fields are not an exact match for any other Listener \n As a special
+                  case, each group of compatible listeners may contain exactly one
+                  Listener with a match type of \"Any\". \n If the GatewayClass collapses
+                  compatible Listeners, the host name provided in the incoming client
+                  request MUST be matched to a Listener to find the correct set of
+                  Routes. The incoming host name MUST be matched using the Hostname
+                  field for each Listener in order of most to least specific. That
+                  is, \"Exact\" matches must be processed before \"Domain\" matches,
+                  which must be processed before \"Any\" matches. \n If this field
+                  specifies multiple Listeners that have the same Port value but are
+                  not compatible, the GatewayClass must raise a \"PortConflict\" condition
+                  on the Gateway. \n Support: Core"
                   items:
-                    description: Listener defines a
+                    description: Listener embodies the concept of a logical endpoint
+                      where a Gateway can accept network connections.
                     properties:
-                      address:
-                        description: "Address requested for this listener. This is optional
-                        and behavior can depend on GatewayClass. If a value is set
-                        in the spec and the request address is invalid, the GatewayClass
-                        MUST indicate this in the associated entry in GatewayStatus.Listeners.
-                        \n Support:"
+                      hostname:
+                        default:
+                          match: Any
+                        description: "Hostname specifies to match the virtual host name
+                        for protocol types that define this concept. \n Incoming requests
+                        that include a host name are matched according to the given
+                        HostnameMatchType to select the Routes from this Listener.
+                        \n If a match type other than \"Any\" is supplied, it MUST
+                        be compatible with the specified Protocol field. \n Support:
+                        Core"
                         properties:
-                          type:
-                            description: "Type of the Address. This is one of the *AddressType
-                            constants. \n Support: Extended"
-                            type: string
-                          value:
-                            description: 'Value. Examples: "1.2.3.4", "128::1", "my-ip-address".
-                            Validity of the values will depend on `Type` and support
-                            by the controller.'
-                            type: string
-                        required:
-                          - type
-                          - value
-                        type: object
-                      extensionRef:
-                        description: "ExtensionRef for this Listener.  The resource
-                        may be \"configmaps\" or an implementation-defined resource
-                        (for example, resource \"mylisteners\" in group \"networking.acme.io\").
-                        \ Omitting or specifying the empty string for both the resource
-                        and group indicates that the resource is \"configmaps\".  If
-                        the referent cannot be found, the listener's \"InvalidListener\"
-                        status condition will be true. \n Support: custom."
-                        properties:
-                          group:
-                            default: core
-                            description: "Group is the group of the referent.  Omitting
-                            the value or specifying the empty string indicates the
-                            core API group.  For example, use the following to specify
-                            a configmaps: \n fooRef:   resource: configmaps   name:
-                            myconfigmap \n Otherwise, if the core API group is not
-                            desired, specify the desired group: \n fooRef:   group:
-                            acme.io   resource: foos   name: myfoo"
+                          match:
+                            default: Exact
+                            description: Match specifies how the host name provided
+                              by the client should be matched against the given value.
+                            enum:
+                              - Domain
+                              - Exact
+                              - Any
                             type: string
                           name:
-                            description: Name is the name of the referent.
+                            description: "Name contains the name to match against. This
+                            value must be a fully qualified host or domain name conforming
+                            to the preferred name syntax defined in [RFC 1034](https://tools.ietf.org/html/rfc1034#section-3.5)
+                            \n In addition to any RFC rules, this field MUST NOT contain
+                            \n 1. IP address literals 2. Colon-delimited port numbers
+                            3. Percent-encoded octets \n This field is required for
+                            the \"Domain\" and \"Exact\" match types."
                             type: string
-                          resource:
-                            default: configmaps
-                            description: "Resource is the API resource name of the referent.
-                            Omitting the value or specifying the empty string indicates
-                            the configmaps resource. For example, use the following
-                            to specify a configmaps resource: \n fooRef:   name: myconfigmap
-                            \n Otherwise, if the configmaps resource is not desired,
-                            specify the desired group: \n fooRef:   group: acme.io
-                            \  resource: foos   name: myfoo"
-                            type: string
-                        required:
-                          - group
-                          - name
-                          - resource
                         type: object
-                      name:
-                        description: "Name is the listener's name and should be specified
-                        as an RFC 1035 DNS_LABEL [1]: \n [1] https://tools.ietf.org/html/rfc1035
-                        \n Each listener of a Gateway must have a unique name. Name
-                        is used for associating a listener in Gateway status. \n Support:
-                        Core"
-                        type: string
                       port:
-                        description: "Port is a list of ports associated with the Address.
-                        \n Support:"
+                        description: "Port is the network port. Multiple listeners may
+                        use the same port, subject to the Listener compatibility rules.
+                        \n Support: Core"
                         format: int32
                         type: integer
                       protocol:
-                        description: "Protocol to use. \n Support:"
+                        description: "Protocol specifies the network protocol this listener
+                        expects to receive. The GatewayClass MUST validate that match
+                        type specified in the Hostname field is appropriate for the
+                        protocol. \n * For the \"TLS\" protocol, the Hostname match
+                        MUST be   applied to the [SNI](https://tools.ietf.org/html/rfc6066#section-3)
+                        \  server name offered by the client. * For the \"HTTP\" protocol,
+                        the Hostname match MUST be   applied to the host portion of
+                        the   [effective request URI](https://tools.ietf.org/html/rfc7230#section-5.5)
+                        \  or the [:authority pseudo-header](https://tools.ietf.org/html/rfc7540#section-8.1.2.3)
+                        * For the \"HTTPS\" protocol, the Hostname match MUST be   applied
+                        at both the TLS and HTTP protocol layers. \n Support: Core"
+                        enum:
+                          - HTTP
+                          - HTTPS
+                          - TLS
+                          - TCP
                         type: string
+                      routes:
+                        description: "Routes specifies a schema for associating routes
+                        with the Listener using selectors. A Route is a resource capable
+                        of servicing a request and allows a cluster operator to expose
+                        a cluster resource (i.e. Service) by externally-reachable
+                        URL, load-balance traffic and terminate SSL/TLS.  Typically,
+                        a route is a \"HTTPRoute\" or \"TCPRoute\" in group \"networking.x-k8s.io\",
+                        however, an implementation may support other types of resources.
+                        \n The Routes selector MUST select a set of objects that are
+                        compatible with the application protocol specified in the
+                        Protocol field. \n Support: Core"
+                        properties:
+                          namespaceSelector:
+                            description: "NamespaceSelector specifies a set of namespace
+                            labels used for selecting routes to associate with the
+                            Gateway. If NamespaceSelector is defined, all routes in
+                            namespaces matching the NamespaceSelector are associated
+                            to the Gateway. \n An empty NamespaceSelector (default)
+                            indicates that routes from any namespace will be associated
+                            to this Gateway. This field is intentionally not a pointer
+                            because the nil behavior (no namespaces) is undesirable
+                            here. \n Support: Core"
+                            properties:
+                              matchExpressions:
+                                description: matchExpressions is a list of label selector
+                                  requirements. The requirements are ANDed.
+                                items:
+                                  description: A label selector requirement is a selector
+                                    that contains values, a key, and an operator that
+                                    relates the key and values.
+                                  properties:
+                                    key:
+                                      description: key is the label key that the selector
+                                        applies to.
+                                      type: string
+                                    operator:
+                                      description: operator represents a key's relationship
+                                        to a set of values. Valid operators are In,
+                                        NotIn, Exists and DoesNotExist.
+                                      type: string
+                                    values:
+                                      description: values is an array of string values.
+                                        If the operator is In or NotIn, the values array
+                                        must be non-empty. If the operator is Exists
+                                        or DoesNotExist, the values array must be empty.
+                                        This array is replaced during a strategic merge
+                                        patch.
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                    - key
+                                    - operator
+                                  type: object
+                                type: array
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                description: matchLabels is a map of {key,value} pairs.
+                                  A single {key,value} in the matchLabels map is equivalent
+                                  to an element of matchExpressions, whose key field
+                                  is "key", the operator is "In", and the values array
+                                  contains only "value". The requirements are ANDed.
+                                type: object
+                            type: object
+                          routeSelector:
+                            description: "RouteSelector specifies a set of route labels
+                            used for selecting routes to associate with the Gateway.
+                            If RouteSelector is defined, only routes matching the
+                            RouteSelector are associated with the Gateway. An empty
+                            RouteSelector matches all routes. \n If undefined, route
+                            labels are not used for associating routes to the gateway.
+                            \n Support: Core"
+                            properties:
+                              matchExpressions:
+                                description: matchExpressions is a list of label selector
+                                  requirements. The requirements are ANDed.
+                                items:
+                                  description: A label selector requirement is a selector
+                                    that contains values, a key, and an operator that
+                                    relates the key and values.
+                                  properties:
+                                    key:
+                                      description: key is the label key that the selector
+                                        applies to.
+                                      type: string
+                                    operator:
+                                      description: operator represents a key's relationship
+                                        to a set of values. Valid operators are In,
+                                        NotIn, Exists and DoesNotExist.
+                                      type: string
+                                    values:
+                                      description: values is an array of string values.
+                                        If the operator is In or NotIn, the values array
+                                        must be non-empty. If the operator is Exists
+                                        or DoesNotExist, the values array must be empty.
+                                        This array is replaced during a strategic merge
+                                        patch.
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                    - key
+                                    - operator
+                                  type: object
+                                type: array
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                description: matchLabels is a map of {key,value} pairs.
+                                  A single {key,value} in the matchLabels map is equivalent
+                                  to an element of matchExpressions, whose key field
+                                  is "key", the operator is "In", and the values array
+                                  contains only "value". The requirements are ANDed.
+                                type: object
+                            type: object
+                        required:
+                          - namespaceSelector
+                        type: object
                       tls:
                         description: "TLS is the TLS configuration for the Listener.
-                        If unspecified, the listener will not support TLS connections.
-                        \n Support: Core"
+                        This field is required if the Protocol field is \"HTTPS\"
+                        or \"TLS\". \n Support: Core"
                         properties:
                           certificateRefs:
                             description: "CertificateRefs is a list of references to
@@ -453,125 +612,13 @@ spec:
                           - options
                         type: object
                     required:
-                      - name
+                      - routes
                     type: object
+                  minItems: 1
                   type: array
-                routes:
-                  description: "Routes specifies a schema for associating routes with
-                  the Gateway using selectors. A route is a resource capable of servicing
-                  a request and allows a cluster operator to expose a cluster resource
-                  (i.e. Service) by externally-reachable URL, load-balance traffic
-                  and terminate SSL/TLS. Typically, a route is a \"httproute\" or
-                  \"tcproute\" in group \"networking.x-k8s.io\". However, an implementation
-                  may support other resources. \n Support: Core"
-                  properties:
-                    namespaceSelector:
-                      description: "NamespaceSelector specifies a set of namespace labels
-                      used for selecting routes to associate with the Gateway. If
-                      NamespaceSelector is defined, all routes in namespaces matching
-                      the NamespaceSelector are associated to the Gateway. \n An empty
-                      NamespaceSelector (default) indicates that routes from any namespace
-                      will be associated to this Gateway. This field is intentionally
-                      not a pointer because the nil behavior (no namespaces) is undesirable
-                      here. \n Support: Core"
-                      properties:
-                        matchExpressions:
-                          description: matchExpressions is a list of label selector
-                            requirements. The requirements are ANDed.
-                          items:
-                            description: A label selector requirement is a selector
-                              that contains values, a key, and an operator that relates
-                              the key and values.
-                            properties:
-                              key:
-                                description: key is the label key that the selector
-                                  applies to.
-                                type: string
-                              operator:
-                                description: operator represents a key's relationship
-                                  to a set of values. Valid operators are In, NotIn,
-                                  Exists and DoesNotExist.
-                                type: string
-                              values:
-                                description: values is an array of string values. If
-                                  the operator is In or NotIn, the values array must
-                                  be non-empty. If the operator is Exists or DoesNotExist,
-                                  the values array must be empty. This array is replaced
-                                  during a strategic merge patch.
-                                items:
-                                  type: string
-                                type: array
-                            required:
-                              - key
-                              - operator
-                            type: object
-                          type: array
-                        matchLabels:
-                          additionalProperties:
-                            type: string
-                          description: matchLabels is a map of {key,value} pairs. A
-                            single {key,value} in the matchLabels map is equivalent
-                            to an element of matchExpressions, whose key field is "key",
-                            the operator is "In", and the values array contains only
-                            "value". The requirements are ANDed.
-                          type: object
-                      type: object
-                    routeSelector:
-                      description: "RouteSelector specifies a set of route labels used
-                      for selecting routes to associate with the Gateway. If RouteSelector
-                      is defined, only routes matching the RouteSelector are associated
-                      with the Gateway. An empty RouteSelector matches all routes.
-                      \n If undefined, route labels are not used for associating routes
-                      to the gateway. \n Support: Core"
-                      properties:
-                        matchExpressions:
-                          description: matchExpressions is a list of label selector
-                            requirements. The requirements are ANDed.
-                          items:
-                            description: A label selector requirement is a selector
-                              that contains values, a key, and an operator that relates
-                              the key and values.
-                            properties:
-                              key:
-                                description: key is the label key that the selector
-                                  applies to.
-                                type: string
-                              operator:
-                                description: operator represents a key's relationship
-                                  to a set of values. Valid operators are In, NotIn,
-                                  Exists and DoesNotExist.
-                                type: string
-                              values:
-                                description: values is an array of string values. If
-                                  the operator is In or NotIn, the values array must
-                                  be non-empty. If the operator is Exists or DoesNotExist,
-                                  the values array must be empty. This array is replaced
-                                  during a strategic merge patch.
-                                items:
-                                  type: string
-                                type: array
-                            required:
-                              - key
-                              - operator
-                            type: object
-                          type: array
-                        matchLabels:
-                          additionalProperties:
-                            type: string
-                          description: matchLabels is a map of {key,value} pairs. A
-                            single {key,value} in the matchLabels map is equivalent
-                            to an element of matchExpressions, whose key field is "key",
-                            the operator is "In", and the values array contains only
-                            "value". The requirements are ANDed.
-                          type: object
-                      type: object
-                  required:
-                    - namespaceSelector
-                  type: object
               required:
                 - class
                 - listeners
-                - routes
               type: object
             status:
               description: GatewayStatus defines the observed state of Gateway.
@@ -615,7 +662,9 @@ spec:
                       block.
                     properties:
                       address:
-                        description: Address bound on this listener.
+                        description: Address bound on this listener. TODO(jpeach) Listeners
+                          don't have addresses anymore so this field should move to
+                          the GatewayStatus.
                         properties:
                           type:
                             description: "Type of the Address. This is one of the *AddressType
@@ -664,7 +713,8 @@ spec:
                         type: array
                       name:
                         description: Name is the name of the listener this status refers
-                          to.
+                          to. TODO(jpeach) Listeners are not indexed by a unique name
+                          any more, so this field probably doesn't make sense.
                         type: string
                     required:
                       - address
@@ -672,9 +722,6 @@ spec:
                       - name
                     type: object
                   type: array
-              required:
-                - conditions
-                - listeners
               type: object
           type: object
       served: true
