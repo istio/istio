@@ -117,7 +117,7 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 					fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
 				t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
 					util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-				return fmt.Errorf("Could not find 429s")
+				return fmt.Errorf("could not find 429s")
 			}
 			return nil
 		}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
