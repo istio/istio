@@ -1,0 +1,29 @@
+# WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
+#
+# The original version of this file is located in the https://github.com/istio/common-files repo.
+# If you're looking at this file in a different repo and want to make a change, please go to the
+# common-files repo, make the change there and check it in. Then come back to this repo and run
+# "make update-common".
+
+rules:
+  braces: disable
+  brackets: disable
+  colons: enable
+  commas: disable
+  comments: disable
+  comments-indentation: disable
+  document-end: disable
+  document-start: disable
+  empty-lines: disable
+  empty-values: enable
+  hyphens: enable
+  indentation: disable
+  key-duplicates: enable
+  key-ordering: disable
+  line-length: disable
+  new-line-at-end-of-file: disable
+  new-lines: enable
+  octal-values: enable
+  quoted-strings: disable
+  trailing-spaces: disable
+  truthy: disable
