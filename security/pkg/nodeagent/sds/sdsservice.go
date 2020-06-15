@@ -279,12 +279,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// Reset SDS push time for new SDS push.
 			con.sdsPushTime = time.Time{}
 			con.mutex.Unlock()
-			defer func() {
-				recycleConnection(conID, resourceName)
-				// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
-				// and cause some confusing logs like 'fails to notify because connection isn't found'.
-				s.st.DeleteSecret(conID, resourceName)
-			}()
+			defer releaseResourcePerConn(s, conID, resourceName)
 
 			conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 			if s.localJWT {
@@ -380,10 +375,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			sdsServiceLog.Debugf("%s received push channel request for proxy %q", conIDresourceNamePrefix, proxyID)
 
 			if secret == nil {
-				defer func() {
-					recycleConnection(conID, resourceName)
-					s.st.DeleteSecret(conID, resourceName)
-				}()
+				defer releaseResourcePerConn(s, conID, resourceName)
 
 				// Secret is nil indicates close streaming to proxy, so that proxy
 				// could connect again with updated token.
@@ -497,6 +489,13 @@ func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
 
 	conn.pushChannel <- &sdsEvent{}
 	return nil
+}
+
+func releaseResourcePerConn(s *sdsservice, conID, resourceName string) {
+	recycleConnection(conID, resourceName)
+	// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
+	// and cause some confusing logs like 'fails to notify because connection isn't found'.
+	s.st.DeleteSecret(conID, resourceName)
 }
 
 func recycleConnection(conID, resourceName string) {
