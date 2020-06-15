@@ -15,6 +15,7 @@
 package repair
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -488,7 +489,7 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 			if err := bpr.LabelBrokenPods(); (err != nil) != tt.wantErr {
 				t.Errorf("LabelBrokenPods() error = %v, wantErr %v", err, tt.wantErr)
 			} else {
-				havePods, err := bpr.client.CoreV1().Pods("").List(metav1.ListOptions{})
+				havePods, err := bpr.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 				if err != nil {
 					t.Errorf("LabelBrokenPods() error = %v when listing pods", err)
 				}
@@ -552,7 +553,7 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 			if err := bpr.DeleteBrokenPods(); (err != nil) != tt.wantErr {
 				t.Errorf("DeleteBrokenPods() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			havePods, err := bpr.client.CoreV1().Pods("").List(metav1.ListOptions{})
+			havePods, err := bpr.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				t.Errorf("DeleteBrokenPods() error listing pods: %v", err)
 			}

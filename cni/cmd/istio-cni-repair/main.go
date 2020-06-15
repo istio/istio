@@ -27,7 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/cni/pkg/repair"
+	"istio.io/istio/cni/pkg/repair"
 	"istio.io/pkg/log"
 )
 

@@ -47,6 +47,8 @@ require (
 	github.com/circonus-labs/circonusllhist v0.1.4 // indirect
 	github.com/cncf/udpa/go v0.0.0-20200313221541-5f7e5dd04533
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
+	github.com/containernetworking/cni v0.7.0-alpha1
+	github.com/containernetworking/plugins v0.7.3
 	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/d4l3k/messagediff v1.2.1
@@ -143,6 +145,7 @@ require (
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	go.opencensus.io v0.22.2
 	go.uber.org/atomic v1.4.0
+	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
 	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582

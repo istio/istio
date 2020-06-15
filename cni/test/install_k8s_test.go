@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	//"github.com/nsf/jsondiff"
-	"istio.io/cni/deployments/kubernetes/install/test"
+	"istio.io/istio/cni/deployments/kubernetes/install/test"
 )
 
 var (

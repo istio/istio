@@ -15,6 +15,7 @@
 package repair
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -108,7 +109,7 @@ func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 	labels[bpr.Options.PodLabelKey] = bpr.Options.PodLabelValue
 	pod.SetLabels(labels)
 
-	if _, err = bpr.client.CoreV1().Pods(pod.Namespace).Update(&pod); err != nil {
+	if _, err = bpr.client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
 		log.Errorf("Failed to update pod: %s", err)
 		return err
 	}
@@ -146,14 +147,14 @@ func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 		return nil
 	}
 	log.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
-	return bpr.client.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
+	return bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 }
 
 // Lists all pods identified as broken by our Filter criteria
 func (bpr BrokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
 
 	var rawList *v1.PodList
-	rawList, err = bpr.client.CoreV1().Pods("").List(metav1.ListOptions{
+	rawList, err = bpr.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 		LabelSelector: bpr.Filters.LabelSelectors,
 		FieldSelector: bpr.Filters.FieldSelectors,
 	})
