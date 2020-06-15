@@ -82,9 +82,6 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			env.PushContext.InitContext(&env, nil, nil)
 			env.PushContext.Mesh.InboundClusterStatName = tt.statPattern
 
-			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-
 			instance := &model.ServiceInstance{
 
 				Service: &model.Service{
@@ -102,7 +99,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				Endpoint: &model.IstioEndpoint{},
 			}
 
-			listeners := buildInboundNetworkFilters(env.PushContext, &proxy, instance)
+			listeners := buildInboundNetworkFilters(env.PushContext, instance)
 			tcp := &tcp.TcpProxy{}
 			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
