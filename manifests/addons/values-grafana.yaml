@@ -25,6 +25,9 @@ env:
 service:
   port: 3000
 
+image:
+  tag: 6.7.4
+
 # Set up out dashboards
 dashboardProviders:
   dashboardproviders.yaml:

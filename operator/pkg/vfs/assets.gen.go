@@ -292,6 +292,8 @@ spec:
 
   # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
+    defaultConfig:
+      proxyMetadata: {}
     enablePrometheusMerge: false
     # Opt-out of global http2 upgrades.
     # Destination rule is used to opt-in.
@@ -771,7 +773,7 @@ spec:
     grafana:
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 6.7.4
       persist: false
       storageClassName: ""
       accessMode: ReadWriteMany

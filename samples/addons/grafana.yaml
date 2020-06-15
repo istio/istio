@@ -4,10 +4,10 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    helm.sh/chart: grafana-5.0.7
+    helm.sh/chart: grafana-5.0.26
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "6.6.2"
+    app.kubernetes.io/version: "6.7.4"
     app.kubernetes.io/managed-by: Helm
   name: grafana
   namespace: istio-system
@@ -19,10 +19,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-5.0.7
+    helm.sh/chart: grafana-5.0.26
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "6.6.2"
+    app.kubernetes.io/version: "6.7.4"
     app.kubernetes.io/managed-by: Helm
 data:
   grafana.ini: |
@@ -75,10 +75,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-5.0.7
+    helm.sh/chart: grafana-5.0.26
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "6.6.2"
+    app.kubernetes.io/version: "6.7.4"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -99,10 +99,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-5.0.7
+    helm.sh/chart: grafana-5.0.26
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "6.6.2"
+    app.kubernetes.io/version: "6.7.4"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -119,7 +119,7 @@ spec:
         app.kubernetes.io/instance: grafana
         app: grafana
       annotations:
-        checksum/config: 01b18e15f0cab582c7faaed48a0e138f1e366f6875770be36b730b89b6a2c540
+        checksum/config: ff83ef10b898abadce17f351b4d7c0ab9fa259e5e5b4e0998c3f39b854f0d2eb
         checksum/dashboards-json-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         checksum/sc-dashboard-provider-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
     spec:
@@ -127,10 +127,11 @@ spec:
       serviceAccountName: grafana
       securityContext:
         fsGroup: 472
+        runAsGroup: 472
         runAsUser: 472
       containers:
         - name: grafana
-          image: "grafana/grafana:6.6.2"
+          image: "grafana/grafana:6.7.4"
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: config
