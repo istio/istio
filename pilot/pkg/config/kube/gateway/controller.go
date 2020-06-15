@@ -23,10 +23,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	svc "sigs.k8s.io/service-apis/api/v1alpha1"
 
+	"istio.io/pkg/ledger"
+
+	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/pkg/ledger"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -43,10 +45,11 @@ var (
 type controller struct {
 	client kubernetes.Interface
 	cache  model.ConfigStoreCache
+	domain string
 }
 
-func NewController(client kubernetes.Interface, c model.ConfigStoreCache) model.ConfigStoreCache {
-	return &controller{client, c}
+func NewController(client kubernetes.Interface, c model.ConfigStoreCache, options controller2.Options) model.ConfigStoreCache {
+	return &controller{client, c, options.DomainSuffix}
 }
 
 func (c *controller) GetLedger() ledger.Ledger {
@@ -65,7 +68,7 @@ func (c *controller) Schemas() collection.Schemas {
 }
 
 func (c controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
-	panic("implement me")
+	panic("get is not supported")
 }
 
 func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
@@ -109,6 +112,7 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 		TCPRoute:     tcpRoute,
 		TrafficSplit: trafficSplit,
 		Namespaces:   namespaces,
+		Domain:       c.domain,
 	}
 	output := convertResources(input)
 
