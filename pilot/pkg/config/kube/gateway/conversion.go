@@ -301,7 +301,7 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 					Protocol: string(l.Protocol),
 					Name:     fmt.Sprintf("%v-%v-gateway-%s-%s", strings.ToLower(string(l.Protocol)), l.Port, obj.Name, obj.Namespace),
 				},
-				Tls: buildTls(l.TLS),
+				Tls: buildTLS(l.TLS),
 			}
 
 			servers = append(servers, server)
@@ -339,7 +339,7 @@ var tlsVersionConversionMap = map[string]istio.ServerTLSSettings_TLSProtocol{
 	k8s.TLS1_3: istio.ServerTLSSettings_TLSV1_3,
 }
 
-func buildTls(tls *k8s.TLSConfig) *istio.ServerTLSSettings {
+func buildTLS(tls *k8s.TLSConfig) *istio.ServerTLSSettings {
 	if tls == nil {
 		return nil
 	}
