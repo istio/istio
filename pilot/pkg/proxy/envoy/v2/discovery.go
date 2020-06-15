@@ -123,6 +123,8 @@ type DiscoveryServer struct {
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
 	Authenticators []authenticate.Authenticator
 
+	// InternalGen is notified of connect/disconnect/nack on
+	// all connections
 	InternalGen *InternalGen
 }
 

@@ -78,7 +78,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	// Secure GRPC address
 	meshConfig.DefaultConfig.DiscoveryAddress = "localhost:0"
 
-		meshConfig.EnableAutoMtls.Value = false
+	meshConfig.EnableAutoMtls.Value = false
 	additionalArgs = append([]func(p *bootstrap.PilotArgs){func(p *bootstrap.PilotArgs) {
 		p.Namespace = "testing"
 		p.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
@@ -136,7 +136,6 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		return nil, nil, err
 	}
 	MockPilotSGrpcAddr = "localhost:" + port
-
 
 	// Wait a bit for the server to come up.
 	err = wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {

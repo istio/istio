@@ -23,6 +23,7 @@ import (
 	"time"
 
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/pkg/config/constants"
 
 	"istio.io/istio/pilot/pkg/security/model"
@@ -150,13 +151,13 @@ var (
 	gatewaySecretChan       chan struct{}
 )
 
-// SDSAgent contains the configuration of the agent, based on the injected
+// Agent contains the configuration of the agent, based on the injected
 // environment:
 // - SDS hostPath if node-agent was used
 // - /etc/certs/key if Citadel or other mounted Secrets are used
 // - root cert to use for connecting to XDS server
 // - CA address, with proper defaults and detection
-type SDSAgent struct {
+type Agent struct {
 	// Location of JWTPath to connect to CA. If empty, SDS is not possible.
 	// If set SDS will be used - either local or via hostPath.
 	JWTPath string
@@ -204,10 +205,11 @@ type SDSAgent struct {
 	// LocalXDSAddr is the address of the XDS proxy. If not set, the env variable will be used.
 	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
 	// Set for tests to 127.0.0.1:0
-	LocalXDSAddr     string
+	LocalXDSAddr string
 
 	// Listener for the XDS proxy
 	LocalXDSListener net.Listener
+	proxyGen         *xds.ProxyGen
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -218,8 +220,8 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir, clusterID string) *SDSAgent {
-	a := &SDSAgent{
+func NewAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir, clusterID string) *Agent {
+	a := &Agent{
 		proxyConfig: proxyConfig,
 	}
 
@@ -308,7 +310,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputK
 // 3. Monitor mode - watching secret in same namespace ( Ingress)
 //
 // 4. TODO: File watching, for backward compat/migration from mounted secrets.
-func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, error) {
+func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error) {
 	applyEnvVars()
 
 	gatewaySdsCacheOptions = workloadSdsCacheOptions
@@ -355,7 +357,7 @@ func (sa *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, err
 	}
 
 	// Start the XDS for envoy.
-	err = startXDS(sa.proxyConfig, sa.WorkloadSecrets)
+	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +373,7 @@ func ingressSdsExists() bool {
 }
 
 // newSecretCache creates the cache for workload secrets and/or gateway secrets.
-func (sa *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
+func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
 	fetcher := &secretfetcher.SecretFetcher{}
 
 	// TODO: get the MC public keys from pilot.

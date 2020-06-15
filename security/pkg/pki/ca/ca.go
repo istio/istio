@@ -200,8 +200,8 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 	if _, err := os.Stat(signingKeyFile); err != nil {
 		// self generating for testing or local, non-k8s run
 		options := util.CertOptions{
-			TTL:           3650 * 24 * time.Hour, // TODO: pass the flag here as well (or pass MeshConfig )
-			Org:          "cluster.local", // TODO: pass trustDomain ( or better - pass MeshConfig )
+			TTL:          3650 * 24 * time.Hour, // TODO: pass the flag here as well (or pass MeshConfig )
+			Org:          "cluster.local",       // TODO: pass trustDomain ( or better - pass MeshConfig )
 			IsCA:         true,
 			IsSelfSigned: true,
 			RSAKeySize:   caKeySize,

@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
@@ -227,7 +228,7 @@ type Proxy struct {
 	}
 }
 
-// WatchedResource tracks an active DiscoveryRequest type.
+// WatchedResource tracks an active DiscoveryRequest subscription.
 type WatchedResource struct {
 	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
 	// nolint
@@ -262,6 +263,8 @@ type WatchedResource struct {
 
 	// LastSize tracks the size of the last update
 	LastSize int
+
+	LastRequest *discovery.DiscoveryRequest
 }
 
 var (
