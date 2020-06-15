@@ -48,6 +48,9 @@ features:
     ingress:
       mtls:
       tls:
+    egress:
+      mtls:
+      tls:
     control-plane:
       k8s-certs:
       plugin-cert:
