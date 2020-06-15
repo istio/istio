@@ -5,8 +5,6 @@ metadata:
 spec:
   host: edition.cnn.com
   trafficPolicy:
-    loadBalancer:
-      simple: ROUND_ROBIN
     portLevelSettings:
       - port:
           number: 443

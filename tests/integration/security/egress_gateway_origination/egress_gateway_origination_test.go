@@ -15,167 +15,234 @@
 package egressgatewayorigination
 
 import (
-	"context"
 	"fmt"
+	"reflect"
+	"path"
 	"testing"
 	"time"
 
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	"io/ioutil"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/structpath"
 	"istio.io/istio/pkg/test/echo/common/response"
-	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/tests/integration/security/util"
 )
 
+func mustReadCert(t *testing.T, f string) string {
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
+	if err != nil {
+		t.Fatalf("failed to read %v: %v", f, err)
+	}
+	return string(b)
+}
+
 const (
-	// should be templated into YAML, and made interchangeable with other sites
-	externalURL      = "http://edition.cnn.com/politics"
-	externalReqCount = 2
-	egressName       = "istio-egressgateway"
 	// paths to test configs
-	simpleTLSGatewayConfig          = "testdata/gateway-tls-origination.yaml"
 	simpleTLSDestinationRuleConfig  = "testdata/destination-rule-tls-origination.yaml"
 	disableTLSDestinationRuleConfig = "testdata/destination-rule-no-tls-origination.yaml"
 )
 
-// TestEgressGatewayTls brings up an SDS enabled cluster and will ensure that the TLS origination at
+// TestEgressGatewayTls brings up an cluster and will ensure that the TLS origination at
 // egress gateway allows secure communication between the egress gateway and external workload.
 // This test brings up an egress gateway to originate TLS connection. The test will ensure that requests
 // are routed securely through the egress gateway and that the TLS origination happens at the gateway.
-func TestSdsEgressGatewayTls(t *testing.T) {
+func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
-			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
-			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "egress-gateway-tls-origination",
-				Inject: true,
-			})
-			applySetupConfig(ctx, ns)
+			client, server, appNamespace := setupEcho(t, ctx)
 
 			testCases := map[string]struct {
 				destinationRulePath string
-				configPath          string
-				response            string
+				response            []string
+				portName            string
 			}{
 				"SIMPLE TLS origination from egress gateway succeeds": {
 					destinationRulePath: simpleTLSDestinationRuleConfig,
-					configPath:          simpleTLSGatewayConfig,
-					response:            response.StatusCodeOK,
+					response:            []string{response.StatusCodeOK},
+					portName:            "https",
 				},
 				"No TLS origination from egress gateway returns 503 response": {
 					destinationRulePath: disableTLSDestinationRuleConfig,
-					configPath:          simpleTLSGatewayConfig,
-					response:            response.StatusCodeUnavailable,
+					response:            []string{response.StatusCodeUnavailable},
+					portName:            "http",
 				},
 			}
 
 			for name, tc := range testCases {
-				ctx.NewSubTest(name).
-					Run(func(ctx framework.TestContext) {
-						doOriginationTest(ctx, ns, tc.destinationRulePath, tc.configPath, tc.response)
-					})
+				t.Run(name, func(t *testing.T) {
+					ctx.ApplyConfigOrFail(ctx, appNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+					defer ctx.DeleteConfigOrFail(ctx, appNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := client.Call(echo.CallOptions{
+							Target:   server,
+							PortName: tc.portName,
+						})
+						if err != nil {
+							return fmt.Errorf("request failed: %v", err)
+						}
+						codes := make([]string, 0, len(resp))
+						for _, r := range resp {
+							codes = append(codes, r.Code)
+						}
+						if !reflect.DeepEqual(codes, tc.response) {
+							return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
+						}
+						return nil
+					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
+				})
 			}
 		})
 }
 
-func doOriginationTest(
-	ctx framework.TestContext, ns namespace.Instance, destinationRulePath, configPath, expectedResp string) {
-	var client echo.Instance
-	echoboot.NewBuilderOrFail(ctx, ctx).
-		With(&client, util.EchoConfig("client", ns, false, nil, p)).
-		BuildOrFail(ctx)
-	ctx.ApplyConfigOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, destinationRulePath))
-	ctx.ApplyConfigOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
-	defer ctx.DeleteConfigOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
+const (
+	// paths to setup configs
+	simpleTLSGatewayConfig = "testdata/gateway-tls-origination.yaml"
+	sidecarScopeConfig     = "testdata/sidecar-scope.yaml"
+)
 
-	// give the configuration a moment to kick in
-	time.Sleep(time.Second * 20)
-	pretestReqCount := getEgressRequestCountOrFail(ctx, ns, prom)
+func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Instance, namespace.Instance) {
+	p := pilot.NewOrFail(t, ctx, pilot.Config{})
 
-	for i := 0; i < externalReqCount; i++ {
-		w := client.WorkloadsOrFail(ctx)[0]
-		responses, err := w.ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
-			Url:   externalURL,
-			Count: 1,
-		})
-		if err != nil {
-			ctx.Fatalf("failed to make request from echo instance to %s: %v", externalURL, err)
-		}
-		if len(responses) < 1 {
-			ctx.Fatalf("received no responses from request to %s", externalURL)
-		}
-		resp := responses[0]
+	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "app",
+		Inject: true,
+	})
+	serviceNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "service",
+		Inject: true,
+	})
 
-		if expectedResp != resp.Code {
-			ctx.Errorf("expected status %s but got %s", expectedResp, resp.Code)
-		}
+	applySetupConfig(ctx, appsNamespace)
 
+	var client, server echo.Instance
+	echoboot.NewBuilderOrFail(t, ctx).
+		With(&client, echo.Config{
+			Service:   "client",
+			Namespace: appsNamespace,
+			Ports:     []echo.Port{},
+			Pilot:     p,
+			Subsets: []echo.SubsetConfig{{
+				Version: "v1",
+				// Set up custom annotations to mount the certs. We will re-use the configmap created by "server"
+				// so that we don't need to manage it ourselves.
+				// The paths here match the destination rule above
+				Annotations: echo.NewAnnotations().
+					Set(echo.SidecarVolume, `{"custom-certs":{"configMap":{"name":"server-certs"}}}`).
+					Set(echo.SidecarVolumeMount, `{"custom-certs":{"mountPath":"/etc/certs/custom"}}`),
+			}},
+		}).
+		With(&server, echo.Config{
+			Service:   "server",
+			Namespace: appsNamespace,
+			Ports: []echo.Port{
+				{
+					// Plain HTTP port
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					ServicePort:  80,
+					InstancePort: 8080,
+				},
+				{
+					// HTTPS port
+					Name:        "https",
+					Protocol:    protocol.HTTPS,
+					ServicePort: 9443,
+					TLS:         true,
+				},
+			},
+			Pilot: p,
+			// Set up TLS certs on the server. This will make the server listen with these credentials.
+			TLSSettings: &common.TLSSettings{
+				RootCert:   mustReadCert(t, "root-cert.pem"),
+				ClientCert: mustReadCert(t, "cert-chain.pem"),
+				Key:        mustReadCert(t, "key.pem"),
+				// Override hostname to match the SAN in the cert we are using
+				Hostname: "server.default.svc",
+			},
+			// Do not inject, as we are testing non-Istio TLS here
+			Subsets: []echo.SubsetConfig{{
+				Version:     "v1",
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			}},
+		}).
+		BuildOrFail(t)
+
+	// External traffic should work even if we have service entries on the same ports
+	if err := ctx.ApplyConfig(appsNamespace.Name(), file.AsStringOrFail(ctx, sidecarScopeConfig)); err != nil {
+		ctx.Fatalf("failed to apply configuration file %s; err: %v", sidecarScopeConfig, err)
+	}
+	// Apply Egress Gateway for service
+	if err := ctx.ApplyConfig(serviceNamespace.Name(), file.AsStringOrFail(ctx, simpleTLSGatewayConfig)); err != nil {
+		ctx.Fatalf("failed to apply configuration file %s; err: %v", simpleTLSGatewayConfig, err)
 	}
 
-	// give prometheus some time to ingest the metrics
-	posttestReqCount := getEgressRequestCountOrFail(ctx, ns, prom)
-	newGatewayReqs := posttestReqCount - pretestReqCount
-	if newGatewayReqs != externalReqCount {
-		ctx.Errorf("expected %d requests routed through egress, got %d",
-			externalReqCount, newGatewayReqs)
+	if err := WaitUntilNotCallable(client, server); err != nil {
+		t.Fatalf("failed to apply sidecar, %v", err)
 	}
+
+	return client, server, appsNamespace
 }
 
 // sets up the destination rule to route through egress, virtual service, and service entry
-func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
+func applySetupConfig(ctx framework.TestContext, nsClient namespace.Instance) {
 	ctx.Helper()
 
 	configFiles := []string{
 		"testdata/service-entry-cnn.yaml",
-		"testdata/rule-route-request-to-egress-cnn.yaml",
 		"testdata/destination-rule-to-gateway.yaml",
 	}
 
 	for _, c := range configFiles {
-		if err := ctx.ApplyConfig(ns.Name(), file.AsStringOrFail(ctx, c)); err != nil {
+		if err := ctx.ApplyConfig(nsClient.Name(), file.AsStringOrFail(ctx, c)); err != nil {
 			ctx.Fatalf("failed to apply configuration file %s; err: %v", c, err)
 		}
 	}
 }
 
-func getMetric(ctx framework.TestContext, prometheus prometheus.Instance, query string) (float64, error) {
-	ctx.Helper()
-
-	value, err := prometheus.WaitForQuiesce(query)
-	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve metric from prom with err: %v", err)
-	}
-
-	metric, err := prometheus.Sum(value, nil)
-	if err != nil {
-		ctx.Logf("value: %s", value.String())
-		return 0, fmt.Errorf("could not find metric value: %v", err)
-	}
-
-	return metric, nil
+func clusterName(target echo.Instance, port echo.Port) string {
+	cfg := target.Config()
+	return fmt.Sprintf("outbound|%d||%s.%s.svc.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
 }
 
-func getEgressRequestCountOrFail(ctx framework.TestContext, ns namespace.Instance, prom prometheus.Instance) int {
-	query := fmt.Sprintf("istio_requests_total{destination_app=\"%s\",source_workload_namespace=\"%s\"}",
-		egressName, ns.Name())
-	ctx.Helper()
+// Wait for the destination to NOT be callable by the client. This allows us to simulate external traffic.
+// This essentially just waits for the Sidecar to be applied, without sleeping.
+func WaitUntilNotCallable(c echo.Instance, dest echo.Instance) error {
+	accept := func(cfg *envoyAdmin.ConfigDump) (bool, error) {
+		validator := structpath.ForProto(cfg)
+		for _, port := range dest.Config().Ports {
+			clusterName := clusterName(dest, port)
+			// Ensure that we have an outbound configuration for the target port.
+			err := validator.NotExists("{.configs[*].dynamicActiveClusters[?(@.cluster.Name == '%s')]}", clusterName).Check()
+			if err != nil {
+				return false, err
+			}
+		}
 
-	reqCount, err := getMetric(ctx, prom, query)
-	if err != nil {
-		// assume that if the request failed, it was because there was no metric ingested
-		// if this is not the case, the test will fail down the road regardless
-		// checking for error based on string match could lead to future failure
-		reqCount = 0
+		return true, nil
 	}
 
-	return int(reqCount)
+	workloads, _ := c.Workloads()
+	// Wait for the outbound config to be received by each workload from Pilot.
+	for _, w := range workloads {
+		if w.Sidecar() != nil {
+			if err := w.Sidecar().WaitForConfig(accept, retry.Timeout(time.Second*10)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
