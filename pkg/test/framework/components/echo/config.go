@@ -85,13 +85,7 @@ type Config struct {
 	// disable sidecar injection, etc.
 	DeployAsVM bool
 
-	// The hub to be used to pull the image for the VM. `DeployAsVM` must be enabled.
-	VMHub string
-
-	// The tag to be used to pull the image for the VM. `DeployAsVM` must be enabled.
-	VMTag string
-
-	// The tag to be used to pull the image for the VM. `DeployAsVM` must be enabled.
+	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
 	VMImage string
 }
 

@@ -23,8 +23,10 @@ docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
-DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.istioctl docker.operator
+DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar_xenial \
+    docker.app_sidecar_bionic docker.app_sidecar_focal docker.app_sidecar_debian9 \
+    docker.app_sidecar_debian10 docker.test_policybackend docker.mixer docker.mixer_codegen \
+    docker.istioctl docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -103,16 +105,59 @@ docker.app: $(ISTIO_OUT_LINUX)/server
 docker.app: $(ISTIO_DOCKER)/certs
 	$(DOCKER_RULE)
 
+# Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
+docker.app_sidecar_xenial: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.app_sidecar_xenial: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar_xenial: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+docker.app_sidecar_xenial: $(ISTIO_DOCKER)/certs
+docker.app_sidecar_xenial: pkg/test/echo/docker/app_sidecar/echo-start.sh
+docker.app_sidecar_xenial: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar_xenial: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_xenial: pkg/test/echo/docker/app_sidecar/Dockerfile.app_sidecar_xenial
+	$(DOCKER_RULE)
 
-# Test application bundled with the sidecar (for non-k8s).
-docker.app_sidecar: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
-docker.app_sidecar: $(ISTIO_DOCKER)/certs
-docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/client
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/server
-docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
+# Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
+docker.app_sidecar_bionic: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.app_sidecar_bionic: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar_bionic: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+docker.app_sidecar_bionic: $(ISTIO_DOCKER)/certs
+docker.app_sidecar_bionic: pkg/test/echo/docker/app_sidecar/echo-start.sh
+docker.app_sidecar_bionic: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar_bionic: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_bionic: pkg/test/echo/docker/app_sidecar/Dockerfile.app_sidecar_bionic
+	$(DOCKER_RULE)
+
+# Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
+docker.app_sidecar_focal: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.app_sidecar_focal: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar_focal: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+docker.app_sidecar_focal: $(ISTIO_DOCKER)/certs
+docker.app_sidecar_focal: pkg/test/echo/docker/app_sidecar/echo-start.sh
+docker.app_sidecar_focal: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar_focal: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_focal: pkg/test/echo/docker/app_sidecar/Dockerfile.app_sidecar_focal
+	$(DOCKER_RULE)
+
+# Test application bundled with the sidecar with debian 9 (for non-k8s).
+docker.app_sidecar_debian9: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.app_sidecar_debian9: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar_debian9: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+docker.app_sidecar_debian9: $(ISTIO_DOCKER)/certs
+docker.app_sidecar_debian9: pkg/test/echo/docker/app_sidecar/echo-start.sh
+docker.app_sidecar_debian9: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar_debian9: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_debian9: pkg/test/echo/docker/app_sidecar/Dockerfile.app_sidecar_debian9
+	$(DOCKER_RULE)
+
+# Test application bundled with the sidecar with debian 10 (for non-k8s).
+docker.app_sidecar_debian10: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.app_sidecar_debian10: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar_debian10: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+docker.app_sidecar_debian10: $(ISTIO_DOCKER)/certs
+docker.app_sidecar_debian10: pkg/test/echo/docker/app_sidecar/echo-start.sh
+docker.app_sidecar_debian10: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar_debian10: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_debian10: pkg/test/echo/docker/app_sidecar/Dockerfile.app_sidecar_debian10
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration

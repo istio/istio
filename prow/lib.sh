@@ -72,7 +72,9 @@ function download_untar_istio_release() {
 function build_images() {
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
-  targets+="docker.app docker.app_sidecar docker.test_policybackend "
+  targets+="docker.app docker.test_policybackend "
+  targets+="docker.app_sidecar_xenial docker.app_sidecar_focal docker.app_sidecar_bionic "
+  targets+="docker.app_sidecar_debian9 docker.app_sidecar_debian10 "
   targets+="docker.mixer "
   targets+="docker.operator "
   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
