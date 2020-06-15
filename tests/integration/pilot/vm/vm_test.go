@@ -15,13 +15,9 @@
 package vm
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"testing"
 	"time"
-
-	"istio.io/istio/pkg/test/framework/image"
 
 	"istio.io/istio/pkg/test/framework/components/namespace"
 
@@ -32,49 +28,10 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-type VMConfig struct {
-	VMHub   string
-	VMTag   string
-	VMImage string
-}
-
-func TestVmTraffic(t *testing.T) {
+func TestVmOS(t *testing.T) {
 	// read from a config list to construct the test matrix
-	file, err := os.Open("testdata/OS_Support_List")
-	if err != nil {
-		t.Fatal(err)
-	}
-	scanner := bufio.NewScanner(file)
-	configList := make([]string, 0)
-	for scanner.Scan() {
-		imageName := scanner.Text()
-		// ignore empty line
-		if imageName == "" {
-			continue
-		}
-		configList = append(configList, imageName)
-	}
-	if err := scanner.Err(); err != nil {
-		t.Fatal(err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	VMConfigs := make([]VMConfig, 0)
-
-	// read Hub and Tag info from command line
-	settings, err := image.SettingsFromCommandLine()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, OSImage := range configList {
-		VMConfigs = append(VMConfigs, VMConfig{
-			VMHub:   settings.Hub,
-			VMTag:   settings.Tag,
-			VMImage: OSImage,
-		})
-	}
+	vmImages := []string{"app_sidecar_xenial", "app_sidecar_focal", "app_sidecar_bionic", "app_sidecar_debian9",
+		"app_sidecar_debian10"}
 
 	framework.
 		NewTest(t).
@@ -113,8 +70,8 @@ spec:
 					ServicePort:  8090,
 				},
 			}
-			for i, VMConfig := range VMConfigs {
-				ctx.NewSubTest(VMConfig.VMImage).
+			for i, vmImage := range vmImages {
+				ctx.NewSubTest(vmImage).
 					Run(func(ctx framework.TestContext) {
 						var pod, vm echo.Instance
 						echoboot.NewBuilderOrFail(t, ctx).
@@ -124,9 +81,7 @@ spec:
 								Ports:      ports,
 								Pilot:      p,
 								DeployAsVM: true,
-								VMHub:      VMConfig.VMHub,
-								VMTag:      VMConfig.VMTag,
-								VMImage:    VMConfig.VMImage,
+								VMImage:    vmImage,
 							}).
 							With(&pod, echo.Config{
 								Service:   "pod",

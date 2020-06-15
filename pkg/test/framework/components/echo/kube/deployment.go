@@ -217,7 +217,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: istio-proxy
-        image: {{ $.VM.Hub }}/{{ $.VM.Image }}:{{ $.VM.Tag }}
+        image: {{ $.Hub }}/{{ $.VM.Image }}:{{ $.Tag }}
         #image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
         securityContext:
@@ -327,7 +327,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		}
 	}
 
-	var VMImage, VMHub, VMTag, istiodIP, istiodPort string
+	var vmImage, istiodIP, istiodPort string
 	if cfg.DeployAsVM {
 		s, err := kube.NewSettingsFromCommandLine()
 		if err != nil {
@@ -340,25 +340,11 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		istiodIP = addr.IP.String()
 		istiodPort = strconv.Itoa(addr.Port)
 
-		// if hub is not provided, default to --hub command line
-		if cfg.VMHub == "" {
-			VMHub = settings.Hub
-		} else {
-			VMHub = cfg.VMHub
-		}
-
-		// if tag is not provided, default to --tag command line
-		if cfg.VMTag == "" {
-			VMTag = settings.Tag
-		} else {
-			VMTag = cfg.VMTag
-		}
-
 		// if image is not provided, default to app_sidecar
 		if cfg.VMImage == "" {
-			VMImage = "app_sidecar"
+			vmImage = "app_sidecar_bionic"
 		}
-		VMImage = cfg.VMImage
+		vmImage = cfg.VMImage
 	}
 	namespace := ""
 	if cfg.Namespace != nil {
@@ -383,9 +369,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		"Cluster":             cfg.ClusterIndex(),
 		"Namespace":           namespace,
 		"VM": map[string]interface{}{
-			"Image":      VMImage,
-			"Hub":        VMHub,
-			"Tag":        VMTag,
+			"Image":      vmImage,
 			"IstiodIP":   istiodIP,
 			"IstiodPort": istiodPort,
 		},
