@@ -15,6 +15,7 @@
 package util
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -51,7 +53,7 @@ type TearDownFunc func()
 func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, TearDownFunc) {
 	server, tearDown, err := setup(args...)
 	if err != nil {
-		log.Errora("Failed to start in-process server: ", err)
+		log.Errora("Failed to vim  in-process server: ", err)
 		panic(err)
 	}
 	return server, tearDown
@@ -72,27 +74,38 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 	httpAddr := ":" + pilotHTTP
 
+	// Create tmp mesh config file
+	meshFile, err := ioutil.TempFile("", "mesh.yaml")
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating tmp mesh config file failed: %v", err)
+	}
+	defer meshFile.Close()
 	meshConfig := mesh.DefaultMeshConfig()
 	meshConfig.EnableAutoMtls.Value = false
+	tearFunc := func() {
+		os.Remove(meshFile.Name())
+	}
+	data, err := gogoprotomarshal.ToYAML(&meshConfig)
+	if err != nil {
+		return nil, tearFunc, fmt.Errorf("meshConfig marshal failed: %v", err)
+	}
+	meshFile.Write([]byte(data))
+
 	additionalArgs = append([]func(p *bootstrap.PilotArgs){func(p *bootstrap.PilotArgs) {
 		p.Namespace = "testing"
-		p.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
+		p.ServerOptions = bootstrap.DiscoveryServerOptions{
 			HTTPAddr:        httpAddr,
-			GrpcAddr:        ":0",
+			GRPCAddr:        ":0",
 			EnableProfiling: true,
 		}
-		//TODO: start mixer first, get its address
-		p.Mesh = bootstrap.MeshArgs{
-			MixerAddress: "istio-mixer.istio-system:9091",
-		}
-		p.Config = bootstrap.ConfigArgs{
+		p.RegistryOptions = bootstrap.RegistryOptions{
 			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
 			// Static testdata, should include all configs we want to test.
 			FileDir: env.IstioSrc + "/tests/testdata/config",
 		}
-		p.MeshConfig = &meshConfig
 		p.MCPOptions.MaxMessageSize = 1024 * 1024 * 4
 		p.KeepaliveOptions = keepalive.DefaultOption()
+		p.MeshConfigFile = meshFile.Name()
 
 		// TODO: add the plugins, so local tests are closer to reality and test full generation
 		// Plugins:           bootstrap.DefaultPlugins,
@@ -102,26 +115,26 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	// Create a test Istiod Server.
 	s, err := bootstrap.NewServer(args)
 	if err != nil {
-		return nil, nil, err
+		return nil, tearFunc, err
 	}
 
 	stop := make(chan struct{})
 	// Start the server.
 	if err := s.Start(stop); err != nil {
-		return nil, nil, err
+		return nil, tearFunc, err
 	}
 
 	// Extract the port from the network address.
 	_, port, err := net.SplitHostPort(s.HTTPListener.Addr().String())
 	if err != nil {
-		return nil, nil, err
+		return nil, tearFunc, err
 	}
 	httpURL := "http://localhost:" + port
 	MockPilotHTTPPort, _ = strconv.Atoi(port)
 
 	_, port, err = net.SplitHostPort(s.GRPCListener.Addr().String())
 	if err != nil {
-		return nil, nil, err
+		return nil, tearFunc, err
 	}
 	MockPilotGrpcAddr = "localhost:" + port
 	MockPilotGrpcPort, _ = strconv.Atoi(port)
@@ -140,7 +153,9 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		}
 		return false, nil
 	})
+
 	return s, func() {
+		tearFunc()
 		close(stop)
 	}, err
 }
