@@ -135,7 +135,7 @@ spec:
 type TestCase struct {
 	Name     string
 	PortName string
-	Http2    bool
+	HTTP2    bool
 	Host     string
 	Expected Expected
 }
@@ -266,7 +266,7 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 							Headers: map[string][]string{
 								"Host": {tc.Host},
 							},
-							Http2: tc.Http2,
+							HTTP2: tc.HTTP2,
 						})
 
 						// the expected response from a blackhole test case will have err

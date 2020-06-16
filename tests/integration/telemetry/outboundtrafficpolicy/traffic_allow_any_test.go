@@ -33,7 +33,7 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 		{
 			Name:     "HTTP H2 Traffic",
 			PortName: "http",
-			Http2:    true,
+			HTTP2:    true,
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
@@ -64,7 +64,7 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 		{
 			Name:     "HTTPS H2 Traffic",
 			PortName: "https",
-			Http2:    true,
+			HTTP2:    true,
 			Expected: Expected{
 				Metric:          "istio_tcp_connections_opened_total",
 				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
@@ -75,7 +75,7 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 		{
 			Name:     "HTTPS H2 Traffic Conflict",
 			PortName: "https-conflict",
-			Http2:    true,
+			HTTP2:    true,
 			Expected: Expected{
 				Metric:          "istio_tcp_connections_opened_total",
 				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
@@ -100,7 +100,7 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 		{
 			Name:     "HTTP H2 Traffic Egress",
 			PortName: "http",
-			Http2:    true,
+			HTTP2:    true,
 			Host:     "some-external-site.com",
 			Expected: Expected{
 				Metric:          "istio_requests_total",
