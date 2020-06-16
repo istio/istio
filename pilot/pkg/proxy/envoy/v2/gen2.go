@@ -129,8 +129,14 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *discovery.Disco
 		return false
 	}
 
+	// Change in the set of watched resource - regardless of ack, send new data.
+	if !listEqualUnordered(con.WatchedResources[shortType], discReq.ResourceNames) {
+		con.WatchedResources[shortType] = discReq.ResourceNames
+		return false
+	}
+
 	// Nonce matches previously sent; this is an ACK for the most recent response
-	adsLog.Debugf("ADS:%s: ACK %s %s %s", shortType, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+	adsLog.Debugf("ADS:%s: ACK %s %s %s. Resources:%d", shortType, con.ConID, discReq.VersionInfo, discReq.ResponseNonce, len(discReq.ResourceNames))
 
 	// This is an ACK for a resource sent on an older stream, or out of sync. Handle the same, but log differently
 	if nonceSent != discReq.ResponseNonce {

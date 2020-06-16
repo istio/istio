@@ -29,7 +29,7 @@ import (
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes)
+	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.WatchedResources["RDS"])
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
 			con.RouteConfigs[r.Name] = r

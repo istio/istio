@@ -82,17 +82,12 @@ type XdsConnection struct {
 	RouteConfigs map[string]*route.RouteConfiguration `json:"-"`
 	CDSClusters  []*cluster.Cluster
 
-	NoncesSent map[string]string
-	NoncesAcked map[string]string
-
-	// current list of clusters monitored by the client
-	Clusters []string
+	NoncesSent       map[string]string
+	NoncesAcked      map[string]string
+	WatchedResources map[string][]string
 
 	// Both ADS and EDS streams implement this interface
 	stream DiscoveryStream
-
-	// Routes is the list of watched Routes.
-	Routes []string
 
 	// LDSWatch is set if the remote server is watching Listeners
 	LDSWatch bool
@@ -125,15 +120,15 @@ type XdsEvent struct {
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
-		pushChannel:  make(chan *XdsEvent),
-		PeerAddr:     peerAddr,
-		Clusters:     []string{},
-		Connect:      time.Now(),
-		stream:       stream,
-		LDSListeners: []*listener.Listener{},
-		RouteConfigs: map[string]*route.RouteConfiguration{},
+		pushChannel:      make(chan *XdsEvent),
+		PeerAddr:         peerAddr,
+		Connect:          time.Now(),
+		stream:           stream,
+		LDSListeners:     []*listener.Listener{},
+		RouteConfigs:     map[string]*route.RouteConfiguration{},
 		NoncesSent:       map[string]string{},
-		NoncesAcked:       map[string]string{},
+		NoncesAcked:      map[string]string{},
+		WatchedResources: map[string][]string{},
 	}
 }
 
@@ -419,17 +414,11 @@ func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.Disco
 	}
 
 	// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
-	if len(clusters) == 0 && len(con.Clusters) == 0 {
+	if len(clusters) == 0 && len(con.WatchedResources["EDS"]) == 0 {
 		return nil
 	}
 
-	// Already got a list of endpoints to watch and it is the same as the request, this is an ack
-	if listEqualUnordered(con.Clusters, clusters) {
-		return nil
-	}
-
-	con.Clusters = clusters
-	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters))
+	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.WatchedResources["EDS"]))
 	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
 	if err != nil {
 		return err
@@ -438,9 +427,7 @@ func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.Disco
 }
 
 func (s *DiscoveryServer) handleRds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
-	routes := discReq.GetResourceNames()
-	con.Routes = routes
-	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes))
+	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.WatchedResources["RDS"]))
 	err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 	if err != nil {
 		return err
@@ -592,7 +579,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		edsUpdatedServices := model.ConfigNamesOfKind(pushEv.configsUpdated, model.ServiceEntryKind)
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
-		if len(con.Clusters) > 0 && len(edsUpdatedServices) > 0 {
+		if len(con.WatchedResources["EDS"]) > 0 && len(edsUpdatedServices) > 0 {
 			if err := s.pushEds(pushEv.push, con, versionInfo(), edsUpdatedServices); err != nil {
 				return err
 			}
@@ -653,7 +640,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		s.StatusReporter.RegisterEvent(con.ConID, ClusterEventType, pushEv.noncePrefix)
 	}
 
-	if len(con.Clusters) > 0 && pushTypes[EDS] {
+	if len(con.WatchedResources["EDS"]) > 0 && pushTypes[EDS] {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
 			return err
@@ -669,7 +656,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	} else if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, ListenerEventType, pushEv.noncePrefix)
 	}
-	if len(con.Routes) > 0 && pushTypes[RDS] {
+	if len(con.WatchedResources["RDS"]) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
@@ -807,6 +794,7 @@ func (conn *XdsConnection) send(res *discovery.DiscoveryResponse) error {
 		err := conn.stream.Send(res)
 		conn.mu.Lock()
 		if res.Nonce != "" {
+			adsLog.Debugf("ADS:%s: sent nonce %v", getShortType(res.TypeUrl), res.Nonce)
 			conn.NoncesSent[getShortType(res.TypeUrl)] = res.Nonce
 		}
 		conn.mu.Unlock()

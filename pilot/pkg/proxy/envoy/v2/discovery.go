@@ -230,8 +230,8 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 			if model.LastPushStatus != push {
 				model.LastPushStatus = push
 				push.UpdateMetrics()
-				out, _ := model.LastPushStatus.StatusJSON()
-				adsLog.Infof("Push Status: %s", string(out))
+				//out, _ := model.LastPushStatus.StatusJSON()
+				//adsLog.Infof("Push Status: %s", string(out))
 			}
 			model.LastPushMutex.Unlock()
 

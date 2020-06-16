@@ -514,7 +514,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		return nil, err
 	}
 
-	routes := s.ConfigGenerator.BuildHTTPRoutes(conn.node, s.globalPushContext(), conn.Routes)
+	routes := s.ConfigGenerator.BuildHTTPRoutes(conn.node, s.globalPushContext(), conn.WatchedResources["RDS"])
 	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
@@ -626,7 +626,7 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 
 	comma := false
 	_, _ = fmt.Fprintln(w, "[")
-	for _, clusterName := range con.Clusters {
+	for _, clusterName := range con.WatchedResources["EDS"] {
 		if comma {
 			_, _ = fmt.Fprint(w, ",\n")
 		} else {

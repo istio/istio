@@ -12,6 +12,7 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
+
 	"istio.io/pkg/log"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -26,11 +27,12 @@ func triggerPush() {
 
 var (
 	node = &core.Node{
-Id: "sidecar~10.244.0.36~alpine-554487f8f8-sgnmm.default~default.svc.cluster.local",
-}
-	resourceNames = []string{"outbound|9087||shell.default.svc.cluster.local"}
+		Id: "sidecar~10.244.0.36~alpine-554487f8f8-sgnmm.default~default.svc.cluster.local",
+	}
+	resourceNames  = []string{"outbound|9087||shell.default.svc.cluster.local"}
 	resourceNames2 = []string{"outbound|9087||shell.default.svc.cluster.local", "outbound|8080||shell.default.svc.cluster.local"}
 )
+
 func main() {
 	grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 	adsc, err := connectADS("localhost:15010")

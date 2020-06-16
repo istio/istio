@@ -426,7 +426,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
-	for _, clusterName := range con.Clusters {
+	for _, clusterName := range con.WatchedResources["EDS"] {
 
 		l := s.generateEndpoints(clusterName, con.node, push, edsUpdatedServices)
 		if l == nil {
@@ -454,10 +454,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 	if edsUpdatedServices == nil {
 		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
-			con.node.ID, len(con.Clusters), endpoints, empty)
+			con.node.ID, len(con.WatchedResources["EDS"]), endpoints, empty)
 	} else {
 		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
-			con.node.ID, len(con.Clusters), endpoints, empty)
+			con.node.ID, len(con.WatchedResources["EDS"]), endpoints, empty)
 	}
 	return nil
 }
