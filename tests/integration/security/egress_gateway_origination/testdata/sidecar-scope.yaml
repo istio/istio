@@ -9,3 +9,4 @@ spec:
         - "istio-system/*"
     outboundTrafficPolicy:
       mode: ALLOW_ANY
+
