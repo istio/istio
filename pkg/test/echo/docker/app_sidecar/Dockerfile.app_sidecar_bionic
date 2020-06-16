@@ -1,5 +1,5 @@
 FROM ubuntu:bionic
-# sidecar docker image with different OS versions
+# Ubuntu 18.04 image for VM testing
 
 ENV DEBIAN_FRONTEND=noninteractive
 

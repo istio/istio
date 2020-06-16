@@ -1,6 +1,5 @@
 FROM debian:10
-# Base image for debug builds.
-# Built manually uploaded as "istionightly/base_debug"
+# Debian 10 image for VM testing
 
 ENV DEBIAN_FRONTEND=noninteractive
 
