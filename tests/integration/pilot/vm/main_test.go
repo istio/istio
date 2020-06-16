@@ -15,6 +15,7 @@
 package vm
 
 import (
+	"istio.io/istio/pkg/test/framework/label"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -31,11 +32,12 @@ var (
 	ns namespace.Instance
 )
 
-// This tests VM mesh expansion. Rather than deal with the infra to get a real VM, we will use a pod
+// This post-submit suite tests VM mesh expansion. Rather than deal with the infra to get a real VM, we will use a pod
 // with no Service, no DNS, no service account, etc to simulate a VM.
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("vm_test", m).
+		Label(label.Postsubmit).
 		RequireSingleCluster().
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `

@@ -35,6 +35,7 @@ func TestVmOS(t *testing.T) {
 
 	framework.
 		NewTest(t).
+		Features("extensibility.vm").
 		Run(func(ctx framework.TestContext) {
 			ns = namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "virtual-machine",
