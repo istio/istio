@@ -5,10 +5,8 @@ metadata:
 spec:
   host: some-external-site.com
   trafficPolicy:
-    loadBalancer:
-      simple: ROUND_ROBIN
     portLevelSettings:
       - port:
           number: 443
         tls:
-          mode: SIMPLE # initiates HTTP for connections to server
+          mode: SIMPLE # initiates HTTPS for connections to server

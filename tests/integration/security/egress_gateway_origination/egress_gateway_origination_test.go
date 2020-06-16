@@ -41,7 +41,7 @@ import (
 )
 
 func mustReadCert(t *testing.T, f string) string {
-	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}
@@ -79,7 +79,7 @@ func TestEgressGatewayTls(t *testing.T) {
 				"No TLS origination from egress gateway returns 503 response": {
 					destinationRulePath: disableTLSDestinationRuleConfig,
 					response:            []string{response.StatusCodeUnavailable},
-					portName:            "http",
+					portName:            "https",
 				},
 			}
 
@@ -134,7 +134,7 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 			Service:   "client",
 			Namespace: appsNamespace,
 			Pilot:     p,
-			Subsets:   []echo.SubsetConfig{},
+			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		With(&server, echo.Config{
 			Service:   "destination",
@@ -151,18 +151,17 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 					// HTTPS port
 					Name:        "https",
 					Protocol:    protocol.HTTPS,
-					ServicePort: 9443,
+					ServicePort: 443,
 					TLS:         true,
 				},
 			},
 			Pilot: p,
 			// Set up TLS certs on the server. This will make the server listen with these credentials.
 			TLSSettings: &common.TLSSettings{
-				RootCert:   mustReadCert(t, "root-cert.pem"),
-				ClientCert: mustReadCert(t, "cert-chain.pem"),
-				Key:        mustReadCert(t, "key.pem"),
-				// Override hostname to match the SAN in the cert we are using
-				Hostname: "destination.default.svc",
+				// Echo has these test certs baked into the docker image
+				RootCert:   mustReadCert(t, "cacert.pem"),
+				ClientCert: mustReadCert(t, "cert.crt"),
+				Key:        mustReadCert(t, "cert.key"),
 			},
 			// Do not inject, as we are testing non-Istio TLS here
 			Subsets: []echo.SubsetConfig{{
@@ -173,10 +172,11 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 		BuildOrFail(t)
 
 	// External traffic should work even if we have service entries on the same ports
+	// Only Service namespace is known so that app namespace "appears" to be outside the mesh
 	if err := ctx.ApplyConfig(appsNamespace.Name(), file.AsStringOrFail(ctx, sidecarScopeConfig)); err != nil {
 		ctx.Fatalf("failed to apply configuration file %s; err: %v", sidecarScopeConfig, err)
 	}
-	// Apply Egress Gateway for service
+	// Apply Egress Gateway for service namespace to handle external traffic
 	if err := ctx.ApplyConfig(serviceNamespace.Name(), file.AsStringOrFail(ctx, simpleTLSGatewayConfig)); err != nil {
 		ctx.Fatalf("failed to apply configuration file %s; err: %v", simpleTLSGatewayConfig, err)
 	}
