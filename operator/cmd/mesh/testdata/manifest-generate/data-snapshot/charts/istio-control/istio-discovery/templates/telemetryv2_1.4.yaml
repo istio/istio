@@ -240,6 +240,6 @@ spec:
                 code:
                   inline_string: envoy.wasm.null.stackdriver
 ---
-{{- end}}
-{{- end}}
-{{- end}}
+{{- end }}
+{{- end }}
+{{- end }}

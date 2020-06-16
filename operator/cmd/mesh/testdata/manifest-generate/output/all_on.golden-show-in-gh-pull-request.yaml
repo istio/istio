@@ -7830,7 +7830,7 @@ subjects:
   name: prometheus
   namespace: istio-system
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-istio-system
@@ -7864,6 +7864,7 @@ webhooks:
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
@@ -10880,7 +10881,7 @@ data:
                               cluster: out.galley.15019
                               timeout: 0.000s
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector
@@ -10898,6 +10899,7 @@ webhooks:
         path: "/inject"
       caBundle: ""
     sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]

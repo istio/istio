@@ -30,7 +30,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"k8s.io/api/admission/v1beta1"
+	kubeApiAdmission "k8s.io/api/admission/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -603,8 +603,12 @@ func TestWebhookInject(t *testing.T) {
 			if err != nil {
 				t.Fatalf(err.Error())
 			}
-			got := wh.inject(&v1beta1.AdmissionReview{
-				Request: &v1beta1.AdmissionRequest{
+			got := wh.inject(&kubeApiAdmission.AdmissionReview{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "admission.k8s.io/v1",
+					Kind:       "AdmissionReview",
+				},
+				Request: &kubeApiAdmission.AdmissionRequest{
 					Object: runtime.RawExtension{
 						Raw: podJSON,
 					},
@@ -749,8 +753,12 @@ func TestHelmInject(t *testing.T) {
 					// pod configuration. But since our input files are deployments, rather than actual pod instances,
 					// we have to apply the patch to the template portion of the deployment only.
 					templateJSON := convertToJSON(inputDeployment.Spec.Template, t)
-					got := webhook.inject(&v1beta1.AdmissionReview{
-						Request: &v1beta1.AdmissionRequest{
+					got := webhook.inject(&kubeApiAdmission.AdmissionReview{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: "admission.k8s.io/v1",
+							Kind:       "AdmissionReview",
+						},
+						Request: &kubeApiAdmission.AdmissionRequest{
 							Object: runtime.RawExtension{
 								Raw: templateJSON,
 							},
@@ -1132,13 +1140,17 @@ func makeTestData(t testing.TB, skip bool) []byte {
 		t.Fatalf("Could not create test pod: %v", err)
 	}
 
-	review := v1beta1.AdmissionReview{
-		Request: &v1beta1.AdmissionRequest{
+	review := kubeApiAdmission.AdmissionReview{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "admission.k8s.io/v1",
+			Kind:       "AdmissionReview",
+		},
+		Request: &kubeApiAdmission.AdmissionRequest{
 			Kind: metav1.GroupVersionKind{},
 			Object: runtime.RawExtension{
 				Raw: raw,
 			},
-			Operation: v1beta1.Create,
+			Operation: kubeApiAdmission.Create,
 		},
 	}
 	reviewJSON, err := json.Marshal(review)
@@ -1367,7 +1379,7 @@ func TestRunAndServe(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not read body: %v", err)
 			}
-			var gotReview v1beta1.AdmissionReview
+			var gotReview kubeApiAdmission.AdmissionReview
 			if err := json.Unmarshal(gotBody, &gotReview); err != nil {
 				t.Fatalf("could not decode response body: %v", err)
 			}

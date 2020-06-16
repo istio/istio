@@ -24,9 +24,9 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
-	kubeApiAdmission "k8s.io/api/admission/v1beta1"
+	kubeApiAdmission "k8s.io/api/admission/v1"
 	kubeApiApps "k8s.io/api/apps/v1beta1"
-	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
@@ -147,7 +147,7 @@ func (wh *Webhook) Run(stopCh <-chan struct{}) {
 }
 
 func toAdmissionResponse(err error) *kubeApiAdmission.AdmissionResponse {
-	return &kubeApiAdmission.AdmissionResponse{Result: &kubeApisMeta.Status{Message: err.Error()}}
+	return &kubeApiAdmission.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
 
 type admitFunc func(*kubeApiAdmission.AdmissionRequest) *kubeApiAdmission.AdmissionResponse
@@ -174,14 +174,24 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	}
 
 	var reviewResponse *kubeApiAdmission.AdmissionResponse
-	ar := kubeApiAdmission.AdmissionReview{}
+	ar := kubeApiAdmission.AdmissionReview{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "admission.k8s.io/v1",
+			Kind:       "AdmissionReview",
+		},
+	}
 	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
 		reviewResponse = toAdmissionResponse(fmt.Errorf("could not decode body: %v", err))
 	} else {
 		reviewResponse = admit(ar.Request)
 	}
 
-	response := kubeApiAdmission.AdmissionReview{}
+	response := kubeApiAdmission.AdmissionReview{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "admission.k8s.io/v1",
+			Kind:       "AdmissionReview",
+		},
+	}
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		if ar.Request != nil {
