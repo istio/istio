@@ -27,6 +27,21 @@ spec:
         resources:
           requests:
             cpu: 2000m
+        env:
+        # Env var used for control plane Stackdriver monitoring enablement.
+        - name: ENABLE_STACKDRIVER_MONITORING
+          value: true
+        # POD_NAME and POD_NAMESPACE are used for control plane metrics monitored resource.
+        - name: ASM_CONTROL_PLANE_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: ASM_CONTROL_PLANE_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
   addonComponents:
     # Grafana is disabled by default, but supported with --set values.grafana.enabled=true
     # This requires enabling prometheus.
