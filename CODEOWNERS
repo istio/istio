@@ -4,6 +4,7 @@
 /Makefile.core.mk                                                @istio/wg-test-and-release-maintainers
 /bin/                                                            @istio/wg-test-and-release-maintainers
 /cmd/istiod/                                                     @istio/wg-environments-maintainers
+/cni/                                                            @istio/wg-networking-maintainers
 /common/                                                         @istio/wg-test-and-release-maintainers
 /common-protos/                                                  @istio/wg-test-and-release-maintainers
 /galley/                                                         @istio/wg-networking-maintainers
