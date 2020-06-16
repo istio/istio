@@ -40,9 +40,12 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	}()
 
 	var err error
-	s.environment.Watcher, err = mesh.NewWatcher(fileWatcher, args.MeshConfigFile)
-	if err == nil {
-		return
+	if args.MeshConfigFile != "" {
+		s.environment.Watcher, err = mesh.NewWatcher(fileWatcher, args.MeshConfigFile)
+		if err == nil {
+			return
+		}
+		log.Warnf("Watching mesh config file %s failed: %v", args.MeshConfigFile, err)
 	}
 
 	// Config file either wasn't specified or failed to load - use a default mesh.
