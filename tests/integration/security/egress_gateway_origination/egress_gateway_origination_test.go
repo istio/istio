@@ -81,6 +81,11 @@ func TestEgressGatewayTls(t *testing.T) {
 					response:            []string{response.StatusCodeUnavailable},
 					portName:            "http",
 				},
+				"No TLS origination from egress gateway to https endpoint": {
+					destinationRulePath: disableTLSDestinationRuleConfig,
+					response:            []string{response.StatusCodeUnavailable},
+					portName:            "https",
+				},
 				"No TLS origination from egress gateway to http endpoint": {
 					destinationRulePath: disableTLSDestinationRuleConfig,
 					response:            []string{response.StatusCodeOK},

@@ -42,7 +42,7 @@ spec:
         - destination:
             host: destination.app.svc.cluster.local
             port:
-              number: 443
+              number: 80
           weight: 100
       headers:
         request:
