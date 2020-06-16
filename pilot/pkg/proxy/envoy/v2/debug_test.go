@@ -217,31 +217,31 @@ func TestConfigDump(t *testing.T) {
 			s, tearDown := initLocalPilotTestEnv(t)
 			defer tearDown()
 
-			envoy, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
+			envoy, cancel, err := connectADS(util.MockPilotGrpcAddr)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer cancel()
-			if err := sendCDSReqv2(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+			if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
 				t.Fatal(err)
 			}
-			if err := sendLDSReqv2(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+			if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
 				t.Fatal(err)
 			}
 			// Only most recent proxy will have routes
-			if err := sendRDSReqv2(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
+			if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
 				t.Fatal(err)
 			}
 			// Expect CDS, LDS, then RDS
-			_, err = adsReceivev2(envoy, 5*time.Second)
+			_, err = adsReceive(envoy, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv cds failed", err)
 			}
-			_, err = adsReceivev2(envoy, 5*time.Second)
+			_, err = adsReceive(envoy, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv lds failed", err)
 			}
-			_, err = adsReceivev2(envoy, 5*time.Second)
+			_, err = adsReceive(envoy, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv rds failed", err)
 			}

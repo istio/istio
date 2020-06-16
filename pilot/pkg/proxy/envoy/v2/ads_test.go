@@ -91,15 +91,15 @@ func TestInternalEvents(t *testing.T) {
 func TestAdsReconnectWithNonce(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
-	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReqv2([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceivev2(edsstr, 15*time.Second)
+	res, err := adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	// closes old process
 	cancel()
 
-	edsstr, cancel, err = connectADSv2(util.MockPilotGrpcAddr)
+	edsstr, cancel, err = connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,11 +117,11 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReqv2([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, _ = adsReceivev2(edsstr, 15*time.Second)
+	res, _ = adsReceive(edsstr, 15*time.Second)
 
 	t.Log("Received ", res)
 }
@@ -170,7 +170,7 @@ func TestAdsReconnect(t *testing.T) {
 	t.Log("Received ", m)
 }
 
-func sendAndReceive(t *testing.T, node string, client AdsClientv2, typeURL string, errMsg string) *xdsapi.DiscoveryResponse {
+func sendAndReceivev2(t *testing.T, node string, client AdsClientv2, typeURL string, errMsg string) *xdsapi.DiscoveryResponse {
 	if err := sendXdsv2(node, client, typeURL, errMsg); err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func sendAndReceive(t *testing.T, node string, client AdsClientv2, typeURL strin
 	return res
 }
 
-func sendAndReceiveV3(t *testing.T, node string, client AdsClient, typeURL string, errMsg string) *discovery.DiscoveryResponse {
+func sendAndReceive(t *testing.T, node string, client AdsClient, typeURL string, errMsg string) *discovery.DiscoveryResponse {
 	if err := sendXds(node, client, typeURL, errMsg); err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func sendAndReceiveV3(t *testing.T, node string, client AdsClient, typeURL strin
 }
 
 // xdsTest runs a given function with a local pilot environment. This is used to test the ADS handling.
-func xdsTest(t *testing.T, name string, fn func(t *testing.T, client AdsClientv2)) {
+func xdsv2Test(t *testing.T, name string, fn func(t *testing.T, client AdsClientv2)) {
 	t.Run(name, func(t *testing.T) {
 		_, tearDown := initLocalPilotTestEnv(t)
 		defer tearDown()
@@ -208,7 +208,7 @@ func xdsTest(t *testing.T, name string, fn func(t *testing.T, client AdsClientv2
 }
 
 // xdsTest runs a given function with a local pilot environment. This is used to test the ADS handling.
-func xdsV3Test(t *testing.T, name string, fn func(t *testing.T, client AdsClient)) {
+func xdsTest(t *testing.T, name string, fn func(t *testing.T, client AdsClient)) {
 	t.Run(name, func(t *testing.T) {
 		_, tearDown := initLocalPilotTestEnv(t)
 		defer tearDown()
@@ -225,9 +225,9 @@ func xdsV3Test(t *testing.T, name string, fn func(t *testing.T, client AdsClient
 func TestAdsVersioning(t *testing.T) {
 	node := sidecarID(app3Ip, "app3")
 
-	xdsTest(t, "version mismatch", func(t *testing.T, client AdsClientv2) {
+	xdsv2Test(t, "version mismatch", func(t *testing.T, client AdsClientv2) {
 		// Send a v2 CDS request, expect v2 response
-		res := sendAndReceive(t, node, client, v2.ClusterType, "")
+		res := sendAndReceivev2(t, node, client, v2.ClusterType, "")
 		if res.TypeUrl != v2.ClusterType {
 			t.Fatalf("expected type %v, got %v", v2.ClusterType, res.TypeUrl)
 		}
@@ -242,7 +242,23 @@ func TestAdsVersioning(t *testing.T) {
 		}
 	})
 
-	xdsTest(t, "send v2", func(t *testing.T, client AdsClientv2) {
+	xdsv2Test(t, "send v2", func(t *testing.T, client AdsClientv2) {
+		// Send v2 request, expect v2 response
+		res := sendAndReceivev2(t, node, client, v2.ClusterType, "")
+		if res.TypeUrl != v2.ClusterType {
+			t.Fatalf("expected type %v, got %v", v2.ClusterType, res.TypeUrl)
+		}
+	})
+
+	xdsv2Test(t, "send v3", func(t *testing.T, client AdsClientv2) {
+		// Send v3 request, expect v3 response
+		res := sendAndReceivev2(t, node, client, v3.ClusterType, "")
+		if res.TypeUrl != v3.ClusterType {
+			t.Fatalf("expected type %v, got %v", v3.ClusterType, res.TypeUrl)
+		}
+	})
+
+	xdsTest(t, "send v2 with v3 transport", func(t *testing.T, client AdsClient) {
 		// Send v2 request, expect v2 response
 		res := sendAndReceive(t, node, client, v2.ClusterType, "")
 		if res.TypeUrl != v2.ClusterType {
@@ -250,25 +266,9 @@ func TestAdsVersioning(t *testing.T) {
 		}
 	})
 
-	xdsTest(t, "send v3", func(t *testing.T, client AdsClientv2) {
+	xdsTest(t, "send v3 with v3 transport", func(t *testing.T, client AdsClient) {
 		// Send v3 request, expect v3 response
 		res := sendAndReceive(t, node, client, v3.ClusterType, "")
-		if res.TypeUrl != v3.ClusterType {
-			t.Fatalf("expected type %v, got %v", v3.ClusterType, res.TypeUrl)
-		}
-	})
-
-	xdsV3Test(t, "send v2 with v3 transport", func(t *testing.T, client AdsClient) {
-		// Send v2 request, expect v2 response
-		res := sendAndReceiveV3(t, node, client, v2.ClusterType, "")
-		if res.TypeUrl != v2.ClusterType {
-			t.Fatalf("expected type %v, got %v", v2.ClusterType, res.TypeUrl)
-		}
-	})
-
-	xdsV3Test(t, "send v3 with v3 transport", func(t *testing.T, client AdsClient) {
-		// Send v3 request, expect v3 response
-		res := sendAndReceiveV3(t, node, client, v3.ClusterType, "")
 		if res.TypeUrl != v3.ClusterType {
 			t.Fatalf("expected type %v, got %v", v3.ClusterType, res.TypeUrl)
 		}
@@ -796,17 +796,17 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cancel()
 
-	err = sendRDSReqv2(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceivev2(edsstr, 15*time.Second)
+	res, err := adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -816,7 +816,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
 
-	res, err = adsReceivev2(edsstr, 15*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -825,17 +825,17 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	}
 
 	// send a protocol error
-	err = sendRDSReqv2(gatewayID(gatewayIP), nil, res.Nonce, edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), nil, res.Nonce, edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Refresh routes
-	err = sendRDSReqv2(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	res, err = adsReceivev2(edsstr, 15*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -849,17 +849,17 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	edsstr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cancel()
 
-	err = sendRDSReqv2(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceivev2(edsstr, 15*time.Second)
+	res, err := adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -876,7 +876,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
 
-	res, err = adsReceivev2(edsstr, 15*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -892,11 +892,11 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	}
 
 	// Test update from A -> B
-	err = sendRDSReqv2(gatewayID(gatewayIP), []string{routeB}, "", edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeB}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err = adsReceivev2(edsstr, 15*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -909,12 +909,12 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	}
 
 	// Test update from B -> A, B
-	err = sendRDSReqv2(gatewayID(gatewayIP), []string{routeA, routeB}, res.Nonce, edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, res.Nonce, edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	res, err = adsReceivev2(edsstr, 15*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -941,11 +941,11 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 
 	// Test update from B, B -> A
 
-	err = sendRDSReqv2(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err = adsReceivev2(edsstr, 15*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
