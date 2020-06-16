@@ -76,10 +76,15 @@ func TestEgressGatewayTls(t *testing.T) {
 					response:            []string{response.StatusCodeOK},
 					portName:            "https",
 				},
-				"No TLS origination from egress gateway returns 503 response": {
-					destinationRulePath: disableTLSDestinationRuleConfig,
+				"TLS origination from egress gateway to http endpoint": {
+					destinationRulePath: simpleTLSDestinationRuleConfig,
 					response:            []string{response.StatusCodeUnavailable},
-					portName:            "https",
+					portName:            "http",
+				},
+				"No TLS origination from egress gateway to http endpoint": {
+					destinationRulePath: disableTLSDestinationRuleConfig,
+					response:            []string{response.StatusCodeOK},
+					portName:            "http",
 				},
 			}
 
@@ -151,7 +156,7 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 					// HTTPS port
 					Name:        "https",
 					Protocol:    protocol.HTTPS,
-					ServicePort: 9443,
+					ServicePort: 8443,
 					TLS:         true,
 				},
 			},
