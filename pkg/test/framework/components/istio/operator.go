@@ -24,6 +24,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -57,6 +58,8 @@ type operatorComponent struct {
 	settings    Config
 	ctx         resource.Context
 	environment *kube.Environment
+
+	mu sync.Mutex
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
 	installManifest map[string]string
@@ -140,6 +143,12 @@ func (i *operatorComponent) Dump() {
 	}
 }
 
+func (i *operatorComponent) saveInstallManifest(name string, out string) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.installManifest[name] = out
+}
+
 func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {
 	scopes.Framework.Infof("=== Istio Component Config ===")
 	scopes.Framework.Infof("\n%s", cfg.String())
@@ -186,13 +195,22 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// Deploy the Istio control plane(s)
+	errG := multierror.Group{}
 	for _, cluster := range env.KubeClusters {
 		if env.IsControlPlaneCluster(cluster) {
-			if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
-				return nil, fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
-			}
+			cluster := cluster
+			errG.Go(func() error {
+				if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
+					return fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
+				}
+				return nil
+			})
 		}
 	}
+	if errs := errG.Wait(); errs != nil {
+		return nil, fmt.Errorf("%d errors occurred deploying control plane clusters: %v", errs.Len(), errs.ErrorOrNil())
+	}
+
 	// Wait for all of the control planes to be started before deploying remote clusters
 	for _, cluster := range env.KubeClusters {
 		if env.IsControlPlaneCluster(cluster) {
@@ -203,12 +221,20 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// Deploy Istio to remote clusters
+	errG = multierror.Group{}
 	for _, cluster := range env.KubeClusters {
 		if !env.IsControlPlaneCluster(cluster) {
-			if err := deployControlPlane(i, cfg, cluster, remoteIopFile); err != nil {
-				return nil, fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
-			}
+			cluster := cluster
+			errG.Go(func() error {
+				if err := deployControlPlane(i, cfg, cluster, remoteIopFile); err != nil {
+					return fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
+				}
+				return nil
+			})
 		}
+	}
+	if errs := errG.Wait(); errs != nil {
+		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
 	if env.IsMulticluster() {
@@ -388,7 +414,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	if err != nil {
 		return err
 	}
-	c.installManifest[cluster.Name()] = out
+	c.saveInstallManifest(cluster.Name(), out)
 
 	// Actually run the manifest apply command
 	cmd := []string{
