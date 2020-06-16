@@ -106,10 +106,9 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 				totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs, res.RetCodes)
 
 			// We expect to receive 250 429's as the rate limit is set to allow 50 requests in 30s.
-			// Thus, to make test less flaky, we just wait to validate that we receive atlease 250
-			// requests reported from prometheus.
+			// Waiting to receive 50 requests.
 			got429s, _ := util.FetchRequestCount(t, prom, destinationService, "", bookInfoNameSpaceStr,
-				250)
+				50)
 			if got429s == 0 {
 				attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
 					util.Fqdn(destinationService, bookInfoNameSpaceStr)),
