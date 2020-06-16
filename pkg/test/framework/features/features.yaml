@@ -56,5 +56,6 @@ features:
       plugin-cert:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
+    vm:
   # features releated to the lifecycle of istio installations
   installation:
