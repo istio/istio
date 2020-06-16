@@ -133,17 +133,8 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,
-			Ports:     []echo.Port{},
 			Pilot:     p,
-			Subsets: []echo.SubsetConfig{{
-				Version: "v1",
-				// Set up custom annotations to mount the certs. We will re-use the configmap created by "server"
-				// so that we don't need to manage it ourselves.
-				// The paths here match the destination rule above
-				Annotations: echo.NewAnnotations().
-					Set(echo.SidecarVolume, `{"custom-certs":{"configMap":{"name":"server-certs"}}}`).
-					Set(echo.SidecarVolumeMount, `{"custom-certs":{"mountPath":"/etc/certs/custom"}}`),
-			}},
+			Subsets:   []echo.SubsetConfig{},
 		}).
 		With(&server, echo.Config{
 			Service:   "destination",
