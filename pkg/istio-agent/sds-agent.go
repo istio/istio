@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/pkg/config/constants"
@@ -209,7 +210,16 @@ type Agent struct {
 
 	// Listener for the XDS proxy
 	LocalXDSListener net.Listener
+
+	// ProxyGen is a generator for proxied types - will 'generate' XDS by using
+	// an adsc connection.
 	proxyGen         *xds.ProxyGen
+
+	// used for XDS portion.
+	localListener   net.Listener
+	localGrpcServer *grpc.Server
+
+	xdsServer *xds.Server
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -294,7 +304,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputK
 	}
 
 	// Init the XDS proxy part of the agent.
-	a.initXDS(proxyConfig)
+	a.initXDS()
 
 	return a
 }

@@ -27,7 +27,6 @@ import (
 type controller struct {
 	monitor     Monitor
 	configStore model.ConfigStore
-	schemas     *collection.Schemas
 }
 
 // NewController return an implementation of model.ConfigStoreCache
