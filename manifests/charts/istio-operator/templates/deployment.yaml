@@ -25,7 +25,7 @@ spec:
 {{ toYaml .Values.operator.resources | trim | indent 12 }}
           env:
             - name: WATCH_NAMESPACE
-              value: {{.Values.istioNamespace}}
+              value: {{.Values.watchedNamespaces}}
             - name: LEADER_ELECTION_NAMESPACE
               value: {{.Values.operatorNamespace}}
             - name: POD_NAME
