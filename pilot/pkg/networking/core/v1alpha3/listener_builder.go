@@ -277,7 +277,7 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 }
 func (lb *ListenerBuilder) patchListeners() {
 	if lb.node.Type == model.Router {
-		envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, lb.node, lb.push, lb.gatewayListeners, false)
+		lb.gatewayListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, lb.node, lb.push, lb.gatewayListeners, false)
 		return
 	}
 
