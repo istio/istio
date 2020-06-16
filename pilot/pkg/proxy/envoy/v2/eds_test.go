@@ -31,8 +31,6 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
-	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -69,10 +67,7 @@ func TestEds(t *testing.T) {
 		server.EnvoyXdsServer.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 		server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 			newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
-	},
-		func(args *bootstrap.PilotArgs) {
-			args.MeshConfig.LocalityLbSetting = &v1alpha3.LocalityLoadBalancerSetting{}
-		})
+	})
 	defer tearDown()
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)

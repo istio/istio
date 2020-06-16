@@ -23,7 +23,6 @@ import (
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -52,8 +51,6 @@ type Config struct {
 	// The MeshConfig to be used for Pilot in native environment. In Kube environment this can be
 	// configured with Helm.
 	MeshConfig *meshConfig.MeshConfig
-
-	ServiceArgs bootstrap.ServiceArgs
 
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
