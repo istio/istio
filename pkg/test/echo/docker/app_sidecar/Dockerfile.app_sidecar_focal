@@ -1,6 +1,5 @@
 FROM ubuntu:focal
-# Base image for debug builds.
-# Built manually uploaded as "istionightly/base_debug"
+# ubuntu 20.04 image for VM testing
 
 ENV DEBIAN_FRONTEND=noninteractive
 
