@@ -28,9 +28,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 
-	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/adsc"
@@ -45,11 +43,6 @@ func TestLDSIsolated(t *testing.T) {
 
 	// Sidecar in 'none' mode
 	t.Run("sidecar_none", func(t *testing.T) {
-		// TODO: add a Service with EDS resolution in the none ns.
-		// The ServiceEntry only allows STATIC - both STATIC and EDS should generated TCP listeners on :port
-		// while DNS and NONE should generate old-style bind ports.
-		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
-
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 			Meta: model.NodeMetadata{
 				InterceptionMode: model.InterceptionNone,
@@ -80,8 +73,6 @@ func TestLDSIsolated(t *testing.T) {
 		// We do not get mixer on 9091 because there are no services defined in istio-system namespace
 		// in the none.yaml setup
 		if len(ldsr.GetHTTPListeners()) != 4 {
-			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
-			// for the service (the http proxy is already covering this)
 			t.Error("HTTP listeners, expecting 4 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())
 		}
 
@@ -114,13 +105,6 @@ func TestLDSIsolated(t *testing.T) {
 				}
 			}
 		}
-
-		// TODO: check bind==true
-		// TODO: verify listeners for outbound are on 127.0.0.1 (not yet), port 2000, 2005, 2007
-		// TODO: verify virtual listeners for unsupported cases
-		// TODO: add and verify SNI listener on 127.0.0.1:443
-		// TODO: verify inbound service port is on 127.0.0.1, and containerPort on 0.0.0.0
-		// TODO: BUG, SE with empty endpoints is rejected - it is actually valid config (service may not have endpoints)
 	})
 
 	// Test for the examples in the ServiceEntry doc
@@ -145,11 +129,6 @@ func TestLDSIsolated(t *testing.T) {
 		if _, err := ldsr.Wait(5*time.Second, "lds"); err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
-		}
-
-		err = ldsr.Save(env.IstioOut + "/seexample")
-		if err != nil {
-			t.Fatal(err)
 		}
 	})
 
@@ -176,11 +155,6 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 			return
 		}
-
-		err = ldsr.Save(env.IstioOut + "/seexample-eg")
-		if err != nil {
-			t.Fatal(err)
-		}
 	})
 
 }
@@ -190,13 +164,11 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
-		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope"
-		args.Mesh.MixerAddress = ""
-		args.MeshConfig = nil
-		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
-		args.Service.Registries = []string{}
+		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope"
+		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
+		args.RegistryOptions.Registries = []string{}
 	})
-	testEnv = testenv.NewTestSetup(testenv.SidecarTest, t)
+	testEnv = env.NewTestSetup(env.SidecarTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
@@ -252,12 +224,11 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 func TestLDSWithIngressGateway(t *testing.T) {
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
-		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/ingress-gateway"
-		args.Mesh.MixerAddress = ""
-		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/ingress-gateway/mesh.yaml"
-		args.Service.Registries = []string{}
+		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/ingress-gateway"
+		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/ingress-gateway/mesh.yaml"
+		args.RegistryOptions.Registries = []string{}
 	})
-	testEnv = testenv.NewTestSetup(testenv.GatewayTest, t)
+	testEnv = env.NewTestSetup(env.GatewayTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
@@ -328,10 +299,6 @@ func TestLDS(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 			return
 		}
-
-		strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
-		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
-
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
 		}
@@ -353,35 +320,24 @@ func TestLDS(t *testing.T) {
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
 		}
-
-		strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
-
-		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
-
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
 		}
 	})
-
-	// TODO: compare with some golden once it's stable
-	// check that each mocked service and destination rule has a corresponding resource
-
-	// TODO: dynamic checks ( see EDS )
 }
 
 // TestLDS using sidecar scoped on workload without Service
 func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
-		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service"
-		args.Mesh.MixerAddress = ""
-		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service/mesh.yaml"
-		args.Service.Registries = []string{}
+		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service"
+		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service/mesh.yaml"
+		args.RegistryOptions.Registries = []string{}
 	})
 	registry := memServiceDiscovery(server, t)
 	registry.AddWorkload("98.1.1.1", labels.Instance{"app": "consumeronly"}) // These labels must match the sidecars workload selector
 
-	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
+	testEnv = env.NewTestSetup(env.SidecarConsumerOnlyTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
@@ -449,10 +405,9 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
-		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
-		args.Mesh.MixerAddress = ""
-		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service/mesh.yaml"
-		args.Service.Registries = []string{}
+		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
+		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service/mesh.yaml"
+		args.RegistryOptions.Registries = []string{}
 	})
 	registry := memServiceDiscovery(server, t)
 	// The labels of 98.1.1.1 must match the envoyfilter workload selector
@@ -460,7 +415,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	registry.AddWorkload("98.1.1.2", labels.Instance{"app": "no-envoyfilter-test-app"})
 	registry.AddWorkload("98.1.1.3", labels.Instance{})
 
-	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
+	testEnv = env.NewTestSetup(env.SidecarConsumerOnlyTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
@@ -579,10 +534,3 @@ func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *v2.MemServiceD
 	}
 	return registry
 }
-
-// TODO: helper to test the http listener content
-// - file access log
-// - generate request id
-// - cors, fault, router filters
-// - tracing
-//

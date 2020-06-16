@@ -77,9 +77,4 @@ func TestRDS(t *testing.T) {
 			}
 		})
 	}
-
-	// TODO: compare with some golden once it's stable
-	// check that each mocked service and destination rule has a corresponding resource
-
-	// TODO: dynamic checks ( see EDS )
 }

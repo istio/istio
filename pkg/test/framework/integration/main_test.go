@@ -18,11 +18,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("framework_test", m).
-		RequireEnvironment(environment.Native).
-		Run()
+	framework.NewSuite("framework_test", m).Run()
 }

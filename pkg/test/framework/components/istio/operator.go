@@ -24,28 +24,29 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
 
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pilot/pkg/leaderelection"
-	kube2 "istio.io/istio/pkg/test/kube"
-
-	"istio.io/api/mesh/v1alpha1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/hashicorp/go-multierror"
 
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	meshAPI "istio.io/api/mesh/v1alpha1"
+	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests
@@ -96,7 +97,6 @@ var leaderElectionConfigMaps = []string{
 	leaderelection.IngressController,
 	leaderelection.NamespaceController,
 	leaderelection.ValidationController,
-	leaderelection.StatusController,
 }
 
 func (i *operatorComponent) Close() (err error) {
@@ -173,14 +173,16 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	// Generate the istioctl config file
 	iopFile := filepath.Join(workDir, "iop.yaml")
-	operatorYaml := cfg.IstioOperatorConfigYAML()
-	if env.IsMultinetwork() {
-		meshNetworksYaml := meshNetworkSettings(cfg, env)
-		operatorYaml += Indent("global:\n", "    ")
-		operatorYaml += Indent(meshNetworksYaml, "      ")
+	if err := initIOPFile(cfg, env, iopFile, cfg.ControlPlaneValues); err != nil {
+		return nil, err
 	}
-	if err := ioutil.WriteFile(iopFile, []byte(operatorYaml), os.ModePerm); err != nil {
-		return nil, fmt.Errorf("failed to write iop: %v", err)
+
+	remoteIopFile := iopFile
+	if cfg.RemoteClusterValues != "" {
+		remoteIopFile = filepath.Join(workDir, "remote.yaml")
+		if err := initIOPFile(cfg, env, remoteIopFile, cfg.RemoteClusterValues); err != nil {
+			return nil, err
+		}
 	}
 
 	// Deploy the Istio control plane(s)
@@ -203,7 +205,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Deploy Istio to remote clusters
 	for _, cluster := range env.KubeClusters {
 		if !env.IsControlPlaneCluster(cluster) {
-			if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
+			if err := deployControlPlane(i, cfg, cluster, remoteIopFile); err != nil {
 				return nil, fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
 			}
 		}
@@ -234,6 +236,62 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	return i, nil
+}
+
+func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml string) error {
+	operatorYaml := cfg.IstioOperatorConfigYAML(valuesYaml)
+
+	operatorCfg := &pkgAPI.IstioOperator{}
+	if err := protomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
+		return fmt.Errorf("failed to unmsarshal base iop: %v", err)
+	}
+	var values = &pkgAPI.Values{}
+	if operatorCfg.Spec.Values != nil {
+		valuesYml, err := yaml.Marshal(operatorCfg.Spec.Values)
+		if err != nil {
+			return fmt.Errorf("failed to marshal base values: %v", err)
+		}
+		if err := protomarshal.ApplyYAML(string(valuesYml), values); err != nil {
+			return fmt.Errorf("failed to unmsarshal base values: %v", err)
+		}
+	}
+
+	if env.IsMultinetwork() {
+		if values.Global == nil {
+			values.Global = &pkgAPI.GlobalConfig{}
+		}
+		if values.Global.MeshNetworks == nil {
+			meshNetworks, err := protomarshal.ToJSONMap(meshNetworkSettings(cfg, env))
+			if err != nil {
+				return fmt.Errorf("failed to convert meshNetworks: %v", err)
+			}
+			values.Global.MeshNetworks = meshNetworks["networks"].(map[string]interface{})
+		}
+	}
+
+	valuesMap, err := protomarshal.ToJSONMap(values)
+	if err != nil {
+		return fmt.Errorf("failed to convert values to json map: %v", err)
+	}
+	operatorCfg.Spec.Values = valuesMap
+
+	// marshaling entire operatorCfg causes panic because of *time.Time in ObjectMeta
+	out, err := protomarshal.ToYAML(operatorCfg.Spec)
+	if err != nil {
+		return fmt.Errorf("failed marshaling iop spec: %v", err)
+	}
+
+	out = fmt.Sprintf(`
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+%s`, Indent(out, "  "))
+
+	if err := ioutil.WriteFile(iopFile, []byte(out), os.ModePerm); err != nil {
+		return fmt.Errorf("failed to write iop: %v", err)
+	}
+
+	return nil
 }
 
 func createCrossNetworkGateway(cluster kube.Cluster, cfg Config) error {
@@ -348,30 +406,31 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 
 // meshNetworkSettings builds the values for meshNetworks with an endpoint in each network per-cluster.
 // Assumes that the registry service is always istio-ingressgateway.
-func meshNetworkSettings(cfg Config, environment *kube.Environment) string {
-	meshNetworks := v1alpha1.MeshNetworks{Networks: make(map[string]*v1alpha1.Network)}
-	defaultGateways := []*v1alpha1.Network_IstioNetworkGateway{{
-		Gw: &v1alpha1.Network_IstioNetworkGateway_RegistryServiceName{
+func meshNetworkSettings(cfg Config, environment *kube.Environment) *meshAPI.MeshNetworks {
+	meshNetworks := meshAPI.MeshNetworks{Networks: make(map[string]*meshAPI.Network)}
+	defaultGateways := []*meshAPI.Network_IstioNetworkGateway{{
+		Gw: &meshAPI.Network_IstioNetworkGateway_RegistryServiceName{
 			RegistryServiceName: "istio-ingressgateway." + cfg.IngressNamespace + ".svc.cluster.local",
 		},
 		Port: 443,
 	}}
 
 	for networkName, clusters := range environment.ClustersByNetwork() {
-		network := &v1alpha1.Network{
-			Endpoints: make([]*v1alpha1.Network_NetworkEndpoints, len(clusters)),
+		network := &meshAPI.Network{
+			Endpoints: make([]*meshAPI.Network_NetworkEndpoints, len(clusters)),
 			Gateways:  defaultGateways,
 		}
 		for i, cluster := range clusters {
-			network.Endpoints[i] = &v1alpha1.Network_NetworkEndpoints{
-				Ne: &v1alpha1.Network_NetworkEndpoints_FromRegistry{
+			network.Endpoints[i] = &meshAPI.Network_NetworkEndpoints{
+				Ne: &meshAPI.Network_NetworkEndpoints_FromRegistry{
 					FromRegistry: cluster.Name(),
 				},
 			}
 		}
 		meshNetworks.Networks[networkName] = network
 	}
-	return strings.Replace(util.ToYAMLWithJSONPB(&meshNetworks), "networks:", "meshNetworks:", 1)
+
+	return &meshNetworks
 }
 
 func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {

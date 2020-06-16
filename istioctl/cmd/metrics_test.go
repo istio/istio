@@ -29,29 +29,23 @@ import (
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
-	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/kubernetes"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/kube"
+	testKube "istio.io/istio/pkg/test/kube"
 
 	prometheus_model "github.com/prometheus/common/model"
 )
-
-// mockPortForwardConfig includes a partial implementation of mocking istioctl's Kube client
-type mockPortForwardConfig struct {
-	discoverablePods map[string]map[string]*v1.PodList
-}
 
 // mockPromAPI lets us mock calls to Prometheus API
 type mockPromAPI struct {
 	cannedResponse map[string]prometheus_model.Value
 }
 
-func mockExecClientAuthNoPilot(_, _ string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
-	return &mockExecConfig{}, nil
+func mockExecClientAuthNoPilot(_, _, _ string) (kube.Client, error) {
+	return &testKube.MockClient{}, nil
 }
 
 func TestMetricsNoPrometheus(t *testing.T) {
-	clientExecFactory = mockExecClientAuthNoPilot
+	kubeClientWithRevision = mockExecClientAuthNoPilot
 
 	cases := []testCase{
 		{ // case 0
@@ -74,7 +68,7 @@ func TestMetricsNoPrometheus(t *testing.T) {
 }
 
 func TestMetrics(t *testing.T) {
-	clientExecFactory = mockPortForwardClientAuthPrometheus
+	kubeClientWithRevision = mockPortForwardClientAuthPrometheus
 
 	cases := []testCase{
 		{ // case 0
@@ -91,9 +85,9 @@ func TestMetrics(t *testing.T) {
 	}
 }
 
-func mockPortForwardClientAuthPrometheus(_, _ string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
-	return &mockPortForwardConfig{
-		discoverablePods: map[string]map[string]*v1.PodList{
+func mockPortForwardClientAuthPrometheus(_, _, _ string) (kube.Client, error) {
+	return &testKube.MockClient{
+		DiscoverablePods: map[string]map[string]*v1.PodList{
 			"istio-system": {
 				"app=prometheus": {
 					Items: []v1.Pod{
@@ -109,40 +103,8 @@ func mockPortForwardClientAuthPrometheus(_, _ string, _ clioptions.ControlPlaneO
 	}, nil
 }
 
-// nolint: unparam
-func (client mockPortForwardConfig) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[string][]byte, error) {
-	return nil, fmt.Errorf("mockPortForwardConfig doesn't mock Pilot discovery")
-}
-
-// nolint: unparam
-func (client mockPortForwardConfig) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
-	return nil, fmt.Errorf("mockPortForwardConfig doesn't mock Envoy")
-}
-
-func (client mockPortForwardConfig) GetIstioVersions(namespace string) (*version.MeshInfo, error) {
-	return nil, nil
-}
-
-func (client mockPortForwardConfig) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
-	podsForNamespace, ok := client.discoverablePods[namespace]
-	if !ok {
-		return &v1.PodList{}, nil
-	}
-	podsForLabel, ok := podsForNamespace[labelSelector]
-	if !ok {
-		return &v1.PodList{}, nil
-	}
-	return podsForLabel, nil
-}
-
-func (client mockPortForwardConfig) BuildPortForwarder(podName, ns, localAddr string, localPort int, podPort int) (*kubernetes.PortForward, error) {
-	// TODO make istioctl/pkg/kubernetes/client.go use pkg/test/kube/port_forwarder.go
-	// so that the port forward can be mocked.
-	return nil, fmt.Errorf("TODO mockPortForwardConfig doesn't mock port forward")
-}
-
 func TestAPI(t *testing.T) {
-	_, _ = prometheusAPI(1234)
+	_, _ = prometheusAPI(fmt.Sprintf("http://localhost:%d", 1234))
 }
 
 var _ promv1.API = mockPromAPI{}

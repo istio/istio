@@ -54,7 +54,7 @@ func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	for i := range s.KubeConfig {
 		a, err := newAccessor(s.KubeConfig[i], workDir)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("accessor setup: %v", err)
 		}
 		clusterIndex := resource.ClusterIndex(i)
 		e.KubeClusters = append(e.KubeClusters, Cluster{

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package prometheus
+package http
 
 import (
 	"fmt"
@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
 	promUtil "istio.io/istio/tests/integration/telemetry/stats/prometheus"
@@ -64,14 +63,10 @@ func GetPromInstance() prometheus.Instance {
 func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			sourceQuery, destinationQuery, appQuery := buildQuery()
 			retry.UntilSuccessOrFail(t, func() error {
-				if _, err := client.Call(echo.CallOptions{
-					Target:   server,
-					PortName: "http",
-				}); err != nil {
+				if err := SendTraffic(); err != nil {
 					return err
 				}
 				// Query client side metrics
@@ -140,6 +135,15 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 	return nil
+}
+
+// SendTraffic makes a client call to the "server" service on the http port.
+func SendTraffic() error {
+	_, err := client.Call(echo.CallOptions{
+		Target:   server,
+		PortName: "http",
+	})
+	return err
 }
 
 func SetupStrictMTLS(ctx resource.Context) error {

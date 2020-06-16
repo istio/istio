@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 )
 
@@ -76,7 +75,6 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 
 func TestWait(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "default",
@@ -106,7 +104,6 @@ spec:
 func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			cfg := i.Settings()
 
@@ -147,7 +144,6 @@ func TestVersion(t *testing.T) {
 
 func TestDescribe(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-describe",
@@ -208,7 +204,6 @@ func getPodID(i echo.Instance) (string, error) {
 
 func TestAddToAndRemoveFromMesh(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-add-to-mesh",
@@ -247,7 +242,6 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-pc",
@@ -321,7 +315,6 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-ps",
@@ -361,7 +354,6 @@ func TestProxyStatus(t *testing.T) {
 
 func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-authz",

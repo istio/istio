@@ -29,12 +29,12 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -176,12 +176,12 @@ func countVersions(versionCount map[string]int, configVersion string) {
 }
 
 func poll(acceptedVersions []string, targetResource string, opts clioptions.ControlPlaneOptions) (present, notpresent int, err error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
+	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
 		return 0, 0, err
 	}
 	path := fmt.Sprintf("/debug/config_distribution?resource=%s", targetResource)
-	pilotResponses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, path)
+	pilotResponses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
 	if err != nil {
 		return 0, 0, fmt.Errorf("unable to query pilot for distribution "+
 			"(are you using pilot version >= 1.4 with config distribution tracking on): %s", err)
@@ -212,11 +212,11 @@ func poll(acceptedVersions []string, targetResource string, opts clioptions.Cont
 
 func init() {
 	clientGetter = func(kubeconfig, context string) (dynamic.Interface, error) {
-		baseClient, err := kubernetes.NewClient(kubeconfig, context)
+		config, err := kube.DefaultRestConfig(kubeconfig, context)
 		if err != nil {
 			return nil, err
 		}
-		cfg := dynamic.ConfigFor(baseClient.Config)
+		cfg := dynamic.ConfigFor(config)
 		dclient, err := dynamic.NewForConfig(cfg)
 		if err != nil {
 			return nil, err

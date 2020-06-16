@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
+	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -951,7 +952,7 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 
 func hasAlpnFilter(filters []*hcm.HttpFilter) bool {
 	for _, f := range filters {
-		if f.Name == AlpnFilterName {
+		if f.Name == xdsfilters.AlpnFilterName {
 			return true
 		}
 	}
@@ -2488,7 +2489,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 		Push:             push,
 	}
 
-	out := mergeTCPFilterChains(incomingFilterChains, params, "0.0.0.0_443", listenerMap, node)
+	out := mergeTCPFilterChains(incomingFilterChains, params, "0.0.0.0_443", listenerMap)
 
 	if len(out) != 3 {
 		t.Errorf("Got %d filter chains, expected 3", len(out))

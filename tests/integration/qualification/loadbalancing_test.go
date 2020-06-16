@@ -44,7 +44,6 @@ const (
 
 // NOTE: To avoid noise due to autoscaling, set the following helm values to the same value (>1):
 //
-// --istio.test.env=kubernetes
 // --istio.test.kube.helm.values=gateways.istio-ingressgateway.replicaCount=3,\
 //                               gateways.istio-ingressgateway.autoscaleMin=3,\
 //                               gateways.istio-ingressgateway.autoscaleMax=3

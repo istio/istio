@@ -22,12 +22,7 @@ spec:
           - server
           imagePullPolicy: IfNotPresent
           resources:
-            limits:
-              cpu: 200m
-              memory: 256Mi
-            requests:
-              cpu: 50m
-              memory: 128Mi
+{{ toYaml .Values.operator.resources | trim | indent 12 }}
           env:
             - name: WATCH_NAMESPACE
               value: {{.Values.istioNamespace}}

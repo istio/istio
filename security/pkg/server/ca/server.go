@@ -138,56 +138,6 @@ func recordCertsExpiry(keyCertBundle util.KeyCertBundle) {
 	certChainExpiryTimestamp.Record(certChainExpiry)
 }
 
-// HandleCSR handles an incoming certificate signing request (CSR). It does
-// proper validation (e.g. authentication) and upon validated, signs the CSR
-// and returns the resulting certificate. If not approved, reason for refusal
-// to sign is returned as part of the response object.
-// [TODO](myidpt): Deprecate this function.
-func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.CsrResponse, error) {
-	s.monitoring.CSR.Increment()
-	caller := s.authenticate(ctx)
-	if caller == nil || len(caller.Identities) == 0 {
-		serverCaLog.Warn("request authentication failure, no caller identity")
-		s.monitoring.AuthnError.Increment()
-		return nil, status.Error(codes.Unauthenticated, "request authenticate failure, no caller identity")
-	}
-
-	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
-	if err != nil {
-		serverCaLog.Warnf("CSR Pem parsing error (error %v)", err)
-		s.monitoring.CSRError.Increment()
-		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
-	}
-
-	_, err = util.ExtractIDs(csr.Extensions)
-	if err != nil {
-		serverCaLog.Warnf("CSR identity extraction error (%v)", err)
-		s.monitoring.IDExtractionError.Increment()
-		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
-	}
-
-	// TODO: Call authorizer.
-
-	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
-	cert, signErr := s.ca.Sign(
-		request.CsrPem, caller.Identities, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
-	if signErr != nil {
-		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
-		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
-		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", signErr.(*caerror.Error))
-	}
-
-	response := &pb.CsrResponse{
-		IsApproved: true,
-		SignedCert: cert,
-		CertChain:  certChainBytes,
-	}
-	serverCaLog.Debug("CSR successfully signed.")
-	s.monitoring.Success.Increment()
-
-	return response, nil
-}
-
 // Run starts a GRPC server on the specified port.
 func (s *Server) Run() error {
 	grpcServer := s.grpcServer
@@ -205,7 +155,6 @@ func (s *Server) Run() error {
 
 		grpcServer = grpc.NewServer(grpcOptions...)
 	}
-	pb.RegisterIstioCAServiceServer(grpcServer, s)
 	pb.RegisterIstioCertificateServiceServer(grpcServer, s)
 
 	grpc_prometheus.EnableHandlingTimeHistogram()

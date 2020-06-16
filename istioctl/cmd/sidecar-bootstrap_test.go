@@ -223,7 +223,7 @@ func TestVmBootstrap(t *testing.T) {
 func verifyVMCommandCaseOutput(t *testing.T, c vmBootstrapTestcase) {
 	t.Helper()
 
-	clientFactory = mockClientFactoryGenerator(c.cannedIstioConfig)
+	configStoreFactory = mockClientFactoryGenerator(c.cannedIstioConfig)
 	interfaceFactory = mockInterfaceFactoryGenerator(c.cannedK8sConfig)
 
 	var out bytes.Buffer
