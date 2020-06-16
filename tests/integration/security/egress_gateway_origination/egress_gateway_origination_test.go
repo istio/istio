@@ -126,6 +126,12 @@ const (
 	sidecarScopeConfig     = "testdata/sidecar-scope.yaml"
 )
 
+
+// setupEcho creates two namespaces app and service. It also brings up two echo instances server and
+// client in app namespace. HTTP and HTTPS port on the server echo are set up. Sidecar scope config
+// is applied to only allow egress traffic to service namespace such that when client to server calls are made
+// we are able to simulate "external" traffic by going outside this namespace. Egress Gateway is set up in the
+// service namespace to handle egress for "external" calls.
 func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Instance, namespace.Instance) {
 	p := pilot.NewOrFail(t, ctx, pilot.Config{})
 
