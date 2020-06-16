@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	grpcAddr         = "127.0.0.1:14056"
+	grpcAddr         = "127.0.0.1:14057"
 	grpcUpstreamAddr = grpcAddr
 )
 
@@ -46,7 +46,7 @@ func initDS() *xds.Server {
 	sd.SetEndpoints("fortio1.fortio.svc.cluster.local", "", []*model.IstioEndpoint{
 		{
 			Address:         "127.0.0.1",
-			EndpointPort:    uint32(14056),
+			EndpointPort:    uint32(14057),
 			ServicePortName: "http-main",
 		},
 	})
