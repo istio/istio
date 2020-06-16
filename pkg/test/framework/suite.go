@@ -33,7 +33,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/environment/native"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -115,15 +114,6 @@ func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSetti
 	return s
 }
 
-// EnvironmentFactory sets a custom function used for creating the resource.Environment for this Suite.
-func (s *Suite) EnvironmentFactory(fn resource.EnvironmentFactory) *Suite {
-	if fn != nil && s.envFactory != nil {
-		scopes.Framework.Warn("EnvironmentFactory overridden multiple times for Suite")
-	}
-	s.envFactory = fn
-	return s
-}
-
 // Label all the tests in suite with the given labels
 func (s *Suite) Label(labels ...label.Instance) *Suite {
 	s.labels = s.labels.Add(labels...)
@@ -133,21 +123,6 @@ func (s *Suite) Label(labels ...label.Instance) *Suite {
 // Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
 func (s *Suite) Skip(reason string) *Suite {
 	s.skipMessage = reason
-	return s
-}
-
-// RequireEnvironment ensures that the current environment matches what the suite expects. Otherwise it
-// stops test execution. This also applies the appropriate label to the suite implicitly.
-func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
-	fn := func(ctx resource.Context) error {
-		if name != ctx.Environment().EnvironmentName() {
-			s.Skip(fmt.Sprintf("Required environment (%v) does not match current: %v",
-				name, ctx.Environment().EnvironmentName()))
-		}
-		return nil
-	}
-
-	s.requireFns = append(s.requireFns, fn)
 	return s
 }
 
@@ -232,18 +207,6 @@ func (s *Suite) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error) {
 	}()
 	err = fn(ctx)
 	return
-}
-
-// SetupOnEnv runs the given setup function conditionally, based on the current environment.
-func (s *Suite) SetupOnEnv(e environment.Name, fn resource.SetupFn) *Suite {
-	s.Setup(func(ctx resource.Context) error {
-		if ctx.Environment().EnvironmentName() != e {
-			return nil
-		}
-		return fn(ctx)
-	})
-
-	return s
 }
 
 // Run the suite. This method calls os.Exit and does not return.
@@ -440,8 +403,6 @@ func initRuntime(s *Suite) error {
 
 func newEnvironment(name string, ctx resource.Context) (resource.Environment, error) {
 	switch name {
-	case environment.Native.String():
-		return native.New(ctx)
 	case environment.Kube.String():
 		s, err := kube.NewSettingsFromCommandLine()
 		if err != nil {

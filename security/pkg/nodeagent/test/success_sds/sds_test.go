@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/mixer/test/client/env"
+	"istio.io/istio/pkg/test/env"
 	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
 )
 

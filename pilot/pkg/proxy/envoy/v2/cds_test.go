@@ -14,11 +14,9 @@
 package v2_test
 
 import (
-	"io/ioutil"
 	"testing"
 
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/tests/util"
 )
 
@@ -42,16 +40,10 @@ func TestCDS(t *testing.T) {
 		return
 	}
 
-	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
-	_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
-
-	t.Log("CDS response", strResponse)
 	if len(res.Resources) == 0 {
 		t.Fatal("No response")
 	}
-
-	// TODO: dump the response resources, compare with some golden once it's stable
-	// check that each mocked service and destination rule has a corresponding resource
-
-	// TODO: dynamic checks ( see EDS )
+	if res.Resources[0].GetTypeUrl() != v3.ClusterType {
+		t.Fatalf("Unexpected type url. want: %v, got: %v", v3.ClusterType, res.Resources[0].GetTypeUrl())
+	}
 }

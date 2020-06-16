@@ -20,7 +20,7 @@ import (
 	mesh "istio.io/api/mesh/v1alpha1"
 )
 
-// Validate that SDSAgent comes up without errors when configured with file mounted certs.
+// Validate that Agent comes up without errors when configured with file mounted certs.
 func TestSDSAgentWithFileMountedCerts(t *testing.T) {
 	fm := fileMountedCertsEnv
 	fileMountedCertsEnv = true
@@ -31,6 +31,6 @@ func TestSDSAgentWithFileMountedCerts(t *testing.T) {
 	}, "custom", "", "", "kubernetes")
 	_, err := sa.Start(true, "test")
 	if err != nil {
-		t.Fatalf("Unexpected error starting SDSAgent %v", err)
+		t.Fatalf("Unexpected error starting Agent %v", err)
 	}
 }

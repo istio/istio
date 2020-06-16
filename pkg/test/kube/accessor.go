@@ -834,30 +834,29 @@ func (a *accessorImpl) writeContentsToTempFile(contents string) (filename string
 	return
 }
 
-func (a *accessorImpl) splitContentsToFiles(content, filenamePrefix string) ([]string, error) {
+func SplitYamlByKind(content string) map[string]string {
 	cfgs := yml.SplitString(content)
-
-	namespacesAndCrds := &yamlDoc{
-		docType: namespacesAndCRDs,
-	}
-	misc := &yamlDoc{
-		docType: misc,
-	}
+	result := map[string]string{}
 	for _, cfg := range cfgs {
 		var typeMeta kubeApiMeta.TypeMeta
 		if e := yaml.Unmarshal([]byte(cfg), &typeMeta); e != nil {
 			// Ignore invalid parts. This most commonly happens when it's empty or contains only comments.
 			continue
 		}
+		result[typeMeta.Kind] = yml.JoinString(result[typeMeta.Kind], cfg)
+	}
+	return result
+}
 
-		switch typeMeta.Kind {
-		case "Namespace":
-			namespacesAndCrds.append(cfg)
-		case "CustomResourceDefinition":
-			namespacesAndCrds.append(cfg)
-		default:
-			misc.append(cfg)
-		}
+func (a *accessorImpl) splitContentsToFiles(content, filenamePrefix string) ([]string, error) {
+	split := SplitYamlByKind(content)
+	namespacesAndCrds := &yamlDoc{
+		docType: namespacesAndCRDs,
+		content: split["Namespace"],
+	}
+	misc := &yamlDoc{
+		docType: misc,
+		content: split["CustomResourceDefinition"],
 	}
 
 	// If all elements were put into a single doc just return an empty list, indicating that the original
@@ -959,10 +958,6 @@ const (
 type yamlDoc struct {
 	content string
 	docType docType
-}
-
-func (d *yamlDoc) append(c string) {
-	d.content = yml.JoinString(d.content, c)
 }
 
 func (d *yamlDoc) toTempFile(workDir, fileNamePrefix string) (string, error) {

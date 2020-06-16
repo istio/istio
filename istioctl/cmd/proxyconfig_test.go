@@ -20,12 +20,9 @@ import (
 	"strings"
 	"testing"
 
-	v1 "k8s.io/api/core/v1"
-
-	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/kube"
+	testKube "istio.io/istio/pkg/test/kube"
 )
 
 type execTestCase struct {
@@ -38,12 +35,6 @@ type execTestCase struct {
 	goldenFilename string // Expected output stored in golden file
 
 	wantException bool
-}
-
-// mockExecConfig lets us mock calls to remote Envoy and Istio instances
-type mockExecConfig struct {
-	// results is a map of pod to the results of the expected test on the pod
-	results map[string][]byte
 }
 
 func TestProxyConfig(t *testing.T) {
@@ -131,8 +122,8 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 	t.Helper()
 
 	// Override the exec client factory used by proxyconfig.go and proxystatus.go
-	clientExecFactory = mockClientExecFactoryGenerator(c.execClientConfig)
-	envoyClientFactory = mockEnvoyClientFactoryGenerator(c.execClientConfig)
+	kubeClientWithRevision = mockClientExecFactoryGenerator(c.execClientConfig)
+	kubeClient = mockEnvoyClientFactoryGenerator(c.execClientConfig)
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
@@ -168,48 +159,22 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 // mockClientExecFactoryGenerator generates a function with the same signature as
 // kubernetes.NewExecClient() that returns a mock client.
 // nolint: lll
-func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
-	outFactory := func(kubeconfig, configContext string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
-		return mockExecConfig{
-			results: testResults,
+func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ string) (kube.Client, error) {
+	outFactory := func(_, _ string, _ string) (kube.Client, error) {
+		return testKube.MockClient{
+			Results: testResults,
 		}, nil
 	}
 
 	return outFactory
 }
 
-func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
-	outFactory := func(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
-		return mockExecConfig{
-			results: testResults,
+func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kube.Client, error) {
+	outFactory := func(_, _ string) (kube.Client, error) {
+		return testKube.MockClient{
+			Results: testResults,
 		}, nil
 	}
 
 	return outFactory
-}
-
-// nolint: unparam
-func (client mockExecConfig) AllPilotsDiscoveryDo(pilotNamespace, path string) (map[string][]byte, error) {
-	return client.results, nil
-}
-
-// nolint: unparam
-func (client mockExecConfig) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
-	results, ok := client.results[podName]
-	if !ok {
-		return nil, fmt.Errorf("unable to retrieve Pod: pods %q not found", podName)
-	}
-	return results, nil
-}
-
-func (client mockExecConfig) GetIstioVersions(namespace string) (*version.MeshInfo, error) {
-	return nil, nil
-}
-
-func (client mockExecConfig) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
-	return &v1.PodList{}, nil
-}
-
-func (client mockExecConfig) BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*kubernetes.PortForward, error) {
-	return nil, fmt.Errorf("mock k8s does not forward")
 }

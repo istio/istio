@@ -79,27 +79,22 @@ func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest)
 	sg.startPush(TypeURLNACK, []*any.Any{util.MessageToAny(dr)})
 }
 
-// startPush is similar with DiscoveryServer.startPush() - but called directly,
-// since status discovery is not driven by config change events.
-// We also want connection events to be dispatched as soon as possible,
-// they may be consumed by other instances of Istiod to update internal state.
-func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
+// PushAll will immediately send a response to all connections that
+// are watching for the specific type.
+// TODO: additional filters can be added, for example namespace.
+func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
+
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
-	sg.Server.adsClientsMutex.RLock()
+	s.adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
 	pending := []*XdsConnection{}
-	for _, v := range sg.Server.adsClients {
-		if v.node.Active[typeURL] != nil {
+	for _, v := range s.adsClients {
+		if v.node.Active[res.TypeUrl] != nil {
 			pending = append(pending, v)
 		}
 	}
-	sg.Server.adsClientsMutex.RUnlock()
-
-	dr := &discovery.DiscoveryResponse{
-		TypeUrl:   typeURL,
-		Resources: data,
-	}
+	s.adsClientsMutex.RUnlock()
 
 	for _, p := range pending {
 		// p.send() waits for an ACK - which is reasonable for normal push,
@@ -109,12 +104,26 @@ func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
 		// push expects 1000s of envoy connections.
 		con := p
 		go func() {
-			err := con.stream.Send(dr)
+			err := con.stream.Send(res)
 			if err != nil {
 				adsLog.Infoa("Failed to send internal event ", con.ConID, " ", err)
 			}
 		}()
 	}
+}
+
+// startPush is similar with DiscoveryServer.startPush() - but called directly,
+// since status discovery is not driven by config change events.
+// We also want connection events to be dispatched as soon as possible,
+// they may be consumed by other instances of Istiod to update internal state.
+func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
+
+	dr := &discovery.DiscoveryResponse{
+		TypeUrl:   typeURL,
+		Resources: data,
+	}
+
+	sg.Server.PushAll(dr)
 }
 
 // Generate XDS responses about internal events:

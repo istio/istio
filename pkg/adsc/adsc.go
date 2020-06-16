@@ -26,13 +26,12 @@ import (
 	"sync"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -41,6 +40,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -88,7 +88,7 @@ type Config struct {
 	InitialReconnectDelay time.Duration
 
 	// Secrets is the interface used for getting keys and rootCA.
-	Secrets               cache.SecretManager
+	Secrets cache.SecretManager
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -96,7 +96,7 @@ type Config struct {
 type ADSC struct {
 	// Stream is the GRPC connection stream, allowing direct GRPC send operations.
 	// Set after Dial is called.
-	stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
 	conn *grpc.ClientConn
 
@@ -106,7 +106,7 @@ type ADSC struct {
 	// certDir is used if the key and secrets are stored in file system.
 	certDir string
 
-	url     string
+	url string
 
 	watchTime time.Time
 
@@ -167,9 +167,17 @@ type ADSC struct {
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
 	sendNodeMeta bool
 
-	sync        map[string]time.Time
-	syncCh      chan string
-	m           sync.RWMutex
+	sync   map[string]time.Time
+	syncCh chan string
+	m      sync.RWMutex
+
+	// ResponseHandler will be called on each DiscoveryResponse.
+	// TODO: mirror Generator, allow adding handler per type
+	ResponseHandler ResponseHandler
+}
+
+type ResponseHandler interface {
+	HandleResponse(con *ADSC, response *xdsapi.DiscoveryResponse)
 }
 
 const (
@@ -199,7 +207,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
 		syncCh:      make(chan string, len(collections.Pilot.All())),
-		sync: map[string]time.Time{},
+		sync:        map[string]time.Time{},
 	}
 	if certDir != "" {
 		opts.CertDir = certDir
@@ -333,7 +341,7 @@ func (a *ADSC) Run() error {
 		}
 	}
 
-	xds := ads.NewAggregatedDiscoveryServiceClient(a.conn)
+	xds := xdsapi.NewAggregatedDiscoveryServiceClient(a.conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return err
@@ -354,14 +362,14 @@ func (a *ADSC) Run() error {
 
 // HasSyncedConfig returns true if MCP configs have synced
 func (a *ADSC) hasSynced() bool {
-		for _, s := range collections.Pilot.All() {
-			a.m.RLock()
-			t := a.sync[s.Resource().GroupVersionKind().String()]
-			a.m.RUnlock()
-			if t.IsZero() {
-				return false
-			}
+	for _, s := range collections.Pilot.All() {
+		a.m.RLock()
+		t := a.sync[s.Resource().GroupVersionKind().String()]
+		a.m.RUnlock()
+		if t.IsZero() {
+			return false
 		}
+	}
 	return true
 }
 
@@ -381,6 +389,12 @@ func (a *ADSC) handleRecv() {
 
 		// Group-value-kind - used for high level api generator.
 		gvk := strings.SplitN(msg.TypeUrl, "/", 3)
+
+		adscLog.Infoa("Received ", a.url, " type ", msg.TypeUrl,
+				" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
+		if a.ResponseHandler != nil {
+			a.ResponseHandler.HandleResponse(a, msg)
+		}
 
 		if msg.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&
 			len(msg.Resources) > 0 {
@@ -419,6 +433,18 @@ func (a *ADSC) handleRecv() {
 					_ = proto.Unmarshal(valBytes, ll)
 					listeners = append(listeners, ll)
 				}
+			case v3.ListenerType:
+				{
+					ll := &listener.Listener{}
+					_ = proto.Unmarshal(valBytes, ll)
+					listeners = append(listeners, ll)
+				}
+			case v2.ClusterType:
+				{
+					cl := &cluster.Cluster{}
+					_ = proto.Unmarshal(valBytes, cl)
+					clusters = append(clusters, cl)
+				}
 
 			case v3.ClusterType:
 				{
@@ -433,7 +459,18 @@ func (a *ADSC) handleRecv() {
 					_ = proto.Unmarshal(valBytes, el)
 					eds = append(eds, el)
 				}
-
+			case v2.EndpointType:
+				{
+					el := &endpoint.ClusterLoadAssignment{}
+					_ = proto.Unmarshal(valBytes, el)
+					eds = append(eds, el)
+				}
+			case v3.RouteType:
+				{
+					rl := &route.RouteConfiguration{}
+					_ = proto.Unmarshal(valBytes, rl)
+					routes = append(routes, rl)
+				}
 			case v2.RouteType:
 				{
 					rl := &route.RouteConfiguration{}
@@ -940,8 +977,6 @@ func (a *ADSC) WaitConfigSync(max time.Duration) bool {
 	}
 }
 
-
-
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: "",
@@ -1045,7 +1080,7 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 				return err
 			}
 			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-					val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+				val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
 			if err != nil {
 				return err
 			}

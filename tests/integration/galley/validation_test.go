@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/galley/testdatasets/validation"
 	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework"
@@ -68,7 +67,7 @@ func loadTestData(t *testing.T) []testData {
 func TestValidation(t *testing.T) {
 	framework.NewTest(t).
 		// Limit to Kube environment as we're testing integration of webhook with K8s.
-		RequiresEnvironment(environment.Kube).
+
 		Run(func(ctx framework.TestContext) {
 
 			dataset := loadTestData(t)
@@ -180,11 +179,11 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 			}
 			// These CRDs are validated outside of Istio
 			for _, gvk := range []string{
-				"networking.x.k8s.io/v1alpha1/Gateway",
-				"networking.x.k8s.io/v1alpha1/GatewayClass",
-				"networking.x.k8s.io/v1alpha1/HTTPRoute",
-				"networking.x.k8s.io/v1alpha1/TcpRoute",
-				"networking.x.k8s.io/v1alpha1/TrafficSplit",
+				"networking.x-k8s.io/v1alpha1/Gateway",
+				"networking.x-k8s.io/v1alpha1/GatewayClass",
+				"networking.x-k8s.io/v1alpha1/HTTPRoute",
+				"networking.x-k8s.io/v1alpha1/TcpRoute",
+				"networking.x-k8s.io/v1alpha1/TrafficSplit",
 			} {
 				delete(recognized, gvk)
 			}

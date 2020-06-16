@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -31,8 +30,8 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("galley_test", m).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, nil)).
-		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
+		Setup(istio.Setup(nil, nil)).
+		Setup(func(ctx resource.Context) error {
 			cluster = ctx.Environment().Clusters()[0].(kube.Cluster)
 			return nil
 		}).

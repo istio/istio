@@ -52,6 +52,15 @@ func cleanupRT() {
 	rt = nil
 }
 
+// Create a bogus environment for testing. This can be removed when "environments" are removed
+func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *Suite {
+	s := newSuite(testID, fn, osExit, getSettingsFn)
+	s.envFactory = func(name string, ctx resource.Context) (resource.Environment, error) {
+		return fakeEnvironment{}, nil
+	}
+	return s
+}
+
 func TestSuite_Basic(t *testing.T) {
 	defer cleanupRT()
 	g := NewGomegaWithT(t)
@@ -68,7 +77,7 @@ func TestSuite_Basic(t *testing.T) {
 		exitCode = code
 	}
 
-	s := newSuite("tid", runFn, exitFn, defaultSettingsFn)
+	s := newTestSuite("tid", runFn, exitFn, defaultSettingsFn)
 	s.Run()
 
 	g.Expect(runCalled).To(BeTrue())
@@ -91,7 +100,7 @@ func TestSuite_Label_SuiteFilter(t *testing.T) {
 	settings := resource.DefaultSettings()
 	settings.Selector = sel
 
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+	s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 	s.Label(label.CustomSetup)
 	s.Run()
 
@@ -115,51 +124,8 @@ func TestSuite_Label_SuiteAllow(t *testing.T) {
 	settings := resource.DefaultSettings()
 	settings.Selector = sel
 
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+	s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 	s.Label(label.CustomSetup)
-	s.Run()
-
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
-}
-
-func TestSuite_RequireEnvironment(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-	s.RequireEnvironment(environment.Kube)
-	s.Run()
-
-	g.Expect(runSkipped).To(BeTrue())
-}
-
-func TestSuite_RequireEnvironment_Match(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runCalled bool
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runCalled = true
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-	s.RequireEnvironment(environment.Native)
 	s.Run()
 
 	g.Expect(runCalled).To(BeTrue())
@@ -252,9 +218,9 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 			}
 
 			settings := resource.DefaultSettings()
-			settings.EnvironmentFactory = newFakeEnvironmentFactory(c.actual)
 
-			s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+			s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+			s.envFactory = newFakeEnvironmentFactory(c.actual)
 			s.RequireMinClusters(c.min)
 			s.RequireMaxClusters(c.max)
 			s.Run()
@@ -281,7 +247,7 @@ func TestSuite_Setup(t *testing.T) {
 		return 0
 	}
 
-	s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+	s := newTestSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
 
 	var setupCalled bool
 	s.Setup(func(c resource.Context) error {
@@ -305,7 +271,7 @@ func TestSuite_SetupFail(t *testing.T) {
 		return 0
 	}
 
-	s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+	s := newTestSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
 
 	var setupCalled bool
 	s.Setup(func(c resource.Context) error {
@@ -331,7 +297,7 @@ func TestSuite_SetupFail_Dump(t *testing.T) {
 	settings := resource.DefaultSettings()
 	settings.CIMode = true
 
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+	s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 
 	var setupCalled bool
 	s.Setup(func(c resource.Context) error {
@@ -342,64 +308,6 @@ func TestSuite_SetupFail_Dump(t *testing.T) {
 
 	g.Expect(setupCalled).To(BeTrue())
 	g.Expect(runCalled).To(BeFalse())
-}
-
-func TestSuite_SetupOnEnv(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runCalled bool
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runCalled = true
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-
-	var setupCalled bool
-	s.SetupOnEnv(environment.Native, func(c resource.Context) error {
-		setupCalled = true
-		return nil
-	})
-	s.Run()
-
-	g.Expect(setupCalled).To(BeTrue())
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
-}
-
-func TestSuite_SetupOnEnv_Mismatch(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runCalled bool
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runCalled = true
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-
-	var setupCalled bool
-	s.SetupOnEnv(environment.Kube, func(c resource.Context) error {
-		setupCalled = true
-		return nil
-	})
-	s.Run()
-
-	g.Expect(setupCalled).To(BeFalse())
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
 }
 
 func TestSuite_DoubleInit_Error(t *testing.T) {
@@ -435,9 +343,9 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 		errCode2 = errCode
 	}
 
-	s := newSuite("tid1", runFn1, exitFn1, defaultSettingsFn)
+	s := newTestSuite("tid1", runFn1, exitFn1, defaultSettingsFn)
 
-	s2 := newSuite("tid2", runFn2, exitFn2, defaultSettingsFn)
+	s2 := newTestSuite("tid2", runFn2, exitFn2, defaultSettingsFn)
 
 	go s.Run()
 	waitForRun1.Wait()
@@ -460,7 +368,7 @@ func TestSuite_GetResource(t *testing.T) {
 			err = ctx.GetResource(refPtr)
 			return 0
 		}
-		s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+		s := newTestSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
 		s.Setup(func(c resource.Context) error {
 			c.TrackResource(trackedResource)
 			return nil

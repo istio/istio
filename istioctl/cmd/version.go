@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -62,12 +63,12 @@ func newVersionCommand() *cobra.Command {
 }
 
 func getRemoteInfo(opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
+	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
 		return nil, err
 	}
 
-	return kubeClient.GetIstioVersions(istioNamespace)
+	return kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
 }
 
 func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptions) func() (*istioVersion.MeshInfo, error) {
@@ -92,13 +93,13 @@ func getProxyInfoWrapper(opts *clioptions.ControlPlaneOptions) func() (*[]istioV
 }
 
 func getProxyInfo(opts *clioptions.ControlPlaneOptions) (*[]istioVersion.ProxyInfo, error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext, *opts)
+	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
 		return nil, err
 	}
 
 	// Ask Pilot for the Envoy sidecar sync status, which includes the sidecar version info
-	allSyncz, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "/debug/syncz")
+	allSyncz, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "/debug/syncz")
 	if err != nil {
 		return nil, err
 	}

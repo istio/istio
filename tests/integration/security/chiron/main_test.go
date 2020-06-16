@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -33,7 +32,7 @@ func TestMain(m *testing.M) {
 	framework.NewSuite("dns_certificate_test", m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 }
 

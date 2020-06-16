@@ -83,7 +83,7 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	t.Helper()
 
 	// Override the Istio config factory
-	clientFactory = mockClientFactoryGenerator(c.configs)
+	configStoreFactory = mockClientFactoryGenerator(c.configs)
 
 	// Override the K8s config factory
 	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
