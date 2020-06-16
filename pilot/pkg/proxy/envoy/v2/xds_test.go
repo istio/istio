@@ -121,7 +121,10 @@ func gatewayID(ip string) string { //nolint: unparam
 }
 
 // localPilotTestEnv builds a pilot testing environment and it initializes with registry with the passed in init function.
-func localPilotTestEnv(t *testing.T, initFunc func(*bootstrap.Server), additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, util.TearDownFunc) {
+func localPilotTestEnv(
+	t *testing.T,
+	initFunc func(*bootstrap.Server),
+	additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, util.TearDownFunc) { //nolint: unparam
 	initMutex.Lock()
 	defer initMutex.Unlock()
 

@@ -66,8 +66,8 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			// No leader election - different istiod revisions will patch their own cert.
 			caBundlePath := s.caBundlePath
-			if hasCustomTLSCerts(args.TLSOptions) {
-				caBundlePath = args.TLSOptions.CaCertFile
+			if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
+				caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
 			}
 			webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, caBundlePath, s.kubeClient, stop)
 			return nil

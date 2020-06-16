@@ -173,7 +173,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	e := &model.Environment{
 		ServiceDiscovery: aggregate.NewController(),
 		PushContext:      model.NewPushContext(),
-		DomainSuffix:     args.Config.ControllerOptions.DomainSuffix,
+		DomainSuffix:     args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
 
 	s := &Server{
@@ -189,10 +189,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
 	}
 
-	if args.Config.ControllerOptions.WatchedNamespaces != "" {
+	if args.RegistryOptions.KubeOptions.WatchedNamespaces != "" {
 		// Add the control-plane namespace to the list of watched namespaces.
-		args.Config.ControllerOptions.WatchedNamespaces = fmt.Sprintf("%s,%s",
-			args.Config.ControllerOptions.WatchedNamespaces,
+		args.RegistryOptions.KubeOptions.WatchedNamespaces = fmt.Sprintf("%s,%s",
+			args.RegistryOptions.KubeOptions.WatchedNamespaces,
 			args.Namespace,
 		)
 	}
@@ -267,10 +267,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// TODO(irisdingbj):add integration test after centralIstiod finished
-	args.Config.ControllerOptions.FetchCaRoot = nil
-	args.Config.ControllerOptions.CABundlePath = s.caBundlePath
+	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
+	args.RegistryOptions.KubeOptions.CABundlePath = s.caBundlePath
 	if features.CentralIstioD && s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
-		args.Config.ControllerOptions.FetchCaRoot = s.fetchCARoot
+		args.RegistryOptions.KubeOptions.FetchCaRoot = s.fetchCARoot
 	}
 
 	if err := s.initClusterRegistries(args); err != nil {
@@ -293,16 +293,16 @@ func NewServer(args *PilotArgs) (*Server, error) {
 }
 
 func getClusterID(args *PilotArgs) string {
-	clusterID := args.Config.ControllerOptions.ClusterID
+	clusterID := args.RegistryOptions.KubeOptions.ClusterID
 	if clusterID == "" {
-		if hasKubeRegistry(args.Service.Registries) {
+		if hasKubeRegistry(args.RegistryOptions.Registries) {
 			clusterID = string(serviceregistry.Kubernetes)
 		}
 	}
 	return clusterID
 }
 
-// Start starts all components of the Pilot discovery service on the port specified in DiscoveryServiceOptions.
+// Start starts all components of the Pilot discovery service on the port specified in DiscoveryServerOptions.
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
@@ -375,14 +375,14 @@ func (s *Server) WaitUntilCompletion() {
 
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	if hasKubeRegistry(args.Service.Registries) {
+	if hasKubeRegistry(args.RegistryOptions.Registries) {
 		var err error
 		// Used by validation
-		s.kubeConfig, err = kubelib.BuildClientConfig(args.Config.KubeConfig, "")
+		s.kubeConfig, err = kubelib.BuildClientConfig(args.RegistryOptions.KubeConfig, "")
 		if err != nil {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
-		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "", func(config *rest.Config) {
+		s.kubeClient, err = kubelib.CreateClientset(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
 			config.QPS = 20
 			config.Burst = 40
 		})
@@ -390,7 +390,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
 
-		s.metadataClient, err = kubelib.CreateMetadataClient(args.Config.KubeConfig, "")
+		s.metadataClient, err = kubelib.CreateMetadataClient(args.RegistryOptions.KubeConfig, "")
 		if err != nil {
 			return fmt.Errorf("failed creating kube metadata client: %v", err)
 		}
@@ -419,21 +419,21 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) error {
 	log.Info("initializing Istiod admin server")
 	s.httpServer = &http.Server{
-		Addr:    args.DiscoveryOptions.HTTPAddr,
+		Addr:    args.ServerOptions.HTTPAddr,
 		Handler: s.httpMux,
 	}
 
 	// create http listener
-	listener, err := net.Listen("tcp", args.DiscoveryOptions.HTTPAddr)
+	listener, err := net.Listen("tcp", args.ServerOptions.HTTPAddr)
 	if err != nil {
 		return err
 	}
 
 	// Debug Server.
-	s.EnvoyXdsServer.InitDebug(s.httpMux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, wh)
+	s.EnvoyXdsServer.InitDebug(s.httpMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
 
 	// Monitoring Server.
-	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
+	if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
 		return fmt.Errorf("error initializing monitor: %v", err)
 	}
 
@@ -454,7 +454,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	})
 
 	s.initGrpcServer(args.KeepaliveOptions)
-	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
+	grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
 	if err != nil {
 		return err
 	}
@@ -522,7 +522,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 func (s *Server) initDNSServer(args *PilotArgs) {
 	if dns.DNSAddr.Get() != "" {
 		log.Info("initializing DNS server")
-		if err := s.initDNSTLSListener(dns.DNSAddr.Get(), args.TLSOptions); err != nil {
+		if err := s.initDNSTLSListener(dns.DNSAddr.Get(), args.ServerOptions.TLSOptions); err != nil {
 			log.Warna("error initializing DNS-over-TLS listener ", err)
 		}
 
@@ -574,14 +574,14 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error {
-	if args.TLSOptions.CaCertFile == "" && s.ca == nil {
+	if args.ServerOptions.TLSOptions.CaCertFile == "" && s.ca == nil {
 		// Running locally without configured certs - no TLS mode
 		return nil
 	}
 	log.Info("initializing secure discovery service")
 
 	// TODO(ramaraochavali): Restart Server if root certificate changes.
-	root, err := s.getRootCertificate(args.TLSOptions)
+	root, err := s.getRootCertificate(args.ServerOptions.TLSOptions)
 	if err != nil {
 		return err
 	}
@@ -791,7 +791,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	}
 
 	// setup watches for certs
-	if err := s.initCertificateWatches(args.TLSOptions); err != nil {
+	if err := s.initCertificateWatches(args.ServerOptions.TLSOptions); err != nil {
 		// Not crashing istiod - This typically happens if certs are missing and in tests.
 		log.Errorf("error initializing certificate watches: %v", err)
 	}
@@ -801,7 +801,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 // maybeInitDNSCerts initializes DNS certs if needed.
 func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
 	// Generate DNS certificates only if custom certs are not provided via args.
-	if !hasCustomTLSCerts(args.TLSOptions) && s.EnableCA() {
+	if !hasCustomTLSCerts(args.ServerOptions.TLSOptions) && s.EnableCA() {
 		// Create DNS certificates. This allows injector, validation to work without Citadel, and
 		// allows secure SDS connections to Istiod.
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
@@ -955,7 +955,7 @@ func (s *Server) initNamespaceController(args *PilotArgs) {
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
 					log.Infof("Starting namespace controller")
-					nc := kubecontroller.NewNamespaceController(s.fetchCARoot, args.Config.ControllerOptions, s.kubeClient)
+					nc := kubecontroller.NewNamespaceController(s.fetchCARoot, args.RegistryOptions.KubeOptions, s.kubeClient)
 					nc.Run(stop)
 				}).
 				Run(stop)

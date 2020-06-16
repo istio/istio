@@ -164,11 +164,9 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
-		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope"
-		args.Mesh.MixerAddress = ""
-		args.MeshConfig = nil
-		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
-		args.Service.Registries = []string{}
+		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope"
+		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
+		args.RegistryOptions.Registries = []string{}
 	})
 	testEnv = env.NewTestSetup(env.SidecarTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
@@ -226,10 +224,9 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 func TestLDSWithIngressGateway(t *testing.T) {
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
-		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/ingress-gateway"
-		args.Mesh.MixerAddress = ""
-		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/ingress-gateway/mesh.yaml"
-		args.Service.Registries = []string{}
+		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/ingress-gateway"
+		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/ingress-gateway/mesh.yaml"
+		args.RegistryOptions.Registries = []string{}
 	})
 	testEnv = env.NewTestSetup(env.GatewayTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
@@ -333,10 +330,9 @@ func TestLDS(t *testing.T) {
 func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
-		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service"
-		args.Mesh.MixerAddress = ""
-		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service/mesh.yaml"
-		args.Service.Registries = []string{}
+		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service"
+		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service/mesh.yaml"
+		args.RegistryOptions.Registries = []string{}
 	})
 	registry := memServiceDiscovery(server, t)
 	registry.AddWorkload("98.1.1.1", labels.Instance{"app": "consumeronly"}) // These labels must match the sidecars workload selector
@@ -409,10 +405,9 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
-		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
-		args.Mesh.MixerAddress = ""
-		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service/mesh.yaml"
-		args.Service.Registries = []string{}
+		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
+		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service/mesh.yaml"
+		args.RegistryOptions.Registries = []string{}
 	})
 	registry := memServiceDiscovery(server, t)
 	// The labels of 98.1.1.1 must match the envoyfilter workload selector
