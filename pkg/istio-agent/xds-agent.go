@@ -104,11 +104,12 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.Sec
 	// TODO: handle certificates and security - similar with the
 	// code we generate for envoy !
 
+	cfg := &adsc.Config{}
+	if sa.RequireCerts {
+		cfg.Secrets = secrets
+	}
 	ads, err := adsc.Dial(proxyConfig.DiscoveryAddress,
-		"",
-		&adsc.Config{
-			Secrets: secrets,
-		})
+		"", cfg)
 	if err != nil {
 		// Exit immediately - the XDS server is not reachable. The sidecar should restart.
 		// TODO: we can also return an error, but eventually it should still exit - and let

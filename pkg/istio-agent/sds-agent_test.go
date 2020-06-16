@@ -27,7 +27,7 @@ func TestSDSAgentWithFileMountedCerts(t *testing.T) {
 	defer func() { fileMountedCertsEnv = fm }()
 	// Validate that SDS server can start without any error.
 	sa := NewAgent(&mesh.ProxyConfig{
-		DiscoveryAddress: "istiod.istio-system:15012",
+		DiscoveryAddress: "istiod.istio-system:15010",
 	}, "custom", "", "", "kubernetes")
 	_, err := sa.Start(true, "test")
 	if err != nil {
