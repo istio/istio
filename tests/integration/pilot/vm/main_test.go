@@ -15,8 +15,9 @@
 package vm
 
 import (
-	"istio.io/istio/pkg/test/framework/label"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework/components/namespace"
 
