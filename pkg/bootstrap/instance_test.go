@@ -682,6 +682,6 @@ func (f *fakePlatform) Locality() *core.Locality {
 	return &core.Locality{}
 }
 
-func (f *fakePlatform) Labels() map[string]string {
+func (f *fakePlatform) Labels(md map[string]string) map[string]string {
 	return f.labels
 }

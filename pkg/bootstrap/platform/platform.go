@@ -33,7 +33,7 @@ type Environment interface {
 
 	// Labels returns a collection of labels that exist on the underlying
 	// instance, structured as a map for label name to values.
-	Labels() map[string]string
+	Labels(md map[string]string) map[string]string
 }
 
 // Unknown provides a default platform environment for cases in which the platform
@@ -51,6 +51,6 @@ func (*Unknown) Locality() *core.Locality {
 }
 
 // Labels returns an empty map.
-func (*Unknown) Labels() map[string]string {
+func (*Unknown) Labels(md map[string]string) map[string]string {
 	return map[string]string{}
 }

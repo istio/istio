@@ -230,46 +230,49 @@ func (e *gcpEnv) Locality() *core.Locality {
 }
 
 // Labels attempts to retrieve the GCE instance labels from provided metadata within the timeout
-func (e *gcpEnv) Labels() map[string]string {
-	project, _ := e.projectIDFn()
-	zone, _ := e.locationFn()
-	instance, _ := e.instanceNameFn()
-
+// only if the instance is not in a GKE cluster
+func (e *gcpEnv) Labels(md map[string]string) map[string]string {
 	labels := map[string]string{}
+	if _, ok := md[GCPCluster]; ok {
+		return labels
+	}
+
+	project, zone, instance := md[GCPProject], md[GCPLocation], md[GCEInstance]
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	// use explicit credentials with compute.instances.get IAM permissions
-	creds, err := google.FindDefaultCredentials(ctx, compute.CloudPlatformScope)
-	if err != nil {
-		log.Warnf("failed to find default credentials: %v", err)
-		labels["err"] = fmt.Sprintf("failed to find default credentials: %v", err)
-		return labels
-	}
-	computeService, err := compute.NewService(ctx, option.WithCredentials(creds))
-	if err != nil {
-		log.Warnf("failed to create new service: %v", err)
-		labels["err"] = fmt.Sprintf("failed to create new service: %v", err)
-		return labels
-	}
 
 	success := make(chan bool)
+	var instanceLabels map[string]string
 	go func() {
+		// use explicit credentials with compute.instances.get IAM permissions
+		creds, err := google.FindDefaultCredentials(ctx, compute.CloudPlatformScope)
+		if err != nil {
+			log.Warnf("failed to find default credentials: %v", err)
+			success <- false
+			return
+		}
+		computeService, err := compute.NewService(ctx, option.WithCredentials(creds))
+		if err != nil {
+			log.Warnf("failed to create new service: %v", err)
+			success <- false
+			return
+		}
 		instance, err := computeService.Instances.Get(project, zone, instance).Do()
 		if err != nil {
 			log.Warnf("unable to retrieve instance: %v", err)
-			labels["err"] = fmt.Sprintf("unable to retrieve instance: %v", err)
 			success <- false
-		} else {
-			labels = instance.Labels
-			success <- true
+			return
 		}
+		instanceLabels = instance.Labels
+		success <- true
 	}()
 	select {
 	case <-ctx.Done():
 		log.Warnf("context deadline exceeded for instance get request: %v", ctx.Err())
-		labels["err"] = fmt.Sprintf("context deadline exceeded for instance get request: %v", ctx.Err())
-	case <-success:
-		labels["status"] = "success"
+	case ok := <-success:
+		if ok {
+			labels = instanceLabels
+		}
 	}
 	return labels
 }

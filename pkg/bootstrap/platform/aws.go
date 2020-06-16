@@ -88,7 +88,7 @@ func (a *awsEnv) Locality() *core.Locality {
 	}
 }
 
-func (a *awsEnv) Labels() map[string]string {
+func (a *awsEnv) Labels(md map[string]string) map[string]string {
 	return map[string]string{}
 }
 
