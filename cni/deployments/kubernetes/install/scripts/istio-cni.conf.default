@@ -1,0 +1,13 @@
+{
+    "name": "istio-proxy-redirect",
+    "type": "istio-cni",
+    "log_level": "__LOG_LEVEL__",
+    "policy": {
+        "type": "k8s",
+        "k8s_api_root": "https://__KUBERNETES_SERVICE_HOST__:__KUBERNETES_SERVICE_PORT__",
+        "k8s_auth_token": "__SERVICEACCOUNT_TOKEN__"
+    },
+    "kubernetes": {
+        "kubeconfig": "__KUBECONFIG_FILEPATH__"
+    }
+}
