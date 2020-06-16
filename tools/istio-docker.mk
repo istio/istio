@@ -116,7 +116,7 @@ docker.app_sidecar_xenial: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar_xenial: pkg/test/echo/docker/app_sidecar/Dockerfile.app_sidecar_xenial
 	$(DOCKER_RULE)
 
-# Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
+# Test application bundled with the sidecar with ubuntu:bionic (for non-k8s).
 docker.app_sidecar_bionic: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar_bionic: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar_bionic: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
@@ -127,7 +127,7 @@ docker.app_sidecar_bionic: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar_bionic: pkg/test/echo/docker/app_sidecar/Dockerfile.app_sidecar_bionic
 	$(DOCKER_RULE)
 
-# Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
+# Test application bundled with the sidecar with ubuntu:focal (for non-k8s).
 docker.app_sidecar_focal: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar_focal: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar_focal: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
