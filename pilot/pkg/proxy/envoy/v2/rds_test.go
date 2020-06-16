@@ -54,7 +54,7 @@ func TestRDS(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rdsr, cancel, err := connectADSv2(util.MockPilotGrpcAddr)
+			rdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -77,9 +77,4 @@ func TestRDS(t *testing.T) {
 			}
 		})
 	}
-
-	// TODO: compare with some golden once it's stable
-	// check that each mocked service and destination rule has a corresponding resource
-
-	// TODO: dynamic checks ( see EDS )
 }

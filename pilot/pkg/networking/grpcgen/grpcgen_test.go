@@ -40,10 +40,10 @@ import (
 )
 
 var (
-	grpcAddr = "127.0.0.1:14056"
+	grpcAddr = "127.0.0.1:14057"
 
 	// Address of the Istiod gRPC service, used in tests.
-	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14056"
+	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14057"
 )
 
 func TestGRPC(t *testing.T) {
@@ -55,11 +55,11 @@ func TestGRPC(t *testing.T) {
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
 
-	sd.AddHTTPService("istiod.istio-system.svc.cluster.local", "10.10.10.2", 14056)
+	sd.AddHTTPService("istiod.istio-system.svc.cluster.local", "10.10.10.2", 14057)
 	sd.SetEndpoints("istiod.istio-system.svc.cluster.local", "", []*model.IstioEndpoint{
 		{
 			Address:         "127.0.0.1",
-			EndpointPort:    uint32(14056),
+			EndpointPort:    uint32(14057),
 			ServicePortName: "http-main",
 		},
 	})
@@ -82,7 +82,7 @@ func TestGRPC(t *testing.T) {
 			Addresses: []string{"1.2.3.4"},
 
 			Ports: []*networking.Port{
-				{Number: 14056, Name: "grpc-insecure", Protocol: "http"},
+				{Number: 14057, Name: "grpc-insecure", Protocol: "http"},
 			},
 
 			Endpoints: []*networking.WorkloadEntry{
@@ -136,7 +136,7 @@ func TestGRPC(t *testing.T) {
 	})
 
 	t.Run("gRPC-dial", func(t *testing.T) {
-		conn, err := grpc.Dial("xds-experimental:///istiod.istio-system.svc.cluster.local:14056", grpc.WithInsecure())
+		conn, err := grpc.Dial("xds-experimental:///istiod.istio-system.svc.cluster.local:14057", grpc.WithInsecure())
 		if err != nil {
 			t.Fatal("XDS gRPC", err)
 		}

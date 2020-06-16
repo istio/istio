@@ -91,7 +91,7 @@ require (
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20171214222146-0e7658f8ee99
 	github.com/hashicorp/consul v1.3.1
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
-	github.com/hashicorp/go-multierror v1.0.0
+	github.com/hashicorp/go-multierror v1.1.0
 	github.com/hashicorp/go-version v1.2.0
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
@@ -168,6 +168,6 @@ require (
 	k8s.io/kubectl v0.18.3
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	sigs.k8s.io/controller-runtime v0.5.1-0.20200327213554-2d4c4877f906
-	sigs.k8s.io/service-apis v0.0.0-20200519184137-2b66cd7216e9
+	sigs.k8s.io/service-apis v0.0.0-20200610082005-c8dc1033d310
 	sigs.k8s.io/yaml v1.2.0
 )

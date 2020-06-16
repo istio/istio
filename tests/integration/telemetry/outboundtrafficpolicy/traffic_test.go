@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package outboundtrafficpolicy
 
 import (
 	"testing"
@@ -30,7 +30,7 @@ var (
 
 func TestMain(m *testing.M) {
 	var ist istio.Instance
-	framework.NewSuite("outbound_traffic_policy_telemetry_v2", m).
+	framework.NewSuite("outbound_traffic_policy", m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, setupConfig)).

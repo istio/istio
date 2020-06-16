@@ -45,7 +45,6 @@ import (
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
-	istioctl_kubernetes "istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
@@ -59,6 +58,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 )
 
@@ -133,13 +133,13 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			// TODO look for port collisions between services targeting this pod
 
-			kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
+			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return err
 			}
 
 			var configClient model.ConfigStore
-			if configClient, err = clientFactory(); err != nil {
+			if configClient, err = configStoreFactory(); err != nil {
 				return err
 			}
 
@@ -923,7 +923,7 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 	}
 }
 
-func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, execClient istioctl_kubernetes.ExecClient) error { // nolint: lll
+func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, client kube.Client) error { // nolint: lll
 
 	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
@@ -948,7 +948,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 	if len(ingressSvcs.Items) == 0 {
 		return fmt.Errorf("no ingress gateway service")
 	}
-	byConfigDump, err := execClient.EnvoyDo(pod.Name, pod.Namespace, "GET", "config_dump", nil)
+	byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump", nil)
 	if err != nil {
 		return fmt.Errorf("failed to execute command on ingress gateway sidecar: %v", err)
 	}
@@ -1129,13 +1129,13 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return nil
 			}
 
-			kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
+			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return err
 			}
 
 			var configClient model.ConfigStore
-			if configClient, err = clientFactory(); err != nil {
+			if configClient, err = configStoreFactory(); err != nil {
 				return err
 			}
 
@@ -1168,10 +1168,10 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecClient, configClient model.ConfigStore, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
+func describePodServices(writer io.Writer, kubeClient kube.Client, configClient model.ConfigStore, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
 	var err error
 
-	byConfigDump, err := kubeClient.EnvoyDo(pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump", nil)
+	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump", nil)
 	if err != nil {
 		if ignoreUnmeshed {
 			return nil

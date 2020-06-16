@@ -1062,7 +1062,7 @@ message PilotConfig {
 
   string jwksResolverExtraRootCA = 32;
 
-  TypeSliceOfMapStringInterface plugins = 33;
+  TypeSliceString plugins = 33;
 
   string hub = 34;
 
@@ -1856,6 +1856,9 @@ message TypeSliceOfMapStringInterface {}
 
 // GOTYPE: *IntOrStringForPB
 message TypeIntOrStringForPB {}
+
+// GOTYPE: []string
+message TypeSliceString {}
 
 // ZeroVPNConfig enables cross-cluster access using SNI matching.
 message ZeroVPNConfig {

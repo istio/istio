@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -147,12 +148,12 @@ var (
 )
 
 func setupPodConfigdumpWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
-	kubeClient, err := envoyClientFactory(kubeconfig, configContext)
+	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "config_dump"
-	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
+	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
 	}
@@ -190,7 +191,7 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 }
 
 func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
-	kubeClient, err := envoyClientFactory(kubeconfig, configContext)
+	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
@@ -198,7 +199,7 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	if param != "" {
 		path = path + "?" + param
 	}
-	result, err := kubeClient.EnvoyDo(podName, podNamespace, "POST", path, nil)
+	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "POST", path, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -226,12 +227,12 @@ func getLogLevelFromConfigMap() (string, error) {
 }
 
 func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
-	kubeClient, err := envoyClientFactory(kubeconfig, configContext)
+	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "clusters?format=json"
-	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
+	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}

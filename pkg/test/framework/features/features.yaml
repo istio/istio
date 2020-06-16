@@ -31,6 +31,7 @@ features:
         client:
         server:
       dashboard:
+      istioctl:
   # features relating to controlling the traffic of the service mesh.
   traffic:
     routing:
@@ -45,6 +46,9 @@ features:
       secure-naming:
     user:
     ingress:
+      mtls:
+      tls:
+    egress:
       mtls:
       tls:
     control-plane:

@@ -63,12 +63,6 @@ func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 					labelValue := "productpage.{{.TestNamespace}}.svc.cluster.local"
 					testMetric(t, ctx, label, labelValue)
 				})
-
-			ctx.NewSubTest("IstioctlPrometheusConnection").
-				Run(func(ctx framework.TestContext) {
-					workload := "productpage-v1"
-					testIstioctl(t, ctx, workload)
-				})
 		})
 }
 

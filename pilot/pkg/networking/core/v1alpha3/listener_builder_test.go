@@ -15,20 +15,27 @@
 package v1alpha3
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/features"
-	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
-
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 type LdsEnv struct {
@@ -308,5 +315,294 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	}
 	if !originalSrcFilterFound {
 		t.Fatalf("listener filter %s expected", xdsfilters.OriginalSrcFilterName)
+	}
+}
+
+func TestListenerBuilderPatchListeners(t *testing.T) {
+
+	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"new-outbound-listener"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"new-inbound-listener"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"new-gateway-listener"}`),
+			},
+		},
+
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 81,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 82,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 83,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+	}
+	configStore := buildEnvoyFilterConfigStore(configPatches)
+
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+
+	gatewayProxy := getDefaultProxy()
+	gatewayProxy.Type = model.Router
+	gatewayProxy.SetGatewaysForProxy(env.PushContext)
+	sidecarProxy := getDefaultProxy()
+	sidecarProxy.SetSidecarScope(env.PushContext)
+	type fields struct {
+		gatewayListeners        []*listener.Listener
+		inboundListeners        []*listener.Listener
+		outboundListeners       []*listener.Listener
+		httpProxyListener       *listener.Listener
+		virtualOutboundListener *listener.Listener
+		virtualInboundListener  *listener.Listener
+	}
+	tests := []struct {
+		name        string
+		proxy       *model.Proxy
+		pushContext *model.PushContext
+		fields      fields
+		want        fields
+	}{
+
+		{
+			name:        "patch add inbound and outbound listener",
+			proxy:       &sidecarProxy,
+			pushContext: env.PushContext,
+			fields: fields{
+				outboundListeners: []*listener.Listener{
+					{
+						Name: "outbound-listener",
+					},
+				},
+			},
+			want: fields{
+				inboundListeners: []*listener.Listener{
+					{
+						Name: "new-inbound-listener",
+					},
+				},
+
+				outboundListeners: []*listener.Listener{
+					{
+						Name: "outbound-listener",
+					},
+					{
+						Name: "new-outbound-listener",
+					},
+				},
+			},
+		},
+		{
+			name:        "patch inbound and outbound listener",
+			proxy:       &sidecarProxy,
+			pushContext: env.PushContext,
+			fields: fields{
+				outboundListeners: []*listener.Listener{
+					{
+						Name: "outbound-listener",
+					},
+					{
+						Name: "remove-outbound",
+						Address: &core.Address{
+							Address: &core.Address_SocketAddress{
+								SocketAddress: &core.SocketAddress{
+									PortSpecifier: &core.SocketAddress_PortValue{
+										PortValue: 81,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: fields{
+				inboundListeners: []*listener.Listener{
+					{
+						Name: "new-inbound-listener",
+					},
+				},
+
+				outboundListeners: []*listener.Listener{
+					{
+						Name: "outbound-listener",
+					},
+					{
+						Name: "new-outbound-listener",
+					},
+				},
+			},
+		},
+		{
+			name:        "patch add gateway listener",
+			proxy:       &gatewayProxy,
+			pushContext: env.PushContext,
+			fields: fields{
+				gatewayListeners: []*listener.Listener{
+					{
+						Name: "gateway-listener",
+					},
+				},
+			},
+			want: fields{
+				gatewayListeners: []*listener.Listener{
+					{
+						Name: "gateway-listener",
+					},
+					{
+						Name: "new-gateway-listener",
+					},
+				},
+			},
+		},
+
+		{
+			name:        "patch gateway listener",
+			proxy:       &gatewayProxy,
+			pushContext: env.PushContext,
+			fields: fields{
+				gatewayListeners: []*listener.Listener{
+					{
+						Name: "gateway-listener",
+					},
+					{
+						Name: "remove-gateway",
+						Address: &core.Address{
+							Address: &core.Address_SocketAddress{
+								SocketAddress: &core.SocketAddress{
+									PortSpecifier: &core.SocketAddress_PortValue{
+										PortValue: 83,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: fields{
+				gatewayListeners: []*listener.Listener{
+					{
+						Name: "gateway-listener",
+					},
+					{
+						Name: "new-gateway-listener",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			lb := &ListenerBuilder{
+				node:                    tt.proxy,
+				push:                    tt.pushContext,
+				gatewayListeners:        tt.fields.gatewayListeners,
+				inboundListeners:        tt.fields.inboundListeners,
+				outboundListeners:       tt.fields.outboundListeners,
+				httpProxyListener:       tt.fields.httpProxyListener,
+				virtualOutboundListener: tt.fields.virtualOutboundListener,
+				virtualInboundListener:  tt.fields.virtualInboundListener,
+			}
+
+			lb.patchListeners()
+			got := fields{
+				gatewayListeners:        lb.gatewayListeners,
+				inboundListeners:        lb.inboundListeners,
+				outboundListeners:       lb.outboundListeners,
+				httpProxyListener:       lb.httpProxyListener,
+				virtualOutboundListener: lb.virtualOutboundListener,
+				virtualInboundListener:  lb.virtualInboundListener,
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Unexpected default listener, want \n%#v got \n%#v", tt.want, got)
+			}
+		})
+	}
+}
+
+func buildPatchStruct(config string) *types.Struct {
+	val := &types.Struct{}
+	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
+	return val
+}
+
+func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
+	return &fakes.IstioConfigStore{
+		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
+			if kind == collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind() {
+				// to emulate returning multiple envoy filter configs
+				for i, cp := range configPatches {
+					configs = append(configs, model.Config{
+						ConfigMeta: model.ConfigMeta{
+							Name:      fmt.Sprintf("test-envoyfilter-%d", i),
+							Namespace: "not-default",
+						},
+						Spec: &networking.EnvoyFilter{
+							ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
+						},
+					})
+				}
+			}
+			return
+		},
 	}
 }

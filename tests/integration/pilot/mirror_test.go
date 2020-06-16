@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
+	"istio.io/istio/tests/integration/telemetry/outboundtrafficpolicy"
 )
 
 //	Virtual service topology

@@ -18,6 +18,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -31,6 +33,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -38,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -49,7 +53,7 @@ var (
 		excluded  []string
 	}{
 		{
-			"istio-grafana-configuration-dashboards-pilot-dashboard",
+			"istio-grafana-dashboards",
 			"pilot-dashboard.json",
 			[]string{
 				"pilot_xds_push_errors",
@@ -70,7 +74,7 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-mesh-dashboard",
+			"istio-services-grafana-dashboards",
 			"istio-mesh-dashboard.json",
 			[]string{
 				"galley_",
@@ -78,21 +82,21 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-service-dashboard",
+			"istio-services-grafana-dashboards",
 			"istio-service-dashboard.json",
 			[]string{
 				"istio_tcp_",
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-workload-dashboard",
+			"istio-services-grafana-dashboards",
 			"istio-workload-dashboard.json",
 			[]string{
 				"istio_tcp_",
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-performance-dashboard",
+			"istio-grafana-dashboards",
 			"istio-performance-dashboard.json",
 			[]string{
 				// TODO add these back: https://github.com/istio/istio/issues/20175
@@ -103,7 +107,7 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-mixer-dashboard",
+			"istio-grafana-dashboards",
 			"mixer-dashboard.json",
 			[]string{
 				// Exclude all metrics -- mixer is disabled by default
@@ -286,6 +290,13 @@ func setupDashboardTest(t framework.TestContext) {
 		Inject: true,
 	})
 	t.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(gatewayConfig, ns.Name()))
+
+	// Apply just the grafana dashboards
+	cfg, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.ApplyConfigOrFail(t, "istio-system", kubetest.SplitYamlByKind(string(cfg))["ConfigMap"])
 
 	var instance echo.Instance
 	echoboot.

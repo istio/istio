@@ -20,17 +20,23 @@ import (
 	"strings"
 	"unicode"
 
-	"istio.io/istio/operator/pkg/tpath"
-
 	"istio.io/api/operator/v1alpha1"
 
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 )
 
 const (
 	validationMethodName = "Validate"
 )
+
+type deprecatedSettings struct {
+	old string
+	new string
+	// In ordered to distinguish between unset for non-pointer values, we need to specify the default value
+	def interface{}
+}
 
 // ValidateConfig  calls validation func for every defined element in Values
 func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
@@ -71,12 +77,7 @@ func firstCharsToLower(s string) string {
 
 func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 	messages := []string{}
-	deprecations := []struct {
-		old string
-		new string
-		// In ordered to distinguish between unset for non-pointer values, we need to specify the default value
-		def interface{}
-	}{
+	deprecations := []deprecatedSettings{
 		{"Values.global.certificates", "meshConfig.certificates", nil},
 		{"Values.global.trustDomainAliases", "meshConfig.trustDomainAliases", nil},
 		{"Values.global.outboundTrafficPolicy", "meshConfig.outboundTrafficPolicy", nil},
@@ -87,12 +88,9 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"Values.global.proxy.accessLogFile", "meshConfig.accessLogFile", ""},
 		{"Values.global.proxy.accessLogEncoding", "meshConfig.accessLogEncoding", valuesv1alpha1.AccessLogEncoding_JSON},
 		{"Values.global.proxy.concurrency", "meshConfig.concurrency", uint32(0)},
-		{"Values.global.disablePolicyChecks", "meshConfig.disablePolicyChecks", nil},
 		{"Values.global.proxy.envoyAccessLogService", "meshConfig.envoyAccessLogService", nil},
 		{"Values.global.proxy.envoyMetricsService", "meshConfig.envoyMetricsService", nil},
 		{"Values.global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", ""},
-		{"Values.mixer.telemetry.reportBatchMaxEntries", "meshConfig.reportBatchMaxEntries", uint32(0)},
-		{"Values.mixer.telemetry.reportBatchMaxTime", "meshConfig.reportBatchMaxTime", ""},
 		{"Values.pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil},
 		{"Values.global.mtls.enabled", "the PeerAuthentication resource", nil},
 		{"Values.global.mtls.auto", "meshConfig.enableAutoMtls", nil},
@@ -109,9 +107,44 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
 		// the types, but since this is deprecated this is easier
 		v, f, _ := tpath.GetFromStructPath(iop, d.old)
-		if f && v != d.def {
-			messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
+		if f {
+			switch t := v.(type) {
+			// need to do conversion for bool value defined in IstioOperator component spec.
+			case *v1alpha1.BoolValueForPB:
+				v = t.Value
+			}
+			if v != d.def {
+				messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
+			}
 		}
+	}
+	mixerDeprecations := []deprecatedSettings{
+		{"Values.telemetry.v1.enabled", "", false},
+		{"Values.global.disablePolicyChecks", "", true},
+		{"MeshConfig.disablePolicyChecks", "", true},
+		{"Values.pilot.policy.enabled", "", false},
+		{"Components.Telemetry.Enabled", "", false},
+		{"Components.Policy.Enabled", "", false},
+	}
+	useMixerSettings := false
+	mds := []string{}
+	for _, d := range mixerDeprecations {
+		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		if f {
+			switch t := v.(type) {
+			case *v1alpha1.BoolValueForPB:
+				v = t.Value
+			}
+			if v != d.def {
+				useMixerSettings = true
+				mds = append(mds, d.old)
+			}
+		}
+	}
+	const mixerDeprecatedMessage = "! %s is deprecated. Mixer is deprecated and will be removed" +
+		" from Istio with the 1.8 release. Please consult our docs on the replacement."
+	if useMixerSettings {
+		messages = append(messages, fmt.Sprintf(mixerDeprecatedMessage, strings.Join(mds, ", ")))
 	}
 
 	return strings.Join(messages, "\n")

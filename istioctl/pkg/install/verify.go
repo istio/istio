@@ -44,7 +44,6 @@ import (
 )
 
 var (
-	verifyInstallCmd *cobra.Command
 	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
 		Group:    v1alpha1.SchemeGroupVersion.Group,
 		Version:  v1alpha1.SchemeGroupVersion.Version,
@@ -248,7 +247,7 @@ func NewVerifyCommand() *cobra.Command {
 		istioNamespace string
 		opts           clioptions.ControlPlaneOptions
 	)
-	verifyInstallCmd = &cobra.Command{
+	verifyInstallCmd := &cobra.Command{
 		Use:   "verify-install [-f <deployment or istio operator file>] [--revision <revision>]",
 		Short: "Verifies Istio Installation Status or performs pre-check for the cluster before Istio installation",
 		Long: `
