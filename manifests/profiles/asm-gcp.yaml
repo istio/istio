@@ -52,22 +52,6 @@ spec:
           topology: true
     sidecarInjectorWebhook:
       rewriteAppHTTPProbe: true
-    # Enable SDS on ingress
-    gateways:
-      istio-ingressgateway:
-        env:
-          CA_PROVIDER: "GoogleCA"
-          PLUGINS: "GoogleTokenExchange"
-      istio-egressgateway:
-        env:
-          CA_PROVIDER: "GoogleCA"
-          PLUGINS: "GoogleTokenExchange"
-    # If prometheus is enabled, this will help it use Mesh CA
-    prometheus:
-      # TODO(b/158044090): Update and enable
-      # sidecarEnv:
-      #   CA_PROVIDER: "GoogleCA"
-      #   PLUGINS: "GoogleTokenExchange"
     global:
       caAddress: "meshca.googleapis.com:443"
       pilotCertProvider: kubernetes
