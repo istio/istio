@@ -502,8 +502,6 @@ func (a *ADSC) handleRecv() {
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
 		// This scheme also allows us to chunk large responses !
 
-		a.Received[msg.TypeUrl] = msg
-
 		// TODO: add hook to inject nacks
 
 		a.mutex.Lock()

@@ -22,8 +22,8 @@ import (
 	"sync"
 	"testing"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 )
 
@@ -51,9 +51,9 @@ func TestADSC_Run(t *testing.T) {
 			desc: "stream-no-resources",
 			inAdsc: &ADSC{
 				url:        "127.0.0.1:49133",
-				Received:   make(map[string]*v2.DiscoveryResponse),
+				Received:   make(map[string]*xdsapi.DiscoveryResponse),
 				Updates:    make(chan string),
-				XDSUpdates: make(chan *v2.DiscoveryResponse),
+				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
 				cfg: &Config{
 					Watch: make([]string, 0),
@@ -64,16 +64,16 @@ func TestADSC_Run(t *testing.T) {
 				return nil
 			},
 			expectedADSResources: &ADSC{
-				Received: map[string]*v2.DiscoveryResponse{},
+				Received: map[string]*xdsapi.DiscoveryResponse{},
 			},
 		},
 		{
 			desc: "stream-2-unnamed-resources",
 			inAdsc: &ADSC{
 				url:        "127.0.0.1:49133",
-				Received:   make(map[string]*v2.DiscoveryResponse),
+				Received:   make(map[string]*xdsapi.DiscoveryResponse),
 				Updates:    make(chan string),
-				XDSUpdates: make(chan *v2.DiscoveryResponse),
+				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
 				cfg: &Config{
 					Watch: make([]string, 0),
@@ -81,16 +81,16 @@ func TestADSC_Run(t *testing.T) {
 			},
 			port: uint32(49133),
 			streamHandler: func(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-				_ = stream.Send(&v2.DiscoveryResponse{
+				_ = stream.Send(&xdsapi.DiscoveryResponse{
 					TypeUrl: "foo",
 				})
-				_ = stream.Send(&v2.DiscoveryResponse{
+				_ = stream.Send(&xdsapi.DiscoveryResponse{
 					TypeUrl: "bar",
 				})
 				return nil
 			},
 			expectedADSResources: &ADSC{
-				Received: map[string]*v2.DiscoveryResponse{
+				Received: map[string]*xdsapi.DiscoveryResponse{
 					"foo": {
 						TypeUrl: "foo",
 					},
