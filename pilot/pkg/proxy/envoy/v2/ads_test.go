@@ -131,7 +131,7 @@ func TestAgent(t *testing.T) {
 // testAdscTLS tests that ADSC helper can connect using TLS to Istiod
 func testAdscTLS(t *testing.T, bs *bootstrap.Server, creds *clientSecrets) {
 	// connect to the local XDS proxy - it's using a transient port.
-	ldsr, err := adsc.Dial(bs.SecureGrpcListener.Addr().String(), "",
+	ldsr, err := adsc.Dial(util.MockPilotSGrpcAddr, "",
 		&adsc.Config{
 			IP: "10.11.10.1",
 			Namespace: "test",
