@@ -197,13 +197,17 @@ function setup_kind_clusters() {
 
   KUBECONFIG_DIR="$(mktemp -d)"
 
+  # The kind tool will error when trying to create clusters in paralell unless we create the network first
+  docker network inspect kind > /dev/null 2>&1 || docker network create kind
+
   # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
   trap cleanup_kind_clusters EXIT
 
-  for i in "${!CLUSTER_NAMES[@]}"; do
-    CLUSTER_NAME="${CLUSTER_NAMES[$i]}"
-    CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$i]}"
-    CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$i]}"
+  function deploy_kind() {
+    IDX="${1}"
+    CLUSTER_NAME="${CLUSTER_NAMES[$IDX]}"
+    CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$IDX]}"
+    CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$IDX]}"
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
     cat <<EOF > "${CLUSTER_YAML}"
       kind: Cluster
@@ -219,9 +223,6 @@ EOF
     # TODO: add IPv6
     KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER_NAME}" "${CLUSTER_YAML}"
 
-    # Install MetalLB for LoadBalancer support
-    install_metallb "$CLUSTER_KUBECONFIG"
-
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.
     # To do this, we can replace the server with the IP address of the docker container
@@ -229,6 +230,18 @@ EOF
     CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
     kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
       sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
+  }
+  declare -a DEPLOY_KIND_JOBS
+  for i in "${!CLUSTER_NAMES[@]}"; do
+    deploy_kind "${i}" & DEPLOY_KIND_JOBS+=("${!}")
+  done
+  for pid in "${DEPLOY_KIND_JOBS[@]}"; do
+    wait "${pid}" || exit 1
+  done
+
+  # Install MetalLB for LoadBalancer support. Must be done synchronously since METALLB_IPS is shared.
+  for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
+    install_metallb "${KUBECONFIG_DIR}/${CLUSTER_NAME}"
   done
 
   # Export variables for the kube configs for the clusters.
