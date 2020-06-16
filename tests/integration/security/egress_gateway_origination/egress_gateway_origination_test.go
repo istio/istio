@@ -151,7 +151,7 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 					// HTTPS port
 					Name:        "https",
 					Protocol:    protocol.HTTPS,
-					ServicePort: 443,
+					ServicePort: 9443,
 					TLS:         true,
 				},
 			},
