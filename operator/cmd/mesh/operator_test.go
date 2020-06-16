@@ -34,7 +34,7 @@ func TestOperatorDump(t *testing.T) {
 			hub:               "foo.io/istio",
 			tag:               "1.2.3",
 			operatorNamespace: "operator-test-namespace",
-			istioNamespace:    "istio-test-namespace",
+			istioNamespace:    "istio-test-namespace1,istio-test-namespace2",
 		},
 	}
 
@@ -75,7 +75,7 @@ func TestOperatorInit(t *testing.T) {
 			hub:               "foo.io/istio",
 			tag:               "1.2.3",
 			operatorNamespace: "operator-test-namespace",
-			istioNamespace:    "istio-test-namespace",
+			istioNamespace:    "istio-test-namespace1,istio-test-namespace2",
 			charts:            string(snapshotCharts),
 		},
 	}
