@@ -104,6 +104,9 @@ func TestEgressGatewayTls(t *testing.T) {
 						resp, err := client.Call(echo.CallOptions{
 							Target:   server,
 							PortName: tc.portName,
+							Headers: map[string][]string{
+								"Host": {"some-external-site.com"},
+							},
 						})
 						if err != nil {
 							return fmt.Errorf("request failed: %v", err)
@@ -163,13 +166,15 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 					Protocol:     protocol.HTTP,
 					ServicePort:  80,
 					InstancePort: 8080,
+					TLS:          false, // default
 				},
 				{
 					// HTTPS port
-					Name:        "https",
-					Protocol:    protocol.HTTPS,
-					ServicePort: 8443,
-					TLS:         true,
+					Name:         "https",
+					Protocol:     protocol.HTTPS,
+					ServicePort:  443,
+					InstancePort: 8443,
+					TLS:          true,
 				},
 			},
 			Pilot: p,
@@ -181,10 +186,10 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 				Key:        mustReadCert(t, "cert.key"),
 			},
 			// Do not inject, as we are testing non-Istio TLS here
-			Subsets: []echo.SubsetConfig{{
-				Version:     "v1",
-				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-			}},
+			//Subsets: []echo.SubsetConfig{{
+			//	Version:     "v1",
+			//	Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			//}},
 		}).
 		BuildOrFail(t)
 
