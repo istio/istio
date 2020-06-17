@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,11 +26,9 @@ import (
 
 	"google.golang.org/grpc"
 
-	google_rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
-	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/adapter/bypass/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
@@ -146,32 +144,32 @@ var _ quota.HandleQuotaServiceServer = &service{}
 
 var _ v1beta1.InfrastructureBackendServer = &service{}
 
-func (s *service) HandleCheckNothing(context.Context, *checknothing.HandleCheckNothingRequest) (*istio_mixer_adapter_model_v1beta11.CheckResult, error) {
+func (s *service) HandleCheckNothing(context.Context, *checknothing.HandleCheckNothingRequest) (*v1beta1.CheckResult, error) {
 
-	return &istio_mixer_adapter_model_v1beta11.CheckResult{
+	return &v1beta1.CheckResult{
 		ValidDuration: time.Second * 1000,
 		ValidUseCount: 1000,
-		Status: google_rpc.Status{
-			Code: int32(google_rpc.OK),
+		Status: rpc.Status{
+			Code: int32(rpc.OK),
 		},
 	}, nil
 }
 
-func (s *service) HandleReportNothing(context.Context, *reportnothing.HandleReportNothingRequest) (*istio_mixer_adapter_model_v1beta11.ReportResult, error) {
+func (s *service) HandleReportNothing(context.Context, *reportnothing.HandleReportNothingRequest) (*v1beta1.ReportResult, error) {
 
-	return &istio_mixer_adapter_model_v1beta11.ReportResult{}, nil
+	return &v1beta1.ReportResult{}, nil
 }
 
 // HandleMetric is an implementation HandleMetricServiceServer.HandleMetric.
 func (s *service) HandleMetric(ctx context.Context, req *metric.HandleMetricRequest) (
-	*istio_mixer_adapter_model_v1beta11.ReportResult, error) {
+	*v1beta1.ReportResult, error) {
 
-	return &istio_mixer_adapter_model_v1beta11.ReportResult{}, nil
+	return &v1beta1.ReportResult{}, nil
 }
 
-func (s *service) HandleQuota(ctx context.Context, req *quota.HandleQuotaRequest) (*istio_mixer_adapter_model_v1beta11.QuotaResult, error) {
-	return &istio_mixer_adapter_model_v1beta11.QuotaResult{
-		Quotas: map[string]istio_mixer_adapter_model_v1beta11.QuotaResult_Result{
+func (s *service) HandleQuota(ctx context.Context, req *quota.HandleQuotaRequest) (*v1beta1.QuotaResult, error) {
+	return &v1beta1.QuotaResult{
+		Quotas: map[string]v1beta1.QuotaResult_Result{
 			req.Instance.Name: {
 				ValidDuration: time.Second * 1000,
 				GrantedAmount: 100,
@@ -190,8 +188,8 @@ func (s *service) Validate(context.Context, *v1beta1.ValidateRequest) (
 	*v1beta1.ValidateResponse, error) {
 
 	return &v1beta1.ValidateResponse{
-		Status: &google_rpc.Status{
-			Code: int32(google_rpc.OK),
+		Status: &rpc.Status{
+			Code: int32(rpc.OK),
 		},
 	}, nil
 }
@@ -201,8 +199,8 @@ func (s *service) CreateSession(context.Context, *v1beta1.CreateSessionRequest) 
 	*v1beta1.CreateSessionResponse, error) {
 
 	return &v1beta1.CreateSessionResponse{
-		Status: &google_rpc.Status{
-			Code: int32(google_rpc.OK),
+		Status: &rpc.Status{
+			Code: int32(rpc.OK),
 		},
 	}, nil
 }
@@ -212,8 +210,8 @@ func (s *service) CloseSession(context.Context, *v1beta1.CloseSessionRequest) (
 	*v1beta1.CloseSessionResponse, error) {
 
 	return &v1beta1.CloseSessionResponse{
-		Status: &google_rpc.Status{
-			Code: int32(google_rpc.OK),
+		Status: &rpc.Status{
+			Code: int32(rpc.OK),
 		},
 	}, nil
 }

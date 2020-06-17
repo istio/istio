@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,7 +48,13 @@ func TestOptions(t *testing.T) {
 			testName: "pilotSAN",
 			key:      "pilot_SAN",
 			option:   option.PilotSubjectAltName([]string{"fake"}),
-			expected: []string{"fake"},
+			expected: `[{"exact":"fake"}]`,
+		},
+		{
+			testName: "pilotSAN multi",
+			key:      "pilot_SAN",
+			option:   option.PilotSubjectAltName([]string{"fake", "other"}),
+			expected: `[{"exact":"fake"},{"exact":"other"}]`,
 		},
 		{
 			testName: "mixerSAN",
@@ -250,18 +256,6 @@ func TestOptions(t *testing.T) {
 			testName: "lightstep token",
 			key:      "lightstepToken",
 			option:   option.LightstepToken("fake"),
-			expected: "fake",
-		},
-		{
-			testName: "lightstep secure",
-			key:      "lightstepSecure",
-			option:   option.LightstepSecure(true),
-			expected: true,
-		},
-		{
-			testName: "lightstep CA cert path",
-			key:      "lightstepCacertPath",
-			option:   option.LightstepCACertPath("fake"),
 			expected: "fake",
 		},
 		{
@@ -519,10 +513,10 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "envoy metrics tls",
 			key:      "envoy_metrics_service_tls",
-			option: option.EnvoyMetricsServiceTLS(&networkingAPI.TLSSettings{
-				Mode: networkingAPI.TLSSettings_ISTIO_MUTUAL,
+			option: option.EnvoyMetricsServiceTLS(&networkingAPI.ClientTLSSettings{
+				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.NodeMetadata{}),
-			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}", // nolint: lll
+			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\",\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}}", // nolint: lll
 		},
 		{
 			testName: "envoy metrics keepalive nil",
@@ -589,10 +583,10 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "envoy access log tls",
 			key:      "envoy_accesslog_service_tls",
-			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.TLSSettings{
-				Mode: networkingAPI.TLSSettings_ISTIO_MUTUAL,
+			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.ClientTLSSettings{
+				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.NodeMetadata{}),
-			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_accesslog_service\"}", // nolint: lll
+			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\",\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_accesslog_service\"}}", // nolint: lll
 		},
 		{
 			testName: "envoy access log keepalive nil",
@@ -685,6 +679,28 @@ func TestOptions(t *testing.T) {
 			key:      "sts_port",
 			option:   option.STSPort(5555),
 			expected: 5555,
+		},
+		{
+			testName: "project id",
+			key:      "gcp_project_id",
+			option:   option.GCPProjectID("project"),
+			expected: "project",
+		},
+		{
+			testName: "tracing tls nil",
+			key:      "tracing_tls",
+			option:   option.TracingTLS(nil, &model.NodeMetadata{}, false),
+			expected: nil,
+		},
+		{
+			testName: "tracing tls",
+			key:      "tracing_tls",
+			option: option.TracingTLS(&networkingAPI.ClientTLSSettings{
+				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
+				CaCertificates: "/etc/tracing/ca.pem",
+			}, &model.NodeMetadata{}, false),
+			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\"," +
+				"\"common_tls_context\":{\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/tracing/ca.pem\"}}}}}",
 		},
 	}
 

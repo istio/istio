@@ -18,7 +18,7 @@
 
 # EgressGateways istio-egressgateway component is disabled.
 
-# Galley component is disabled.
+# IstiodRemote component is disabled.
 
 # Pilot istiod component is disabled.
 

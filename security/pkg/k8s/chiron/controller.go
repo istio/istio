@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package chiron
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -34,7 +35,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/security/pkg/listwatch"
+	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
@@ -42,11 +43,6 @@ import (
 )
 
 type WebhookType int
-
-const (
-	MutatingWebhook WebhookType = iota
-	ValidatingWebhook
-)
 
 /* #nosec: disable gas linter */
 const (
@@ -154,11 +150,11 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 			return &cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = istioSecretSelector
-					return core.Secrets(namespace).List(options)
+					return core.Secrets(namespace).List(context.TODO(), options)
 				},
 				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 					options.FieldSelector = istioSecretSelector
-					return core.Secrets(namespace).Watch(options)
+					return core.Secrets(namespace).Watch(context.TODO(), options)
 				},
 			}
 		})
@@ -204,7 +200,7 @@ func (wc *WebhookController) upsertSecret(secretName, dnsName, secretNamespace s
 		Type: IstioDNSSecretType,
 	}
 
-	existingSecret, err := wc.core.Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
+	existingSecret, err := wc.core.Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err == nil && existingSecret != nil {
 		log.Debugf("upsertSecret(): the secret (%v) in namespace (%v) exists, return",
 			secretName, secretNamespace)
@@ -227,7 +223,7 @@ func (wc *WebhookController) upsertSecret(secretName, dnsName, secretNamespace s
 
 	// We retry several times when create secret to mitigate transient network failures.
 	for i := 0; i < secretCreationRetry; i++ {
-		_, err = wc.core.Secrets(secretNamespace).Create(secret)
+		_, err = wc.core.Secrets(secretNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 		if err == nil || errors.IsAlreadyExists(err) {
 			if errors.IsAlreadyExists(err) {
 				log.Infof("Istio secret \"%s\" in namespace \"%s\" already exists", secretName, secretNamespace)
@@ -343,7 +339,7 @@ func (wc *WebhookController) refreshSecret(scrt *v1.Secret) error {
 	scrt.Data[ca.PrivateKeyID] = key
 	scrt.Data[ca.RootCertID] = caCert
 
-	_, err = wc.core.Secrets(namespace).Update(scrt)
+	_, err = wc.core.Secrets(namespace).Update(context.TODO(), scrt, metav1.UpdateOptions{})
 	return err
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -40,11 +40,12 @@ import (
 )
 
 const wildcardDomainPrefix = "*."
+const inboundVirtualHostPrefix = string(model.TrafficDirectionInbound) + "|http|"
 
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext,
-	routeNames []string) []*xdsapi.RouteConfiguration {
-	routeConfigurations := make([]*xdsapi.RouteConfiguration, 0)
+	routeNames []string) []*route.RouteConfiguration {
+	routeConfigurations := make([]*route.RouteConfiguration, 0)
 
 	switch node.Type {
 	case model.SidecarProxy:
@@ -54,7 +55,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 			if rc != nil {
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, push, rc)
 			} else {
-				rc = &xdsapi.RouteConfiguration{
+				rc = &route.RouteConfiguration{
 					Name:             routeName,
 					VirtualHosts:     []*route.VirtualHost{},
 					ValidateClusters: proto.BoolFalse,
@@ -68,7 +69,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 			if rc != nil {
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
 			} else {
-				rc = &xdsapi.RouteConfiguration{
+				rc = &route.RouteConfiguration{
 					Name:             routeName,
 					VirtualHosts:     []*route.VirtualHost{},
 					ValidateClusters: proto.BoolFalse,
@@ -83,17 +84,17 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
-	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *xdsapi.RouteConfiguration {
-	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.ServicePort.Port)
+	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *route.RouteConfiguration {
+	traceOperation := traceOperation(string(instance.Service.Hostname), instance.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
 
 	inboundVHost := &route.VirtualHost{
-		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.ServicePort.Port),
+		Name:    inboundVirtualHostPrefix + strconv.Itoa(instance.ServicePort.Port), // Format: "inbound|http|%d"
 		Domains: []string{"*"},
 		Routes:  []*route.Route{defaultRoute},
 	}
 
-	r := &xdsapi.RouteConfiguration{
+	r := &route.RouteConfiguration{
 		Name:             clusterName,
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
@@ -121,16 +122,21 @@ func domainName(host string, port int) string {
 	return host + ":" + strconv.Itoa(port)
 }
 
+func traceOperation(host string, port int) string {
+	// Format : "%s:%d/*"
+	return host + ":" + strconv.Itoa(port) + "/*"
+}
+
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
-	routeName string, vHostCache map[int][]*route.VirtualHost) *xdsapi.RouteConfiguration {
+	routeName string, vHostCache map[int][]*route.VirtualHost) *route.RouteConfiguration {
 
 	var virtualHosts []*route.VirtualHost
 	listenerPort := 0
 	useSniffing := false
 	var err error
-	if features.EnableProtocolSniffingForOutbound.Get() &&
+	if features.EnableProtocolSniffingForOutbound &&
 		!strings.HasPrefix(routeName, model.UnixAddressPrefix) {
 		index := strings.IndexRune(routeName, ':')
 		if index != -1 {
@@ -184,7 +190,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node))
 	}
 
-	out := &xdsapi.RouteConfiguration{
+	out := &route.RouteConfiguration{
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
@@ -264,42 +270,62 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap,
 		virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)
-	uniques := make(map[string]struct{})
+
+	vhosts := sets.Set{}
+	vhdomains := sets.Set{}
+
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
 		if len(virtualHostWrapper.Routes) == 0 {
 			continue
 		}
-
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
+
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
 			name := domainName(hostname, virtualHostWrapper.Port)
-			if _, found := uniques[name]; !found {
-				uniques[name] = struct{}{}
-				virtualHosts = append(virtualHosts, &route.VirtualHost{
-					Name:                       name,
-					Domains:                    []string{hostname, domainName(hostname, virtualHostWrapper.Port)},
-					Routes:                     virtualHostWrapper.Routes,
-					IncludeRequestAttemptCount: true,
-				})
-			} else {
-				push.AddMetric(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
-			}
-		}
-
-		for _, svc := range virtualHostWrapper.Services {
-			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
-			if _, found := uniques[name]; !found {
-				uniques[name] = struct{}{}
-				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
+			duplicate := duplicateVirtualHost(name, vhosts)
+			if !duplicate {
+				domains := []string{hostname, name}
+				dl := len(domains)
+				domains = dedupeDomains(domains, vhdomains)
+				if dl != len(domains) {
+					duplicate = true
+				}
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
 					Name:                       name,
 					Domains:                    domains,
 					Routes:                     virtualHostWrapper.Routes,
 					IncludeRequestAttemptCount: true,
 				})
-			} else {
+			}
+
+			if duplicate {
+				// This means this virtual host has caused duplicate virtual host name/domain.
 				push.AddMetric(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
+			}
+		}
+
+		for _, svc := range virtualHostWrapper.Services {
+			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
+			duplicate := duplicateVirtualHost(name, vhosts)
+			if !duplicate {
+				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
+				dl := len(domains)
+				domains = dedupeDomains(domains, vhdomains)
+				if dl != len(domains) {
+					duplicate = true
+				}
+				virtualHosts = append(virtualHosts, &route.VirtualHost{
+					Name:                       name,
+					Domains:                    domains,
+					Routes:                     virtualHostWrapper.Routes,
+					IncludeRequestAttemptCount: true,
+				})
+			}
+
+			if duplicate {
+				// This means we have hit a duplicate virtual host name/ domain name.
+				push.AddMetric(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from  service: %s", name))
 			}
 		}
 
@@ -314,6 +340,27 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 	}
 
 	return tmpVirtualHosts
+}
+
+// duplicateVirtualHost checks whether the virtual host with the same name exists in the route.
+func duplicateVirtualHost(vhost string, vhosts sets.Set) bool {
+	if vhosts.Contains(vhost) {
+		return true
+	}
+	vhosts.Insert(vhost)
+	return false
+}
+
+// dedupeDomains removes the duplicate domains from the passed in domains.
+func dedupeDomains(domains []string, vhdomains sets.Set) []string {
+	temp := domains[:0]
+	for _, d := range domains {
+		if !vhdomains.Contains(d) {
+			temp = append(temp, d)
+			vhdomains.Insert(d)
+		}
+	}
+	return temp
 }
 
 // Returns the set of virtual hosts that correspond to the listener that has HTTP protocol detection
@@ -491,10 +538,11 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 		}
 
 		return &route.VirtualHost{
-			Name:    util.PassthroughRouteName,
+			Name:    util.Passthrough,
 			Domains: []string{"*"},
 			Routes: []*route.Route{
 				{
+					Name: util.Passthrough,
 					Match: &route.RouteMatch{
 						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 					},
@@ -515,10 +563,11 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 	}
 
 	return &route.VirtualHost{
-		Name:    util.BlackHoleRouteName,
+		Name:    util.BlackHole,
 		Domains: []string{"*"},
 		Routes: []*route.Route{
 			{
+				Name: util.BlackHole,
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 				},

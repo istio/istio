@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,51 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 )
-
-var (
-	// resourceAccessor is a common resource accessor
-	accessor = meta.NewAccessor()
-)
-
-// HasLabel is a helper function returning true if the specified object contains the specified label.
-func HasLabel(resource runtime.Object, label string) bool {
-	labels, err := accessor.Labels(resource)
-	if err != nil {
-		// if we can't access labels, then it doesn't have this label
-		return false
-	}
-	if labels == nil {
-		return false
-	}
-	_, ok := labels[label]
-	return ok
-}
-
-// DeleteLabel is a helper function which deletes the specified label from the specified object.
-func DeleteLabel(resource runtime.Object, label string) {
-	resourceAccessor, err := meta.Accessor(resource)
-	if err != nil {
-		// if we can't access labels, then it doesn't have this label, so nothing to delete
-		return
-	}
-
-	if HasLabel(resource, label) {
-		labels, _ := accessor.Labels(resource)
-		delete(labels, label)
-		resourceAccessor.SetLabels(labels)
-	}
-}
-
-// GetLabel is a helper function which returns the value of the specified label on the specified object.
-// returns "", false if the label was not found on the object.
-func GetLabel(resource runtime.Object, label string) (string, bool) {
-	if HasLabel(resource, label) {
-		labels, _ := accessor.Labels(resource)
-		value, ok := labels[label]
-		return value, ok
-	}
-	return "", false
-}
 
 // SetLabel is a helper function which sets the specified label and value on the specified object.
 func SetLabel(resource runtime.Object, label, value string) error {

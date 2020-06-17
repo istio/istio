@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ import (
 
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 
-	proxyEnv "istio.io/istio/mixer/test/client/env"
 	istioEnv "istio.io/istio/pkg/test/env"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
@@ -41,14 +40,12 @@ import (
 )
 
 const (
-	// Paths to credentials which will be loaded by proxy. These paths should
-	// match bootstrap config in testdata/bootstrap.yaml
-	certPath       = "/tmp/sts-ca-certificates.crt"
-	proxyTokenPath = "/tmp/sts-envoy-token.jwt"
+	jwtToken = "thisisafakejwt"
 )
 
+// Env manages test setup and teardown.
 type Env struct {
-	ProxySetup *proxyEnv.TestSetup
+	ProxySetup *istioEnv.TestSetup
 	AuthServer *tokenBackend.AuthorizationServer
 
 	stsServer           *stsServer.Server
@@ -58,6 +55,7 @@ type Env struct {
 	tokenExchangePlugin *google.Plugin
 }
 
+// TearDown shuts down all the components.
 func (e *Env) TearDown() {
 	// Stop proxy first, otherwise XDS stream is still alive and server's graceful
 	// stop will be blocked.
@@ -97,7 +95,7 @@ func WriteDataToFile(path string, content string) error {
 // That token credential is provisioned by STS server.
 // enableCache indicates whether to enable token cache at STS server side.
 // Here is a map between ports and servers
-// auth server            : MixerPort
+// auth server            : ExtraPort
 // STS server             : STSPort
 // Dynamic proxy listener : ClientProxyPort
 // Static proxy listener  : TCPProxyPort
@@ -105,29 +103,27 @@ func WriteDataToFile(path string, content string) error {
 // test backend           : BackendPort
 // proxy admin            : AdminPort
 func SetupTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableCache bool) *Env {
-	// Set up credential files for bootstrap config
-	jwtToken := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/trustworthy-jwt.jwt", t)
-	if err := WriteDataToFile(proxyTokenPath, jwtToken); err != nil {
-		t.Fatalf("failed to set up token file %s: %v", proxyTokenPath, err)
-	}
-	caCert := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/ca-certificate.crt", t)
-	if err := WriteDataToFile(certPath, caCert); err != nil {
-		t.Fatalf("failed to set up ca certificate file %s: %v", certPath, err)
-	}
-
 	env := &Env{
 		initialToken: jwtToken,
 	}
 	// Set up test environment for Proxy
-	proxySetup := proxyEnv.NewTestSetup(testID, t)
-	proxySetup.SetNoMixer(true)
+	proxySetup := istioEnv.NewTestSetup(testID, t)
 	proxySetup.EnvoyTemplate = getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/bootstrap.yaml", t)
+	// Set up credential files for bootstrap config
+	if err := WriteDataToFile(proxySetup.JWTTokenPath(), jwtToken); err != nil {
+		t.Fatalf("failed to set up token file %s: %v", proxySetup.JWTTokenPath(), err)
+	}
+	caCert := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/ca-certificate.crt", t)
+	if err := WriteDataToFile(proxySetup.CACertPath(), caCert); err != nil {
+		t.Fatalf("failed to set up ca certificate file %s: %v", proxySetup.CACertPath(), err)
+	}
+
 	env.ProxySetup = proxySetup
 	env.DumpPortMap(t)
 	// Set up auth server that provides token service
 	backend, err := tokenBackend.StartNewServer(t, tokenBackend.Config{
 		SubjectToken: jwtToken,
-		Port:         int(proxySetup.Ports().MixerPort),
+		Port:         int(proxySetup.Ports().ExtraPort),
 		AccessToken:  cb.ExpectedToken(),
 	})
 	if err != nil {
@@ -162,7 +158,7 @@ func SetupTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableC
 }
 
 // DumpPortMap dumps port allocation status
-// auth server            : MixerPort
+// auth server            : ExtraPort
 // STS server             : STSPort
 // Dynamic proxy listener : ClientProxyPort
 // Static proxy listener  : TCPProxyPort
@@ -177,16 +173,18 @@ func (e *Env) DumpPortMap(t *testing.T) {
 		"static listener port\t:\t%d\n"+
 		"XDS server\t\t:\t%d\n"+
 		"test backend\t\t:\t%d\n"+
-		"proxy admin\t\t:\t%d", e.ProxySetup.Ports().MixerPort,
+		"proxy admin\t\t:\t%d", e.ProxySetup.Ports().ExtraPort,
 		e.ProxySetup.Ports().STSPort, e.ProxySetup.Ports().ClientProxyPort,
 		e.ProxySetup.Ports().TCPProxyPort, e.ProxySetup.Ports().DiscoveryPort,
 		e.ProxySetup.Ports().BackendPort, e.ProxySetup.Ports().AdminPort)
 }
 
+// ClearTokenCache removes cached token in token exchange plugin.
 func (e *Env) ClearTokenCache() {
 	e.tokenExchangePlugin.ClearCache()
 }
 
+// StartProxy starts proxy.
 func (e *Env) StartProxy(t *testing.T) {
 	if err := e.ProxySetup.SetUp(); err != nil {
 		t.Fatalf("failed to start proxy: %v", err)

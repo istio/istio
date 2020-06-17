@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
@@ -30,7 +31,7 @@ import (
 // configName: the name of the configmap.
 // dataName: the name of the data in the configmap.
 func InsertDataToConfigMap(client corev1.ConfigMapsGetter, meta metav1.ObjectMeta, data map[string]string) error {
-	configmap, err := client.ConfigMaps(meta.Namespace).Get(meta.Name, metav1.GetOptions{})
+	configmap, err := client.ConfigMaps(meta.Namespace).Get(context.TODO(), meta.Name, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("error when getting configmap %v: %v", meta.Name, err)
 	}
@@ -40,7 +41,7 @@ func InsertDataToConfigMap(client corev1.ConfigMapsGetter, meta metav1.ObjectMet
 			ObjectMeta: meta,
 			Data:       data,
 		}
-		if _, err = client.ConfigMaps(meta.Namespace).Create(configmap); err != nil {
+		if _, err = client.ConfigMaps(meta.Namespace).Create(context.TODO(), configmap, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("error when creating configmap %v: %v", meta.Name, err)
 		}
 	} else {
@@ -76,7 +77,7 @@ func UpdateDataInConfigMap(client corev1.ConfigMapsGetter, cm *v1.ConfigMap, dat
 	if needsUpdate := insertData(cm, data); !needsUpdate {
 		return nil
 	}
-	if _, err := client.ConfigMaps(cm.Namespace).Update(cm); err != nil {
+	if _, err := client.ConfigMaps(cm.Namespace).Update(context.TODO(), cm, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("error when updating configmap %v: %v", cm.Name, err)
 	}
 	return nil

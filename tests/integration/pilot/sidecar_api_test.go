@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,29 +15,29 @@
 package pilot
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	xdscore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
 func TestSidecarListeners(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Native).
 		Run(func(ctx framework.TestContext) {
 
 			// Simulate proxy identity of a sidecar ...
 			nodeID := &model.Proxy{
-				ClusterID:    "integration-test",
+				Metadata:     &model.NodeMetadata{ClusterID: "integration-test"},
 				Type:         model.SidecarProxy,
 				IPAddresses:  []string{"10.2.0.1"},
 				ID:           "app3.testns",
@@ -46,11 +46,11 @@ func TestSidecarListeners(t *testing.T) {
 			}
 
 			// Start the xDS stream containing the listeners for this node
-			p.StartDiscoveryOrFail(t, pilot.NewDiscoveryRequest(nodeID.ServiceNode(), pilot.Listener))
+			p.StartDiscoveryOrFail(t, pilot.NewDiscoveryRequest(nodeID.ServiceNode(), v3.ListenerType))
 
 			// Test the empty case where no config is loaded
 			p.WatchDiscoveryOrFail(t, time.Second*10,
-				func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
+				func(response *discovery.DiscoveryResponse) (b bool, e error) {
 					validator := structpath.ForProto(response)
 					if validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", 15001).Check() != nil {
 						return false, nil
@@ -59,20 +59,19 @@ func TestSidecarListeners(t *testing.T) {
 					return true, nil
 				})
 
-			// TODO: The code below is flaky. We should re-enable this once we have explicit config loading trigger support in Galley.
+			namespace.ClaimOrFail(ctx, ctx, "seexamples")
 			// Apply some config
-			path, err := filepath.Abs("../../testdata/config")
-			if err != nil {
-				t.Fatalf("No such directory: %v", err)
-			}
-			err = g.ApplyConfigDir(nil, path)
-			if err != nil {
-				t.Fatalf("Error applying directory: %v", err)
-			}
+			config := mustReadFile(t, "../../config/se-example.yaml")
+			ctx.ApplyConfigOrFail(t, "", config)
+			defer func() {
+				if err := ctx.DeleteConfig("", config); err != nil {
+					scopes.Framework.Errorf("failed to delete directory: %v", err)
+				}
+			}()
 
 			// Now continue to watch on the same stream
-			err = p.WatchDiscovery(time.Second*10,
-				func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
+			err := p.WatchDiscovery(time.Second*10,
+				func(response *discovery.DiscoveryResponse) (b bool, e error) {
 					validator := structpath.ForProto(response)
 					if validator.Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").Check() != nil {
 						return false, nil
@@ -95,7 +94,7 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.cluster}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.statPrefix}").
-			Equals(true, "{.useOriginalDst}").
+			Equals(true, "{.hiddenEnvoyDeprecatedUseOriginalDst}").
 			CheckOrFail(t)
 	})
 }
@@ -116,7 +115,8 @@ func validateMongoListener(t *testing.T, response *structpath.Instance) {
 			}, "{.address.socketAddress}").
 			Select("{.filterChains[0].filters[0]}").
 			Equals("envoy.mongo_proxy", "{.name}").
-			Select("{.config}").
-			Exists("{.stat_prefix}")
+			Select("{.typedConfig}").
+			Exists("{.statPrefix}").
+			CheckOrFail(t)
 	})
 }

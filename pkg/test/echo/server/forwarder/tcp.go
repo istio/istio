@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"net"
 	"strings"
+
+	"istio.io/istio/pkg/test/echo/common/response"
 )
 
 var _ protocol = &tcpProtocol{}
@@ -71,6 +73,12 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 		if line != "" {
 			outBuffer.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, line))
 		}
+	}
+
+	msg := outBuffer.String()
+	expected := fmt.Sprintf("%s=%s", string(response.StatusCodeField), response.StatusCodeOK)
+	if !strings.Contains(msg, expected) {
+		return msg, fmt.Errorf("expect to recv message with %s, got %s. Return EOF", expected, msg)
 	}
 	return outBuffer.String(), err
 }

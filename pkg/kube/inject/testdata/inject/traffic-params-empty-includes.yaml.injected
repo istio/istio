@@ -13,13 +13,14 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: traffic
+        istio.io/rev: ""
         security.istio.io/tlsMode: istio
     spec:
       containers:
@@ -68,13 +69,26 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: MESH_CONFIG
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
+        - name: PROXY_CONFIG
           value: |
             {}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
                 {"name":"http","containerPort":80}
+            ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+                traffic
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
@@ -99,7 +113,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15090
+            port: 15021
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
@@ -122,6 +136,8 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
@@ -146,7 +162,7 @@ spec:
         - -b
         - '*'
         - -d
-        - 15090,15020
+        - 15090,15021,15020
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-init
@@ -170,10 +186,14 @@ spec:
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
+      securityContext:
+        fsGroup: 1337
       volumes:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - emptyDir: {}
+        name: istio-data
       - downwardAPI:
           items:
           - fieldRef:

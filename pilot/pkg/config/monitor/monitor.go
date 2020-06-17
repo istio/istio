@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/pkg/log"
@@ -30,23 +31,61 @@ import (
 // changes are found.
 type Monitor struct {
 	name            string
+	root            string
 	store           model.ConfigStore
-	checkDuration   time.Duration
 	configs         []*model.Config
 	getSnapshotFunc func() ([]*model.Config, error)
+	// channel to trigger updates on
+	// generally set to a file watch, but used in tests as well
+	updateCh chan struct{}
 }
 
 // NewMonitor creates a Monitor and will delegate to a passed in controller.
 // The controller holds a reference to the actual store.
 // Any func that returns a []*model.Config can be used with the Monitor
-func NewMonitor(name string, delegateStore model.ConfigStore, checkInterval time.Duration, getSnapshotFunc func() ([]*model.Config, error)) *Monitor {
+func NewMonitor(name string, delegateStore model.ConfigStore, getSnapshotFunc func() ([]*model.Config, error), root string) *Monitor {
 	monitor := &Monitor{
 		name:            name,
+		root:            root,
 		store:           delegateStore,
 		getSnapshotFunc: getSnapshotFunc,
-		checkDuration:   checkInterval,
 	}
 	return monitor
+}
+
+const watchDebounceDelay = 50 * time.Millisecond
+
+// Trigger notifications when a file is mutated
+func fileTrigger(path string, ch chan struct{}, stop <-chan struct{}) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	if err = watcher.Add(path); err != nil {
+		return err
+	}
+	go func() {
+		defer watcher.Close()
+		var debounceC <-chan time.Time
+		for {
+			select {
+			case <-debounceC:
+				debounceC = nil
+				ch <- struct{}{}
+			case <-watcher.Events:
+				if debounceC == nil {
+					debounceC = time.After(watchDebounceDelay)
+				}
+			case err := <-watcher.Errors:
+				log.Warnf("Error watching file trigger: %v %v", path, err)
+				return
+			case signal := <-stop:
+				log.Infof("Shutting down file watcher: %v %v", path, signal)
+				return
+			}
+		}
+	}()
+	return nil
 }
 
 // Start starts a new Monitor. Immediately checks the Monitor getSnapshotFunc
@@ -54,17 +93,21 @@ func NewMonitor(name string, delegateStore model.ConfigStore, checkInterval time
 // periodically polls the getSnapshotFunc for changes until a close event is sent.
 func (m *Monitor) Start(stop <-chan struct{}) {
 	m.checkAndUpdate()
-	tick := time.NewTicker(m.checkDuration)
 
+	c := make(chan struct{}, 1)
+	m.updateCh = c
+	if err := fileTrigger(m.root, m.updateCh, stop); err != nil {
+		log.Errorf("Unable to setup FileTrigger for %s: %v", m.root, err)
+	}
 	// Run the close loop asynchronously.
 	go func() {
 		for {
 			select {
-			case <-stop:
-				tick.Stop()
-				return
-			case <-tick.C:
+			case <-c:
+				log.Infof("Triggering reload of file configuration")
 				m.checkAndUpdate()
+			case <-stop:
+				return
 			}
 		}
 	}()

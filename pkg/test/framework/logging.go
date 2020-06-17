@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -39,9 +39,9 @@ func configureLogging(ciMode bool) error {
 	o := *logOptionsFromCommandline
 
 	if ciMode {
-		o.SetOutputLevel(scopes.CI.Name(), log.InfoLevel)
+		o.SetOutputLevel(scopes.Framework.Name(), log.DebugLevel)
 	} else {
-		o.SetOutputLevel(scopes.CI.Name(), log.NoneLevel)
+		o.SetOutputLevel(scopes.Framework.Name(), log.NoneLevel)
 	}
 
 	return log.Configure(&o)

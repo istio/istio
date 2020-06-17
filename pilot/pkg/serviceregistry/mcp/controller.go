@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
+	"istio.io/api/label"
 
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
@@ -52,6 +54,7 @@ type Options struct {
 	DomainSuffix string
 	XDSUpdater   model.XDSUpdater
 	ConfigLedger ledger.Ledger
+	Revision     string
 }
 
 // controller is a temporary storage for the changes received
@@ -129,6 +132,7 @@ func (c *controller) Apply(change *sink.Change) error {
 	}
 
 	kind := s.Resource().GroupVersionKind()
+	configUpdated := map[model.ConfigKey]struct{}{} // If non-incremental, we use empty configUpdated to indicate all.
 
 	// innerStore is [namespace][name]
 	innerStore := make(map[string]map[string]*model.Config)
@@ -145,6 +149,13 @@ func (c *controller) Apply(change *sink.Change) error {
 			}
 		}
 
+		if change.Incremental {
+			configUpdated[model.ConfigKey{
+				Kind:      kind,
+				Name:      name,
+				Namespace: namespace,
+			}] = struct{}{}
+		}
 		conf := &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:              kind.Kind,
@@ -167,21 +178,30 @@ func (c *controller) Apply(change *sink.Change) error {
 			continue
 		}
 
-		namedConfig, ok := innerStore[conf.Namespace]
-		if ok {
-			namedConfig[conf.Name] = conf
-		} else {
-			innerStore[conf.Namespace] = map[string]*model.Config{
-				conf.Name: conf,
+		// Skip configs not selected by this revision
+		if c.objectInRevision(conf) {
+			namedConfig, ok := innerStore[conf.Namespace]
+			if ok {
+				namedConfig[conf.Name] = conf
+			} else {
+				innerStore[conf.Namespace] = map[string]*model.Config{
+					conf.Name: conf,
+				}
 			}
-		}
 
-		_, err := c.ledger.Put(conf.Key(), obj.Metadata.Version)
-		if err != nil {
-			log.Warnf(ledgerLogf, err)
+			_, err := c.ledger.Put(conf.Key(), obj.Metadata.Version)
+			if err != nil {
+				log.Warnf(ledgerLogf, err)
+			}
 		}
 	}
 	for _, removed := range change.Removed {
+		namespace, name := extractNameNamespace(removed)
+		configUpdated[model.ConfigKey{
+			Kind:      kind,
+			Name:      name,
+			Namespace: namespace,
+		}] = struct{}{}
 		err := c.ledger.Delete(kube.KeyFunc(change.Collection, removed))
 		if err != nil {
 			log.Warnf(ledgerLogf, err)
@@ -192,6 +212,23 @@ func (c *controller) Apply(change *sink.Change) error {
 
 	c.configStoreMu.Lock()
 	prevStore = c.configStore[kind]
+	// Incremental update when received incremental change
+	if change.Incremental {
+
+		//Although it is not a deep copy, there is no problem because the config will not be modified
+		prevCache := make(map[string]map[string]*model.Config, len(prevStore))
+		for namespace, namedConfig := range prevStore {
+			prevCache[namespace] = make(map[string]*model.Config, len(namedConfig))
+			for name, config := range namedConfig {
+				prevCache[namespace][name] = config
+			}
+		}
+		prevStore = prevCache
+
+		c.removeConfig(kind, change.Removed)
+		c.incrementalUpdate(kind, innerStore)
+		innerStore = c.configStore[kind]
+	}
 	c.configStore[kind] = innerStore
 	c.configStoreMu.Unlock()
 	c.sync(change.Collection)
@@ -200,12 +237,23 @@ func (c *controller) Apply(change *sink.Change) error {
 		c.serviceEntryEvents(innerStore, prevStore)
 	} else if c.options.XDSUpdater != nil {
 		c.options.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:               true,
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{kind: {}},
-			Reason:             []model.TriggerReason{model.ConfigUpdate},
+			Full:           true,
+			ConfigsUpdated: configUpdated,
+			Reason:         []model.TriggerReason{model.ConfigUpdate},
 		})
 	}
+
 	return nil
+}
+
+func (c *controller) objectInRevision(o *model.Config) bool {
+	configEnv, f := o.Labels[label.IstioRev]
+	if !f {
+		// This is a global object, and always included
+		return true
+	}
+	// Otherwise, only return if the
+	return configEnv == c.options.Revision
 }
 
 // HasSynced returns true if the first batch of items has been popped
@@ -328,4 +376,44 @@ func extractNameNamespace(metadataName string) (string, string) {
 		return segments[0], segments[1]
 	}
 	return "", segments[0]
+}
+
+func (c *controller) removeConfig(kind resource.GroupVersionKind, resources []string) {
+	for _, fullName := range resources {
+		namespace, name := extractNameNamespace(fullName)
+		if byType, ok := c.configStore[kind]; ok {
+			if byNamespace, ok := byType[namespace]; ok {
+				if conf, ok := byNamespace[name]; ok {
+					delete(byNamespace, conf.Name)
+				}
+				// clear parent map also
+				if len(byNamespace) == 0 {
+					delete(byType, namespace)
+				}
+			}
+			// clear parent map also
+			if len(byType) == 0 {
+				delete(c.configStore, kind)
+			}
+		}
+	}
+}
+
+func (c *controller) incrementalUpdate(kind resource.GroupVersionKind, conf map[string]map[string]*model.Config) {
+	if len(conf) == 0 {
+		return
+	}
+	if byType, ok := c.configStore[kind]; ok {
+		for namespace, namedConf := range conf {
+			if byNamespace, ok := byType[namespace]; ok {
+				for name, config := range namedConf {
+					byNamespace[name] = config
+				}
+			} else {
+				byType[namespace] = namedConf
+			}
+		}
+	} else {
+		c.configStore[kind] = conf
+	}
 }

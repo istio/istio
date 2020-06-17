@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,16 +25,16 @@ type StdoutStubDependencies struct {
 
 // RunOrFail runs a command and panics, if it fails
 func (s *StdoutStubDependencies) RunOrFail(cmd string, args ...string) {
-	fmt.Println(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
+	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
 }
 
 // Run runs a command
 func (s *StdoutStubDependencies) Run(cmd string, args ...string) error {
-	fmt.Println(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
+	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
 	return nil
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
 func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd string, args ...string) {
-	fmt.Println(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
+	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
 }

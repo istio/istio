@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,7 +59,12 @@ var (
 	rootCertExpiryTimestamp = monitoring.NewGauge(
 		"citadel_server_root_cert_expiry_timestamp",
 		"The unix timestamp, in seconds, when Citadel root cert will expire. "+
-			"We set it to negative in case of internal error.",
+			"A negative time indicates the cert is expired.",
+	)
+	certChainExpiryTimestamp = monitoring.NewGauge(
+		"citadel_server_cert_chain_expiry_timestamp",
+		"The unix timestamp, in seconds, when Citadel cert chain will expire. "+
+			"A negative time indicates the cert is expired.",
 	)
 )
 
@@ -72,6 +77,7 @@ func init() {
 		certSignErrorCounts,
 		successCounts,
 		rootCertExpiryTimestamp,
+		certChainExpiryTimestamp,
 	)
 }
 

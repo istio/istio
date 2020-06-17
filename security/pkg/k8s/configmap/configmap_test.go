@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package configmap
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -94,7 +95,7 @@ func TestInsertCATLSRootCert(t *testing.T) {
 			client = tc.client
 		}
 		if tc.existingConfigMap != nil {
-			if _, err := client.CoreV1().ConfigMaps(tc.namespace).Create(tc.existingConfigMap); err != nil {
+			if _, err := client.CoreV1().ConfigMaps(tc.namespace).Create(context.TODO(), tc.existingConfigMap, metav1.CreateOptions{}); err != nil {
 				t.Errorf("Test case [%s]: Failed to update configmap %v", id, err)
 			}
 		}
@@ -192,7 +193,7 @@ func TestInsertCATLSRootCertWithRetry(t *testing.T) {
 			client = tc.client
 		}
 		if tc.existingConfigMap != nil {
-			if _, err := client.CoreV1().ConfigMaps(tc.namespace).Create(tc.existingConfigMap); err != nil {
+			if _, err := client.CoreV1().ConfigMaps(tc.namespace).Create(context.TODO(), tc.existingConfigMap, metav1.CreateOptions{}); err != nil {
 				t.Errorf("Test case [%s]: Failed to update configmap %v", id, err)
 			}
 		}
@@ -266,7 +267,7 @@ func TestGetCATLSRootCert(t *testing.T) {
 	for id, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		if tc.existingConfigMap != nil {
-			if _, err := client.CoreV1().ConfigMaps(tc.namespace).Create(tc.existingConfigMap); err != nil {
+			if _, err := client.CoreV1().ConfigMaps(tc.namespace).Create(context.TODO(), tc.existingConfigMap, metav1.CreateOptions{}); err != nil {
 				t.Errorf("failed to update configmap %v", err)
 			}
 		}

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,8 +20,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/mixer/test/client/env"
-	testID "istio.io/istio/mixer/test/client/env"
+	"istio.io/istio/pkg/test/env"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
@@ -42,7 +41,7 @@ func TestProxySTS(t *testing.T) {
 	cb := xdsService.CreateXdsCallback(t)
 	cb.SetExpectedToken(expectedToken)
 	// Start all test servers and proxy
-	setup := stsTest.SetupTest(t, cb, testID.STSTest, false)
+	setup := stsTest.SetupTest(t, cb, env.STSTest, false)
 	// Verify that initially XDS stream is not set up, stats do not update initial stats
 	g := gomega.NewWithT(t)
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))

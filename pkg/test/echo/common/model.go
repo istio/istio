@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
 
 package common
 
+import "istio.io/istio/pkg/config/protocol"
+
 // TLSSettings defines TLS configuration for Echo server
 type TLSSettings struct {
 	RootCert   string
@@ -24,3 +26,26 @@ type TLSSettings struct {
 	// any DNS certs will not validate.
 	Hostname string
 }
+
+// Port represents a network port where a service is listening for
+// connections. The port should be annotated with the type of protocol
+// used by the port.
+type Port struct {
+	// Name ascribes a human readable name for the port object. When a
+	// service has multiple ports, the name field is mandatory
+	Name string
+
+	// Port number where the service can be reached. Does not necessarily
+	// map to the corresponding port numbers for the instances behind the
+	// service.
+	Port int
+
+	// Protocol to be used for the port.
+	Protocol protocol.Instance
+
+	// TLS determines if the port will use TLS.
+	TLS bool
+}
+
+// PortList is a set of ports
+type PortList []*Port

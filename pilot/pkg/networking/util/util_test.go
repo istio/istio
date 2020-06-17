@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,15 +19,12 @@ import (
 	"testing"
 	"time"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoyauth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -37,9 +34,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	proto2 "istio.io/istio/pkg/proto"
 )
@@ -420,59 +415,6 @@ func TestAddSubsetToMetadata(t *testing.T) {
 	}
 }
 
-func TestCloneCluster(t *testing.T) {
-	cluster := buildFakeCluster()
-	clone := CloneCluster(cluster)
-	cluster.LoadAssignment.Endpoints[0].LoadBalancingWeight.Value = 10
-	cluster.LoadAssignment.Endpoints[0].Priority = 8
-	cluster.LoadAssignment.Endpoints[0].LbEndpoints = nil
-
-	if clone.LoadAssignment.Endpoints[0].LoadBalancingWeight.GetValue() == 10 {
-		t.Errorf("LoadBalancingWeight mutated")
-	}
-	if clone.LoadAssignment.Endpoints[0].Priority == 8 {
-		t.Errorf("Priority mutated")
-	}
-	if clone.LoadAssignment.Endpoints[0].LbEndpoints == nil {
-		t.Errorf("LbEndpoints mutated")
-	}
-}
-
-func buildFakeCluster() *v2.Cluster {
-	return &v2.Cluster{
-		Name: "outbound|8080||test.example.org",
-		LoadAssignment: &v2.ClusterLoadAssignment{
-			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []*endpoint.LocalityLbEndpoints{
-				{
-					Locality: &core.Locality{
-						Region:  "region1",
-						Zone:    "zone1",
-						SubZone: "subzone1",
-					},
-					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
-				},
-				{
-					Locality: &core.Locality{
-						Region:  "region1",
-						Zone:    "zone1",
-						SubZone: "subzone2",
-					},
-					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
-				},
-			},
-		},
-	}
-}
-
 func TestIsHTTPFilterChain(t *testing.T) {
 	httpFilterChain := &listener.FilterChain{
 		Filters: []*listener.Filter{
@@ -520,7 +462,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	newTimeout := ptypes.DurationProto(5 * time.Minute)
 	userHCM := &http_conn.HttpConnectionManager{
 		AddUserAgent:      proto2.BoolTrue,
-		IdleTimeout:       newTimeout,
 		StreamIdleTimeout: newTimeout,
 		UseRemoteAddress:  proto2.BoolTrue,
 		XffNumTrustedHops: 5,
@@ -534,7 +475,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 
 	expectedHCM := proto.Clone(inHCM).(*http_conn.HttpConnectionManager)
 	expectedHCM.AddUserAgent = userHCM.AddUserAgent
-	expectedHCM.IdleTimeout = userHCM.IdleTimeout
 	expectedHCM.StreamIdleTimeout = userHCM.StreamIdleTimeout
 	expectedHCM.UseRemoteAddress = userHCM.UseRemoteAddress
 	expectedHCM.XffNumTrustedHops = userHCM.XffNumTrustedHops
@@ -813,149 +753,6 @@ func TestBuildStatPrefix(t *testing.T) {
 	}
 }
 
-func TestApplyToCommonTLSContext(t *testing.T) {
-	testCases := []struct {
-		name       string
-		sdsUdsPath string
-		node       *model.Proxy
-		result     *envoyauth.CommonTlsContext
-	}{
-		{
-			name:       "MTLSStrict using SDS",
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{
-					SdsEnabled: true,
-				},
-			},
-			result: &envoyauth.CommonTlsContext{
-				TlsCertificateSdsSecretConfigs: []*envoyauth.SdsSecretConfig{
-					{
-						Name: "default",
-						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
-							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-								ApiConfigSource: &core.ApiConfigSource{
-									ApiType: core.ApiConfigSource_GRPC,
-									GrpcServices: []*core.GrpcService{
-										{
-											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				ValidationContextType: &envoyauth.CommonTlsContext_CombinedValidationContext{
-					CombinedValidationContext: &envoyauth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext: &envoyauth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
-						ValidationContextSdsSecretConfig: &envoyauth.SdsSecretConfig{
-							Name: "ROOTCA",
-							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
-								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-									ApiConfigSource: &core.ApiConfigSource{
-										ApiType: core.ApiConfigSource_GRPC,
-										GrpcServices: []*core.GrpcService{
-											{
-												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:       "ISTIO_MUTUAL SDS without node meta",
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
-			result: &envoyauth.CommonTlsContext{
-				TlsCertificates: []*envoyauth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/cert-chain.pem",
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/key.pem",
-							},
-						},
-					},
-				},
-				ValidationContextType: &envoyauth.CommonTlsContext_ValidationContext{
-					ValidationContext: &envoyauth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/root-cert.pem",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:       "ISTIO_MUTUAL with custom cert paths from proxy node metadata",
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{
-					TLSServerCertChain: "/custom/path/to/cert-chain.pem",
-					TLSServerKey:       "/custom-key.pem",
-					TLSServerRootCert:  "/custom/path/to/root.pem",
-				},
-			},
-			result: &envoyauth.CommonTlsContext{
-				TlsCertificates: []*envoyauth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/custom/path/to/cert-chain.pem",
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/custom-key.pem",
-							},
-						},
-					},
-				},
-				ValidationContextType: &envoyauth.CommonTlsContext_ValidationContext{
-					ValidationContext: &envoyauth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/custom/path/to/root.pem",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			tlsContext := &envoyauth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{})
-
-			if !reflect.DeepEqual(tlsContext, test.result) {
-				t.Errorf("got() = %v, want %v", spew.Sdump(tlsContext), spew.Sdump(test.result))
-			}
-		})
-	}
-}
-
 func TestBuildAddress(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -1021,9 +818,118 @@ func TestBuildAddress(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			addr := BuildAddress(test.addr, test.port)
+			addr := BuildAddressV2(test.addr, test.port)
 			if !reflect.DeepEqual(addr, test.expected) {
 				t.Errorf("expected add %v, but got %v", test.expected, addr)
+			}
+		})
+	}
+}
+
+func TestCidrRangeSliceEqual(t *testing.T) {
+	tests := []struct {
+		name   string
+		first  []*core.CidrRange
+		second []*core.CidrRange
+		want   bool
+	}{
+		{
+			"both nil",
+			nil,
+			nil,
+			true,
+		},
+		{
+			"unequal length",
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+				{
+					AddressPrefix: "1.2.3.5",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			false,
+		},
+		{
+			"equal cidr",
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			true,
+		},
+		{
+			"unequal cidr address prefix mismatch",
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.5",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			false,
+		},
+		{
+			"unequal cidr prefixlen mismatch",
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 16,
+					},
+				},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CidrRangeSliceEqual(tt.first, tt.second); got != tt.want {
+				t.Errorf("Unexpected CidrRangeSliceEqual() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,17 +24,14 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/atomic"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
-	rbac "istio.io/api/rbac/v1alpha1"
 	authz "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -162,52 +159,6 @@ var (
 				Namespace: "default",
 			},
 		},
-	}
-
-	// ExampleAuthenticationPolicy is an example authentication Policy
-	ExampleAuthenticationPolicy = &authn.Policy{
-		Targets: []*authn.TargetSelector{{
-			Name: "hello",
-		}},
-		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{
-				Mtls: &authn.MutualTls{},
-			},
-		}},
-	}
-
-	// ExampleServiceRole is an example rbac service role
-	ExampleServiceRole = &rbac.ServiceRole{Rules: []*rbac.AccessRule{
-		{
-			Services: []string{"service0"},
-			Methods:  []string{"GET", "POST"},
-			Constraints: []*rbac.AccessRule_Constraint{
-				{Key: "key", Values: []string{"value"}},
-				{Key: "key", Values: []string{"value"}},
-			},
-		},
-		{
-			Services: []string{"service0"},
-			Methods:  []string{"GET", "POST"},
-			Constraints: []*rbac.AccessRule_Constraint{
-				{Key: "key", Values: []string{"value"}},
-				{Key: "key", Values: []string{"value"}},
-			},
-		},
-	}}
-
-	// ExampleServiceRoleBinding is an example rbac service role binding
-	ExampleServiceRoleBinding = &rbac.ServiceRoleBinding{
-		Subjects: []*rbac.Subject{
-			{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
-			{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
-		},
-		RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
-	}
-
-	// ExampleRbacConfig is an example rbac config
-	ExampleRbacConfig = &rbac.RbacConfig{
-		Mode: rbac.RbacConfig_ON,
 	}
 
 	// ExampleAuthorizationPolicy is an example AuthorizationPolicy
@@ -338,17 +289,6 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 		t.Error("expected error putting missing object with a missing key")
 	}
 
-	if _, err := r.Update(elts[0]); err == nil {
-		t.Error("expected error putting object without revision")
-	}
-
-	badrevision := elts[0]
-	badrevision.ResourceVersion = "bad"
-
-	if _, err := r.Update(badrevision); err == nil {
-		t.Error("expected error putting object with a bad revision")
-	}
-
 	// check for missing type
 	if l, _ := r.List(resource.GroupVersionKind{}, namespace); len(l) > 0 {
 		t.Errorf("unexpected objects for missing type")
@@ -445,11 +385,6 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"HTTPAPISpecBinding", configName, collections.IstioConfigV1Alpha2Httpapispecbindings, ExampleHTTPAPISpecBinding},
 		{"QuotaSpec", configName, collections.IstioMixerV1ConfigClientQuotaspecs, ExampleQuotaSpec},
 		{"QuotaSpecBinding", configName, collections.IstioMixerV1ConfigClientQuotaspecbindings, ExampleQuotaSpecBinding},
-		{"Policy", configName, collections.IstioAuthenticationV1Alpha1Policies, ExampleAuthenticationPolicy},
-		{"ServiceRole", configName, collections.IstioRbacV1Alpha1Serviceroles, ExampleServiceRole},
-		{"ServiceRoleBinding", configName, collections.IstioRbacV1Alpha1Servicerolebindings, ExampleServiceRoleBinding},
-		{"RbacConfig", constants.DefaultRbacConfigName, collections.IstioRbacV1Alpha1Rbacconfigs, ExampleRbacConfig},
-		{"ClusterRbacConfig", constants.DefaultRbacConfigName, collections.IstioRbacV1Alpha1Clusterrbacconfigs, ExampleRbacConfig},
 		{"AuthorizationPolicy", configName, collections.IstioSecurityV1Beta1Authorizationpolicies, ExampleAuthorizationPolicy},
 	}
 

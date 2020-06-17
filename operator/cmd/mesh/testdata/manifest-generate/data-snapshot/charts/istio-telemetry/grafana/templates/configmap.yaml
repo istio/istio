@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: grafana
+    release: {{ .Release.Name }}
+    istio: grafana
+data:
+{{- if .Values.grafana.datasources }}
+  {{- range $key, $value := .Values.grafana.datasources }}
+  {{ $key }}: |
+{{ toYaml $value | indent 4 }}
+  {{- end -}}
+{{- end -}}
+
+{{- if .Values.grafana.dashboardProviders }}
+  {{- range $key, $value := .Values.grafana.dashboardProviders }}
+  {{ $key }}: |
+{{ toYaml $value | indent 4 }}
+  {{- end -}}
+{{- end -}}

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -80,18 +83,19 @@ func Hash(kind, namespace, name string) string {
 	return strings.Join([]string{kind, namespace, name}, ":")
 }
 
+// FromHash parses kind, namespace and name from a hash.
+func FromHash(hash string) (kind, namespace, name string) {
+	hv := strings.Split(hash, ":")
+	if len(hv) != 3 {
+		return "Bad hash string: " + hash, "", ""
+	}
+	kind, namespace, name = hv[0], hv[1], hv[2]
+	return
+}
+
 // HashNameKind returns a unique, insecure hash based on kind and name.
 func HashNameKind(kind, name string) string {
 	return strings.Join([]string{kind, name}, ":")
-}
-
-// K8sObjectsFromUnstructuredSlice returns an Objects ptr type from a slice of Unstructured.
-func K8sObjectsFromUnstructuredSlice(objs []*unstructured.Unstructured) (K8sObjects, error) {
-	var ret K8sObjects
-	for _, o := range objs {
-		ret = append(ret, NewK8sObject(o, nil, nil))
-	}
-	return ret, nil
 }
 
 // ParseJSONToK8sObject parses JSON to an K8sObject.
@@ -117,7 +121,7 @@ func ParseYAMLToK8sObject(yaml []byte) (*K8sObject, error) {
 	out := &unstructured.Unstructured{}
 	err := decoder.Decode(out)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding object: %v", err)
+		return nil, fmt.Errorf("error decoding object %v: %v", string(yaml), err)
 	}
 	return NewK8sObject(out, nil, yaml), nil
 }
@@ -127,9 +131,21 @@ func (o *K8sObject) UnstructuredObject() *unstructured.Unstructured {
 	return o.object
 }
 
-// GroupKind returns the GroupKind for the K8sObject
-func (o *K8sObject) GroupKind() schema.GroupKind {
-	return o.object.GroupVersionKind().GroupKind()
+// UnstructuredObject exposes the raw object content, primarily for testing
+func (o *K8sObject) Unstructured() map[string]interface{} {
+	return o.UnstructuredObject().UnstructuredContent()
+}
+
+// Container returns a container subtree for Deployment objects if one is found, or nil otherwise.
+func (o *K8sObject) Container(name string) map[string]interface{} {
+	u := o.Unstructured()
+	path := fmt.Sprintf("spec.template.spec.containers.[name:%s]", name)
+	node, f, err := tpath.GetPathContext(u, util.PathFromString(path), false)
+	if err == nil && f {
+		// Must be the type from the schema.
+		return node.Node.(map[string]interface{})
+	}
+	return nil
 }
 
 // GroupVersionKind returns the GroupVersionKind for the K8sObject
@@ -190,29 +206,35 @@ func (o *K8sObject) YAMLDebugString() string {
 	return string(y)
 }
 
-// AddLabels adds labels to the K8sObject.
-// This method will override the value if there is already label with the same key.
-func (o *K8sObject) AddLabels(labels map[string]string) {
-	merged := make(map[string]string)
-	for k, v := range o.object.GetLabels() {
-		merged[k] = v
-	}
-
-	for k, v := range labels {
-		merged[k] = v
-	}
-
-	o.object.SetLabels(merged)
-	// Invalidate cached json
-	o.json = nil
-	o.yaml = nil
-}
-
 // K8sObjects holds a collection of k8s objects, so that we can filter / sequence them
 type K8sObjects []*K8sObject
 
+// String implements the Stringer interface.
+func (os K8sObjects) String() string {
+	var out []string
+	for _, oo := range os {
+		out = append(out, oo.YAMLDebugString())
+	}
+	return strings.Join(out, helm.YAMLSeparator)
+}
+
+// Keys returns a slice with the keys of os.
+func (os K8sObjects) Keys() []string {
+	var out []string
+	for _, oo := range os {
+		out = append(out, oo.Hash())
+	}
+	return out
+}
+
 // ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest.
 func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
+	return ParseK8sObjectsFromYAMLManifestFailOption(manifest, true)
+}
+
+// ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest. Continues parsing when a bad object
+// is found if failOnError is set to false.
+func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool) (K8sObjects, error) {
 	var b bytes.Buffer
 
 	var yamls []string
@@ -243,7 +265,11 @@ func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 		}
 		o, err := ParseYAMLToK8sObject([]byte(yaml))
 		if err != nil {
-			log.Errorf("Failed to parse YAML to a k8s object: %v", err.Error())
+			e := fmt.Errorf("failed to parse YAML to a k8s object: %s", err)
+			if failOnError {
+				return nil, e
+			}
+			log.Error(err.Error())
 			continue
 		}
 
@@ -264,30 +290,6 @@ func removeNonYAMLLines(yms string) string {
 
 	// helm charts sometimes emits blank objects with just a "disabled" comment.
 	return strings.TrimSpace(out)
-}
-
-// JSONManifest returns a JSON representation of K8sObjects os.
-func (os K8sObjects) JSONManifest() (string, error) {
-	var b bytes.Buffer
-
-	for i, item := range os {
-		if i != 0 {
-			if _, err := b.WriteString("\n\n"); err != nil {
-				return "", err
-			}
-		}
-		// We build a JSON manifest because conversion to yaml is harder
-		// (and we've lost line numbers anyway if we applied any transforms)
-		json, err := item.JSON()
-		if err != nil {
-			return "", fmt.Errorf("error building json: %v", err)
-		}
-		if _, err := b.Write(json); err != nil {
-			return "", err
-		}
-	}
-
-	return b.String(), nil
 }
 
 // YAMLManifest returns a YAML representation of K8sObjects os.
@@ -384,4 +386,120 @@ func (o *K8sObject) Equal(other *K8sObject) bool {
 	}
 
 	return util.IsYAMLEqual(string(ay), string(by))
+}
+
+func istioCustomResources(group string) bool {
+	switch group {
+	case "config.istio.io",
+		"security.istio.io",
+		"authentication.istio.io",
+		"networking.istio.io":
+		return true
+	}
+	return false
+}
+
+// DefaultObjectOrder is default sorting function used to sort k8s objects.
+func DefaultObjectOrder() func(o *K8sObject) int {
+	return func(o *K8sObject) int {
+		gk := o.Group + "/" + o.Kind
+		switch {
+		// Create CRDs asap - both because they are slow and because we will likely create instances of them soon
+		case gk == "apiextensions.k8s.io/CustomResourceDefinition":
+			return -1000
+
+			// We need to create ServiceAccounts, Roles before we bind them with a RoleBinding
+		case gk == "/ServiceAccount" || gk == "rbac.authorization.k8s.io/ClusterRole":
+			return 1
+		case gk == "rbac.authorization.k8s.io/ClusterRoleBinding":
+			return 2
+
+			// validatingwebhookconfiguration is configured to FAIL-OPEN in the default install. For the
+			// re-install case we want to apply the validatingwebhookconfiguration first to reset any
+			// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
+		case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+			return 3
+
+		case istioCustomResources(o.Group):
+			return 4
+
+			// Pods might need configmap or secrets - avoid backoff by creating them first
+		case gk == "/ConfigMap" || gk == "/Secrets":
+			return 100
+
+			// Create the pods after we've created other things they might be waiting for
+		case gk == "extensions/Deployment" || gk == "app/Deployment":
+			return 1000
+
+			// Autoscalers typically act on a deployment
+		case gk == "autoscaling/HorizontalPodAutoscaler":
+			return 1001
+
+			// Create services late - after pods have been started
+		case gk == "/Service":
+			return 10000
+
+		default:
+			return 1000
+		}
+	}
+}
+
+func ObjectsNotInLists(objects K8sObjects, lists ...K8sObjects) K8sObjects {
+	var ret K8sObjects
+
+	filterMap := make(map[*K8sObject]bool)
+	for _, list := range lists {
+		for _, object := range list {
+			filterMap[object] = true
+		}
+	}
+
+	for _, o := range objects {
+		if !filterMap[o] {
+			ret = append(ret, o)
+		}
+	}
+	return ret
+}
+
+// KindObjects returns the subset of objs with the given kind.
+func KindObjects(objs K8sObjects, kind string) K8sObjects {
+	var ret K8sObjects
+	for _, o := range objs {
+		if o.Kind == kind {
+			ret = append(ret, o)
+		}
+	}
+	return ret
+}
+
+// ParseK8SYAMLToIstioOperator parses a IstioOperator CustomResource YAML string and unmarshals in into
+// an IstioOperatorSpec object. It returns the object and an API group/version with it.
+func ParseK8SYAMLToIstioOperator(yml string) (*v1alpha1.IstioOperator, *schema.GroupVersionKind, error) {
+	o, err := ParseYAMLToK8sObject([]byte(yml))
+	if err != nil {
+		return nil, nil, err
+	}
+	iop := &v1alpha1.IstioOperator{}
+	if err := util.UnmarshalWithJSONPB(yml, iop, false); err != nil {
+		return nil, nil, err
+	}
+	gvk := o.GroupVersionKind()
+	v1alpha1.SetNamespace(iop.Spec, o.Namespace)
+	return iop, &gvk, nil
+}
+
+// AllObjectHashes returns a map with object hashes of all the objects contained in cmm as the keys.
+func AllObjectHashes(m string) map[string]bool {
+	ret := make(map[string]bool)
+	objs, err := ParseK8sObjectsFromYAMLManifest(m)
+	if err != nil {
+		log.Error(err.Error())
+	}
+	for _, o := range objs {
+		ret[o.Hash()] = true
+	}
+
+	return ret
 }

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,13 +26,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 
@@ -51,7 +49,6 @@ const (
 var (
 	ist        istio.Instance
 	echoNsInst namespace.Instance
-	galInst    galley.Instance
 	sdInst     stackdriver.Instance
 	srv        echo.Instance
 	clt        echo.Instance
@@ -63,10 +60,6 @@ func getIstioInstance() *istio.Instance {
 
 func getEchoNamespaceInstance() namespace.Instance {
 	return echoNsInst
-}
-
-func getGalInstance() galley.Instance {
-	return galInst
 }
 
 func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSeries, err error) {
@@ -118,7 +111,6 @@ func getWantServerLogEntry() (srvLogEntry loggingpb.LogEntry, err error) {
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			srvReceived := false
 			cltReceived := false
@@ -181,10 +173,9 @@ func TestStackdriverMonitoring(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("stackdriver_filter_test", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(getIstioInstance(), setupConfig)).
+		Setup(istio.Setup(getIstioInstance(), setupConfig)).
 		Setup(testSetup).
 		Run()
 }
@@ -202,10 +193,6 @@ func setupConfig(cfg *istio.Config) {
 }
 
 func testSetup(ctx resource.Context) (err error) {
-	galInst, err = galley.New(ctx, galley.Config{})
-	if err != nil {
-		return
-	}
 	echoNsInst, err = namespace.New(ctx, namespace.Config{
 		Prefix: "istio-echo",
 		Inject: true,
@@ -230,10 +217,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = galInst.ApplyConfig(
-		echoNsInst,
-		sdBootstrap,
-	)
+	err = ctx.ApplyConfig(echoNsInst.Name(), sdBootstrap)
 	if err != nil {
 		return
 	}
@@ -245,7 +229,6 @@ func testSetup(ctx resource.Context) (err error) {
 		With(&clt, echo.Config{
 			Service:   "clt",
 			Namespace: getEchoNamespaceInstance(),
-			Galley:    getGalInstance(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -258,7 +241,6 @@ func testSetup(ctx resource.Context) (err error) {
 		With(&srv, echo.Config{
 			Service:   "srv",
 			Namespace: getEchoNamespaceInstance(),
-			Galley:    getGalInstance(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{

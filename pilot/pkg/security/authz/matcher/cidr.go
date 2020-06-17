@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 // CidrRange converts a CIDR or a single IP string to a corresponding CidrRange. For a single IP

@@ -19,10 +19,12 @@ import (
 )
 
 const (
-	defaultOrigin = origin("mcp")
+	defaultOrigin    = origin("mcp")
+	defaultReference = reference("mcp")
 )
 
 var _ resource.Origin = defaultOrigin
+var _ resource.Reference = defaultReference
 
 type origin string
 
@@ -34,6 +36,12 @@ func (o origin) Namespace() resource.Namespace {
 	return ""
 }
 
-func (o origin) Reference() string {
-	return ""
+func (o origin) Reference() resource.Reference {
+	return defaultReference
+}
+
+type reference string
+
+func (r reference) String() string {
+	return string(r)
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/galley/testdatasets/validation"
 	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework"
@@ -68,7 +67,7 @@ func loadTestData(t *testing.T) []testData {
 func TestValidation(t *testing.T) {
 	framework.NewTest(t).
 		// Limit to Kube environment as we're testing integration of webhook with K8s.
-		RequiresEnvironment(environment.Kube).
+
 		Run(func(ctx framework.TestContext) {
 
 			dataset := loadTestData(t)
@@ -173,17 +172,18 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				"networking.istio.io/v1beta1/Gateway",
 				"networking.istio.io/v1beta1/DestinationRule",
 				"networking.istio.io/v1beta1/VirtualService",
+				"networking.istio.io/v1beta1/WorkloadEntry",
 				"networking.istio.io/v1beta1/Sidecar",
 			} {
 				recognized[gvk] = struct{}{}
 			}
 			// These CRDs are validated outside of Istio
 			for _, gvk := range []string{
-				"networking.x.k8s.io/v1alpha1/Gateway",
-				"networking.x.k8s.io/v1alpha1/GatewayClass",
-				"networking.x.k8s.io/v1alpha1/HTTPRoute",
-				"networking.x.k8s.io/v1alpha1/TcpRoute",
-				"networking.x.k8s.io/v1alpha1/TrafficSplit",
+				"networking.x-k8s.io/v1alpha1/Gateway",
+				"networking.x-k8s.io/v1alpha1/GatewayClass",
+				"networking.x-k8s.io/v1alpha1/HTTPRoute",
+				"networking.x-k8s.io/v1alpha1/TcpRoute",
+				"networking.x-k8s.io/v1alpha1/TrafficSplit",
 			} {
 				delete(recognized, gvk)
 			}

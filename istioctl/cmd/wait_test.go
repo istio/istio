@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,6 +70,11 @@ func TestWaitCmd(t *testing.T) {
 		{
 			execClientConfig: cannedResponseMap,
 			args:             strings.Split("x wait --timeout 2s virtualservice foo.default", " "),
+			wantException:    false,
+		},
+		{
+			execClientConfig: cannedResponseMap,
+			args:             strings.Split("x wait --revision canary virtualservice foo.default", " "),
 			wantException:    false,
 		},
 	}

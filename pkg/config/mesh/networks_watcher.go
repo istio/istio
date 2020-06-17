@@ -76,7 +76,7 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 		// Reload the config file
 		meshNetworks, err := ReadMeshNetworks(filename)
 		if err != nil {
-			log.Warnf("failed to read mesh networks configuration from %q", filename)
+			log.Warnf("failed to read mesh networks configuration from %q: %v", filename, err)
 			return
 		}
 
@@ -102,7 +102,7 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 	return w, nil
 }
 
-// Config returns the latest network configuration for the mesh.
+// Networks returns the latest network configuration for the mesh.
 func (w *networksWatcher) Networks() *meshconfig.MeshNetworks {
 	return (*meshconfig.MeshNetworks)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&w.networks))))
 }

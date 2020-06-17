@@ -8,11 +8,11 @@ See the
 for a more complete design description. The operator code is divided roughly into five areas:
 
 1. [IstioOperatorSpec API](#istiooperatorspec-api) and related infrastructure, which is expressed as a
-[proto](https://github.com/istio/api/mesh/v1alpha1/operator.proto) and
+[proto](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto) and
 compiled to [Go
-structs](https://github.com/istio/api/mesh/v1alpha1/operator.pb.go).
+structs](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.pb.go).
 `IstioOperatorSpec` has pass-through fields to the Helm values.yaml API, but these are additionally validated through
-a [schema](pkg/apis/istio/v1alpha/values_types.proto).
+a [schema](pkg/apis/istio/v1alpha1/values_types.proto).
 1. [Controller](#k8s-controller) code. The code comprises the K8s listener, webhook and logic for reconciling the cluster
 to an `IstioOperatorSpec` CR.
 1. [Manifest creation](#manifest-creation) code. User settings are overlaid on top of the
@@ -24,9 +24,9 @@ run a privileged controller in the cluster.
 1. [Migration tools](#migration-tools). The migration tools are intended to
 automate configuration migration from Helm to the operator.
 
-The operator code uses the new Helm charts in the [istio/installer](https://github.com/istio/installer) repo. It is not
-compatible with the older charts in [istio/istio](https://github.com/istio/istio/tree/master/install/kubernetes/helm).
-See the istio/installer repo for details about the new charts and why they were created. Briefly, the new charts
+The operator code uses the new Helm charts in the [istio/manifests/charts](../manifests/charts/istio-operator). It is not
+compatible with the older charts in [istio/istio](https://github.com/istio/istio/tree/1.4.7/install/kubernetes/helm).
+See `istio/manifests/charts` for details about the new charts and why they were created. Briefly, the new charts
 are intended to support production ready deployments of Istio that follow best practices like canarying for upgrade.
 
 ## Terminology
@@ -34,10 +34,10 @@ are intended to support production ready deployments of Istio that follow best p
 Throughout the document, the following terms are used:
 
 - `IstioOperatorSpec`: The API directly defined in the
-[IstioOperatorSpec proto](https://github.com/istio/api/mesh/v1alpha1/operator.proto),
+[IstioOperatorSpec proto](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto),
 including feature and component groupings, namespaces and enablement, and per-component K8s settings.
 - Helm values.yaml API, implicitly defined through the various values.yaml files in the
-[Helm charts](https://github.com/istio/installer) and schematized in the operator through
+[istio/manifests/charts](../manifests/charts/istio-operator) and schematized in the operator through
 [values_types.proto](pkg/apis/istio/v1alpha1/values_types.proto).
 
 ## IstioOperatorSpec API
@@ -216,7 +216,7 @@ The source may be selected independently for the charts and profiles. The differ
 as follows:
 
 1. The user CR (my_custom.yaml) selects a configuration profile. If no profile is selected, the
-[default profile](data/profiles/default.yaml) is used. Each profile is defined as a
+[default profile](../manifests/profiles/default.yaml) is used. Each profile is defined as a
 set of defaults for `IstioOperatorSpec`, for both the restructured fields (K8s settings, namespaces and enablement)
 and the Helm values (Istio behavior configuration).
 

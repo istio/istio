@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ import (
 )
 
 func TestGoldenConversion(t *testing.T) {
-	cases := []string{"simple", "tls"}
+	cases := []string{"simple", "tls", "overlay"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input, err := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
@@ -60,7 +60,8 @@ func TestGoldenConversion(t *testing.T) {
 			}
 			for _, obj := range input {
 				ingress := obj.(*v1beta1.Ingress)
-				gws := ConvertIngressV1alpha3(*ingress, "mydomain")
+				m := mesh.DefaultMeshConfig()
+				gws := ConvertIngressV1alpha3(*ingress, &m, "mydomain")
 				ordered = append(ordered, gws)
 			}
 
@@ -282,46 +283,82 @@ func TestEncoding(t *testing.T) {
 
 func TestIngressClass(t *testing.T) {
 	istio := mesh.DefaultMeshConfig().IngressClass
+	ingressClassIstio := &v1beta1.IngressClass{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "istio",
+		},
+		Spec: v1beta1.IngressClassSpec{
+			Controller: IstioIngressController,
+		},
+	}
+	ingressClassOther := &v1beta1.IngressClass{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "foo",
+		},
+		Spec: v1beta1.IngressClassSpec{
+			Controller: "foo",
+		},
+	}
 	cases := []struct {
-		ingressClass  string
+		annotation    string
+		ingressClass  *v1beta1.IngressClass
 		ingressMode   meshconfig.MeshConfig_IngressControllerMode
 		shouldProcess bool
 	}{
-		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
-		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: "nginx", shouldProcess: false},
-		{ingressMode: meshconfig.MeshConfig_OFF, ingressClass: istio, shouldProcess: false},
-		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: istio, shouldProcess: true},
-		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
-		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
-		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: "", shouldProcess: false},
+		// Annotation
+		{ingressMode: meshconfig.MeshConfig_DEFAULT, annotation: "nginx", shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_STRICT, annotation: "nginx", shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_OFF, annotation: istio, shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_DEFAULT, annotation: istio, shouldProcess: true},
+		{ingressMode: meshconfig.MeshConfig_STRICT, annotation: istio, shouldProcess: true},
+		{ingressMode: meshconfig.MeshConfig_DEFAULT, annotation: "", shouldProcess: true},
+		{ingressMode: meshconfig.MeshConfig_STRICT, annotation: "", shouldProcess: false},
+
+		// IngressClass
+		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: ingressClassOther, shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: ingressClassOther, shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: ingressClassIstio, shouldProcess: true},
+		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: ingressClassIstio, shouldProcess: true},
+		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: nil, shouldProcess: true},
+		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: nil, shouldProcess: false},
+
+		// IngressClass and Annotation
+		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: ingressClassIstio, annotation: "nginx", shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: ingressClassOther, annotation: istio, shouldProcess: true},
 		{ingressMode: -1, shouldProcess: false},
 	}
 
-	for _, c := range cases {
-		ing := v1beta1.Ingress{
-			ObjectMeta: meta_v1.ObjectMeta{
-				Name:        "test-ingress",
-				Namespace:   "default",
-				Annotations: make(map[string]string),
-			},
-			Spec: v1beta1.IngressSpec{
-				Backend: &v1beta1.IngressBackend{
-					ServiceName: "default-http-backend",
-					ServicePort: intstr.FromInt(80),
+	for i, c := range cases {
+		className := ""
+		if c.ingressClass != nil {
+			className = c.ingressClass.Name
+		}
+		t.Run(fmt.Sprintf("%d %s %s %s", i, c.ingressMode, c.annotation, className), func(t *testing.T) {
+			ing := v1beta1.Ingress{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name:        "test-ingress",
+					Namespace:   "default",
+					Annotations: make(map[string]string),
 				},
-			},
-		}
+				Spec: v1beta1.IngressSpec{
+					Backend: &v1beta1.IngressBackend{
+						ServiceName: "default-http-backend",
+						ServicePort: intstr.FromInt(80),
+					},
+				},
+			}
 
-		mesh := mesh.DefaultMeshConfig()
-		mesh.IngressControllerMode = c.ingressMode
+			mesh := mesh.DefaultMeshConfig()
+			mesh.IngressControllerMode = c.ingressMode
 
-		if c.ingressClass != "" {
-			ing.Annotations["kubernetes.io/ingress.class"] = c.ingressClass
-		}
+			if c.annotation != "" {
+				ing.Annotations["kubernetes.io/ingress.class"] = c.annotation
+			}
 
-		if c.shouldProcess != shouldProcessIngress(&mesh, &ing) {
-			t.Errorf("shouldProcessIngress(<ingress of class '%s'>) => %v, want %v",
-				c.ingressClass, !c.shouldProcess, c.shouldProcess)
-		}
+			if c.shouldProcess != shouldProcessIngressWithClass(&mesh, &ing, c.ingressClass) {
+				t.Errorf("got %v, want %v",
+					!c.shouldProcess, c.shouldProcess)
+			}
+		})
 	}
 }

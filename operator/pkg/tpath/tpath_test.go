@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,24 @@ a:
 		wantFound bool
 		wantErr   string
 	}{
+		{
+			desc:      "AddListEntry",
+			path:      `a.b.[name:n2].list`,
+			value:     `foo`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list:
+    - v1
+    - v2
+    - v3_regex
+    - foo
+`,
+		},
 		{
 			desc:      "ModifyListEntryValue",
 			path:      `a.b.[name:n1].value`,
@@ -94,6 +112,25 @@ a:
 `,
 		},
 		{
+			desc: "ModifyListEntryMapValue",
+			path: `a.b.[name:n2]`,
+			value: `name: n2
+list: 
+  - nk1: nv1
+  - nk2: nv2`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list:
+    - nk1: nv1
+    - nk2: nv2
+`,
+		},
+		{
 			desc:      "ModifyNthListEntry",
 			path:      `a.b.[1].list.[:v2]`,
 			value:     `v-the-second`,
@@ -128,10 +165,10 @@ a:
 `,
 		},
 		{
-			desc:      "ExtendNthLeafListEntry",
-			path:      `a.b.[1].list.[3]`,
-			value:     `v4`,
-			wantFound: true,
+			desc:    "ExtendNthLeafListEntry",
+			path:    `a.b.[1].list.[3]`,
+			value:   `v4`,
+			wantErr: `index 3 exceeds list length 3 at path [3]`,
 			want: `
 a:
   b:
@@ -146,10 +183,10 @@ a:
 `,
 		},
 		{
-			desc:      "ExtendMoreThanOneLeafListEntry",
-			path:      `a.b.[1].list.[5]`,
-			value:     `v4`,
-			wantFound: true,
+			desc:    "ExtendMoreThanOneLeafListEntry",
+			path:    `a.b.[1].list.[5]`,
+			value:   `v4`,
+			wantErr: `index 5 exceeds list length 3 at path [5]`,
 			want: `
 a:
   b:
@@ -166,10 +203,10 @@ a:
 `,
 		},
 		{
-			desc:      "ExtendNthListEntry",
-			path:      `a.b.[2].name`,
-			value:     `n3`,
-			wantFound: true,
+			desc:    "ExtendNthListEntry",
+			path:    `a.b.[2].name`,
+			value:   `n3`,
+			wantErr: `index 2 exceeds list length 2 at path [2].name`,
 			want: `
 a:
   b:
@@ -184,10 +221,10 @@ a:
 `,
 		},
 		{
-			desc:      "ExtendMoreThanOneListEntry",
-			path:      `a.b.[4].name`,
-			value:     `n3`,
-			wantFound: true,
+			desc:    "ExtendMoreThanOneListEntry",
+			path:    `a.b.[4].name`,
+			value:   `n3`,
+			wantErr: `index 4 exceeds list length 2 at path [4].name`,
 			want: `
 a:
   b:
@@ -289,12 +326,12 @@ a:
 			desc:      "DeleteListEntryBogusIndex",
 			path:      `a.b.[1000000].list.[:v2]`,
 			wantFound: false,
-			wantErr:   `path a.b.[1000000].list.[:v2]: element [1000000] not found`,
+			wantErr:   `index 1000000 exceeds list length 2 at path [1000000].list.[:v2]`,
 		},
 		{
 			desc:      "AddMapEntry",
-			path:      `a.test`,
-			value:     `foo`,
+			path:      `a.new_key`,
+			value:     `new_val`,
 			wantFound: true,
 			want: `
 a:
@@ -306,13 +343,15 @@ a:
     - v1
     - v2
     - v3_regex
-  test: foo
+  new_key: new_val
 `,
 		},
 		{
-			desc:      "AddListEntry",
-			path:      `a.b.[name:n2].list`,
-			value:     `foo`,
+			desc: "AddMapEntryMapValue",
+			path: `a.new_key`,
+			value: `new_key:
+  nk1:
+    nk2: nv2`,
 			wantFound: true,
 			want: `
 a:
@@ -324,7 +363,29 @@ a:
     - v1
     - v2
     - v3_regex
-    - foo
+  new_key:
+    nk1:
+      nk2: nv2
+`,
+		},
+		{
+			desc: "ModifyMapEntryMapValue",
+			path: `a.b`,
+			value: `nk1:
+  nk2: nv2`,
+			wantFound: true,
+			want: `
+a:
+  nk1:
+    nk2: nv2
+`,
+		},
+		{
+			desc:      "DeleteMapEntry",
+			path:      `a.b`,
+			wantFound: true,
+			want: `
+a: {}
 `,
 		},
 		{
@@ -337,7 +398,7 @@ a:
 			desc:      "error key",
 			path:      `a.b.[].list`,
 			wantFound: false,
-			wantErr:   `path a.b.[].list: [] is not a valid value path element`,
+			wantErr:   `path a.b.[].list: [] is not a valid key:value path element`,
 		},
 		{
 			desc:      "invalid index",
@@ -352,7 +413,7 @@ a:
 			if err := yaml.Unmarshal([]byte(rootYAML), &root); err != nil {
 				t.Fatal(err)
 			}
-			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path))
+			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path), false)
 			if gotErr, wantErr := errToString(gotErr), tt.wantErr; gotErr != wantErr {
 				t.Fatalf("GetPathContext(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 			}
@@ -371,7 +432,7 @@ a:
 			gotYAML := util.ToYAML(root)
 			diff := util.YAMLDiff(gotYAML, tt.want)
 			if diff != "" {
-				t.Errorf("%s: diff:\n%s\n", tt.desc, diff)
+				t.Errorf("%s: (got:-, want:+):\n%s\n", tt.desc, diff)
 			}
 		})
 	}
@@ -684,7 +745,7 @@ values:
 
 	for _, override := range overrides {
 
-		pc, _, err := GetPathContext(root, util.PathFromString(override.path))
+		pc, _, err := GetPathContext(root, util.PathFromString(override.path), true)
 		if err != nil {
 			t.Fatalf("GetPathContext(%q): %v", override.path, err)
 		}
@@ -753,7 +814,7 @@ values:
 			if err := yaml.Unmarshal([]byte(rootYAML), &root); err != nil {
 				t.Fatal(err)
 			}
-			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path))
+			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path), false)
 			if gotErr, wantErr := errToString(gotErr), tt.wantErr; gotErr != wantErr {
 				t.Fatalf("GetPathContext(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 			}
@@ -773,6 +834,145 @@ values:
 			diff := util.YAMLDiff(gotYAML, tt.want)
 			if diff != "" {
 				t.Errorf("%s: diff:\n%s\n", tt.desc, diff)
+			}
+		})
+	}
+}
+
+func TestGetFromStructPath(t *testing.T) {
+	tests := []struct {
+		desc      string
+		nodeYAML  string
+		path      string
+		wantYAML  string
+		wantFound bool
+		wantErr   string
+	}{
+		{
+			desc: "GetStructItem",
+			nodeYAML: `
+a: va
+b: vb
+c:
+  d: vd
+  e:
+    f: vf
+g:
+  h:
+  - i: vi
+    j: vj
+    k:
+      l:
+        m: vm
+        n: vn
+`,
+			path: "c",
+			wantYAML: `
+d: vd
+e:
+  f: vf
+`,
+			wantFound: true,
+		},
+		{
+			desc: "GetSliceEntryItem",
+			nodeYAML: `
+a: va
+b: vb
+c:
+  d: vd
+  e:
+    f: vf
+g:
+  h:
+  - i: vi
+    j: vj
+    k:
+      l:
+        m: vm
+        n: vm
+`,
+			path: "g.h.0",
+			wantYAML: `
+i: vi
+j: vj
+k:
+  l:
+    m: vm
+    n: vm
+`,
+			wantFound: true,
+		},
+		{
+			desc: "GetMapEntryItem",
+			nodeYAML: `
+a: va
+b: vb
+c:
+  d: vd
+  e:
+    f: vf
+g:
+  h:
+  - i: vi
+    j: vj
+    k:
+      l:
+        m: vm
+        n: vm
+`,
+			path: "g.h.0.k",
+			wantYAML: `
+l:
+  m: vm
+  n: vm
+`,
+			wantFound: true,
+		},
+		{
+			desc: "GetPathNotExists",
+			nodeYAML: `
+a: va
+b: vb
+c:
+  d: vd
+  e:
+    f: vf
+g:
+  h:
+  - i: vi
+    j: vj
+    k:
+      l:
+        m: vm
+        n: vm
+`,
+			path:      "c.d.e",
+			wantFound: false,
+			wantErr:   "getFromStructPath path e, unsupported type string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			rnode := make(map[string]interface{})
+			if err := yaml.Unmarshal([]byte(tt.nodeYAML), &rnode); err != nil {
+				t.Fatal(err)
+			}
+			GotOut, GotFound, gotErr := GetFromStructPath(rnode, tt.path)
+			if GotFound != tt.wantFound {
+				t.Fatalf("GetFromStructPath(%s): gotFound:%v, wantFound:%v", tt.desc, GotFound, tt.wantFound)
+			}
+			if gotErr, wantErr := errToString(gotErr), tt.wantErr; gotErr != wantErr {
+				t.Fatalf("GetFromStructPath(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
+			}
+			if tt.wantErr != "" || !tt.wantFound {
+				return
+			}
+			gotYAML := util.ToYAML(GotOut)
+			diff := util.YAMLDiff(gotYAML, tt.wantYAML)
+			if diff != "" {
+				t.Errorf("GetFromStructPath(%s): YAML of gotOut:\n%s\n, YAML of wantOut:\n%s\n, diff:\n%s\n", tt.desc, gotYAML, tt.wantYAML, diff)
 			}
 		})
 	}

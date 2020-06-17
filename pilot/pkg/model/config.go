@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -41,9 +40,39 @@ var (
 	_ = udpa.TypedStruct{}
 )
 
-const (
-	RevisionLabel = "istio.io/rev"
-)
+// ConfigKey describe a specific config item.
+// In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
+type ConfigKey struct {
+	Kind      resource.GroupVersionKind
+	Name      string
+	Namespace string
+}
+
+// ConfigsOfKind extracts configs of the specified kind.
+func ConfigsOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersionKind) map[ConfigKey]struct{} {
+	ret := make(map[ConfigKey]struct{})
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret[conf] = struct{}{}
+		}
+	}
+
+	return ret
+}
+
+// ConfigNamesOfKind extracts config names of the specified kind.
+func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersionKind) map[string]struct{} {
+	ret := make(map[string]struct{})
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret[conf.Name] = struct{}{}
+		}
+	}
+
+	return ret
+}
 
 // ConfigMeta is metadata attached to each configuration unit.
 // The revision is optional, and if provided, identifies the
@@ -96,7 +125,7 @@ type ConfigMeta struct {
 	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
 }
 
-func (c Config) GroupVersionKind() resource.GroupVersionKind {
+func (c *Config) GroupVersionKind() resource.GroupVersionKind {
 	return resource.GroupVersionKind{
 		Group:   c.Group,
 		Version: c.Version,
@@ -229,24 +258,9 @@ type IstioConfigStore interface {
 	// Gateways lists all gateways bound to the specified workload labels
 	Gateways(workloadLabels labels.Collection) []Config
 
-	// EnvoyFilter lists the envoy filter configuration bound to the specified workload labels
-	EnvoyFilter(workloadLabels labels.Collection) *Config
-
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
-	QuotaSpecByDestination(instance *ServiceInstance) []Config
-
-	// ServiceRoles selects ServiceRoles in the specified namespace.
-	ServiceRoles(namespace string) []Config
-
-	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
-	ServiceRoleBindings(namespace string) []Config
-
-	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
-	RbacConfig() *Config
-
-	// ClusterRbacConfig selects the ClusterRbacConfig of name DefaultRbacConfigName.
-	ClusterRbacConfig() *Config
+	QuotaSpecByDestination(hostname host.Name) []Config
 
 	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
 	AuthorizationPolicies(namespace string) []Config
@@ -356,7 +370,7 @@ func MostSpecificHostMatch(needle host.Name, stack []host.Name) (host.Name, bool
 			// exact match, return immediately
 			return needle, true
 		}
-		if needle.Matches(h) {
+		if needle.SubsetOf(h) {
 			matches = append(matches, h)
 		}
 	}
@@ -426,34 +440,6 @@ func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Conf
 	return out
 }
 
-func (store *istioConfigStore) EnvoyFilter(workloadLabels labels.Collection) *Config {
-	configs, err := store.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(), NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	sortConfigByCreationTime(configs)
-
-	// When there are multiple envoy filter configurations for a workload
-	// merge them instead of randomly picking one
-	mergedFilterConfig := &networking.EnvoyFilter{}
-
-	for _, cfg := range configs {
-		filter := cfg.Spec.(*networking.EnvoyFilter)
-		// if there is no workload selector, the filter applies to all workloads
-		// if there is a workload selector, check for matching workload labels
-		if filter.WorkloadLabels != nil {
-			workloadSelector := labels.Instance(filter.WorkloadLabels)
-			if !workloadLabels.IsSupersetOf(workloadSelector) {
-				continue
-			}
-		}
-		mergedFilterConfig.Filters = append(mergedFilterConfig.Filters, filter.Filters...)
-	}
-
-	return &Config{Spec: mergedFilterConfig}
-}
-
 // matchWildcardService matches destinationHost to a wildcarded svc.
 // checked values for svc
 //     '*'  matches everything
@@ -516,13 +502,13 @@ func key(name, namespace string) string {
 }
 
 // findQuotaSpecRefs returns a set of quotaSpec reference names
-func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]bool {
+func findQuotaSpecRefs(hostname host.Name, bindings []Config) map[string]bool {
 	// Build the set of quota spec references bound to the service instance.
 	refs := make(map[string]bool)
 	for _, binding := range bindings {
 		b := binding.Spec.(*mccpb.QuotaSpecBinding)
 		for _, service := range b.Services {
-			if MatchesDestHost(string(instance.Service.Hostname), binding.ConfigMeta, service) {
+			if MatchesDestHost(string(hostname), binding.ConfigMeta, service) {
 				recordSpecRef(refs, binding.Namespace, b.QuotaSpecs)
 				// found a binding that matches the instance.
 				break
@@ -535,9 +521,9 @@ func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]
 
 // filterQuotaSpecsByDestination provides QuotaSpecByDestination filtering logic as a
 // function that can be called on cached binding + spec sets
-func filterQuotaSpecsByDestination(instance *ServiceInstance, bindings []Config, specs []Config) []Config {
+func filterQuotaSpecsByDestination(hostname host.Name, bindings []Config, specs []Config) []Config {
 	// Build the set of quota spec references bound to the service instance.
-	refs := findQuotaSpecRefs(instance, bindings)
+	refs := findQuotaSpecRefs(hostname, bindings)
 	log.Debugf("QuotaSpecByDestination refs:%v", refs)
 
 	// Append any spec that is in the set of references.
@@ -559,8 +545,8 @@ func filterQuotaSpecsByDestination(instance *ServiceInstance, bindings []Config,
 
 // QuotaSpecByDestination selects Mixerclient quota specifications
 // associated with destination service instances.
-func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	log.Debugf("QuotaSpecByDestination(%v)", instance)
+func (store *istioConfigStore) QuotaSpecByDestination(hostname host.Name) []Config {
+	log.Debugf("QuotaSpecByDestination(%v)", hostname)
 	bindings, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
@@ -576,58 +562,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 
 	log.Debugf("QuotaSpecByDestination specs[%d] %v", len(specs), specs)
 
-	return filterQuotaSpecsByDestination(instance, bindings, specs)
-}
-
-func (store *istioConfigStore) ServiceRoles(namespace string) []Config {
-	roles, err := store.List(collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(), namespace)
-	if err != nil {
-		log.Errorf("failed to get ServiceRoles in namespace %s: %v", namespace, err)
-		return nil
-	}
-
-	return roles
-}
-
-func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
-	bindings, err := store.List(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(), namespace)
-	if err != nil {
-		log.Errorf("failed to get ServiceRoleBinding in namespace %s: %v", namespace, err)
-		return nil
-	}
-
-	return bindings
-}
-
-func (store *istioConfigStore) ClusterRbacConfig() *Config {
-	clusterRbacConfig, err := store.List(collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(), "")
-	if err != nil {
-		log.Errorf("failed to get ClusterRbacConfig: %v", err)
-	}
-	for _, rc := range clusterRbacConfig {
-		if rc.Name == constants.DefaultRbacConfigName {
-			return &rc
-		}
-	}
-	return nil
-}
-
-func (store *istioConfigStore) RbacConfig() *Config {
-	rbacConfigs, err := store.List(collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(), "")
-	if err != nil {
-		return nil
-	}
-
-	if len(rbacConfigs) > 1 {
-		log.Errorf("found %d RbacConfigs, expecting only 1.", len(rbacConfigs))
-	}
-	for _, rc := range rbacConfigs {
-		if rc.Name == constants.DefaultRbacConfigName {
-			log.Warnf("RbacConfig is deprecated, Use ClusterRbacConfig instead.")
-			return &rc
-		}
-	}
-	return nil
+	return filterQuotaSpecsByDestination(hostname, bindings, specs)
 }
 
 func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
@@ -101,7 +101,7 @@ func getAllPods(kubeconfig string) (*v1.PodList, error) {
 	if err != nil {
 		return nil, err
 	}
-	return clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
+	return clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(context.TODO(), meta_v1.ListOptions{})
 }
 
 func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string) *PodInfo {
@@ -175,7 +175,7 @@ func configTypeToTypeURL(configType string) string {
 
 func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 	return &xdsapi.DiscoveryRequest{
-		Node: &core1.Node{
+		Node: &corev2.Node{
 			Id: p.makeNodeID(),
 		},
 		TypeUrl: configTypeToTypeURL(configType)}

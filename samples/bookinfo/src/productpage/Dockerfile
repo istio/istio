@@ -1,4 +1,4 @@
-# Copyright 2017 Istio Authors
+# Copyright Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -32,7 +32,5 @@ ENV FLOOD_FACTOR ${flood_factor:-0}
 EXPOSE 9080
 WORKDIR /opt/microservices
 RUN python -m unittest discover
-
-USER 1
 
 CMD ["python", "productpage.py", "9080"]

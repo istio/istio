@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,30 +17,27 @@ package translate
 
 import (
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
-	"istio.io/istio/operator/pkg/vfs"
+	oversion "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 )
 
 const (
-	// K8sDeploymentResourceType is the resource type of kubernetes deployment.
-	K8sDeploymentResourceType = "Deployment"
-	// K8sDaemonSetResourceType is the resource type of kubernetes daemonset.
-	K8sDaemonSetResourceType = "DaemonSet"
 	// HelmValuesEnabledSubpath is the subpath from the component root to the enabled parameter.
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
@@ -49,13 +46,6 @@ const (
 	HelmValuesHubSubpath = "hub"
 	// HelmValuesTagSubpath is the subpath from the component root to the tag parameter.
 	HelmValuesTagSubpath = "tag"
-	// TranslateConfigFolder is the folder where we store translation configurations
-	TranslateConfigFolder = "translateConfig"
-	// TranslateConfigPrefix is the prefix of IstioOperator's translation configuration file
-	TranslateConfigPrefix = "translateConfig-"
-	// ICPToIOPConfigPrefix is the prefix of IstioControPlane-to-IstioOperator translation configuration file
-	ICPToIOPConfigPrefix = "translate-ICP-IOP-"
-
 	// devDbg generates lots of output useful in development.
 	devDbg = false
 )
@@ -78,12 +68,6 @@ type Translator struct {
 	GlobalNamespaces map[name.ComponentName]string `yaml:"globalNamespaces"`
 	// ComponentMaps is a set of mappings for each Istio component.
 	ComponentMaps map[name.ComponentName]*ComponentMaps `yaml:"componentMaps"`
-}
-
-// FeatureMap is a set of mappings for an Istio feature.
-type FeatureMap struct {
-	// Components contains list of components that belongs to the current feature.
-	Components []name.ComponentName
 }
 
 // ComponentMaps is a set of mappings for an Istio component.
@@ -113,19 +97,138 @@ type Translation struct {
 }
 
 // NewTranslator creates a new translator for minorVersion and returns a ptr to it.
-func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
-	f := filepath.Join(TranslateConfigFolder, TranslateConfigPrefix+minorVersion.String()+".yaml")
-	b, err := vfs.ReadFile(f)
-	if err != nil {
-		return nil, fmt.Errorf("could not read translateConfig file %s: %s", f, err)
+func NewTranslator() *Translator {
+	t := &Translator{
+		Version: oversion.OperatorBinaryVersion.MinorVersion,
+		APIMapping: map[string]*Translation{
+			"Hub":         {OutPath: "global.hub"},
+			"Tag":         {OutPath: "global.tag"},
+			"K8SDefaults": {OutPath: "global.resources"},
+			"Revision":    {OutPath: "revision"},
+			"MeshConfig":  {OutPath: "meshConfig"},
+		},
+		GlobalNamespaces: map[name.ComponentName]string{
+			name.PilotComponentName:     "istioNamespace",
+			name.TelemetryComponentName: "telemetryNamespace",
+			name.PolicyComponentName:    "policyNamespace",
+		},
+		ComponentMaps: map[name.ComponentName]*ComponentMaps{
+			name.IstioBaseComponentName: {
+				HelmSubdir:           "base",
+				ToHelmValuesTreeRoot: "global",
+				SkipReverseTranslate: true,
+			},
+			name.PilotComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istiod",
+				ContainerName:        "discovery",
+				HelmSubdir:           "istio-control/istio-discovery",
+				ToHelmValuesTreeRoot: "pilot",
+			},
+			name.PolicyComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-policy",
+				ContainerName:        "mixer",
+				HelmSubdir:           "istio-policy",
+				ToHelmValuesTreeRoot: "mixer.policy",
+			},
+			name.TelemetryComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-telemetry",
+				ContainerName:        "mixer",
+				HelmSubdir:           "istio-telemetry/mixer-telemetry",
+				ToHelmValuesTreeRoot: "mixer.telemetry",
+			},
+			name.IngressComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-ingressgateway",
+				ContainerName:        "istio-proxy",
+				HelmSubdir:           "gateways/istio-ingress",
+				ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
+			},
+			name.EgressComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-egressgateway",
+				ContainerName:        "istio-proxy",
+				HelmSubdir:           "gateways/istio-egress",
+				ToHelmValuesTreeRoot: "gateways.istio-egressgateway",
+			},
+			name.CNIComponentName: {
+				ResourceType:         "DaemonSet",
+				ResourceName:         "istio-cni-node",
+				ContainerName:        "install-cni",
+				HelmSubdir:           "istio-cni",
+				ToHelmValuesTreeRoot: "cni",
+			},
+			name.IstiodRemoteComponentName: {
+				HelmSubdir:           "istiod-remote",
+				ToHelmValuesTreeRoot: "global",
+				SkipReverseTranslate: true,
+			},
+			name.ComponentName("Istiocoredns"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "istiocoredns",
+				ContainerName:        "coredns",
+				HelmSubdir:           "istiocoredns",
+				ToHelmValuesTreeRoot: "istiocoredns",
+			},
+			name.ComponentName("Tracing"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-tracing",
+				ContainerName:        "jaeger",
+				HelmSubdir:           "istio-telemetry/tracing",
+				ToHelmValuesTreeRoot: "tracing.jaeger",
+			},
+			name.ComponentName("PrometheusOperator"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "prometheus",
+				ContainerName:        "prometheus",
+				HelmSubdir:           "istio-telemetry/prometheusOperator",
+				ToHelmValuesTreeRoot: "prometheus",
+				SkipReverseTranslate: true,
+			},
+			name.ComponentName("Kiali"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "kiali",
+				ContainerName:        "kiali",
+				HelmSubdir:           "istio-telemetry/kiali",
+				ToHelmValuesTreeRoot: "kiali",
+			},
+			name.ComponentName("Grafana"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "grafana",
+				ContainerName:        "grafana",
+				HelmSubdir:           "istio-telemetry/grafana",
+				ToHelmValuesTreeRoot: "grafana",
+			},
+			name.ComponentName("Prometheus"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "prometheus",
+				ContainerName:        "prometheus",
+				HelmSubdir:           "istio-telemetry/prometheus",
+				ToHelmValuesTreeRoot: "prometheus",
+			},
+		},
+		// nolint: lll
+		KubernetesMapping: map[string]*Translation{
+			"Components.{{.ComponentName}}.K8S.Affinity":            {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"},
+			"Components.{{.ComponentName}}.K8S.Env":                 {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env"},
+			"Components.{{.ComponentName}}.K8S.HpaSpec":             {OutPath: "[HorizontalPodAutoscaler:{{.ResourceName}}].spec"},
+			"Components.{{.ComponentName}}.K8S.ImagePullPolicy":     {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy"},
+			"Components.{{.ComponentName}}.K8S.NodeSelector":        {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector"},
+			"Components.{{.ComponentName}}.K8S.PodDisruptionBudget": {OutPath: "[PodDisruptionBudget:{{.ResourceName}}].spec"},
+			"Components.{{.ComponentName}}.K8S.PodAnnotations":      {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations"},
+			"Components.{{.ComponentName}}.K8S.PriorityClassName":   {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName."},
+			"Components.{{.ComponentName}}.K8S.ReadinessProbe":      {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe"},
+			"Components.{{.ComponentName}}.K8S.ReplicaCount":        {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.replicas"},
+			"Components.{{.ComponentName}}.K8S.Resources":           {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources"},
+			"Components.{{.ComponentName}}.K8S.Strategy":            {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.strategy"},
+			"Components.{{.ComponentName}}.K8S.Tolerations":         {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"},
+			"Components.{{.ComponentName}}.K8S.ServiceAnnotations":  {OutPath: "[Service:{{.ResourceName}}].metadata.annotations"},
+			"Components.{{.ComponentName}}.K8S.Service":             {OutPath: "[Service:{{.ResourceName}}].spec"},
+		},
 	}
-	t := &Translator{}
-	err = yaml.Unmarshal(b, t)
-	if err != nil {
-		return nil, fmt.Errorf("could not Unmarshal translateConfig file %s: %s", f, err)
-	}
-	t.Version = minorVersion
-	return t, nil
+	return t
 }
 
 // OverlayK8sSettings overlays k8s settings from iop over the manifest objects, based on t's translation mappings.
@@ -167,7 +270,10 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
-		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName)
+		if componentName == name.IstioBaseComponentName {
+			return "", fmt.Errorf("base component can only have k8s.overlays, not other K8s settings")
+		}
+		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName, iop.Revision)
 		if err != nil {
 			return "", err
 		}
@@ -188,7 +294,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		}
 
 		// strategic merge overlay m to the base object oo
-		mergedObj, err := mergeK8sObject(oo, m, path[1:])
+		mergedObj, err := MergeK8sObject(oo, m, path[1:])
 		if err != nil {
 			return "", err
 		}
@@ -203,7 +309,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, error) {
 	root := make(map[string]interface{})
 
-	errs := t.protoToHelmValues(ii, root, nil)
+	errs := t.ProtoToHelmValues(ii, root, nil)
 	if len(errs) != 0 {
 		return "", errs.ToError()
 	}
@@ -226,24 +332,8 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 	return string(y), errs.ToError()
 }
 
-// ValuesOverlaysToHelmValues translates from component value overlays to helm value overlay paths.
-func (t *Translator) ValuesOverlaysToHelmValues(in map[string]interface{}, cname name.ComponentName) map[string]interface{} {
-	out := make(map[string]interface{})
-	toPath := t.ComponentMaps[cname].ToHelmValuesTreeRoot
-	pv := strings.Split(toPath, ".")
-	cur := out
-	for len(pv) > 1 {
-		cur[pv[0]] = make(map[string]interface{})
-		cur = cur[pv[0]].(map[string]interface{})
-		pv = pv[1:]
-	}
-	cur[pv[0]] = in
-	return out
-}
-
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
-func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, k8s *v1alpha1.KubernetesResourcesSpec,
-	componentName name.ComponentName, resourceName string) (string, error) {
+func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentsSpec interface{}, componentName name.ComponentName) (string, error) {
 	globalVals, globalUnvalidatedVals, apiVals := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
 
 	// First, translate the IstioOperator API to helm Values.
@@ -287,7 +377,7 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, k8s *v
 		return "", err
 	}
 
-	mergedYAML, err = applyGatewayTranslations(mergedYAML, componentName, resourceName, k8s)
+	mergedYAML, err = applyGatewayTranslations(mergedYAML, componentName, componentsSpec)
 	if err != nil {
 		return "", err
 	}
@@ -297,7 +387,7 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, k8s *v
 
 // applyGatewayTranslations writes gateway name gwName at the appropriate values path in iop and maps k8s.service.ports
 // to values. It returns the resulting YAML tree.
-func applyGatewayTranslations(iop []byte, componentName name.ComponentName, gwName string, k8s *v1alpha1.KubernetesResourcesSpec) ([]byte, error) {
+func applyGatewayTranslations(iop []byte, componentName name.ComponentName, componentSpec interface{}) ([]byte, error) {
 	if !componentName.IsGateway() {
 		return iop, nil
 	}
@@ -305,14 +395,22 @@ func applyGatewayTranslations(iop []byte, componentName name.ComponentName, gwNa
 	if err := yaml.Unmarshal(iop, &iopt); err != nil {
 		return nil, err
 	}
+	gwSpec := componentSpec.(*v1alpha1.GatewaySpec)
+	k8s := gwSpec.K8S
 	switch componentName {
 	case name.IngressComponentName:
-		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.name"), gwName)
+		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.name"), gwSpec.Name)
+		if len(gwSpec.Label) != 0 {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.labels"), gwSpec.Label)
+		}
 		if k8s != nil && k8s.Service != nil {
 			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.ports"), k8s.Service.Ports)
 		}
 	case name.EgressComponentName:
-		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.name"), gwName)
+		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.name"), gwSpec.Name)
+		if len(gwSpec.Label) != 0 {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.labels"), gwSpec.Label)
+		}
 		if k8s != nil && k8s.Service != nil {
 			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.ports"), k8s.Service.Ports)
 		}
@@ -357,12 +455,14 @@ func (t *Translator) ComponentMap(cns string) *ComponentMaps {
 	return t.ComponentMaps[cn]
 }
 
-// protoToHelmValues takes an interface which must be a struct ptr and recursively iterates through all its fields.
+// ProtoToHelmValues function below is used by third party for integrations and has to be public
+
+// ProtoToHelmValues takes an interface which must be a struct ptr and recursively iterates through all its fields.
 // For each leaf, if looks for a mapping from the struct data path to the corresponding YAML path and if one is
 // found, it calls the associated mapping function if one is defined to populate the values YAML path.
 // If no mapping function is defined, it uses the default mapping function.
-func (t *Translator) protoToHelmValues(node interface{}, root map[string]interface{}, path util.Path) (errs util.Errors) {
-	scope.Debugf("protoToHelmValues with path %s, %v (%T)", path, node, node)
+func (t *Translator) ProtoToHelmValues(node interface{}, root map[string]interface{}, path util.Path) (errs util.Errors) {
+	scope.Debugf("ProtoToHelmValues with path %s, %v (%T)", path, node, node)
 	if util.IsValueNil(node) {
 		return nil
 	}
@@ -372,7 +472,7 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 	switch vt.Kind() {
 	case reflect.Ptr:
 		if !util.IsNilOrInvalidValue(vv.Elem()) {
-			errs = util.AppendErrs(errs, t.protoToHelmValues(vv.Elem().Interface(), root, path))
+			errs = util.AppendErrs(errs, t.ProtoToHelmValues(vv.Elem().Interface(), root, path))
 		}
 	case reflect.Struct:
 		scope.Debug("Struct")
@@ -383,7 +483,7 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 			if a, ok := vv.Type().Field(i).Tag.Lookup("json"); ok && a == "-" {
 				continue
 			}
-			errs = util.AppendErrs(errs, t.protoToHelmValues(fieldValue.Interface(), root, append(path, fieldName)))
+			errs = util.AppendErrs(errs, t.ProtoToHelmValues(fieldValue.Interface(), root, append(path, fieldName)))
 		}
 	case reflect.Map:
 		scope.Debug("Map")
@@ -394,7 +494,7 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 	case reflect.Slice:
 		scope.Debug("Slice")
 		for i := 0; i < vv.Len(); i++ {
-			errs = util.AppendErrs(errs, t.protoToHelmValues(vv.Index(i).Interface(), root, path))
+			errs = util.AppendErrs(errs, t.ProtoToHelmValues(vv.Index(i).Interface(), root, path))
 		}
 	default:
 		// Must be a leaf
@@ -484,15 +584,6 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.Ist
 	return IsComponentEnabledInSpec(cn, iop)
 }
 
-// AllComponentsNames returns a slice of all components used in t.
-func (t *Translator) AllComponentsNames() []name.ComponentName {
-	var out []name.ComponentName
-	for cn := range t.ComponentMaps {
-		out = append(out, cn)
-	}
-	return out
-}
-
 // insertLeaf inserts a leaf with value into root at path, which is first mapped using t.APIMapping.
 func (t *Translator) insertLeaf(root map[string]interface{}, path util.Path, value reflect.Value) (errs util.Errors) {
 	// Must be a scalar leaf. See if we have a mapping.
@@ -555,7 +646,8 @@ func renderFeatureComponentPathTemplate(tmpl string, componentName name.Componen
 
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
-func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName, resourceName string, addonName string) (string, error) {
+func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName,
+	resourceName, addonName, revision string) (string, error) {
 	cn := string(componentName)
 	if componentName == name.AddonComponentName {
 		cn = addonName
@@ -566,6 +658,10 @@ func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentN
 	}
 	if resourceName == "" {
 		resourceName = cmp.ResourceName
+	}
+	// The istiod resource will be istiod-<REVISION>, so we need to append the revision suffix
+	if revision != "" && resourceName == "istiod" {
+		resourceName += "-" + revision
 	}
 	ts := struct {
 		ResourceType  string
@@ -628,8 +724,10 @@ func firstCharToLower(s string) string {
 	return strings.ToLower(s[0:1]) + s[1:]
 }
 
-// mergeK8sObject does strategic merge for overlayNode on the base object.
-func mergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.Path) (*object.K8sObject, error) {
+// MergeK8sObject function below is used by third party for integrations and has to be public
+
+// MergeK8sObject does strategic merge for overlayNode on the base object.
+func MergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.Path) (*object.K8sObject, error) {
 	overlay, err := createPatchObjectFromPath(overlayNode, path)
 	if err != nil {
 		return nil, err
@@ -739,4 +837,49 @@ func createPatchObjectFromPath(node interface{}, path util.Path) (map[string]int
 		nextNode = currentNode[pe]
 	}
 	return patchObj, nil
+}
+
+// IOPStoIOP takes an IstioOperatorSpec and returns a corresponding IstioOperator with the given name and namespace.
+func IOPStoIOP(iops proto.Message, name, namespace string) (*iopv1alpha1.IstioOperator, error) {
+	iopStr, err := IOPStoIOPstr(iops, name, namespace)
+	if err != nil {
+		return nil, err
+	}
+	iop := &iopv1alpha1.IstioOperator{}
+	if err := util.UnmarshalWithJSONPB(iopStr, iop, false); err != nil {
+		return nil, err
+	}
+	return iop, nil
+}
+
+// IOPStoIOPstr takes an IstioOperatorSpec and returns a corresponding IstioOperator string with the given name and namespace.
+func IOPStoIOPstr(iops proto.Message, name, namespace string) (string, error) {
+	iopsStr, err := util.MarshalWithJSONPB(iops)
+	if err != nil {
+		return "", err
+	}
+	spec, err := tpath.AddSpecRoot(iopsStr)
+	if err != nil {
+		return "", err
+	}
+
+	tmpl := `
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: {{ .Namespace }}
+  name: {{ .Name }} 
+`
+	// Passing into template causes reformatting, use simple concatenation instead.
+	tmpl += spec
+
+	type Temp struct {
+		Namespace string
+		Name      string
+	}
+	ts := Temp{
+		Namespace: namespace,
+		Name:      name,
+	}
+	return util.RenderTemplate(tmpl, ts)
 }

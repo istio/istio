@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -41,7 +41,7 @@ func TestBasicStartStop(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	defer c.Stop()
 
 	c.Report(diag.Messages{})
@@ -54,8 +54,8 @@ func TestDoubleStart(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	defer c.Stop()
 
 	c.Report(diag.Messages{})
@@ -68,7 +68,7 @@ func TestDoubleStop(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	g.Consistently(cl.Actions).Should(BeEmpty())
 	c.Stop()
@@ -81,7 +81,7 @@ func TestNoReconcilation(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", "s1")
 	defer c.Stop()
 
@@ -105,7 +105,7 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	c.Report(diag.Messages{})
 	defer c.Stop()
@@ -133,7 +133,7 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
 		basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
@@ -164,7 +164,7 @@ func TestBasicReconcilation_AfterUpdate_Othersubfield(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
 		basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
@@ -205,7 +205,7 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -245,7 +245,7 @@ func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -281,7 +281,7 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -302,7 +302,7 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 	k, cl := setupClientWithReactors(nil, nil)
 
 	cl.ReactionChain = nil
-	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
+	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 		handled = true
 		err = fmt.Errorf("cheese not found")
 		return
@@ -316,7 +316,7 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -348,7 +348,7 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -360,7 +360,7 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 func setupClient() (*mock.Kube, *fake.FakeDynamicClient) {
 	k := mock.NewKube()
 
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	return k, cl
@@ -371,14 +371,14 @@ func setupClientWithReactors(retVal runtime.Object, updateErrVal error) (*mock.K
 
 	cl.ReactionChain = nil
 	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (
-		handled bool, ret k8sRuntime.Object, err error) {
+		handled bool, ret runtime.Object, err error) {
 		handled = true
 		ret = retVal
 		return
 	})
 
 	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (
-		handled bool, ret k8sRuntime.Object, err error) {
+		handled bool, ret runtime.Object, err error) {
 		handled = true
 		err = updateErrVal
 		return

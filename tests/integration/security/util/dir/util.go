@@ -1,4 +1,4 @@
-//  Copyright 2020 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ func ListDir(ns namespace.Instance, t *testing.T, labelSelector, container, dire
 		MaxDelay:  30 * time.Second,
 	}
 
-	podName, err := getPodName(ns, labelSelector)
+	podName, err := GetPodName(ns, labelSelector)
 	if err != nil {
 		t.Errorf("err getting pod name: %v", err)
 		return
@@ -61,7 +61,7 @@ func ListDir(ns namespace.Instance, t *testing.T, labelSelector, container, dire
 	}
 }
 
-func getPodName(ns namespace.Instance, labelSelector string) (string, error) {
+func GetPodName(ns namespace.Instance, labelSelector string) (string, error) {
 	retry := util.Retrier{
 		BaseDelay: 10 * time.Second,
 		Retries:   3,

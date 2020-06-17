@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pkg/util/protomarshal"
@@ -227,8 +227,17 @@ func TestGenerator(t *testing.T) {
           name: :authority`),
 		},
 		{
-			name:  "pathGenerator",
-			g:     pathGenerator{},
+			name:  "pathGenerator14",
+			g:     pathGenerator{isIstioVersionGE15: false},
+			value: "/abc",
+			want: yamlPermission(t, `
+         header:
+          exactMatch: /abc
+          name: :path`),
+		},
+		{
+			name:  "pathGenerator15",
+			g:     pathGenerator{isIstioVersionGE15: true},
 			value: "/abc",
 			want: yamlPermission(t, `
          urlPath:

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,7 @@ package secretfetcher
 
 import (
 	"bytes"
-	"fmt"
-	"os"
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -30,13 +29,12 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/kube"
-	ca "istio.io/istio/security/pkg/nodeagent/caclient"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -51,6 +49,8 @@ const (
 	tlsScrtCert = "tls.crt"
 	// The ID/name for the k8sKey in kubernetes tls secret.
 	tlsScrtKey = "tls.key"
+	// The ID/name for the CA certificate in kubernetes tls secret
+	tlsScrtCaCert = "ca.crt"
 
 	// IngressSecretNamespace the namespace of kubernetes secrets to watch.
 	ingressSecretNamespace = "INGRESS_GATEWAY_NAMESPACE"
@@ -74,8 +74,7 @@ var (
 	// example value format like "30s"
 	secretControllerResyncPeriod = env.RegisterStringVar("SECRET_WATCHER_RESYNC_PERIOD", "", "").Get()
 	// ingressFallbackSecret specifies the name of fallback secret for ingress gateway.
-	ingressFallbackSecret = env.RegisterStringVar("INGRESS_GATEWAY_FALLBACK_SECRET", "gateway-fallback", "").Get()
-	secretFetcherLog      = log.RegisterScope("secretfetcher", "secret fetcher debugging", 0)
+	secretFetcherLog = log.RegisterScope("secretfetcher", "secret fetcher debugging", 0)
 )
 
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.
@@ -108,43 +107,6 @@ type SecretFetcher struct {
 	coreV1          corev1.CoreV1Interface
 }
 
-func fatalf(template string, args ...interface{}) {
-	if len(args) > 0 {
-		secretFetcherLog.Errorf(template, args...)
-	} else {
-		secretFetcherLog.Errorf(template)
-	}
-	os.Exit(-1)
-}
-
-// NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
-func NewSecretFetcher(ingressGatewayAgent bool, endpoint, caProviderName string, tlsFlag bool,
-	tlsRootCert []byte, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath string) (*SecretFetcher, error) {
-	ret := &SecretFetcher{}
-
-	if ingressGatewayAgent {
-		ret.UseCaClient = false
-		cs, err := kube.CreateClientset("", "")
-		if err != nil {
-			fatalf("Could not create k8s clientset: %v", err)
-		}
-		ret.FallbackSecretName = ingressFallbackSecret
-		secretFetcherLog.Debugf("SecretFetcher set fallback secret name %s", ret.FallbackSecretName)
-		ret.InitWithKubeClient(cs.CoreV1())
-	} else {
-		caClient, err := ca.NewCAClient(endpoint, caProviderName, tlsFlag, tlsRootCert,
-			vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
-		if err != nil {
-			secretFetcherLog.Errorf("failed to create caClient: %v", err)
-			return ret, fmt.Errorf("failed to create caClient")
-		}
-		ret.UseCaClient = true
-		ret.CaClient = caClient
-	}
-
-	return ret, nil
-}
-
 // Run starts the SecretFetcher until a value is sent to ch.
 // Only used when watching kubernetes gateway secrets.
 func (sf *SecretFetcher) Run(ch chan struct{}) {
@@ -165,11 +127,11 @@ func (sf *SecretFetcher) InitWithKubeClientAndNs(core corev1.CoreV1Interface, na
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = istioSecretSelector
-			return core.Secrets(namespace).List(options)
+			return core.Secrets(namespace).List(context.TODO(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.FieldSelector = istioSecretSelector
-			return core.Secrets(namespace).Watch(options)
+			return core.Secrets(namespace).Watch(context.TODO(), options)
 		},
 	}
 
@@ -228,6 +190,8 @@ func extractCertAndKey(scrt *v1.Secret) (cert, key []byte, exist bool) {
 func extractCACert(scrt *v1.Secret, fromCompoundSecret bool) (caCert []byte, exist bool) {
 	if len(scrt.Data[genericScrtCaCert]) > 0 {
 		caCert = scrt.Data[genericScrtCaCert]
+	} else if len(scrt.Data[tlsScrtCaCert]) > 0 {
+		caCert = scrt.Data[tlsScrtCaCert]
 	} else if !fromCompoundSecret {
 		caCert = scrt.Data[tlsScrtCert]
 	}
@@ -505,7 +469,7 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 		// the secret back to cache as it is not a normal codepath. When watcher recovers, those secret
 		// shall be added back. Note that this approach only covers the TLS server key/cert fetching.
 		if sf.coreV1 != nil {
-			if secret, err := sf.coreV1.Secrets(sf.secretNamespace).Get(key, metav1.GetOptions{}); err == nil {
+			if secret, err := sf.coreV1.Secrets(sf.secretNamespace).Get(context.TODO(), key, metav1.GetOptions{}); err == nil {
 				secretItem, _, _ := extractK8sSecretIntoSecretItem(secret, time.Now())
 				if secretItem != nil {
 					secretFetcherLog.Infof("Return secret %s found by direct api call", key)

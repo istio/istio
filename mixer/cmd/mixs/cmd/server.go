@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,6 +81,9 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"Whether or not to allow configuration of Mixer via adapter-specific CRDs")
 	serverCmd.PersistentFlags().BoolVar(&sa.UseTemplateCRDs, "useTemplateCRDs", sa.UseTemplateCRDs,
 		"Whether or not to allow configuration of Mixer via template-specific CRDs")
+
+	serverCmd.PersistentFlags().StringVar(&sa.WatchedNamespaces, "namespaces", sa.WatchedNamespaces,
+		"List of namespaces to watch, separated by comma; if not set, watch all namespaces")
 
 	sa.CredentialOptions.AttachCobraFlags(serverCmd)
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)

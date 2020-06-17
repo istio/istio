@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,15 @@ package mesh
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-
-	"github.com/spf13/cobra"
+	"istio.io/istio/operator/pkg/util/clog"
 )
 
 type profileDumpArgs struct {
@@ -34,19 +35,30 @@ type profileDumpArgs struct {
 	configPath string
 	// outputFormat controls the format of profile dumps
 	outputFormat string
+	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	charts string
 }
 
 const (
-	jsonOutput = "json"
-	yamlOutput = "yaml"
+	jsonOutput  = "json"
+	yamlOutput  = "yaml"
+	flagsOutput = "flags"
+)
+
+const (
+	istioOperatorTreeString = `
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+`
 )
 
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.configPath, "config-path", "p", "",
-		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree")
+		"The path the root of the configuration subtree to dump e.g. components.pilot. By default, dump whole tree")
 	cmd.PersistentFlags().StringVarP(&args.outputFormat, "output", "o", yamlOutput,
-		"Output format: one of json|yaml")
+		"Output format: one of json|yaml|flags")
+	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
 }
 
 func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command {
@@ -61,7 +73,7 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			return profileDump(args, rootArgs, pdArgs, l)
 		}}
 
@@ -72,7 +84,7 @@ func prependHeader(yml string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out2, err := util.OverlayYAML(translate.IstioOperatorTreeString, out)
+	out2, err := util.OverlayYAML(istioOperatorTreeString, out)
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +111,7 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	return string(prettyJSON), nil
 }
 
-func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *Logger) error {
+func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l clog.Logger) error {
 	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilenames != nil {
@@ -107,20 +119,17 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 	}
 
 	switch pdArgs.outputFormat {
-	case jsonOutput, yamlOutput:
+	case jsonOutput, yamlOutput, flagsOutput:
 	default:
 		return fmt.Errorf("unknown output format: %v", pdArgs.outputFormat)
 	}
 
-	setFlagYAML := ""
+	setFlags := applyFlagAliases(make([]string, 0), pdArgs.charts, "")
 	if len(args) == 1 {
-		var err error
-		if setFlagYAML, err = tpath.AddSpecRoot("profile: " + args[0]); err != nil {
-			return err
-		}
+		setFlags = append(setFlags, "profile="+args[0])
 	}
 
-	y, _, err := GenerateConfig(pdArgs.inFilenames, setFlagYAML, true, nil, l)
+	y, _, err := GenerateConfig(pdArgs.inFilenames, setFlags, true, nil, l)
 	if err != nil {
 		return err
 	}
@@ -141,10 +150,79 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 		if err != nil {
 			return err
 		}
-		l.print(j + "\n")
+		l.Print(j + "\n")
 	case yamlOutput:
-		l.print(y + "\n")
+		l.Print(y + "\n")
+	case flagsOutput:
+		f, err := yamlToFlags(y)
+		if err != nil {
+			return err
+		}
+		l.Print(strings.Join(f, "\n") + "\n")
 	}
 
 	return nil
+}
+
+// Convert the generated YAML to --set flags
+func yamlToFlags(yml string) ([]string, error) {
+	// YAML objects are not completely compatible with JSON
+	// objects. Let yaml.YAMLToJSON handle the edge cases and
+	// we'll re-encode the result to pretty JSON.
+	uglyJSON, err := yaml.YAMLToJSON([]byte(yml))
+	if err != nil {
+		return []string{}, err
+	}
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
+		return []string{}, err
+	}
+	spec, ok := decoded["spec"]
+	if !ok {
+		// Fall back to showing the entire spec.
+		// (When --config-path is used there will be no spec to remove)
+		spec = decoded
+	}
+	setflags, err := walk("", "", spec)
+	if err != nil {
+		return []string{}, err
+	}
+	sort.Strings(setflags)
+	return setflags, nil
+}
+
+func walk(path, separator string, obj interface{}) ([]string, error) {
+	switch v := obj.(type) {
+	case map[string]interface{}:
+		accum := make([]string, 0)
+		for key, vv := range v {
+			childwalk, err := walk(fmt.Sprintf("%s%s%s", path, separator, pathComponent(key)), ".", vv)
+			if err != nil {
+				return accum, err
+			}
+			accum = append(accum, childwalk...)
+		}
+		return accum, nil
+	case []interface{}:
+		accum := make([]string, 0)
+		for idx, vv := range v {
+			indexwalk, err := walk(fmt.Sprintf("%s[%d]", path, idx), ".", vv)
+			if err != nil {
+				return accum, err
+			}
+			accum = append(accum, indexwalk...)
+		}
+		return accum, nil
+	case string:
+		return []string{fmt.Sprintf("%s=%q", path, v)}, nil
+	default:
+		return []string{fmt.Sprintf("%s=%v", path, v)}, nil
+	}
+}
+
+func pathComponent(component string) string {
+	if !strings.Contains(component, util.PathSeparator) {
+		return component
+	}
+	return strings.ReplaceAll(component, util.PathSeparator, util.EscapedPathSeparator)
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import (
 
 // ToYAML returns a YAML string representation of val, or the error string if an error occurs.
 func ToYAML(val interface{}) string {
-	y, err := yaml.Marshal(val)
+	y, err := yaml2.Marshal(val)
 	if err != nil {
 		return err.Error()
 	}
@@ -219,5 +219,6 @@ func IsYAMLEmpty(y string) bool {
 			yc = append(yc, l)
 		}
 	}
-	return strings.TrimSpace(strings.Join(yc, "\n")) == "{}"
+	res := strings.TrimSpace(strings.Join(yc, "\n"))
+	return res == "{}" || res == ""
 }

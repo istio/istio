@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,35 +31,9 @@ const (
 	// ReadSigningCertRetryInterval specifies the time to wait between retries on reading the signing key and cert.
 	ReadSigningCertRetryInterval = time.Second * 5
 
-	// DefaultRequestedCACertTTL is the default requested TTL for the workload.
-	DefaultRequestedCACertTTL = 365 * 24 * time.Hour
-
 	// DefaultMaxWorkloadCertTTL is the default max TTL of issued workload certificates.
 	DefaultMaxWorkloadCertTTL = 90 * 24 * time.Hour
 
 	// DefaultWorkloadCertTTL is the default TTL of issued workload certificates.
 	DefaultWorkloadCertTTL = 24 * time.Hour
-
-	// DefaultWorkloadCertGracePeriodRatio is the default length of certificate rotation grace period,
-	// configured as the ratio of the certificate TTL.
-	DefaultWorkloadCertGracePeriodRatio = 0.5
-
-	// DefaultWorkloadMinCertGracePeriod is the default minimum grace period for workload cert rotation.
-	DefaultWorkloadMinCertGracePeriod = 10 * time.Minute
-
-	// DefaultProbeCheckInterval is the default interval of checking the liveness of the CA.
-	DefaultProbeCheckInterval = 30 * time.Second
-
-	// DefaultCSRGracePeriodPercentage is the default length of certificate rotation grace period,
-	// configured as the percentage of the certificate TTL.
-	DefaultCSRGracePeriodPercentage = 50
-
-	// DefaultCSRInitialRetrialInterval is the default initial interval between retries to send CSR to upstream CA.
-	DefaultCSRInitialRetrialInterval = time.Second
-
-	// DefaultCSRMaxRetries is the default value of CSR retries for Citadel to send CSR to upstream CA.
-	DefaultCSRMaxRetries = 10
-
-	// ListenedNamespaceKey is the key for the environment variable that specifies the namespace.
-	ListenedNamespaceKey = "NAMESPACE"
 )

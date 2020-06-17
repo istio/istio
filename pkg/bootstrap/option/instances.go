@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ func ProxyConfig(value *meshAPI.ProxyConfig) Instance {
 }
 
 func PilotSubjectAltName(value []string) Instance {
-	return newOption("pilot_SAN", value)
+	return newOption("pilot_SAN", value).withConvert(sanConverter(value))
 }
 
 func MixerSubjectAltName(value []string) Instance {
@@ -138,14 +138,6 @@ func LightstepToken(value string) Instance {
 	return newOption("lightstepToken", value)
 }
 
-func LightstepSecure(value bool) Instance {
-	return newOption("lightstepSecure", value)
-}
-
-func LightstepCACertPath(value string) Instance {
-	return newOption("lightstepCacertPath", value)
-}
-
 func StackDriverEnabled(value bool) Instance {
 	return newOption("stackdriver", value)
 }
@@ -186,13 +178,18 @@ func StatsdAddress(value string) Instance {
 	return newOptionOrSkipIfZero("statsd", value).withConvert(addressConverter(value))
 }
 
+func TracingTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata, isH2 bool) Instance {
+	return newOptionOrSkipIfZero("tracing_tls", value).
+		withConvert(transportSocketConverter(value, "tracer", metadata, isH2))
+}
+
 func EnvoyMetricsServiceAddress(value string) Instance {
 	return newOptionOrSkipIfZero("envoy_metrics_service_address", value).withConvert(addressConverter(value))
 }
 
-func EnvoyMetricsServiceTLS(value *networkingAPI.TLSSettings, metadata *model.NodeMetadata) Instance {
+func EnvoyMetricsServiceTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata) Instance {
 	return newOptionOrSkipIfZero("envoy_metrics_service_tls", value).
-		withConvert(tlsConverter(value, "envoy_metrics_service", metadata))
+		withConvert(transportSocketConverter(value, "envoy_metrics_service", metadata, true))
 }
 
 func EnvoyMetricsServiceTCPKeepalive(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) Instance {
@@ -203,9 +200,9 @@ func EnvoyAccessLogServiceAddress(value string) Instance {
 	return newOptionOrSkipIfZero("envoy_accesslog_service_address", value).withConvert(addressConverter(value))
 }
 
-func EnvoyAccessLogServiceTLS(value *networkingAPI.TLSSettings, metadata *model.NodeMetadata) Instance {
+func EnvoyAccessLogServiceTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata) Instance {
 	return newOptionOrSkipIfZero("envoy_accesslog_service_tls", value).
-		withConvert(tlsConverter(value, "envoy_accesslog_service", metadata))
+		withConvert(transportSocketConverter(value, "envoy_accesslog_service", metadata, true))
 }
 
 func EnvoyAccessLogServiceTCPKeepalive(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) Instance {
@@ -234,6 +231,10 @@ func PilotCertProvider(value string) Instance {
 
 func STSPort(value int) Instance {
 	return newOption("sts_port", value)
+}
+
+func GCPProjectID(value string) Instance {
+	return newOption("gcp_project_id", value)
 }
 
 func STSEnabled(value bool) Instance {

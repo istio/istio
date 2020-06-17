@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package mock
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -40,7 +41,7 @@ func newAppsInterface() appsv1.DeploymentInterface {
 	}
 }
 
-func (d *deploymentImpl) Create(obj *v1.Deployment) (*v1.Deployment, error) {
+func (d *deploymentImpl) Create(ctx context.Context, obj *v1.Deployment, opts metav1.CreateOptions) (*v1.Deployment, error) {
 	d.mux.Lock()
 	defer d.mux.Unlock()
 
@@ -53,7 +54,7 @@ func (d *deploymentImpl) Create(obj *v1.Deployment) (*v1.Deployment, error) {
 	return obj, nil
 }
 
-func (d *deploymentImpl) Update(obj *v1.Deployment) (*v1.Deployment, error) {
+func (d *deploymentImpl) Update(ctx context.Context, obj *v1.Deployment, opts metav1.UpdateOptions) (*v1.Deployment, error) {
 	d.mux.Lock()
 	defer d.mux.Unlock()
 
@@ -66,11 +67,11 @@ func (d *deploymentImpl) Update(obj *v1.Deployment) (*v1.Deployment, error) {
 	return obj, nil
 }
 
-func (d *deploymentImpl) UpdateStatus(*v1.Deployment) (*v1.Deployment, error) {
+func (d *deploymentImpl) UpdateStatus(context.Context, *v1.Deployment, metav1.UpdateOptions) (*v1.Deployment, error) {
 	panic("not implemented")
 }
 
-func (d *deploymentImpl) Delete(name string, options *metav1.DeleteOptions) error {
+func (d *deploymentImpl) Delete(ctx context.Context, name string, options metav1.DeleteOptions) error {
 	d.mux.Lock()
 	defer d.mux.Unlock()
 
@@ -88,15 +89,15 @@ func (d *deploymentImpl) Delete(name string, options *metav1.DeleteOptions) erro
 	return nil
 }
 
-func (d *deploymentImpl) DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+func (d *deploymentImpl) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	panic("not implemented")
 }
 
-func (d *deploymentImpl) Get(name string, options metav1.GetOptions) (*v1.Deployment, error) {
+func (d *deploymentImpl) Get(ctx context.Context, name string, options metav1.GetOptions) (*v1.Deployment, error) {
 	panic("not implemented")
 }
 
-func (d *deploymentImpl) List(opts metav1.ListOptions) (*v1.DeploymentList, error) {
+func (d *deploymentImpl) List(ctx context.Context, opts metav1.ListOptions) (*v1.DeploymentList, error) {
 	d.mux.Lock()
 	defer d.mux.Unlock()
 
@@ -109,7 +110,7 @@ func (d *deploymentImpl) List(opts metav1.ListOptions) (*v1.DeploymentList, erro
 	return out, nil
 }
 
-func (d *deploymentImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+func (d *deploymentImpl) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	d.mux.Lock()
 	defer d.mux.Unlock()
 
@@ -127,14 +128,16 @@ func (d *deploymentImpl) Watch(opts metav1.ListOptions) (watch.Interface, error)
 	return w, nil
 }
 
-func (d *deploymentImpl) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.Deployment, err error) {
+func (d *deploymentImpl) Patch(ctx context.Context, name string, pt types.PatchType,
+	data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Deployment, err error) {
 	panic("not implemented")
 }
 
-func (d *deploymentImpl) GetScale(deploymentName string, options metav1.GetOptions) (*autoscalingv1.Scale, error) {
+func (d *deploymentImpl) GetScale(ctx context.Context, deploymentName string, options metav1.GetOptions) (*autoscalingv1.Scale, error) {
 	panic("not implemented")
 }
 
-func (d *deploymentImpl) UpdateScale(deploymentName string, scale *autoscalingv1.Scale) (*autoscalingv1.Scale, error) {
+func (d *deploymentImpl) UpdateScale(ctx context.Context, deploymentName string,
+	scale *autoscalingv1.Scale, opts metav1.UpdateOptions) (*autoscalingv1.Scale, error) {
 	panic("not implemented")
 }

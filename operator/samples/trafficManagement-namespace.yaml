@@ -1,6 +1,0 @@
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  trafficManagement:
-    components:
-      namespace: istio-control-custom

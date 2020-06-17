@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,12 @@ package helm
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/proto/hapi/chart"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/vfs"
@@ -30,25 +31,9 @@ const (
 	// DefaultProfileFilename is the name of the default profile yaml file.
 	DefaultProfileFilename = "default.yaml"
 
-	chartsRoot   = "charts"
-	profilesRoot = "profiles"
+	ChartsSubdirName = "charts"
+	profilesRoot     = "profiles"
 )
-
-var (
-	// ProfileNames holds the names of all the profiles in the /profiles directory, without .yaml suffix.
-	ProfileNames = make(map[string]bool)
-)
-
-func init() {
-	profilePaths, err := vfs.ReadDir(profilesRoot)
-	if err != nil {
-		panic(err)
-	}
-	for _, p := range profilePaths {
-		p = strings.TrimSuffix(p, ".yaml")
-		ProfileNames[p] = true
-	}
-}
 
 // VFSRenderer is a helm template renderer that uses compiled-in helm charts.
 type VFSRenderer struct {
@@ -72,6 +57,9 @@ func NewVFSRenderer(helmChartDirPath, componentName, namespace string) *VFSRende
 
 // Run implements the TemplateRenderer interface.
 func (h *VFSRenderer) Run() error {
+	if err := CheckCompiledInCharts(); err != nil {
+		return err
+	}
 	scope.Debugf("Run VFSRenderer with helmChart=%s, componentName=%s, namespace=%s", h.helmChartDirPath, h.componentName, h.namespace)
 	if err := h.loadChart(); err != nil {
 		return err
@@ -97,21 +85,44 @@ func LoadValuesVFS(profileName string) (string, error) {
 	return string(b), err
 }
 
-func IsBuiltinProfileName(name string) bool {
-	if name == "" {
-		return true
+func LoadValues(profileName string, chartsDir string) (string, error) {
+	path := filepath.Join(chartsDir, profilesRoot, BuiltinProfileToFilename(profileName))
+	scope.Infof("Loading values at path %s", path)
+	b, err := ioutil.ReadFile(path)
+	return string(b), err
+}
+
+func readProfiles(chartsDir string) (map[string]bool, error) {
+	profiles := map[string]bool{}
+	switch chartsDir {
+	case "":
+		profilePaths, err := vfs.ReadDir(chartsDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read profiles: %v", err)
+		}
+		for _, f := range profilePaths {
+			profiles[strings.TrimSuffix(f, ".yaml")] = true
+		}
+	default:
+		dir, err := ioutil.ReadDir(filepath.Join(chartsDir, profilesRoot))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read profiles: %v", err)
+		}
+		for _, f := range dir {
+			profiles[strings.TrimSuffix(f.Name(), ".yaml")] = true
+		}
 	}
-	return ProfileNames[name]
+	return profiles, nil
 }
 
 // loadChart implements the TemplateRenderer interface.
 func (h *VFSRenderer) loadChart() error {
-	prefix := filepath.Join(chartsRoot, h.helmChartDirPath)
+	prefix := h.helmChartDirPath
 	fnames, err := vfs.GetFilesRecursive(prefix)
 	if err != nil {
 		return err
 	}
-	var bfs []*chartutil.BufferedFile
+	var bfs []*loader.BufferedFile
 	for _, fname := range fnames {
 		b, err := vfs.ReadFile(fname)
 		if err != nil {
@@ -119,7 +130,7 @@ func (h *VFSRenderer) loadChart() error {
 		}
 		// Helm expects unix / separator, but on windows this will be \
 		name := strings.ReplaceAll(stripPrefix(fname, prefix), string(filepath.Separator), "/")
-		bf := &chartutil.BufferedFile{
+		bf := &loader.BufferedFile{
 			Name: name,
 			Data: b,
 		}
@@ -127,7 +138,7 @@ func (h *VFSRenderer) loadChart() error {
 		scope.Debugf("Chart loaded: %s", bf.Name)
 	}
 
-	h.chart, err = chartutil.LoadFiles(bfs)
+	h.chart, err = loader.LoadFiles(bfs)
 	return err
 }
 
@@ -145,7 +156,20 @@ func stripPrefix(path, prefix string) string {
 	return strings.Join(pv[pl:], string(filepath.Separator))
 }
 
-// list all the builtin profiles.
-func ListBuiltinProfiles() []string {
-	return util.StringBoolMapToSlice(ProfileNames)
+// list all the profiles.
+func ListProfiles(charts string) ([]string, error) {
+	profiles, err := readProfiles(charts)
+	if err != nil {
+		return nil, err
+	}
+	return util.StringBoolMapToSlice(profiles), nil
+}
+
+// CheckCompiledInCharts tests for the presence of compiled in charts. These can be missing if a developer creates
+// binaries using go build instead of make and tries to use compiled in charts.
+func CheckCompiledInCharts() error {
+	if _, err := vfs.Stat(ChartsSubdirName); err != nil {
+		return fmt.Errorf("compiled in charts not found in this development build, use --charts with local charts instead or run make gen-charts")
+	}
+	return nil
 }

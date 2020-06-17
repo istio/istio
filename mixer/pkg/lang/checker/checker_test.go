@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,49 +20,48 @@ import (
 	"testing"
 
 	cfgpb "istio.io/api/policy/v1beta1"
-	dpb "istio.io/api/policy/v1beta1"
 	"istio.io/pkg/attribute"
 )
 
 func TestTypeCheck(t *testing.T) {
 	af := newAF([]*ad{
-		{"int", dpb.INT64},
-		{"bool", dpb.BOOL},
-		{"double", dpb.DOUBLE},
-		{"string", dpb.STRING},
-		{"timestamp", dpb.TIMESTAMP},
-		{"ip", dpb.IP_ADDRESS},
-		{"email", dpb.EMAIL_ADDRESS},
-		{"uri", dpb.URI},
-		{"dns", dpb.DNS_NAME},
-		{"duration", dpb.DURATION},
-		{"stringmap", dpb.STRING_MAP},
+		{"int", cfgpb.INT64},
+		{"bool", cfgpb.BOOL},
+		{"double", cfgpb.DOUBLE},
+		{"string", cfgpb.STRING},
+		{"timestamp", cfgpb.TIMESTAMP},
+		{"ip", cfgpb.IP_ADDRESS},
+		{"email", cfgpb.EMAIL_ADDRESS},
+		{"uri", cfgpb.URI},
+		{"dns", cfgpb.DNS_NAME},
+		{"duration", cfgpb.DURATION},
+		{"stringmap", cfgpb.STRING_MAP},
 	})
 
 	tests := []struct {
 		in  string
-		out dpb.ValueType
+		out cfgpb.ValueType
 		err string
 	}{
 		// identity
-		{"int", dpb.INT64, ""},
-		{"bool", dpb.BOOL, ""},
-		{"double", dpb.DOUBLE, ""},
-		{"string", dpb.STRING, ""},
-		{"timestamp", dpb.TIMESTAMP, ""},
-		{"ip", dpb.IP_ADDRESS, ""},
-		{"email", dpb.EMAIL_ADDRESS, ""},
-		{"uri", dpb.URI, ""},
-		{"dns", dpb.DNS_NAME, ""},
-		{"duration", dpb.DURATION, ""},
-		{"stringmap", dpb.STRING_MAP, ""},
+		{"int", cfgpb.INT64, ""},
+		{"bool", cfgpb.BOOL, ""},
+		{"double", cfgpb.DOUBLE, ""},
+		{"string", cfgpb.STRING, ""},
+		{"timestamp", cfgpb.TIMESTAMP, ""},
+		{"ip", cfgpb.IP_ADDRESS, ""},
+		{"email", cfgpb.EMAIL_ADDRESS, ""},
+		{"uri", cfgpb.URI, ""},
+		{"dns", cfgpb.DNS_NAME, ""},
+		{"duration", cfgpb.DURATION, ""},
+		{"stringmap", cfgpb.STRING_MAP, ""},
 		// expressions
-		{"int == 2", dpb.BOOL, ""},
-		{"double == 2.0", dpb.BOOL, ""},
-		{`string | "foobar"`, dpb.STRING, ""},
+		{"int == 2", cfgpb.BOOL, ""},
+		{"double == 2.0", cfgpb.BOOL, ""},
+		{`string | "foobar"`, cfgpb.STRING, ""},
 		// invalid expressions
-		{"int | bool", dpb.VALUE_TYPE_UNSPECIFIED, "typeError"},
-		{"stringmap | ", dpb.VALUE_TYPE_UNSPECIFIED, "failed to parse"},
+		{"int | bool", cfgpb.VALUE_TYPE_UNSPECIFIED, "typeError"},
+		{"stringmap | ", cfgpb.VALUE_TYPE_UNSPECIFIED, "failed to parse"},
 	}
 
 	for idx, tt := range tests {
@@ -83,7 +82,7 @@ func TestTypeCheck(t *testing.T) {
 
 type ad struct {
 	name string
-	v    dpb.ValueType
+	v    cfgpb.ValueType
 }
 
 func newAF(ds []*ad) attribute.AttributeDescriptorFinder {

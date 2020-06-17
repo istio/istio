@@ -49,5 +49,5 @@ if [ ! -f "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" ]; then
   echo "Generated Custom Resource Definitions file does not exist in the commit SHA ${SHA}. Not updating the CRD file."
   exit
 fi
-rm -f "${ROOTDIR}/manifests/base/files/crd-all.gen.yaml"
-cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/manifests/base/files/crd-all.gen.yaml"
+rm -f "${ROOTDIR}/manifests/charts/base/crds/crd-all.gen.yaml"
+cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/manifests/charts/base/crds/crd-all.gen.yaml"

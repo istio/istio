@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,8 +48,8 @@ func IsPassThroughServer(server *v1alpha3.Server) bool {
 		return false
 	}
 
-	if server.Tls.Mode == v1alpha3.Server_TLSOptions_PASSTHROUGH ||
-		server.Tls.Mode == v1alpha3.Server_TLSOptions_AUTO_PASSTHROUGH {
+	if server.Tls.Mode == v1alpha3.ServerTLSSettings_PASSTHROUGH ||
+		server.Tls.Mode == v1alpha3.ServerTLSSettings_AUTO_PASSTHROUGH {
 		return true
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,9 @@
 package version
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
-
-	"istio.io/istio/operator/pkg/util"
 
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
@@ -93,91 +92,6 @@ func TestVersion(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestVersions(t *testing.T) {
-	tests := []struct {
-		desc    string
-		yamlStr string
-		wantErr string
-	}{
-		{
-			desc: "empty",
-		},
-		{
-			desc: "simple",
-			yamlStr: `
-operatorVersion: 1.3.0
-operatorVersionRange: 1.3.0
-recommendedIstioVersions: 1.3.0
-supportedIstioVersions: 1.3.0
-`,
-		},
-		{
-			desc: "complex",
-			yamlStr: `
-operatorVersion: 1.3.0
-operatorVersionRange: 1.3.0
-recommendedIstioVersions: '>= 1, < 1.4'
-supportedIstioVersions: '> 1.1, < 1.4.0, = 1.5.2'
-`,
-		},
-		{
-			desc: "partial",
-			yamlStr: `
-operatorVersion: 1.3.0
-operatorVersionRange: 1.3.0
-supportedIstioVersions: "> 1.1, < 1.4.0"
-`,
-		},
-		{
-			desc: "missing operatorVersion",
-			yamlStr: `
-supportedIstioVersions: 1.3.0
-recommendedIstioVersions: 1.3.0
-`,
-			wantErr: `operatorVersion must be set`,
-		},
-		{
-			desc: "missing supportedIstioVersions",
-			yamlStr: `
-operatorVersion: 1.3.0
-recommendedIstioVersions: 1.3.0
-`,
-			wantErr: `supportedIstioVersions must be set`,
-		},
-		{
-			desc: "unknown field",
-			yamlStr: `
-operatorVersion: 1.3.0
-supportedIstioVersions: "> 1.1, < 1.4.0, = 1.5.2"
-badField: ">= 1, < 1.4"
-`,
-			wantErr: `yaml: unmarshal errors:
-  line 4: field badField not found in type version.inStruct`,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			got := &CompatibilityMapping{}
-			err := yaml.UnmarshalStrict([]byte(tt.yamlStr), got)
-			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
-				t.Fatalf("yaml.Unmarshal(%s): got error: %s, want error: %s", tt.desc, gotErr, wantErr)
-			}
-			if tt.wantErr != "" {
-				return
-			}
-			y, err := yaml.Marshal(got)
-			if err != nil {
-				t.Fatal(err)
-			}
-			ys := string(y)
-			if yd := util.YAMLDiff(tt.yamlStr, ys); yd != "" {
-				t.Errorf("%s: got:\n%s\nwant:\n%s\ndiff:\n%s\n", tt.desc, ys, tt.yamlStr, yd)
-			}
-		})
-	}
-
 }
 
 // errToString returns the string representation of err and the empty string if
@@ -357,5 +271,42 @@ func TestTagToVersionString(t *testing.T) {
 				t.Errorf("TagToVersionString() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestVersionString(t *testing.T) {
+	tests := map[string]struct {
+		version Version
+		want    string
+	}{
+		"with suffix": {
+			version: NewVersion(1, 2, 3, "xyz"),
+			want:    "1.2.3-xyz",
+		},
+		"without suffix": {
+			version: NewVersion(1, 5, 0, ""),
+			want:    "1.5.0",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := tt.version.String()
+			if got != tt.want {
+				t.Errorf("Version.String(): got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUnmarshalYAML(t *testing.T) {
+	v := &Version{}
+	expectedErr := fmt.Errorf("test error")
+	errReturn := func(interface{}) error { return expectedErr }
+	gotErr := v.UnmarshalYAML(errReturn)
+	if gotErr == nil {
+		t.Errorf("expected error but got nil")
+	}
+	if gotErr != expectedErr {
+		t.Errorf("error mismatch")
 	}
 }

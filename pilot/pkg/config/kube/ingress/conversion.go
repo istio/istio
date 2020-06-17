@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,10 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
+const (
+	IstioIngressController = "istio.io/ingress-controller"
+)
+
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
 // as well as the position of the rule and path specified within it, counting from 1.
 // ruleNum == pathNum == 0 indicates the default backend specified for an ingress.
@@ -64,10 +68,25 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	return
 }
 
+// defaultSelector defines the default selector that will be used if one is not provided
+// This will select the default ingressgateway deployment provided by the standard installation
+// Configurable by meshConfig.ingressSelector.
+var defaultSelector = labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
+
 // ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
-func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.Config {
-	gateway := &networking.Gateway{
-		Selector: labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
+func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig, domainSuffix string) model.Config {
+	gateway := &networking.Gateway{}
+	// Setup the selector for the gateway
+	if len(mesh.IngressSelector) > 0 {
+		// If explicitly defined, use this one
+		gateway.Selector = labels.Instance{constants.IstioLabel: mesh.IngressSelector}
+	} else if mesh.IngressService != "istio-ingressgateway" {
+		// Otherwise, we will use the ingress service as the default. It is common for the selector and service
+		// to be the same, so this removes the need for two configurations
+		// However, if its istio-ingressgateway we need to use the old values for backwards compatibility
+		gateway.Selector = labels.Instance{constants.IstioLabel: mesh.IngressService}
+	} else {
+		gateway.Selector = defaultSelector
 	}
 
 	for i, tls := range ingress.Spec.TLS {
@@ -82,9 +101,9 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 				Name:     fmt.Sprintf("https-443-ingress-%s-%s-%d", ingress.Name, ingress.Namespace, i),
 			},
 			Hosts: tls.Hosts,
-			Tls: &networking.Server_TLSOptions{
+			Tls: &networking.ServerTLSSettings{
 				HttpsRedirect:  false,
-				Mode:           networking.Server_TLSOptions_SIMPLE,
+				Mode:           networking.ServerTLSSettings_SIMPLE,
 				CredentialName: tls.SecretName,
 			},
 		})
@@ -144,8 +163,29 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 
 		httpRoutes := make([]*networking.HTTPRoute, 0)
 		for _, httpPath := range rule.HTTP.Paths {
-			httpMatch := &networking.HTTPMatchRequest{
-				Uri: createStringMatch(httpPath.Path),
+			httpMatch := &networking.HTTPMatchRequest{}
+			if httpPath.PathType != nil {
+				switch *httpPath.PathType {
+				case v1beta1.PathTypeExact:
+					httpMatch.Uri = &networking.StringMatch{
+						MatchType: &networking.StringMatch_Exact{Exact: httpPath.Path},
+					}
+				case v1beta1.PathTypePrefix:
+					// From the spec: /foo/bar matches /foo/bar/baz, but does not match /foo/barbaz
+					// Envoy prefix match behaves differently, so insert a / if we don't have one
+					path := httpPath.Path
+					if !strings.HasSuffix(path, "/") {
+						path += "/"
+					}
+					httpMatch.Uri = &networking.StringMatch{
+						MatchType: &networking.StringMatch_Prefix{Prefix: path},
+					}
+				default:
+					// Fallback to the legacy string matching
+					httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
+				}
+			} else {
+				httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
 			}
 
 			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix)
@@ -176,10 +216,10 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			vs := old.Spec.(*networking.VirtualService)
 			vs.Http = append(vs.Http, httpRoutes...)
 			sort.SliceStable(vs.Http, func(i, j int) bool {
-				r1 := vs.Http[i].Match[0].Uri
-				r2 := vs.Http[j].Match[0].Uri
-				_, r1Ex := r1.MatchType.(*networking.StringMatch_Exact)
-				_, r2Ex := r2.MatchType.(*networking.StringMatch_Exact)
+				r1 := vs.Http[i].Match[0].GetUri()
+				r2 := vs.Http[j].Match[0].GetUri()
+				_, r1Ex := r1.GetMatchType().(*networking.StringMatch_Exact)
+				_, r2Ex := r2.GetMatchType().(*networking.StringMatch_Exact)
 				// TODO: default at the end
 				if r1Ex && !r2Ex {
 					return true
@@ -229,26 +269,38 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 // shouldProcessIngress determines whether the given ingress resource should be processed
 // by the controller, based on its ingress class annotation.
 // See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
-func shouldProcessIngress(mesh *meshconfig.MeshConfig, ingress *v1beta1.Ingress) bool {
-	class, exists := "", false
-	if ingress.Annotations != nil {
-		class, exists = ingress.Annotations[kube.IngressClassAnnotation]
-	}
-
-	switch mesh.IngressControllerMode {
-	case meshconfig.MeshConfig_OFF:
-		return false
-	case meshconfig.MeshConfig_STRICT:
-		return exists && class == mesh.IngressClass
-	case meshconfig.MeshConfig_DEFAULT:
-		return !exists || class == mesh.IngressClass
-	default:
-		log.Warnf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)
-		return false
+func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1.Ingress, ingressClass *v1beta1.IngressClass) bool {
+	if class, exists := ingress.Annotations[kube.IngressClassAnnotation]; exists {
+		switch mesh.IngressControllerMode {
+		case meshconfig.MeshConfig_OFF:
+			return false
+		case meshconfig.MeshConfig_STRICT:
+			return class == mesh.IngressClass
+		case meshconfig.MeshConfig_DEFAULT:
+			return class == mesh.IngressClass
+		default:
+			log.Warnf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)
+			return false
+		}
+	} else if ingressClass != nil {
+		// TODO support ingressclass.kubernetes.io/is-default-class annotation
+		return ingressClass.Spec.Controller == IstioIngressController
+	} else {
+		switch mesh.IngressControllerMode {
+		case meshconfig.MeshConfig_OFF:
+			return false
+		case meshconfig.MeshConfig_STRICT:
+			return false
+		case meshconfig.MeshConfig_DEFAULT:
+			return true
+		default:
+			log.Warnf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)
+			return false
+		}
 	}
 }
 
-func createStringMatch(s string) *networking.StringMatch {
+func createFallbackStringMatch(s string) *networking.StringMatch {
 	if s == "" {
 		return nil
 	}

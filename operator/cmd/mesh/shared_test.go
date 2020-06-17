@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,10 +22,11 @@ import (
 	"testing"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/test/env"
 )
 
 func TestReadLayeredYAMLs(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "pkg/util/testdata/yaml")
+	testDataDir := filepath.Join(env.IstioSrc, "operator/pkg/util/testdata/yaml")
 	tests := []struct {
 		name     string
 		overlays []string

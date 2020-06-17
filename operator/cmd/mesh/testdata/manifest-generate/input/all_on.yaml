@@ -10,12 +10,6 @@ spec:
       enabled: true
     telemetry:
       enabled: true
-    proxy:
-      enabled: true
-    sidecarInjector:
-      enabled: true
-    galley:
-      enabled: true
     cni:
       enabled: false
     ingressGateways:

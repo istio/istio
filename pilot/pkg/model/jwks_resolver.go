@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -408,7 +410,12 @@ func (r *JwksResolver) refresh() {
 				lastRefreshedTime: now,            // update the lastRefreshedTime if we get a success response from the network.
 				lastUsedTime:      e.lastUsedTime, // keep original lastUsedTime.
 			})
-			if oldPubKey != newPubKey {
+			isNewKey, err := compareJWKSResponse(oldPubKey, newPubKey)
+			if err != nil {
+				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
+				return
+			}
+			if isNewKey {
 				hasChange = true
 				log.Infof("Updated cached JWT public key from %q", jwksURI)
 			}
@@ -434,4 +441,68 @@ func (r *JwksResolver) refresh() {
 // (right now calls it from initDiscoveryService in pkg/bootstrap/server.go).
 func (r *JwksResolver) Close() {
 	closeChan <- true
+}
+
+// Compare two JWKS responses, returning true if there is a difference and false otherwise
+func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error) {
+	if oldKeyString == newKeyString {
+		return false, nil
+	}
+
+	var oldJWKs map[string]interface{}
+	var newJWKs map[string]interface{}
+	if err := json.Unmarshal([]byte(newKeyString), &newJWKs); err != nil {
+		// If the new key is not parseable as JSON return an error since we will not want to use this key
+		log.Warnf("New JWKs public key JSON is not parseable: %s", newKeyString)
+		return false, err
+	}
+	if err := json.Unmarshal([]byte(oldKeyString), &oldJWKs); err != nil {
+		log.Warnf("Previous JWKs public key JSON is not parseable: %s", oldKeyString)
+		return true, nil
+	}
+
+	// Sort both sets of keys by "kid (key ID)" to be able to directly compare
+	oldKeys, oldKeysExists := oldJWKs["keys"].([]interface{})
+	newKeys, newKeysExists := newJWKs["keys"].([]interface{})
+	if oldKeysExists && newKeysExists {
+		sort.Slice(oldKeys, func(i, j int) bool {
+			key1, ok1 := oldKeys[i].(map[string]interface{})
+			key2, ok2 := oldKeys[j].(map[string]interface{})
+			if ok1 && ok2 {
+				key1Id, kid1Exists := key1["kid"]
+				key2Id, kid2Exists := key2["kid"]
+				if kid1Exists && kid2Exists {
+					key1IdStr, ok1 := key1Id.(string)
+					key2IdStr, ok2 := key2Id.(string)
+					if ok1 && ok2 {
+						return key1IdStr < key2IdStr
+					}
+				}
+			}
+			return len(key1) < len(key2)
+		})
+		sort.Slice(newKeys, func(i, j int) bool {
+			key1, ok1 := newKeys[i].(map[string]interface{})
+			key2, ok2 := newKeys[j].(map[string]interface{})
+			if ok1 && ok2 {
+				key1Id, kid1Exists := key1["kid"]
+				key2Id, kid2Exists := key2["kid"]
+				if kid1Exists && kid2Exists {
+					key1IdStr, ok1 := key1Id.(string)
+					key2IdStr, ok2 := key2Id.(string)
+					if ok1 && ok2 {
+						return key1IdStr < key2IdStr
+					}
+				}
+			}
+			return len(key1) < len(key2)
+		})
+
+		// Once sorted, return the result of deep comparison of the arrays of keys
+		return !reflect.DeepEqual(oldKeys, newKeys), nil
+	}
+
+	// If we aren't able to compare using keys, we should return true
+	// since we already checked exact equality of the responses
+	return true, nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 package local
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,7 +28,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
@@ -141,12 +142,13 @@ func TestAddRunningKubeSource(t *testing.T) {
 	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	sa.AddRunningKubeSource(mk)
-	g.Expect(*sa.meshCfg).To(Equal(*meshcfg.Default())) // Base default meshcfg
+	g.Expect(*sa.meshCfg).To(Equal(*mesh.DefaultMeshConfig())) // Base default meshcfg
+	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	g.Expect(sa.sources).To(HaveLen(1))
 	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // Resources via api server
 }
 
-func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
+func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	istioNamespace := resource.Namespace("istio-system")
@@ -158,7 +160,8 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 			Name: meshConfigMapName,
 		},
 		Data: map[string]string{
-			meshConfigMapKey: fmt.Sprintf("rootNamespace: %s", testRootNamespace),
+			meshConfigMapKey:   fmt.Sprintf("rootNamespace: %s", testRootNamespace),
+			meshNetworksMapKey: `networks: {"n1": {}, "n2": {}}`,
 		},
 	}
 
@@ -167,7 +170,7 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error getting client for mock kube: %v", err)
 	}
-	if _, err := client.CoreV1().ConfigMaps(istioNamespace.String()).Create(cfg); err != nil {
+	if _, err := client.CoreV1().ConfigMaps(istioNamespace.String()).Create(context.TODO(), cfg, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("Error creating mesh config configmap: %v", err)
 	}
 
@@ -175,6 +178,7 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
+	g.Expect(sa.meshNetworks.Networks).To(HaveLen(2))
 	g.Expect(sa.sources).To(HaveLen(1))
 	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // Resources via api server
 }
@@ -189,7 +193,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(BeNil())
-	g.Expect(*sa.meshCfg).To(Equal(*meshcfg.Default())) // Base default meshcfg
+	g.Expect(*sa.meshCfg).To(Equal(*mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.sources).To(HaveLen(1))
 	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&inmemory.KubeSource{})) // Resources via files
 

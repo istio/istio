@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -33,10 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	kubeLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kubeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -57,7 +56,7 @@ import (
 var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
 
 type Options struct {
-	// Istio system namespace in which galley and istiod reside.
+	// Istio system namespace where istiod resides.
 	WatchedNamespace string
 
 	// Periodically resync with the kube-apiserver. Set to zero to disable.
@@ -74,21 +73,17 @@ type Options struct {
 	// Name of the service running the webhook server.
 	ServiceName string
 
-	// If true, the controller will run but actively try to remove the
-	// validatingwebhookconfiguration instead of creating it. This is
-	// useful in cases where validation was previously enabled and
-	// subsequently disabled. The controller can clean up after itself
-	// without relying on the user to manually delete configs.
-	// Deprecated: istiod webhook controller shouldn't use this.
-	UnregisterValidationWebhook bool
+	// RemoteWebhookConfig defines whether the webhook config is coming from remote cluster
+	RemoteWebhookConfig bool
 }
 
 func DefaultArgs() Options {
 	return Options{
-		WatchedNamespace:  "istio-system",
-		CAPath:            constants.DefaultRootCert,
-		WebhookConfigName: "istio-galley",
-		ServiceName:       "istio-galley",
+		WatchedNamespace:    "istio-system",
+		CAPath:              constants.DefaultRootCert,
+		WebhookConfigName:   "istio-galley",
+		ServiceName:         "istio-galley",
+		RemoteWebhookConfig: false,
 	}
 }
 
@@ -118,7 +113,6 @@ func (o Options) String() string {
 	_, _ = fmt.Fprintf(buf, "CAPath: %v\n", o.CAPath)
 	_, _ = fmt.Fprintf(buf, "WebhookConfigName: %v\n", o.WebhookConfigName)
 	_, _ = fmt.Fprintf(buf, "ServiceName: %v\n", o.ServiceName)
-	_, _ = fmt.Fprintf(buf, "UnregisterValidationWebhook: %v\n", o.UnregisterValidationWebhook)
 	return buf.String()
 }
 
@@ -134,10 +128,14 @@ type Controller struct {
 	dryRunOfInvalidConfigRejected bool
 	fw                            filewatcher.FileWatcher
 
+	stopCh <-chan struct{}
+
 	// unittest hooks
 	readFile      readFileFunc
 	reconcileDone func()
 }
+
+const QuitSignal = "unblock client on queue.Get return and exit the current go routine"
 
 type reconcileRequest struct {
 	description string
@@ -223,7 +221,7 @@ var (
 	configGVK   = kubeApiAdmission.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiAdmission.ValidatingWebhookConfiguration{}).Name())
 	endpointGVK = kubeApiCore.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiCore.Endpoints{}).Name())
 
-	istioGatewayGVK = kubeSchema.GroupVersionResource{
+	istioGatewayGVK = schema.GroupVersionResource{
 		Group:    collections.IstioNetworkingV1Alpha3Gateways.Resource().Group(),
 		Version:  collections.IstioNetworkingV1Alpha3Gateways.Resource().Version(),
 		Resource: collections.IstioNetworkingV1Alpha3Gateways.Resource().Plural(),
@@ -265,13 +263,16 @@ func newController(
 	webhookInformer := c.sharedInformers.Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer()
 	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK, o.WebhookConfigName))
 
-	endpointInformer := c.sharedInformers.Core().V1().Endpoints().Informer()
-	endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
+	if !o.RemoteWebhookConfig {
+		endpointInformer := c.sharedInformers.Core().V1().Endpoints().Informer()
+		endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
+	}
 
 	return c, nil
 }
 
 func (c *Controller) Start(stop <-chan struct{}) {
+	c.stopCh = stop
 	go c.startFileWatcher(stop)
 	go c.sharedInformers.Start(stop)
 
@@ -285,6 +286,9 @@ func (c *Controller) Start(stop <-chan struct{}) {
 	c.queue.Add(req)
 
 	go c.runWorker()
+
+	<-stop
+	c.queue.Add(&reconcileRequest{QuitSignal})
 }
 
 func (c *Controller) startFileWatcher(stop <-chan struct{}) {
@@ -320,6 +324,11 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 		return true
 	}
 
+	// return false when leader lost in case go routine leak.
+	if req.description == QuitSignal {
+		return false
+	}
+
 	if err := c.reconcileRequest(req); err != nil {
 		c.queue.AddRateLimited(obj)
 		utilruntime.HandleError(err)
@@ -340,20 +349,19 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	scope.Infof("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
-	if c.o.UnregisterValidationWebhook {
-		return c.deleteValidatingWebhookConfiguration()
-	}
-
-	ready, err := c.readyForFailClose()
-	if err != nil {
-		return err
-	}
-
 	failurePolicy := kubeApiAdmission.Ignore
-	if ready {
+	if c.o.RemoteWebhookConfig {
 		failurePolicy = kubeApiAdmission.Fail
-	}
+	} else {
+		ready, err := c.readyForFailClose()
+		if err != nil {
+			return err
+		}
 
+		if ready {
+			failurePolicy = kubeApiAdmission.Fail
+		}
+	}
 	caBundle, err := c.loadCABundle()
 	if err != nil {
 		scope.Errorf("Failed to load CA bundle: %v", err)
@@ -406,7 +414,10 @@ func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
 	return ready, reason, nil
 }
 
-const deniedRequestMessageFragment = `admission webhook "validation.istio.io" denied the request`
+const (
+	deniedRequestMessageFragment   = `admission webhook "validation.istio.io" denied the request`
+	missingResourceMessageFragment = `the server could not find the requested resource`
+)
 
 // Confirm invalid configuration is successfully rejected before switching to FAIL-CLOSE.
 func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason string) {
@@ -417,18 +428,25 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	invalid.Object["spec"] = map[string]interface{}{} // gateway must have at least one server
 
 	createOptions := kubeApiMeta.CreateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
-	_, err := c.dynamicResourceInterface.Create(invalid, createOptions)
+	_, err := c.dynamicResourceInterface.Create(context.TODO(), invalid, createOptions)
 	if kubeErrors.IsAlreadyExists(err) {
 		updateOptions := kubeApiMeta.UpdateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
-		_, err = c.dynamicResourceInterface.Update(invalid, updateOptions)
+		_, err = c.dynamicResourceInterface.Update(context.TODO(), invalid, updateOptions)
 	}
 	if err == nil {
-		return false, fmt.Sprintf("dummy invalid config not rejected")
+		return false, "dummy invalid config not rejected"
 	}
-	if !strings.Contains(err.Error(), deniedRequestMessageFragment) {
-		return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
+	// We expect to get deniedRequestMessageFragment (the config was rejected, as expected)
+	if strings.Contains(err.Error(), deniedRequestMessageFragment) {
+		return true, ""
 	}
-	return true, ""
+	// If the CRD does not exist, we will get this error. This is to handle when Pilot is run
+	// without CRDs - in this case, this check will not be possible.
+	if strings.Contains(err.Error(), missingResourceMessageFragment) {
+		log.Warnf("missing Gateway CRD, cannot perform validation check. Assuming validation is ready")
+		return true, ""
+	}
+	return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
 }
 
 func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string) {
@@ -441,30 +459,6 @@ func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string
 		}
 	}
 	return false, "no subset addresses ready"
-}
-
-func (c *Controller) galleyPodsRunning() (running bool, err error) {
-	selector := kubeLabels.SelectorFromSet(map[string]string{"istio": "galley"})
-	pods, err := c.sharedInformers.Core().V1().Pods().Lister().List(selector)
-	if err != nil {
-		return true, err
-	}
-	if len(pods) > 0 {
-		return true, nil
-	}
-	return false, nil
-}
-
-func (c *Controller) deleteValidatingWebhookConfiguration() error {
-	err := c.client.AdmissionregistrationV1beta1().
-		ValidatingWebhookConfigurations().Delete(c.o.WebhookConfigName, &kubeApiMeta.DeleteOptions{})
-	if err != nil {
-		scope.Errorf("Failed to delete validatingwebhookconfiguration: %v", err)
-		reportValidationConfigDeleteError(kubeErrors.ReasonForError(err))
-		return err
-	}
-	scope.Info("Successfully deleted validatingwebhookconfiguration")
-	return nil
 }
 
 func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
@@ -492,7 +486,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failu
 
 	if !reflect.DeepEqual(updated, current) {
 		latest, err := c.client.AdmissionregistrationV1beta1().
-			ValidatingWebhookConfigurations().Update(updated)
+			ValidatingWebhookConfigurations().Update(context.TODO(), updated, kubeApiMeta.UpdateOptions{})
 		if err != nil {
 			scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
 				c.o.WebhookConfigName, failurePolicy, updated.ResourceVersion, err)

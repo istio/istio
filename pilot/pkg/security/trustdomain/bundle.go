@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,10 +19,12 @@ import (
 	"strings"
 
 	istiolog "istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 var (
-	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
+	authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)
 )
 
 type Bundle struct {
@@ -37,7 +39,8 @@ type Bundle struct {
 	TrustDomains []string
 }
 
-func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) Bundle {
+// NewBundle returns a new trust domain bundle.
+func NewBundle(trustDomain string, trustDomainAliases []string) Bundle {
 	return Bundle{
 		// Put the new trust domain to the beginning of the list to avoid changing existing tests.
 		TrustDomains: append([]string{trustDomain}, trustDomainAliases...),
@@ -60,18 +63,18 @@ func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
 		}
 		trustDomainFromPrincipal, err := getTrustDomainFromSpiffeIdentity(principal)
 		if err != nil {
-			rbacLog.Errorf("unexpected incorrect Spiffe format: %s", principal)
+			authzLog.Errorf("unexpected incorrect Spiffe format: %s", principal)
 			principalsIncludingAliases = append(principalsIncludingAliases, principal)
 			continue
 		}
 		// Only generate configuration if the extracted trust domain from the policy is part of the trust domain list,
 		// or if the extracted/existing trust domain is "cluster.local", which is a pointer to the local trust domain
 		// and its aliases.
-		if stringMatch(trustDomainFromPrincipal, t.TrustDomains) || trustDomainFromPrincipal == "cluster.local" {
+		if stringMatch(trustDomainFromPrincipal, t.TrustDomains) || trustDomainFromPrincipal == constants.DefaultKubernetesDomain {
 			// Generate configuration for trust domain and trust domain aliases.
 			principalsIncludingAliases = append(principalsIncludingAliases, t.replaceTrustDomains(principal, trustDomainFromPrincipal)...)
 		} else {
-			rbacLog.Warnf("Trust domain %s from principal %s does not match the current trust "+
+			authzLog.Warnf("Trust domain %s from principal %s does not match the current trust "+
 				"domain or its aliases", trustDomainFromPrincipal, principal)
 			// If the trust domain from the existing doesn't match with the new trust domain aliases or "cluster.local",
 			// keep the policy as it is.
@@ -118,7 +121,7 @@ func replaceTrustDomainInPrincipal(trustDomain string, principal string) string 
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 	if len(identityParts) != 5 {
-		rbacLog.Errorf("Wrong SPIFFE format: %s", principal)
+		authzLog.Errorf("Wrong SPIFFE format: %s", principal)
 		return ""
 	}
 	return fmt.Sprintf("%s/%s", trustDomain, strings.Join(identityParts[1:], "/"))

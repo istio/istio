@@ -4,9 +4,9 @@ service_cluster:           "istio-proxy"
 drain_duration:            {seconds: 2}
 parent_shutdown_duration:  {seconds: 3}
 discovery_address:         "istio-pilot:15010"
-connect_timeout:           {seconds: 1}
 proxy_admin_port:          15000
 control_plane_auth_policy: NONE
+extra_stat_tags:           ["dlp_success"]
 
 #
 # This matches the default configuration hardcoded in model.DefaultProxyConfig

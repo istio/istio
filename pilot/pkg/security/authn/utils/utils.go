@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,34 +15,36 @@
 package utils
 
 import (
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	ldsv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/proxy/envoy/filters"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	protovalue "istio.io/istio/pkg/proto"
 )
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
-func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy) []networking.FilterChain {
+func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy,
+	listenerProtocol networking.ListenerProtocol) []networking.FilterChain {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
 	}
 
 	meta := node.Metadata
-	var alpnIstioMatch *ldsv2.FilterChainMatch
-	var tls *auth.DownstreamTlsContext
-	if util.IsTCPMetadataExchangeEnabled(node) {
-		alpnIstioMatch = &ldsv2.FilterChainMatch{
+	var alpnIstioMatch *listener.FilterChainMatch
+	var ctx *tls.DownstreamTlsContext
+	if util.IsTCPMetadataExchangeEnabled(node) &&
+		(listenerProtocol == networking.ListenerProtocolTCP || listenerProtocol == networking.ListenerProtocolAuto) {
+		alpnIstioMatch = &listener.FilterChainMatch{
 			ApplicationProtocols: util.ALPNInMeshWithMxc,
 		}
-		tls = &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
+		ctx = &tls.DownstreamTlsContext{
+			CommonTlsContext: &tls.CommonTlsContext{
 				// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
 				// expect the same from server. This  is so that secure metadata exchange
 				// transfer can take place between sidecars for TCP with mTLS.
@@ -51,11 +53,11 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 			RequireClientCertificate: protovalue.BoolTrue,
 		}
 	} else {
-		alpnIstioMatch = &ldsv2.FilterChainMatch{
+		alpnIstioMatch = &listener.FilterChainMatch{
 			ApplicationProtocols: util.ALPNInMesh,
 		}
-		tls = &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
+		ctx = &tls.DownstreamTlsContext{
+			CommonTlsContext: &tls.CommonTlsContext{
 				// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
 				// which is used to differentiate between service mesh and legacy traffic.
 				//
@@ -70,13 +72,13 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 			RequireClientCertificate: protovalue.BoolTrue,
 		}
 	}
-	util.ApplyToCommonTLSContext(tls.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/)
+	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/)
 
 	if mTLSMode == model.MTLSStrict {
 		log.Debug("Allow only istio mutual TLS traffic")
 		return []networking.FilterChain{
 			{
-				TLSContext: tls,
+				TLSContext: ctx,
 			}}
 	}
 	if mTLSMode == model.MTLSPermissive {
@@ -84,16 +86,13 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 		return []networking.FilterChain{
 			{
 				FilterChainMatch: alpnIstioMatch,
-				TLSContext:       tls,
-				ListenerFilters: []*ldsv2.ListenerFilter{
-					{
-						Name:       xdsutil.TlsInspector,
-						ConfigType: &ldsv2.ListenerFilter_Config{Config: &structpb.Struct{}},
-					},
+				TLSContext:       ctx,
+				ListenerFilters: []*listener.ListenerFilter{
+					filters.TLSInspector,
 				},
 			},
 			{
-				FilterChainMatch: &ldsv2.FilterChainMatch{},
+				FilterChainMatch: &listener.FilterChainMatch{},
 			},
 		}
 	}

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ type dummyListerWatcherBuilder struct {
 	watchers map[string]*watch.RaceFreeFakeWatcher
 }
 
-func (f *fakeDynamicResource) List(opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+func (f *fakeDynamicResource) List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	list := &unstructured.UnstructuredList{}
 	f.d.mu.RLock()
 	for k, v := range f.d.data {
@@ -79,7 +79,7 @@ func (f *fakeDynamicResource) List(opts metav1.ListOptions) (*unstructured.Unstr
 	return list, nil
 }
 
-func (f *fakeDynamicResource) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+func (f *fakeDynamicResource) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return f.w, nil
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,20 +25,17 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
 	i    istio.Instance
-	g    galley.Instance
 	p    pilot.Instance
 	ingr ingress.Instance
 )
@@ -50,24 +47,21 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("pilot_test", m).
 		Label(label.CustomSetup).
-		RequireEnvironment(environment.Kube).
+
+		// IngressClass is only present in 1.18+
+		RequireEnvironmentVersion("1.18").
 		RequireSingleCluster().
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if err := g.ApplyConfigDir(nil, "testdata"); err != nil {
+			if err := ctx.ApplyConfigDir("", "testdata"); err != nil {
 				return err
 			}
 			return nil
 		}).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
+		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.Values["pilot.env.PILOT_ENABLED_SERVICE_APIS"] = "true"
 		})).
 		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
+			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
 			if ingr, err = ingress.New(ctx, ingress.Config{
@@ -83,7 +77,6 @@ func TestMain(m *testing.M) {
 func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "gateway",
@@ -96,7 +89,6 @@ func TestGateway(t *testing.T) {
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
-					Galley:    g,
 					Ports: []echo.Port{
 						{
 							Name:     "http",
@@ -108,33 +100,30 @@ func TestGateway(t *testing.T) {
 				}).
 				BuildOrFail(t)
 			instance.Address()
-			if err := g.ApplyConfig(ns, `
-apiVersion: networking.x.k8s.io/v1alpha1
+			if err := ctx.ApplyConfig(ns.Name(), `
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controller: istio.io/gateway-controller
 ---
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
 spec:
   class: istio
   listeners:
-  - name: primary
-    address:
-      type: NamedAddress
-      value: my.domain.example
+  - hostname:
+      match: Domain
+      name: domain.example
     port: 80
-    protocol: http
-  routes:
-  - group: networking.x-k8s.io/v1alpha1
-    resource: HTTPRoute
-    name: http
+    protocol: HTTP
+    routes:
+      namespaceSelector: {}
 ---
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
   name: http
@@ -147,9 +136,10 @@ spec:
         path: /get
       action:
         forwardTo:
-          group: v1
-          resource: Service
-          name: server`,
+          targetRef:
+            name: server
+            group: ""
+            resource: ""`,
 			); err != nil {
 				t.Fatal(err)
 			}
@@ -178,7 +168,6 @@ spec:
 func TestIngress(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "ingress",
@@ -191,7 +180,6 @@ func TestIngress(t *testing.T) {
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
-					Galley:    g,
 					Ports: []echo.Port{
 						{
 							Name:     "http",
@@ -207,20 +195,25 @@ func TestIngress(t *testing.T) {
 			// Set up secret contain some TLS certs for *.example.com
 			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
 			credName := "k8s-ingress-secret-foo"
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA)
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA, false)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName})
 			credName2 := "k8s-ingress-secret-bar"
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB)
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB, false)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName2})
 
-			if err := g.ApplyConfig(ns, `
-apiVersion: extensions/v1beta1
+			if err := ctx.ApplyConfig(ns.Name(), `
+apiVersion: networking.k8s.io/v1beta1
+kind: IngressClass
+metadata:
+  name: istio-test
+spec:
+  controller: istio.io/ingress-controller`, `
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
-  annotations:
-    kubernetes.io/ingress.class: istio
   name: ingress
 spec:
+  ingressClassName: istio-test
   tls:
   - hosts: ["foo.example.com"]
     secretName: k8s-ingress-secret-foo

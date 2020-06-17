@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@
 package crd
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
+
+	"k8s.io/apimachinery/pkg/watch"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -135,9 +138,11 @@ func (s *Store) checkAndCreateCaches(
 			informer := cache.NewSharedInformer(
 				&cache.ListWatch{
 					ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-						return cl.List(options)
+						return cl.List(context.TODO(), options)
 					},
-					WatchFunc: cl.Watch,
+					WatchFunc: func(options metav1.ListOptions) (w watch.Interface, err error) {
+						return cl.Watch(context.TODO(), options)
+					},
 				},
 				&unstructured.Unstructured{}, 0)
 			s.caches[res.Kind] = informer.GetStore()

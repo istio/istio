@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package mock
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -39,7 +40,7 @@ func newNodeInterface() corev1.NodeInterface {
 	}
 }
 
-func (n *nodeImpl) Create(obj *apicorev1.Node) (*apicorev1.Node, error) {
+func (n *nodeImpl) Create(_ context.Context, obj *apicorev1.Node, opts metav1.CreateOptions) (*apicorev1.Node, error) {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 
@@ -52,7 +53,7 @@ func (n *nodeImpl) Create(obj *apicorev1.Node) (*apicorev1.Node, error) {
 	return obj, nil
 }
 
-func (n *nodeImpl) Update(obj *apicorev1.Node) (*apicorev1.Node, error) {
+func (n *nodeImpl) Update(_ context.Context, obj *apicorev1.Node, opts metav1.UpdateOptions) (*apicorev1.Node, error) {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 
@@ -65,7 +66,7 @@ func (n *nodeImpl) Update(obj *apicorev1.Node) (*apicorev1.Node, error) {
 	return obj, nil
 }
 
-func (n *nodeImpl) Delete(name string, options *metav1.DeleteOptions) error {
+func (n *nodeImpl) Delete(_ context.Context, name string, options metav1.DeleteOptions) error {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 
@@ -83,7 +84,7 @@ func (n *nodeImpl) Delete(name string, options *metav1.DeleteOptions) error {
 	return nil
 }
 
-func (n *nodeImpl) List(opts metav1.ListOptions) (*apicorev1.NodeList, error) {
+func (n *nodeImpl) List(_ context.Context, opts metav1.ListOptions) (*apicorev1.NodeList, error) {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 
@@ -96,7 +97,7 @@ func (n *nodeImpl) List(opts metav1.ListOptions) (*apicorev1.NodeList, error) {
 	return out, nil
 }
 
-func (n *nodeImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+func (n *nodeImpl) Watch(_ context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 
@@ -114,22 +115,23 @@ func (n *nodeImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 	return w, nil
 }
 
-func (n *nodeImpl) UpdateStatus(*apicorev1.Node) (*apicorev1.Node, error) {
+func (n *nodeImpl) UpdateStatus(context.Context, *apicorev1.Node, metav1.UpdateOptions) (*apicorev1.Node, error) {
 	panic("not implemented")
 }
 
-func (n *nodeImpl) DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+func (n *nodeImpl) DeleteCollection(_ context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	panic("not implemented")
 }
 
-func (n *nodeImpl) Get(name string, options metav1.GetOptions) (*apicorev1.Node, error) {
+func (n *nodeImpl) Get(_ context.Context, name string, options metav1.GetOptions) (*apicorev1.Node, error) {
 	panic("not implemented")
 }
 
-func (n *nodeImpl) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *apicorev1.Node, err error) {
+func (n *nodeImpl) Patch(_ context.Context, name string, pt types.PatchType,
+	data []byte, _ metav1.PatchOptions, subresources ...string) (result *apicorev1.Node, err error) {
 	panic("not implemented")
 }
 
-func (n *nodeImpl) PatchStatus(nodeName string, data []byte) (*apicorev1.Node, error) {
+func (n *nodeImpl) PatchStatus(_ context.Context, nodeName string, data []byte) (*apicorev1.Node, error) {
 	panic("not implemented")
 }

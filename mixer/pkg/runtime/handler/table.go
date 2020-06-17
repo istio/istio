@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ type Entry struct {
 
 // NewTable returns a new table, based on the given config snapshot. The table will re-use existing handlers as much as
 // possible from the old table.
-func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Table {
+func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool, namespaces []string) *Table {
 	// Find all handlers, as referenced by instances, and associate to handlers.
 	instancesByHandler := config.GetInstancesGroupedByHandlers(snapshot)
 	instancesByHandlerDynamic := config.GetInstancesGroupedByHandlersDynamic(snapshot)
@@ -80,7 +80,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 	for handler, instances := range instancesByHandler {
 		n, r, be := createEntry(old, t, handler, instances, snapshot.ID,
 			func(handler hndlr, instances interface{}) (h adapter.Handler, e env, err error) {
-				e = NewEnv(snapshot.ID, handler.GetName(), gp).(env)
+				e = NewEnv(snapshot.ID, handler.GetName(), gp, namespaces).(env)
 				h, err = config.BuildHandler(handler.(*config.HandlerStatic), instances.([]*config.InstanceStatic),
 					e, snapshot.Templates)
 				return h, e, err
@@ -94,7 +94,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 	for handler, instances := range instancesByHandlerDynamic {
 		n, r, be := createEntry(old, t, handler, instances, snapshot.ID,
 			func(_ hndlr, _ interface{}) (h adapter.Handler, e env, err error) {
-				e = NewEnv(snapshot.ID, handler.GetName(), gp).(env)
+				e = NewEnv(snapshot.ID, handler.GetName(), gp, namespaces).(env)
 				tmplCfg := make([]*dynamic.TemplateConfig, 0, len(instances))
 				for _, inst := range instances {
 					tmplCfg = append(tmplCfg, &dynamic.TemplateConfig{

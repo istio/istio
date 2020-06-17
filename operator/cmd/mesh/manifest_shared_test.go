@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@ package mesh
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -30,28 +28,13 @@ const (
 	goldenFileSuffixShowChangesInReview = ".golden-show-in-gh-pull-request.yaml"
 )
 
-var (
-	repoRootDir string
-	testDataDir string
-)
-
-func init() {
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	repoRootDir = filepath.Join(wd, "../..")
-}
-
 func runCommand(command string) (string, error) {
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(strings.Split(command, " "))
-	rootCmd.SetOutput(&out)
+	rootCmd.SetOut(&out)
 
-	if err := rootCmd.Execute(); err != nil {
-		return "", err
-	}
-	return out.String(), nil
+	err := rootCmd.Execute()
+	return out.String(), err
 }
 
 func readFile(path string) (string, error) {

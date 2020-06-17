@@ -22,6 +22,12 @@ about: Report a bug to help us improve Istio
 [ ] User Experience
 [ ] Developer Infrastructure
 
+**Affected features (please put an X in all that apply)**
+
+[ ] Multi Cluster
+[ ] Virtual Machine
+[ ] Multi Control Plane
+
 **Expected behavior**
 
 **Steps to reproduce the bug**

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -29,7 +28,6 @@ import (
 	"github.com/gorilla/websocket"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -85,19 +83,12 @@ func newProtocol(cfg Config) (protocol, error) {
 			},
 			do: cfg.Dialer.HTTP,
 		}, nil
-	case scheme.GRPC, scheme.GRPCS:
+	case scheme.GRPC:
 		// grpc-go sets incorrect authority header
 		authority := headers.Get(hostHeader)
 
 		// transport security
 		security := grpc.WithInsecure()
-		if scheme.Instance(u.Scheme) == scheme.GRPCS {
-			creds, err := credentials.NewClientTLSFromFile(cfg.TLSCert, authority)
-			if err != nil {
-				log.Fatalf("failed to load client certs %s %v", cfg.TLSCert, err)
-			}
-			security = grpc.WithTransportCredentials(creds)
-		}
 
 		// Strip off the scheme from the address.
 		address := rawURL[len(u.Scheme+"://"):]
@@ -117,7 +108,7 @@ func newProtocol(cfg Config) (protocol, error) {
 			conn:   grpcConn,
 			client: proto.NewEchoTestServiceClient(grpcConn),
 		}, nil
-	case scheme.WebSocket, scheme.WebSocketS:
+	case scheme.WebSocket:
 		dialer := &websocket.Dialer{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,

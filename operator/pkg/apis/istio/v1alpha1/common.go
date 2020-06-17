@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,9 @@ const (
 
 // Namespace returns the namespace of the containing CR.
 func Namespace(iops *v1alpha1.IstioOperatorSpec) string {
+	if iops.Namespace != "" {
+		return iops.Namespace
+	}
 	if iops.Values == nil {
 		return ""
 	}
@@ -44,6 +47,9 @@ func Namespace(iops *v1alpha1.IstioOperatorSpec) string {
 
 // SetNamespace returns the namespace of the containing CR.
 func SetNamespace(iops *v1alpha1.IstioOperatorSpec, namespace string) {
+	if namespace != "" {
+		iops.Namespace = namespace
+	}
 	if iops.Values == nil {
 		iops.Values = make(map[string]interface{})
 	}
@@ -67,14 +73,4 @@ func (intstrpb *IntOrStringForPB) MarshalJSONPB(_ *jsonpb.Marshaler) ([]byte, er
 // UnmarshalJSONPB implements the jsonpb.JSONPBUnmarshaler interface.
 func (intstrpb *IntOrStringForPB) UnmarshalJSONPB(_ *jsonpb.Unmarshaler, value []byte) error {
 	return intstrpb.UnmarshalJSON(value)
-}
-
-// FromInt creates an IntOrStringForPB object with an int32 value.
-func FromInt(val int) IntOrStringForPB {
-	return IntOrStringForPB{intstr.FromInt(val)}
-}
-
-// FromString creates an IntOrStringForPB object with a string value.
-func FromString(val string) IntOrStringForPB {
-	return IntOrStringForPB{intstr.FromString(val)}
 }

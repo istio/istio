@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,16 +20,17 @@ import (
 	"strconv"
 	"strings"
 
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/pkg/log"
 )
 
 // buildDefaultThriftInboundRoute builds a default inbound route.
-func buildDefaultThriftRoute(clusterName, rateLimitClusterName string) *thrift_proxy.Route {
+func buildDefaultThriftRoute(clusterName, rateLimitClusterName string) *thrift.Route {
 	var rateLimits []*route.RateLimit
 	if rateLimitClusterName != "" {
 		rateLimits = []*route.RateLimit{
@@ -46,9 +47,9 @@ func buildDefaultThriftRoute(clusterName, rateLimitClusterName string) *thrift_p
 		}
 	}
 
-	return &thrift_proxy.Route{
-		Match: &thrift_proxy.RouteMatch{
-			MatchSpecifier: &thrift_proxy.RouteMatch_MethodName{
+	return &thrift.Route{
+		Match: &thrift.RouteMatch{
+			MatchSpecifier: &thrift.RouteMatch_MethodName{
 				MethodName: "",
 			},
 		},
@@ -56,8 +57,8 @@ func buildDefaultThriftRoute(clusterName, rateLimitClusterName string) *thrift_p
 		// Specifies a set of rate limit configurations that could be applied to the route.
 		// N.B. Thrift service or method name matching can be achieved by specifying a RequestHeaders
 		// action with the header name ":method-name".
-		Route: &thrift_proxy.RouteAction{
-			ClusterSpecifier: &thrift_proxy.RouteAction_Cluster{
+		Route: &thrift.RouteAction{
+			ClusterSpecifier: &thrift.RouteAction_Cluster{
 				Cluster: clusterName,
 			},
 			RateLimits: rateLimits,
@@ -67,18 +68,18 @@ func buildDefaultThriftRoute(clusterName, rateLimitClusterName string) *thrift_p
 
 // Builds the route config with a single blank method route on the inbound path.
 // We route inbound and outbound identically.
-func (configgen *ConfigGeneratorImpl) buildSidecarThriftRouteConfig(clusterName, rateLimitURL string) *thrift_proxy.RouteConfiguration {
+func (configgen *ConfigGeneratorImpl) buildSidecarThriftRouteConfig(clusterName, rateLimitURL string) *thrift.RouteConfiguration {
 
 	rlsClusterName, err := thriftRLSClusterNameFromAuthority(rateLimitURL)
 	if err != nil {
 		rlsClusterName = ""
 	}
 
-	routes := []*thrift_proxy.Route{
+	routes := []*thrift.Route{
 		buildDefaultThriftRoute(clusterName, rlsClusterName),
 	}
 
-	return &thrift_proxy.RouteConfiguration{
+	return &thrift.RouteConfiguration{
 		Name:   clusterName,
 		Routes: routes,
 	}

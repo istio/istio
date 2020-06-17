@@ -40,13 +40,13 @@ $(shell $(shell pwd)/common/scripts/setup_env.sh)
 
 RUN = ./common/scripts/run.sh
 
-MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
+MAKE_DOCKER = $(RUN) make --no-print-directory -e -f Makefile.core.mk
 
 %:
-	@$(MAKE) $@
+	@$(MAKE_DOCKER) $@
 
 default:
-	@$(MAKE)
+	@$(MAKE_DOCKER)
 
 shell:
 	@$(RUN) /bin/bash

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -268,6 +268,20 @@ oCvHkuhGyVKRT4Ddff4gfbvMPlls
 		},
 		Type: "test-tls-ca-secret",
 	}
+
+	k8sSecretNameG           = "test-scrtG"
+	k8sTestKubernetesSecretG = &v1.Secret{
+		Data: map[string][]byte{
+			tlsScrtCert:   k8sCertChainB,
+			tlsScrtKey:    k8sKeyB,
+			tlsScrtCaCert: k8sCaCertB,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sSecretNameG,
+			Namespace: "test-namespace",
+		},
+		Type: "test-secret",
+	}
 )
 
 type expectedSecret struct {
@@ -405,6 +419,42 @@ func TestSecretFetcher(t *testing.T) {
 		},
 	}
 	testDeleteSecret(t, gSecretFetcher, k8sTestGenericCASecretE, expectedDeletedCASecrets)
+
+	// Add test secret and verify that key/cert pair is stored.
+	expectedAddedSecrets = []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:     k8sSecretNameG,
+				CertificateChain: k8sCertChainB,
+				ExpireTime:       k8sTestCertChainExpireTimeA,
+				PrivateKey:       k8sKeyB,
+			},
+		},
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName: k8sSecretNameG + IngressGatewaySdsCaSuffix,
+				RootCert:     k8sCaCertB,
+				ExpireTime:   k8sTestCaCertExpireTimeA,
+			},
+		},
+	}
+	testAddSecret(t, gSecretFetcher, k8sTestKubernetesSecretG, expectedAddedSecrets, &secretVersionOne)
+
+	// Delete test secret and verify that key/cert pair in secret is removed from local store.
+	expectedDeletedSecrets = []expectedSecret{
+		{
+			exist:  false,
+			secret: &model.SecretItem{ResourceName: k8sSecretNameG},
+		},
+		{
+			exist:  false,
+			secret: &model.SecretItem{ResourceName: k8sSecretNameG + IngressGatewaySdsCaSuffix},
+		},
+	}
+	testDeleteSecret(t, gSecretFetcher, k8sTestKubernetesSecretG, expectedDeletedSecrets)
+
 }
 
 // TestSecretFetcherInvalidSecret verifies that if a secret does not have key or cert, secret fetcher
@@ -772,6 +822,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 }
 
 func compareSecret(t *testing.T, secret, expectedSecret *model.SecretItem) {
+	t.Helper()
 	if expectedSecret.ResourceName != secret.ResourceName {
 		t.Errorf("resource name verification error: expected %s but got %s", expectedSecret.ResourceName, secret.ResourceName)
 	}
@@ -787,6 +838,7 @@ func compareSecret(t *testing.T, secret, expectedSecret *model.SecretItem) {
 }
 
 func testAddSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expectedSecrets []expectedSecret, version *string) {
+	t.Helper()
 	// Add a test secret and find the secret.
 	sf.scrtAdded(k8ssecret)
 	for _, es := range expectedSecrets {

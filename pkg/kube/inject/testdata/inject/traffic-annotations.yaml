@@ -10,11 +10,18 @@ spec:
   template:
     metadata:
       annotations:
+        # We set 4 CPUs here and concurrency=0 below. Expect concurrency to be set to 4.
+        sidecar.istio.io/proxyCPU: 4000m
         traffic.sidecar.istio.io/includeInboundPorts: "1,2,3"
         traffic.sidecar.istio.io/excludeInboundPorts: "4,5,6"
         traffic.sidecar.istio.io/excludeOutboundPorts: "7,8,9"
         traffic.sidecar.istio.io/includeOutboundIPRanges: "127.0.0.1/24,10.96.0.1/24"
         traffic.sidecar.istio.io/excludeOutboundIPRanges: "10.96.0.2/24,10.96.0.3/24"
+        proxy.istio.io/config: |-
+          discoveryAddress: foo:123
+          concurrency: 0
+          proxyMetadata:
+            FOO: bar
       labels:
         app: traffic
     spec:

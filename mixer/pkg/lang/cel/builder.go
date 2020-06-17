@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ const (
 type ExpressionBuilder struct {
 	mode     LanguageMode
 	provider *attributeProvider
-	env      celgo.Env
+	env      *celgo.Env
 }
 
 type expression struct {
@@ -104,7 +104,7 @@ func NewBuilder(finder attribute.AttributeDescriptorFinder, mode LanguageMode) *
 }
 
 // Compile the given text and return a pre-compiled expression object.
-func (exb *ExpressionBuilder) check(text string) (checked celgo.Ast, typ descriptor.ValueType, err error) {
+func (exb *ExpressionBuilder) check(text string) (checked *celgo.Ast, typ descriptor.ValueType, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic during CEL parsing of expression %q", text)

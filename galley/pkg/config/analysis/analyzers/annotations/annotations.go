@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 // K8sAnalyzer checks for misplaced and invalid Istio annotations in K8s resources
@@ -74,7 +75,7 @@ func (*K8sAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context,
 
 	// It is fine if the annotation is kubectl.kubernetes.io/last-applied-configuration.
 outer:
-	for ann := range r.Metadata.Annotations {
+	for ann, value := range r.Metadata.Annotations {
 		if !istioAnnotation(ann) {
 			continue
 		}
@@ -102,15 +103,15 @@ outer:
 
 		// TODO: Check annotation.Deprecated.  Not implemented because no
 		// deprecations in the table have yet been deprecated!
-
-		// Note: currently we don't validate the value of the annotation,
-		// just key and placement.
-		// There is annotation value validation (for pod annotations) in the web hook at
-		// istio.io/istio/pkg/kube/inject/inject.go.  Rather than refactoring
-		// that code I intend to bring all of the web hook checks into this framework
-		// and checking here will be redundant.
+		validationFunction := inject.AnnotationValidation[ann]
+		if validationFunction != nil {
+			if err := validationFunction(value); err != nil {
+				ctx.Report(collectionType,
+					msg.NewInvalidAnnotation(r, ann, err.Error()))
+				continue
+			}
+		}
 	}
-
 }
 
 // istioAnnotation is true if the annotation is in Istio's namespace

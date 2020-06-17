@@ -37,9 +37,28 @@
               }
             },
             "call_credentials": {
+            {{ if .sts }}
+              "sts_service": {
+                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+                "subject_token_path": "/var/run/secrets/tokens/istio-token",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "scope": "https://www.googleapis.com/auth/cloud-platform",
+              }
+            {{ else }}
               "google_compute_engine": {}
+            {{ end }}
             }
-          }
+          },
+          "initial_metadata": [
+          {{ if .sts }}
+          {{ if .gcp_project_id }}
+            {
+              "key": "x-goog-user-project",
+              "value": "{{ .gcp_project_id }}"
+            }
+          {{ end }}
+          {{ end }}
+          ]
         }
       ]
     }
@@ -61,17 +80,27 @@
             },
             "call_credentials": {
             {{ if .sts }}
-            "sts_service": {
-              "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
-              "subject_token_path": "/var/run/secrets/tokens/istio-token",
-              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-              "scope": "https://www.googleapis.com/auth/cloud-platform",
-            }
+              "sts_service": {
+                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+                "subject_token_path": "/var/run/secrets/tokens/istio-token",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "scope": "https://www.googleapis.com/auth/cloud-platform",
+              }
             {{ else }}
               "google_compute_engine": {}
             {{ end }}
             }
-          }
+          },
+          "initial_metadata": [
+          {{ if .sts }}
+          {{ if .gcp_project_id }}
+            {
+              "key": "x-goog-user-project",
+              "value": "{{ .gcp_project_id }}"
+            }
+          {{ end }}
+          {{ end }}
+          ]
         }
       ]
     }
@@ -112,8 +141,16 @@
               "scope": "https://www.googleapis.com/auth/cloud-platform",
             }
           }
-        }
-      }
+        },
+        "initial_metadata": [
+        {{ if .gcp_project_id }}
+          {
+            "key": "x-goog-user-project",
+            "value": "{{ .gcp_project_id }}"
+          }
+        {{ end }}
+        ]
+      },
       {{ end }}
       "stdout_exporter_enabled": {{ .stackdriverDebug }},
       "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],

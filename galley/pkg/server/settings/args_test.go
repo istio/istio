@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,42 +14,21 @@
 
 package settings
 
-import "testing"
+import (
+	"testing"
+
+	"istio.io/istio/pkg/config/constants"
+)
 
 func TestDefaultArgs(t *testing.T) {
 	a := DefaultArgs()
-
-	// Spot check a few things
-	if a.APIAddress != "tcp://0.0.0.0:9901" {
-		t.Fatalf("unexpected APIAddress: %v", a.APIAddress)
-	}
-
-	if a.MaxReceivedMessageSize != 1024*1024 {
-		t.Fatalf("unexpected MaxReceivedMessageSize: %d", a.MaxReceivedMessageSize)
-	}
-
-	if a.MaxConcurrentStreams != 1024 {
-		t.Fatalf("unexpected MaxConcurrentStreams: %d", a.MaxConcurrentStreams)
-	}
 
 	if a.MeshConfigFile != defaultMeshConfigFile {
 		t.Fatalf("unexpected MeshConfigFile: %s", a.MeshConfigFile)
 	}
 
-	if a.DomainSuffix != defaultDomainSuffix {
+	if a.DomainSuffix != constants.DefaultKubernetesDomain {
 		t.Fatalf("unexpected DomainSuffix: %s", a.DomainSuffix)
-	}
-
-	if a.Insecure {
-		t.Fatal("Default of Insecure should be false")
-	}
-
-	if a.InitialWindowSize != 1024*1024 {
-		t.Fatal("Default of InitialWindowSize should be 1024 * 1024")
-	}
-
-	if a.InitialConnectionWindowSize != 1024*1024*16 {
-		t.Fatal("Default of InitialConnectionWindowSize should be 1024 * 1024 * 16")
 	}
 }
 

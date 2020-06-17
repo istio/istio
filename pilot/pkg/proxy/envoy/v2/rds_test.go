@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -77,9 +77,4 @@ func TestRDS(t *testing.T) {
 			}
 		})
 	}
-
-	// TODO: compare with some golden once it's stable
-	// check that each mocked service and destination rule has a corresponding resource
-
-	// TODO: dynamic checks ( see EDS )
 }

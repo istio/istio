@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -518,12 +518,22 @@ func newSchema(name string) collection.Schema {
 }
 
 var _ resource.Origin = fakeOrigin{}
+var _ resource.Reference = fakeReference{}
 
 type fakeOrigin struct {
 	namespace    resource.Namespace
 	friendlyName string
+	reference    fakeReference
 }
 
 func (f fakeOrigin) Namespace() resource.Namespace { return f.namespace }
 func (f fakeOrigin) FriendlyName() string          { return f.friendlyName }
-func (f fakeOrigin) Reference() string             { return "" }
+func (f fakeOrigin) Reference() resource.Reference { return f.reference }
+
+type fakeReference struct {
+	name string
+}
+
+func (r fakeReference) String() string {
+	return r.name
+}

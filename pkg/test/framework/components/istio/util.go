@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,14 @@
 package istio
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"time"
+
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	kubeenv "istio.io/istio/pkg/test/framework/components/environment/kube"
 
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -39,7 +45,12 @@ spec:
 `
 )
 
-func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
+var (
+	igwServiceName = "istio-ingressgateway"
+	discoveryPort  = 15012
+)
+
+func waitForValidationWebhook(accessor kube.Accessor, cfg Config) error {
 	dummyValidationRule := fmt.Sprintf(dummyValidationRuleTemplate, cfg.SystemNamespace)
 	defer func() {
 		e := accessor.DeleteContents("", dummyValidationRule)
@@ -48,7 +59,7 @@ func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
 		}
 	}()
 
-	scopes.CI.Info("Creating dummy rule to check for validation webhook readiness")
+	scopes.Framework.Info("Creating dummy rule to check for validation webhook readiness")
 	return retry.UntilSuccess(func() error {
 		_, err := accessor.ApplyContents("", dummyValidationRule)
 		if err == nil {
@@ -57,4 +68,50 @@ func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
 
 		return fmt.Errorf("validation webhook not ready yet: %v", err)
 	}, retry.Timeout(time.Minute))
+}
+
+func GetRemoteDiscoveryAddress(namespace string, cluster kubeenv.Cluster, useNodePort bool) (net.TCPAddr, error) {
+	svc, err := cluster.CoreV1().Services(namespace).Get(context.TODO(), igwServiceName, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return net.TCPAddr{}, err
+	}
+
+	// if useNodePort is set, we look for the node port service. This is generally used on kind or k8s without a LB
+	// and that do not have metallb installed
+	if useNodePort {
+		pods, err := cluster.GetPods(namespace, "istio=ingressgateway")
+		if err != nil {
+			return net.TCPAddr{}, err
+		}
+		if len(pods) == 0 {
+			return net.TCPAddr{}, fmt.Errorf("no ingress pod found")
+		}
+		ip := pods[0].Status.HostIP
+		if ip == "" {
+			return net.TCPAddr{}, fmt.Errorf("no Host IP available on the ingress node yet")
+		}
+		if len(svc.Spec.Ports) == 0 {
+			return net.TCPAddr{}, fmt.Errorf("no ports found in service istio-ingressgateway")
+		}
+
+		var nodePort int32
+		for _, svcPort := range svc.Spec.Ports {
+			if svcPort.Protocol == "TCP" && svcPort.Port == int32(discoveryPort) {
+				nodePort = svcPort.NodePort
+				break
+			}
+		}
+		if nodePort == 0 {
+			return net.TCPAddr{}, fmt.Errorf("no port found in service: istio-ingressgateway")
+		}
+		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, nil
+	}
+
+	// If running in KinD, MetalLB must be installed to enable LoadBalancer resources
+	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
+		return net.TCPAddr{}, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Namespace, svc.Name)
+	}
+
+	ip := svc.Status.LoadBalancer.Ingress[0].IP
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: discoveryPort}, nil
 }

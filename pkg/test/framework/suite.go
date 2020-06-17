@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,13 +18,21 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
+	"path/filepath"
+	goruntime "runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/environment/native"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -46,6 +54,9 @@ var (
 	rtMu sync.Mutex
 )
 
+// getSettingsFunc is a function used to extract the default settings for the Suite.
+type getSettingsFunc func(string) (*resource.Settings, error)
+
 // mRunFn abstracts testing.M.run, so that the framework itself can be tested.
 type mRunFn func(ctx *suiteContext) int
 
@@ -60,12 +71,30 @@ type Suite struct {
 	requireFns []resource.SetupFn
 	setupFns   []resource.SetupFn
 
-	getSettingsFn func(string) (*resource.Settings, error)
+	getSettings getSettingsFunc
+	envFactory  resource.EnvironmentFactory
+}
+
+// Given the filename of a test, derive its suite name
+func deriveSuiteName(caller string) string {
+	d := filepath.Dir(caller)
+	matches := []string{"istio.io/istio.io", "istio.io/istio", "tests/integration"}
+	// We will trim out paths preceding some well known paths. This should handle anything in istio or docs repo,
+	// as well as special case tests/integration. The end result is a test under ./tests/integration/pilot/ingress
+	// will become pilot_ingress
+	// Note: if this fails to trim, we end up with "ugly" suite names but otherwise no real impact.
+	for _, match := range matches {
+		if i := strings.Index(d, match); i >= 0 {
+			d = d[i+len(match)+1:]
+		}
+	}
+	return strings.ReplaceAll(d, "/", "_")
 }
 
 // NewSuite returns a new suite instance.
 func NewSuite(testID string, m *testing.M) *Suite {
-	return newSuite(testID,
+	_, f, _, _ := goruntime.Caller(1)
+	return newSuite(deriveSuiteName(f),
 		func(_ *suiteContext) int {
 			return m.Run()
 		},
@@ -73,13 +102,13 @@ func NewSuite(testID string, m *testing.M) *Suite {
 		getSettings)
 }
 
-func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn func(string) (*resource.Settings, error)) *Suite {
+func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *Suite {
 	s := &Suite{
-		testID:        testID,
-		mRun:          fn,
-		osExit:        osExit,
-		getSettingsFn: getSettingsFn,
-		labels:        label.NewSet(),
+		testID:      testID,
+		mRun:        fn,
+		osExit:      osExit,
+		getSettings: getSettingsFn,
+		labels:      label.NewSet(),
 	}
 
 	return s
@@ -94,21 +123,6 @@ func (s *Suite) Label(labels ...label.Instance) *Suite {
 // Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
 func (s *Suite) Skip(reason string) *Suite {
 	s.skipMessage = reason
-	return s
-}
-
-// RequireEnvironment ensures that the current environment matches what the suite expects. Otherwise it
-// stops test execution. This also applies the appropriate label to the suite implicitly.
-func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
-	fn := func(ctx resource.Context) error {
-		if name != ctx.Environment().EnvironmentName() {
-			s.Skip(fmt.Sprintf("Required environment (%v) does not match current: %v",
-				name, ctx.Environment().EnvironmentName()))
-		}
-		return nil
-	}
-
-	s.requireFns = append(s.requireFns, fn)
 	return s
 }
 
@@ -195,18 +209,6 @@ func (s *Suite) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error) {
 	return
 }
 
-// SetupOnEnv runs the given setup function conditionally, based on the current environment.
-func (s *Suite) SetupOnEnv(e environment.Name, fn resource.SetupFn) *Suite {
-	s.Setup(func(ctx resource.Context) error {
-		if ctx.Environment().EnvironmentName() != e {
-			return nil
-		}
-		return fn(ctx)
-	})
-
-	return s
-}
-
 // Run the suite. This method calls os.Exit and does not return.
 func (s *Suite) Run() {
 	s.osExit(s.run())
@@ -231,7 +233,7 @@ func (s *Suite) doSkip(ctx *suiteContext) int {
 }
 
 func (s *Suite) run() (errLevel int) {
-	if err := initRuntime(s.testID, s.labels, s.getSettingsFn); err != nil {
+	if err := initRuntime(s); err != nil {
 		scopes.Framework.Errorf("Error during test framework init: %v", err)
 		return exitCodeInitError
 	}
@@ -282,31 +284,63 @@ func (s *Suite) run() (errLevel int) {
 
 	defer func() {
 		end := time.Now()
-		scopes.CI.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
+		scopes.Framework.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
 	}()
 
 	attempt := 0
 	for attempt <= ctx.settings.Retries {
 		attempt++
-		scopes.CI.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
+		scopes.Framework.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
 		errLevel = s.mRun(ctx)
 		if errLevel == 0 {
-			scopes.CI.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
 			break
 		} else {
-			scopes.CI.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
+			scopes.Framework.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
 				ctx.Settings().TestID, errLevel)
 			if attempt <= ctx.settings.Retries {
-				scopes.CI.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
+				scopes.Framework.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
 			}
 		}
 	}
+	s.writeOutput()
 
 	return
 }
 
+type SuiteOutcome struct {
+	Name         string
+	Environment  string
+	Multicluster bool
+	TestOutcomes []TestOutcome
+}
+
+func (s *Suite) writeOutput() {
+	// the ARTIFACTS env var is set by prow, and uploaded to GCS as part of the job artifact
+	artifactsPath := os.Getenv("ARTIFACTS")
+	if artifactsPath != "" {
+		ctx := rt.suiteContext()
+		ctx.outcomeMu.RLock()
+		out := SuiteOutcome{
+			Name:         ctx.Settings().TestID,
+			Environment:  ctx.Environment().EnvironmentName().String(),
+			Multicluster: ctx.Environment().IsMulticluster(),
+			TestOutcomes: ctx.testOutcomes,
+		}
+		ctx.outcomeMu.RUnlock()
+		outbytes, err := yaml.Marshal(out)
+		if err != nil {
+			log.Errorf("failed writing test suite outcome to yaml: %s", err)
+		}
+		err = ioutil.WriteFile(path.Join(artifactsPath, out.Name+".yaml"), outbytes, 0644)
+		if err != nil {
+			log.Errorf("failed writing test suite outcome to file: %s", err)
+		}
+	}
+}
+
 func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
-	scopes.CI.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
 
 	// Run all the require functions first, then the setup functions.
 	setupFns := append(append([]resource.SetupFn{}, s.requireFns...), s.setupFns...)
@@ -315,7 +349,7 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 		err := s.runSetupFn(fn, ctx)
 		if err != nil {
 			scopes.Framework.Errorf("Test setup error: %v", err)
-			scopes.CI.Infof("=== FAILED: Setup: '%s' (%v) ===", ctx.Settings().TestID, err)
+			scopes.Framework.Infof("=== FAILED: Setup: '%s' (%v) ===", ctx.Settings().TestID, err)
 			return err
 		}
 
@@ -323,11 +357,11 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 			return nil
 		}
 	}
-	scopes.CI.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
 	return nil
 }
 
-func initRuntime(testID string, labels label.Set, getSettingsFn func(string) (*resource.Settings, error)) error {
+func initRuntime(s *Suite) error {
 	rtMu.Lock()
 	defer rtMu.Unlock()
 
@@ -335,39 +369,46 @@ func initRuntime(testID string, labels label.Set, getSettingsFn func(string) (*r
 		return errors.New("framework is already initialized")
 	}
 
-	s, err := getSettingsFn(testID)
+	settings, err := s.getSettings(s.testID)
 	if err != nil {
 		return err
 	}
-	environmentFactory := s.EnvironmentFactory
+
+	// Get the EnvironmentFactory.
+	environmentFactory := s.envFactory
+	if environmentFactory == nil {
+		environmentFactory = settings.EnvironmentFactory
+	}
 	if environmentFactory == nil {
 		environmentFactory = newEnvironment
 	}
 
-	if err := configureLogging(s.CIMode); err != nil {
+	if err := configureLogging(settings.CIMode); err != nil {
 		return err
 	}
 
-	scopes.CI.Infof("=== Test Framework Settings ===")
-	scopes.CI.Info(s.String())
-	scopes.CI.Infof("===============================")
+	scopes.Framework.Infof("=== Test Framework Settings ===")
+	scopes.Framework.Info(settings.String())
+	scopes.Framework.Infof("===============================")
 
 	// Ensure that the work dir is set.
-	if err := os.MkdirAll(s.RunDir(), os.ModePerm); err != nil {
-		return fmt.Errorf("error creating rundir %q: %v", s.RunDir(), err)
+	if err := os.MkdirAll(settings.RunDir(), os.ModePerm); err != nil {
+		return fmt.Errorf("error creating rundir %q: %v", settings.RunDir(), err)
 	}
-	scopes.Framework.Infof("Test run dir: %v", s.RunDir())
+	scopes.Framework.Infof("Test run dir: %v", settings.RunDir())
 
-	rt, err = newRuntime(s, environmentFactory, labels)
+	rt, err = newRuntime(settings, environmentFactory, s.labels)
 	return err
 }
 
 func newEnvironment(name string, ctx resource.Context) (resource.Environment, error) {
 	switch name {
-	case environment.Native.String():
-		return native.New(ctx)
 	case environment.Kube.String():
-		return kube.New(ctx)
+		s, err := kube.NewSettingsFromCommandLine()
+		if err != nil {
+			return nil, err
+		}
+		return kube.New(ctx, s)
 	default:
 		return nil, fmt.Errorf("unknown environment: %q", name)
 	}

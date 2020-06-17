@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@ package multicluster
 
 import (
 	"bytes"
+	context2 "context"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -108,7 +108,7 @@ istioctl --Kubeconfig=c0.yaml x create-remote-secret --name c0 --auth-type=plugi
 			out, err := CreateRemoteSecret(opts, env)
 			if err != nil {
 				fmt.Fprintf(c.OutOrStderr(), "error: %v\n", err)
-				os.Exit(1)
+				return err
 			}
 			fmt.Fprint(c.OutOrStdout(), out)
 			return nil
@@ -215,7 +215,7 @@ func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, clusterName, c
 }
 
 func getServiceAccountSecretToken(kube kubernetes.Interface, saName, saNamespace string) (*v1.Secret, error) {
-	serviceAccount, err := kube.CoreV1().ServiceAccounts(saNamespace).Get(saName, metav1.GetOptions{})
+	serviceAccount, err := kube.CoreV1().ServiceAccounts(saNamespace).Get(context2.TODO(), saName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +228,7 @@ func getServiceAccountSecretToken(kube kubernetes.Interface, saName, saNamespace
 	if secretNamespace == "" {
 		secretNamespace = saNamespace
 	}
-	return kube.CoreV1().Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
+	return kube.CoreV1().Secrets(secretNamespace).Get(context2.TODO(), secretName, metav1.GetOptions{})
 }
 
 func getCurrentContextAndClusterServerFromKubeconfig(context string, config *api.Config) (string, string, error) {

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package multicluster
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -30,7 +31,7 @@ import (
 )
 
 func deleteSecret(cluster *Cluster, s *v1.Secret) error {
-	return cluster.client.CoreV1().Secrets(cluster.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
+	return cluster.client.CoreV1().Secrets(cluster.Namespace).Delete(context.TODO(), s.Name, metav1.DeleteOptions{})
 }
 
 // update current state to match desired state.
@@ -59,17 +60,17 @@ func updateRemoteSecret(prev, curr *v1.Secret) (changed bool) {
 
 func applySecret(env Environment, cluster *Cluster, curr *v1.Secret) error {
 	err := env.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
-		prev, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Get(curr.Name, metav1.GetOptions{})
+		prev, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Get(context.TODO(), curr.Name, metav1.GetOptions{})
 		if err == nil {
 			if changed := updateRemoteSecret(prev, curr); changed {
-				if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Update(prev); err != nil {
+				if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Update(context.TODO(), prev, metav1.UpdateOptions{}); err != nil {
 					return false, err
 				}
 			}
 			return true, nil
 		}
 
-		if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Create(curr); err != nil {
+		if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Create(context.TODO(), curr, metav1.CreateOptions{}); err != nil {
 			return false, err
 		}
 		return true, nil

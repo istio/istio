@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,18 +23,19 @@ import (
 	"testing"
 	"time"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/test"
 
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-
-	envoy_api_v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	"istio.io/istio/pilot/pkg/networking/core"
 
@@ -47,7 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -65,7 +66,7 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	configController := memory.NewController(store)
 	istioConfigStore := model.MakeIstioStore(configController)
 	serviceControllers := aggregate.NewController()
-	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore, s)
+	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, istioConfigStore, s)
 	go configController.Run(make(chan struct{}))
 	serviceEntryRegistry := serviceregistry.Simple{
 		ProviderID:       "External",
@@ -85,7 +86,7 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.updateServiceShards(s.globalPushContext()); err != nil {
+	if err := s.UpdateServiceShards(s.globalPushContext()); err != nil {
 		t.Fatalf("Failed to update service shards: %v", err)
 	}
 	return s
@@ -94,9 +95,9 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 func createEndpoints(numEndpoints int, numServices int) []model.Config {
 	result := make([]model.Config, 0, numServices)
 	for s := 0; s < numServices; s++ {
-		endpoints := make([]*networking.ServiceEntry_Endpoint, 0, numEndpoints)
+		endpoints := make([]*networking.WorkloadEntry, 0, numEndpoints)
 		for e := 0; e < numEndpoints; e++ {
-			endpoints = append(endpoints, &networking.ServiceEntry_Endpoint{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
+			endpoints = append(endpoints, &networking.WorkloadEntry{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
 		}
 		result = append(result, model.Config{
 			ConfigMeta: model.ConfigMeta{
@@ -198,7 +199,7 @@ func setupTest(t test.Failer, testName string) (model.Environment, core.ConfigGe
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			ConfigNamespace: "not-default",
+			Namespace: "not-default",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},
 		ConfigNamespace: "not-default",
@@ -231,19 +232,19 @@ func setupTest(t test.Failer, testName string) (model.Environment, core.ConfigGe
 	return env, configgen, proxy
 }
 
-func routesFromListeners(ll []*envoy_api_v2.Listener) []string {
+func routesFromListeners(ll []*listener.Listener) []string {
 	routes := []string{}
 	for _, l := range ll {
 		for _, fc := range l.FilterChains {
 			for _, filter := range fc.Filters {
-				if filter.Name == "envoy.http_connection_manager" {
+				if filter.Name == "envoy.hcmection_manager" {
 					filter.GetTypedConfig()
-					hcm := &http_conn.HttpConnectionManager{}
-					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err != nil {
+					hcon := &hcm.HttpConnectionManager{}
+					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcon); err != nil {
 						panic(err)
 					}
-					switch r := hcm.GetRouteSpecifier().(type) {
-					case *http_conn.HttpConnectionManager_Rds:
+					switch r := hcon.GetRouteSpecifier().(type) {
+					case *hcm.HttpConnectionManager_Rds:
 						routes = append(routes, r.Rds.RouteConfigName)
 					}
 				}
@@ -270,7 +271,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				r := configgen.BuildHTTPRoutes(&proxy, env.PushContext, routeNames)
-				response = routeDiscoveryResponse(r, "", "")
+				response = routeDiscoveryResponse(r, "", "", RouteType)
 			}
 			_ = response
 		})
@@ -285,7 +286,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				c := configgen.BuildClusters(&proxy, env.PushContext)
-				response = cdsDiscoveryResponse(c, "")
+				response = cdsDiscoveryResponse(c, "", ClusterType)
 			}
 			_ = response
 		})
@@ -300,7 +301,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				l := configgen.BuildListeners(&proxy, env.PushContext)
-				response = ldsDiscoveryResponse(l, "", "")
+				response = ldsDiscoveryResponse(l, "", "", ListenerType)
 			}
 			_ = response
 		})
@@ -340,7 +341,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				// This should correlate to pushEds()
 				// TODO directly call pushEeds, but mock/skip the grpc send
 
-				loadAssignments := make([]*envoy_api_v2.ClusterLoadAssignment, 0)
+				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 				for svc := 0; svc < tt.services; svc++ {
 					l := s.loadAssignmentsForClusterIsolated(proxy, push, fmt.Sprintf("outbound|80||foo-%d.com", svc))
 
@@ -354,7 +355,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh().LocalityLbSetting, true)
 					loadAssignments = append(loadAssignments, l)
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
+				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, EndpointType)
 			}
 		})
 	}

@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ func ValidateMetric(t *testing.T, prometheus prometheus.Instance, query, metricN
 		var err error
 		got, err = getMetric(t, prometheus, query, metricName)
 		return err
-	}, retry.Delay(time.Second), retry.Timeout(time.Minute))
+	}, retry.Delay(time.Second), retry.Timeout(2*time.Minute))
 
 	t.Logf("%s: %f", metricName, got)
 	if got < want {

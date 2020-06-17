@@ -1,0 +1,72 @@
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if .Values.global.multiCluster.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-multicluster-ingressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - "*.global"
+    port:
+      name: tls
+      number: 15443
+      protocol: TLS
+    tls:
+      mode: AUTO_PASSTHROUGH
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: istio-multicluster-ingressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        portNumber: 15443
+        filterChain:
+          filter:
+            name: "envoy.filters.network.sni_cluster"
+    patch:
+      operation: INSERT_AFTER
+      value:
+        name: "envoy.filters.network.tcp_cluster_rewrite"
+        config:
+          cluster_pattern: "\\.global$"
+          cluster_replacement: ".svc.{{ .Values.global.proxy.clusterDomain }}"
+---
+## To ensure all traffic to *.global is using mTLS
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-multicluster-ingressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+spec:
+  host: "*.global"
+  {{- if .Values.global.defaultConfigVisibilitySettings }}
+  exportTo:
+  - '*'
+  {{- end }}
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+{{- end }}

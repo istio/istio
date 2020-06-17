@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,12 +28,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
-	"istio.io/istio/istioctl/pkg/kubernetes"
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -51,6 +52,7 @@ const pollInterval = time.Second
 
 // waitCmd represents the wait command
 func waitCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "wait [flags] <type> <name>[.<namespace>]",
 		Short: "Wait for an Istio resource",
@@ -87,14 +89,14 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 			printVerbosef(cmd, "getting first version from chan")
 			firstVersion, err := w.BlockingRead()
 			if err != nil {
-				return fmt.Errorf("unable to retrieve kubernetes resource %s: %v", "", err)
+				return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
 			}
 			resourceVersions := []string{firstVersion}
 			targetResource := model.Key(targetSchema.Resource().Kind(), nameflag, namespace)
 			for {
 				//run the check here as soon as we start
 				// because tickers won't run immediately
-				present, notpresent, err := poll(resourceVersions, targetResource)
+				present, notpresent, err := poll(resourceVersions, targetResource, opts)
 				printVerbosef(cmd, "Received poll result: %d/%d", present, present+notpresent)
 				if err != nil {
 					return err
@@ -111,7 +113,7 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 					printVerbosef(cmd, "tick")
 					continue
 				case err = <-w.errorChan:
-					return fmt.Errorf("unable to retrieve kubernetes resource %s: %v", "", err)
+					return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
 				case <-ctx.Done():
 					printVerbosef(cmd, "timeout")
 					// I think this means the timeout has happened:
@@ -140,6 +142,7 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 			"kubernetes")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
 	_ = cmd.PersistentFlags().MarkHidden("verbose")
+	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
@@ -172,13 +175,13 @@ func countVersions(versionCount map[string]int, configVersion string) {
 	}
 }
 
-func poll(acceptedVersions []string, targetResource string) (present, notpresent int, err error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+func poll(acceptedVersions []string, targetResource string, opts clioptions.ControlPlaneOptions) (present, notpresent int, err error) {
+	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
 		return 0, 0, err
 	}
 	path := fmt.Sprintf("/debug/config_distribution?resource=%s", targetResource)
-	pilotResponses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
+	pilotResponses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
 	if err != nil {
 		return 0, 0, fmt.Errorf("unable to query pilot for distribution "+
 			"(are you using pilot version >= 1.4 with config distribution tracking on): %s", err)
@@ -209,11 +212,11 @@ func poll(acceptedVersions []string, targetResource string) (present, notpresent
 
 func init() {
 	clientGetter = func(kubeconfig, context string) (dynamic.Interface, error) {
-		baseClient, err := kubernetes.NewClient(kubeconfig, context)
+		config, err := kube.DefaultRestConfig(kubeconfig, context)
 		if err != nil {
 			return nil, err
 		}
-		cfg := dynamic.ConfigFor(baseClient.Config)
+		cfg := dynamic.ConfigFor(config)
 		dclient, err := dynamic.NewForConfig(cfg)
 		if err != nil {
 			return nil, err
@@ -239,13 +242,13 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		version := targetSchema.Resource().Version()
 		resource := collectionParts[3]
 		r := dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}).Namespace(namespace)
-		obj, err := r.Get(nameflag, metav1.GetOptions{})
+		obj, err := r.Get(context.TODO(), nameflag, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		localResourceVersion := obj.GetResourceVersion()
 		result <- localResourceVersion
-		watch, err := r.Watch(metav1.ListOptions{ResourceVersion: localResourceVersion})
+		watch, err := r.Watch(context.TODO(), metav1.ListOptions{ResourceVersion: localResourceVersion})
 		if err != nil {
 			return err
 		}

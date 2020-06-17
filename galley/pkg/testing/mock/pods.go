@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package mock
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -41,7 +42,7 @@ func newPodInterface() corev1.PodInterface {
 	}
 }
 
-func (p *podImpl) Create(obj *apicorev1.Pod) (*apicorev1.Pod, error) {
+func (p *podImpl) Create(_ context.Context, obj *apicorev1.Pod, opts metav1.CreateOptions) (*apicorev1.Pod, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -54,7 +55,7 @@ func (p *podImpl) Create(obj *apicorev1.Pod) (*apicorev1.Pod, error) {
 	return obj, nil
 }
 
-func (p *podImpl) Update(obj *apicorev1.Pod) (*apicorev1.Pod, error) {
+func (p *podImpl) Update(_ context.Context, obj *apicorev1.Pod, opts metav1.UpdateOptions) (*apicorev1.Pod, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -67,7 +68,7 @@ func (p *podImpl) Update(obj *apicorev1.Pod) (*apicorev1.Pod, error) {
 	return obj, nil
 }
 
-func (p *podImpl) Delete(name string, options *metav1.DeleteOptions) error {
+func (p *podImpl) Delete(_ context.Context, name string, options metav1.DeleteOptions) error {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -85,7 +86,7 @@ func (p *podImpl) Delete(name string, options *metav1.DeleteOptions) error {
 	return nil
 }
 
-func (p *podImpl) List(opts metav1.ListOptions) (*apicorev1.PodList, error) {
+func (p *podImpl) List(_ context.Context, opts metav1.ListOptions) (*apicorev1.PodList, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -98,7 +99,7 @@ func (p *podImpl) List(opts metav1.ListOptions) (*apicorev1.PodList, error) {
 	return out, nil
 }
 
-func (p *podImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+func (p *podImpl) Watch(_ context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -116,27 +117,28 @@ func (p *podImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 	return w, nil
 }
 
-func (p *podImpl) UpdateStatus(*apicorev1.Pod) (*apicorev1.Pod, error) {
+func (p *podImpl) UpdateStatus(context.Context, *apicorev1.Pod, metav1.UpdateOptions) (*apicorev1.Pod, error) {
 	panic("not implemented")
 }
 
-func (p *podImpl) DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+func (p *podImpl) DeleteCollection(_ context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	panic("not implemented")
 }
 
-func (p *podImpl) Get(name string, options metav1.GetOptions) (*apicorev1.Pod, error) {
+func (p *podImpl) Get(_ context.Context, name string, options metav1.GetOptions) (*apicorev1.Pod, error) {
 	panic("not implemented")
 }
 
-func (p *podImpl) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *apicorev1.Pod, err error) {
+func (p *podImpl) Patch(_ context.Context, name string, pt types.PatchType, data []byte,
+	opts metav1.PatchOptions, subresources ...string) (result *apicorev1.Pod, err error) {
 	panic("not implemented")
 }
 
-func (p *podImpl) Bind(binding *apicorev1.Binding) error {
+func (p *podImpl) Bind(_ context.Context, binding *apicorev1.Binding, opts metav1.CreateOptions) error {
 	panic("not implemented")
 }
 
-func (p *podImpl) Evict(eviction *policy.Eviction) error {
+func (p *podImpl) Evict(_ context.Context, eviction *policy.Eviction) error {
 	panic("not implemented")
 }
 
@@ -144,10 +146,12 @@ func (p *podImpl) GetLogs(name string, opts *apicorev1.PodLogOptions) *rest.Requ
 	panic("not implemented")
 }
 
-func (p *podImpl) GetEphemeralContainers(podName string, options metav1.GetOptions) (*apicorev1.EphemeralContainers, error) {
+func (p *podImpl) GetEphemeralContainers(_ context.Context, podName string,
+	options metav1.GetOptions) (*apicorev1.EphemeralContainers, error) {
 	panic("not implemented")
 }
 
-func (p *podImpl) UpdateEphemeralContainers(podName string, ephemeralContainers *apicorev1.EphemeralContainers) (*apicorev1.EphemeralContainers, error) {
+func (p *podImpl) UpdateEphemeralContainers(_ context.Context, podName string, ephemeralContainers *apicorev1.EphemeralContainers,
+	opts metav1.UpdateOptions) (*apicorev1.EphemeralContainers, error) {
 	panic("not implemented")
 }

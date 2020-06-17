@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package multicluster
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"testing"
@@ -279,7 +280,7 @@ func runApplyTest(t *testing.T, testCase *applyTestCase) {
 
 			fakeClient := fakeClients[cluster.clusterName]
 
-			secretList, err := fakeClient.CoreV1().Secrets(cluster.Namespace).List(metav1.ListOptions{})
+			secretList, err := fakeClient.CoreV1().Secrets(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
 			g.Expect(err).NotTo(HaveOccurred())
 
 			gotSecrets := make([]*v1.Secret, 0, len(secretList.Items))

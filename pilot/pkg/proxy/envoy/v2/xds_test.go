@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
@@ -53,14 +52,12 @@ import (
 // implemented in debug.go file.
 
 var (
-	// mixer-style test environment, includes mixer and envoy configs.
-	testEnv        *testenv.TestSetup
+	testEnv        *env.TestSetup
 	initMutex      sync.Mutex
 	initEnvoyMutex sync.Mutex
 
 	envoyStarted = false
-	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
-	// local tests.
+	// Use 'service3' and 'app3' for pilot local tests.
 
 	localIP = "10.3.0.3"
 )
@@ -76,14 +73,14 @@ const (
 
 // Common code for the xds testing.
 // The tests in this package use an in-process pilot using mock service registry and
-// envoy, mixer setup using mixer local testing framework.
+// envoy.
 
 // Additional servers may be added here.
 
-// One set of pilot/mixer/envoy is used for all tests, similar with the larger integration
+// One set of pilot/envoy is used for all tests, similar with the larger integration
 // tests in real docker/k8s environments
 
-// Common test environment, including Mixer and Watcher. This is a singleton, the env will be
+// Common test environment. This is a singleton, the env will be
 // used for multiple tests, for local integration testing.
 func startEnvoy(t *testing.T) {
 	initEnvoyMutex.Lock()
@@ -108,11 +105,10 @@ func startEnvoy(t *testing.T) {
 		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_VERSION: 1.5.0`, env.IstioSrc+"/tests/testdata/local"),
 	}
 
-	// Mixer will push stats every 1 sec
-	testenv.SetStatsUpdateInterval(testEnv.MfConfig(), 1)
 	if err := testEnv.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
+
 	envoyStarted = true
 }
 
@@ -125,7 +121,10 @@ func gatewayID(ip string) string { //nolint: unparam
 }
 
 // localPilotTestEnv builds a pilot testing environment and it initializes with registry with the passed in init function.
-func localPilotTestEnv(t *testing.T, initFunc func(*bootstrap.Server), additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, util.TearDownFunc) {
+func localPilotTestEnv(
+	t *testing.T,
+	initFunc func(*bootstrap.Server),
+	additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, util.TearDownFunc) { //nolint: unparam
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
@@ -133,7 +132,7 @@ func localPilotTestEnv(t *testing.T, initFunc func(*bootstrap.Server), additiona
 		args.Plugins = bootstrap.DefaultPlugins
 	})
 	server, tearDown := util.EnsureTestServer(additionalArgs...)
-	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
+	testEnv = env.NewTestSetup(env.XDSTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
@@ -324,7 +323,7 @@ func testPorts(base int) []*model.Port {
 		}}
 }
 
-// Test XDS with real envoy and with mixer.
+// Test XDS with real envoy.
 func TestEnvoy(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer func() {
@@ -335,7 +334,7 @@ func TestEnvoy(t *testing.T) {
 	}()
 	startEnvoy(t)
 	// Make sure tcp port is ready before starting the test.
-	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
+	env.WaitForPort(testEnv.Ports().TCPProxyPort)
 
 	t.Run("envoyInit", envoyInit)
 	t.Run("service", testService)
@@ -363,7 +362,7 @@ func envoyInit(t *testing.T) {
 	for _, port := range testPorts(0) {
 		stat := fmt.Sprintf("cluster.outbound|%d||service3.default.svc.cluster.local.update_success", port.Port)
 		if statsMap[stat] < 1 {
-			t.Error("Failed sds updates")
+			t.Error("Failed cds updates")
 		}
 	}
 

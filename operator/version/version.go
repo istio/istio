@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,15 +15,14 @@
 package version
 
 import (
-	goversion "github.com/hashicorp/go-version"
+	buildversion "istio.io/pkg/version"
 
 	pkgversion "istio.io/istio/operator/pkg/version"
-	buildversion "istio.io/pkg/version"
 )
 
 const (
 	// OperatorCodeBaseVersion is the version string from the code base.
-	OperatorCodeBaseVersion = "1.6.0"
+	OperatorCodeBaseVersion = "1.7.0"
 )
 
 var (
@@ -31,8 +30,6 @@ var (
 	OperatorVersionString string
 	// OperatorBinaryVersion is the Istio operator version.
 	OperatorBinaryVersion pkgversion.Version
-	// OperatorBinaryGoVersion is the Istio operator version in go-version format.
-	OperatorBinaryGoVersion *goversion.Version
 )
 
 func init() {
@@ -41,11 +38,7 @@ func init() {
 	// If dockerinfo has a tag (e.g., specified by LDFlags), we will use it as the version of operator
 	tag := buildversion.DockerInfo.Tag
 	if pkgversion.IsVersionString(tag) {
-		OperatorVersionString = tag
-	}
-	OperatorBinaryGoVersion, err = goversion.NewVersion(OperatorVersionString)
-	if err != nil {
-		panic(err)
+		OperatorVersionString = pkgversion.TagToVersionStringGrace(tag)
 	}
 	v, err := pkgversion.NewVersionFromString(OperatorVersionString)
 	if err != nil {

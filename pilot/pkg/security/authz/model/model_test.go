@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ func TestModel_MigrateTrustDomain(t *testing.T) {
 	}{
 		{
 			name:     "no-source-principal",
-			tdBundle: trustdomain.NewTrustDomainBundle("td-1", []string{"td-2"}),
+			tdBundle: trustdomain.NewBundle("td-1", []string{"td-2"}),
 			rule: yamlRule(t, `
 from:
 - source:
@@ -50,7 +50,7 @@ from:
 		},
 		{
 			name:     "source-principal-field",
-			tdBundle: trustdomain.NewTrustDomainBundle("td-1", []string{"td-2"}),
+			tdBundle: trustdomain.NewBundle("td-1", []string{"td-2"}),
 			rule: yamlRule(t, `
 from:
 - source:
@@ -63,7 +63,7 @@ from:
 		},
 		{
 			name:     "source-principal-attribute",
-			tdBundle: trustdomain.NewTrustDomainBundle("td-1", []string{"td-2"}),
+			tdBundle: trustdomain.NewBundle("td-1", []string{"td-2"}),
 			rule: yamlRule(t, `
 when:
 - key: source.principal
@@ -78,7 +78,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := New(tc.rule)
+			got, err := New(tc.rule, true)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -213,7 +213,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			m, err := New(tc.rule)
+			m, err := New(tc.rule, true)
 			if err != nil {
 				t.Fatal(err)
 			}

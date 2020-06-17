@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
@@ -1002,7 +1004,7 @@ func TestDispatcher(t *testing.T) {
 			cfg := data.JoinConfigs(tst.config...)
 
 			s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, cfg)
-			h := handler.NewTable(handler.Empty(), s, pool.NewGoroutinePool(1, false))
+			h := handler.NewTable(handler.Empty(), s, pool.NewGoroutinePool(1, false), []string{metav1.NamespaceAll})
 
 			r := routing.BuildTable(h, s, "istio-system", true)
 			_ = dispatcher.ChangeRoute(r)

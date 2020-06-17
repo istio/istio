@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -76,7 +75,6 @@ func TestFailover(t *testing.T) {
 		RunParallel(func(ctx framework.TestContext) {
 
 			ctx.NewSubTest("CDS").
-				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
 					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 						Prefix: "locality-failover-cds",
@@ -92,7 +90,7 @@ func TestFailover(t *testing.T) {
 
 					fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", r.Int())
 
-					deploy(ctx, ns, serviceConfig{
+					deploy(ctx, ctx, ns, serviceConfig{
 						Name:                       "failover-cds",
 						Host:                       fakeHostname,
 						Namespace:                  ns.Name(),
@@ -115,7 +113,6 @@ func TestFailover(t *testing.T) {
 				})
 
 			ctx.NewSubTest("EDS").
-				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
 					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 						Prefix: "locality-failover-eds",
@@ -130,7 +127,7 @@ func TestFailover(t *testing.T) {
 						BuildOrFail(ctx)
 
 					fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
-					deploy(ctx, ns, serviceConfig{
+					deploy(ctx, ctx, ns, serviceConfig{
 						Name:                       "failover-eds",
 						Host:                       fakeHostname,
 						Namespace:                  ns.Name(),

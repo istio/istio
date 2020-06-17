@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -22,16 +23,6 @@ type IstioConfigStore struct {
 	}
 	authorizationPoliciesReturnsOnCall map[int]struct {
 		result1 []model.Config
-	}
-	ClusterRbacConfigStub        func() *model.Config
-	clusterRbacConfigMutex       sync.RWMutex
-	clusterRbacConfigArgsForCall []struct {
-	}
-	clusterRbacConfigReturns struct {
-		result1 *model.Config
-	}
-	clusterRbacConfigReturnsOnCall map[int]struct {
-		result1 *model.Config
 	}
 	CreateStub        func(model.Config) (string, error)
 	createMutex       sync.RWMutex
@@ -58,17 +49,6 @@ type IstioConfigStore struct {
 	}
 	deleteReturnsOnCall map[int]struct {
 		result1 error
-	}
-	EnvoyFilterStub        func(labels.Collection) *model.Config
-	envoyFilterMutex       sync.RWMutex
-	envoyFilterArgsForCall []struct {
-		arg1 labels.Collection
-	}
-	envoyFilterReturns struct {
-		result1 *model.Config
-	}
-	envoyFilterReturnsOnCall map[int]struct {
-		result1 *model.Config
 	}
 	GatewaysStub        func(labels.Collection) []model.Config
 	gatewaysMutex       sync.RWMutex
@@ -132,26 +112,16 @@ type IstioConfigStore struct {
 		result1 []model.Config
 		result2 error
 	}
-	QuotaSpecByDestinationStub        func(*model.ServiceInstance) []model.Config
+	QuotaSpecByDestinationStub        func(host.Name) []model.Config
 	quotaSpecByDestinationMutex       sync.RWMutex
 	quotaSpecByDestinationArgsForCall []struct {
-		arg1 *model.ServiceInstance
+		arg1 host.Name
 	}
 	quotaSpecByDestinationReturns struct {
 		result1 []model.Config
 	}
 	quotaSpecByDestinationReturnsOnCall map[int]struct {
 		result1 []model.Config
-	}
-	RbacConfigStub        func() *model.Config
-	rbacConfigMutex       sync.RWMutex
-	rbacConfigArgsForCall []struct {
-	}
-	rbacConfigReturns struct {
-		result1 *model.Config
-	}
-	rbacConfigReturnsOnCall map[int]struct {
-		result1 *model.Config
 	}
 	SchemasStub        func() collection.Schemas
 	schemasMutex       sync.RWMutex
@@ -171,28 +141,6 @@ type IstioConfigStore struct {
 		result1 []model.Config
 	}
 	serviceEntriesReturnsOnCall map[int]struct {
-		result1 []model.Config
-	}
-	ServiceRoleBindingsStub        func(string) []model.Config
-	serviceRoleBindingsMutex       sync.RWMutex
-	serviceRoleBindingsArgsForCall []struct {
-		arg1 string
-	}
-	serviceRoleBindingsReturns struct {
-		result1 []model.Config
-	}
-	serviceRoleBindingsReturnsOnCall map[int]struct {
-		result1 []model.Config
-	}
-	ServiceRolesStub        func(string) []model.Config
-	serviceRolesMutex       sync.RWMutex
-	serviceRolesArgsForCall []struct {
-		arg1 string
-	}
-	serviceRolesReturns struct {
-		result1 []model.Config
-	}
-	serviceRolesReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
 	SetLedgerStub        func(ledger.Ledger) error
@@ -290,58 +238,6 @@ func (fake *IstioConfigStore) AuthorizationPoliciesReturnsOnCall(i int, result1 
 	}
 	fake.authorizationPoliciesReturnsOnCall[i] = struct {
 		result1 []model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) ClusterRbacConfig() *model.Config {
-	fake.clusterRbacConfigMutex.Lock()
-	ret, specificReturn := fake.clusterRbacConfigReturnsOnCall[len(fake.clusterRbacConfigArgsForCall)]
-	fake.clusterRbacConfigArgsForCall = append(fake.clusterRbacConfigArgsForCall, struct {
-	}{})
-	fake.recordInvocation("ClusterRbacConfig", []interface{}{})
-	fake.clusterRbacConfigMutex.Unlock()
-	if fake.ClusterRbacConfigStub != nil {
-		return fake.ClusterRbacConfigStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.clusterRbacConfigReturns
-	return fakeReturns.result1
-}
-
-func (fake *IstioConfigStore) ClusterRbacConfigCallCount() int {
-	fake.clusterRbacConfigMutex.RLock()
-	defer fake.clusterRbacConfigMutex.RUnlock()
-	return len(fake.clusterRbacConfigArgsForCall)
-}
-
-func (fake *IstioConfigStore) ClusterRbacConfigCalls(stub func() *model.Config) {
-	fake.clusterRbacConfigMutex.Lock()
-	defer fake.clusterRbacConfigMutex.Unlock()
-	fake.ClusterRbacConfigStub = stub
-}
-
-func (fake *IstioConfigStore) ClusterRbacConfigReturns(result1 *model.Config) {
-	fake.clusterRbacConfigMutex.Lock()
-	defer fake.clusterRbacConfigMutex.Unlock()
-	fake.ClusterRbacConfigStub = nil
-	fake.clusterRbacConfigReturns = struct {
-		result1 *model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) ClusterRbacConfigReturnsOnCall(i int, result1 *model.Config) {
-	fake.clusterRbacConfigMutex.Lock()
-	defer fake.clusterRbacConfigMutex.Unlock()
-	fake.ClusterRbacConfigStub = nil
-	if fake.clusterRbacConfigReturnsOnCall == nil {
-		fake.clusterRbacConfigReturnsOnCall = make(map[int]struct {
-			result1 *model.Config
-		})
-	}
-	fake.clusterRbacConfigReturnsOnCall[i] = struct {
-		result1 *model.Config
 	}{result1}
 }
 
@@ -467,66 +363,6 @@ func (fake *IstioConfigStore) DeleteReturnsOnCall(i int, result1 error) {
 	}
 	fake.deleteReturnsOnCall[i] = struct {
 		result1 error
-	}{result1}
-}
-
-func (fake *IstioConfigStore) EnvoyFilter(arg1 labels.Collection) *model.Config {
-	fake.envoyFilterMutex.Lock()
-	ret, specificReturn := fake.envoyFilterReturnsOnCall[len(fake.envoyFilterArgsForCall)]
-	fake.envoyFilterArgsForCall = append(fake.envoyFilterArgsForCall, struct {
-		arg1 labels.Collection
-	}{arg1})
-	fake.recordInvocation("EnvoyFilter", []interface{}{arg1})
-	fake.envoyFilterMutex.Unlock()
-	if fake.EnvoyFilterStub != nil {
-		return fake.EnvoyFilterStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.envoyFilterReturns
-	return fakeReturns.result1
-}
-
-func (fake *IstioConfigStore) EnvoyFilterCallCount() int {
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
-	return len(fake.envoyFilterArgsForCall)
-}
-
-func (fake *IstioConfigStore) EnvoyFilterCalls(stub func(labels.Collection) *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = stub
-}
-
-func (fake *IstioConfigStore) EnvoyFilterArgsForCall(i int) labels.Collection {
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
-	argsForCall := fake.envoyFilterArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *IstioConfigStore) EnvoyFilterReturns(result1 *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = nil
-	fake.envoyFilterReturns = struct {
-		result1 *model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) EnvoyFilterReturnsOnCall(i int, result1 *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = nil
-	if fake.envoyFilterReturnsOnCall == nil {
-		fake.envoyFilterReturnsOnCall = make(map[int]struct {
-			result1 *model.Config
-		})
-	}
-	fake.envoyFilterReturnsOnCall[i] = struct {
-		result1 *model.Config
 	}{result1}
 }
 
@@ -832,11 +668,11 @@ func (fake *IstioConfigStore) ListReturnsOnCall(i int, result1 []model.Config, r
 	}{result1, result2}
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestination(arg1 *model.ServiceInstance) []model.Config {
+func (fake *IstioConfigStore) QuotaSpecByDestination(arg1 host.Name) []model.Config {
 	fake.quotaSpecByDestinationMutex.Lock()
 	ret, specificReturn := fake.quotaSpecByDestinationReturnsOnCall[len(fake.quotaSpecByDestinationArgsForCall)]
 	fake.quotaSpecByDestinationArgsForCall = append(fake.quotaSpecByDestinationArgsForCall, struct {
-		arg1 *model.ServiceInstance
+		arg1 host.Name
 	}{arg1})
 	fake.recordInvocation("QuotaSpecByDestination", []interface{}{arg1})
 	fake.quotaSpecByDestinationMutex.Unlock()
@@ -856,13 +692,13 @@ func (fake *IstioConfigStore) QuotaSpecByDestinationCallCount() int {
 	return len(fake.quotaSpecByDestinationArgsForCall)
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestinationCalls(stub func(*model.ServiceInstance) []model.Config) {
+func (fake *IstioConfigStore) QuotaSpecByDestinationCalls(stub func(host.Name) []model.Config) {
 	fake.quotaSpecByDestinationMutex.Lock()
 	defer fake.quotaSpecByDestinationMutex.Unlock()
 	fake.QuotaSpecByDestinationStub = stub
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestinationArgsForCall(i int) *model.ServiceInstance {
+func (fake *IstioConfigStore) QuotaSpecByDestinationArgsForCall(i int) host.Name {
 	fake.quotaSpecByDestinationMutex.RLock()
 	defer fake.quotaSpecByDestinationMutex.RUnlock()
 	argsForCall := fake.quotaSpecByDestinationArgsForCall[i]
@@ -889,58 +725,6 @@ func (fake *IstioConfigStore) QuotaSpecByDestinationReturnsOnCall(i int, result1
 	}
 	fake.quotaSpecByDestinationReturnsOnCall[i] = struct {
 		result1 []model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) RbacConfig() *model.Config {
-	fake.rbacConfigMutex.Lock()
-	ret, specificReturn := fake.rbacConfigReturnsOnCall[len(fake.rbacConfigArgsForCall)]
-	fake.rbacConfigArgsForCall = append(fake.rbacConfigArgsForCall, struct {
-	}{})
-	fake.recordInvocation("RbacConfig", []interface{}{})
-	fake.rbacConfigMutex.Unlock()
-	if fake.RbacConfigStub != nil {
-		return fake.RbacConfigStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.rbacConfigReturns
-	return fakeReturns.result1
-}
-
-func (fake *IstioConfigStore) RbacConfigCallCount() int {
-	fake.rbacConfigMutex.RLock()
-	defer fake.rbacConfigMutex.RUnlock()
-	return len(fake.rbacConfigArgsForCall)
-}
-
-func (fake *IstioConfigStore) RbacConfigCalls(stub func() *model.Config) {
-	fake.rbacConfigMutex.Lock()
-	defer fake.rbacConfigMutex.Unlock()
-	fake.RbacConfigStub = stub
-}
-
-func (fake *IstioConfigStore) RbacConfigReturns(result1 *model.Config) {
-	fake.rbacConfigMutex.Lock()
-	defer fake.rbacConfigMutex.Unlock()
-	fake.RbacConfigStub = nil
-	fake.rbacConfigReturns = struct {
-		result1 *model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) RbacConfigReturnsOnCall(i int, result1 *model.Config) {
-	fake.rbacConfigMutex.Lock()
-	defer fake.rbacConfigMutex.Unlock()
-	fake.RbacConfigStub = nil
-	if fake.rbacConfigReturnsOnCall == nil {
-		fake.rbacConfigReturnsOnCall = make(map[int]struct {
-			result1 *model.Config
-		})
-	}
-	fake.rbacConfigReturnsOnCall[i] = struct {
-		result1 *model.Config
 	}{result1}
 }
 
@@ -1044,126 +828,6 @@ func (fake *IstioConfigStore) ServiceEntriesReturnsOnCall(i int, result1 []model
 		})
 	}
 	fake.serviceEntriesReturnsOnCall[i] = struct {
-		result1 []model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) ServiceRoleBindings(arg1 string) []model.Config {
-	fake.serviceRoleBindingsMutex.Lock()
-	ret, specificReturn := fake.serviceRoleBindingsReturnsOnCall[len(fake.serviceRoleBindingsArgsForCall)]
-	fake.serviceRoleBindingsArgsForCall = append(fake.serviceRoleBindingsArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	fake.recordInvocation("ServiceRoleBindings", []interface{}{arg1})
-	fake.serviceRoleBindingsMutex.Unlock()
-	if fake.ServiceRoleBindingsStub != nil {
-		return fake.ServiceRoleBindingsStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.serviceRoleBindingsReturns
-	return fakeReturns.result1
-}
-
-func (fake *IstioConfigStore) ServiceRoleBindingsCallCount() int {
-	fake.serviceRoleBindingsMutex.RLock()
-	defer fake.serviceRoleBindingsMutex.RUnlock()
-	return len(fake.serviceRoleBindingsArgsForCall)
-}
-
-func (fake *IstioConfigStore) ServiceRoleBindingsCalls(stub func(string) []model.Config) {
-	fake.serviceRoleBindingsMutex.Lock()
-	defer fake.serviceRoleBindingsMutex.Unlock()
-	fake.ServiceRoleBindingsStub = stub
-}
-
-func (fake *IstioConfigStore) ServiceRoleBindingsArgsForCall(i int) string {
-	fake.serviceRoleBindingsMutex.RLock()
-	defer fake.serviceRoleBindingsMutex.RUnlock()
-	argsForCall := fake.serviceRoleBindingsArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *IstioConfigStore) ServiceRoleBindingsReturns(result1 []model.Config) {
-	fake.serviceRoleBindingsMutex.Lock()
-	defer fake.serviceRoleBindingsMutex.Unlock()
-	fake.ServiceRoleBindingsStub = nil
-	fake.serviceRoleBindingsReturns = struct {
-		result1 []model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) ServiceRoleBindingsReturnsOnCall(i int, result1 []model.Config) {
-	fake.serviceRoleBindingsMutex.Lock()
-	defer fake.serviceRoleBindingsMutex.Unlock()
-	fake.ServiceRoleBindingsStub = nil
-	if fake.serviceRoleBindingsReturnsOnCall == nil {
-		fake.serviceRoleBindingsReturnsOnCall = make(map[int]struct {
-			result1 []model.Config
-		})
-	}
-	fake.serviceRoleBindingsReturnsOnCall[i] = struct {
-		result1 []model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) ServiceRoles(arg1 string) []model.Config {
-	fake.serviceRolesMutex.Lock()
-	ret, specificReturn := fake.serviceRolesReturnsOnCall[len(fake.serviceRolesArgsForCall)]
-	fake.serviceRolesArgsForCall = append(fake.serviceRolesArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	fake.recordInvocation("ServiceRoles", []interface{}{arg1})
-	fake.serviceRolesMutex.Unlock()
-	if fake.ServiceRolesStub != nil {
-		return fake.ServiceRolesStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.serviceRolesReturns
-	return fakeReturns.result1
-}
-
-func (fake *IstioConfigStore) ServiceRolesCallCount() int {
-	fake.serviceRolesMutex.RLock()
-	defer fake.serviceRolesMutex.RUnlock()
-	return len(fake.serviceRolesArgsForCall)
-}
-
-func (fake *IstioConfigStore) ServiceRolesCalls(stub func(string) []model.Config) {
-	fake.serviceRolesMutex.Lock()
-	defer fake.serviceRolesMutex.Unlock()
-	fake.ServiceRolesStub = stub
-}
-
-func (fake *IstioConfigStore) ServiceRolesArgsForCall(i int) string {
-	fake.serviceRolesMutex.RLock()
-	defer fake.serviceRolesMutex.RUnlock()
-	argsForCall := fake.serviceRolesArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *IstioConfigStore) ServiceRolesReturns(result1 []model.Config) {
-	fake.serviceRolesMutex.Lock()
-	defer fake.serviceRolesMutex.Unlock()
-	fake.ServiceRolesStub = nil
-	fake.serviceRolesReturns = struct {
-		result1 []model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) ServiceRolesReturnsOnCall(i int, result1 []model.Config) {
-	fake.serviceRolesMutex.Lock()
-	defer fake.serviceRolesMutex.Unlock()
-	fake.ServiceRolesStub = nil
-	if fake.serviceRolesReturnsOnCall == nil {
-		fake.serviceRolesReturnsOnCall = make(map[int]struct {
-			result1 []model.Config
-		})
-	}
-	fake.serviceRolesReturnsOnCall[i] = struct {
 		result1 []model.Config
 	}{result1}
 }
@@ -1348,14 +1012,10 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.authorizationPoliciesMutex.RLock()
 	defer fake.authorizationPoliciesMutex.RUnlock()
-	fake.clusterRbacConfigMutex.RLock()
-	defer fake.clusterRbacConfigMutex.RUnlock()
 	fake.createMutex.RLock()
 	defer fake.createMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
 	fake.gatewaysMutex.RLock()
 	defer fake.gatewaysMutex.RUnlock()
 	fake.getMutex.RLock()
@@ -1368,16 +1028,10 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.listMutex.RUnlock()
 	fake.quotaSpecByDestinationMutex.RLock()
 	defer fake.quotaSpecByDestinationMutex.RUnlock()
-	fake.rbacConfigMutex.RLock()
-	defer fake.rbacConfigMutex.RUnlock()
 	fake.schemasMutex.RLock()
 	defer fake.schemasMutex.RUnlock()
 	fake.serviceEntriesMutex.RLock()
 	defer fake.serviceEntriesMutex.RUnlock()
-	fake.serviceRoleBindingsMutex.RLock()
-	defer fake.serviceRoleBindingsMutex.RUnlock()
-	fake.serviceRolesMutex.RLock()
-	defer fake.serviceRolesMutex.RUnlock()
 	fake.setLedgerMutex.RLock()
 	defer fake.setLedgerMutex.RUnlock()
 	fake.updateMutex.RLock()

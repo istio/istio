@@ -104,6 +104,18 @@ var (
 	// InvalidRegexp defines a diag.MessageType for message "InvalidRegexp".
 	// Description: Invalid Regex
 	InvalidRegexp = diag.NewMessageType(diag.Warning, "IST0122", "Field %q regular expression invalid: %q (%s)")
+
+	// NamespaceMultipleInjectionLabels defines a diag.MessageType for message "NamespaceMultipleInjectionLabels".
+	// Description: A namespace has both new and legacy injection labels
+	NamespaceMultipleInjectionLabels = diag.NewMessageType(diag.Warning, "IST0123", "The namespace has both new and legacy injection labels. Run 'kubectl label namespace %s istio.io/rev-' or 'kubectl label namespace %s istio-injection-'")
+
+	// InvalidAnnotation defines a diag.MessageType for message "InvalidAnnotation".
+	// Description: An Istio annotation that is not valid
+	InvalidAnnotation = diag.NewMessageType(diag.Warning, "IST0125", "Invalid annotation %s: %s")
+
+	// UnknownMeshNetworksServiceRegistry defines a diag.MessageType for message "UnknownMeshNetworksServiceRegistry".
+	// Description: A service registry in Mesh Networks is unknown
+	UnknownMeshNetworksServiceRegistry = diag.NewMessageType(diag.Error, "IST0126", "Unknown service registry %s in network %s")
 )
 
 // All returns a list of all known message types.
@@ -133,6 +145,9 @@ func All() []*diag.MessageType {
 		PolicyResourceIsDeprecated,
 		MeshPolicyResourceIsDeprecated,
 		InvalidRegexp,
+		NamespaceMultipleInjectionLabels,
+		InvalidAnnotation,
+		UnknownMeshNetworksServiceRegistry,
 	}
 }
 
@@ -370,5 +385,35 @@ func NewInvalidRegexp(r *resource.Instance, where string, re string, problem str
 		where,
 		re,
 		problem,
+	)
+}
+
+// NewNamespaceMultipleInjectionLabels returns a new diag.Message based on NamespaceMultipleInjectionLabels.
+func NewNamespaceMultipleInjectionLabels(r *resource.Instance, namespace string, namespace2 string) diag.Message {
+	return diag.NewMessage(
+		NamespaceMultipleInjectionLabels,
+		r,
+		namespace,
+		namespace2,
+	)
+}
+
+// NewInvalidAnnotation returns a new diag.Message based on InvalidAnnotation.
+func NewInvalidAnnotation(r *resource.Instance, annotation string, problem string) diag.Message {
+	return diag.NewMessage(
+		InvalidAnnotation,
+		r,
+		annotation,
+		problem,
+	)
+}
+
+// NewUnknownMeshNetworksServiceRegistry returns a new diag.Message based on UnknownMeshNetworksServiceRegistry.
+func NewUnknownMeshNetworksServiceRegistry(r *resource.Instance, serviceregistry string, network string) diag.Message {
+	return diag.NewMessage(
+		UnknownMeshNetworksServiceRegistry,
+		r,
+		serviceregistry,
+		network,
 	)
 }

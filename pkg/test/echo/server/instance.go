@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
@@ -36,12 +35,13 @@ import (
 
 // Config for an echo server Instance.
 type Config struct {
-	Ports     model.PortList
+	Ports     common.PortList
 	Metrics   int
 	TLSCert   string
 	TLSKey    string
 	Version   string
 	UDSServer string
+	Cluster   string
 	Dialer    common.Dialer
 }
 
@@ -110,12 +110,13 @@ func (s *Instance) Close() (err error) {
 	return
 }
 
-func (s *Instance) newEndpoint(port *model.Port, udsServer string) (endpoint.Instance, error) {
+func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.Instance, error) {
 	return endpoint.New(endpoint.Config{
 		Port:          port,
 		UDSServer:     udsServer,
 		IsServerReady: s.isReady,
 		Version:       s.Version,
+		Cluster:       s.Cluster,
 		TLSCert:       s.TLSCert,
 		TLSKey:        s.TLSKey,
 		Dialer:        s.Dialer,

@@ -1,0 +1,25 @@
+{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $gateway.name | default "istio-egressgateway" }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := $gateway.serviceAnnotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+  labels:
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  selector:
+{{ $gateway.labels | toYaml | indent 4 }}
+  ports:
+    {{- range $key, $val := $gateway.ports }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey }}: {{ $pval }}
+      {{- end }}
+    {{- end }}
+---

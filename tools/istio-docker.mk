@@ -24,8 +24,7 @@ docker: docker.all
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.galley \
-	docker.istioctl docker.operator
+	docker.mixer docker.mixer_codegen docker.istioctl docker.operator docker.install-cni
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -40,7 +39,7 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
                              pilot-discovery pilot-agent mixs mixgen \
-                             galley istioctl manager
+                             istioctl manager
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
@@ -67,6 +66,10 @@ else
 	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
 endif
 
+# The file must be named 'envoy_bootstrap_v2.json' because Dockerfile.proxyv2 hard-codes this.
+${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap_v2.json: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH}
+	cp ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH} ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap_v2.json
+
 # rule for wasm extensions.
 $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm: init
 $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
@@ -74,7 +77,7 @@ $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
 # Default proxy image.
 docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
-docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
+docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap_v2.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
@@ -123,6 +126,7 @@ docker.istioctl: istioctl/docker/Dockerfile.istioctl
 docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
 	$(DOCKER_RULE)
 
+docker.operator: manifests/
 docker.operator: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.operator: operator/docker/Dockerfile.operator
 docker.operator: $(ISTIO_OUT_LINUX)/operator
@@ -140,6 +144,15 @@ docker.mixer: $(ISTIO_DOCKER)/mixs
 docker.mixer_codegen: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
 docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
+	$(DOCKER_RULE)
+
+# CNI
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni $(ISTIO_OUT_LINUX)/istio-cni-repair
+docker.install-cni: cni/tools/packaging/common/istio-iptables.sh
+docker.install-cni: cni/deployments/kubernetes/install/scripts/install-cni.sh
+docker.install-cni: cni/deployments/kubernetes/install/scripts/istio-cni.conf.default
+docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
+docker.install-cni: cni/deployments/kubernetes/install/scripts/filter.jq
 	$(DOCKER_RULE)
 
 .PHONY: dockerx dockerx.save
@@ -170,13 +183,6 @@ dockerx:
 # Support individual images like `dockerx.pilot`
 dockerx.%:
 	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
-
-# galley docker images
-docker.galley: BUILD_PRE=&& chmod 755 galley
-docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.galley: galley/docker/Dockerfile.galley
-docker.galley: $(ISTIO_DOCKER)/galley
-	$(DOCKER_RULE)
 
 docker.base: docker/Dockerfile.base
 	$(DOCKER_RULE)

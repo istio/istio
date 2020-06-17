@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
 	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	istioProtocol "istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -68,6 +70,23 @@ func addToMeshCmd() *cobra.Command {
 		Use:     "add-to-mesh",
 		Aliases: []string{"add"},
 		Short:   "Add workloads into Istio service mesh",
+		Long: `'istioctl experimental add-to-mesh' restarts pods with an Istio sidecar or configures meshed pod access to external services.
+
+Use 'add-to-mesh' as an alternate to namespace-wide auto injection for troubleshooting compatibility.
+
+The 'remove-from-mesh' command can be used to restart with the sidecar removed.
+
+THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
+		Example: `
+# Restart all productpage pods with an Istio sidecar
+istioctl experimental add-to-mesh service productpage
+
+# Restart just pods from the productpage-v1 deployment
+istioctl experimental add-to-mesh deployment productpage-v1
+
+# Control how meshed pods see an external service
+istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126 \
+   http:9080 tcp:8888 --labels app=test,version=v1 --annotations env=stage --serviceaccount stageAdmin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.HelpFunc()(cmd, args)
 			if len(args) != 0 {
@@ -97,16 +116,25 @@ func addToMeshCmd() *cobra.Command {
 }
 
 func deploymentMeshifyCmd() *cobra.Command {
+	var revision string
+
 	cmd := &cobra.Command{
-		Use:   "deployment",
+		Use:   "deployment <deployment>",
 		Short: "Add deployment to Istio service mesh",
-		Long: `istioctl experimental add-to-mesh deployment restarts pods with the Istio sidecar.  Use 'add-to-mesh'
-to test deployments for compatibility with Istio.  If your deployment does not function after
-using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
+		// nolint: lll
+		Long: `'istioctl experimental add-to-mesh deployment' restarts pods with the Istio sidecar.  Use 'add-to-mesh'
+to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
+
+If your deployment does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
 See https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+
+See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.
+
+THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental add-to-mesh deployment productpage-v1`,
+		Example: `
+# Restart pods from the productpage-v1 deployment with Istio sidecar
+istioctl experimental add-to-mesh deployment productpage-v1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting deployment name")
@@ -123,30 +151,43 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return err
 			}
-			dep, err := client.AppsV1().Deployments(ns).Get(args[0], metav1.GetOptions{})
+			dep, err := client.AppsV1().Deployments(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("deployment %q does not exist", args[0])
 			}
 			deps := make([]appsv1.Deployment, 0)
 			deps = append(deps, *dep)
 			return injectSideCarIntoDeployment(client, deps, sidecarTemplate, valuesConfig,
-				args[0], ns, meshConfig, writer)
+				args[0], ns, revision, meshConfig, writer)
 		},
 	}
+
+	cmd.PersistentFlags().StringVar(&revision, "revision", "",
+		"control plane revision (experimental)")
+
 	return cmd
 }
 
 func svcMeshifyCmd() *cobra.Command {
+	var revision string
+
 	cmd := &cobra.Command{
-		Use:   "service",
+		Use:   "service <service>",
 		Short: "Add Service to Istio service mesh",
+		// nolint: lll
 		Long: `istioctl experimental add-to-mesh service restarts pods with the Istio sidecar.  Use 'add-to-mesh'
-to test deployments for compatibility with Istio.  If your service does not function after
-using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
+to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
+
+If your service does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
 See https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+
+See also 'istioctl experimental remove-from-mesh service' which does the reverse.
+
+THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental add-to-mesh service productpage`,
+		Example: `
+# Restart all productpage pods with an Istio sidecar
+istioctl experimental add-to-mesh service productpage`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting service name")
@@ -172,23 +213,32 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return nil
 			}
 			return injectSideCarIntoDeployment(client, matchingDeployments, sidecarTemplate, valuesConfig,
-				args[0], ns, meshConfig, writer)
+				args[0], ns, revision, meshConfig, writer)
 		},
 	}
+
+	cmd.PersistentFlags().StringVar(&revision, "revision", "",
+		"control plane revision (experimental)")
+
 	return cmd
 }
 
 func externalSvcMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "external-service <svcname> <ip>... [name1:]port1 [name2:]port2 ...",
-		Short: "Add external service(eg:services running on VM) to Istio service mesh",
-		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and\ 
+		Use:   "external-service <svcname> <ip> [name1:]port1 [[name2:]port2] ...",
+		Short: "Add external service (e.g. services running on a VM) to Istio service mesh",
+		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and 
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+
+See also 'istioctl experimental remove-from-mesh external-service' which does the reverse.
+
+THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126\
-http:9080 tcp:8888 -l app=test,version=v1 -a env=stage -s stageAdmin`,
+		Example: `
+# Control how meshed pods contact 172.12.23.125 and .126
+istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126 \
+   http:9080 tcp:8888 --labels app=test,version=v1 --annotations env=stage --serviceaccount stageAdmin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 3 {
 				return fmt.Errorf("provide service name, IP and Port List")
@@ -203,7 +253,7 @@ http:9080 tcp:8888 -l app=test,version=v1 -a env=stage -s stageAdmin`,
 			}
 			writer := cmd.OutOrStdout()
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{})
+			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return addServiceOnVMToMesh(seClient, client, ns, args, labels, annotations, svcAcctAnn, writer)
 			}
@@ -257,12 +307,12 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 }
 
 func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate, valuesConfig,
-	svcName, svcNamespace string, meshConfig *meshconfig.MeshConfig, writer io.Writer) error {
+	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer) error {
 	var errs error
 	for _, dep := range deps {
 		log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 			dep.Name, dep.Namespace)
-		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, meshConfig, &dep)
+		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, &dep)
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
@@ -275,7 +325,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 			continue
 		}
 		if _, err =
-			client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
+			client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
@@ -288,7 +338,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 				UID:       dep.UID,
 			},
 		}
-		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
+		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment status %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
@@ -303,7 +353,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 
 func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]appsv1.Deployment, error) {
 	deps := make([]appsv1.Deployment, 0)
-	svc, err := client.CoreV1().Services(ns).Get(name, metav1.GetOptions{})
+	svc, err := client.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +361,7 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 	if svcSelector.Empty() {
 		return nil, nil
 	}
-	deployments, err := client.AppsV1().Deployments(ns).List(metav1.ListOptions{})
+	deployments, err := client.AppsV1().Deployments(ns).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +450,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	}
 
 	// Pre-check Kubernetes service and service entry does not exist.
-	_, err = client.CoreV1().Services(ns).Get(opts.Name, metav1.GetOptions{})
+	_, err = client.CoreV1().Services(ns).Get(context.TODO(), opts.Name, metav1.GetOptions{})
 	if err == nil {
 		return fmt.Errorf("service %q already exists, skip", opts.Name)
 	}
@@ -409,7 +459,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 		Resource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Plural(),
 	}
-	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(resourceName(opts.Name), metav1.GetOptions{})
+	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(context.TODO(), resourceName(opts.Name), metav1.GetOptions{})
 	if err == nil {
 		return fmt.Errorf("service entry %q already exists, skip", resourceName(opts.Name))
 	}
@@ -436,14 +486,14 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Name:     p.Name,
 		})
 	}
-	eps := make([]*v1alpha3.ServiceEntry_Endpoint, 0)
+	eps := make([]*v1alpha3.WorkloadEntry, 0)
 	for _, ip := range o.IP {
-		eps = append(eps, &v1alpha3.ServiceEntry_Endpoint{
+		eps = append(eps, &v1alpha3.WorkloadEntry{
 			Address: ip,
 			Labels:  o.Labels,
 		})
 	}
-	host := fmt.Sprintf("%v.%v.svc.cluster.local", o.Name, o.Namespace)
+	host := fmt.Sprintf("%v.%v.svc.%s", o.Name, o.Namespace, constants.DefaultKubernetesDomain)
 	spec := &v1alpha3.ServiceEntry{
 		Hosts:      []string{host},
 		Ports:      ports,
@@ -518,10 +568,10 @@ func createK8sService(client kubernetes.Interface, ns string, svc *corev1.Servic
 	if svc == nil {
 		return fmt.Errorf("failed to create vm service")
 	}
-	if _, err := client.CoreV1().Services(ns).Create(svc); err != nil {
+	if _, err := client.CoreV1().Services(ns).Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("failed to create kuberenetes service %v", err)
 	}
-	if _, err := client.CoreV1().Services(ns).UpdateStatus(svc); err != nil {
+	if _, err := client.CoreV1().Services(ns).UpdateStatus(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to create kuberenetes service %v", err)
 	}
 	sName := strings.Join([]string{svc.Name, svc.Namespace}, ".")
@@ -541,7 +591,7 @@ func createServiceEntry(dynamicClient dynamic.Interface, ns string,
 		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 		Resource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Plural(),
 	}
-	_, err := dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Create(u, metav1.CreateOptions{})
+	_, err := dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Create(context.TODO(), u, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create service entry %v", err)
 	}

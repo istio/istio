@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ package helm
 import (
 	"fmt"
 
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/proto/hapi/chart"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
 )
 
 // FileTemplateRenderer is a helm template renderer for a local filesystem.
@@ -33,7 +33,6 @@ type FileTemplateRenderer struct {
 // NewFileTemplateRenderer creates a TemplateRenderer with the given parameters and returns a pointer to it.
 // helmChartDirPath must be an absolute file path to the root of the helm charts.
 func NewFileTemplateRenderer(helmChartDirPath, componentName, namespace string) *FileTemplateRenderer {
-	scope.Infof("NewFileTemplateRenderer with helmChart=%s, componentName=%s", helmChartDirPath, componentName)
 	return &FileTemplateRenderer{
 		namespace:        namespace,
 		componentName:    componentName,
@@ -43,7 +42,6 @@ func NewFileTemplateRenderer(helmChartDirPath, componentName, namespace string) 
 
 // Run implements the TemplateRenderer interface.
 func (h *FileTemplateRenderer) Run() error {
-	scope.Infof("Run FileTemplateRenderer with helmChart=%s, componentName=%s", h.helmChartDirPath, h.componentName)
 	if err := h.loadChart(); err != nil {
 		return err
 	}
@@ -63,7 +61,7 @@ func (h *FileTemplateRenderer) RenderManifest(values string) (string, error) {
 // loadChart implements the TemplateRenderer interface.
 func (h *FileTemplateRenderer) loadChart() error {
 	var err error
-	if h.chart, err = chartutil.Load(h.helmChartDirPath); err != nil {
+	if h.chart, err = loader.Load(h.helmChartDirPath); err != nil {
 		return err
 	}
 	return nil

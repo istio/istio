@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,47 +17,141 @@ package validation
 import (
 	"fmt"
 	"reflect"
+	"strings"
+	"unicode"
 
 	"istio.io/api/operator/v1alpha1"
+
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (
 	validationMethodName = "Validate"
 )
 
+type deprecatedSettings struct {
+	old string
+	new string
+	// In ordered to distinguish between unset for non-pointer values, we need to specify the default value
+	def interface{}
+}
+
 // ValidateConfig  calls validation func for every defined element in Values
-func ValidateConfig(failOnMissingValidation bool, iopvalues map[string]interface{}, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
+func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
 	var validationErrors util.Errors
-	iopvalString := util.ToYAML(iopvalues)
+	var warningMessage string
+	iopvalString := util.ToYAML(iopls.Values)
 	values := &valuesv1alpha1.Values{}
 	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
-		return util.NewErrs(err)
+		return util.NewErrs(err), ""
 	}
 	validationErrors = util.AppendErrs(validationErrors, validateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
 	// TODO: change back to return err when have other validation cases, warning for automtls check only.
 	if err := validateFeatures(values, iopls).ToError(); err != nil {
-		log.Warnf("feature validation: %v", err.Error())
+		warningMessage = fmt.Sprintf("feature validation warning: %v\n", err.Error())
 	}
-	return validationErrors
+	warningMessage += deprecatedSettingsMessage(iopls)
+	return validationErrors, warningMessage
+}
+
+// Converts from struct paths to helm paths
+// Global.Proxy.AccessLogFormat -> global.proxy.accessLogFormat
+func firstCharsToLower(s string) string {
+	// Use a closure here to remember state.
+	// Hackish but effective. Depends on Map scanning in order and calling
+	// the closure once per rune.
+	prev := '.'
+	return strings.Map(
+		func(r rune) rune {
+			if prev == '.' {
+				prev = r
+				return unicode.ToLower(r)
+			}
+			prev = r
+			return r
+		},
+		s)
+}
+
+func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
+	messages := []string{}
+	deprecations := []deprecatedSettings{
+		{"Values.global.certificates", "meshConfig.certificates", nil},
+		{"Values.global.trustDomainAliases", "meshConfig.trustDomainAliases", nil},
+		{"Values.global.outboundTrafficPolicy", "meshConfig.outboundTrafficPolicy", nil},
+		{"Values.global.localityLbSetting", "meshConfig.localityLbSetting", nil},
+		{"Values.global.policyCheckFailOpen", "meshConfig.policyCheckFailOpen", false},
+		{"Values.global.enableTracing", "meshConfig.enableTracing", false},
+		{"Values.global.proxy.accessLogFormat", "meshConfig.accessLogFormat", ""},
+		{"Values.global.proxy.accessLogFile", "meshConfig.accessLogFile", ""},
+		{"Values.global.proxy.accessLogEncoding", "meshConfig.accessLogEncoding", valuesv1alpha1.AccessLogEncoding_JSON},
+		{"Values.global.proxy.concurrency", "meshConfig.concurrency", uint32(0)},
+		{"Values.global.proxy.envoyAccessLogService", "meshConfig.envoyAccessLogService", nil},
+		{"Values.global.proxy.envoyMetricsService", "meshConfig.envoyMetricsService", nil},
+		{"Values.global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", ""},
+		{"Values.pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil},
+		{"Values.global.mtls.enabled", "the PeerAuthentication resource", nil},
+		{"Values.global.mtls.auto", "meshConfig.enableAutoMtls", nil},
+		{"Values.grafana.enabled", "the samples/addons/ deployments", false},
+		{"Values.tracing.enabled", "the samples/addons/ deployments", false},
+		{"Values.kiali.enabled", "the samples/addons/ deployments", false},
+		{"Values.prometheus.enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.grafana.Enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.prometheus.Enabled", "the samples/addons/ deployments", false},
+	}
+	for _, d := range deprecations {
+		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
+		// the types, but since this is deprecated this is easier
+		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		if f {
+			switch t := v.(type) {
+			// need to do conversion for bool value defined in IstioOperator component spec.
+			case *v1alpha1.BoolValueForPB:
+				v = t.Value
+			}
+			if v != d.def {
+				messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
+			}
+		}
+	}
+	mixerDeprecations := []deprecatedSettings{
+		{"Values.telemetry.v1.enabled", "", false},
+		{"Values.global.disablePolicyChecks", "", true},
+		{"MeshConfig.disablePolicyChecks", "", true},
+		{"Values.pilot.policy.enabled", "", false},
+		{"Components.Telemetry.Enabled", "", false},
+		{"Components.Policy.Enabled", "", false},
+	}
+	useMixerSettings := false
+	mds := []string{}
+	for _, d := range mixerDeprecations {
+		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		if f {
+			switch t := v.(type) {
+			case *v1alpha1.BoolValueForPB:
+				v = t.Value
+			}
+			if v != d.def {
+				useMixerSettings = true
+				mds = append(mds, d.old)
+			}
+		}
+	}
+	const mixerDeprecatedMessage = "! %s is deprecated. Mixer is deprecated and will be removed" +
+		" from Istio with the 1.8 release. Please consult our docs on the replacement."
+	if useMixerSettings {
+		messages = append(messages, fmt.Sprintf(mixerDeprecatedMessage, strings.Join(mds, ", ")))
+	}
+
+	return strings.Join(messages, "\n")
 }
 
 // validateFeatures check whether the config sematically make sense. For example, feature X and feature Y can't be enabled together.
-func validateFeatures(values *valuesv1alpha1.Values, _ *v1alpha1.IstioOperatorSpec) util.Errors {
-	// When automatic mutual TLS is enabled, we check control plane security must also be enabled.
-	g := values.GetGlobal()
-	if g == nil {
-		return nil
-	}
-	m := g.GetMtls()
-	if m == nil {
-		return nil
-	}
-	if m.GetAuto().Value && !g.GetControlPlaneSecurityEnabled().Value {
-		return []error{fmt.Errorf("security: auto mtls is enabled, but control plane security is not enabled")}
-	}
+func validateFeatures(_ *valuesv1alpha1.Values, _ *v1alpha1.IstioOperatorSpec) util.Errors {
 	return nil
 }
 

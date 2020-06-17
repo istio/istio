@@ -1,0 +1,52 @@
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if not $gateway.customService }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := $gateway.serviceAnnotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+  labels:
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+spec:
+{{- if $gateway.loadBalancerIP }}
+  loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
+{{- end }}
+{{- if $gateway.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+{{ toYaml $gateway.loadBalancerSourceRanges | indent 4 }}
+{{- end }}
+{{- if $gateway.externalTrafficPolicy }}
+  externalTrafficPolicy: {{$gateway.externalTrafficPolicy }}
+{{- end }}
+  type: {{ $gateway.type }}
+  selector:
+{{ $gateway.labels | toYaml | indent 4 }}
+  ports:
+
+    {{- range $key, $val := $gateway.ports }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}
+
+    {{- if $.Values.global.meshExpansion.enabled }}
+    {{- range $key, $val := $gateway.meshExpansionPorts }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+  {{ range $app := $gateway.ingressPorts }}
+    -
+      port: {{ $app.port }}
+      name: {{ $app.name }}
+  {{- end }}
+---
+{{ end }}

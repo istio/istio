@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -40,6 +41,16 @@ func removeFromMeshCmd() *cobra.Command {
 		Use:     "remove-from-mesh",
 		Aliases: []string{"rm"},
 		Short:   "Remove workloads from Istio service mesh",
+		Long: `'istioctl experimental remove-from-mesh' restarts pods without an Istio sidecar or removes external service access configuration.
+
+Use 'remove-from-mesh' to quickly test uninjected behavior as part of compatibility troubleshooting.
+
+The 'add-to-mesh' command can be used to add or restore the sidecar.
+
+THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
+		Example: `
+# Restart all productpage pods without an Istio sidecar
+istioctl experimental remove-from-mesh service productpage`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.HelpFunc()(cmd, args)
 			if len(args) != 0 {
@@ -56,12 +67,17 @@ func removeFromMeshCmd() *cobra.Command {
 
 func deploymentUnMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deployment",
+		Use:   "deployment <deployment>",
 		Short: "Remove deployment from Istio service mesh",
-		Long: `istioctl experimental remove-from-mesh deployment restarts pods with the Istio sidecar un-injected.
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+		Long: `'istioctl experimental remove-from-mesh deployment' restarts pods with the Istio sidecar un-injected.
+
+'remove-from-mesh' is a compatibility troubleshooting tool.
+
+THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental remove-from-mesh deployment productpage-v1`,
+		Example: `
+# Restart all productpage-v1 pods without an Istio sidecar
+istioctl experimental remove-from-mesh deployment productpage-v1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting deployment name")
@@ -72,7 +88,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			writer := cmd.OutOrStdout()
-			dep, err := client.AppsV1().Deployments(ns).Get(args[0], metav1.GetOptions{})
+			dep, err := client.AppsV1().Deployments(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("deployment %q does not exist", args[0])
 			}
@@ -86,12 +102,17 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 func svcUnMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "service",
+		Use:   "service <service>",
 		Short: "Remove Service from Istio service mesh",
-		Long: `istioctl experimental remove-from-mesh service restarts pods with the Istio sidecar un-injected.
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+		Long: `'istioctl experimental remove-from-mesh service' restarts pods with the Istio sidecar un-injected.
+
+'remove-from-mesh' is a compatibility troubleshooting tool.
+
+THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental remove-from-mesh service productpage`,
+		Example: `
+# Restart all productpage pods without an Istio sidecar
+istioctl experimental remove-from-mesh service productpage`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting service name")
@@ -102,7 +123,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			writer := cmd.OutOrStdout()
-			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{})
+			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("service %q does not exist, skip", args[0])
 			}
@@ -124,12 +145,15 @@ func externalSvcUnMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "external-service <svcname>",
 		Short: "Remove Service Entry and Kubernetes Service for the external service from Istio service mesh",
-		Long: `istioctl experimental remove-from-mesh external-service remove the ServiceEntry and\ 
-the kubernetes Service for the specified external service(eg:services running on VM) from Istio service mesh.
+		Long: `'istioctl experimental remove-from-mesh external-service' removes the ServiceEntry and
+the Kubernetes Service for the specified external service (e.g. services running on a VM) from Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+
+THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental remove-from-mesh external-service vmhttp`,
+		Example: `
+# Remove "vmhttp" service entry rules
+istioctl experimental remove-from-mesh external-service vmhttp`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting external service name")
@@ -144,7 +168,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			writer := cmd.OutOrStdout()
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{})
+			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err == nil {
 				return removeServiceOnVMFromMesh(seClient, client, ns, args[0], writer)
 			}
@@ -192,7 +216,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 			res.Spec.Template.Annotations = make(map[string]string)
 		}
 		res.Spec.Template.Annotations[annotation.SidecarInject.Name] = "false"
-		if _, err := client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
+		if _, err := client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q due to %v", depName, name, err))
 			continue
 		}
@@ -203,7 +227,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 				UID:       dep.UID,
 			},
 		}
-		if _, err := client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
+		if _, err := client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment status %q for service %q due to %v", depName, name, err))
 			continue
 		}
@@ -216,7 +240,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernetes.Interface, ns string,
 	svcName string, writer io.Writer) error {
 	// Pre-check Kubernetes service and service entry does not exist.
-	_, err := client.CoreV1().Services(ns).Get(svcName, metav1.GetOptions{})
+	_, err := client.CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("service %q does not exist, skip", svcName)
 	}
@@ -225,17 +249,17 @@ func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernete
 		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 		Resource: "serviceentries",
 	}
-	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(resourceName(svcName), metav1.GetOptions{})
+	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(context.TODO(), resourceName(svcName), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("service entry %q does not exist, skip", resourceName(svcName))
 	}
-	err = client.CoreV1().Services(ns).Delete(svcName, &metav1.DeleteOptions{})
+	err = client.CoreV1().Services(ns).Delete(context.TODO(), svcName, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete Kubernetes service %q due to %v", svcName, err)
 	}
 	name := strings.Join([]string{svcName, ns}, ".")
 	fmt.Fprintf(writer, "Kubernetes Service %q has been deleted for external service %q\n", name, svcName)
-	err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Delete(resourceName(svcName), &metav1.DeleteOptions{})
+	err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Delete(context.TODO(), resourceName(svcName), metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete service entry %q due to %v", resourceName(svcName), err)
 	}

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -31,17 +30,8 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("galley_test", m).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-values:
-  prometheus:
-    enabled: true
-components:
-  galley:
-    enabled: true
-`
-		})).
-		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
+		Setup(istio.Setup(nil, nil)).
+		Setup(func(ctx resource.Context) error {
 			cluster = ctx.Environment().Clusters()[0].(kube.Cluster)
 			return nil
 		}).

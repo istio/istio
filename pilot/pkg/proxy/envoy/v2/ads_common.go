@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,59 +17,70 @@ package v2
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
-func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
-	targetNamespaces := pushEv.namespacesUpdated
-	configs := pushEv.configTypesUpdated
+// configKindAffectedProxyTypes contains known config types which will affect certain node types.
+var configKindAffectedProxyTypes = map[resource.GroupVersionKind][]model.NodeType{
+	collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():           {model.Router},
+	collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():        {model.SidecarProxy},
+	collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(): {model.SidecarProxy},
+}
 
-	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push
-	appliesToProxy := false
-	// If no config specified, this request applies to all proxies
-	if len(configs) == 0 {
-		appliesToProxy = true
+// ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
+// towards the proxy.
+func ConfigAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
+	// Empty changes means "all" to get a backward compatibility.
+	if len(pushEv.configsUpdated) == 0 {
+		return true
 	}
-Loop:
-	for config := range configs {
-		switch config {
-		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
-			if proxy.Type == model.Router {
+
+	for config := range pushEv.configsUpdated {
+		// If we've already know a specific configKind will affect some proxy types, check for that.
+		if kindAffectedTypes, f := configKindAffectedProxyTypes[config.Kind]; f {
+			for _, t := range kindAffectedTypes {
+				if t == proxy.Type {
+					return true
+				}
+			}
+			continue
+		}
+
+		// Detailed config dependencies check.
+		switch proxy.Type {
+		case model.SidecarProxy:
+			if proxy.SidecarScope.DependsOnConfig(config) {
+				return true
+			} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config) {
 				return true
 			}
-		case collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
-			collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
-			if proxy.Type == model.SidecarProxy {
-				return true
-			}
+		// TODO We'll add the check for other proxy types later.
 		default:
-			appliesToProxy = true
-			break Loop
+			return true
 		}
 	}
 
-	if !appliesToProxy {
-		return false
-	}
+	return false
+}
 
-	// If no only namespaces specified, this request applies to all proxies
-	if len(targetNamespaces) == 0 {
+// ProxyNeedsPush check if a proxy needs push for this push event.
+func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
+	if ConfigAffectsProxy(pushEv, proxy) {
 		return true
 	}
 
 	// If the proxy's service updated, need push for it.
-	if len(proxy.ServiceInstances) > 0 {
-		ns := proxy.ServiceInstances[0].Service.Attributes.Namespace
-		if _, ok := targetNamespaces[ns]; ok {
+	if len(proxy.ServiceInstances) > 0 && pushEv.configsUpdated != nil {
+		svc := proxy.ServiceInstances[0].Service
+		if _, ok := pushEv.configsUpdated[model.ConfigKey{
+			Kind:      model.ServiceEntryKind,
+			Name:      string(svc.Hostname),
+			Namespace: svc.Attributes.Namespace,
+		}]; ok {
 			return true
 		}
 	}
 
-	// Otherwise, only apply if the egress listener will import the config present in the update
-	for ns := range targetNamespaces {
-		if proxy.SidecarScope.DependsOnNamespace(ns) {
-			return true
-		}
-	}
 	return false
 }
 
@@ -88,9 +99,9 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 
 	// In case configTypes is not set, for example mesh configuration updated.
 	// If push scoping is not enabled, we push all xds
-	if len(pushEv.configTypesUpdated) == 0 {
-		out[CDS] = true
+	if len(pushEv.configsUpdated) == 0 {
 		out[EDS] = true
+		out[CDS] = true
 		out[LDS] = true
 		out[RDS] = true
 		return out
@@ -99,8 +110,8 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 	// Note: CDS push must be followed by EDS, otherwise after Cluster is warmed, no ClusterLoadAssignment is retained.
 
 	if proxy.Type == model.SidecarProxy {
-		for config := range pushEv.configTypesUpdated {
-			switch config {
+		for config := range pushEv.configsUpdated {
+			switch config.Kind {
 			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				out[LDS] = true
 				out[RDS] = true
@@ -114,6 +125,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 			case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
+				out[RDS] = true
 			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
@@ -129,16 +141,12 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				// LDS must be pushed, otherwise RDS is not reloaded
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(),
-				collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind():
+			case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+				collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+				out[LDS] = true
+			case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
-				out[LDS] = true
-			case collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
-				collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 				out[LDS] = true
 			default:
 				out[CDS] = true
@@ -152,8 +160,8 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 			}
 		}
 	} else {
-		for config := range pushEv.configTypesUpdated {
-			switch config {
+		for config := range pushEv.configsUpdated {
+			switch config.Kind {
 			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				out[LDS] = true
 				out[RDS] = true
@@ -177,16 +185,12 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
 				collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
 				// do not push for gateway
-			case collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(),
-				collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind():
+			case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+				collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+				out[LDS] = true
+			case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
-				out[LDS] = true
-			case collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
-				collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
-				collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 				out[LDS] = true
 			default:
 				out[CDS] = true

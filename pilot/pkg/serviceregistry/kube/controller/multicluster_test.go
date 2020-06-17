@@ -1,6 +1,6 @@
 // +build !race
 
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,19 @@
 package controller
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/metadata"
+	metafake "k8s.io/client-go/metadata/fake"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -34,7 +40,7 @@ import (
 const (
 	testSecretName      = "testSecretName"
 	testSecretNameSpace = "istio-system"
-	WatchedNamespace    = "istio-system"
+	WatchedNamespaces   = "istio-system"
 	DomainSuffix        = "fake_domain"
 	ResyncPeriod        = 1 * time.Second
 )
@@ -56,7 +62,7 @@ func createMultiClusterSecret(k8s *fake.Clientset) error {
 
 	data["testRemoteCluster"] = []byte("Test")
 	secret.Data = data
-	_, err := k8s.CoreV1().Secrets(testSecretNameSpace).Create(&secret)
+	_, err := k8s.CoreV1().Secrets(testSecretNameSpace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 	return err
 }
 
@@ -64,7 +70,8 @@ func deleteMultiClusterSecret(k8s *fake.Clientset) error {
 	var immediate int64
 
 	return k8s.CoreV1().Secrets(testSecretNameSpace).Delete(
-		testSecretName, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
+		context.TODO(),
+		testSecretName, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
 func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
@@ -87,20 +94,33 @@ func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.In
 	return fake.NewSimpleClientset(), nil
 }
 
+func mockCreateMetaInterfaceFromClusterConfig(_ *clientcmdapi.Config) (metadata.Interface, error) {
+	scheme := runtime.NewScheme()
+	metav1.AddMetaToScheme(scheme)
+	return metafake.NewSimpleMetadataClient(scheme), nil
+}
+
+func mockCreateDynamicInterfaceFromClusterConfig(_ *clientcmdapi.Config) (dynamic.Interface, error) {
+	scheme := runtime.NewScheme()
+	metav1.AddMetaToScheme(scheme)
+	return dynamicfake.NewSimpleDynamicClient(scheme), nil
+}
+
 // This test is skipped by the build tag !race due to https://github.com/istio/istio/issues/15610
 func Test_KubeSecretController(t *testing.T) {
 	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
 	secretcontroller.ValidateClientConfig = mockValidateClientConfig
 	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
+	secretcontroller.CreateMetadataInterfaceFromClusterConfig = mockCreateMetaInterfaceFromClusterConfig
+	secretcontroller.CreateDynamicInterfaceFromClusterConfig = mockCreateDynamicInterfaceFromClusterConfig
 
 	clientset := fake.NewSimpleClientset()
-
 	mc, err := NewMulticluster(clientset,
 		testSecretNameSpace,
 		Options{
-			WatchedNamespace: WatchedNamespace,
-			DomainSuffix:     DomainSuffix,
-			ResyncPeriod:     ResyncPeriod,
+			WatchedNamespaces: WatchedNamespaces,
+			DomainSuffix:      DomainSuffix,
+			ResyncPeriod:      ResyncPeriod,
 		},
 		mockserviceController, nil, nil)
 

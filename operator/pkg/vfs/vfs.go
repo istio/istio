@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,15 +65,6 @@ func (di dirInfo) IsDir() bool {
 }
 func (di dirInfo) Sys() interface{} {
 	return nil
-}
-
-// Size returns the size of the file at the given path, if it is found.
-func Size(path string) (int64, error) {
-	n, err := Stat(path)
-	if err != nil {
-		return 0, err
-	}
-	return n.Size(), nil
 }
 
 // ReadDir non-recursively reads the directory at path and returns all the files contained in it.

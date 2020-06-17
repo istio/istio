@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,4 +92,93 @@ func TestParseValue(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConsolidateLog(t *testing.T) {
+	tests := []struct {
+		desc string
+		in   string
+		want string
+	}{
+		{
+			desc: "empty",
+			in:   "",
+			want: "",
+		},
+		{
+			desc: "2 errors once",
+			in:   "err1\nerr2\n",
+			want: "err1 (repeated 1 times)\nerr2 (repeated 1 times)\n",
+		},
+		{
+			desc: "3 errors multiple times",
+			in:   "err1\nerr2\nerr3\nerr1\nerr2\nerr3\nerr3\nerr3\n",
+			want: "err1 (repeated 2 times)\nerr2 (repeated 2 times)\nerr3 (repeated 4 times)\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if got, want := ConsolidateLog(tt.in), tt.want; !(got == want) {
+				t.Errorf("%s: got:%s, want:%s", tt.desc, got, want)
+			}
+		})
+	}
+}
+
+func TestStringBoolMapToSlice(t *testing.T) {
+	tests := []struct {
+		desc string
+		in   map[string]bool
+		want []string
+	}{
+		{
+			desc: "empty",
+			in:   make(map[string]bool),
+			want: make([]string, 0),
+		},
+		{
+			desc: "",
+			in: map[string]bool{
+				"yo":           true,
+				"yolo":         false,
+				"test1":        true,
+				"water bottle": false,
+				"baseball hat": true,
+			},
+			want: []string{
+				"yo",
+				"test1",
+				"baseball hat",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if got, want := StringBoolMapToSlice(tt.in), tt.want; !(sameStringSlice(got, want)) {
+				t.Errorf("%s: got:%s, want: %s", tt.desc, got, want)
+			}
+		})
+	}
+}
+
+// Helper function to check if values in 2 slices are the same,
+// no correspondence to order
+func sameStringSlice(x, y []string) bool {
+	if len(x) != len(y) {
+		return false
+	}
+	diff := make(map[string]int, len(x))
+	for _, _x := range x {
+		diff[_x]++
+	}
+	for _, _y := range y {
+		if _, ok := diff[_y]; !ok {
+			return false
+		}
+		diff[_y]--
+		if diff[_y] == 0 {
+			delete(diff, _y)
+		}
+	}
+	return len(diff) == 0
 }
