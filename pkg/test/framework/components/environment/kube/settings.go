@@ -26,15 +26,15 @@ import (
 
 // ClientFactoryFunc is a transformation function that creates the k8s client factories
 // from the provided k8s config files.
-type AccessorFactoryFunc func(kubeConfig string, workDir string) (kube.Accessor, error)
+type AccessorFactoryFunc func(kubeConfigs []string, workDir string) ([]kube.Accessor, error)
 
 // Settings provide kube-specific Settings from flags.
 type Settings struct {
 	// An array of paths to kube config files. Required if the environment is kubernetes.
 	KubeConfig []string
 
-	// AccessorFactoryFunc is an optional override for the default behavior for creating a kube.Accessor
-	// for a cluster.
+	// AccessorFactoryFunc is an optional override for the default behavior for creating kube.Accessor
+	// instances for interacting with clusters. If not specified, Accessors will be created from KubeConfig.
 	AccessorFactoryFunc AccessorFactoryFunc
 
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
@@ -79,13 +79,14 @@ func (s *Settings) GetControlPlaneClusters() map[resource.ClusterIndex]bool {
 	return out
 }
 
-// AccessorFactoryFuncOrDefault returns the AccessorFactoryFunc if set. Otherwise
-// returns default function.
-func (s *Settings) AccessorFactoryFuncOrDefault() AccessorFactoryFunc {
-	if s.AccessorFactoryFunc == nil {
-		return kube.NewAccessor
+// NewAccessors creates the kubernetes Accessors for interacting with the configured clusters.
+func (s *Settings) NewAccessors(workDir string) ([]kube.Accessor, error) {
+	newAccessorsFn := s.AccessorFactoryFunc
+	if newAccessorsFn == nil {
+		newAccessorsFn = newAccessors
 	}
-	return s.AccessorFactoryFunc
+
+	return newAccessorsFn(s.KubeConfig, workDir)
 }
 
 // String implements fmt.Stringer
@@ -98,4 +99,16 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
 
 	return result
+}
+
+func newAccessors(kubeConfigs []string, workDir string) ([]kube.Accessor, error) {
+	out := make([]kube.Accessor, 0, len(kubeConfigs))
+	for _, cfg := range kubeConfigs {
+		a, err := kube.NewAccessor(cfg, workDir)
+		if err != nil {
+			return nil, fmt.Errorf("accessor setup: %v", err)
+		}
+		out = append(out, a)
+	}
+	return out, nil
 }
