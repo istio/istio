@@ -42,6 +42,7 @@ var (
 	headerVal string
 	headers   string
 	msg       string
+	http2     bool
 
 	caFile string
 
@@ -118,6 +119,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&caFile, "ca", "/cert.crt", "CA root cert file")
 	rootCmd.PersistentFlags().StringVar(&msg, "msg", "HelloWorld",
 		"message to send (for websockets)")
+	rootCmd.PersistentFlags().BoolVar(&http2, "http2", false,
+		"send http requests as HTTP with prior knowledge")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -131,6 +134,7 @@ func getRequest() (*proto.ForwardEchoRequest, error) {
 		Count:         int32(count),
 		Qps:           int32(qps),
 		Message:       msg,
+		Http2:         http2,
 	}
 
 	// Old http add header - deprecated
