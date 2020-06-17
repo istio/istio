@@ -21,6 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -107,7 +108,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		}
 
 		for _, container := range pod.Spec.Containers {
-			if container.Name != istioProxyName {
+			if container.Name != util.IstioProxyName {
 				continue
 			}
 

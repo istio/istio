@@ -43,8 +43,6 @@ const (
 	InjectionLabelName         = "istio-injection"
 	InjectionLabelEnableValue  = "enabled"
 	RevisionInjectionLabelName = label.IstioRev
-
-	istioProxyName = "istio-proxy"
 )
 
 // Metadata implements Analyzer
@@ -113,7 +111,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 		proxyImage := ""
 		for _, container := range pod.Spec.Containers {
-			if container.Name == istioProxyName {
+			if container.Name == util.IstioProxyName {
 				proxyImage = container.Image
 				break
 			}

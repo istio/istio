@@ -22,10 +22,12 @@ import (
 
 const (
 	DefaultKubernetesDomain = "svc." + constants.DefaultKubernetesDomain
-	MeshGateway             = "mesh"
 	ExportToNamespaceLocal  = "."
 	ExportToAllNamespaces   = "*"
+	IstioProxyName          = "istio-proxy"
+	MeshGateway             = "mesh"
 	Wildcard                = "*"
+	MeshConfigName          = "istio"
 )
 
 var (
