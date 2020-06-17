@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -145,21 +144,22 @@ func (c *controllerImpl) Pod(podKey string) (*v1.Pod, bool) {
 		return nil, false
 	}
 	if len(objs) > 0 {
-		pods := []*v1.Pod{}
+		maxCreationTime := metav1.NewTime(time.Time{})
+		var latestPod *v1.Pod
 		for _, obj := range objs {
 			pod, ok := obj.(*v1.Pod)
 			if !ok {
 				return nil, false
 			}
-			pods = append(pods, pod)
+			// If Pods associated with completed Jobs exist, there can be a case
+			// where more than 1 Pod is found during lookup, and we should
+			// always pick the latest created Pod out of the lot.
+			if maxCreationTime.Before(&pod.CreationTimestamp) {
+				maxCreationTime = pod.CreationTimestamp
+				latestPod = pod
+			}
 		}
-		// If Pods associated with completed Jobs exist, there can be a case where
-		// more than 1 Pod is found during lookup, and we should always pick the
-		// latest created Pod out of the lot.
-		sort.SliceStable(pods, func(i, j int) bool {
-			return pods[j].CreationTimestamp.Before(&pods[i].CreationTimestamp)
-		})
-		return pods[0], true
+		return latestPod, true
 	}
 	item, exists, err := indexer.GetByKey(podKey)
 	if !exists || err != nil {
