@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -137,8 +136,6 @@ const (
 // we are able to simulate "external" traffic by going outside this namespace. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
 func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
-	p := pilot.NewOrFail(t, ctx, pilot.Config{})
-
 	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "app",
 		Inject: true,

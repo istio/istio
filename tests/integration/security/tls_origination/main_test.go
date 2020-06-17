@@ -33,7 +33,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("egress_gateway_origination_test", m).
+		NewSuite("tls_origination_test", m).
 		Label(label.CustomSetup).
 
 		// SDS requires Kubernetes 1.13
@@ -42,9 +42,6 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			if prom, err = prometheus.New(ctx, prometheus.Config{}); err != nil {
 				return err
 			}
 			return nil
