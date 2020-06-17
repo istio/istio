@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -87,7 +88,7 @@ var (
 // Control needs RBAC permissions to write to Pods.
 
 type controller struct {
-	mesh         *meshconfig.MeshConfig
+	meshWatcher  mesh.Holder
 	domainSuffix string
 
 	client                 kubernetes.Interface
@@ -122,7 +123,7 @@ func ingressClassSupported(client kubernetes.Interface) bool {
 }
 
 // NewController creates a new Kubernetes controller
-func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
+func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 	options kubecontroller.Options) model.ConfigStoreCache {
 
 	// queue requires a time duration for a retry delay after a handler error
@@ -158,7 +159,7 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 		log.Infof("Skipping IngressClass, resource not supported")
 	}
 	c := &controller{
-		mesh:         mesh,
+		meshWatcher:  meshWatcher,
 		domainSuffix: options.DomainSuffix,
 		client:       client,
 		queue:        q,
@@ -208,7 +209,7 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	}
 
 	ing, ok := obj.(*ingress.Ingress)
-	process, err := c.shouldProcessIngress(c.mesh, ing)
+	process, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
 	if err != nil {
 		return err
 	}
@@ -307,7 +308,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 		if namespace != "" && namespace != ingress.Namespace {
 			continue
 		}
-		process, err := c.shouldProcessIngress(c.mesh, ingress)
+		process, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ingress)
 		if err != nil {
 			return nil, err
 		}
@@ -319,7 +320,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 		case virtualServiceGvk:
 			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
 		case gatewayGvk:
-			gateways := ConvertIngressV1alpha3(*ingress, c.mesh, c.domainSuffix)
+			gateways := ConvertIngressV1alpha3(*ingress, c.meshWatcher.Mesh(), c.domainSuffix)
 			out = append(out, gateways)
 		}
 	}

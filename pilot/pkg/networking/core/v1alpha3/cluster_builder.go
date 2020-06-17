@@ -240,6 +240,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
 	applyConnectionPool(cb.push, cluster, passthroughSettings)

@@ -114,6 +114,15 @@ func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSetti
 	return s
 }
 
+// EnvironmentFactory sets a custom function used for creating the resource.Environment for this Suite.
+func (s *Suite) EnvironmentFactory(fn resource.EnvironmentFactory) *Suite {
+	if fn != nil && s.envFactory != nil {
+		scopes.Framework.Warn("EnvironmentFactory overridden multiple times for Suite")
+	}
+	s.envFactory = fn
+	return s
+}
+
 // Label all the tests in suite with the given labels
 func (s *Suite) Label(labels ...label.Instance) *Suite {
 	s.labels = s.labels.Add(labels...)
@@ -401,17 +410,12 @@ func initRuntime(s *Suite) error {
 	return err
 }
 
-func newEnvironment(name string, ctx resource.Context) (resource.Environment, error) {
-	switch name {
-	case environment.Kube.String():
-		s, err := kube.NewSettingsFromCommandLine()
-		if err != nil {
-			return nil, err
-		}
-		return kube.New(ctx, s)
-	default:
-		return nil, fmt.Errorf("unknown environment: %q", name)
+func newEnvironment(ctx resource.Context) (resource.Environment, error) {
+	s, err := kube.NewSettingsFromCommandLine()
+	if err != nil {
+		return nil, err
 	}
+	return kube.New(ctx, s)
 }
 
 func getSettings(testID string) (*resource.Settings, error) {
