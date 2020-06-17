@@ -229,11 +229,17 @@ func (e *gcpEnv) Locality() *core.Locality {
 	return &l
 }
 
+// Checks metadata to see if GKE cluster attributes exist
+func isGKE(md map[string]string) bool {
+	_, ok := md[GCPCluster]
+	return ok
+}
+
 // Labels attempts to retrieve the GCE instance labels from provided metadata within the timeout
 // only if the instance is not in a GKE cluster
 func (e *gcpEnv) Labels(md map[string]string) map[string]string {
 	labels := map[string]string{}
-	if _, ok := md[GCPCluster]; ok {
+	if isGKE(md) {
 		return labels
 	}
 
@@ -257,6 +263,7 @@ func (e *gcpEnv) Labels(md map[string]string) map[string]string {
 			success <- false
 			return
 		}
+		// instance.Labels is nil if no labels are present
 		instance, err := computeService.Instances.Get(project, zone, instance).Do()
 		if err != nil {
 			log.Warnf("unable to retrieve instance: %v", err)
@@ -270,7 +277,7 @@ func (e *gcpEnv) Labels(md map[string]string) map[string]string {
 	case <-ctx.Done():
 		log.Warnf("context deadline exceeded for instance get request: %v", ctx.Err())
 	case ok := <-success:
-		if ok {
+		if ok && instanceLabels != nil {
 			labels = instanceLabels
 		}
 	}

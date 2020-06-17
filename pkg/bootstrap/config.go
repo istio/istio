@@ -535,11 +535,10 @@ func extractInstanceLabels(plat platform.Environment, meta *model.NodeMetadata) 
 	}
 	instanceLabels := plat.Labels(meta.PlatformMetadata)
 	if meta.Labels == nil {
-		meta.Labels = instanceLabels
-	} else {
-		for k, v := range instanceLabels {
-			meta.Labels[k] = v
-		}
+		meta.Labels = map[string]string{}
+	}
+	for k, v := range instanceLabels {
+		meta.Labels[k] = v
 	}
 }
 
