@@ -202,6 +202,15 @@ docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
 docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
+# CNI
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni $(ISTIO_OUT_LINUX)/istio-cni-repair
+docker.install-cni: cni/tools/packaging/common/istio-iptables.sh
+docker.install-cni: cni/deployments/kubernetes/install/scripts/install-cni.sh
+docker.install-cni: cni/deployments/kubernetes/install/scripts/istio-cni.conf.default
+docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
+docker.install-cni: cni/deployments/kubernetes/install/scripts/filter.jq
+	$(DOCKER_RULE)
+
 .PHONY: dockerx dockerx.save
 
 # Docker has an experimental new build engine, https://github.com/docker/buildx
