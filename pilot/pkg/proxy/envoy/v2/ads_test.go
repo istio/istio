@@ -21,6 +21,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
+	"istio.io/pkg/log"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/adsc"
@@ -95,7 +96,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +118,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), res.Nonce, edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,6 +277,8 @@ func TestAdsVersioning(t *testing.T) {
 }
 
 func TestAdsClusterUpdate(t *testing.T) {
+
+	log.FindScope("ads").SetOutputLevel(log.DebugLevel)
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -285,8 +288,8 @@ func TestAdsClusterUpdate(t *testing.T) {
 	}
 	defer cancel()
 
-	var sendEDSReqAndVerify = func(clusterName string) {
-		err = sendEDSReq([]string{clusterName}, sidecarID("1.1.1.1", "app3"), edsstr)
+	var sendEDSReqAndVerify = func(clusterName string, nonce string) string {
+		err = sendEDSReq([]string{clusterName}, sidecarID("1.1.1.1", "app3"), nonce, edsstr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -309,13 +312,14 @@ func TestAdsClusterUpdate(t *testing.T) {
 		if cla.ClusterName != clusterName {
 			t.Error(fmt.Sprintf("Expecting %s got ", clusterName), cla.ClusterName)
 		}
+		return res.Nonce
 	}
 
 	cluster1 := "outbound|80||local.default.svc.cluster.local"
-	sendEDSReqAndVerify(cluster1)
+	nonce := sendEDSReqAndVerify(cluster1, "")
 
 	cluster2 := "outbound|80||hello.default.svc.cluster.local"
-	sendEDSReqAndVerify(cluster2)
+	_ = sendEDSReqAndVerify(cluster2, nonce)
 }
 
 // nolint: lll
@@ -735,7 +739,7 @@ func TestAdsUpdate(t *testing.T) {
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints("adsupdate.default.svc.cluster.local", "default",
 		newEndpointWithAccount("10.2.0.1", "hello-sa", "v1"))
 
-	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}

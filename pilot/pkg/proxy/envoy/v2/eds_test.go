@@ -356,10 +356,7 @@ func testEndpoints(expected string, cluster string, adsc *adsc.ADSC, t *testing.
 			}
 		}
 	}
-	t.Errorf("Expecting %s got %v", expected, found)
-	if len(found) != 1 {
-		t.Error("Expecting 1, got ", len(found))
-	}
+	t.Fatalf("Expecting %s got %v", expected, found)
 }
 
 func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *testing.T) {
@@ -517,7 +514,7 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 		t.Fatal("Incremental push failed", err)
 	}
 	if !reflect.DeepEqual(upd, []string{"eds"}) {
-		t.Error("Expecting EDS only update, got", upd)
+		t.Fatal("Expecting EDS only update, got", upd)
 	}
 	testTCPEndpoints("127.0.0.4", adsc, t)
 
@@ -536,7 +533,7 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 		t.Fatal("Incremental push failed", err)
 	}
 	if !reflect.DeepEqual(upd, []string{"eds"}) {
-		t.Error("Expecting EDS only update, got", upd)
+		t.Fatal("Expecting EDS only update, got", upd)
 	}
 	testTCPEndpoints("127.0.0.5", adsc, t)
 

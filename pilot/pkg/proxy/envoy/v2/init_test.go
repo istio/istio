@@ -163,9 +163,9 @@ func adsReceive(ads AdsClient, to time.Duration) (*discovery.DiscoveryResponse, 
 	return ads.Recv()
 }
 
-func sendEDSReq(clusters []string, node string, edsClient AdsClient) error {
+func sendEDSReq(clusters []string, node, nonce string, edsClient AdsClient) error {
 	err := edsClient.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
+		ResponseNonce: nonce,
 		Node: &corev3.Node{
 			Id:       node,
 			Metadata: nodeMetadata,

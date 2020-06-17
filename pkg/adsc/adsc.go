@@ -905,7 +905,7 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 }
 
 func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse, resources []string) {
-	log.Errorf("howardjohn: send ack for %v", msg.TypeUrl)
+	log.Errorf("howardjohn: send ack for %v=%v", msg.TypeUrl, msg.Nonce)
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: msg.Nonce,
 		TypeUrl:       msg.TypeUrl,

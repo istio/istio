@@ -104,6 +104,18 @@ func getShortType(typeURL string) string {
 	}
 }
 
+// CDS and LDS are specially in that they are "root" resources, and requests are for all clusters/listeners
+// Other types are derived from these root resources, and we serve only requested ones
+func shouldWatch(typeURL string) bool {
+	switch typeURL {
+	case ClusterType, v3.ClusterType, ListenerType, v3.ListenerType:
+		return false
+	default:
+		return true
+	}
+}
+
+// handleAck returns true if this is an ACK or NACK. Otherwise returns false
 func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *discovery.DiscoveryRequest) bool {
 	shortType := getShortType(discReq.TypeUrl)
 	if discReq.ErrorDetail != nil {
@@ -117,26 +129,19 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *discovery.Disco
 
 	// Nonce is empty on initial requests
 	if discReq.ResponseNonce == "" {
-		return false
-	}
-
-	// This is an ACK response to a previous message - but it may refer to an old message, not our most recent response
-	nonceSent := con.NoncesSent[shortType]
-
-	if nonceSent == "" {
-		adsLog.Debugf("ADS:%s: got connection for nonce from another connection for %v received %s",
-			shortType, con.ConID, discReq.ResponseNonce)
-		return false
-	}
-
-	// Change in the set of watched resource - regardless of ack, send new data.
-	if !listEqualUnordered(con.WatchedResources[shortType], discReq.ResourceNames) {
 		con.WatchedResources[shortType] = discReq.ResourceNames
 		return false
 	}
 
-	// Nonce matches previously sent; this is an ACK for the most recent response
-	adsLog.Debugf("ADS:%s: ACK %s %s %s. Resources:%d", shortType, con.ConID, discReq.VersionInfo, discReq.ResponseNonce, len(discReq.ResourceNames))
+	nonceSent := con.NoncesSent[shortType]
+
+	// This is an ACK response to a previous message - but it may refer to an old message, not our most recent response
+	if nonceSent == "" {
+		adsLog.Debugf("ADS:%s: got connection for nonce from another connection for %v received %s",
+			shortType, con.ConID, discReq.ResponseNonce)
+		con.WatchedResources[shortType] = discReq.ResourceNames
+		return false
+	}
 
 	// This is an ACK for a resource sent on an older stream, or out of sync. Handle the same, but log differently
 	if nonceSent != discReq.ResponseNonce {
@@ -144,7 +149,21 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *discovery.Disco
 			shortType, con.ConID, nonceSent, discReq.ResponseNonce)
 		// TODO don't use "RDS" in metric name
 		rdsExpiredNonce.Increment()
+		return true
 	}
+
+	// Change in the set of watched resource - regardless of ack, send new data.
+	// TODO if empty then do something else
+	if shouldWatch(discReq.TypeUrl) && len(discReq.ResourceNames) > 0 && !listEqualUnordered(con.WatchedResources[shortType], discReq.ResourceNames) {
+
+		con.WatchedResources[shortType] = discReq.ResourceNames
+
+		return false
+	}
+
+	// Nonce matches previously sent; this is an ACK for the most recent response
+	adsLog.Debugf("ADS:%s: ACK %s %s %s. Resources:%d", shortType, con.ConID, discReq.VersionInfo, discReq.ResponseNonce, len(discReq.ResourceNames))
+
 	con.NoncesAcked[shortType] = discReq.ResponseNonce
 	return true
 
