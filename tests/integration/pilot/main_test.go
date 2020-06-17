@@ -33,7 +33,7 @@ var (
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("pilot_test", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(&i, nil)).
 		Setup(func(ctx resource.Context) (err error) {

@@ -63,7 +63,7 @@ func validateCertDir(out string) error {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("cert_provision_prometheus", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, setupConfig)).

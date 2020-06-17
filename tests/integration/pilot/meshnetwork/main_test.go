@@ -69,7 +69,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("meshnetwork_test", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, setupConfig)).
