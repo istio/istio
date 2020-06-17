@@ -7,6 +7,6 @@ spec:
     - hosts:
         - "service/*"
         - "istio-system/*"
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
 
