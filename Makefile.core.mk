@@ -414,8 +414,6 @@ istioctl.completion: ${ISTIO_OUT}/release/istioctl.bash ${ISTIO_OUT}/release/_is
 .PHONY: istioctl-install-container
 istioctl-install-container: istioctl
 
-include cni/tools/istio-cni-docker.mk
-
 #-----------------------------------------------------------------------------
 # Target: test
 #-----------------------------------------------------------------------------
