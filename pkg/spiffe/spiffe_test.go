@@ -39,6 +39,11 @@ var (
 }`
 )
 
+type inputType struct {
+	Sequence    uint64 `json:"spiffe_sequence,omitempty"`
+	RefreshHint int    `json:"spiffe_refresh_hint,omitempty"`
+}
+
 func TestGenSpiffeURI(t *testing.T) {
 	oldTrustDomain := GetTrustDomain()
 	defer SetTrustDomain(oldTrustDomain)
@@ -162,25 +167,42 @@ func TestGenCustomSpiffe(t *testing.T) {
 	}
 }
 
-func TestRetrieveSpiffeBundleRootCert(t *testing.T) {
+func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
+	inputStringTemplate1 := `[
+		{"trustdomain": "foo", "url": "URL1"}
+]`
+	inputStringTemplate2 := `[
+	{"trustdomain": "foo", "url": "URL1"},
+	{"trustdomain": "bar", "url": "URL2"}
+]`
 	testCases := []struct {
 		name        string
 		trustCert   bool
 		status      int
 		body        string
+		twoServers  bool
 		errContains string
 	}{
 		{
-			name:      "success",
-			trustCert: true,
-			status:    http.StatusOK,
-			body:      validResponse,
+			name:       "success",
+			trustCert:  true,
+			status:     http.StatusOK,
+			body:       validResponse,
+			twoServers: false,
+		},
+		{
+			name:       "success",
+			trustCert:  true,
+			status:     http.StatusOK,
+			body:       validResponse,
+			twoServers: true,
 		},
 		{
 			name:        "Unauthenticated cert",
 			trustCert:   false,
 			status:      http.StatusOK,
 			body:        validResponse,
+			twoServers:  false,
 			errContains: "x509: certificate signed by unknown authority",
 		},
 		{
@@ -188,6 +210,7 @@ func TestRetrieveSpiffeBundleRootCert(t *testing.T) {
 			trustCert:   true,
 			status:      http.StatusServiceUnavailable,
 			body:        "tHe SYsTEm iS DowN",
+			twoServers:  false,
 			errContains: "unexpected status 503 fetching bundle: tHe SYsTEm iS DowN",
 		},
 		{
@@ -195,6 +218,7 @@ func TestRetrieveSpiffeBundleRootCert(t *testing.T) {
 			trustCert:   true,
 			status:      http.StatusOK,
 			body:        "NOT JSON",
+			twoServers:  false,
 			errContains: "failed to decode bundle",
 		},
 	}
@@ -207,11 +231,25 @@ func TestRetrieveSpiffeBundleRootCert(t *testing.T) {
 				_, _ = w.Write([]byte(testCase.body))
 			})
 			server := httptest.NewTLSServer(handler)
+			input := strings.Replace(inputStringTemplate1, "URL1", server.Listener.Addr().String(), 1)
 			var trustedCerts []*x509.Certificate
 			if testCase.trustCert {
 				trustedCerts = append(trustedCerts, server.Certificate())
 			}
-			rootCert, err := RetrieveSpiffeBundleRootCert(server.Listener.Addr().String(), trustedCerts)
+			if testCase.twoServers {
+				input = strings.Replace(inputStringTemplate2, "URL1", server.Listener.Addr().String(), 1)
+				handler2 := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					w.WriteHeader(testCase.status)
+					_, _ = w.Write([]byte(testCase.body))
+				})
+				server2 := httptest.NewTLSServer(handler2)
+				input = strings.Replace(input, "URL2", server2.Listener.Addr().String(), 1)
+				if testCase.trustCert {
+					trustedCerts = append(trustedCerts, server2.Certificate())
+				}
+
+			}
+			rootCertMap, err := RetrieveSpiffeBundleRootCertsFromStringInput(input, trustedCerts)
 			if testCase.errContains != "" {
 				if !strings.Contains(err.Error(), testCase.errContains) {
 					t.Errorf("unexpected error returned: %s. The error should contain: %s",
@@ -219,8 +257,11 @@ func TestRetrieveSpiffeBundleRootCert(t *testing.T) {
 				}
 				return
 			}
-			if rootCert == nil {
-				t.Errorf("returned root cert is nil")
+			if err != nil {
+				t.Errorf("unexpected error: %s. Expected no error.", err)
+			}
+			if rootCertMap == nil {
+				t.Errorf("returned root cert map is nil")
 			}
 		})
 	}

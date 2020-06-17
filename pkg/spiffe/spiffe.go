@@ -42,7 +42,14 @@ const (
 var (
 	trustDomain      = defaultTrustDomain
 	trustDomainMutex sync.RWMutex
+
+	spiffeLog = log.RegisterScope("spiffe", "SPIFFE library logging", 0)
 )
+
+type configTuple struct {
+	TrustDomain string `json:"trustdomain,omitempty"`
+	URL         string `json:"url,omitempty"`
+}
 
 type bundleDoc struct {
 	jose.JSONWebKeySet
@@ -88,7 +95,7 @@ func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 func MustGenSpiffeURI(ns, serviceAccount string) string {
 	uri, err := GenSpiffeURI(ns, serviceAccount)
 	if err != nil {
-		log.Debug(err.Error())
+		spiffeLog.Debug(err.Error())
 	}
 	return uri
 }
@@ -96,16 +103,34 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 // GenCustomSpiffe returns the  spiffe string that can have a custom structure
 func GenCustomSpiffe(identity string) string {
 	if identity == "" {
-		log.Error("spiffe identity can't be empty")
+		spiffeLog.Error("spiffe identity can't be empty")
 		return ""
 	}
 
 	return URIPrefix + GetTrustDomain() + "/" + identity
 }
 
-// RetrieveSpiffeBundleRootCert retrieves the trusted CA certificate from a SPIFFE bundle endpoint.
-// It can use the system cert pool and the supplied certificates to validate the endpoint.
-func RetrieveSpiffeBundleRootCert(endpoint string, extraTrustedCerts []*x509.Certificate) (*x509.Certificate, error) {
+// RetrieveSpiffeBundleRootCertsFromStringInput retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
+// It can use the system cert pool and the supplied certificates to validate the endpoints.
+// The input endpointTuples should be in the json format of:
+// [
+//		{"trustdomain": "foo", "url": "..."},
+//		{"trustdomain": "bar", "url": "..."}
+// ]
+func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrustedCerts []*x509.Certificate) (
+	map[string][]*x509.Certificate, error) {
+	var converted []configTuple
+	err := json.Unmarshal([]byte(inputString), &converted)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarchalling the input: %v", err)
+	}
+	spiffeLog.Infof("Processed SPIFFE bundle configuration: %v+", converted)
+	return RetrieveSpiffeBundleRootCerts(converted, extraTrustedCerts)
+}
+
+// RetrieveSpiffeBundleRootCerts retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
+// It can use the system cert pool and the supplied certificates to validate the endpoints.
+func RetrieveSpiffeBundleRootCerts(config []configTuple, extraTrustedCerts []*x509.Certificate) (map[string][]*x509.Certificate, error) {
 	httpClient := &http.Client{}
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
@@ -115,47 +140,59 @@ func RetrieveSpiffeBundleRootCert(endpoint string, extraTrustedCerts []*x509.Cer
 		caCertPool.AddCert(cert)
 	}
 
-	if !strings.HasPrefix(endpoint, "https://") {
-		endpoint = "https://" + endpoint
-	}
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to split the SPIFFE endpoint: %v", err)
-	}
+	ret := map[string][]*x509.Certificate{}
+	for _, tuple := range config {
+		if !strings.HasPrefix(tuple.URL, "https://") {
+			tuple.URL = "https://" + tuple.URL
+		}
+		u, err := url.Parse(tuple.URL)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to split the SPIFFE bundle URL: %v", err)
+		}
 
-	config := &tls.Config{
-		ServerName: u.Hostname(),
-		RootCAs:    caCertPool,
-	}
+		config := &tls.Config{
+			ServerName: u.Hostname(),
+			RootCAs:    caCertPool,
+		}
 
-	httpClient.Transport = &http.Transport{
-		TLSClientConfig: config,
-	}
+		httpClient.Transport = &http.Transport{
+			TLSClientConfig: config,
+		}
 
-	resp, err := httpClient.Get(endpoint)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch bundle: %v", err)
-	}
-	defer resp.Body.Close()
+		resp, err := httpClient.Get(tuple.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch bundle: %v", err)
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		b := make([]byte, 1024)
-		n, _ := resp.Body.Read(b)
-		return nil, fmt.Errorf("unexpected status %d fetching bundle: %s", resp.StatusCode, string(b[:n]))
-	}
+		if resp.StatusCode != http.StatusOK {
+			b := make([]byte, 1024)
+			n, _ := resp.Body.Read(b)
+			return nil, fmt.Errorf("unexpected status %d fetching bundle: %s", resp.StatusCode, string(b[:n]))
+		}
 
-	doc := new(bundleDoc)
-	if err := json.NewDecoder(resp.Body).Decode(doc); err != nil {
-		return nil, fmt.Errorf("failed to decode bundle: %v", err)
-	}
+		doc := new(bundleDoc)
+		if err := json.NewDecoder(resp.Body).Decode(doc); err != nil {
+			return nil, fmt.Errorf("failed to decode bundle: %v", err)
+		}
 
-	for i, key := range doc.Keys {
-		if key.Use == "x509-svid" {
-			if len(key.Certificates) != 1 {
-				return nil, fmt.Errorf("expected a single certificate in x509-svid entry %d; got %d", i, len(key.Certificates))
+		var cert *x509.Certificate
+		for i, key := range doc.Keys {
+			if key.Use == "x509-svid" {
+				if len(key.Certificates) != 1 {
+					return nil, fmt.Errorf("expected a single certificate in x509-svid entry %d; got %d", i, len(key.Certificates))
+				}
+				cert = key.Certificates[0]
 			}
-			return key.Certificates[0], nil
+		}
+		if cert == nil {
+			return nil, fmt.Errorf("Trust domain [%s] at URL [%s] does not provide a X509 SVID", tuple.TrustDomain, tuple.URL)
+		}
+		if val, ok := ret[tuple.TrustDomain]; ok {
+			val = append(val, cert)
+		} else {
+			ret[tuple.TrustDomain] = []*x509.Certificate{cert}
 		}
 	}
-	return nil, fmt.Errorf("the SPIFFE bundle at %s does not have an X509 SVID field", endpoint)
+	return ret, nil
 }

@@ -548,7 +548,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 		return nil
 	}
 
-	root, err := s.getRootCertificate(tlsOptions)
+	certPool, err := s.getRootCertificates(tlsOptions)
 	if err != nil {
 		return err
 	}
@@ -558,7 +558,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.NoClientCert,
-		ClientCAs:      root,
+		ClientCAs:      certPool,
 	}
 
 	// create secure grpc listener
@@ -582,15 +582,16 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error 
 	log.Info("initializing secure discovery service")
 
 	// TODO(ramaraochavali): Restart Server if root certificate changes.
-	root, err := s.getRootCertificate(args.TLSOptions)
+	certPool, err := s.getRootCertificates(args.TLSOptions)
 	if err != nil {
 		return err
 	}
 
+	// TODO(myidpt): Verify the client certificate's trust domain matches the corresponding root cert.
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,
-		ClientCAs:      root,
+		ClientCAs:      certPool,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
@@ -903,9 +904,9 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 	return key, cert
 }
 
-// getRootCertificate returns the root certificate from TLSOptions if available or from ca, or from SPIFFE bundle
+// getRootCertificates returns the root certificates from TLSOptions if available or from ca, or from SPIFFE bundle
 // endpoint.
-func (s *Server) getRootCertificate(tlsOptions TLSOptions) (*x509.CertPool, error) {
+func (s *Server) getRootCertificates(tlsOptions TLSOptions) (*x509.CertPool, error) {
 	var rootCertBytes []byte
 	var err error
 	if tlsOptions.CaCertFile != "" {
@@ -918,12 +919,17 @@ func (s *Server) getRootCertificate(tlsOptions TLSOptions) (*x509.CertPool, erro
 	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(rootCertBytes)
 
-	if features.AuthnSpiffeBundlePath != "" {
-		cert, err := spiffe.RetrieveSpiffeBundleRootCert(features.AuthnSpiffeBundlePath, []*x509.Certificate{})
+	if features.SpiffeBundlePaths != "" {
+		certMap, err := spiffe.RetrieveSpiffeBundleRootCertsFromStringInput(features.SpiffeBundlePaths, []*x509.Certificate{})
 		if err != nil {
 			return nil, err
 		}
-		cp.AddCert(cert)
+		// Add all the retrieved CA certs into the cert pool for general X.509 cert verification.
+		for _, certs := range certMap {
+			for _, cert := range certs {
+				cp.AddCert(cert)
+			}
+		}
 	}
 
 	return cp, nil
