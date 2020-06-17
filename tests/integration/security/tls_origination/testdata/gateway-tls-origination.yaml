@@ -36,6 +36,16 @@ spec:
           weight: 100
     - match:
         - gateways:
+            - mesh # from sidecars, route to egress gateway service
+          port: 443
+      route:
+        - destination:
+            host: istio-egressgateway.istio-system.svc.cluster.local
+            port:
+              number: 80
+          weight: 100
+    - match:
+        - gateways:
             - istio-egressgateway
           port: 80
       route:

@@ -16,10 +16,11 @@ package pilot
 
 import (
 	"io/ioutil"
-	"istio.io/istio/pkg/test/env"
 	"path"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/env"
 
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"

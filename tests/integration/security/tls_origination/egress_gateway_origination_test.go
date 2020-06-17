@@ -50,6 +50,7 @@ func mustReadCert(t *testing.T, f string) string {
 const (
 	// paths to test configs
 	simpleTLSDestinationRuleConfig  = "testdata/destination-rule-tls-origination.yaml"
+	mutualTLSDestinationRuleConfig  = "testdata/destination-rule-mtls-origination.yaml"
 	disableTLSDestinationRuleConfig = "testdata/destination-rule-no-tls-origination.yaml"
 )
 
@@ -63,7 +64,7 @@ func TestEgressGatewayTls(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
 
-			client, server, appsNamespace, serviceNamespace := setupEcho(t, ctx)
+			client, server, _, serviceNamespace := setupEcho(t, ctx)
 
 			testCases := map[string]struct {
 				destinationRulePath string
@@ -89,6 +90,11 @@ func TestEgressGatewayTls(t *testing.T) {
 					destinationRulePath: disableTLSDestinationRuleConfig,
 					response:            []string{response.StatusCodeOK},
 					portName:            "http",
+				},
+				"Mutual TLS origination from egress gateway to https endpoint no certs": {
+					destinationRulePath: mutualTLSDestinationRuleConfig,
+					response:            []string{response.StatusCodeUnavailable},
+					portName:            "https",
 				},
 			}
 
