@@ -111,7 +111,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if hasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
 		s.ConfigStores = append(s.ConfigStores,
-			ingress.NewController(s.kubeClient, meshConfig, args.RegistryOptions.KubeOptions))
+			ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
 
 		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClient, args.RegistryOptions.KubeOptions)
 		if err != nil {
