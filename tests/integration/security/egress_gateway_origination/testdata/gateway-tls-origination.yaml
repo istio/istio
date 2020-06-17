@@ -12,12 +12,6 @@ spec:
         protocol: HTTP
       hosts:
         - some-external-site.com
-    - port:
-        number: 443
-        name: https-port-for-tls-origination
-        protocol: HTTPS
-      hosts:
-        - some-external-site.com
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
