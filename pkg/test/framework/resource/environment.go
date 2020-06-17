@@ -20,8 +20,8 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
-// EnvironmentFactory is a function that creates an Environment by name.
-type EnvironmentFactory func(name string, ctx Context) (Environment, error)
+// EnvironmentFactory creates an Environment.
+type EnvironmentFactory func(ctx Context) (Environment, error)
 
 // Environment is the ambient environment that the test runs in.
 type Environment interface {

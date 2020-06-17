@@ -49,19 +49,20 @@ func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	}
 	e.id = ctx.TrackResource(e)
 
-	newAccessor := s.AccessorFactoryFuncOrDefault()
-	e.KubeClusters = make([]Cluster, 0, len(s.KubeConfig))
-	for i := range s.KubeConfig {
-		a, err := newAccessor(s.KubeConfig[i], workDir)
-		if err != nil {
-			return nil, fmt.Errorf("accessor setup: %v", err)
-		}
+	accessors, err := s.NewAccessors(workDir)
+	if err != nil {
+		return nil, err
+	}
+
+	e.KubeClusters = make([]Cluster, 0, len(accessors))
+	for i := range accessors {
+		accessor := accessors[i]
 		clusterIndex := resource.ClusterIndex(i)
 		e.KubeClusters = append(e.KubeClusters, Cluster{
 			networkName: s.networkTopology[clusterIndex],
 			filename:    s.KubeConfig[i],
 			index:       clusterIndex,
-			Accessor:    a,
+			Accessor:    accessor,
 		})
 	}
 
