@@ -462,11 +462,11 @@ galley-test: galley-racetest
 security-test: security-racetest
 
 .PHONY: cni-test cni.cmd-test cni.install-test
-cni-test: cni.docker cni.cmd-test cni.install-test
+cni-test: cni.cmd-test cni.install-test
 cni.cmd-test:
 	go test ${GOBUILDFLAGS} ${T} ./cni/cmd/...
 # May want to make this depend on push but it will always push at the moment:  install-test: docker.push
-cni.install-test:
+cni.install-test: docker.install-cni
 	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} ${T} ./cni/test/...
 
 .PHONY: common-test
