@@ -79,6 +79,9 @@ func (h *VFSRenderer) RenderManifest(values string) (string, error) {
 
 // LoadValuesVFS loads the compiled in file corresponding to the given profile name.
 func LoadValuesVFS(profileName string) (string, error) {
+	if err := CheckCompiledInCharts(); err != nil {
+		return "", err
+	}
 	path := filepath.Join(profilesRoot, BuiltinProfileToFilename(profileName))
 	scope.Infof("Loading values from compiled in VFS at path %s", path)
 	b, err := vfs.ReadFile(path)
@@ -86,6 +89,9 @@ func LoadValuesVFS(profileName string) (string, error) {
 }
 
 func LoadValues(profileName string, chartsDir string) (string, error) {
+	if err := CheckCompiledInCharts(); err != nil {
+		return "", err
+	}
 	path := filepath.Join(chartsDir, profilesRoot, BuiltinProfileToFilename(profileName))
 	scope.Infof("Loading values at path %s", path)
 	b, err := ioutil.ReadFile(path)
@@ -93,6 +99,9 @@ func LoadValues(profileName string, chartsDir string) (string, error) {
 }
 
 func readProfiles(chartsDir string) (map[string]bool, error) {
+	if err := CheckCompiledInCharts(); err != nil {
+		return nil, err
+	}
 	profiles := map[string]bool{}
 	switch chartsDir {
 	case "":
