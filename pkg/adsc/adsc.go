@@ -359,37 +359,34 @@ func (a *ADSC) handleRecv() {
 		clusters := []*cluster.Cluster{}
 		routes := []*route.RouteConfiguration{}
 		eds := []*endpoint.ClusterLoadAssignment{}
+		names := []string{}
 		for _, rsc := range msg.Resources { // Any
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
 			case v2.ListenerType:
-				{
-					ll := &listener.Listener{}
-					_ = proto.Unmarshal(valBytes, ll)
-					listeners = append(listeners, ll)
-				}
+				ll := &listener.Listener{}
+				_ = proto.Unmarshal(valBytes, ll)
+				listeners = append(listeners, ll)
+				names = append(names, ll.Name)
 
 			case v3.ClusterType:
-				{
-					cl := &cluster.Cluster{}
-					_ = proto.Unmarshal(valBytes, cl)
-					clusters = append(clusters, cl)
-				}
+				cl := &cluster.Cluster{}
+				_ = proto.Unmarshal(valBytes, cl)
+				clusters = append(clusters, cl)
+				names = append(names, cl.Name)
 
 			case v3.EndpointType:
-				{
-					el := &endpoint.ClusterLoadAssignment{}
-					_ = proto.Unmarshal(valBytes, el)
-					eds = append(eds, el)
-				}
+				el := &endpoint.ClusterLoadAssignment{}
+				_ = proto.Unmarshal(valBytes, el)
+				eds = append(eds, el)
+				names = append(names, el.ClusterName)
 
 			case v2.RouteType:
-				{
-					rl := &route.RouteConfiguration{}
-					_ = proto.Unmarshal(valBytes, rl)
-					routes = append(routes, rl)
-				}
+				rl := &route.RouteConfiguration{}
+				_ = proto.Unmarshal(valBytes, rl)
+				routes = append(routes, rl)
+				names = append(names, rl.Name)
 
 			default:
 				if len(gvk) != 3 {
@@ -405,6 +402,7 @@ func (a *ADSC) handleRecv() {
 					if err != nil {
 						continue
 					}
+					names = append(names, m.Metadata.Name)
 					val, err := mcpToPilot(m)
 					if err != nil {
 						continue
@@ -449,7 +447,7 @@ func (a *ADSC) handleRecv() {
 		a.mutex.Lock()
 		a.Received[msg.TypeUrl] = msg
 		// TODO: add hook to inject nacks
-		a.ack(msg)
+		a.ack(msg, names)
 		a.mutex.Unlock()
 
 		if len(listeners) > 0 {
@@ -906,12 +904,14 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 	})
 }
 
-func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse) {
+func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse, resources []string) {
+	log.Errorf("howardjohn: send ack for %v", msg.TypeUrl)
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: msg.Nonce,
 		TypeUrl:       msg.TypeUrl,
 		Node:          a.node(),
 		VersionInfo:   msg.VersionInfo,
+		ResourceNames: resources,
 	})
 }
 
