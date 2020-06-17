@@ -15,7 +15,7 @@ spec:
     - port:
         number: 443
         name: https-port-for-tls-origination
-        protocol: TLS
+        protocol: HTTPS
       hosts:
         - some-external-site.com
 ---

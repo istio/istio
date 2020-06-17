@@ -64,7 +64,7 @@ func TestEgressGatewayTls(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
 
-			client, server, appNamespace := setupEcho(t, ctx)
+			client, server, appsNamespace, serviceNamespace := setupEcho(t, ctx)
 
 			testCases := map[string]struct {
 				destinationRulePath string
@@ -95,8 +95,10 @@ func TestEgressGatewayTls(t *testing.T) {
 
 			for name, tc := range testCases {
 				t.Run(name, func(t *testing.T) {
-					ctx.ApplyConfigOrFail(ctx, appNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
-					defer ctx.DeleteConfigOrFail(ctx, appNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+					ctx.ApplyConfigOrFail(ctx, serviceNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+					defer ctx.DeleteConfigOrFail(ctx, serviceNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+					ctx.ApplyConfigOrFail(ctx, appsNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+					defer ctx.DeleteConfigOrFail(ctx, appsNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := client.Call(echo.CallOptions{
@@ -131,7 +133,7 @@ const (
 // is applied to only allow egress traffic to service namespace such that when client to server calls are made
 // we are able to simulate "external" traffic by going outside this namespace. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
-func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Instance, namespace.Instance) {
+func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
 	p := pilot.NewOrFail(t, ctx, pilot.Config{})
 
 	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
@@ -200,7 +202,7 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 		t.Fatalf("failed to apply sidecar, %v", err)
 	}
 
-	return client, server, appsNamespace
+	return client, server, appsNamespace, serviceNamespace
 }
 
 func clusterName(target echo.Instance, port echo.Port) string {
