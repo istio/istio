@@ -14,6 +14,7 @@
 
 syntax = "proto3";
 
+// Generate with protoc --go_out=plugins=grpc:. echo.proto
 package proto;
 
 service EchoTestService {
@@ -41,6 +42,8 @@ message ForwardEchoRequest {
   string url = 4;
   repeated Header headers = 5;
   string message = 6;
+  // If true, requests will be sent using h2c prior knowledge
+  bool http2 = 7;
 }
 
 message ForwardEchoResponse {
