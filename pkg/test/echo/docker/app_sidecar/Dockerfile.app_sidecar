@@ -1,0 +1,23 @@
+ARG BASE_VERSION=latest
+
+FROM docker.io/istio/base:${BASE_VERSION}
+
+# Add a user that will run the application. This allows running as this user and capture iptables
+RUN useradd -m --uid 1338 application && \
+    echo "application ALL=NOPASSWD: ALL" >> /etc/sudoers
+
+# Install the certs.
+COPY certs/                           /var/lib/istio/
+COPY certs/default/*                  /var/run/secrets/istio/
+
+# Install the sidecar components
+COPY istio-sidecar.deb  /tmp/istio-sidecar.deb
+RUN dpkg -i /tmp/istio-sidecar.deb && rm /tmp/istio-sidecar.deb
+
+# Install the Echo application
+COPY echo-start.sh /usr/local/bin/echo-start.sh
+COPY client /usr/local/bin/client
+COPY server /usr/local/bin/server
+RUN chmod +x /usr/local/bin/client /usr/local/bin/server
+
+ENTRYPOINT ["/usr/local/bin/echo-start.sh"]
