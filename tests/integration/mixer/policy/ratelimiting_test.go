@@ -21,6 +21,7 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -32,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/redis"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -92,31 +94,32 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 		defer deleteConfigOrFail(t, config, ctx)
 		util.AllowRuleSync(t)
 
-		res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
-		_, _ = util.FetchRequestCount(t, prom, destinationService, "",
-			bookInfoNameSpaceStr, 300)
+		retry.UntilSuccessOrFail(t, func() error {
+			res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
+			totalReqs := res.DurationHistogram.Count
+			succReqs := float64(res.RetCodes[http.StatusOK])
+			badReqs := res.RetCodes[http.StatusBadRequest]
+			actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
 
-		totalReqs := res.DurationHistogram.Count
-		succReqs := float64(res.RetCodes[http.StatusOK])
-		badReqs := res.RetCodes[http.StatusBadRequest]
-		actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
+			t.Log("Successfully sent request(s) to /productpage; checking metrics...")
+			t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s - %+v)",
+				totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs, res.RetCodes)
 
-		t.Log("Successfully sent request(s) to /productpage; checking metrics...")
-		t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s - %+v)",
-			totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs, res.RetCodes)
-
-		got429s, _ := util.FetchRequestCount(t, prom, destinationService, "", bookInfoNameSpaceStr,
-			300)
-		if got429s == 0 {
-			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
-				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
-				fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 429),
-				fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
-			t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
-				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-			t.Errorf("Could not find 429s")
-		}
-
+			// We expect to receive 250 429's as the rate limit is set to allow 50 requests in 30s.
+			// Waiting to receive 50 requests.
+			got429s, _ := util.FetchRequestCount(t, prom, destinationService, "", bookInfoNameSpaceStr,
+				50)
+			if got429s == 0 {
+				attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
+					util.Fqdn(destinationService, bookInfoNameSpaceStr)),
+					fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 429),
+					fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
+				t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
+					util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
+				return fmt.Errorf("could not find 429s")
+			}
+			return nil
+		}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 	})
 }
 
