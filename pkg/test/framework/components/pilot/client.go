@@ -110,8 +110,11 @@ func (c *client) WatchDiscovery(timeout time.Duration,
 				Node:          c.lastRequest.Node,
 				ResponseNonce: result.Nonce,
 				VersionInfo:   result.VersionInfo,
-				TypeUrl:       c.lastRequest.TypeUrl,
-				ResourceNames: c.lastRequest.ResourceNames,
+				TypeUrl:       result.TypeUrl,
+				// TODO(https://github.com/istio/istio/issues/24751) This is broken, we may get pushes so
+				// last request is inappropriate. We should probably just use adsc directly, for now we will just remove
+				// resource names.
+				// ResourceNames: c.lastRequest.ResourceNames,
 			})
 			if err != nil {
 				c1 <- err
