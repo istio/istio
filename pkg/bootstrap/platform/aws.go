@@ -22,6 +22,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 const (
@@ -88,8 +90,12 @@ func (a *awsEnv) Locality() *core.Locality {
 	}
 }
 
-func (a *awsEnv) Labels(md map[string]string) map[string]string {
+func (a *awsEnv) Labels(meta *model.NodeMetadata) map[string]string {
 	return map[string]string{}
+}
+
+func (a *awsEnv) IsKubernetes(meta *model.NodeMetadata) bool {
+	return true
 }
 
 func getEC2MetadataClient() *ec2metadata.EC2Metadata {

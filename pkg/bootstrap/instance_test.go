@@ -45,6 +45,7 @@ import (
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
 )
@@ -682,6 +683,10 @@ func (f *fakePlatform) Locality() *core.Locality {
 	return &core.Locality{}
 }
 
-func (f *fakePlatform) Labels(md map[string]string) map[string]string {
+func (f *fakePlatform) Labels(meta *model.NodeMetadata) map[string]string {
 	return f.labels
+}
+
+func (f *fakePlatform) IsKubernetes(meta *model.NodeMetadata) bool {
+	return true
 }

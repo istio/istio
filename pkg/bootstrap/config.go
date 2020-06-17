@@ -529,11 +529,12 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 }
 
 // Extracts instance labels for the platform into model.NodeMetadata.Labels
+// only if not running on Kubernetes
 func extractInstanceLabels(plat platform.Environment, meta *model.NodeMetadata) {
-	if plat == nil || meta == nil {
+	if plat == nil || meta == nil || plat.IsKubernetes(meta) {
 		return
 	}
-	instanceLabels := plat.Labels(meta.PlatformMetadata)
+	instanceLabels := plat.Labels(meta)
 	if meta.Labels == nil {
 		meta.Labels = map[string]string{}
 	}
