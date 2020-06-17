@@ -209,7 +209,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// patch istiod deployment with ISTIOD_CUSTOM_HOST
-	if env.Settings().CentralIstiod {
+	if isCentralIstio(env, cfg) {
 		for _, cluster := range env.KubeClusters {
 			if env.IsControlPlaneCluster(cluster) {
 				if err := patchIstiodCustomHost(cfg, cluster); err != nil {
@@ -269,7 +269,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Wait for all of the control planes to be started.
 	for _, cluster := range env.KubeClusters {
 		// TODO in centralIstiod case, webhook is only installed in control plane cluster
-		if !env.IsControlPlaneCluster(cluster) && env.Settings().CentralIstiod {
+		if !env.IsControlPlaneCluster(cluster) && isCentralIstio(env, cfg) {
 			continue
 		}
 		if err := waitForControlPlane(i, cluster, cfg); err != nil {
@@ -448,7 +448,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 				// Use the local Istiod for CA
 				"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012")
 
-			if c.environment.Settings().CentralIstiod {
+			if isCentralIstio(c.environment, cfg) {
 				installSettings = append(installSettings,
 					"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
 					"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
@@ -469,6 +469,14 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		}
 	}
 	return applyManifest(c, installSettings, istioCtl, cluster.Name())
+}
+
+func isCentralIstio(env *kube.Environment, cfg Config) bool {
+	if env.IsMulticluster() &&
+		(cfg.ControlPlaneValues != cfg.RemoteClusterValues && cfg.RemoteClusterValues != "") {
+		return true
+	}
+	return false
 }
 
 func applyManifest(c *operatorComponent, installSettings []string, istioCtl istioctl.Instance, clusterName string) error {
