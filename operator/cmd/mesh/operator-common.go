@@ -66,6 +66,7 @@ func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs) (string, st
 
 	tmpl := `
 operatorNamespace: {{.OperatorNamespace}}
+istioNamespace: {{.IstioNamespace}}
 watchedNamespaces: {{.WatchedNamespaces}}
 hub: {{.Hub}}
 tag: {{.Tag}}
@@ -73,11 +74,13 @@ tag: {{.Tag}}
 
 	tv := struct {
 		OperatorNamespace string
+		IstioNamespace    string
 		WatchedNamespaces string
 		Hub               string
 		Tag               string
 	}{
 		OperatorNamespace: ocArgs.operatorNamespace,
+		IstioNamespace:    ocArgs.istioNamespace,
 		WatchedNamespaces: ocArgs.watchedNamespaces,
 		Hub:               ocArgs.hub,
 		Tag:               ocArgs.tag,
