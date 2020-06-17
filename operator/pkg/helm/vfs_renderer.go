@@ -169,7 +169,7 @@ func ListProfiles(charts string) ([]string, error) {
 // binaries using go build instead of make and tries to use compiled in charts.
 func CheckCompiledInCharts() error {
 	if _, err := vfs.Stat(ChartsSubdirName); err != nil {
-		return fmt.Errorf("compiled in charts not found in this development build, use --charts with local charts instead or run make gen-charts")
+		return fmt.Errorf("compiled in charts not found in this development build, use --manifests with local charts instead or run make gen-charts")
 	}
 	return nil
 }

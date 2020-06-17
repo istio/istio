@@ -35,8 +35,8 @@ type operatorCommonArgs struct {
 	operatorNamespace string
 	// istioNamespace is the namespace Istio is installed into.
 	istioNamespace string
-	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
-	charts string
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	manifestsPath string
 }
 
 const (
@@ -52,7 +52,7 @@ func isControllerInstalled(cs kubernetes.Interface, operatorNamespace string) (b
 
 // renderOperatorManifest renders a manifest to install the operator with the given input arguments.
 func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs) (string, string, error) {
-	installPackagePath := ocArgs.charts
+	installPackagePath := ocArgs.manifestsPath
 	r, err := helm.NewHelmRenderer(installPackagePath, "istio-operator", string(name.IstioOperatorComponentName), ocArgs.operatorNamespace)
 	if err != nil {
 		return "", "", err

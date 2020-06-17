@@ -91,7 +91,7 @@ func TestController(t *testing.T) {
 				"operator", "init",
 				"--hub=" + s.Hub,
 				"--tag=" + s.Tag,
-				"--charts=" + ManifestPath,
+				"--manifests=" + ManifestPath,
 			}
 			// install istio with default config for the first time by running operator init command
 			istioCtl.InvokeOrFail(t, initCmd)
@@ -273,7 +273,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 	// get manifests by running `manifest generate`
 	generateCmd := []string{
 		"manifest", "generate",
-		"--charts", ManifestPath,
+		"--manifests", ManifestPath,
 	}
 	if profileName != "" {
 		generateCmd = append(generateCmd, "--set", fmt.Sprintf("profile=%s", profileName))

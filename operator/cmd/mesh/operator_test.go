@@ -42,7 +42,7 @@ func TestOperatorDump(t *testing.T) {
 	cmd += " --tag " + odArgs.common.tag
 	cmd += " --operatorNamespace " + odArgs.common.operatorNamespace
 	cmd += " --istioNamespace " + odArgs.common.istioNamespace
-	cmd += " --charts=" + string(snapshotCharts)
+	cmd += " --manifests=" + string(snapshotCharts)
 
 	gotYAML, err := runCommand(cmd)
 	if err != nil {
@@ -76,7 +76,7 @@ func TestOperatorInit(t *testing.T) {
 			tag:               "1.2.3",
 			operatorNamespace: "operator-test-namespace",
 			istioNamespace:    "istio-test-namespace",
-			charts:            string(snapshotCharts),
+			manifestsPath:     string(snapshotCharts),
 		},
 	}
 

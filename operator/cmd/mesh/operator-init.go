@@ -52,7 +52,8 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 		"The namespace the operator controller is installed into")
 	cmd.PersistentFlags().StringVar(&args.common.istioNamespace, "istioNamespace", istioDefaultNamespace,
 		"The namespace Istio is installed into")
-	cmd.PersistentFlags().StringVarP(&args.common.charts, "charts", "d", "", ChartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
 func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Command {
