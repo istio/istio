@@ -70,14 +70,6 @@ const (
 	IstioSubzoneLabel = "topology.istio.io/subzone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
-	// PrometheusScrape is the annotation used by prometheus to determine if service metrics should be scraped (collected)
-	PrometheusScrape = "prometheus.io/scrape"
-	// PrometheusPort is the annotation used to explicitly specify the port to use for scraping metrics
-	PrometheusPort = "prometheus.io/port"
-	// PrometheusPath is the annotation used to specify a path for scraping metrics. Default is "/metrics"
-	PrometheusPath = "prometheus.io/path"
-	// PrometheusPathDefault is the default value for the PrometheusPath annotation
-	PrometheusPathDefault = "/metrics"
 )
 
 var (
@@ -132,7 +124,7 @@ type Options struct {
 	// EndpointMode decides what source to use to get endpoint information
 	EndpointMode EndpointMode
 
-	//CABundlePath defines the caBundle path for istiod Server
+	// CABundlePath defines the caBundle path for istiod Server
 	CABundlePath string
 }
 
@@ -178,10 +170,7 @@ type Controller struct {
 	serviceLister   listerv1.ServiceLister
 	endpoints       kubeEndpointsController
 
-	// For k8s >=1.15
 	nodeMetadataInformer cache.SharedIndexInformer
-	// For k8s < 1.15
-	nodeInformer cache.SharedIndexInformer
 	// Used to watch node accessible from remote cluster.
 	// In multi-cluster(shared control plane multi-networks) scenario, ingress gateway service can be of nodePort type.
 	// With this, we can populate mesh's gateway address with the node ips.
@@ -261,7 +250,7 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	c.serviceInformer = cache.NewSharedIndexInformer(svcMlw, &v1.Service{}, options.ResyncPeriod,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
-	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent)
+	registerHandlers(c.serviceInformer, c.queue, "Services", reflect.DeepEqual, c.onServiceEvent)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
@@ -270,31 +259,18 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		c.endpoints = newEndpointSliceController(c, options)
 	}
 
-	// check k8s apiserver version, only apply metadata informer when version >= 1.15
-	// https://github.com/kubernetes/kubernetes/issues/91582
-	k8sVersion, _ := client.Discovery().ServerVersion()
-	if k8sVersion != nil && k8sVersion.Major != "" {
-		if k8sVersion.Major < "1" || (k8sVersion.Major == "1" && k8sVersion.Minor < "15") {
-			c.nodeInformer = coreinformers.NewNodeInformer(client, options.ResyncPeriod, cache.Indexers{})
-		}
-	}
-
-	if c.nodeInformer == nil {
-		// This is for getting the pod to node mapping, so that we can get the pod's locality.
-		metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
-		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-		c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
-	}
-
+	// This is for getting the pod to node mapping, so that we can get the pod's locality.
+	metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
+	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+	c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
 	// This is for getting the node IPs of a selected set of nodes
-	// TODO(hzxuzhonghu): optimize don't list-watch all nodes.
 	c.filteredNodeInformer = coreinformers.NewFilteredNodeInformer(client, options.ResyncPeriod,
 		cache.Indexers{},
 		func(options *metav1.ListOptions) {})
-	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", c.onNodeEvent)
+	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", reflect.DeepEqual, c.onNodeEvent)
 
 	c.pods = newPodCache(c, options)
-	registerHandlers(c.pods.informer, c.queue, "Pods", c.pods.onEvent)
+	registerHandlers(c.pods.informer, c.queue, "Pods", reflect.DeepEqual, c.pods.onEvent)
 
 	return c
 }
@@ -450,7 +426,7 @@ func isNodePortGatewayService(svc *v1.Service) bool {
 }
 
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
-	handler func(interface{}, model.Event) error) {
+	equalsFunc func(old, cur interface{}) bool, handler func(interface{}, model.Event) error) {
 
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -462,7 +438,7 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				if !reflect.DeepEqual(old, cur) {
+				if !equalsFunc(old, cur) {
 					incrementEvent(otype, "update")
 					q.Push(func() error {
 						return handler(cur, model.EventUpdate)
@@ -478,23 +454,6 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 				})
 			},
 		})
-}
-
-// compareEndpoints returns true if the two endpoints are the same in aspects Pilot cares about
-// This currently means only looking at "Ready" endpoints
-func compareEndpoints(a, b *v1.Endpoints) bool {
-	if len(a.Subsets) != len(b.Subsets) {
-		return false
-	}
-	for i := range a.Subsets {
-		if !portsEqual(a.Subsets[i].Ports, b.Subsets[i].Ports) {
-			return false
-		}
-		if !addressesEqual(a.Subsets[i].Addresses, b.Subsets[i].Addresses) {
-			return false
-		}
-	}
-	return true
 }
 
 func portsEqual(a, b []v1.EndpointPort) bool {
@@ -536,14 +495,10 @@ func ptrValueOrEmpty(ptr *string) string {
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	nodeInformer := c.nodeMetadataInformer
-	if nodeInformer == nil {
-		nodeInformer = c.nodeInformer
-	}
 	if !c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
-		!nodeInformer.HasSynced() ||
+		!c.nodeMetadataInformer.HasSynced() ||
 		!c.filteredNodeInformer.HasSynced() {
 		return false
 	}
@@ -562,17 +517,13 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 
-	nodeInformer := c.nodeMetadataInformer
-	if nodeInformer == nil {
-		nodeInformer = c.nodeInformer
-	}
 	go c.serviceInformer.Run(stop)
 	go c.pods.informer.Run(stop)
-	go nodeInformer.Run(stop)
+	go c.nodeMetadataInformer.Run(stop)
 	go c.filteredNodeInformer.Run(stop)
 
 	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, nodeInformer.HasSynced, c.filteredNodeInformer.HasSynced,
+	cache.WaitForCacheSync(stop, c.nodeMetadataInformer.HasSynced, c.filteredNodeInformer.HasSynced,
 		c.pods.informer.HasSynced,
 		c.serviceInformer.HasSynced)
 
@@ -670,29 +621,18 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
-	var obj interface{}
-	if c.nodeMetadataInformer != nil {
-		raw, exists, err := c.nodeMetadataInformer.GetStore().GetByKey(pod.Spec.NodeName)
-		if !exists || err != nil {
-			log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
-			nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-			raw, err = c.metadataClient.Resource(nodeResource).Get(context.TODO(), pod.Spec.NodeName, metav1.GetOptions{})
-			if err != nil {
-				log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
-				return ""
-			}
-		}
-		obj = raw
-	} else {
-		node, exists, err := c.nodeInformer.GetStore().GetByKey(pod.Spec.NodeName)
-		if !exists || err != nil {
-			log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
+	raw, exists, err := c.nodeMetadataInformer.GetStore().GetByKey(pod.Spec.NodeName)
+	if !exists || err != nil {
+		log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
+		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+		raw, err = c.metadataClient.Resource(nodeResource).Get(context.TODO(), pod.Spec.NodeName, metav1.GetOptions{})
+		if err != nil {
+			log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
 			return ""
 		}
-		obj = node
 	}
 
-	nodeMeta, err := meta.Accessor(obj)
+	nodeMeta, err := meta.Accessor(raw)
 	if err != nil {
 		log.Warnf("unable to get node meta: %v", nodeMeta)
 		return ""
@@ -1195,69 +1135,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
-}
-
-// TODO: This code will return only the k8s pods but we actually need to return k8s pods and workload entries
-func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
-	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
-
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-	if svc == nil {
-		log.Infof("Handle EDS endpoints: skip updating, service %s/%s has not been populated", ep.Name, ep.Namespace)
-		return
-	}
-	endpoints := make([]*model.IstioEndpoint, 0)
-	if event != model.EventDelete {
-		for _, ss := range ep.Subsets {
-			for _, ea := range ss.Addresses {
-				pod := c.pods.getPodByIP(ea.IP)
-				if pod == nil {
-					// This means, the endpoint event has arrived before pod event. This might happen because
-					// PodCache is eventually consistent. We should try to get the pod from kube-api server.
-					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
-						pod = c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
-						if pod == nil {
-							// If pod is still not available, this an unusual case.
-							endpointsWithNoPods.Increment()
-							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-							if c.metrics != nil {
-								c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, ea.IP)
-							}
-							continue
-						}
-					}
-				}
-
-				builder := NewEndpointBuilder(c, pod)
-
-				// EDS and ServiceEntry use name for service port - ADS will need to
-				// map to numbers.
-				for _, port := range ss.Ports {
-					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
-					endpoints = append(endpoints, istioEndpoint)
-				}
-			}
-		}
-	}
-
-	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
-
-	fep := c.collectAllForeignEndpoints(svc)
-
-	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, append(endpoints, fep...))
-	// fire instance handles for k8s endpoints only
-	for _, handler := range c.instanceHandlers {
-		for _, ep := range endpoints {
-			si := &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: nil,
-				Endpoint:    ep,
-			}
-			handler(si, event)
-		}
-	}
 }
 
 // namedRangerEntry for holding network's CIDR and name

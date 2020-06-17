@@ -57,12 +57,7 @@ components:
             name: https
           - port: 31400
             targetPort: 31400
-            name: tcp
-values:
-  meshConfig:
-    accessLogFile: "/dev/stdout"
-  grafana:
-    enabled: true`
+            name: tcp`
 		})).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {

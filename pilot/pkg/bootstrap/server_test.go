@@ -28,7 +28,6 @@ import (
 
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/testcerts"
 )
 
@@ -128,26 +127,17 @@ func TestNewServer(t *testing.T) {
 
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
-				p.DiscoveryOptions = DiscoveryServiceOptions{
+				p.ServerOptions = DiscoveryServerOptions{
 					// Dynamically assign all ports.
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
-					GrpcAddr:       ":0",
+					GRPCAddr:       ":0",
 				}
-				p.Config = ConfigArgs{
-					ControllerOptions: kubecontroller.Options{
+				p.RegistryOptions = RegistryOptions{
+					KubeOptions: kubecontroller.Options{
 						DomainSuffix: c.domain,
 					},
 					FileDir: configDir,
-				}
-
-				meshCfg := mesh.DefaultMeshConfig()
-				p.MeshConfig = &meshCfg
-
-				// Use the config store for service entries as well.
-				p.Service = ServiceArgs{
-					// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
-					Registries: []string{},
 				}
 
 				// Include all of the default plugins for integration with Mixer, etc.
