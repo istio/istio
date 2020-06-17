@@ -472,8 +472,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 }
 
 func isCentralIstio(env *kube.Environment, cfg Config) bool {
-	if env.IsMulticluster() &&
-		(cfg.ControlPlaneValues != cfg.RemoteClusterValues && cfg.RemoteClusterValues != "") {
+	if env.IsMulticluster() && cfg.Values["global.centralIstiod"] == "true" {
 		return true
 	}
 	return false
