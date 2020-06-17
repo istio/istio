@@ -46,6 +46,7 @@ func mustReadFile(t *testing.T, f string) string {
 func TestDestinationRuleTLS(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.egress.tls").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "tls",

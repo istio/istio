@@ -96,8 +96,8 @@ func TestEgressGatewayTls(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					ctx.ApplyConfigOrFail(ctx, serviceNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
 					defer ctx.DeleteConfigOrFail(ctx, serviceNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
-					ctx.ApplyConfigOrFail(ctx, appsNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
-					defer ctx.DeleteConfigOrFail(ctx, appsNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+					//ctx.ApplyConfigOrFail(ctx, appsNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+					//defer ctx.DeleteConfigOrFail(ctx, appsNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := client.Call(echo.CallOptions{
