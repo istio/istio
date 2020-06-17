@@ -55,7 +55,7 @@ func cleanupRT() {
 // Create a bogus environment for testing. This can be removed when "environments" are removed
 func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *Suite {
 	s := newSuite(testID, fn, osExit, getSettingsFn)
-	s.envFactory = func(name string, ctx resource.Context) (resource.Environment, error) {
+	s.envFactory = func(ctx resource.Context) (resource.Environment, error) {
 		return fakeEnvironment{}, nil
 	}
 	return s
@@ -416,7 +416,7 @@ func TestSuite_GetResource(t *testing.T) {
 
 func newFakeEnvironmentFactory(numClusters int) resource.EnvironmentFactory {
 	e := fakeEnvironment{numClusters: numClusters}
-	return func(name string, ctx resource.Context) (resource.Environment, error) {
+	return func(ctx resource.Context) (resource.Environment, error) {
 		return e, nil
 	}
 }

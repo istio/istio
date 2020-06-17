@@ -51,11 +51,14 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Name:     "HTTP Traffic Egress",
 			PortName: "http",
 			Host:     "some-external-site.com",
-			Gateway:  true,
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway.istio-system.svc.cluster.local",response_code="200"})`,
 				ResponseCode:    []string{"200"},
+				Metadata: map[string]string{
+					// We inject this header in the VirtualService
+					"Handled-By-Egress-Gateway": "true",
+				},
 			},
 		},
 		// TODO add HTTPS through gateway

@@ -24,7 +24,7 @@ docker: docker.all
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.istioctl docker.operator
+	docker.mixer docker.mixer_codegen docker.istioctl docker.operator docker.install-cni
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -144,6 +144,15 @@ docker.mixer: $(ISTIO_DOCKER)/mixs
 docker.mixer_codegen: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
 docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
+	$(DOCKER_RULE)
+
+# CNI
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni $(ISTIO_OUT_LINUX)/istio-cni-repair
+docker.install-cni: cni/tools/packaging/common/istio-iptables.sh
+docker.install-cni: cni/deployments/kubernetes/install/scripts/install-cni.sh
+docker.install-cni: cni/deployments/kubernetes/install/scripts/istio-cni.conf.default
+docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
+docker.install-cni: cni/deployments/kubernetes/install/scripts/filter.jq
 	$(DOCKER_RULE)
 
 .PHONY: dockerx dockerx.save
