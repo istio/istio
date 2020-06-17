@@ -126,7 +126,6 @@ const (
 	sidecarScopeConfig     = "testdata/sidecar-scope.yaml"
 )
 
-
 // setupEcho creates two namespaces app and service. It also brings up two echo instances server and
 // client in app namespace. HTTP and HTTPS port on the server echo are set up. Sidecar scope config
 // is applied to only allow egress traffic to service namespace such that when client to server calls are made

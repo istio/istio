@@ -1,7 +1,7 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: originate-tls-for-edition-cnn-com
+  name: originate-no-tls-for-server
 spec:
   host: some-external-site.com
   trafficPolicy:
