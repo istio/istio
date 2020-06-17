@@ -71,5 +71,6 @@ spec:
         autoscaleEnabled: false
       istio-ingressgateway:
         autoscaleEnabled: false
+
     kiali:
       createDemoSecret: true
