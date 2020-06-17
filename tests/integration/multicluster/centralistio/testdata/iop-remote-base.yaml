@@ -1,0 +1,14 @@
+# This file provides some defaults for integration testing.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    base:
+      enabled: true
+    pilot:
+      enabled: false  
+    istiodRemote:
+      enabled: false 
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
