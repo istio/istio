@@ -23,7 +23,7 @@ docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
-DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar_xenial \
+DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.app_sidecar_xenial \
     docker.app_sidecar_bionic docker.app_sidecar_focal docker.app_sidecar_debian9 \
     docker.app_sidecar_debian10 docker.test_policybackend docker.mixer docker.mixer_codegen \
     docker.istioctl docker.operator
@@ -103,6 +103,17 @@ docker.app: pkg/test/echo/docker/Dockerfile.app
 docker.app: $(ISTIO_OUT_LINUX)/client
 docker.app: $(ISTIO_OUT_LINUX)/server
 docker.app: $(ISTIO_DOCKER)/certs
+	$(DOCKER_RULE)
+
+# Test application bundled with the sidecar (for non-k8s).
+docker.app_sidecar: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+docker.app_sidecar: $(ISTIO_DOCKER)/certs
+docker.app_sidecar: pkg/test/echo/docker/app_sidecar/echo-start.sh
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar: pkg/test/echo/docker/app_sidecar/Dockerfile.app_sidecar
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
