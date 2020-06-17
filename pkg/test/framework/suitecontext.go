@@ -74,7 +74,7 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 		contextNames: make(map[string]struct{}),
 	}
 
-	env, err := envFn(s.Environment, c)
+	env, err := envFn(c)
 	if err != nil {
 		return nil, err
 	}
