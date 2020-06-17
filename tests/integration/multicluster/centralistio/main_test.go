@@ -51,7 +51,33 @@ func TestMain(m *testing.M) {
 		})).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.
-			cfg.ControlPlaneValues = controlPlaneValues
+			cfg.ControlPlaneValues = controlPlaneValues + `
+  gateways:
+    istio-ingressgateway:
+      meshExpansionPorts:
+      - port: 15017
+        targetPort: 15017
+        name: tcp-webhook
+      - port: 15012
+        targetPort: 15012
+        name: tcp-istiod
+  global:
+    centralIstiod: true
+    caAddress: istiod.istio-system.svc:15012`
+			cfg.RemoteClusterValues = `
+components:
+  base:
+    enabled: true
+  pilot:
+    enabled: false  
+  istiodRemote:
+    enabled: true 
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: true
+values:
+  global:
+    centralIstiod: true`
 		})).
 		Setup(func(ctx resource.Context) (err error) {
 			pilots = make([]pilot.Instance, len(ctx.Environment().Clusters()))

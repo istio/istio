@@ -429,11 +429,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		if c.environment.IsControlPlaneCluster(cluster) {
 			// Expose Istiod through ingress to allow remote clusters to connect
 			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
-			if c.environment.Settings().CentralIstiod {
-				installSettings = append(installSettings, "--set", "values.global.centralIstiod=true",
-					"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012",
-					"-f", filepath.Join(env.IstioSrc, "tests/integration/multicluster/centralistio/testdata/iop-central-istiod.yaml"))
-			}
 		} else {
 			installSettings = append(installSettings, "--set", "profile=remote")
 			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
@@ -454,7 +449,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 				"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012")
 
 			if c.environment.Settings().CentralIstiod {
-				installSettings = append(installSettings, "--set", "values.global.centralIstiod=true",
+				installSettings = append(installSettings,
 					"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
 					"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
 
@@ -470,13 +465,9 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 				if err := configureDirectAPIServerAccess(c.ctx, c.environment, cfg); err != nil {
 					return fmt.Errorf("failed to create-remote-secret: %v", err)
 				}
-
-				installSettings = append(installSettings,
-					"-f", filepath.Join(env.IstioSrc, "tests/integration/multicluster/centralistio/testdata/iop-remote.yaml"))
 			}
 		}
 	}
-
 	return applyManifest(c, installSettings, istioCtl, cluster.Name())
 }
 
