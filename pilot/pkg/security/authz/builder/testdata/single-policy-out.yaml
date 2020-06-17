@@ -1,0 +1,423 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  rules:
+    policies:
+      ns[foo]-policy[httpbin]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: rule[0]-to[0]-host[1]
+                    name: :authority
+                - header:
+                    exactMatch: rule[0]-to[0]-host[2]
+                    name: :authority
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: rule[0]-to[0]-method[1]
+                    name: :method
+                - header:
+                    exactMatch: rule[0]-to[0]-method[2]
+                    name: :method
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: rule[0]-to[0]-path[1]
+                - urlPath:
+                    path:
+                      exact: rule[0]-to[0]-path[2]
+            - orRules:
+                rules:
+                - destinationPort: 9001
+                - destinationPort: 9002
+            - orRules:
+                rules:
+                - destinationIp:
+                    addressPrefix: 10.10.10.10
+                    prefixLen: 32
+                - destinationIp:
+                    addressPrefix: 192.168.10.0
+                    prefixLen: 24
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: rule[0]-to[1]-host[1]
+                    name: :authority
+                - header:
+                    exactMatch: rule[0]-to[1]-host[2]
+                    name: :authority
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: rule[0]-to[1]-method[1]
+                    name: :method
+                - header:
+                    exactMatch: rule[0]-to[1]-method[2]
+                    name: :method
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: rule[0]-to[1]-path[1]
+                - urlPath:
+                    path:
+                      exact: rule[0]-to[1]-path[2]
+            - orRules:
+                rules:
+                - destinationPort: 9011
+                - destinationPort: 9012
+            - orRules:
+                rules:
+                - destinationIp:
+                    addressPrefix: 10.10.10.10
+                    prefixLen: 32
+                - destinationIp:
+                    addressPrefix: 192.168.10.0
+                    prefixLen: 24
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: rule[0]-from[0]-principal[1]
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: rule[0]-from[0]-principal[2]
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: rule[0]-from[0]-requestPrincipal[1]
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: rule[0]-from[0]-requestPrincipal[2]
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/rule[0]-from[0]-ns[1]/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/rule[0]-from[0]-ns[2]/.*
+            - orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 10.0.0.1
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 10.0.0.2
+                    prefixLen: 32
+            - orIds:
+                ids:
+                - header:
+                    exactMatch: header
+                    name: X-header
+                - header:
+                    name: X-header
+                    prefixMatch: header-prefix-
+                - header:
+                    name: X-header
+                    suffixMatch: -suffix-header
+                - header:
+                    name: X-header
+                    presentMatch: true
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: rule[0]-from[1]-principal[1]
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: rule[0]-from[1]-principal[2]
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: rule[0]-from[1]-requestPrincipal[1]
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: rule[0]-from[1]-requestPrincipal[2]
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/rule[0]-from[1]-ns[1]/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/rule[0]-from[1]-ns[2]/.*
+            - orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 10.0.1.1
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 192.0.1.2
+                    prefixLen: 32
+            - orIds:
+                ids:
+                - header:
+                    exactMatch: header
+                    name: X-header
+                - header:
+                    name: X-header
+                    prefixMatch: header-prefix-
+                - header:
+                    name: X-header
+                    suffixMatch: -suffix-header
+                - header:
+                    name: X-header
+                    presentMatch: true
+      ns[foo]-policy[httpbin]-rule[1]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: rule[1]-to[0]-host[1]
+                    name: :authority
+                - header:
+                    exactMatch: rule[1]-to[0]-host[2]
+                    name: :authority
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: rule[1]-to[0]-method[1]
+                    name: :method
+                - header:
+                    exactMatch: rule[1]-to[0]-method[2]
+                    name: :method
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: rule[1]-to[0]-path[1]
+                - urlPath:
+                    path:
+                      exact: rule[1]-to[0]-path[2]
+            - orRules:
+                rules:
+                - destinationPort: 9101
+                - destinationPort: 9102
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: rule[1]-to[1]-host[1]
+                    name: :authority
+                - header:
+                    exactMatch: rule[1]-to[1]-host[2]
+                    name: :authority
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: rule[1]-to[1]-method[1]
+                    name: :method
+                - header:
+                    exactMatch: rule[1]-to[1]-method[2]
+                    name: :method
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: rule[1]-to[1]-path[1]
+                - urlPath:
+                    path:
+                      exact: rule[1]-to[1]-path[2]
+            - orRules:
+                rules:
+                - destinationPort: 9111
+                - destinationPort: 9112
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: rule[1]-from[0]-principal[1]
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: rule[1]-from[0]-principal[2]
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: rule[1]-from[0]-requestPrincipal[1]
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: rule[1]-from[0]-requestPrincipal[2]
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/rule[1]-from[0]-ns[1]/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/rule[1]-from[0]-ns[2]/.*
+            - orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 10.1.0.1
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 10.1.0.2
+                    prefixLen: 32
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: rule[1]-from[1]-principal[1]
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: rule[1]-from[1]-principal[2]
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: rule[1]-from[1]-requestPrincipal[1]
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: rule[1]-from[1]-requestPrincipal[2]
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/rule[1]-from[1]-ns[1]/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/rule[1]-from[1]-ns[2]/.*
+            - orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 10.1.1.1
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 192.1.1.2
+                    prefixLen: 32

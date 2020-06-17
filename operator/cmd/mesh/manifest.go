@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@ package mesh
 
 import (
 	"github.com/spf13/cobra"
+
+	"istio.io/pkg/log"
 )
 
 // ManifestCmd is a group of commands related to manifest generation, installation, diffing and migration.
-func ManifestCmd() *cobra.Command {
+func ManifestCmd(logOpts *log.Options) *cobra.Command {
 	mc := &cobra.Command{
 		Use:   "manifest",
 		Short: "Commands related to Istio manifests",
@@ -29,35 +31,25 @@ func ManifestCmd() *cobra.Command {
 	mgcArgs := &manifestGenerateArgs{}
 	mdcArgs := &manifestDiffArgs{}
 	macArgs := &manifestApplyArgs{}
-	mvArgs := &manifestVersionsArgs{}
-	mmcArgs := &manifestMigrateArgs{}
 
 	args := &rootArgs{}
 
-	mgc := manifestGenerateCmd(args, mgcArgs)
+	mgc := manifestGenerateCmd(args, mgcArgs, logOpts)
 	mdc := manifestDiffCmd(args, mdcArgs)
-	mac := manifestApplyCmd(args, macArgs)
-	mvc := manifestVersionsCmd(args, mvArgs)
-	mmc := manifestMigrateCmd(args, mmcArgs)
+	mac := manifestApplyCmd(args, macArgs, logOpts)
 
 	addFlags(mc, args)
 	addFlags(mgc, args)
 	addFlags(mdc, args)
 	addFlags(mac, args)
-	addFlags(mvc, args)
-	addFlags(mmc, args)
 
 	addManifestGenerateFlags(mgc, mgcArgs)
 	addManifestDiffFlags(mdc, mdcArgs)
 	addManifestApplyFlags(mac, macArgs)
-	addManifestVersionsFlags(mvc, mvArgs)
-	addManifestMigrateFlags(mmc, mmcArgs)
 
 	mc.AddCommand(mgc)
 	mc.AddCommand(mdc)
 	mc.AddCommand(mac)
-	mc.AddCommand(mmc)
-	mc.AddCommand(mvc)
 
 	return mc
 }

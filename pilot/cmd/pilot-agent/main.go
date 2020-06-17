@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,9 +22,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"google.golang.org/grpc/grpclog"
+
+	"istio.io/istio/pkg/dns"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/collateral"
@@ -42,7 +44,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/jwt"
@@ -68,7 +69,6 @@ var (
 	proxyIP            string
 	registryID         serviceregistry.ProviderID
 	trustDomain        string
-	pilotIdentity      string
 	mixerIdentity      string
 	stsPort            int
 	tokenManagerPlugin string
@@ -90,15 +90,20 @@ var (
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
-	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
-	meshConfig = env.RegisterStringVar("MESH_CONFIG", "", "The mesh configuration").Get()
+	proxyConfigEnv = env.RegisterStringVar(
+		"PROXY_CONFIG",
+		"",
+		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
+	).Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -123,6 +128,7 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
+			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			// Extract pod variables.
 			podName := podNameVar.Get()
@@ -190,22 +196,23 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
+			// If not set, set a default based on platform - podNamespace.svc.cluster.local for
+			// K8S
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			log.Infof("Proxy role: %#v", role)
 
 			var jwtPath string
-			if jwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
+			if jwtPolicy.Get() == jwt.PolicyThirdParty {
 				log.Info("JWT policy is third-party-jwt")
 				jwtPath = trustworthyJWTPath
-			} else if jwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
+			} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
 				log.Info("JWT policy is first-party-jwt")
 				jwtPath = securityModel.K8sSAJwtFileName
 			} else {
 				log.Info("Using existing certs")
 			}
-
 			sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-				pilotCertProvider, jwtPath, outputKeyCertToDir)
+				pilotCertProvider, jwtPath, outputKeyCertToDir, clusterIDVar.Get())
 
 			// Connection to Istiod secure port
 			if sa.RequireCerts {
@@ -215,7 +222,7 @@ var (
 			var pilotSAN, mixerSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
-				// Obtain the Mixer SAN, which uses SPIFFEE certs. Used below to create a Envoy proxy.
+				// Obtain the Mixer SAN, which uses SPIFFE certs. Used below to create a Envoy proxy.
 				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
@@ -290,6 +297,24 @@ var (
 				defer stsServer.Stop()
 			}
 
+			// Start a local DNS server on 15053, forwarding to DNS-over-TLS server
+			// This will not have any impact on app unless interception is enabled.
+			// We can't start on 53 - istio-agent runs as user istio-proxy.
+			// This is available to apps even if interception is not enabled.
+
+			// TODO: replace hardcoded .global. Right now the ingress templates are
+			// hardcoding it as well, so there is little benefit to do it only here.
+			if dns.DNSTLSEnableAgent.Get() != "" {
+				// In the injection template the only place where global.proxy.clusterDomain
+				// is made available is in the --domain param.
+				// Instead of introducing a new config, use that.
+
+				dnsSrv := dns.InitDNSAgent(proxyConfig.DiscoveryAddress,
+					role.DNSDomain, sa.RootCert,
+					[]string{".global."})
+				dnsSrv.StartDNS(dns.DNSAgentAddr, nil)
+			}
+
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
 				Node:                role.ServiceNode(),
@@ -323,31 +348,6 @@ var (
 	}
 )
 
-// getMeshConfig gets the mesh config to use for proxy configuration
-// 1. Search for MESH_CONFIG env var. This is set in the injection template
-// 2. Attempt to read --meshConfigFile. This is used for gateways
-// 3. If neither is found, we can fallback to default settings
-func getMeshConfig() (meshconfig.MeshConfig, error) {
-	defaultConfig := mesh.DefaultMeshConfig()
-	if meshConfig != "" {
-		mc, err := mesh.ApplyMeshConfig(meshConfig, defaultConfig)
-		if err != nil || mc == nil {
-			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config [%v]: %v", meshConfig, err)
-		}
-		return *mc, nil
-	}
-	b, err := ioutil.ReadFile(meshConfigFile)
-	if err != nil {
-		log.Warnf("Failed to read mesh config file from %v or MESH_CONFIG. Falling back to defaults: %v", meshConfigFile, err)
-		return defaultConfig, nil
-	}
-	mc, err := mesh.ApplyMeshConfig(string(b), defaultConfig)
-	if err != nil || mc == nil {
-		return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config [%v]: %v", string(b), err)
-	}
-	return *mc, nil
-}
-
 // dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {
 	set := sets.NewSet(in...)
@@ -360,8 +360,8 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 	pilotTrustDomain := trustDomain
 	if len(pilotTrustDomain) == 0 {
 		if registryID == serviceregistry.Kubernetes &&
-			(domain == podNamespace+".svc.cluster.local" || domain == "") {
-			pilotTrustDomain = "cluster.local"
+			(domain == podNamespace+".svc."+constants.DefaultKubernetesDomain || domain == "") {
+			pilotTrustDomain = constants.DefaultKubernetesDomain
 		} else if registryID == serviceregistry.Consul &&
 			(domain == "service.consul" || domain == "") {
 			pilotTrustDomain = ""
@@ -386,7 +386,7 @@ func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
 		if registryID == serviceregistry.Kubernetes {
-			domain = podNamespace + ".svc.cluster.local"
+			domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
 		} else if registryID == serviceregistry.Consul {
 			domain = "service.consul"
 		} else {
@@ -394,17 +394,6 @@ func getDNSDomain(podNamespace, domain string) string {
 		}
 	}
 	return domain
-}
-
-func fromJSON(j string) *meshconfig.RemoteService {
-	var m meshconfig.RemoteService
-	err := jsonpb.UnmarshalString(j, &m)
-	if err != nil {
-		log.Warnf("Unable to unmarshal %s: %v", j, err)
-		return nil
-	}
-
-	return &m
 }
 
 func init() {
@@ -420,13 +409,12 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
 		"The domain to use for identities")
-	proxyCmd.PersistentFlags().StringVar(&pilotIdentity, "pilotIdentity", "",
-		"The identity used as the suffix for pilot's spiffe SAN ")
 	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
-	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "/etc/istio/config/mesh",
-		"File name for Istio mesh configuration. If not specified, a default mesh will be used. MESH_CONFIG environment variable takes precedence.")
+	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
+		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
+			"PROXY_CONFIG environment variable or proxy.istio.io/config annotation.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
 	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import (
 
 	"istio.io/istio/pkg/config/schema/resource"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -37,11 +36,9 @@ import (
 )
 
 var (
-	gatewayGvk                  = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
-	serviceEntryGvk             = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
-	virtualServiceGvk           = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()
-	authenticationPolicyGvk     = collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind()
-	authenticationMeshPolicyGvk = collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind()
+	gatewayGvk        = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
+	serviceEntryGvk   = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
+	virtualServiceGvk = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()
 
 	gateway = &networking.Gateway{
 		Servers: []*networking.Server{
@@ -82,21 +79,6 @@ var (
 		},
 	}
 
-	authnPolicy0 = &authn.Policy{
-		Targets: []*authn.TargetSelector{{
-			Name: "service-foo",
-		}},
-		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{}},
-		},
-	}
-
-	authnPolicy1 = &authn.Policy{
-		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{}},
-		},
-	}
-
 	serviceEntry = &networking.ServiceEntry{
 		Hosts: []string{"example.com"},
 		Ports: []*networking.Port{
@@ -108,7 +90,7 @@ var (
 		},
 		Location:   networking.ServiceEntry_MESH_INTERNAL,
 		Resolution: networking.ServiceEntry_STATIC,
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "127.0.0.1",
 				Ports: map[string]uint32{
@@ -426,98 +408,6 @@ func TestApplyConfigUpdate(t *testing.T) {
 
 	event := <-fx.Events
 	g.Expect(event).To(Equal("ConfigUpdate"))
-}
-
-func TestApplyClusterScopedAuthPolicy(t *testing.T) {
-	g := NewGomegaWithT(t)
-	controller := mcp.NewController(testControllerOptions)
-
-	message0 := convertToResource(g,
-		collections.IstioAuthenticationV1Alpha1Policies.Resource().Proto(),
-		authnPolicy0)
-
-	message1 := convertToResource(g,
-		collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Proto(),
-		authnPolicy1)
-
-	change := convertToChange(
-		[]proto.Message{message0},
-		[]string{"bar-namespace/foo"},
-		setCollection(collections.IstioAuthenticationV1Alpha1Policies.Name().String()),
-		setTypeURL(collections.IstioAuthenticationV1Alpha1Policies.Resource().Proto()))
-
-	err := controller.Apply(change)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	change = convertToChange(
-		[]proto.Message{message1},
-		[]string{"default"},
-		setCollection(collections.IstioAuthenticationV1Alpha1Meshpolicies.Name().String()),
-		setTypeURL(collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Proto()))
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	c, err := controller.List(authenticationPolicyGvk, "bar-namespace")
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(len(c)).To(Equal(1))
-	g.Expect(c[0].Name).To(Equal("foo"))
-	g.Expect(c[0].Namespace).To(Equal("bar-namespace"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationPolicyGvk))
-	g.Expect(c[0].Spec).To(Equal(message0))
-
-	c, err = controller.List(authenticationMeshPolicyGvk, "")
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(len(c)).To(Equal(1))
-	g.Expect(c[0].Name).To(Equal("default"))
-	g.Expect(c[0].Namespace).To(Equal(""))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationMeshPolicyGvk))
-	g.Expect(c[0].Spec).To(Equal(message1))
-
-	// verify the namespace scoped resource can be deleted
-	change = convertToChange(
-		[]proto.Message{message1},
-		[]string{"default"},
-		setCollection(collections.IstioAuthenticationV1Alpha1Policies.Name().String()),
-		setTypeURL(collections.IstioAuthenticationV1Alpha1Policies.Resource().Proto()))
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	c, err = controller.List(authenticationMeshPolicyGvk, "")
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(len(c)).To(Equal(1))
-	g.Expect(c[0].Name).To(Equal("default"))
-	g.Expect(c[0].Namespace).To(Equal(""))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationMeshPolicyGvk))
-	g.Expect(c[0].Spec).To(Equal(message1))
-
-	// verify the namespace scoped resource can be added and mesh-scoped resource removed
-	change = convertToChange(
-		[]proto.Message{message0},
-		[]string{"bar-namespace/foo"},
-		setCollection(collections.IstioAuthenticationV1Alpha1Policies.Name().String()),
-		setTypeURL(collections.IstioAuthenticationV1Alpha1Policies.Resource().Proto()))
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	change = convertToChange(
-		[]proto.Message{},
-		[]string{"default"},
-		setCollection(collections.IstioAuthenticationV1Alpha1Meshpolicies.Name().String()),
-		setTypeURL(collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Proto()))
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	c, err = controller.List(authenticationPolicyGvk, "bar-namespace")
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(len(c)).To(Equal(1))
-	g.Expect(c[0].Name).To(Equal("foo"))
-	g.Expect(c[0].Namespace).To(Equal("bar-namespace"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationPolicyGvk))
-	g.Expect(c[0].Spec).To(Equal(message0))
 }
 
 func TestInvalidResource(t *testing.T) {
@@ -850,4 +740,143 @@ func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {
 }
 
 func (f *FakeXdsUpdater) ProxyUpdate(_, _ string) {
+}
+
+func TestApplyIncrementalChangeRemove(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	controller := mcp.NewController(testControllerOptions)
+
+	message := convertToResource(g, collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(), gateway)
+
+	change := convertToChange([]proto.Message{message},
+		[]string{"random-namespace/test-gateway"},
+		setIncremental(),
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto()))
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	entries, err := controller.List(gatewayGvk, "")
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(entries).To(HaveLen(1))
+	g.Expect(entries[0].Name).To(Equal("test-gateway"))
+
+	update := <-fx.Events
+	g.Expect(update).To(Equal("ConfigUpdate"))
+
+	message2 := convertToResource(g, collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(), gateway2)
+	change = convertToChange([]proto.Message{message2},
+		[]string{"random-namespace/test-gateway2"},
+		setIncremental(),
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto()))
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	entries, err = controller.List(gatewayGvk, "")
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(entries).To(HaveLen(2))
+
+	update = <-fx.Events
+	g.Expect(update).To(Equal("ConfigUpdate"))
+
+	for _, gw := range entries {
+		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
+		switch gw.Name {
+		case "test-gateway":
+			g.Expect(gw.Spec).To(Equal(message))
+		case "test-gateway2":
+			g.Expect(gw.Spec).To(Equal(message2))
+		}
+	}
+
+	change = convertToChange([]proto.Message{message2},
+		[]string{"random-namespace/test-gateway2"},
+		setIncremental(),
+		setRemoved([]string{"random-namespace/test-gateway"}),
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto()))
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	entries, err = controller.List(gatewayGvk, "")
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(entries).To(HaveLen(1))
+	g.Expect(entries[0].Name).To(Equal("test-gateway2"))
+	g.Expect(entries[0].Spec).To(Equal(message2))
+
+	update = <-fx.Events
+	g.Expect(update).To(Equal("ConfigUpdate"))
+}
+
+func TestApplyIncrementalChange(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	controller := mcp.NewController(testControllerOptions)
+
+	message := convertToResource(g, collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(), gateway)
+
+	change := convertToChange([]proto.Message{message},
+		[]string{"random-namespace/test-gateway"},
+		setIncremental(),
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto()))
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	entries, err := controller.List(gatewayGvk, "")
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(entries).To(HaveLen(1))
+	g.Expect(entries[0].Name).To(Equal("test-gateway"))
+
+	update := <-fx.Events
+	g.Expect(update).To(Equal("ConfigUpdate"))
+
+	message2 := convertToResource(g, collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(), gateway2)
+	change = convertToChange([]proto.Message{message2},
+		[]string{"random-namespace/test-gateway2"},
+		setIncremental(),
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto()))
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	entries, err = controller.List(gatewayGvk, "")
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(entries).To(HaveLen(2))
+
+	for _, gw := range entries {
+		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
+		switch gw.Name {
+		case "test-gateway":
+			g.Expect(gw.Spec).To(Equal(message))
+		case "test-gateway2":
+			g.Expect(gw.Spec).To(Equal(message2))
+		}
+	}
+
+	update = <-fx.Events
+	g.Expect(update).To(Equal("ConfigUpdate"))
+}
+
+func setIncremental() func(*sink.Change) {
+	return func(c *sink.Change) {
+		c.Incremental = true
+	}
+}
+
+func setRemoved(removed []string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		c.Removed = removed
+	}
 }

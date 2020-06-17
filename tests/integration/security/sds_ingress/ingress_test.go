@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,19 +18,13 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
 	inst istio.Instance
-	g    galley.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -38,25 +32,23 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("sds_ingress", m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
-		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
-				return err
-			}
-			return nil
-		}).
+		Setup(istio.Setup(&inst, nil)).
 		Run()
 }
 
+// TestSingleTlsGateway_SecretRotation tests a single TLS ingress gateway with SDS enabled.
+// Verifies behavior in these scenarios.
+// (1) create a kubernetes secret to provision server key/cert, and
+// verify that TLS connection could establish to deliver HTTPS request.
+// (2) Rotates key/cert by deleting the secret generated in (1) and
+// replacing it a new secret with a different server key/cert.
+// (3) verify that client using older CA cert gets a 404 response
+// (4) verify that client using the newer CA cert is able to establish TLS connection
+// to deliver the HTTPS request.
 func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.ingress.tls").
 		Run(func(ctx framework.TestContext) {
 
 			var (
@@ -64,11 +56,11 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				host     = "testsingletlsgateway-secretrotation.example.com"
 			)
 			// Add kubernetes secret to provision key/cert for ingress gateway.
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA)
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA, false)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName})
 
-			ns := ingressutil.SetupTest(ctx, g)
-			ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
+			ns := ingressutil.SetupTest(ctx)
+			ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
 				Mode:           "SIMPLE",
 				CredentialName: credName,
 				Host:           host,
@@ -83,7 +75,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			}
 
 			// key/cert rotation
-			ingressutil.RotateSecrets(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialB)
+			ingressutil.RotateSecrets(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialB, false)
 			// Client use old server CA cert to set up SSL connection would fail.
 			err = ingressutil.SendRequest(ingA, host, credName, ingress.TLS, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
@@ -114,7 +106,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.ingress.mtls").
 		Run(func(ctx framework.TestContext) {
 
 			var (
@@ -123,17 +115,17 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 				host       = "testsinglemtlsgateway-serverkeycertrotation.example.com"
 			)
 
-			ns := ingressutil.SetupTest(ctx, g)
-			ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
+			ns := ingressutil.SetupTest(ctx)
+			ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
 				Mode:           "MUTUAL",
 				CredentialName: credName[0],
 				Host:           host,
 			})
 
 			// Add two kubernetes secrets to provision server key/cert and client CA cert for ingress gateway.
-			ingressutil.CreateIngressKubeSecret(t, ctx, credCaName, ingress.Mtls, ingressutil.IngressCredentialCaCertA)
+			ingressutil.CreateIngressKubeSecret(t, ctx, credCaName, ingress.Mtls, ingressutil.IngressCredentialCaCertA, false)
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls,
-				ingressutil.IngressCredentialServerKeyCertA)
+				ingressutil.IngressCredentialServerKeyCertA, false)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credName)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credCaName)
 
@@ -151,7 +143,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 
 			// key/cert rotation using mis-matched server key/cert. The server cert cannot pass validation
 			// at client side.
-			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertB)
+			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertB, false)
 			// Client uses old server CA cert to set up SSL connection would fail.
 			err = ingressutil.SendRequest(ingA, host, credName[0], ingress.Mtls, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
@@ -161,7 +153,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 
 			// key/cert rotation using matched server key/cert. This time the server cert is able to pass
 			// validation at client side.
-			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertA)
+			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertA, false)
 			// Use old CA cert to set up SSL connection would succeed this time.
 			err = ingressutil.SendRequest(ingA, host, credName[0], ingress.Mtls, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
@@ -180,7 +172,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.ingress.mtls").
 		Run(func(ctx framework.TestContext) {
 			var (
 				credName = []string{"testsinglemtlsgateway-compoundsecretrotation"}
@@ -188,11 +180,11 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 			)
 
 			// Add kubernetes secret to provision key/cert for ingress gateway.
-			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA)
+			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA, false)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credName)
 
-			ns := ingressutil.SetupTest(ctx, g)
-			ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
+			ns := ingressutil.SetupTest(ctx)
+			ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
 				Mode:           "MUTUAL",
 				CredentialName: credName[0],
 				Host:           host,
@@ -211,7 +203,69 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 			}
 
 			// key/cert rotation
-			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialB)
+			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialB, false)
+			// Use old server CA cert to set up SSL connection would fail.
+			err = ingressutil.SendRequest(ing, host, credName[0], ingress.Mtls, tlsContext,
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
+			if err != nil {
+				t.Fatalf("unable to retrieve 404 from product page at host %s: %v", host, err)
+			}
+
+			// Use new server CA cert to set up SSL connection.
+			tlsContext = ingressutil.TLSContext{
+				CaCert:     ingressutil.CaCertB,
+				PrivateKey: ingressutil.TLSClientKeyB,
+				Cert:       ingressutil.TLSClientCertB,
+			}
+			err = ingressutil.SendRequest(ing, host, credName[0], ingress.Mtls, tlsContext,
+				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+			if err != nil {
+				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
+			}
+		})
+}
+
+// TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation tests a single mTLS ingress gateway with SDS enabled and use the tls cert instead of generic cert
+// Verifies behavior in these scenarios.
+// (1) A valid kubernetes secret with key/cert and client CA cert is added, verifies that SSL connection
+// termination is working properly. This secret is a compound secret.
+// (2) After key/cert rotation, client needs to pick new CA cert to complete SSL connection. Old CA
+// cert will cause the SSL connection fail.
+func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("security.ingress.mtls").
+		Run(func(ctx framework.TestContext) {
+			var (
+				credName = []string{"testsinglemtlsgatewayandnotgeneric-compoundsecretrotation"}
+				host     = "testsinglemtlsgatewayandnotgeneric-compoundsecretrotation.example.com"
+			)
+
+			// Add kubernetes secret to provision key/cert for ingress gateway.
+			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA, true)
+			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credName)
+
+			ns := ingressutil.SetupTest(ctx)
+			ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
+				Mode:           "MUTUAL",
+				CredentialName: credName[0],
+				Host:           host,
+			})
+			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
+			ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+			tlsContext := ingressutil.TLSContext{
+				CaCert:     ingressutil.CaCertA,
+				PrivateKey: ingressutil.TLSClientKeyA,
+				Cert:       ingressutil.TLSClientCertA,
+			}
+			err := ingressutil.SendRequest(ing, host, credName[0], ingress.Mtls, tlsContext,
+				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+			if err != nil {
+				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
+			}
+
+			// key/cert rotation
+			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialB, true)
 			// Use old server CA cert to set up SSL connection would fail.
 			err = ingressutil.SendRequest(ing, host, credName[0], ingress.Mtls, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
@@ -239,9 +293,9 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 func TestTlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.ingress.tls").
 		Run(func(ctx framework.TestContext) {
-			ingressutil.RunTestMultiTLSGateways(ctx, inst, g)
+			ingressutil.RunTestMultiTLSGateways(ctx, inst)
 		})
 }
 
@@ -251,9 +305,9 @@ func TestTlsGateways(t *testing.T) {
 func TestMtlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.ingress.mtls").
 		Run(func(ctx framework.TestContext) {
-			ingressutil.RunTestMultiMtlsGateways(ctx, inst, g)
+			ingressutil.RunTestMultiMtlsGateways(ctx, inst)
 		})
 }
 
@@ -262,10 +316,10 @@ func TestMtlsGateways(t *testing.T) {
 func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.ingress.mtls").
 		Run(func(ctx framework.TestContext) {
 
-			ns := ingressutil.SetupTest(ctx, g)
+			ns := ingressutil.SetupTest(ctx)
 
 			testCase := []struct {
 				name                     string
@@ -383,11 +437,11 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 			for _, c := range testCase {
 				ctx.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					ingressutil.CreateIngressKubeSecret(ctx, ctx, []string{c.secretName}, ingress.TLS,
-						c.ingressGatewayCredential)
+						c.ingressGatewayCredential, false)
 					defer ingressutil.DeleteIngressKubeSecret(ctx, ctx, []string{c.secretName})
 					ing := ingress.NewOrFail(ctx, ctx, c.ingressConfig)
 
-					ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
+					ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
 						Mode:           "SIMPLE",
 						CredentialName: c.secretName,
 						Host:           c.hostName,
@@ -406,9 +460,8 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ns := ingressutil.SetupTest(ctx, g)
+			ns := ingressutil.SetupTest(ctx)
 
 			testCase := []struct {
 				name                     string
@@ -496,10 +549,10 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 			for _, c := range testCase {
 				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
 					ingressutil.CreateIngressKubeSecret(t, ctx, []string{c.secretName}, ingress.Mtls,
-						c.ingressGatewayCredential)
+						c.ingressGatewayCredential, false)
 					defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{c.secretName})
 
-					ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
+					ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
 						Mode:           "MUTUAL",
 						CredentialName: c.secretName,
 						Host:           c.hostName,

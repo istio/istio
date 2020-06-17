@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,11 +20,13 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/istioctl/pkg/kubernetes"
+	"istio.io/istio/pkg/kube"
+	testKube "istio.io/istio/pkg/test/kube"
 )
 
 func TestDashboard(t *testing.T) {
-	clientExecFactory = mockExecClientDashboard
+	kubeClientWithRevision = mockExecClientDashboard
+	kubeClient = mockEnvoyClientDashboard
 
 	cases := []testCase{
 		{ // case 0
@@ -43,7 +45,7 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 3
 			args:           strings.Split("dashboard controlz pod-123456-7890", " "),
-			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
+			expectedRegexp: regexp.MustCompile(".*MockClient doesn't implement port forwarding"),
 			wantException:  true,
 		},
 		{ // case 4
@@ -53,7 +55,7 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 5
 			args:           strings.Split("dashboard envoy pod-123456-7890", " "),
-			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
+			expectedRegexp: regexp.MustCompile(".*MockClient doesn't implement port forwarding"),
 			wantException:  true,
 		},
 		{ // case 6
@@ -115,6 +117,10 @@ func TestDashboard(t *testing.T) {
 	}
 }
 
-func mockExecClientDashboard(_, _ string) (kubernetes.ExecClient, error) {
-	return &mockExecConfig{}, nil
+func mockExecClientDashboard(_, _, _ string) (kube.Client, error) {
+	return testKube.MockClient{}, nil
+}
+
+func mockEnvoyClientDashboard(_, _ string) (kube.Client, error) {
+	return testKube.MockClient{}, nil
 }

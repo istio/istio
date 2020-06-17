@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ func (m *MessageType) Code() string { return m.code }
 func (m *MessageType) Template() string { return m.template }
 
 // Message is a specific diagnostic message
+// TODO: Implement using Analysis message API
 type Message struct {
 	Type *MessageType
 
@@ -68,8 +69,8 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	result["level"] = m.Type.Level().String()
 	if includeOrigin && m.Resource != nil {
 		result["origin"] = m.Resource.Origin.FriendlyName()
-		if m.Resource.Origin.Reference() != "" {
-			result["reference"] = m.Resource.Origin.Reference()
+		if m.Resource.Origin.Reference() != nil {
+			result["reference"] = m.Resource.Origin.Reference().String()
 		}
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
@@ -88,8 +89,8 @@ func (m *Message) String() string {
 	origin := ""
 	if m.Resource != nil {
 		loc := ""
-		if m.Resource.Origin.Reference() != "" {
-			loc = " " + m.Resource.Origin.Reference()
+		if m.Resource.Origin.Reference() != nil {
+			loc = " " + m.Resource.Origin.Reference().String()
 		}
 		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
 	}

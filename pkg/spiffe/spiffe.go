@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	"sync"
 
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 const (
@@ -28,7 +30,7 @@ const (
 	URIPrefix = Scheme + "://"
 
 	// The default SPIFFE URL value for trust domain
-	defaultTrustDomain = "cluster.local"
+	defaultTrustDomain = constants.DefaultKubernetesDomain
 )
 
 var (

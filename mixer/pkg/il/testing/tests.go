@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import (
 	"time"
 
 	descriptor "istio.io/api/policy/v1beta1"
-	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/pkg/attribute"
 )
@@ -1127,30 +1126,30 @@ end
 	},
 
 	{
-		E:    `dnsName(as)`,
+		E:    `dnsName(abc)`,
 		Type: descriptor.DNS_NAME,
-		Err:  "lookup failed: 'as'",
+		Err:  "lookup failed: 'abc'",
 	},
 
 	{
-		E:    `dnsName(as)`,
+		E:    `dnsName(abc)`,
 		Type: descriptor.DNS_NAME,
 		I: map[string]interface{}{
-			"as": "-foo.-bar",
+			"abc": "-foo.-bar",
 		},
 		Err: `error converting '-foo.-bar' to dns name: 'idna: invalid label "-foo"'`,
 	},
 
 	{
-		E:    `dnsName(as)`,
+		E:    `dnsName(abc)`,
 		Type: descriptor.DNS_NAME,
 		I: map[string]interface{}{
-			"as": "foo.bar",
+			"abc": "foo.bar",
 		},
 		R: "foo.bar",
 		IL: `
 fn eval() string
-  resolve_s "as"
+  resolve_s "abc"
   call dnsName
   ret
 end
@@ -1244,14 +1243,14 @@ end`,
 	},
 
 	{
-		E:    `dnsName(as | bs | "foo")`,
+		E:    `dnsName(abc | bs | "foo")`,
 		Type: descriptor.DNS_NAME,
 		R:    "foo",
 		// CEL does not support top-level ident presence
 		CEL: errors.New("error converting"),
 		IL: `
  fn eval() string
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L0
   tresolve_s "bs"
   jnz L0
@@ -1263,10 +1262,10 @@ end`,
 	},
 
 	{
-		E:    `dnsName(as | bs | "foo")`,
+		E:    `dnsName(abc | bs | "foo")`,
 		Type: descriptor.DNS_NAME,
 		I: map[string]interface{}{
-			"as": "foo.bar.com",
+			"abc": "foo.bar.com",
 		},
 		R: "foo.bar.com",
 	},
@@ -1310,13 +1309,13 @@ end`,
 	},
 
 	{
-		E:          `adns == as`,
-		CompileErr: "EQ($adns, $as) arg 2 ($as) typeError got STRING, expected DNS_NAME",
+		E:          `adns == abc`,
+		CompileErr: "EQ($adns, $abc) arg 2 ($abc) typeError got STRING, expected DNS_NAME",
 	},
 
 	{
-		E:          `adns != as`,
-		CompileErr: "NEQ($adns, $as) arg 2 ($as) typeError got STRING, expected DNS_NAME",
+		E:          `adns != abc`,
+		CompileErr: "NEQ($adns, $abc) arg 2 ($abc) typeError got STRING, expected DNS_NAME",
 	},
 
 	{
@@ -1376,30 +1375,30 @@ end
 	},
 
 	{
-		E:    `email(as)`,
+		E:    `email(abc)`,
 		Type: descriptor.EMAIL_ADDRESS,
-		Err:  "lookup failed: 'as'",
+		Err:  "lookup failed: 'abc'",
 	},
 
 	{
-		E:    `email(as)`,
+		E:    `email(abc)`,
 		Type: descriptor.EMAIL_ADDRESS,
 		I: map[string]interface{}{
-			"as": "barfoo",
+			"abc": "barfoo",
 		},
 		Err: `error converting 'barfoo' to e-mail:`,
 	},
 
 	{
-		E:    `email(as)`,
+		E:    `email(abc)`,
 		Type: descriptor.EMAIL_ADDRESS,
 		I: map[string]interface{}{
-			"as": "istio@istio.io",
+			"abc": "istio@istio.io",
 		},
 		R: "istio@istio.io",
 		IL: `
 fn eval() string
-  resolve_s "as"
+  resolve_s "abc"
   call email
   ret
 end
@@ -1407,10 +1406,10 @@ end
 	},
 
 	{
-		E:    `email(as)`,
+		E:    `email(abc)`,
 		Type: descriptor.EMAIL_ADDRESS,
 		I: map[string]interface{}{
-			"as": `"istio"@istio.io`, // The e-mail should not get normalized.
+			"abc": `"istio"@istio.io`, // The e-mail should not get normalized.
 		},
 		R: `"istio"@istio.io`,
 	},
@@ -1502,14 +1501,14 @@ end`,
 	},
 
 	{
-		E:    `email(as | bs | "istio@istio.io")`,
+		E:    `email(abc | bs | "istio@istio.io")`,
 		Type: descriptor.EMAIL_ADDRESS,
 		R:    "istio@istio.io",
 		// CEL does not support top-level ident presence
 		CEL: errors.New("error converting"),
 		IL: `
  fn eval() string
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L0
   tresolve_s "bs"
   jnz L0
@@ -1521,10 +1520,10 @@ end`,
 	},
 
 	{
-		E:    `email(as | bs | "pilot@istio.io")`,
+		E:    `email(abc | bs | "pilot@istio.io")`,
 		Type: descriptor.EMAIL_ADDRESS,
 		I: map[string]interface{}{
-			"as": "istio@istio.io",
+			"abc": "istio@istio.io",
 		},
 		R: "istio@istio.io",
 	},
@@ -1568,13 +1567,13 @@ end`,
 	},
 
 	{
-		E:          `amail == as`,
-		CompileErr: "EQ($amail, $as) arg 2 ($as) typeError got STRING, expected EMAIL_ADDRESS",
+		E:          `amail == abc`,
+		CompileErr: "EQ($amail, $abc) arg 2 ($abc) typeError got STRING, expected EMAIL_ADDRESS",
 	},
 
 	{
-		E:          `amail != as`,
-		CompileErr: "NEQ($amail, $as) arg 2 ($as) typeError got STRING, expected EMAIL_ADDRESS",
+		E:          `amail != abc`,
+		CompileErr: "NEQ($amail, $abc) arg 2 ($abc) typeError got STRING, expected EMAIL_ADDRESS",
 	},
 
 	{
@@ -1617,30 +1616,30 @@ end
 	},
 
 	{
-		E:    `uri(as)`,
+		E:    `uri(abc)`,
 		Type: descriptor.URI,
-		Err:  "lookup failed: 'as'",
+		Err:  "lookup failed: 'abc'",
 	},
 
 	{
-		E:    `uri(as)`,
+		E:    `uri(abc)`,
 		Type: descriptor.URI,
 		I: map[string]interface{}{
-			"as": ":/",
+			"abc": ":/",
 		},
 		Err: `error converting string to uri`,
 	},
 
 	{
-		E:    `uri(as)`,
+		E:    `uri(abc)`,
 		Type: descriptor.URI,
 		I: map[string]interface{}{
-			"as": "urn:foo",
+			"abc": "urn:foo",
 		},
 		R: "urn:foo",
 		IL: `
 fn eval() string
-  resolve_s "as"
+  resolve_s "abc"
   call uri
   ret
 end
@@ -1734,14 +1733,14 @@ end`,
 	},
 
 	{
-		E:    `uri(as | bs | "ftp://ftp.istio.io/releases")`,
+		E:    `uri(abc | bs | "ftp://ftp.istio.io/releases")`,
 		Type: descriptor.URI,
 		R:    "ftp://ftp.istio.io/releases",
 		// CEL does not support top-level ident presence
 		CEL: errors.New("error converting"),
 		IL: `
  fn eval() string
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L0
   tresolve_s "bs"
   jnz L0
@@ -1753,10 +1752,10 @@ end`,
 	},
 
 	{
-		E:    `uri(as | bs | "ftp://ftp.istio.io/releases")`,
+		E:    `uri(abc | bs | "ftp://ftp.istio.io/releases")`,
 		Type: descriptor.URI,
 		I: map[string]interface{}{
-			"as": "http://istio.io",
+			"abc": "http://istio.io",
 		},
 		R: "http://istio.io",
 	},
@@ -1800,13 +1799,13 @@ end`,
 	},
 
 	{
-		E:          `auri == as`,
-		CompileErr: "EQ($auri, $as) arg 2 ($as) typeError got STRING, expected URI",
+		E:          `auri == abc`,
+		CompileErr: "EQ($auri, $abc) arg 2 ($abc) typeError got STRING, expected URI",
 	},
 
 	{
-		E:          `auri != as`,
-		CompileErr: "NEQ($auri, $as) arg 2 ($as) typeError got STRING, expected URI",
+		E:          `auri != abc`,
+		CompileErr: "NEQ($auri, $abc) arg 2 ($abc) typeError got STRING, expected URI",
 	},
 
 	{
@@ -1905,15 +1904,15 @@ end`,
 		CEL: false,
 	},
 	{
-		E:    `as`,
+		E:    `abc`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"as": "AAA",
+			"abc": "AAA",
 		},
 		R: "AAA",
 		IL: `
 fn eval() string
-  resolve_s "as"
+  resolve_s "abc"
   ret
 end`,
 	},
@@ -1986,28 +1985,28 @@ L0:
 end`,
 	},
 	{
-		E:       `as | ""`,
+		E:       `abc | ""`,
 		Type:    descriptor.STRING,
 		R:       "",
-		SkipAst: true, // AST returns nil for this case.
+		Skipast: true, // ast returns nil for this cabce.
 	},
 	{
-		E:    `as | ""`,
+		E:    `abc | ""`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"as": "foo",
+			"abc": "foo",
 		},
 		R: "foo",
 	},
 	{
-		E:    `as | "user1"`,
+		E:    `abc | "user1"`,
 		Type: descriptor.STRING,
 		R:    "user1",
 		// top-level idents do not support presence
 		CEL: "",
 		IL: `
 fn eval() string
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L0
   apush_s "user1"
 L0:
@@ -2015,22 +2014,22 @@ L0:
 end`,
 	},
 	{
-		E:    `as | "user1"`,
+		E:    `abc | "user1"`,
 		Type: descriptor.STRING,
 		R:    "a2",
 		I: map[string]interface{}{
-			"as": "a2",
+			"abc": "a2",
 		},
 	},
 	{
-		E:    `as | bs | "user1"`,
+		E:    `abc | bs | "user1"`,
 		Type: descriptor.STRING,
 		R:    "user1",
 		// top-level idents do not support presence
 		CEL: "",
 		IL: `
 fn eval() string
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L0
   tresolve_s "bs"
   jnz L0
@@ -2040,16 +2039,16 @@ L0:
 end`,
 	},
 	{
-		E:    `as | bs | "user1"`,
+		E:    `abc | bs | "user1"`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"as": "a2",
+			"abc": "a2",
 		},
 		R:          "a2",
-		Referenced: []string{"as"},
+		Referenced: []string{"abc"},
 	},
 	{
-		E:    `as | bs | "user1"`,
+		E:    `abc | bs | "user1"`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"bs": "b2",
@@ -2057,18 +2056,18 @@ end`,
 		R: "b2",
 		// top-level idents do not support presence
 		CEL:           "",
-		Referenced:    []string{"-as", "bs"},
-		ReferencedCEL: []string{"-as"},
+		Referenced:    []string{"-abc", "bs"},
+		ReferencedCEL: []string{"-abc"},
 	},
 	{
-		E:    `as | bs | "user1"`,
+		E:    `abc | bs | "user1"`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"as": "a2",
-			"bs": "b2",
+			"abc": "a2",
+			"bs":  "b2",
 		},
 		R:          "a2",
-		Referenced: []string{"as"},
+		Referenced: []string{"abc"},
 	},
 
 	{
@@ -2269,7 +2268,7 @@ end`,
 	{
 		E:       `(ar | br)["foo"]`,
 		Type:    descriptor.STRING,
-		SkipAst: true, // AST evaluator panics for this case.
+		Skipast: true, // ast evaluator panics for this cabce.
 		I: map[string]interface{}{
 			"ar": map[string]string{
 				"foo": "bar",
@@ -2293,7 +2292,7 @@ end`,
 	{
 		E:       `(ar | br)["foo"]`,
 		Type:    descriptor.STRING,
-		SkipAst: true, // AST evaluator panics for this case.
+		Skipast: true, // ast evaluator panics for this cabce.
 		I: map[string]interface{}{
 			"br": map[string]string{
 				"foo": "far",
@@ -2328,16 +2327,16 @@ end`,
 		R: false,
 	},
 	{
-		E:    "as == bs",
+		E:    "abc == bs",
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "ABC",
-			"bs": "ABC",
+			"abc": "ABC",
+			"bs":  "ABC",
 		},
 		R: true,
 		IL: `
 fn eval() bool
-  resolve_s "as"
+  resolve_s "abc"
   resolve_s "bs"
   eq_s
   ret
@@ -2423,18 +2422,18 @@ fn eval() string
 end`,
 	},
 	{
-		E:    `sm[as]`,
+		E:    `sm[abc]`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"as": "foo",
-			"sm": map[string]string{"foo": "bar"},
+			"abc": "foo",
+			"sm":  map[string]string{"foo": "bar"},
 		},
 		R:          "bar",
-		Referenced: []string{"as", "sm", "sm[foo]"},
+		Referenced: []string{"abc", "sm", "sm[foo]"},
 		IL: `
 fn eval() string
   resolve_f "sm"
-  resolve_s "as"
+  resolve_s "abc"
   nlookup
   ret
 end`,
@@ -2469,20 +2468,20 @@ end`,
 		R: "b",
 	},
 	{
-		E:          `ar[as] | "foo"`,
+		E:          `ar[abc] | "foo"`,
 		Type:       descriptor.STRING,
 		I:          map[string]interface{}{},
 		R:          "foo",
 		Referenced: []string{"-ar"},
 		// CEL index operator is a function that always resolves the index
-		ReferencedCEL: []string{"-ar", "-as"},
+		ReferencedCEL: []string{"-abc", "-ar"},
 		IL: `
 fn eval() string
   tresolve_f "ar"
   jnz L0
   jmp L1
 L0:
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L2
   jmp L1
 L2:
@@ -2495,46 +2494,46 @@ L3:
 end`,
 	},
 	{
-		E:    `ar[as] | "foo"`,
+		E:    `ar[abc] | "foo"`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"ar": map[string]string{"as": "bar"},
+			"ar": map[string]string{"abc": "bar"},
 		},
 		R:          "foo",
-		Referenced: []string{"-as", "ar"},
+		Referenced: []string{"-abc", "ar"},
 		// CEL resolved missing stringmap attributes to an empty map
-		ReferencedCEL: []string{"-ar[]", "-as", "ar"},
+		ReferencedCEL: []string{"-abc", "-ar[]", "ar"},
 	},
 	{
-		E:    `ar[as] | "foo"`,
+		E:    `ar[abc] | "foo"`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"as": "bar",
+			"abc": "bar",
 		},
 		R:          "foo",
 		Referenced: []string{"-ar"},
 		// CEL index operator is a function that always resolves the index
-		ReferencedCEL: []string{"-ar", "as"},
+		ReferencedCEL: []string{"-ar", "abc"},
 	},
 	{
-		E:    `ar[as] | "foo"`,
+		E:    `ar[abc] | "foo"`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"ar": map[string]string{"as": "bar"},
-			"as": "!!!!",
+			"ar":  map[string]string{"abc": "bar"},
+			"abc": "!!!!",
 		},
 		R:          "foo",
-		Referenced: []string{"-ar[!!!!]", "ar", "as"},
+		Referenced: []string{"-ar[!!!!]", "abc", "ar"},
 	},
 	{
-		E:    `ar[as] | "foo"`,
+		E:    `ar[abc] | "foo"`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"ar": map[string]string{"asval": "bar"},
-			"as": "asval",
+			"ar":  map[string]string{"abcval": "bar"},
+			"abc": "abcval",
 		},
 		R:          "bar",
-		Referenced: []string{"ar", "ar[asval]", "as"},
+		Referenced: []string{"abc", "ar", "ar[abcval]"},
 	},
 	{
 		E:    `ar["b"] | ar["c"] | "null"`,
@@ -2978,14 +2977,14 @@ end
 	},
 
 	{
-		E:    `ip(as)`,
+		E:    `ip(abc)`,
 		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
-			"as": "1.2.3.4",
+			"abc": "1.2.3.4",
 		},
 		IL: `
 fn eval() interface
-  resolve_s "as"
+  resolve_s "abc"
   call ip
   ret
 end
@@ -3010,11 +3009,11 @@ end
 	},
 
 	{
-		E:    `ip(as | "5.6.7.8")`,
+		E:    `ip(abc | "5.6.7.8")`,
 		Type: descriptor.IP_ADDRESS,
 		IL: `
 fn eval() interface
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L0
   apush_s "5.6.7.8"
 L0:
@@ -3028,7 +3027,7 @@ end
 	},
 
 	{
-		E:    `ip(as | bs)`,
+		E:    `ip(abc | bs)`,
 		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
 			"bs": "1.2.3.4",
@@ -3039,7 +3038,7 @@ end
 	},
 
 	{
-		E:    `ip(as | bs)`,
+		E:    `ip(abc | bs)`,
 		Type: descriptor.IP_ADDRESS,
 		Err:  "lookup failed: 'bs'",
 		// CEL does not support top-level ident presence
@@ -3064,15 +3063,15 @@ end
 	},
 
 	{
-		E:    `ip(as) | ip(bs)`,
+		E:    `ip(abc) | ip(bs)`,
 		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
-			"as": "1.2.3.4",
-			"bs": "5.6.7.8",
+			"abc": "1.2.3.4",
+			"bs":  "5.6.7.8",
 		},
 		IL: `
 fn eval() interface
-  resolve_s "as"
+  resolve_s "abc"
   call ip
   jmp L0
   resolve_s "bs"
@@ -3085,12 +3084,12 @@ end
 	},
 
 	{
-		E:    `ip(as) | ip(bs)`,
+		E:    `ip(abc) | ip(bs)`,
 		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
 			"bs": "1.2.3.4",
 		},
-		Err: `lookup failed: 'as'`,
+		Err: `lookup failed: 'abc'`,
 	},
 
 	{
@@ -3332,17 +3331,17 @@ end
 	},
 
 	{
-		E:    `reverse(as)`,
+		E:    `reverse(abc)`,
 		Type: descriptor.STRING,
 		IL: `
 fn eval() string
-  resolve_s "as"
+  resolve_s "abc"
   call reverse
   ret
 end
 `,
 		I: map[string]interface{}{
-			"as": "str1",
+			"abc": "str1",
 		},
 		R: "1rts",
 		Fns: []ast.FunctionMetadata{
@@ -4104,204 +4103,204 @@ end`,
 	},
 
 	{
-		E:    `as < "b"`,
+		E:    `abc < "b"`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		R: true,
 		IL: `fn eval() bool
-  resolve_s "as"
+  resolve_s "abc"
   alt_s "b"
   ret
 end`,
 	},
 	{
-		E:    `"b" < as`,
+		E:    `"b" < abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		R: false,
 		IL: `fn eval() bool
   apush_s "b"
-  resolve_s "as"
+  resolve_s "abc"
   lt_s
   ret
 end`,
 	},
 	{
-		E:    `as < bs`,
+		E:    `abc < bs`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		R: true,
 		IL: `fn eval() bool
-  resolve_s "as"
+  resolve_s "abc"
   resolve_s "bs"
   lt_s
   ret
 end`,
 	},
 	{
-		E:    `bs < as`,
+		E:    `bs < abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		R: false,
 		IL: `fn eval() bool
   resolve_s "bs"
-  resolve_s "as"
+  resolve_s "abc"
   lt_s
   ret
 end`,
 	},
 	{
-		E:    `as < as`,
+		E:    `abc < abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		R: false,
 		IL: `fn eval() bool
-  resolve_s "as"
-  resolve_s "as"
+  resolve_s "abc"
+  resolve_s "abc"
   lt_s
   ret
 end`,
 	},
 	{
-		E:    `as <= bs`,
+		E:    `abc <= bs`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		R: true,
 		IL: `fn eval() bool
-  resolve_s "as"
+  resolve_s "abc"
   resolve_s "bs"
   le_s
   ret
 end`,
 	},
 	{
-		E:    `bs <= as`,
+		E:    `bs <= abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		R: false,
 		IL: `fn eval() bool
   resolve_s "bs"
-  resolve_s "as"
+  resolve_s "abc"
   le_s
   ret
 end`,
 	},
 	{
-		E:    `as <= as`,
+		E:    `abc <= abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		R: true,
 		IL: `fn eval() bool
-  resolve_s "as"
-  resolve_s "as"
+  resolve_s "abc"
+  resolve_s "abc"
   le_s
   ret
 end`,
 	},
 	{
-		E:    `as > bs`,
+		E:    `abc > bs`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		R: false,
 		IL: `fn eval() bool
-  resolve_s "as"
+  resolve_s "abc"
   resolve_s "bs"
   gt_s
   ret
 end`,
 	},
 	{
-		E:    `bs > as`,
+		E:    `bs > abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		R: true,
 		IL: `fn eval() bool
   resolve_s "bs"
-  resolve_s "as"
+  resolve_s "abc"
   gt_s
   ret
 end`,
 	},
 	{
-		E:    `as > as`,
+		E:    `abc > abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		R: false,
 		IL: `fn eval() bool
-  resolve_s "as"
-  resolve_s "as"
+  resolve_s "abc"
+  resolve_s "abc"
   gt_s
   ret
 end`,
 	},
 	{
-		E:    `as >= bs`,
+		E:    `abc >= bs`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		R: false,
 		IL: `fn eval() bool
-  resolve_s "as"
+  resolve_s "abc"
   resolve_s "bs"
   ge_s
   ret
 end`,
 	},
 	{
-		E:    `bs >= as`,
+		E:    `bs >= abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		R: true,
 		IL: `fn eval() bool
   resolve_s "bs"
-  resolve_s "as"
+  resolve_s "abc"
   ge_s
   ret
 end`,
 	},
 	{
-		E:    `as >= as`,
+		E:    `abc >= abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		R: true,
 		IL: `fn eval() bool
-  resolve_s "as"
-  resolve_s "as"
+  resolve_s "abc"
+  resolve_s "abc"
   ge_s
   ret
 end`,
@@ -4337,62 +4336,62 @@ end`,
 end`,
 	},
 	{
-		E:    `as <= as`,
+		E:    `abc <= abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		R: true,
 		IL: `fn eval() bool
-  resolve_s "as"
-  resolve_s "as"
+  resolve_s "abc"
+  resolve_s "abc"
   le_s
   ret
 end`,
 	},
 	{
-		E:    `as <= bs`,
+		E:    `abc <= bs`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		R: true,
 		IL: `fn eval() bool
-  resolve_s "as"
+  resolve_s "abc"
   resolve_s "bs"
   le_s
   ret
 end`,
 	},
 	{
-		E:    `bs <= as`,
+		E:    `bs <= abc`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		R: false,
 		IL: `fn eval() bool
   resolve_s "bs"
-  resolve_s "as"
+  resolve_s "abc"
   le_s
   ret
 end`,
 	},
 
 	{
-		E:    `as.reverse()`,
+		E:    `abc.reverse()`,
 		Type: descriptor.STRING,
 		IL: `
 fn eval() string
-  resolve_s "as"
+  resolve_s "abc"
   call reverse
   ret
 end
 `,
 		I: map[string]interface{}{
-			"as": "str1",
+			"abc": "str1",
 		},
 		R: "1rts",
 		Fns: []ast.FunctionMetadata{
@@ -4457,29 +4456,29 @@ end
 		CEL: false,
 	},
 	{
-		E:    `as.matches(bs)`,
+		E:    `abc.matches(bs)`,
 		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
-  resolve_s "as"
+  resolve_s "abc"
   resolve_s "bs"
   call matches
   ret
 end`,
 		I: map[string]interface{}{
-			"as": "st.*",
-			"bs": "str1",
+			"abc": "st.*",
+			"bs":  "str1",
 		},
 		R: true,
 		// CEL reverse the arguments of matches overload
 		CEL: false,
 	},
 	{
-		E:    `as.matches(bs)`,
+		E:    `abc.matches(bs)`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "st.*",
-			"bs": "sqr1",
+			"abc": "st.*",
+			"bs":  "sqr1",
 		},
 		R: false,
 		// CEL reverse the arguments of matches overload
@@ -4530,27 +4529,27 @@ end
 		R:    false,
 	},
 	{
-		E:    `as.startsWith(bs)`,
+		E:    `abc.startsWith(bs)`,
 		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
-  resolve_s "as"
+  resolve_s "abc"
   resolve_s "bs"
   call startsWith
   ret
 end`,
 		I: map[string]interface{}{
-			"as": "abcd",
-			"bs": "ab",
+			"abc": "abcd",
+			"bs":  "ab",
 		},
 		R: true,
 	},
 	{
-		E:    `as.startsWith(bs)`,
+		E:    `abc.startsWith(bs)`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "bcda",
-			"bs": "abc",
+			"abc": "bcda",
+			"bs":  "abc",
 		},
 		R: false,
 	},
@@ -4599,27 +4598,27 @@ end
 		R:    false,
 	},
 	{
-		E:    `as.endsWith(bs)`,
+		E:    `abc.endsWith(bs)`,
 		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
-  resolve_s "as"
+  resolve_s "abc"
   resolve_s "bs"
   call endsWith
   ret
 end`,
 		I: map[string]interface{}{
-			"as": "abcd",
-			"bs": "cd",
+			"abc": "abcd",
+			"bs":  "cd",
 		},
 		R: true,
 	},
 	{
-		E:    `as.endsWith(bs)`,
+		E:    `abc.endsWith(bs)`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"as": "bcda",
-			"bs": "abc",
+			"abc": "bcda",
+			"bs":  "abc",
 		},
 		R: false,
 	},
@@ -4759,7 +4758,7 @@ end
 `,
 	},
 	{
-		E:    `as | conditional(ab, "foo", "bar") | bs`,
+		E:    `abc | conditional(ab, "foo", "bar") | bs`,
 		Type: descriptor.STRING,
 		R:    "bar",
 		// top-level idents do not support presence
@@ -4769,7 +4768,7 @@ end
 		},
 		IL: `
 fn eval() string
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L0
   resolve_b "ab"
   jz L1
@@ -4786,7 +4785,7 @@ end
 `,
 	},
 	{
-		E:    `as | conditional(ab, "foo", "bar") | bs`,
+		E:    `abc | conditional(ab, "foo", "bar") | bs`,
 		Type: descriptor.STRING,
 		R:    "foo",
 		// top-level idents do not support presence
@@ -4796,7 +4795,7 @@ end
 		},
 	},
 	{
-		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		E:    `abc | bs | conditional(ab, "foo", "bar")`,
 		Type: descriptor.STRING,
 		R:    "bar",
 		// top-level idents do not support presence
@@ -4806,7 +4805,7 @@ end
 		},
 		IL: `
 fn eval() string
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L0
   tresolve_s "bs"
   jnz L0
@@ -4822,7 +4821,7 @@ end
 `,
 	},
 	{
-		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		E:    `abc | bs | conditional(ab, "foo", "bar")`,
 		Type: descriptor.STRING,
 		R:    "foo",
 		// top-level idents do not support presence
@@ -4832,15 +4831,15 @@ end
 		},
 	},
 	{
-		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		E:    `abc | bs | conditional(ab, "foo", "bar")`,
 		Type: descriptor.STRING,
 		R:    "boo",
 		I: map[string]interface{}{
-			"as": "boo",
+			"abc": "boo",
 		},
 	},
 	{
-		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		E:    `abc | bs | conditional(ab, "foo", "bar")`,
 		Type: descriptor.STRING,
 		R:    "zoo",
 		// top-level idents do not support presence
@@ -4850,7 +4849,7 @@ end
 		},
 	},
 	{
-		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		E:    `conditional(ab, "foo", "bar") | abc | bs`,
 		Type: descriptor.STRING,
 		R:    "bar",
 		I: map[string]interface{}{
@@ -4866,7 +4865,7 @@ L0:
   apush_s "bar"
 L1:
   jmp L2
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L2
   resolve_s "bs"
 L2:
@@ -4875,7 +4874,7 @@ end
 `,
 	},
 	{
-		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		E:    `conditional(ab, "foo", "bar") | abc | bs`,
 		Type: descriptor.STRING,
 		R:    "foo",
 		I: map[string]interface{}{
@@ -4883,16 +4882,16 @@ end
 		},
 	},
 	{
-		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		E:    `conditional(ab, "foo", "bar") | abc | bs`,
 		Type: descriptor.STRING,
 		R:    "foo",
 		I: map[string]interface{}{
-			"as": "boo",
-			"ab": true,
+			"abc": "boo",
+			"ab":  true,
 		},
 	},
 	{
-		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		E:    `conditional(ab, "foo", "bar") | abc | bs`,
 		Type: descriptor.STRING,
 		R:    "foo",
 		I: map[string]interface{}{
@@ -4901,17 +4900,17 @@ end
 		},
 	},
 	{
-		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		E:    `conditional(ab, "foo", "bar") | abc | bs`,
 		Type: descriptor.STRING,
 		R:    "foo",
 		I: map[string]interface{}{
-			"as": "boo",
-			"bs": "zoo",
-			"ab": true,
+			"abc": "boo",
+			"bs":  "zoo",
+			"ab":  true,
 		},
 	},
 	{
-		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		E:    `conditional(ab, "foo", "bar") | abc | bs`,
 		Type: descriptor.STRING,
 		R:    "bar",
 		I: map[string]interface{}{
@@ -4919,16 +4918,16 @@ end
 		},
 	},
 	{
-		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		E:    `conditional(ab, "foo", "bar") | abc | bs`,
 		Type: descriptor.STRING,
 		R:    "bar",
 		I: map[string]interface{}{
-			"as": "boo",
-			"ab": false,
+			"abc": "boo",
+			"ab":  false,
 		},
 	},
 	{
-		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		E:    `conditional(ab, "foo", "bar") | abc | bs`,
 		Type: descriptor.STRING,
 		R:    "bar",
 		I: map[string]interface{}{
@@ -4937,26 +4936,26 @@ end
 		},
 	},
 	{
-		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		E:    `conditional(ab, "foo", "bar") | abc | bs`,
 		Type: descriptor.STRING,
 		R:    "bar",
 		I: map[string]interface{}{
-			"as": "boo",
-			"bs": "zoo",
-			"ab": false,
+			"abc": "boo",
+			"bs":  "zoo",
+			"ab":  false,
 		},
 	},
 	{
-		E:    `as + bs`,
+		E:    `abc + bs`,
 		Type: descriptor.STRING,
 		R:    "ab",
 		I: map[string]interface{}{
-			"as": "a",
-			"bs": "b",
+			"abc": "a",
+			"bs":  "b",
 		},
 		IL: `
 fn eval() string
-  resolve_s "as"
+  resolve_s "abc"
   resolve_s "bs"
   add_s
   ret
@@ -4964,15 +4963,15 @@ end
 `,
 	},
 	{
-		E:    `as + "b"`,
+		E:    `abc + "b"`,
 		Type: descriptor.STRING,
 		R:    "ab",
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		IL: `
 fn eval() string
-  resolve_s "as"
+  resolve_s "abc"
   apush_s "b"
   add_s
   ret
@@ -4980,16 +4979,16 @@ end
 `,
 	},
 	{
-		E:    `"b" + as`,
+		E:    `"b" + abc`,
 		Type: descriptor.STRING,
 		R:    "ba",
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		IL: `
 fn eval() string
   apush_s "b"
-  resolve_s "as"
+  resolve_s "abc"
   add_s
   ret
 end
@@ -5009,15 +5008,15 @@ end
 `,
 	},
 	{
-		E:    `as | "unknown" + "b"`,
+		E:    `abc | "unknown" + "b"`,
 		Type: descriptor.STRING,
 		R:    "ab",
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		IL: `
 fn eval() string
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L0
   apush_s "unknown"
 L0:
@@ -5028,14 +5027,14 @@ end
 `,
 	},
 	{
-		E:    `as | "a" + "b"`,
+		E:    `abc | "a" + "b"`,
 		Type: descriptor.STRING,
 		R:    "ab",
 		// top-level idents do not support presence
 		CEL: "b",
 	},
 	{
-		E:    `as | "a" + bs + "c"`,
+		E:    `abc | "a" + bs + "c"`,
 		Type: descriptor.STRING,
 		R:    "abc",
 		// top-level idents do not support presence
@@ -5045,7 +5044,7 @@ end
 		},
 		IL: `
 fn eval() string
-  tresolve_s "as"
+  tresolve_s "abc"
   jnz L0
   apush_s "a"
 L0:
@@ -5058,17 +5057,17 @@ end
 `,
 	},
 	{
-		E:    `as + (bs | "b") + "c"`,
+		E:    `abc + (bs | "b") + "c"`,
 		Type: descriptor.STRING,
 		R:    "abc",
 		// top-level idents do not support presence
 		CEL: "ac",
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
 		IL: `
 fn eval() string
-  resolve_s "as"
+  resolve_s "abc"
   tresolve_s "bs"
   jnz L0
   apush_s "b"
@@ -5151,25 +5150,25 @@ end
 		CompileErr: `ADD(1, "b") arg 2 ("b") typeError got STRING, expected INT64`,
 	},
 	{
-		E: `1 + as`,
+		E: `1 + abc`,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
-		CompileErr: `ADD(1, $as) arg 2 ($as) typeError got STRING, expected INT64`,
+		CompileErr: `ADD(1, $abc) arg 2 ($abc) typeError got STRING, expected INT64`,
 	},
 	{
-		E: `as + 1.0`,
+		E: `abc + 1.0`,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
-		CompileErr: `ADD($as, 1.0) arg 2 (1.0) typeError got DOUBLE, expected STRING`,
+		CompileErr: `ADD($abc, 1.0) arg 2 (1.0) typeError got DOUBLE, expected STRING`,
 	},
 	{
-		E: `as + 1.0`,
+		E: `abc + 1.0`,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
-		CompileErr: `ADD($as, 1.0) arg 2 (1.0) typeError got DOUBLE, expected STRING`,
+		CompileErr: `ADD($abc, 1.0) arg 2 (1.0) typeError got DOUBLE, expected STRING`,
 	},
 	{
 		E: `ab + bb`,
@@ -5180,11 +5179,11 @@ end
 		CompileErr: `internal compiler error -- Add for type not yet implemented: bool`,
 	},
 	{
-		E: `+as`,
+		E: `+abc`,
 		I: map[string]interface{}{
-			"as": "a",
+			"abc": "a",
 		},
-		CompileErr: `ADD($as) arity mismatch. Got 1 arg(s), expected 2 arg(s)`,
+		CompileErr: `ADD($abc) arity mismatch. Got 1 arg(s), expected 2 arg(s)`,
 	},
 	{
 		E:    `size("x")`,
@@ -5198,15 +5197,15 @@ end
 `,
 	},
 	{
-		E:    `size(as)`,
+		E:    `size(abc)`,
 		Type: descriptor.INT64,
 		I: map[string]interface{}{
-			"as": "two",
+			"abc": "two",
 		},
 		R: int64(3),
 		IL: `
 fn eval() integer
-  resolve_s "as"
+  resolve_s "abc"
   size_s
   ret
 end
@@ -5264,7 +5263,7 @@ type TestInfo struct {
 
 	// Attribute manifest to use when compiling/evaluating the tests.
 	// If nil, then default attributes are used.
-	conf map[string]*pb.AttributeManifest_AttributeInfo
+	conf map[string]*descriptor.AttributeManifest_AttributeInfo
 
 	// Fns field holds any additional function metadata that needs to be involved in the test.
 	Fns []ast.FunctionMetadata
@@ -5276,7 +5275,7 @@ type TestInfo struct {
 	Type descriptor.ValueType
 
 	// SkipAst indicates that AST based evaluator should not be used for this test.
-	SkipAst bool
+	Skipast bool
 
 	// Use this test as a benchmark as well.
 	Bench bool
@@ -5292,7 +5291,7 @@ func (t *TestInfo) TestName() string {
 }
 
 // Conf returns the global config to use for the test.
-func (t *TestInfo) Conf() map[string]*pb.AttributeManifest_AttributeInfo {
+func (t *TestInfo) Conf() map[string]*descriptor.AttributeManifest_AttributeInfo {
 	if t.conf != nil {
 		return t.conf
 	}
@@ -5337,7 +5336,7 @@ func (t *TestInfo) CheckReferenced(bag *FakeBag) bool {
 }
 
 // Attribute set from the original expression tests
-var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
+var exprEvalAttrs = map[string]*descriptor.AttributeManifest_AttributeInfo{
 	"a": {
 		ValueType: descriptor.INT64,
 	},
@@ -5398,14 +5397,14 @@ var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 }
 
 // made up attribute set.
-var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
+var defaultAttrs = map[string]*descriptor.AttributeManifest_AttributeInfo{
 	"ai": {
 		ValueType: descriptor.INT64,
 	},
 	"ab": {
 		ValueType: descriptor.BOOL,
 	},
-	"as": {
+	"abc": {
 		ValueType: descriptor.STRING,
 	},
 	"ad": {
@@ -5482,7 +5481,7 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	},
 }
 
-var istio06AttributeSet = map[string]*pb.AttributeManifest_AttributeInfo{
+var istio06AttributeSet = map[string]*descriptor.AttributeManifest_AttributeInfo{
 	"origin.ip":                       {ValueType: descriptor.IP_ADDRESS},
 	"origin.uid":                      {ValueType: descriptor.STRING},
 	"origin.user":                     {ValueType: descriptor.STRING},

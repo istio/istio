@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@ import (
 	"fmt"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 )
@@ -33,38 +31,26 @@ import (
 // TypeURL for making discovery requests.
 type TypeURL string
 
-const (
-	typeURLPrefix                 = "type.googleapis.com/envoy.api.v2."
-	Listener              TypeURL = typeURLPrefix + "Listener"
-	Cluster               TypeURL = typeURLPrefix + "Cluster"
-	ClusterLoadAssignment TypeURL = typeURLPrefix + "ClusterLoadAssignment"
-	Route                 TypeURL = typeURLPrefix + "RouteConfiguration"
-)
-
 // Instance of Pilot
 type Instance interface {
 	resource.Resource
 
-	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
-	CallDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse
+	CallDiscovery(req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error)
+	CallDiscoveryOrFail(t test.Failer, req *discovery.DiscoveryRequest) *discovery.DiscoveryResponse
 
-	StartDiscovery(req *xdsapi.DiscoveryRequest) error
-	StartDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest)
-	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
-	WatchDiscoveryOrFail(t test.Failer, duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error))
+	StartDiscovery(req *discovery.DiscoveryRequest) error
+	StartDiscoveryOrFail(t test.Failer, req *discovery.DiscoveryRequest)
+	WatchDiscovery(duration time.Duration, accept func(*discovery.DiscoveryResponse) (bool, error)) error
+	WatchDiscoveryOrFail(t test.Failer, duration time.Duration, accept func(*discovery.DiscoveryResponse) (bool, error))
 }
 
 // Structured config for the Pilot component
 type Config struct {
 	fmt.Stringer
-	// If set then pilot takes a dependency on the referenced Galley instance
-	Galley galley.Instance
 
 	// The MeshConfig to be used for Pilot in native environment. In Kube environment this can be
 	// configured with Helm.
 	MeshConfig *meshConfig.MeshConfig
-
-	ServiceArgs bootstrap.ServiceArgs
 
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
@@ -73,9 +59,6 @@ type Config struct {
 // New returns a new instance of echo.
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Native, func() {
-		i, err = newNative(ctx, cfg)
-	})
 	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx, cfg)
 	})
@@ -92,9 +75,9 @@ func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {
 }
 
 // NewDiscoveryRequest is a utility method for creating a new request for the given node and type.
-func NewDiscoveryRequest(nodeID string, typeURL TypeURL) *xdsapi.DiscoveryRequest {
-	return &xdsapi.DiscoveryRequest{
-		Node: &xdscore.Node{
+func NewDiscoveryRequest(nodeID string, typeURL TypeURL) *discovery.DiscoveryRequest {
+	return &discovery.DiscoveryRequest{
+		Node: &core.Node{
 			Id: nodeID,
 		},
 		TypeUrl: string(typeURL),

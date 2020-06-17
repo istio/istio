@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"istio.io/istio/galley/pkg/config/util/kubeyaml"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -202,12 +203,12 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 	var errs error
 
 	reader := bufio.NewReader(strings.NewReader(yamlText))
-	decoder := yaml.NewYAMLReader(reader)
+	decoder := kubeyaml.NewYAMLReader(reader)
 	chunkCount := -1
 
 	for {
 		chunkCount++
-		doc, err := decoder.Read()
+		doc, lineNum, err := decoder.Read()
 		if err == io.EOF {
 			break
 		}
@@ -220,7 +221,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
-		r, err := s.parseChunk(r, name, chunk)
+		r, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError
 			if errors.As(err, &uerr) {
@@ -251,7 +252,7 @@ func (e unknownSchemaError) Error() string {
 	return fmt.Sprintf("failed finding schema for group/version/kind: %s/%s/%s", e.group, e.version, e.kind)
 }
 
-func (s *KubeSource) parseChunk(r *collection.Schemas, name string, yamlChunk []byte) (kubeResource, error) {
+func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte) (kubeResource, error) {
 	// Convert to JSON
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
@@ -302,9 +303,10 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, yamlChunk []
 		return kubeResource{}, err
 	}
 
+	pos := rt.Position{Filename: name, Line: lineNum}
 	return kubeResource{
 		schema:   schema,
 		sha:      sha1.Sum(yamlChunk),
-		resource: rt.ToResource(objMeta, schema, item, name),
+		resource: rt.ToResource(objMeta, schema, item, &pos),
 	}, nil
 }

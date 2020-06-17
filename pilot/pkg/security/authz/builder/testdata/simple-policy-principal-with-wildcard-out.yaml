@@ -1,0 +1,49 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  rules:
+    policies:
+      ns[foo]-policy[httpbin]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        suffix: /ns/foo/sa/rule[0]-from[1]-principal[0]
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: td1/ns/foo/sa/rule[0]-from[1]-principal[1]
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        suffix: bar/ns/foo/sa/rule[0]-from[1]-principal[1]

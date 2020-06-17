@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
 package mock
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
 	"k8s.io/api/extensions/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	extensionsv1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
@@ -39,7 +40,7 @@ func newIngressInterface() extensionsv1.IngressInterface {
 	}
 }
 
-func (i *ingressImpl) Create(obj *v1beta1.Ingress) (*v1beta1.Ingress, error) {
+func (i *ingressImpl) Create(ctx context.Context, obj *v1beta1.Ingress, opts metav1.CreateOptions) (*v1beta1.Ingress, error) {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
@@ -52,7 +53,7 @@ func (i *ingressImpl) Create(obj *v1beta1.Ingress) (*v1beta1.Ingress, error) {
 	return obj, nil
 }
 
-func (i *ingressImpl) Update(obj *v1beta1.Ingress) (*v1beta1.Ingress, error) {
+func (i *ingressImpl) Update(ctx context.Context, obj *v1beta1.Ingress, opts metav1.UpdateOptions) (*v1beta1.Ingress, error) {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
@@ -65,7 +66,7 @@ func (i *ingressImpl) Update(obj *v1beta1.Ingress) (*v1beta1.Ingress, error) {
 	return obj, nil
 }
 
-func (i *ingressImpl) Delete(name string, options *v1.DeleteOptions) error {
+func (i *ingressImpl) Delete(ctx context.Context, name string, options metav1.DeleteOptions) error {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
@@ -83,7 +84,7 @@ func (i *ingressImpl) Delete(name string, options *v1.DeleteOptions) error {
 	return nil
 }
 
-func (i *ingressImpl) List(opts v1.ListOptions) (*v1beta1.IngressList, error) {
+func (i *ingressImpl) List(ctx context.Context, opts metav1.ListOptions) (*v1beta1.IngressList, error) {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
@@ -96,7 +97,7 @@ func (i *ingressImpl) List(opts v1.ListOptions) (*v1beta1.IngressList, error) {
 	return out, nil
 }
 
-func (i *ingressImpl) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (i *ingressImpl) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
@@ -114,22 +115,23 @@ func (i *ingressImpl) Watch(opts v1.ListOptions) (watch.Interface, error) {
 	return w, nil
 }
 
-func (i *ingressImpl) UpdateStatus(*v1beta1.Ingress) (*v1beta1.Ingress, error) {
+func (i *ingressImpl) UpdateStatus(context.Context, *v1beta1.Ingress, metav1.UpdateOptions) (*v1beta1.Ingress, error) {
 	panic("not implemented")
 
 }
 
-func (i *ingressImpl) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (i *ingressImpl) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	panic("not implemented")
 
 }
 
-func (i *ingressImpl) Get(name string, options v1.GetOptions) (*v1beta1.Ingress, error) {
+func (i *ingressImpl) Get(ctx context.Context, name string, options metav1.GetOptions) (*v1beta1.Ingress, error) {
 	panic("not implemented")
 
 }
 
-func (i *ingressImpl) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.Ingress, err error) {
+func (i *ingressImpl) Patch(ctx context.Context, name string, pt types.PatchType,
+	data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1beta1.Ingress, err error) {
 	panic("not implemented")
 
 }

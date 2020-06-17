@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -347,6 +347,23 @@ var (
 		},
 	}
 
+	configs13 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name: "sidecar-scope-with-illegal-host",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   7443,
+						Protocol: "http_proxy",
+						Name:     "grpc-tls",
+					},
+					Hosts: []string{"foo", "foo/bar"},
+				},
+			},
+		},
+	}
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -577,6 +594,17 @@ var (
 			Attributes: ServiceAttributes{
 				Name:      "baz",
 				Namespace: "ns3",
+			},
+		},
+	}
+
+	services14 = []*Service{
+		{
+			Hostname: "bar",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "foo",
 			},
 		},
 	}
@@ -952,6 +980,18 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 		},
+		{
+			"sidecar-scope-with-illegal-host",
+			configs13,
+			services14,
+			nil,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    port7443,
+				},
+			},
+		},
 	}
 
 	for idx, tt := range tests {
@@ -992,6 +1032,9 @@ func TestCreateSidecarScope(t *testing.T) {
 				for _, egress := range a.Egress {
 					for _, egressHost := range egress.Hosts {
 						parts := strings.SplitN(egressHost, "/", 2)
+						if len(parts) < 2 {
+							continue
+						}
 						found = false
 						for _, listeners := range sidecarScope.EgressListeners {
 							if sidecarScopeHosts, ok := listeners.listenerHosts[parts[0]]; ok {
@@ -1158,19 +1201,34 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 	}
 }
 
-func TestContainsEgressNamespace(t *testing.T) {
+func TestContainsEgressDependencies(t *testing.T) {
+	const (
+		svcName = "svc1.com"
+		nsName  = "ns"
+		drName  = "dr1"
+		vsName  = "vs1"
+	)
+
+	allContains := func(ns string, contains bool) map[ConfigKey]bool {
+		return map[ConfigKey]bool{
+			{ServiceEntryKind, svcName, ns}:   contains,
+			{VirtualServiceKind, vsName, ns}:  contains,
+			{DestinationRuleKind, drName, ns}: contains,
+		}
+	}
+
 	cases := []struct {
-		name      string
-		egress    []string
-		namespace string
-		contains  bool
+		name   string
+		egress []string
+
+		contains map[ConfigKey]bool
 	}{
-		{"Just wildcard", []string{"*/*"}, "ns", true},
-		{"Namespace and wildcard", []string{"ns/*", "*/*"}, "ns", true},
-		{"Just Namespace", []string{"ns/*"}, "ns", true},
-		{"Wrong Namespace", []string{"ns/*"}, "other-ns", false},
-		{"No Sidecar", nil, "ns", true},
-		{"No Sidecar Other Namespace", nil, "other-ns", false},
+		{"Just wildcard", []string{"*/*"}, allContains(nsName, true)},
+		{"Namespace and wildcard", []string{"ns/*", "*/*"}, allContains(nsName, true)},
+		{"Just Namespace", []string{"ns/*"}, allContains(nsName, true)},
+		{"Wrong Namespace", []string{"ns/*"}, allContains("other-ns", false)},
+		{"No Sidecar", nil, allContains("ns", true)},
+		{"No Sidecar Other Namespace", nil, allContains("other-ns", false)},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1193,17 +1251,43 @@ func TestContainsEgressNamespace(t *testing.T) {
 
 			services := []*Service{
 				{Hostname: "nomatch", Attributes: ServiceAttributes{Namespace: "nomatch"}},
-				{Hostname: "ns", Attributes: ServiceAttributes{Namespace: "ns"}},
+				{Hostname: svcName, Attributes: ServiceAttributes{Namespace: nsName}},
+			}
+			virtualServices := []Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Name:      vsName,
+						Namespace: nsName,
+					},
+					Spec: &networking.VirtualService{
+						Hosts: []string{svcName},
+					},
+				},
+			}
+			destinationRules := []Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Name:      drName,
+						Namespace: nsName,
+					},
+					Spec: &networking.DestinationRule{
+						Host:     svcName,
+						ExportTo: []string{"*"},
+					},
+				},
 			}
 			ps.publicServices = append(ps.publicServices, services...)
+			ps.publicVirtualServices = append(ps.publicVirtualServices, virtualServices...)
+			ps.SetDestinationRules(destinationRules)
 			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {
 				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
 			}
 
-			got := sidecarScope.DependsOnNamespace(tt.namespace)
-			if got != tt.contains {
-				t.Fatalf("Expected contains %v, got %v", tt.contains, got)
+			for k, v := range tt.contains {
+				if ok := sidecarScope.DependsOnConfig(k); ok != v {
+					t.Fatalf("Expected contains %v-%v, but no match", k, v)
+				}
 			}
 		})
 	}

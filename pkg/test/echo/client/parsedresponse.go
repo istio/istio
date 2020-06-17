@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ var (
 	hostFieldRegex           = regexp.MustCompile(string(response.HostField) + "=(.*)")
 	hostnameFieldRegex       = regexp.MustCompile(string(response.HostnameField) + "=(.*)")
 	URLFieldRegex            = regexp.MustCompile(string(response.URLField) + "=(.*)")
+	ClusterFieldRegex        = regexp.MustCompile(string(response.ClusterField) + "=(.*)")
 )
 
 // ParsedResponse represents a response to a single echo request.
@@ -55,6 +56,8 @@ type ParsedResponse struct {
 	Host string
 	// Hostname is the host that responded to the request
 	Hostname string
+	// The cluster where the server is deployed.
+	Cluster string
 	// RawResponse gives a map of all values returned in the response (headers, etc)
 	RawResponse map[string]string
 }
@@ -67,6 +70,21 @@ func (r *ParsedResponse) IsOK() bool {
 // Count occurrences of the given text within the body of this response.
 func (r *ParsedResponse) Count(text string) int {
 	return strings.Count(r.Body, text)
+}
+
+func (r *ParsedResponse) String() string {
+	out := ""
+	out += fmt.Sprintf("Body:     %s\n", r.Body)
+	out += fmt.Sprintf("ID:       %s\n", r.ID)
+	out += fmt.Sprintf("URL:      %s\n", r.URL)
+	out += fmt.Sprintf("Version:  %s\n", r.Version)
+	out += fmt.Sprintf("Port:     %s\n", r.Port)
+	out += fmt.Sprintf("Code:     %s\n", r.Code)
+	out += fmt.Sprintf("Host:     %s\n", r.Host)
+	out += fmt.Sprintf("Hostname: %s\n", r.Hostname)
+	out += fmt.Sprintf("Cluster:  %s\n", r.Cluster)
+
+	return out
 }
 
 // ParsedResponses is an ordered list of parsed response objects.
@@ -150,6 +168,23 @@ func (r ParsedResponses) CheckPortOrFail(t test.Failer, expected int) ParsedResp
 	return r
 }
 
+func (r ParsedResponses) CheckCluster(expected string) error {
+	return r.Check(func(i int, response *ParsedResponse) error {
+		if response.Cluster != expected {
+			return fmt.Errorf("response[%d] Cluster: expected %s, received %s", i, expected, response.Cluster)
+		}
+		return nil
+	})
+}
+
+func (r ParsedResponses) CheckClusterOrFail(t test.Failer, expected string) ParsedResponses {
+	t.Helper()
+	if err := r.CheckCluster(expected); err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
 // Count occurrences of the given text within the bodies of all responses.
 func (r ParsedResponses) Count(text string) int {
 	count := 0
@@ -157,6 +192,14 @@ func (r ParsedResponses) Count(text string) int {
 		count += c.Count(text)
 	}
 	return count
+}
+
+func (r ParsedResponses) String() string {
+	out := ""
+	for i, resp := range r {
+		out += fmt.Sprintf("Response[%d]:\n%s", i, resp.String())
+	}
+	return out
 }
 
 func parseForwardedResponse(resp *proto.ForwardEchoResponse) ParsedResponses {
@@ -205,6 +248,11 @@ func parseResponse(output string) *ParsedResponse {
 	match = URLFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.URL = match[1]
+	}
+
+	match = ClusterFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.Cluster = match[1]
 	}
 
 	out.RawResponse = map[string]string{}

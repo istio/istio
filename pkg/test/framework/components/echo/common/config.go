@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,15 +76,15 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 		}
 	}
 	for _, p := range c.WorkloadOnlyPorts {
-		if p > 0 {
-			if portGen.Instance.IsUsed(p) {
-				return fmt.Errorf("failed configuring workload only port %d: port already used", p)
+		if p.Port > 0 {
+			if portGen.Instance.IsUsed(p.Port) {
+				return fmt.Errorf("failed configuring workload only port %d: port already used", p.Port)
 			}
-			portGen.Instance.SetUsed(p)
-			if portGen.Service.IsUsed(p) {
-				return fmt.Errorf("failed configuring workload only port %d: port already used", p)
+			portGen.Instance.SetUsed(p.Port)
+			if portGen.Service.IsUsed(p.Port) {
+				return fmt.Errorf("failed configuring workload only port %d: port already used", p.Port)
 			}
-			portGen.Service.SetUsed(p)
+			portGen.Service.SetUsed(p.Port)
 		}
 	}
 

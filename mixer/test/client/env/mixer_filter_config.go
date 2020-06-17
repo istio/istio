@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package env
 import (
 	"github.com/golang/protobuf/ptypes/duration"
 
-	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	mpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 )
 
@@ -28,10 +27,10 @@ var (
 
 // MixerFilterConf stores config for Mixer filter.
 type MixerFilterConf struct {
-	PerRouteConf   *mccpb.ServiceConfig
-	HTTPServerConf *mccpb.HttpClientConfig
-	HTTPClientConf *mccpb.HttpClientConfig
-	TCPServerConf  *mccpb.TcpClientConfig
+	PerRouteConf   *mpb.ServiceConfig
+	HTTPServerConf *mpb.HttpClientConfig
+	HTTPClientConf *mpb.HttpClientConfig
+	TCPServerConf  *mpb.TcpClientConfig
 }
 
 // GetDefaultMixerFilterConf get config for Mixer filter
@@ -45,8 +44,8 @@ func GetDefaultMixerFilterConf() *MixerFilterConf {
 }
 
 // GetDefaultServiceConfig get default service config
-func GetDefaultServiceConfig() *mccpb.ServiceConfig {
-	return &mccpb.ServiceConfig{
+func GetDefaultServiceConfig() *mpb.ServiceConfig {
+	return &mpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"mesh2.ip":    {Value: &mpb.Attributes_AttributeValue_BytesValue{BytesValue: meshIP2}},
@@ -58,8 +57,8 @@ func GetDefaultServiceConfig() *mccpb.ServiceConfig {
 }
 
 // GetDefaultHTTPServerConf get default HTTP server config
-func GetDefaultHTTPServerConf() *mccpb.HttpClientConfig {
-	mfConf := &mccpb.HttpClientConfig{
+func GetDefaultHTTPServerConf() *mpb.HttpClientConfig {
+	mfConf := &mpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{BytesValue: meshIP1}},
@@ -72,8 +71,8 @@ func GetDefaultHTTPServerConf() *mccpb.HttpClientConfig {
 }
 
 // GetDefaultHTTPClientConf get default HTTP client config
-func GetDefaultHTTPClientConf() *mccpb.HttpClientConfig {
-	mfConf := &mccpb.HttpClientConfig{
+func GetDefaultHTTPClientConf() *mpb.HttpClientConfig {
+	mfConf := &mpb.HttpClientConfig{
 		ForwardAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"source.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "POD11"}},
@@ -85,8 +84,8 @@ func GetDefaultHTTPClientConf() *mccpb.HttpClientConfig {
 }
 
 // GetDefaultTCPServerConf get default TCP server config
-func GetDefaultTCPServerConf() *mccpb.TcpClientConfig {
-	mfConf := &mccpb.TcpClientConfig{
+func GetDefaultTCPServerConf() *mpb.TcpClientConfig {
+	mfConf := &mpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{BytesValue: meshIP1}},
@@ -99,22 +98,22 @@ func GetDefaultTCPServerConf() *mccpb.TcpClientConfig {
 }
 
 // SetNetworPolicy set network policy
-func SetNetworPolicy(mfConf *mccpb.HttpClientConfig, open bool) {
+func SetNetworPolicy(mfConf *mpb.HttpClientConfig, open bool) {
 	if mfConf.Transport == nil {
-		mfConf.Transport = &mccpb.TransportConfig{}
+		mfConf.Transport = &mpb.TransportConfig{}
 	}
-	mfConf.Transport.NetworkFailPolicy = &mccpb.NetworkFailPolicy{}
+	mfConf.Transport.NetworkFailPolicy = &mpb.NetworkFailPolicy{}
 	if open {
-		mfConf.Transport.NetworkFailPolicy.Policy = mccpb.NetworkFailPolicy_FAIL_OPEN
+		mfConf.Transport.NetworkFailPolicy.Policy = mpb.NetworkFailPolicy_FAIL_OPEN
 	} else {
-		mfConf.Transport.NetworkFailPolicy.Policy = mccpb.NetworkFailPolicy_FAIL_CLOSE
+		mfConf.Transport.NetworkFailPolicy.Policy = mpb.NetworkFailPolicy_FAIL_CLOSE
 	}
 }
 
 // DisableHTTPClientCache disable HTTP client cache
-func DisableHTTPClientCache(mfConf *mccpb.HttpClientConfig, checkCache, quotaCache, reportBatch bool) {
+func DisableHTTPClientCache(mfConf *mpb.HttpClientConfig, checkCache, quotaCache, reportBatch bool) {
 	if mfConf.Transport == nil {
-		mfConf.Transport = &mccpb.TransportConfig{}
+		mfConf.Transport = &mpb.TransportConfig{}
 	}
 	mfConf.Transport.DisableCheckCache = checkCache
 	mfConf.Transport.DisableQuotaCache = quotaCache
@@ -122,9 +121,9 @@ func DisableHTTPClientCache(mfConf *mccpb.HttpClientConfig, checkCache, quotaCac
 }
 
 // DisableTCPClientCache disable TCP client cache
-func DisableTCPClientCache(mfConf *mccpb.TcpClientConfig, checkCache, quotaCache, reportBatch bool) {
+func DisableTCPClientCache(mfConf *mpb.TcpClientConfig, checkCache, quotaCache, reportBatch bool) {
 	if mfConf.Transport == nil {
-		mfConf.Transport = &mccpb.TransportConfig{}
+		mfConf.Transport = &mpb.TransportConfig{}
 	}
 	mfConf.Transport.DisableCheckCache = checkCache
 	mfConf.Transport.DisableQuotaCache = quotaCache
@@ -139,29 +138,29 @@ func DisableHTTPCheckReport(mfConf *MixerFilterConf, disableCheck, disableReport
 
 // AddHTTPQuota add HTTP quota config
 func AddHTTPQuota(mfConf *MixerFilterConf, quota string, charge int64) {
-	q := &mccpb.QuotaSpec{
-		Rules: make([]*mccpb.QuotaRule, 1),
+	q := &mpb.QuotaSpec{
+		Rules: make([]*mpb.QuotaRule, 1),
 	}
-	q.Rules[0] = &mccpb.QuotaRule{
-		Quotas: make([]*mccpb.Quota, 1),
+	q.Rules[0] = &mpb.QuotaRule{
+		Quotas: make([]*mpb.Quota, 1),
 	}
-	q.Rules[0].Quotas[0] = &mccpb.Quota{
+	q.Rules[0].Quotas[0] = &mpb.Quota{
 		Quota:  quota,
 		Charge: charge,
 	}
 
-	mfConf.PerRouteConf.QuotaSpec = make([]*mccpb.QuotaSpec, 1)
+	mfConf.PerRouteConf.QuotaSpec = make([]*mpb.QuotaSpec, 1)
 	mfConf.PerRouteConf.QuotaSpec[0] = q
 }
 
 // DisableTCPCheckReport disable TCP check report.
-func DisableTCPCheckReport(mfConf *mccpb.TcpClientConfig, disableCheck, disableReport bool) {
+func DisableTCPCheckReport(mfConf *mpb.TcpClientConfig, disableCheck, disableReport bool) {
 	mfConf.DisableCheckCalls = disableCheck
 	mfConf.DisableReportCalls = disableReport
 }
 
 // SetTCPReportInterval sets TCP filter report interval in seconds
-func SetTCPReportInterval(mfConf *mccpb.TcpClientConfig, reportInterval int64) {
+func SetTCPReportInterval(mfConf *mpb.TcpClientConfig, reportInterval int64) {
 	if mfConf.ReportInterval == nil {
 		mfConf.ReportInterval = &duration.Duration{
 			Seconds: reportInterval,
@@ -174,13 +173,13 @@ func SetTCPReportInterval(mfConf *mccpb.TcpClientConfig, reportInterval int64) {
 // SetStatsUpdateInterval sets stats update interval for Mixer client filters in seconds.
 func SetStatsUpdateInterval(mfConf *MixerFilterConf, updateInterval int64) {
 	if mfConf.HTTPServerConf.Transport == nil {
-		mfConf.HTTPServerConf.Transport = &mccpb.TransportConfig{}
+		mfConf.HTTPServerConf.Transport = &mpb.TransportConfig{}
 	}
 	mfConf.HTTPServerConf.Transport.StatsUpdateInterval = &duration.Duration{
 		Seconds: updateInterval,
 	}
 	if mfConf.TCPServerConf.Transport == nil {
-		mfConf.TCPServerConf.Transport = &mccpb.TransportConfig{}
+		mfConf.TCPServerConf.Transport = &mpb.TransportConfig{}
 	}
 	mfConf.TCPServerConf.Transport.StatsUpdateInterval = &duration.Duration{
 		Seconds: updateInterval,
@@ -192,6 +191,6 @@ func SetDefaultServiceConfigMap(mfConf *MixerFilterConf) {
 	service := ":default"
 	mfConf.HTTPServerConf.DefaultDestinationService = service
 
-	mfConf.HTTPServerConf.ServiceConfigs = map[string]*mccpb.ServiceConfig{}
+	mfConf.HTTPServerConf.ServiceConfigs = map[string]*mpb.ServiceConfig{}
 	mfConf.HTTPServerConf.ServiceConfigs[service] = mfConf.PerRouteConf
 }

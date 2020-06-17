@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/label"
+
 	"istio.io/api/annotation"
 
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -34,12 +36,13 @@ type Analyzer struct{}
 
 var _ analysis.Analyzer = &Analyzer{}
 
-// We assume that enablement is via an istio-injection=enabled namespace label
+// We assume that enablement is via an istio-injection=enabled or istio.io/rev namespace label
 // In theory, there can be alternatives using Mutatingwebhookconfiguration, but they're very uncommon
 // See https://istio.io/docs/ops/troubleshooting/injection/ for more info.
 const (
-	InjectionLabelName        = "istio-injection"
-	InjectionLabelEnableValue = "enabled"
+	InjectionLabelName         = "istio-injection"
+	InjectionLabelEnableValue  = "enabled"
+	RevisionInjectionLabelName = label.IstioRev
 
 	istioProxyName = "istio-proxy"
 )
@@ -68,8 +71,9 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		injectionLabel := r.Metadata.Labels[InjectionLabelName]
+		_, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
 
-		if injectionLabel == "" {
+		if injectionLabel == "" && !okNewInjectionLabel {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
 
@@ -77,8 +81,16 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		// If it has any value other than the enablement value, they are deliberately not injecting it, so ignore
-		if r.Metadata.Labels[InjectionLabelName] != InjectionLabelEnableValue {
+		if okNewInjectionLabel {
+			if injectionLabel != "" {
+				c.Report(collections.K8SCoreV1Namespaces.Name(),
+					msg.NewNamespaceMultipleInjectionLabels(r,
+						r.Metadata.FullName.String(),
+						r.Metadata.FullName.String()))
+				return true
+			}
+		} else if injectionLabel != InjectionLabelEnableValue {
+			// If legacy label has any value other than the enablement value, they are deliberately not injecting it, so ignore
 			return true
 		}
 

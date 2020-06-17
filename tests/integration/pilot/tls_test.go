@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common/scheme"
+
 	"istio.io/istio/pkg/test/env"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -28,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -45,7 +46,6 @@ func mustReadFile(t *testing.T, f string) string {
 func TestDestinationRuleTLS(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "tls",
@@ -53,7 +53,7 @@ func TestDestinationRuleTLS(t *testing.T) {
 			})
 
 			// Setup our destination rule, enforcing TLS to "server". These certs will be created/mounted below.
-			g.ApplyConfigOrFail(t, ns, `
+			ctx.ApplyConfigOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -75,7 +75,6 @@ spec:
 					Service:   "client",
 					Namespace: ns,
 					Ports:     []echo.Port{},
-					Galley:    g,
 					Pilot:     p,
 					Subsets: []echo.SubsetConfig{{
 						Version: "v1",
@@ -92,15 +91,25 @@ spec:
 					Namespace: ns,
 					Ports: []echo.Port{
 						{
-							// Currently only GRPC protocol has the TLS certs added.
-							// For this test, that is sufficient.
 							Name:         "grpc",
 							Protocol:     protocol.GRPC,
 							InstancePort: 8090,
+							TLS:          true,
+						},
+						{
+							Name:         "http",
+							Protocol:     protocol.HTTP,
+							InstancePort: 8091,
+							TLS:          true,
+						},
+						{
+							Name:         "tcp",
+							Protocol:     protocol.TCP,
+							InstancePort: 8092,
+							TLS:          true,
 						},
 					},
-					Galley: g,
-					Pilot:  p,
+					Pilot: p,
 					// Set up TLS certs on the server. This will make the server listen with these credentials.
 					TLSSettings: &common.TLSSettings{
 						RootCert:   mustReadFile(t, "root-cert.pem"),
@@ -117,15 +126,23 @@ spec:
 				}).
 				BuildOrFail(t)
 
-			retry.UntilSuccessOrFail(ctx, func() error {
-				resp, err := client.Call(echo.CallOptions{
-					Target:   server,
-					PortName: "grpc",
+			for _, tt := range []string{"grpc", "http", "tcp"} {
+				ctx.NewSubTest(tt).Run(func(ctx framework.TestContext) {
+					retry.UntilSuccessOrFail(ctx, func() error {
+						opts := echo.CallOptions{
+							Target:   server,
+							PortName: tt,
+						}
+						if tt == "tcp" {
+							opts.Scheme = scheme.TCP
+						}
+						resp, err := client.Call(opts)
+						if err != nil {
+							return err
+						}
+						return resp.CheckOK()
+					}, retry.Delay(time.Millisecond*100))
 				})
-				if err != nil {
-					return err
-				}
-				return resp.CheckOK()
-			}, retry.Delay(time.Millisecond*100))
+			}
 		})
 }

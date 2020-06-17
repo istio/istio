@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
@@ -25,6 +26,16 @@ import (
 
 func listenOnPort(port int) (net.Listener, int, error) {
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	port = ln.Addr().(*net.TCPAddr).Port
+	return ln, port, nil
+}
+
+func listenOnPortTLS(port int, cfg *tls.Config) (net.Listener, int, error) {
+	ln, err := tls.Listen("tcp", fmt.Sprintf(":%d", port), cfg)
 	if err != nil {
 		return nil, 0, err
 	}

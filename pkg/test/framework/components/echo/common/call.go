@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -162,10 +162,12 @@ func schemeForPort(port *echo.Port) (scheme.Instance, error) {
 	switch port.Protocol {
 	case protocol.GRPC, protocol.GRPCWeb, protocol.HTTP2:
 		return scheme.GRPC, nil
-	case protocol.HTTP, protocol.TCP:
+	case protocol.HTTP:
 		return scheme.HTTP, nil
-	case protocol.HTTPS, protocol.TLS:
+	case protocol.HTTPS:
 		return scheme.HTTPS, nil
+	case protocol.TCP:
+		return scheme.TCP, nil
 	default:
 		return "", fmt.Errorf("failed creating call for port %s: unsupported protocol %s",
 			port.Name, port.Protocol)

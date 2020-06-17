@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,19 +17,18 @@ package namespace
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
-	"os"
-	"path"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/api/label"
+
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -48,36 +47,16 @@ type kubeNamespace struct {
 }
 
 func (n *kubeNamespace) Dump() {
-	scopes.CI.Errorf("=== Dumping Namespace %s State...", n.name)
+	scopes.Framework.Errorf("=== Dumping Namespace %s State...", n.name)
 
 	d, err := n.ctx.CreateTmpDirectory(n.name + "-state")
 	if err != nil {
-		scopes.CI.Errorf("Unable to create directory for dumping %s contents: %v", n.name, err)
+		scopes.Framework.Errorf("Unable to create directory for dumping %s contents: %v", n.name, err)
 		return
 	}
 
 	for _, cluster := range n.env.KubeClusters {
-		pods, err := cluster.GetPods(n.name)
-		if err != nil {
-			scopes.CI.Errorf("Unable to get pods from the namespace: %v", err)
-			return
-		}
-
-		for _, pod := range pods {
-			containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
-			for _, container := range containers {
-				l, err := cluster.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
-				if err != nil {
-					scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
-					continue
-				}
-
-				fname := path.Join(d, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
-				if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
-					scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
-				}
-			}
-		}
+		kube2.DumpPods(cluster, d, n.name)
 	}
 }
 
@@ -110,7 +89,7 @@ func (n *kubeNamespace) Close() (err error) {
 	return
 }
 
-func claimKube(ctx resource.Context, name string) (Instance, error) {
+func claimKube(ctx resource.Context, name string, injectSidecar bool) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	cfg, err := istio.DefaultConfig(ctx)
 	if err != nil {
@@ -120,7 +99,7 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 	for _, cluster := range env.KubeClusters {
 		if !cluster.NamespaceExists(name) {
 			nsConfig := Config{
-				Inject:   true,
+				Inject:   injectSidecar,
 				Revision: cfg.CustomSidecarInjectorNamespace,
 			}
 			nsLabels := createNamespaceLabels(&nsConfig)
@@ -164,7 +143,7 @@ func createNamespaceLabels(cfg *Config) map[string]string {
 	l := make(map[string]string)
 	if cfg.Inject {
 		if cfg.Revision != "" {
-			l[model.RevisionLabel] = cfg.Revision
+			l[label.IstioRev] = cfg.Revision
 		} else {
 			l["istio-injection"] = "enabled"
 		}

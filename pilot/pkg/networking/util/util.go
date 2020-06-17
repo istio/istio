@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,14 +21,14 @@ import (
 	"strconv"
 	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoyauth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -37,14 +37,13 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/strcase"
 )
@@ -52,14 +51,14 @@ import (
 const (
 	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
 	BlackHoleCluster = "BlackHoleCluster"
-	// BlackHoleRouteName is the name of the route that blocks all traffic.
-	BlackHoleRouteName = "block_all"
+	// BlackHole is the name of the virtual host and route name used to block all traffic
+	BlackHole = "block_all"
 	// PassthroughCluster to forward traffic to the original destination requested. This cluster is used when
 	// traffic does not match any listener in envoy.
 	PassthroughCluster = "PassthroughCluster"
-	// PassthroughRouteName is the name of the route that forwards traffic to the
+	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
-	PassthroughRouteName = "allow_any"
+	Passthrough = "allow_any"
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
@@ -72,9 +71,7 @@ const (
 
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
-	// ForwardDownstreamSniFilter forwards the sni from downstream connections to upstream
-	// Used only in the fallthrough filter stack for TLS connections
-	ForwardDownstreamSniFilter = "forward_downstream_sni"
+
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
@@ -85,11 +82,11 @@ const (
 
 	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
 	// endpoint level plantext transport socket configuration
-	EnvoyRawBufferSocketName = "envoy.transport_sockets.raw_buffer"
+	EnvoyRawBufferSocketName = wellknown.TransportSocketRawBuffer
 
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
-	EnvoyTLSSocketName = "envoy.transport_sockets.tls"
+	EnvoyTLSSocketName = wellknown.TransportSocketTls
 
 	// StatName patterns
 	serviceStatPattern         = "%SERVICE%"
@@ -106,6 +103,11 @@ var ALPNH2Only = []string{"h2"}
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 // Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
 var ALPNInMeshH2 = []string{"istio", "h2"}
+
+// ALPNInMeshH2WithMxc advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+// The custom "istio-peer-exchange" value indicates, metadata exchange is enabled for TCP.
+var ALPNInMeshH2WithMxc = []string{"istio-peer-exchange", "istio", "h2"}
 
 // ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
@@ -169,6 +171,30 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 		cidr.PrefixLen.Value = uint32(prefix)
 	}
 	return cidr
+}
+
+// BuildAddressV2 returns a SocketAddress with the given ip and port or uds.
+func BuildAddressV2(bind string, port uint32) *core.Address {
+	if port != 0 {
+		return &core.Address{
+			Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
+					Address: bind,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: port,
+					},
+				},
+			},
+		}
+	}
+
+	return &core.Address{
+		Address: &core.Address_Pipe{
+			Pipe: &core.Pipe{
+				Path: strings.TrimPrefix(bind, model.UnixAddressPrefix),
+			},
+		},
+	}
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
@@ -253,12 +279,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE14 checks whether the given Istio version is greater than or equals 1.4.
-func IsIstioVersionGE14(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 4, Patch: -1}) >= 0
-}
-
 // IsIstioVersionGE15 checks whether the given Istio version is greater than or equals 1.5.
 func IsIstioVersionGE15(node *model.Proxy) bool {
 	return node.IstioVersion == nil ||
@@ -266,20 +286,20 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound.Get() && port.Protocol.IsUnsupported()
+	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
 func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForInbound.Get() && port.Protocol.IsUnsupported()
+	return features.EnableProtocolSniffingForInbound && port.Protocol.IsUnsupported()
 }
 
 func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound.Get() && port.Protocol.IsUnsupported()
+	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
 // IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.
 func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
-	return features.EnableTCPMetadataExchange.Get() && IsIstioVersionGE15(node)
+	return features.EnableTCPMetadataExchange && IsIstioVersionGE15(node)
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
@@ -358,23 +378,9 @@ func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
 	return 3
 }
 
-// return a shallow copy cluster
-func CloneCluster(cluster *xdsapi.Cluster) xdsapi.Cluster {
-	out := xdsapi.Cluster{}
-	if cluster == nil {
-		return out
-	}
-
-	out = *cluster
-	loadAssignment := CloneClusterLoadAssignment(cluster.LoadAssignment)
-	out.LoadAssignment = &loadAssignment
-
-	return out
-}
-
 // return a shallow copy ClusterLoadAssignment
-func CloneClusterLoadAssignment(original *xdsapi.ClusterLoadAssignment) xdsapi.ClusterLoadAssignment {
-	out := xdsapi.ClusterLoadAssignment{}
+func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) endpoint.ClusterLoadAssignment {
+	out := endpoint.ClusterLoadAssignment{}
 	if original == nil {
 		return out
 	}
@@ -436,6 +442,24 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 	}
 }
 
+func BuildConfigInfoMetadataV2(config model.ConfigMeta) *core.Metadata {
+	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
+	return &core.Metadata{
+		FilterMetadata: map[string]*pstruct.Struct{
+			IstioMetadataKey: {
+				Fields: map[string]*pstruct.Value{
+					"config": {
+						Kind: &pstruct.Value_StringValue{
+							StringValue: s,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 // AddSubsetToMetadata will build a new core.Metadata struct containing the
 // subset name supplied. This is used for telemetry reporting. A new core.Metadata
 // is created to prevent modification to shared base Metadata across subsets, etc.
@@ -458,7 +482,7 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) *core.Metadata {
 // IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
 func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 	for _, f := range filterChain.Filters {
-		if f.Name == xdsutil.HTTPConnectionManager {
+		if f.Name == wellknown.HTTPConnectionManager {
 			return true
 		}
 	}
@@ -581,84 +605,72 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 	return prefix
 }
 
-// shotHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
+// shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
 // For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
 func shortHostName(host string, attributes model.ServiceAttributes) string {
 	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
-		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
+		return attributes.Name + "." + attributes.Namespace
 	}
 	return host
 }
 
-// ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
-func ApplyToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
-	// configure TLS with SDS
-	if metadata.SdsEnabled && sdsPath != "" {
-		// configure egress with SDS
-		tlsContext.ValidationContextType = &envoyauth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &envoyauth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &envoyauth.CertificateValidationContext{VerifySubjectAltName: subjectAltNames},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(
-					authn_model.SDSRootResourceName, sdsPath),
-			},
-		}
-		tlsContext.TlsCertificateSdsSecretConfigs = []*envoyauth.SdsSecretConfig{
-			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsPath),
-		}
-	} else {
-		// SDS disabled, fall back on using mounted certificates
-		base := metadata.SdsBase + constants.AuthCertsPath
-		tlsServerRootCert := model.GetOrDefault(metadata.TLSServerRootCert, base+constants.RootCertFilename)
-
-		tlsContext.ValidationContextType = authn_model.ConstructValidationContext(tlsServerRootCert, subjectAltNames)
-
-		tlsServerCertChain := model.GetOrDefault(metadata.TLSServerCertChain, base+constants.CertChainFilename)
-		tlsServerKey := model.GetOrDefault(metadata.TLSServerKey, base+constants.KeyFilename)
-
-		tlsContext.TlsCertificates = []*envoyauth.TlsCertificate{
-			{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerCertChain,
-					},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerKey,
-					},
-				},
-			},
-		}
+func StringToExactMatch(in []string) []*matcher.StringMatcher {
+	if len(in) == 0 {
+		return nil
 	}
+	res := make([]*matcher.StringMatcher, 0, len(in))
+	for _, s := range in {
+		res = append(res, &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
+		})
+	}
+	return res
 }
 
-// ApplyCustomSDSToCommonTLSContext applies the customized sds to CommonTlsContext
-// Used for building both gateway/sidecar TLS context
-func ApplyCustomSDSToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, tlsOpts *networking.Server_TLSOptions, sdsUdsPath string) {
-	// create SDS config for gateway/sidecar to fetch key/cert from agent.
-	tlsContext.TlsCertificateSdsSecretConfigs = []*envoyauth.SdsSecretConfig{
-		authn_model.ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
+func StringSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	// If tls mode is MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
-	// at gateway agent. Otherwise, use the static certificate validation context config.
-	if tlsOpts.Mode == networking.Server_TLSOptions_MUTUAL {
-		defaultValidationContext := &envoyauth.CertificateValidationContext{
-			VerifySubjectAltName:  tlsOpts.SubjectAltNames,
-			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,
-			VerifyCertificateHash: tlsOpts.VerifyCertificateHash,
-		}
-		tlsContext.ValidationContextType = &envoyauth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &envoyauth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: defaultValidationContext,
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigWithCustomUds(
-					tlsOpts.CredentialName+authn_model.SdsCaSuffix, sdsUdsPath),
-			},
-		}
-	} else if len(tlsOpts.SubjectAltNames) > 0 {
-		tlsContext.ValidationContextType = &envoyauth.CommonTlsContext_ValidationContext{
-			ValidationContext: &envoyauth.CertificateValidationContext{
-				VerifySubjectAltName: tlsOpts.SubjectAltNames,
-			},
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
 		}
 	}
+
+	return true
+}
+
+func UInt32SliceEqual(a, b []uint32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].GetAddressPrefix() != b[i].GetAddressPrefix() || a[i].GetPrefixLen().GetValue() != b[i].GetPrefixLen().GetValue() {
+			return false
+		}
+	}
+
+	return true
+}
+
+// meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
+// due to the UNDEFINED in the meshconfig ForwardClientCertDetails
+func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
+	return http_conn.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }

@@ -6,14 +6,12 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   selector:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
-      
   strategy:
     rollingUpdate:
       maxSurge: 100%
@@ -23,15 +21,28 @@ spec:
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
-        
         heritage: Tiller
         release: istio
         chart: gateways
         service.istio.io/canonical-name: istio-ingressgateway
         service.istio.io/canonical-revision: latest
       annotations:
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/stats/prometheus"
         sidecar.istio.io/inject: "false"
     spec:
+      securityContext:
+        runAsUser: 1337
+        runAsGroup: 1337
+        runAsNonRoot: true
+        fsGroup: 1337
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
@@ -41,7 +52,7 @@ spec:
             - containerPort: 15011
             - containerPort: 15012
             - containerPort: 8060
-            - containerPort: 853
+            - containerPort: 8853
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
@@ -60,7 +71,7 @@ spec:
             failureThreshold: 30
             httpGet:
               path: /healthz/ready
-              port: 15020
+              port: 15021
               scheme: HTTP
             initialDelaySeconds: 1
             periodSeconds: 2
@@ -73,7 +84,6 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-            
           env:
           - name: JWT_POLICY
             value: third-party-jwt
@@ -110,6 +120,14 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
+          - name: CANONICAL_SERVICE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-name']
+          - name: CANONICAL_REVISION
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: ISTIO_META_WORKLOAD_NAME
             value: istio-ingressgateway
           - name: ISTIO_META_OWNER
@@ -122,6 +140,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
+          - name: istio-envoy
+            mountPath: /etc/istio/proxy
           - name: config-volume
             mountPath: /etc/istio/config
           - mountPath: /var/run/secrets/istio
@@ -152,6 +172,8 @@ spec:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
+      - name: istio-envoy
+        emptyDir: {}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
       - name: istio-token
@@ -178,7 +200,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "amd64"
@@ -188,21 +210,21 @@ spec:
           - weight: 2
             preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "amd64"
           - weight: 2
             preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "ppc64le"
           - weight: 2
             preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "s390x"

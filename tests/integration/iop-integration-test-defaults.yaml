@@ -2,23 +2,19 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
+  meshConfig:
+    accessLogFile: "/dev/stdout"
   components:
-    egressGateways:
-    - name: istio-egressgateway
-      enabled: false
   addonComponents:
     prometheus:
       enabled: false
   values:
     global:
       proxy:
-        concurrency: 0
         resources:
           requests:
             cpu: 10m
             memory: 40Mi
-
-        accessLogFile: "/dev/stdout"
 
     prometheus:
       scrapeInterval: 5s
@@ -33,36 +29,6 @@ spec:
           limits:
             cpu: 100m
             memory: 128Mi
-        # Disable the specific nodePort mappings for testing
-        # These occasionally cause port conflict flakes (#14190)
-        # Lacking a good way to override just part of a list, this is copied from
-        # the prod values.yaml with nodePort omitted
-        ports:
-        - port: 15020
-          targetPort: 15020
-          name: status-port
-        - port: 80
-          targetPort: 80
-          name: http2
-        - port: 443
-          name: https
-        - port: 31400
-          name: tcp
-        - port: 15029
-          targetPort: 15029
-          name: https-kiali
-        - port: 15030
-          targetPort: 15030
-          name: https-prometheus
-        - port: 15031
-          targetPort: 15031
-          name: https-grafana
-        - port: 15032
-          targetPort: 15032
-          name: https-tracing
-        - port: 15443
-          targetPort: 15443
-          name: tls
 
       istio-egressgateway:
         autoscaleMax: 1
@@ -98,6 +64,3 @@ spec:
       adapters:
         stdio:
           enabled: true
-
-    sidecarInjectorWebhook:
-      rewriteAppHTTPProbe: true

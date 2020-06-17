@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package controller
 
 import (
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
@@ -27,11 +28,12 @@ func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
 	return false
 }
 
-func getLabelValue(node *v1.Node, label string, fallBackLabel string) string {
-	val := node.Labels[label]
+func getLabelValue(metadata metav1.Object, label string, fallBackLabel string) string {
+	labels := metadata.GetLabels()
+	val := labels[label]
 	if val != "" {
 		return val
 	}
 
-	return node.Labels[fallBackLabel]
+	return labels[fallBackLabel]
 }

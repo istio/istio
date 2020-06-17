@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,8 +22,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-
-	"istio.io/istio/operator/pkg/manifest"
 
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/yaml"
@@ -186,8 +184,8 @@ func genYamlIgnoreOpt(yamlStr string) (cmp.Option, error) {
 	}
 	return cmp.FilterPath(func(curPath cmp.Path) bool {
 		up := pathToStringList(curPath)
-		treeNode, found, _ := tpath.GetFromTreePath(tree, up)
-		return found && tpath.IsLeafNode(treeNode)
+		treeNode, found, _ := tpath.Find(tree, up)
+		return found && IsLeafNode(treeNode)
 	}, cmp.Ignore()), nil
 }
 
@@ -274,11 +272,11 @@ func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, 
 	return manifestDiff(aosm, bosm, im, verbose)
 }
 
-// SelectAndIgnoreFromOutput selects and ignores subset from the manifest string
-func SelectAndIgnoreFromOutput(ms string, selectResources string, ignoreResources string) (string, error) {
+// FilterManifest selects and ignores subset from the manifest string
+func FilterManifest(ms string, selectResources string, ignoreResources string) (string, error) {
 	sm := getObjPathMap(selectResources)
 	im := getObjPathMap(ignoreResources)
-	ao, err := object.ParseK8sObjectsFromYAMLManifest(ms)
+	ao, err := object.ParseK8sObjectsFromYAMLManifestFailOption(ms, false)
 	if err != nil {
 		return "", err
 	}
@@ -299,7 +297,7 @@ func SelectAndIgnoreFromOutput(ms string, selectResources string, ignoreResource
 	if err != nil {
 		return "", err
 	}
-	k8sObjects.Sort(manifest.DefaultObjectOrder())
+	k8sObjects.Sort(object.DefaultObjectOrder())
 	sortdManifests, err := k8sObjects.YAMLManifest()
 	if err != nil {
 		return "", err
@@ -498,4 +496,9 @@ func writeStringSafe(sb io.StringWriter, s string) {
 	if err != nil {
 		log.Error(err.Error())
 	}
+}
+
+// IsLeafNode reports whether the given node is a leaf, assuming internal nodes can only be maps or slices.
+func IsLeafNode(node interface{}) bool {
+	return !util.IsMap(node) && !util.IsSlice(node)
 }

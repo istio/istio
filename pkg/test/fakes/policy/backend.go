@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ import (
 	google_rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
-	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 	policy "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/checknothing"
@@ -202,7 +201,7 @@ func (b *Backend) CloseSession(ctx context.Context, req *v1beta1.CloseSessionReq
 
 // HandleMetric is an implementation HandleMetricServiceServer.HandleMetric.
 func (b *Backend) HandleMetric(ctx context.Context, req *metric.HandleMetricRequest) (
-	*istio_mixer_adapter_model_v1beta11.ReportResult, error) {
+	*v1beta1.ReportResult, error) {
 	scope.Infof("Backend.HandleMetric %v", req)
 
 	b.lock.Lock()
@@ -211,12 +210,12 @@ func (b *Backend) HandleMetric(ctx context.Context, req *metric.HandleMetricRequ
 		b.reports = append(b.reports, ins)
 	}
 
-	return &istio_mixer_adapter_model_v1beta11.ReportResult{}, nil
+	return &v1beta1.ReportResult{}, nil
 }
 
 // HandleCheckNothing is an implementation of HandleCheckNothingServiceServer.HandleCheckNothing.
 func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.HandleCheckNothingRequest) (
-	*istio_mixer_adapter_model_v1beta11.CheckResult, error) {
+	*v1beta1.CheckResult, error) {
 	scope.Infof("Backend.HandleCheckNothing %v", req)
 
 	b.lock.Lock()
@@ -230,7 +229,7 @@ func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.Hand
 	}
 	if b.settings.getDenyCheck() || (params.CheckParams != nil && !params.CheckParams.CheckAllow) {
 		scope.Infof("Backend.HandleCheckNothing => UNAUTHENTICATED")
-		return &istio_mixer_adapter_model_v1beta11.CheckResult{
+		return &v1beta1.CheckResult{
 			Status: google_rpc.Status{
 				Code:    int32(google_rpc.UNAUTHENTICATED),
 				Message: "bypass-backend-unauthenticated",
@@ -245,7 +244,7 @@ func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.Hand
 		validDuration, _ = types.DurationFromProto(params.CheckParams.ValidDuration)
 		validCount = int32(params.CheckParams.ValidCount)
 	}
-	return &istio_mixer_adapter_model_v1beta11.CheckResult{
+	return &v1beta1.CheckResult{
 		Status: google_rpc.Status{
 			Code: int32(google_rpc.OK),
 		},

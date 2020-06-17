@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,9 +44,16 @@ var grpcWeb = string(protocol.GRPCWeb)
 var grpcWebLen = len(grpcWeb)
 
 // ConvertProtocol from k8s protocol and port name
-func ConvertProtocol(port int32, name string, proto coreV1.Protocol) protocol.Instance {
+func ConvertProtocol(port int32, portName string, proto coreV1.Protocol, appProto *string) protocol.Instance {
 	if proto == coreV1.ProtocolUDP {
 		return protocol.UDP
+	}
+
+	// If application protocol is set, we will use that
+	// If not, use the port name
+	name := portName
+	if appProto != nil {
+		name = *appProto
 	}
 
 	// Check if the port name prefix is "grpc-web". Need to do this before the general

@@ -44,7 +44,7 @@ metadata:
   namespace: exampleegressgw
 spec:
   hosts:
-  - httpbin.com
+  - httpbin.org
   location: MESH_EXTERNAL
   ports:
   - number: 80

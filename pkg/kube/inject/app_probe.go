@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 		if c.Name == ProxyContainerName {
 			continue
 		}
-		readyz, livez := status.FormatProberURL(c.Name)
+		readyz, livez, startupz := status.FormatProberURL(c.Name)
 		portMap := map[string]int32{}
 		for _, p := range c.Ports {
 			if p.Name != "" {
@@ -106,6 +106,10 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 		if h := updateNamedPort(kubeProbeToInternalProber(c.LivenessProbe), portMap); h != nil {
 			out[livez] = h
 		}
+		if h := updateNamedPort(kubeProbeToInternalProber(c.StartupProbe), portMap); h != nil {
+			out[startupz] = h
+		}
+
 	}
 	b, err := json.Marshal(out)
 	if err != nil {
@@ -117,6 +121,7 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 
 // rewriteAppHTTPProbes modifies the app probers in place for kube-inject.
 func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec, port int32) {
+
 	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
 		return
 	}
@@ -147,12 +152,15 @@ func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec,
 		if c.Name == ProxyContainerName {
 			continue
 		}
-		readyz, livez := status.FormatProberURL(c.Name)
+		readyz, livez, startupz := status.FormatProberURL(c.Name)
 		if rp := convertAppProber(c.ReadinessProbe, readyz, statusPort); rp != nil {
 			*c.ReadinessProbe = *rp
 		}
 		if lp := convertAppProber(c.LivenessProbe, livez, statusPort); lp != nil {
 			*c.LivenessProbe = *lp
+		}
+		if sp := convertAppProber(c.StartupProbe, startupz, statusPort); sp != nil {
+			*c.StartupProbe = *sp
 		}
 	}
 }
@@ -184,7 +192,7 @@ func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodS
 		for _, p := range c.Ports {
 			portMap[p.Name] = p.ContainerPort
 		}
-		readyz, livez := status.FormatProberURL(c.Name)
+		readyz, livez, startupz := status.FormatProberURL(c.Name)
 		if probePatch := convertAppProber(c.ReadinessProbe, readyz, statusPort); probePatch != nil {
 			podPatches = append(podPatches, rfc6902PatchOperation{
 				Op:    "replace",
@@ -196,6 +204,13 @@ func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodS
 			podPatches = append(podPatches, rfc6902PatchOperation{
 				Op:    "replace",
 				Path:  fmt.Sprintf("/spec/containers/%v/livenessProbe", i),
+				Value: *probePatch,
+			})
+		}
+		if probePatch := convertAppProber(c.StartupProbe, startupz, statusPort); probePatch != nil {
+			podPatches = append(podPatches, rfc6902PatchOperation{
+				Op:    "replace",
+				Path:  fmt.Sprintf("/spec/containers/%v/startupProbe", i),
 				Value: *probePatch,
 			})
 		}

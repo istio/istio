@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,6 @@
 package jwt
 
 const (
-	JWTPolicyThirdPartyJWT = "third-party-jwt"
-	JWTPolicyFirstPartyJWT = "first-party-jwt"
+	PolicyThirdParty = "third-party-jwt"
+	PolicyFirstParty = "first-party-jwt"
 )

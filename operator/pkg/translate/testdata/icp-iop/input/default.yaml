@@ -135,35 +135,6 @@ spec:
       certManager:
         enabled: false
 
-  # Config management feature
-  configManagement:
-    enabled: true
-    components:
-      galley:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          resources:
-            requests:
-              cpu: 100m
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-
-  # Auto injection feature
-  autoInjection:
-    enabled: true
-    components:
-      injector:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-
   # Istio Gateway feature
   gateways:
     enabled: true
@@ -255,7 +226,7 @@ spec:
           port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        dnsRefreshRate: 300s
+
         protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
@@ -310,15 +281,10 @@ spec:
         lightstep:
           address: ""                # example: lightstep-satellite:443
           accessToken: ""            # example: abcdefg1234567
-          secure: true               # example: true|false
-          cacertPath: ""             # example: /etc/lightstep/cacert.pem
         zipkin:
           address: ""
         datadog:
           address: "$(HOST_IP):8126"
-      mtls:
-        enabled: false
-        auto: false
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -452,10 +418,6 @@ spec:
           kubernetesenv:
             enabled: true
           useAdapterCRDs: false
-
-    galley:
-      image: galley
-      enableAnalysis: false
 
     security:
       image: citadel
@@ -636,7 +598,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.16"
+        tag: "1.18"
         memory:
           max_traces: 50000
         spanStorageType: badger

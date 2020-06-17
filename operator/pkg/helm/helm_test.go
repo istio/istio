@@ -50,7 +50,7 @@ func TestGetAddonNamesFromCharts(t *testing.T) {
 		},
 		{
 			"vfs",
-			"",
+			"../../cmd/mesh/testdata/manifest-generate/data-snapshot",
 			false,
 			[]string{"grafana", "istiocoredns", "kiali", "prometheus", "prometheusOperator", "tracing"},
 			false,

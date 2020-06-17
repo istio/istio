@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2017 Istio Authors. All Rights Reserved.
+# Copyright Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ function istio_provision_certs() {
 
   # shellcheck disable=SC2086
   go run ./security/tools/generate_cert -client \
-    -host spiffee://cluster.local/${NS}/${SA} -mode citadel --out-cert cert-chain.pem --out-priv key.pem
+    -host spiffe://cluster.local/${NS}/${SA} -mode citadel --out-cert cert-chain.pem --out-priv key.pem
   echo "Generated cert-chain.pem and key.pem. It should be installed on /etc/certs"
 
   local B64_DECODE=${BASE64_DECODE:-base64 --decode}

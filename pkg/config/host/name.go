@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,8 +34,8 @@ type Name string
 //  Name("*").Matches("foo.com")         = true
 //  Name("*").Matches("*.com")           = true
 func (n Name) Matches(o Name) bool {
-	hWildcard := n.isWildCarded()
-	oWildcard := o.isWildCarded()
+	hWildcard := n.IsWildCarded()
+	oWildcard := o.IsWildCarded()
 
 	if hWildcard {
 		if oWildcard {
@@ -61,8 +61,8 @@ func (n Name) Matches(o Name) bool {
 // SubsetOf returns true if this hostname is a valid subset of the other hostname. The semantics are
 // the same as "Matches", but only in one direction (i.e., h is covered by o).
 func (n Name) SubsetOf(o Name) bool {
-	hWildcard := n.isWildCarded()
-	oWildcard := o.isWildCarded()
+	hWildcard := n.IsWildCarded()
+	oWildcard := o.IsWildCarded()
 
 	if hWildcard {
 		if oWildcard {
@@ -85,6 +85,6 @@ func (n Name) SubsetOf(o Name) bool {
 	return n == o
 }
 
-func (n Name) isWildCarded() bool {
+func (n Name) IsWildCarded() bool {
 	return len(n) > 0 && n[0] == '*'
 }

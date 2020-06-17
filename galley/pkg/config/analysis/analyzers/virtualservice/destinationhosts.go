@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -138,12 +139,15 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 
 	})
 
-	// converts k8s service to servcieEntry since destinationHost
+	// converts k8s service to serviceEntry since destinationHost
 	// validation is performed against serviceEntry
 	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		s := r.Message.(*corev1.ServiceSpec)
 		var se *v1alpha3.ServiceEntry
-		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
+		hostsNamespaceScope, ok := r.Metadata.Annotations[annotation.NetworkingExportTo.Name]
+		if !ok {
+			hostsNamespaceScope = util.ExportToAllNamespaces
+		}
 		var ports []*v1alpha3.Port
 		for _, p := range s.Ports {
 			ports = append(ports, &v1alpha3.Port{

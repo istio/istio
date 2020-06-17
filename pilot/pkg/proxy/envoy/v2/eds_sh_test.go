@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,18 +18,17 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
-	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -224,7 +223,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
 	initMutex.Lock()
 	defer initMutex.Unlock()
-	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
+	testEnv = env.NewTestSetup(env.XDSTest, t)
 	server, tearDown := util.EnsureTestServer()
 
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
@@ -309,14 +308,14 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	memRegistry.SetEndpoints("service5.default.svc.cluster.local", "default", istioEndpoints)
 }
 
-func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+	err := edsstr.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
 			Id:       node,
 			Metadata: metadata,
 		},
-		TypeUrl: v2.ClusterType})
+		TypeUrl: v3.ClusterType})
 	if err != nil {
 		return fmt.Errorf("CDS request failed: %s", err)
 	}
@@ -325,14 +324,14 @@ func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr ads.A
 }
 
 func sendEDSReqWithMetadata(clusters []string, node string, metadata *structpb.Struct,
-	edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+	edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+	err := edsstr.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
 			Id:       node,
 			Metadata: metadata,
 		},
-		TypeUrl:       v2.EndpointType,
+		TypeUrl:       v3.EndpointType,
 		ResourceNames: clusters,
 	})
 	if err != nil {

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 
 	"istio.io/pkg/log"
 
@@ -110,18 +112,25 @@ func (s *Server) initCertController(args *PilotArgs) error {
 //
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
-func (s *Server) initDNSCerts(hostname, namespace string) error {
+func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
+	// Name in the Istiod cert - support the old service names as well.
+	// validate hostname contains namespace
 	parts := strings.Split(hostname, ".")
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid hostname %s, should contain at least service name and namespace", hostname)
-	}
-	// Names in the Istiod cert - support the old service names as well.
-	// The first is the recommended one, also used by Apiserver for webhooks.
+	hostnamePrefix := parts[0]
+
+	// append custom hostname if there is any
 	names := []string{hostname}
+	if customHost != "" && customHost != hostname {
+		log.Infof("Adding custom hostname %s", customHost)
+		names = append(names, customHost)
+	}
+
+	// The first is the recommended one, also used by Apiserver for webhooks.
+	// add a few known hostnames
 	for _, altName := range []string{"istiod", "istiod-remote", "istio-pilot"} {
 		name := fmt.Sprintf("%v.%v.svc", altName, namespace)
-		if name == hostname {
-			continue // avoid dups
+		if name == hostname || name == customHost {
+			continue
 		}
 		names = append(names, name)
 	}
@@ -131,7 +140,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 	if features.PilotCertProvider.Get() == KubernetesCAProvider {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
-			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
+			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath)
 
 		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
@@ -162,7 +171,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 						select {
 						case <-stop:
 							return
-						case <-time.After(namespaceResyncPeriod):
+						case <-time.After(controller.NamespaceResyncPeriod):
 							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
 							if !bytes.Equal(rootCert, newRootCert) {
 								rootCert = newRootCert

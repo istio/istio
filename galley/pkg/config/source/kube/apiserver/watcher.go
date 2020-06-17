@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,7 +124,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 		return
 	}
 
-	r := rt.ToResource(object, w.schema, res, "")
+	r := rt.ToResource(object, w.schema, res, nil)
 
 	if w.statusCtl != nil && !w.adapter.IsBuiltIn() {
 		w.statusCtl.UpdateResourceStatus(

@@ -1,0 +1,71 @@
+{{- if .Values.global.remotePilotAddress }}
+  {{- if .Values.pilot.enabled }}
+# when istiod is enabled in remote cluster, we can't use istiod service name
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod-remote
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: tcp-istiod
+  clusterIP: None
+  {{- else }}
+# when istiod isn't enabled in remote cluster, we can use istiod service name
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: tcp-istiod
+  # if the remotePilotAddress is IP addr, we use clusterIP: None.
+  # else, we use externalName
+  {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
+  clusterIP: None
+  {{- else }}
+  type: ExternalName
+  externalName: {{ .Values.global.remotePilotAddress }}
+  {{- end }}
+  {{- end }}
+---
+{{- end }}
+{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-policy
+  namespace: {{ .Values.global.istioNamespace }}
+spec:
+  ports:
+  - name: grpc-mixer
+    port: 9091
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: http-monitoring
+    port: 15014
+  clusterIP: None
+---
+{{- end }}
+{{- if and .Values.global.remoteTelemetryAddress .Values.global.createRemoteSvcEndpoints }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-telemetry
+  namespace: {{ .Values.global.istioNamespace }}
+spec:
+  ports:
+  - name: grpc-mixer
+    port: 9091
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: http-monitoring
+    port: 15014
+  - name: prometheus
+    port: 42422
+  clusterIP: None
+---
+{{- end }}

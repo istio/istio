@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,5 +20,10 @@ type Origin interface {
 
 	Namespace() Namespace
 
-	Reference() string
+	Reference() Reference
+}
+
+// Reference provides more information about an Origin. This is also source-implementation dependant.
+type Reference interface {
+	String() string
 }

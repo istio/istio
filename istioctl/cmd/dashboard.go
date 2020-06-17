@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,22 +15,29 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"os/signal"
 	"runtime"
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/istioctl/pkg/kubernetes"
-	"istio.io/istio/istioctl/pkg/util/handlers"
-
 	"istio.io/pkg/log"
+
+	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
+	listenPort   = 0
 	controlZport = 0
+
+	bindAddress = ""
 
 	// label selector
 	labelSelector = ""
@@ -38,18 +45,19 @@ var (
 
 // port-forward to Istio System Prometheus; open browser
 func promDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "prometheus",
 		Short:   "Open Prometheus web UI",
 		Long:    `Open Istio's Prometheus dashboard`,
 		Example: `istioctl dashboard prometheus`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(istioNamespace, "app=prometheus")
+			pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=prometheus")
 			if err != nil {
 				return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 			}
@@ -60,7 +68,7 @@ func promDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, istioNamespace, "Prometheus",
-				"http://localhost:%d", 9090, client, cmd.OutOrStdout())
+				"http://%s", bindAddress, 9090, client, cmd.OutOrStdout())
 		},
 	}
 
@@ -69,18 +77,19 @@ func promDashCmd() *cobra.Command {
 
 // port-forward to Istio System Grafana; open browser
 func grafanaDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "grafana",
 		Short:   "Open Grafana web UI",
 		Long:    `Open Istio's Grafana dashboard`,
 		Example: `istioctl dashboard grafana`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(istioNamespace, "app=grafana")
+			pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=grafana")
 			if err != nil {
 				return fmt.Errorf("not able to locate Grafana pod: %v", err)
 			}
@@ -91,7 +100,7 @@ func grafanaDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, istioNamespace, "Grafana",
-				"http://localhost:%d", 3000, client, cmd.OutOrStdout())
+				"http://%s", bindAddress, 3000, client, cmd.OutOrStdout())
 		},
 	}
 
@@ -100,18 +109,19 @@ func grafanaDashCmd() *cobra.Command {
 
 // port-forward to Istio System Kiali; open browser
 func kialiDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "kiali",
 		Short:   "Open Kiali web UI",
 		Long:    `Open Istio's Kiali dashboard`,
 		Example: `istioctl dashboard kiali`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(istioNamespace, "app=kiali")
+			pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=kiali")
 			if err != nil {
 				return fmt.Errorf("not able to locate Kiali pod: %v", err)
 			}
@@ -122,7 +132,7 @@ func kialiDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, istioNamespace, "Kiali",
-				"http://localhost:%d/kiali", 20001, client, cmd.OutOrStdout())
+				"http://%s/kiali", bindAddress, 20001, client, cmd.OutOrStdout())
 		},
 	}
 
@@ -131,18 +141,19 @@ func kialiDashCmd() *cobra.Command {
 
 // port-forward to Istio System Jaeger; open browser
 func jaegerDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "jaeger",
 		Short:   "Open Jaeger web UI",
 		Long:    `Open Istio's Jaeger dashboard`,
 		Example: `istioctl dashboard jaeger`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(istioNamespace, "app=jaeger")
+			pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=jaeger")
 			if err != nil {
 				return fmt.Errorf("not able to locate Jaeger pod: %v", err)
 			}
@@ -153,7 +164,7 @@ func jaegerDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, istioNamespace, "Jaeger",
-				"http://localhost:%d", 16686, client, cmd.OutOrStdout())
+				"http://%s", bindAddress, 16686, client, cmd.OutOrStdout())
 		},
 	}
 
@@ -162,18 +173,19 @@ func jaegerDashCmd() *cobra.Command {
 
 // port-forward to Istio System Zipkin; open browser
 func zipkinDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "zipkin",
 		Short:   "Open Zipkin web UI",
 		Long:    `Open Istio's Zipkin dashboard`,
 		Example: `istioctl dashboard zipkin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(istioNamespace, "app=zipkin")
+			pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=zipkin")
 			if err != nil {
 				return fmt.Errorf("not able to locate Zipkin pod: %v", err)
 			}
@@ -184,7 +196,7 @@ func zipkinDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, istioNamespace, "Zipkin",
-				"http://localhost:%d", 9411, client, cmd.OutOrStdout())
+				"http://%s", bindAddress, 9411, client, cmd.OutOrStdout())
 		},
 	}
 
@@ -209,14 +221,14 @@ func envoyDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -237,7 +249,7 @@ func envoyDashCmd() *cobra.Command {
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("Envoy sidecar %s", podName),
-				"http://localhost:%d", 15000, client, c.OutOrStdout())
+				"http://%s", bindAddress, 15000, client, c.OutOrStdout())
 		},
 	}
 
@@ -246,6 +258,7 @@ func envoyDashCmd() *cobra.Command {
 
 // port-forward to sidecar ControlZ port; open browser
 func controlZDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "controlz <pod-name[.namespace]>",
 		Short:   "Open ControlZ web UI",
@@ -262,14 +275,14 @@ func controlZDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -290,7 +303,7 @@ func controlZDashCmd() *cobra.Command {
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("ControlZ %s", podName),
-				"http://localhost:%d", controlZport, client, c.OutOrStdout())
+				"http://%s", bindAddress, controlZport, client, c.OutOrStdout())
 		},
 	}
 
@@ -298,26 +311,41 @@ func controlZDashCmd() *cobra.Command {
 }
 
 // portForward first tries to forward localhost:remotePort to podName:remotePort, falls back to dynamic local port
-func portForward(podName, namespace, flavor, url string, remotePort int, client kubernetes.ExecClient, writer io.Writer) error {
+func portForward(podName, namespace, flavor, urlFormat, localAddress string, remotePort int,
+	client kube.Client, writer io.Writer) error {
+
 	var err error
-	for _, localPort := range []int{remotePort, 0} {
-		fw, err := client.BuildPortForwarder(podName, namespace, localPort, remotePort)
+	for _, localPort := range []int{listenPort, remotePort} {
+		fw, err := client.NewPortForwarder(podName, namespace, localAddress, localPort, remotePort)
 		if err != nil {
 			return fmt.Errorf("could not build port forwarder for %s: %v", flavor, err)
 		}
 
-		if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
-			log.Debugf(fmt.Sprintf("port-forward to %s pod ready", flavor))
-			openBrowser(fmt.Sprintf(url, fw.LocalPort), writer)
-			return nil
-		}); err == nil {
-			return nil
+		if err = fw.Start(); err != nil {
+			// Try the next port
+			continue
 		}
+
+		// Close the port forwarder when the command is terminated.
+		closePortForwarderOnInterrupt(fw)
+
+		log.Debugf(fmt.Sprintf("port-forward to %s pod ready", flavor))
+		openBrowser(fmt.Sprintf(urlFormat, fw.Address()), writer)
+		return nil
 	}
 
 	return fmt.Errorf("failure running port forward process: %v", err)
 }
 
+func closePortForwarderOnInterrupt(fw kube.PortForwarder) {
+	go func() {
+		signals := make(chan os.Signal, 1)
+		signal.Notify(signals, os.Interrupt)
+		defer signal.Stop(signals)
+		<-signals
+		fw.Close()
+	}()
+}
 func openBrowser(url string, writer io.Writer) {
 	var err error
 
@@ -354,6 +382,12 @@ func dashboard() *cobra.Command {
 			return nil
 		},
 	}
+
+	dashboardCmd.PersistentFlags().IntVarP(&listenPort, "port", "p", 0, "Local port to listen to")
+	dashboardCmd.PersistentFlags().StringVar(&bindAddress, "address", "localhost",
+		"Address to listen on. Only accepts IP address or localhost as a value. "+
+			"When localhost is supplied, istioctl will try to bind on both 127.0.0.1 and ::1 "+
+			"and will fail if neither of these address are available to bind.")
 
 	dashboardCmd.AddCommand(kialiDashCmd())
 	dashboardCmd.AddCommand(promDashCmd())

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,23 +16,30 @@ package framework
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 )
 
 // Test allows the test author to specify test-related metadata in a fluent-style, before commencing execution.
 type Test struct {
 	// name to be used when creating a Golang test. Only used for subtests.
-	name                string
-	parent              *Test
-	goTest              *testing.T
-	labels              []label.Instance
+	name   string
+	parent *Test
+	goTest *testing.T
+	labels []label.Instance
+	// featureLabels maps features to the scenarios they cover.
+	featureLabels       map[features.Feature][]string
+	notImplemented      bool
 	s                   *suiteContext
-	requiredEnv         environment.Name
 	requiredMinClusters int
 	requiredMaxClusters int
 
@@ -56,8 +63,9 @@ func NewTest(t *testing.T) *Test {
 	}
 
 	runner := &Test{
-		s:      rt.suiteContext(),
-		goTest: t,
+		s:             rt.suiteContext(),
+		goTest:        t,
+		featureLabels: make(map[features.Feature][]string),
 	}
 
 	return runner
@@ -69,10 +77,35 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 	return t
 }
 
-// RequiresEnvironment ensures that the current environment matches what the suite expects. Otherwise it stops test
-// execution and skips the test.
-func (t *Test) RequiresEnvironment(name environment.Name) *Test {
-	t.requiredEnv = name
+// Label applies the given labels to this test.
+func (t *Test) Features(feats ...features.Feature) *Test {
+	pwd, _ := os.Getwd()
+	log.Error(pwd)
+	c, err := features.BuildChecker(env.IstioSrc + "/pkg/test/framework/features/features.yaml")
+	if err != nil {
+		log.Errorf("Unable to build feature checker: %s", err)
+		t.goTest.FailNow()
+		return nil
+	}
+	for _, f := range feats {
+		check, scenario := c.Check(f)
+		if !check {
+			log.Errorf("feature %s is not present in /pkg/test/framework/features/features.yaml", f)
+			t.goTest.FailNow()
+			return nil
+		}
+		// feats actually contains feature and scenario.  split them here.
+		onlyFeature := features.Feature(strings.Replace(string(f), scenario, "", 1))
+		t.featureLabels[onlyFeature] = append(t.featureLabels[onlyFeature], scenario)
+	}
+
+	return t
+}
+
+func (t *Test) NotImplementedYet(features ...features.Feature) *Test {
+	t.notImplemented = true
+	t.Features(features...).
+		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Implemented") })
 	return t
 }
 
@@ -165,6 +198,20 @@ func (t *Test) runInternal(fn func(ctx TestContext), parallel bool) {
 		return
 	}
 
+	// TODO: should we also block new cases?
+	var myGoTest *testing.T
+	if t.goTest != nil {
+		myGoTest = t.goTest
+	} else {
+		myGoTest = t.parent.goTest
+	}
+	suiteName := t.s.settings.TestID
+	if len(t.featureLabels) < 1 && !features.GlobalWhitelist.Contains(suiteName, myGoTest.Name()) {
+
+		myGoTest.Fatalf("Detected new test %s in suite %s with no feature labels.  "+
+			"See istio/istio/pkg/test/framework/features/README.md", myGoTest.Name(), suiteName)
+	}
+
 	if t.parent != nil {
 		// Create a new subtest under the parent's test.
 		parentGoTest := t.parent.goTest
@@ -198,12 +245,6 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 
 	t.ctx = ctx
 
-	if t.requiredEnv != "" && t.s.Environment().EnvironmentName() != t.requiredEnv {
-		ctx.Done()
-		t.goTest.Skipf("Skipping %q: expected environment not found: %s", t.goTest.Name(), t.requiredEnv)
-		return
-	}
-
 	if t.requiredMinClusters > 0 && len(t.s.Environment().Clusters()) < t.requiredMinClusters {
 		ctx.Done()
 		t.goTest.Skipf("Skipping %q: number of clusters %d is below required min %d",
@@ -220,7 +261,7 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 
 	start := time.Now()
 
-	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
+	scopes.Framework.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
 	defer func() {
 		doneFn := func() {
 			message := "passed"
@@ -228,11 +269,12 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 				message = "failed"
 			}
 			end := time.Now()
-			scopes.CI.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
+			scopes.Framework.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
 				message,
 				rt.suiteContext().Settings().TestID,
 				t.goTest.Name(),
 				end.Sub(start))
+			rt.suiteContext().registerOutcome(t)
 			ctx.Done()
 		}
 		if t.hasParallelChildren {

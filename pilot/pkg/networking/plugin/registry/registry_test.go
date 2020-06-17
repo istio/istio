@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,13 +19,12 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/health"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 )
 
 func TestPlugins(t *testing.T) {
-	expectedPlugins := []string{"mixer", "health"}
+	expectedPlugins := []string{"mixer"}
 	plugins := registry.NewPlugins(expectedPlugins)
 	if len(plugins) != len(expectedPlugins) {
 		t.Errorf("expected length of plugins to be %d, but got %d", len(expectedPlugins), len(plugins))
@@ -38,7 +37,6 @@ func TestPlugins(t *testing.T) {
 	}
 
 	checkPluginType(0, mixer.NewPlugin)
-	checkPluginType(1, health.NewPlugin)
 }
 
 func TestPluginsNonValid(t *testing.T) {

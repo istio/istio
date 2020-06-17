@@ -4,6 +4,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio
 data:
 
@@ -15,8 +16,6 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
-        "certificates": [],
-        "configNamespace": "istio-system",
         "configValidation": true,
         "controlPlaneSecurityEnabled": true,
         "defaultNodeSelector": {},
@@ -28,26 +27,16 @@ data:
             "cpu": "10m"
           }
         },
-        "disablePolicyChecks": true,
         "enableHelmTest": false,
-        "enableTracing": true,
         "enabled": true,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
-          "enabled": true
+          "enableAnalysis": false
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
-        "localityLbSetting": {
-          "enabled": true
-        },
         "logAsJson": false,
         "logging": {
           "level": "default:info"
@@ -58,10 +47,6 @@ data:
         },
         "meshNetworks": {},
         "mountMtlsCerts": false,
-        "mtls": {
-          "auto": true,
-          "enabled": false
-        },
         "multiCluster": {
           "clusterName": "",
           "enabled": false
@@ -71,52 +56,21 @@ data:
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
         "operatorManageWebhooks": false,
-        "outboundTrafficPolicy": {
-          "mode": "ALLOW_ANY"
-        },
         "pilotCertProvider": "istiod",
-        "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
-        "prometheusNamespace": "istio-system",
         "proxy": {
-          "accessLogEncoding": "TEXT",
-          "accessLogFile": "",
-          "accessLogFormat": "",
           "autoInject": "enabled",
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
-          "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
-          "envoyAccessLogService": {
-            "enabled": false
-          },
-          "envoyMetricsService": {
-            "enabled": false,
-            "tcpKeepalive": {
-              "interval": "10s",
-              "probes": 3,
-              "time": "10s"
-            },
-            "tlsSettings": {
-              "mode": "DISABLE",
-              "subjectAltNames": []
-            }
-          },
-          "envoyStatsd": {
-            "enabled": false
-          },
           "excludeIPRanges": "",
           "excludeInboundPorts": "",
           "excludeOutboundPorts": "",
           "image": "myproxy",
           "includeIPRanges": "172.30.0.0/16,172.21.0.0/16",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
-          "protocolDetectionTimeout": "100ms",
           "readinessFailureThreshold": 30,
           "readinessInitialDelaySeconds": 1,
           "readinessPeriodSeconds": 2,
@@ -151,7 +105,6 @@ data:
             "aud": "istio-ca"
           }
         },
-        "securityNamespace": "istio-system",
         "sts": {
           "servicePort": 0
         },
@@ -163,9 +116,7 @@ data:
           },
           "lightstep": {
             "accessToken": "",
-            "address": "",
-            "cacertPath": "",
-            "secure": true
+            "address": ""
           },
           "stackdriver": {
             "debug": false,
@@ -183,13 +134,12 @@ data:
       "istio_cni": {
         "enabled": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
-        "enabled": false,
         "injectLabel": "istio-injection",
         "injectedAnnotations": {},
-        "namespace": "istio-system",
         "neverInjectSelector": [],
         "objectSelector": {
           "autoInject": true,
@@ -207,16 +157,11 @@ data:
   config: |-
     policy: enabled
     alwaysInjectSelector:
-            []
+      []
     neverInjectSelector:
-            []
+      []
     injectedAnnotations:
 
-    # Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
-    # Values.yaml, which should not be used by istiod.
-    
-    # Istiod only uses SDS based config ( files will mapped/handled by SDS).
-    
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       initContainers:
@@ -248,7 +193,11 @@ data:
         - "-b"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
         - "-d"
-        - "15090,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+        - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") -}}
+        - "-q"
+        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
+        {{ end -}}
         {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
         - "-o"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
@@ -263,6 +212,11 @@ data:
         {{ end -}}
         imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
       {{- if .Values.global.proxy_init.resources }}
+        env:
+        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
         resources:
           {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
       {{- else }}
@@ -279,12 +233,13 @@ data:
         {{- end }}
             drop:
             - ALL
-          readOnlyRootFilesystem: false
         {{- if not .Values.istio_cni.enabled }}
+          readOnlyRootFilesystem: false
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
         {{- else }}
+          readOnlyRootFilesystem: true
           runAsGroup: 1337
           runAsUser: 1337
           runAsNonRoot: true
@@ -295,7 +250,7 @@ data:
       - name: enable-core-dump
         args:
         - -c
-        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+        - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
       {{- if contains "/" .Values.global.proxy_init.image }}
@@ -351,6 +306,10 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
+      {{- if gt .ProxyConfig.Concurrency.GetValue 0 }}
+        - --concurrency
+        - "{{ .ProxyConfig.Concurrency.GetValue }}"
+      {{- end -}}
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -364,10 +323,8 @@ data:
         - name: CA_ADDR
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-        {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -389,9 +346,17 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: MESH_CONFIG
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
+        - name: PROXY_CONFIG
           value: |
-                 {{ protoToJSON .MeshConfig }}
+                 {{ protoToJSON .ProxyConfig }}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -404,6 +369,14 @@ data:
                 {{- end }}
               {{- end}}
             {{- end}}
+            ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+              {{- range $index, $container := .Spec.Containers }}
+                {{- if ne $index 0}},{{- end}}
+                {{ $container.Name }}
+              {{- end}}
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
@@ -452,7 +425,7 @@ data:
         readinessProbe:
           httpGet:
             path: /healthz/ready
-            port: 15090
+            port: 15021
           initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
           periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
           failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
@@ -512,6 +485,8 @@ data:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         {{- end }}
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
@@ -531,8 +506,8 @@ data:
         {{- end }}
         - name: istio-podinfo
           mountPath: /etc/istio/pod
-        {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
-        - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
+         {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
+        - mountPath: {{ directory .ProxyConfig.GetTracing.GetTlsSettings.GetCaCertificates }}
           name: lightstep-certs
           readOnly: true
         {{- end }}
@@ -552,6 +527,8 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - name: istio-data
+        emptyDir: {}
       - name: istio-podinfo
         downwardAPI:
           items:
@@ -592,7 +569,7 @@ data:
         {{ toYaml $value | indent 2 }}
         {{ end }}
         {{ end }}
-      {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+      {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
       - name: lightstep-certs
         secret:
           optional: true
@@ -606,15 +583,31 @@ data:
           {{- end }}
       {{- end }}
       podRedirectAnnot:
+      {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}
+      {{ if isset .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks` }}
+        k8s.v1.cni.cncf.io/networks: "{{ index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`}}, istio-cni"
+      {{- else }}
+        k8s.v1.cni.cncf.io/networks: "istio-cni"
+      {{- end }}
+      {{- end }}
         sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
         traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
         traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
         traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) }}"
         traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") }}
+        traffic.sidecar.istio.io/includeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
+      {{- end }}
       {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
         traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
       {{- end }}
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
 ---
 
 
@@ -639,6 +632,9 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istio-ingressgateway
@@ -654,21 +650,21 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - ppc64le
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - s390x
@@ -676,7 +672,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
@@ -730,6 +726,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: ISTIO_META_WORKLOAD_NAME
           value: istio-ingressgateway
         - name: ISTIO_META_OWNER
@@ -743,18 +747,14 @@ spec:
         image: gcr.io/istio-testing/myproxy:latest
         name: istio-proxy
         ports:
-        - containerPort: 15020
+        - containerPort: 15021
         - containerPort: 8080
         - containerPort: 8443
-        - containerPort: 15029
-        - containerPort: 15030
-        - containerPort: 15031
-        - containerPort: 15032
         - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
-        - containerPort: 853
+        - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
@@ -762,7 +762,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15021
             scheme: HTTP
           initialDelaySeconds: 1
           periodSeconds: 2
@@ -776,6 +776,8 @@ spec:
             cpu: 100m
             memory: 128Mi
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
         - mountPath: /etc/istio/config
           name: config-volume
         - mountPath: /var/run/secrets/istio
@@ -793,6 +795,17 @@ spec:
         - mountPath: /etc/istio/ingressgateway-ca-certs
           name: ingressgateway-ca-certs
           readOnly: true
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        fsGroup: 1337
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsGroup: 1337
+        runAsNonRoot: true
+        runAsUser: 1337
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
       - configMap:
@@ -807,6 +820,8 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: podinfo
+      - emptyDir: {}
+        name: istio-envoy
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token

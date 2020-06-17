@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pkg/config/schema/collections"
 
 	"istio.io/pkg/ledger"
 
@@ -94,14 +96,8 @@ func TestBadParse(t *testing.T) {
 // mockClientFactoryGenerator creates a factory for model.ConfigStore preloaded with data
 func mockClientFactoryGenerator(configs []model.Config) func() (model.ConfigStore, error) {
 	outFactory := func() (model.ConfigStore, error) {
-		// Initialize the real client to get the supported config types
-		realClient, err := newClient()
-		if err != nil {
-			return nil, err
-		}
-
 		// Initialize memory based model.ConfigStore with configs
-		outConfig := memory.Make(realClient.Schemas())
+		outConfig := memory.Make(collections.Pilot)
 		for _, config := range configs {
 			if _, err := outConfig.Create(config); err != nil {
 				return nil, err
@@ -165,7 +161,7 @@ func verifyOutput(t *testing.T, c testCase) {
 	t.Helper()
 
 	// Override the client factory used by main.go
-	clientFactory = mockClientFactoryGenerator(c.configs)
+	configStoreFactory = mockClientFactoryGenerator(c.configs)
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)

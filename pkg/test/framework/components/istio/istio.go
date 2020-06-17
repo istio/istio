@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,13 +31,13 @@ type Instance interface {
 // SetupConfigFn is a setup function that specifies the overrides of the configuration to deploy Istio.
 type SetupConfigFn func(cfg *Config)
 
+// SetupContextFn is a setup function that uses Context for configuration.
+type SetupContextFn func(ctx resource.Context) error
+
 // Setup is a setup function that will deploy Istio on Kubernetes environment
-func Setup(i *Instance, cfn SetupConfigFn) resource.SetupFn {
+func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.SetupFn {
 	return func(ctx resource.Context) error {
 		switch ctx.Environment().EnvironmentName() {
-		case environment.Native:
-			scopes.Framework.Debugf("istio.Setup: Skipping deployment of Istio on native")
-
 		case environment.Kube:
 			cfg, err := DefaultConfig(ctx)
 			if err != nil {
@@ -45,6 +45,16 @@ func Setup(i *Instance, cfn SetupConfigFn) resource.SetupFn {
 			}
 			if cfn != nil {
 				cfn(&cfg)
+			}
+			for _, ctxFn := range ctxFns {
+				if ctxFn != nil {
+					err := ctxFn(ctx)
+					if err != nil {
+						scopes.Framework.Infof("=== FAILED: context setup function [err=%v] ===", err)
+						return err
+					}
+					scopes.Framework.Info("=== SUCCESS: context setup function ===")
+				}
 			}
 			ins, err := Deploy(ctx, &cfg)
 			if err != nil {
@@ -70,12 +80,12 @@ func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	}
 
 	var err error
-	scopes.CI.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
 	defer func() {
 		if err != nil {
-			scopes.CI.Infof("=== FAILED: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== FAILED: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
 		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio [Suite=%s]===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== SUCCEEDED: Deploy Istio [Suite=%s]===", ctx.Settings().TestID)
 		}
 	}()
 

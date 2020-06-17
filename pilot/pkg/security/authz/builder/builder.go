@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,113 +15,144 @@
 package builder
 
 import (
-	tcpFilterPb "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	envoyRbacHttpPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
-	httpFilterPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	envoyRbacTcpPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
+	"fmt"
 
-	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authzModel "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pilot/pkg/security/authz/policy"
-	"istio.io/istio/pilot/pkg/security/authz/policy/v1beta1"
+	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/labels"
+
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	rbactcppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 )
 
 var (
-	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
+	authzLog = log.RegisterScope("authorization", "Istio Authorization Policy", 0)
 )
 
-// Builder wraps all needed information for building the RBAC filter for a service.
+// Builder builds Istio authorization policy to Envoy RBAC filter.
 type Builder struct {
-	generator policy.Generator
+	trustDomainBundle  trustdomain.Bundle
+	denyPolicies       []model.AuthorizationPolicy
+	allowPolicies      []model.AuthorizationPolicy
+	isIstioVersionGE15 bool
 }
 
-// NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(trustDomainBundle trustdomain.Bundle, workloadLabels labels.Collection, configNamespace string,
-	policies *model.AuthorizationPolicies) *Builder {
-	var generator policy.Generator
-
-	denyPolicies, allowPolicies := policies.ListAuthorizationPolicies(configNamespace, workloadLabels)
-	if len(denyPolicies) > 0 || len(allowPolicies) > 0 {
-		generator = v1beta1.NewGenerator(trustDomainBundle, denyPolicies, allowPolicies)
-		rbacLog.Debugf("found authorization policies for workload %v in %s", workloadLabels, configNamespace)
-	}
-
-	if generator == nil {
+// New returns a new builder for the given workload with the authorization policy.
+// Returns nil if none of the authorization policies are enabled for the workload.
+func New(trustDomainBundle trustdomain.Bundle, workload labels.Collection, namespace string,
+	policies *model.AuthorizationPolicies, isIstioVersionGE15 bool) *Builder {
+	denyPolicies, allowPolicies := policies.ListAuthorizationPolicies(namespace, workload)
+	if len(denyPolicies) == 0 && len(allowPolicies) == 0 {
 		return nil
 	}
-
 	return &Builder{
-		generator: generator,
+		trustDomainBundle:  trustDomainBundle,
+		denyPolicies:       denyPolicies,
+		allowPolicies:      allowPolicies,
+		isIstioVersionGE15: isIstioVersionGE15,
 	}
 }
 
-// BuildHTTPFilters build RBAC HTTP filters.
-func (b *Builder) BuildHTTPFilters() []*httpFilterPb.HttpFilter {
-	if b == nil {
+// BuilderHTTP returns the RBAC HTTP filters built from the authorization policy.
+func (b Builder) BuildHTTP() []*httppb.HttpFilter {
+	var filters []*httppb.HttpFilter
+
+	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
+		false /* forTCP */, true /* forDeny */, b.isIstioVersionGE15); denyConfig != nil {
+		filters = append(filters, createHTTPFilter(denyConfig))
+	}
+	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
+		false /* forTCP */, false /* forDeny */, b.isIstioVersionGE15); allowConfig != nil {
+		filters = append(filters, createHTTPFilter(allowConfig))
+	}
+
+	return filters
+}
+
+// BuildTCP returns the RBAC TCP filters built from the authorization policy.
+func (b Builder) BuildTCP() []*tcppb.Filter {
+	var filters []*tcppb.Filter
+
+	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
+		true /* forTCP */, true /* forDeny */, b.isIstioVersionGE15); denyConfig != nil {
+		filters = append(filters, createTCPFilter(denyConfig))
+	}
+	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
+		true /* forTCP */, false /* forDeny */, b.isIstioVersionGE15); allowConfig != nil {
+		filters = append(filters, createTCPFilter(allowConfig))
+	}
+
+	return filters
+}
+
+func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle, forTCP, forDeny, isIstioVersionGE15 bool) *rbachttppb.RBAC {
+	if len(policies) == 0 {
 		return nil
 	}
 
-	var filters []*httpFilterPb.HttpFilter
-	denyConfig, allowConfig := b.generator.Generate(false /* forTCPFilter */)
-	if denyFilter := createHTTPFilter(denyConfig); denyFilter != nil {
-		filters = append(filters, denyFilter)
+	rules := &rbacpb.RBAC{
+		Action:   rbacpb.RBAC_ALLOW,
+		Policies: map[string]*rbacpb.Policy{},
 	}
-	if allowFilter := createHTTPFilter(allowConfig); allowFilter != nil {
-		filters = append(filters, allowFilter)
+	if forDeny {
+		rules.Action = rbacpb.RBAC_DENY
 	}
-	return filters
+	for _, policy := range policies {
+		for i, rule := range policy.Spec.Rules {
+			name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", policy.Namespace, policy.Name, i)
+			if rule == nil {
+				authzLog.Errorf("skipped nil rule %s", name)
+				continue
+			}
+			m, err := authzmodel.New(rule, isIstioVersionGE15)
+			if err != nil {
+				authzLog.Errorf("skipped rule %s: %v", name, err)
+				continue
+			}
+			m.MigrateTrustDomain(tdBundle)
+			generated, err := m.Generate(forTCP, forDeny)
+			if err != nil {
+				authzLog.Errorf("skipped rule %s: %v", name, err)
+				continue
+			}
+			if generated != nil {
+				rules.Policies[name] = generated
+				authzLog.Debugf("rule %s generated policy: %+v", name, generated)
+			}
+		}
+	}
+
+	return &rbachttppb.RBAC{Rules: rules}
 }
 
 // nolint: interfacer
-func createHTTPFilter(config *envoyRbacHttpPb.RBAC) *httpFilterPb.HttpFilter {
+func createHTTPFilter(config *rbachttppb.RBAC) *httppb.HttpFilter {
 	if config == nil {
 		return nil
 	}
-
-	httpConfig := httpFilterPb.HttpFilter{
-		Name:       authzModel.RBACHTTPFilterName,
-		ConfigType: &httpFilterPb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)},
+	return &httppb.HttpFilter{
+		Name:       authzmodel.RBACHTTPFilterName,
+		ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)},
 	}
-	return &httpConfig
 }
 
-// BuildTCPFilters build RBAC TCP filters.
-func (b *Builder) BuildTCPFilters() []*tcpFilterPb.Filter {
-	if b == nil {
-		return nil
-	}
-
-	var filters []*tcpFilterPb.Filter
-	denyConfig, allowConfig := b.generator.Generate(true /* forTCPFilter */)
-	if denyFilter := createTCPFilter(denyConfig); denyFilter != nil {
-		filters = append(filters, denyFilter)
-	}
-	if allowFilter := createTCPFilter(allowConfig); allowFilter != nil {
-		filters = append(filters, allowFilter)
-	}
-	return filters
-}
-
-func createTCPFilter(config *envoyRbacHttpPb.RBAC) *tcpFilterPb.Filter {
+func createTCPFilter(config *rbachttppb.RBAC) *tcppb.Filter {
 	if config == nil {
 		return nil
 	}
-
-	// The build function always return the config for HTTP filter, we need to extract the
-	// generated rules and set it in the config for TCP filter.
-	rbacConfig := &envoyRbacTcpPb.RBAC{
+	rbacConfig := &rbactcppb.RBAC{
 		Rules:      config.Rules,
-		StatPrefix: authzModel.RBACTCPFilterStatPrefix,
+		StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
 	}
-
-	tcpConfig := tcpFilterPb.Filter{
-		Name:       authzModel.RBACTCPFilterName,
-		ConfigType: &tcpFilterPb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)},
+	return &tcppb.Filter{
+		Name:       authzmodel.RBACTCPFilterName,
+		ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)},
 	}
-	return &tcpConfig
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/pilot/outboundtrafficpolicy"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/tests/util"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/telemetry/outboundtrafficpolicy"
 )
 
 //	Virtual service topology
@@ -64,7 +65,7 @@ type mirrorTestOptions struct {
 	t              *testing.T
 	cases          []testCaseMirror
 	mirrorHost     string
-	fnInjectConfig func(ns namespace.Instance, instances [3]echo.Instance)
+	fnInjectConfig func(ns namespace.Instance, ctx resource.Context, instances [3]echo.Instance)
 }
 
 var (
@@ -143,7 +144,6 @@ metadata:
 spec:
   egress:
   - hosts:
-    - "%s/*"
     - "./b.%s.svc.%s"
     - "*/%s"
   outboundTrafficPolicy:
@@ -165,10 +165,10 @@ func TestMirroringExternalService(t *testing.T) {
 		t:          t,
 		cases:      cases,
 		mirrorHost: fakeExternalURL,
-		fnInjectConfig: func(ns namespace.Instance, instances [3]echo.Instance) {
-			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, i.Settings().ConfigNamespace, ns.Name(),
+		fnInjectConfig: func(ns namespace.Instance, ctx resource.Context, instances [3]echo.Instance) {
+			ctx.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(sidecar, ns.Name(),
 				instances[1].Config().Domain, fakeExternalURL))
-			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
+			ctx.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
 			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)
 			}
@@ -179,7 +179,6 @@ func TestMirroringExternalService(t *testing.T) {
 func runMirrorTest(options mirrorTestOptions) {
 	framework.
 		NewTest(options.t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(options.t, ctx, namespace.Config{
 				Prefix: "mirroring",
@@ -194,7 +193,7 @@ func runMirrorTest(options mirrorTestOptions) {
 				BuildOrFail(options.t)
 
 			if options.fnInjectConfig != nil {
-				options.fnInjectConfig(ns, instances)
+				options.fnInjectConfig(ns, ctx, instances)
 			}
 
 			for _, c := range options.cases {
@@ -213,8 +212,8 @@ func runMirrorTest(options mirrorTestOptions) {
 
 					deployment := tmpl.EvaluateOrFail(t,
 						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-					g.ApplyConfigOrFail(t, ns, deployment)
-					defer g.DeleteConfigOrFail(t, ns, deployment)
+					ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
+					defer ctx.DeleteConfigOrFail(t, ns.Name(), deployment)
 
 					for _, proto := range mirrorProtocols {
 						t.Run(string(proto), func(t *testing.T) {

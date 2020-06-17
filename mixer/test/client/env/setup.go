@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,15 @@ import (
 	"testing"
 	"time"
 
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"github.com/golang/protobuf/jsonpb"
+
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
+	// Import all XDS config types
+	_ "istio.io/istio/pkg/config/xds"
 
 	mixerpb "istio.io/api/mixer/v1"
 
@@ -97,6 +105,21 @@ func (s *TestSetup) MfConfig() *MixerFilterConf {
 // Ports get ports object
 func (s *TestSetup) Ports() *Ports {
 	return s.ports
+}
+
+// SDSPath gets SDS path. The path does not change after proxy restarts.
+func (s *TestSetup) SDSPath() string {
+	return fmt.Sprintf("/tmp/sdstestudspath.%v", s.ports.MixerPort)
+}
+
+// JWTTokenPath gets JWT token path. The path does not change after proxy restarts.
+func (s *TestSetup) JWTTokenPath() string {
+	return fmt.Sprintf("/tmp/envoy-token-%v.jwt", s.ports.STSPort)
+}
+
+// CACertPath gets CA cert file path. The path does not change after proxy restarts.
+func (s *TestSetup) CACertPath() string {
+	return fmt.Sprintf("/tmp/ca-certificates-%v.crt", s.ports.STSPort)
 }
 
 // SetMixerCheckReferenced set Referenced in mocked Check response
@@ -365,6 +388,28 @@ func (s *TestSetup) WaitForStatsUpdateAndGetStats(waitDuration int) (string, err
 	return respBody, nil
 }
 
+// GetStatsMap fetches Envoy stats with retry, and returns stats in a map.
+func (s *TestSetup) GetStatsMap() (map[string]uint64, error) {
+	delay := 200 * time.Millisecond
+	total := 3 * time.Second
+	var errGet error
+	var code int
+	var statsJSON string
+	for attempt := 0; attempt < int(total/delay); attempt++ {
+		statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
+		code, statsJSON, errGet = HTTPGet(statsURL)
+		if errGet != nil {
+			log.Printf("sending stats request returns an error: %v", errGet)
+		} else if code != 200 {
+			log.Printf("sending stats request returns unexpected status code: %d", code)
+		} else {
+			return s.unmarshalStats(statsJSON), nil
+		}
+		time.Sleep(delay)
+	}
+	return nil, fmt.Errorf("failed to get stats, err: %v, code: %d", errGet, code)
+}
+
 type statEntry struct {
 	Name  string      `json:"name"`
 	Value json.Number `json:"value"`
@@ -500,4 +545,34 @@ func (s *TestSetup) DrainMixerAllChannels() {
 			<-s.mixer.quota.ch
 		}
 	}()
+}
+
+// go-control-plane requires v2 XDS types, when we are using v3 internally
+// nolint: interfacer
+func CastRouteToV2(r *route.RouteConfiguration) *v2.RouteConfiguration {
+	s, err := (&jsonpb.Marshaler{OrigName: true}).MarshalToString(r)
+	if err != nil {
+		panic(err.Error())
+	}
+	v2route := &v2.RouteConfiguration{}
+	err = jsonpb.UnmarshalString(s, v2route)
+	if err != nil {
+		panic(err.Error())
+	}
+	return v2route
+}
+
+// go-control-plane requires v2 XDS types, when we are using v3 internally
+// nolint: interfacer
+func CastListenerToV2(r *listener.Listener) *v2.Listener {
+	s, err := (&jsonpb.Marshaler{OrigName: true}).MarshalToString(r)
+	if err != nil {
+		panic(err.Error())
+	}
+	v2Listener := &v2.Listener{}
+	err = jsonpb.UnmarshalString(s, v2Listener)
+	if err != nil {
+		panic(err.Error())
+	}
+	return v2Listener
 }

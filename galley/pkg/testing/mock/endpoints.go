@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package mock
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -39,7 +40,7 @@ func newEndpointsInterface() corev1.EndpointsInterface {
 	}
 }
 
-func (e *endpointsImpl) Create(obj *apicorev1.Endpoints) (*apicorev1.Endpoints, error) {
+func (e *endpointsImpl) Create(ctx context.Context, obj *apicorev1.Endpoints, opts metav1.CreateOptions) (*apicorev1.Endpoints, error) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -52,7 +53,7 @@ func (e *endpointsImpl) Create(obj *apicorev1.Endpoints) (*apicorev1.Endpoints, 
 	return obj, nil
 }
 
-func (e *endpointsImpl) Update(obj *apicorev1.Endpoints) (*apicorev1.Endpoints, error) {
+func (e *endpointsImpl) Update(ctx context.Context, obj *apicorev1.Endpoints, opts metav1.UpdateOptions) (*apicorev1.Endpoints, error) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -65,7 +66,7 @@ func (e *endpointsImpl) Update(obj *apicorev1.Endpoints) (*apicorev1.Endpoints, 
 	return obj, nil
 }
 
-func (e *endpointsImpl) Delete(name string, options *metav1.DeleteOptions) error {
+func (e *endpointsImpl) Delete(ctx context.Context, name string, options metav1.DeleteOptions) error {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -83,7 +84,7 @@ func (e *endpointsImpl) Delete(name string, options *metav1.DeleteOptions) error
 	return nil
 }
 
-func (e *endpointsImpl) List(opts metav1.ListOptions) (*apicorev1.EndpointsList, error) {
+func (e *endpointsImpl) List(ctx context.Context, opts metav1.ListOptions) (*apicorev1.EndpointsList, error) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -96,7 +97,7 @@ func (e *endpointsImpl) List(opts metav1.ListOptions) (*apicorev1.EndpointsList,
 	return out, nil
 }
 
-func (e *endpointsImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+func (e *endpointsImpl) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -114,14 +115,15 @@ func (e *endpointsImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) 
 	return w, nil
 }
 
-func (e *endpointsImpl) DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+func (e *endpointsImpl) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	panic("not implemented")
 }
 
-func (e *endpointsImpl) Get(name string, options metav1.GetOptions) (*apicorev1.Endpoints, error) {
+func (e *endpointsImpl) Get(ctx context.Context, name string, options metav1.GetOptions) (*apicorev1.Endpoints, error) {
 	panic("not implemented")
 }
 
-func (e *endpointsImpl) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *apicorev1.Endpoints, err error) {
+func (e *endpointsImpl) Patch(ctx context.Context, name string, pt types.PatchType,
+	data []byte, opts metav1.PatchOptions, subresources ...string) (result *apicorev1.Endpoints, err error) {
 	panic("not implemented")
 }

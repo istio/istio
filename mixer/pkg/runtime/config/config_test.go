@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	adapter_model "istio.io/api/mixer/adapter/model/v1beta1"
-	configpb "istio.io/api/policy/v1beta1"
 	descriptorpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -85,8 +84,8 @@ badFld: "s1stringVal"
 `)
 
 var validCfg = []*store.Event{
-	updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
-		Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+	updateEvent("attributes.attributemanifest.ns", &descriptorpb.AttributeManifest{
+		Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 			"source.name": {
 				ValueType: descriptorpb.STRING,
 			},
@@ -123,8 +122,8 @@ var validCfg = []*store.Event{
 }
 
 var validCfgMixShortLongName = []*store.Event{
-	updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
-		Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+	updateEvent("attributes.attributemanifest.ns", &descriptorpb.AttributeManifest{
+		Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 			"source.name": {
 				ValueType: descriptorpb.STRING,
 			},
@@ -302,8 +301,8 @@ Attributes:
 					Spec: testParam1,
 				},
 			},
-			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
-				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+			updateEvent("attributes.attributemanifest.ns", &descriptorpb.AttributeManifest{
+				Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 					"foo": {
 						ValueType: descriptorpb.STRING,
 					},
@@ -336,8 +335,8 @@ Attributes:
 	{
 		Name: "unchanged attributes are preserved",
 		Events1: []*store.Event{
-			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
-				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+			updateEvent("attributes.attributemanifest.ns", &descriptorpb.AttributeManifest{
+				Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 					"foo": {
 						ValueType: descriptorpb.STRING,
 					},
@@ -388,8 +387,8 @@ Attributes:
 				Namespace: "ns",
 				Kind:      "attributemanifest",
 			}: {
-				Spec: &configpb.AttributeManifest{
-					Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+				Spec: &descriptorpb.AttributeManifest{
+					Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 						"foo": {
 							ValueType: descriptorpb.STRING,
 						},
@@ -444,8 +443,8 @@ Attributes:
 	{
 		Name: "attributes coming in from an update event get deleted with a later delete event",
 		Events1: []*store.Event{
-			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
-				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+			updateEvent("attributes.attributemanifest.ns", &descriptorpb.AttributeManifest{
+				Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 					"foo": {
 						ValueType: descriptorpb.STRING,
 					},
@@ -530,7 +529,7 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Handler{
+					Spec: &descriptorpb.Handler{
 						Name:            "a1",
 						CompiledAdapter: "adapter1",
 					},
@@ -568,7 +567,7 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Handler{
+					Spec: &descriptorpb.Handler{
 						Name:            "a2",
 						CompiledAdapter: "adapter2",
 						Params:          adapter2Params,
@@ -608,7 +607,7 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Handler{
+					Spec: &descriptorpb.Handler{
 						Name:            "a2",
 						CompiledAdapter: "adapter2",
 					},
@@ -663,7 +662,7 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Handler{
+					Spec: &descriptorpb.Handler{
 						Name:            "a2",
 						CompiledAdapter: "adapter2",
 					},
@@ -839,7 +838,7 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Rule{},
+					Spec: &descriptorpb.Rule{},
 				},
 			},
 		},
@@ -901,8 +900,8 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Rule{
-						Actions: []*configpb.Action{
+					Spec: &descriptorpb.Rule{
+						Actions: []*descriptorpb.Action{
 							{
 								Handler: "handler1",
 							},
@@ -969,8 +968,8 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Rule{
-						Actions: []*configpb.Action{
+					Spec: &descriptorpb.Rule{
+						Actions: []*descriptorpb.Action{
 							{
 								Handler: "handler1.adapter1",
 								Instances: []string{
@@ -1016,8 +1015,8 @@ Attributes:
 	{
 		Name: "multiple rules with multiple actions referencing multiple instances",
 		Events1: []*store.Event{
-			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
-				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+			updateEvent("attributes.attributemanifest.ns", &descriptorpb.AttributeManifest{
+				Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 					"destination.service": {
 						ValueType: descriptorpb.STRING,
 					},
@@ -1097,8 +1096,8 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Rule{
-						Actions: []*configpb.Action{
+					Spec: &descriptorpb.Rule{
+						Actions: []*descriptorpb.Action{
 							{
 								Handler: "handler1.adapter1",
 								Instances: []string{
@@ -1125,9 +1124,9 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Rule{
+					Spec: &descriptorpb.Rule{
 						Match: `destination.service == "foo"`,
-						Actions: []*configpb.Action{
+						Actions: []*descriptorpb.Action{
 							{
 								Handler: "handler2.adapter2",
 								Instances: []string{
@@ -1243,8 +1242,8 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Rule{
-						Actions: []*configpb.Action{
+					Spec: &descriptorpb.Rule{
+						Actions: []*descriptorpb.Action{
 							{
 								Handler: "handler1.adapter1",
 								Instances: []string{
@@ -1321,8 +1320,8 @@ Rules:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Rule{
-						Actions: []*configpb.Action{
+					Spec: &descriptorpb.Rule{
+						Actions: []*descriptorpb.Action{
 							{
 								Handler: "handler1.adapter1",
 								Instances: []string{
@@ -1392,8 +1391,8 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Rule{
-						Actions: []*configpb.Action{
+					Spec: &descriptorpb.Rule{
+						Actions: []*descriptorpb.Action{
 							{
 								Handler: "handler1.adapter1",
 								Instances: []string{
@@ -1471,9 +1470,9 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Rule{
+					Spec: &descriptorpb.Rule{
 						Match: "flurb++",
-						Actions: []*configpb.Action{
+						Actions: []*descriptorpb.Action{
 							{
 								Handler: "handler1.adapter1",
 								Instances: []string{
@@ -1552,9 +1551,9 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &configpb.Rule{
+					Spec: &descriptorpb.Rule{
 						Match: `foo == bar && context.protocol == "tcp"`,
-						Actions: []*configpb.Action{
+						Actions: []*descriptorpb.Action{
 							{
 								Handler: "handler1.adapter1",
 								Instances: []string{
@@ -1944,8 +1943,8 @@ Attributes:
 	{
 		Name: "update template",
 		Events1: []*store.Event{
-			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
-				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+			updateEvent("attributes.attributemanifest.ns", &descriptorpb.AttributeManifest{
+				Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 					"source.name": {
 						ValueType: descriptorpb.STRING,
 					},
@@ -2906,8 +2905,8 @@ Attributes:
 	{
 		Name: "add instance",
 		Events1: []*store.Event{
-			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
-				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+			updateEvent("attributes.attributemanifest.ns", &descriptorpb.AttributeManifest{
+				Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 					"source.name": {
 						ValueType: descriptorpb.STRING,
 					},
@@ -3073,8 +3072,8 @@ Attributes:
 	{
 		Name: "add instance - bad param type",
 		Events1: []*store.Event{
-			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
-				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+			updateEvent("attributes.attributemanifest.ns", &descriptorpb.AttributeManifest{
+				Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 					"source.name": {
 						ValueType: descriptorpb.STRING,
 					},
@@ -3889,8 +3888,8 @@ Attributes:
 	{
 		Name: "add rule - instances template not supported by handler",
 		Events1: []*store.Event{
-			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
-				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+			updateEvent("attributes.attributemanifest.ns", &descriptorpb.AttributeManifest{
+				Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 					"source.name": {
 						ValueType: descriptorpb.STRING,
 					},
@@ -4298,9 +4297,9 @@ var stdTemplates = map[string]*template.Info{
 	"apa": {
 		Name:    "apa",
 		Variety: adapter_model.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
-		AttributeManifests: []*configpb.AttributeManifest{
+		AttributeManifests: []*descriptorpb.AttributeManifest{
 			{
-				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+				Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 					"template.attr": {
 						ValueType: descriptorpb.BOOL,
 					},
@@ -4387,8 +4386,8 @@ func TestGetEntry(t *testing.T) {
 	e := NewEphemeral(stdTemplates, stdAdapters)
 
 	res := &store.Resource{
-		Spec: &configpb.AttributeManifest{
-			Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+		Spec: &descriptorpb.AttributeManifest{
+			Attributes: map[string]*descriptorpb.AttributeManifest_AttributeInfo{
 				"foo": {
 					ValueType: descriptorpb.STRING,
 				},

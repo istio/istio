@@ -16,25 +16,12 @@
 syntax = 'proto3';
 
 import "google/protobuf/duration.proto";
-import "k8s.io/api/core/v1/generated.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 
 package v1alpha1;
 
 // Package-wide variables from generator "generated".
 option go_package = "v1alpha1";
-
-// Configuration for the addon ingress.
-message AddonIngressConfig {
-  // Controls whether addon ingress is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  repeated string hosts = 2;
-
-  TypeMapStringInterface annotations = 3;
-
-  TypeMapStringInterface tls = 4;
-}
 
 // ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.
 message ArchConfig {
@@ -110,50 +97,6 @@ message CPUTargetUtilizationConfig {
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   int32 targetAverageUtilization = 1;
-}
-
-// Configuration for CertManager.
-message CertManagerConfig {
-  // Controls whether CertManager is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Image hub for the CertManager Deployment.
-  string hub = 2;
-
-  // Image tag for the CertManager Deployment.
-  TypeInterface tag = 3;
-
-  // Image name for the CertManager Deployment.
-  string image = 4;
-
-  uint32 replicaCount = 5 [deprecated=true];
-
-  string email = 6;
-
-  repeated string extraArgs = 7;
-  // K8s node selector.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 8 [deprecated=true];
-
-  // K8s resources settings.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 9 [deprecated=true];
-
-  string podDnsPolicy = 10;
-
-  TypeMapStringInterface podDnsConfig = 11;
-
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 12 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13 [deprecated=true];
-
-  TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
-
-  TypeMapStringInterface podAnnotations = 15 [deprecated=true];
-
-  TypeMapStringInterface podLabels = 16 [deprecated=true];
 }
 
 // Mirrors Resources for unmarshaling.
@@ -322,78 +265,9 @@ message EgressGatewayConfig {
 
   TypeSliceOfMapStringInterface additionalContainers = 24;
 
-  // Next available 26.
-}
+  google.protobuf.BoolValue runAsRoot = 26;
 
-
-// EnvoyMetricsConfig is a set of configuration options for Envoy metrics.
-message EnvoyMetricsConfig {
-  // Enables the Envoy Metrics Service.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Sets the destination Envoy Metrics Service address in Envoy.
-  string host = 2;
-
-  // Sets the destination Envoy Metrics Service port in Envoy.
-  int32 port = 3;
-
-  TypeMapStringInterface tlsSettings = 4;
-
-  TypeMapStringInterface tcpKeepalive = 5;
-}
-
-// GalleyConfig is a set of Configuration for Galley.
-message GalleyConfig {
-  // Controls whether Galley is enabled
-  google.protobuf.BoolValue enabled = 1;
-
-  // Image name used for Galley.
-  //
-  // This can be set either to image name if hub is also set in global.hub, or can be set to the full hub:name string.
-  //
-  // Examples: custom-galley, docker.io/someuser:custom-galley
-  string image = 2;
-
-  // TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured (https://github.com/istio/istio/issues/15865).
-  map<string, string> mesh = 3;
-
-  // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 4 [deprecated=true];
-
-  // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 5 [deprecated=true];
-
-  // Number of replicas in the Galley Deployment.
-  uint32 replicaCount = 6 [deprecated=true];
-
-  // K8s resources settings.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 7 [deprecated=true];
-
-  // Enable analysis and status update in Galley
-  google.protobuf.BoolValue enableAnalysis = 8;
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxSurge = 9 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxUnavailable = 10 [deprecated=true];
-
-  TypeSliceOfMapStringInterface tolerations = 11 [deprecated=true];
-
-  google.protobuf.BoolValue enableServiceDiscovery = 12 [deprecated=true];
-
-  // K8s node selector.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 13 [deprecated=true];
-
-  TypeMapStringInterface podAnnotations = 14 [deprecated=true];
-
-  string hub = 15;
-
-  TypeInterface tag = 16;
+  // Next available 27.
 }
 
 // GatewayLabelsConfig is a set of Configuration for gateway labels.
@@ -423,8 +297,6 @@ message GlobalConfig {
   //   3 - Most preferred
   ArchConfig arch = 1;
 
-  TypeSliceOfMapStringInterface certificates = 40;
-
   // Specifies the namespace for the configuration and validation component.
   string configNamespace = 2;
 
@@ -444,9 +316,6 @@ message GlobalConfig {
 
   // Specifies the default pod disruption budget configuration.
   DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 7 [deprecated=true];
-
-  // Controls whether the policy enforcement is enabled.
-  google.protobuf.BoolValue disablePolicyChecks = 8;
 
   // Default k8s resources settings for all Istio control plane components.
   //
@@ -499,9 +368,6 @@ message GlobalConfig {
   TypeMapStringInterface localityLbSetting = 15;
   // 	LocalityLbSetting map[string]interface{}    `json:"localityLbSetting"`
 
-  // Specifies the Configuration for the legacy kubernetes Ingress.
-  KubernetesIngressConfig k8sIngress = 16;
-
   google.protobuf.BoolValue logAsJson = 36;
 
   // Specifies the global logging level settings for the Istio control plane components.
@@ -543,9 +409,6 @@ message GlobalConfig {
 
   // Specifies the monitor port number for all Istio control plane components.
   uint32 monitoringPort = 20;
-
-  // Specifies the MTLS settings for the applications that Istio manages.
-  MTLSConfig mtls = 21;
 
   // Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.
   MultiClusterConfig multiCluster = 22;
@@ -647,7 +510,10 @@ message GlobalConfig {
 
   // The address of the CA for CSR.
   string caAddress = 61;
-  // The next available key is 62
+
+  // Controls whether one central istiod is enabled.
+  google.protobuf.BoolValue centralIstiod = 62;
+  // The next available key is 63
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -658,9 +524,8 @@ message STSConfig {
 }
 
 message IstiodConfig {
-  // If enabled, all control plane functionality will be handled by a single deployment.
-  // Deprecated. This field is always ignored and assumed true.
-  google.protobuf.BoolValue enabled = 1 [deprecated=true];
+  // If enabled, istiod will perform config analysis
+  google.protobuf.BoolValue enableAnalysis = 2;
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
@@ -792,7 +657,9 @@ message IngressGatewayConfig {
 
   string telemetry_domain_name = 43;
 
-  // Next available 45.
+  google.protobuf.BoolValue runAsRoot = 45;
+
+  // Next available 46.
 }
 
 // Secret Discovery Service (SDS) Configuration for ingress gateway.
@@ -826,18 +693,6 @@ message KubernetesEnvMixerAdapterConfig {
   google.protobuf.BoolValue enabled = 1;
 }
 
-// Configuration for the legacy kubernetes Ingress.
-message KubernetesIngressConfig {
-  // Enables gateway for legacy k8s Ingress.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Enables HTTPS legacy k8s Ingress.
-  google.protobuf.BoolValue enableHttps = 2;
-
-  // Sets the gateway name for legacy k8s Ingress.
-  string gatewayName = 3;
-}
-
 // Configuration for when mixer starts rejecting grpc requests.
 message LoadSheddingConfig {
   string latencyThreshold = 1;
@@ -852,15 +707,6 @@ enum mode {
   log_only = 1;
   // Turn on throttling behavior for mixer.
   enforce = 2;
-}
-
-
-// MTLS settings for the applications that Istio manages.
-message MTLSConfig {
-  // Enables MTLS for service to service traffic.
-  google.protobuf.BoolValue enabled = 1;
-
-  google.protobuf.BoolValue auto = 2;
 }
 
 // Configuration for Istio mesh expansion to bare metal.
@@ -1054,10 +900,6 @@ message MixerTelemetryConfig {
   // Controls whether to use of Mesh Configuration Protocol to distribute configuration.
   google.protobuf.BoolValue useMCP = 17;
 
-  string reportBatchMaxTime = 18;
-
-  uint32 reportBatchMaxEntries = 19;
-
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
@@ -1084,43 +926,6 @@ message MultiClusterConfig {
   google.protobuf.BoolValue enabled = 1;
 
   string clusterName = 2;
-}
-
-// Configuration for Node Agent Daemonset.
-message NodeAgentConfig {
-  // Controls whether Node Agent is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Environment variables passed to the Node Agent container.
-  //
-  // Examples:
-  // env:
-  //   ENV_VAR_1: value1
-  //   ENV_VAR_2: value2
-  TypeMapStringInterface env = 2;
-
-  // Image name for the Node Agent DaemonSet.
-  string image = 3;
-
-  // K8s node selector.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 4 [deprecated=true];
-
-  TypeSliceOfMapStringInterface tolerations = 5 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 6 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 7 [deprecated=true];
-
-  // K8s annotations for pods.
-  //
-  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 8 [deprecated=true];
-
-  string hub = 9;
-
-  TypeInterface tag = 10;
 }
 
 // OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
@@ -1201,9 +1006,6 @@ message PilotConfig {
   // See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   TypeMapStringInterface deploymentLabels = 14;
 
-  // Used to override control plane networks.
-  TypeMapStringInterface meshNetworks = 15;
-
   // See EgressGatewayConfig.
   TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 16 [deprecated=true];
 
@@ -1215,9 +1017,6 @@ message PilotConfig {
   // This controls whether the mesh config map, generated from values.yaml is generated.
   // If false, pilot wil use default values or user-supplied values, in that order of preference.
   google.protobuf.BoolValue configMap = 18;
-
-  // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
-  PilotIngressConfig ingress = 19;
 
   // Controls whether Pilot is configured through the Mesh Control Protocol (MCP).
   //
@@ -1263,7 +1062,7 @@ message PilotConfig {
 
   string jwksResolverExtraRootCA = 32;
 
-  TypeSliceOfMapStringInterface plugins = 33;
+  TypeSliceString plugins = 33;
 
   string hub = 34;
 
@@ -1286,12 +1085,14 @@ message PilotIngressConfig {
 
 // Mode for the ingress controller.
 enum ingressControllerMode {
+  // Unspecified Istio ingress controller.
+  UNSPECIFIED = 0;
   // Selects all Ingress resources, with or without Istio annotation.
-  DEFAULT = 0;
+  DEFAULT = 1;
   // Selects only resources with istio annotation.
-  STRICT = 1;
+  STRICT = 2;
   // No ingress or sync.
-  OFF = 2;
+  OFF = 3;
 }
 
 // Controls whether Istio policy is applied to Pilot.
@@ -1328,6 +1129,8 @@ message TelemetryV2Config {
   TelemetryV2PrometheusConfig prometheus = 2;
 
   TelemetryV2StackDriverConfig stackdriver = 3;
+
+  TelemetryV2AccessLogPolicyFilterConfig access_log_policy = 5;
 }
 
 message TelemetryV2MetadataExchangeConfig {
@@ -1357,6 +1160,13 @@ message TelemetryV2StackDriverConfig {
   google.protobuf.BoolValue disableOutbound = 6;
 
   TypeMapStringInterface configOverride = 5;
+}
+
+// Conrols telemetry v2 access log policy filter settings.
+message TelemetryV2AccessLogPolicyFilterConfig {
+  google.protobuf.BoolValue enabled = 1;
+
+  google.protobuf.Duration logWindowDuration = 2;
 }
 
 // PilotConfigSource describes information about a configuration store inside a
@@ -1402,8 +1212,6 @@ message PrometheusConfig {
   google.protobuf.Duration scrapeInterval = 8;
 
   string contextPath = 9;
-
-  AddonIngressConfig ingress = 10;
 
   PrometheusServiceConfig service = 11;
 
@@ -1476,16 +1284,6 @@ enum accessLogEncoding {
 
 // Configuration for Proxy.
 message ProxyConfig {
-  google.protobuf.BoolValue enabled = 35;
-
-  // Specifies the path to write the sidecar access log file.
-  string accessLogFile = 1;
-
-  // Configures how and what fields are displayed in sidecar access log.
-  string accessLogFormat = 2;
-
-  accessLogEncoding accessLogEncoding = 3;
-
   string autoInject = 4;
 
   // Domain for the cluster, default: "cluster.local".
@@ -1498,26 +1296,10 @@ message ProxyConfig {
   // If a component level is not set, then the global "logLevel" will be used. If left empty, "misc:error" is used.
   string componentLogLevel = 6;
 
-  // Controls number of proxy worker threads.
-  //
-  // If set to 0 (default), then start worker thread for each CPU thread/core.
-  uint32 concurrency = 7;
-
-  // Configures the DNS refresh rate for Envoy cluster of type STRICT_DNS.
-  //
-  // This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
-  google.protobuf.Duration dnsRefreshRate = 8;
-
   // Enables core dumps for newly injected sidecars.
   //
   // If set, newly injected sidecars will have core dumps enabled.
   google.protobuf.BoolValue enableCoreDump = 9;
-
-  // Configures Envoy Metrics Service.
-  EnvoyMetricsConfig envoyMetricsService = 10;
-
-  // Configures statsd export in Envoy.
-  EnvoyMetricsConfig envoyStatsd = 11;
 
   // Specifies the Istio ingress ports not to capture.
   string excludeInboundPorts = 12;
@@ -1532,22 +1314,11 @@ message ProxyConfig {
   // Examples: my-proxy (uses global.hub/tag), docker.io/myrepo/my-proxy:v1.0.0
   string image = 14;
 
-  // Specifies the Istio ingress ports to capture.
-  //
-  // Examples:
-  // "":          Redirect no inbound traffic to Envoy.
-  // "*":         Redirect all inbound traffic to Envoy.
-  // "80,8080":   Redirect only selected ports.
-  string includeInboundPorts = 15;
-
   // Lists the IP ranges of Istio egress traffic that the sidecar captures.
   //
   // Example: "172.30.0.0/16,172.20.0.0/16"
   // This would only capture egress traffic on those two IP Ranges, all other outbound traffic would # be allowed by the sidecar."
   string includeIPRanges = 16;
-
-  // Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound. By default, no interfaces are configured.
-  string kubevirtInterfaces = 17;
 
   // Log level for proxy, applies to gateways and sidecars. If left empty, "warning" is used. Expected values are: trace\|debug\|info\|warning\|error\|critical\|off
   string logLevel = 18;
@@ -1576,21 +1347,7 @@ message ProxyConfig {
 
   tracer tracer = 25;
 
-  string protocolDetectionTimeout = 26;
-
-  EnvoyAccessLogConfig envoyAccessLogService = 27;
-
   string excludeOutboundPorts = 28;
-
-  google.protobuf.Duration drainDuration = 29;
-
-  string connectTimeout = 30;
-
-  google.protobuf.Duration parentShutdownDuration = 32;
-
-  string enableCoreDumpImage = 33 [deprecated=true];
-
-  string outlierLogPath = 34;
 
   TypeMapStringInterface lifecycle = 36;
 }
@@ -1601,32 +1358,6 @@ enum tracer {
   lightstep = 1;
   datadog = 2;
   stackdriver = 3;
-}
-
-message EnvoyAccessLogConfig {
-  google.protobuf.BoolValue enabled = 1;
-
-  string host = 2;
-
-  string port = 3;
-
-  EnvoyAccessLogtlsSettings tlsSettings = 4;
-
-  TypeMapStringInterface tcpKeepalive = 5;
-}
-
-message EnvoyAccessLogtlsSettings {
-  string mode = 1;
-
-  string clientCertificate = 2;
-
-  string privateKey = 3;
-
-  string caCertificates = 4;
-
-  string sni = 5;
-
-  repeated string subjectAltNames = 6;
 }
 
 // Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
@@ -1648,18 +1379,6 @@ message ResourcesRequestsConfig {
 
 // Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 message SDSConfig {
-  // Controls whether the SecretDiscoveryService is enabled.
-  google.protobuf.BoolValue enabled = 1 [deprecated=true];
-
-  // Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
-  string udsPath = 2 [deprecated=true];
-
-  // Enables SDS use of k8s normal JWT to request for certificates.
-  google.protobuf.BoolValue useNormalJwt = 3 [deprecated=true];
-
-  // Enables SDS use of trustworthy JWT to request for certificates.
-  google.protobuf.BoolValue useTrustworthyJwt = 4 [deprecated=true];
-
   TypeMapStringInterface token = 5 [deprecated=true];
 }
 
@@ -1672,83 +1391,6 @@ message SecretVolume {
   string name = 2;
 
   string secretName = 3;
-}
-
-// Configuration for Citadel.
-message SecurityConfig {
-  // Controls whether Citadel is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Number of replicas in the Citadel Deployment.
-  uint32 replicaCount = 2 [deprecated=true];
-
-  // Image name used for Citadel.
-  //
-  // This can be set either to image name if hub is also set, or can be set to the full hub:name string.
-  //
-  // Examples: custom-citadel, docker.io/someuser:custom-citadel
-  string image = 3;
-
-  // Controls whether self-signed CA is used for citadel to generate the certificate/key pair.
-  //
-  // Setting to false if you want to use your own root CA for Citade Deployment.
-  google.protobuf.BoolValue selfSigned = 4;
-
-  // The trust domain corresponds to the trust root of a system
-  // Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-  // Indicate the domain used in SPIFFE identity URL
-  // The default depends on the environment.
-  //   kubernetes: cluster.local
-  //    else:  default dns domain
-  string trustDomain = 5;
-
-  // The DNS Certs specifies the customized DNS name and corresponding service account.
-  //
-  // Example:
-  //   istio-pilot-service-account.istio-control: istio-pilot.istio-control.svc
-  //   istio-galley-service-account.istio-config: istio-galley.istio-config.svc
-  map<string, string> dnsCerts = 6;
-
-  // Controls whether the mesh-wide authentication policy is created or not.
-  //
-  // Setting to true creates the mesh-wide authentication policy with name "default".
-  google.protobuf.BoolValue createMeshPolicy = 7;
-
-  google.protobuf.BoolValue enableNamespacesByDefault = 8;
-
-  google.protobuf.BoolValue citadelHealthCheck = 9;
-
-  // K8s node selector.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 10 [deprecated=true];
-
-  TypeMapStringInterface env = 11;
-
-  // K8s annotations for pods.
-  //
-  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 12 [deprecated=true];
-
-  // How long workload certs are valid for
-  string workloadCertTtl = 13;
-
-  TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
-
-  // K8s resources settings.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 15 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxSurge = 16 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxUnavailable = 17 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 18 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 19 [deprecated=true];
 }
 
 // ServiceConfig is described in istio.io documentation.
@@ -1764,27 +1406,8 @@ message ServiceConfig {
 
 // SidecarInjectorConfig is described in istio.io documentation.
 message SidecarInjectorConfig {
-  // Controls whether Sidecar Injector is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
   // Enables sidecar auto-injection in namespaces by default.
   google.protobuf.BoolValue enableNamespacesByDefault = 2;
-
-  // Image name used for Sidecar Injector.
-  //
-  // This can be set either to image name if hub is also set, or can be set to the full hub:name string.
-  //
-  // Examples: custom-sidecar_injector, docker.io/someuser:custom-sidecar_injector
-  string image = 3;
-
-  string hub = 4;
-
-  TypeInterface tag = 5;
-
-  // K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 10 [deprecated=true];
 
   // Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
   //
@@ -1796,22 +1419,8 @@ message SidecarInjectorConfig {
   // See NeverInjectSelector.
   TypeSliceOfMapStringInterface alwaysInjectSelector = 12;
 
-  // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 13 [deprecated=true];
-
-  // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 14 [deprecated=true];
-
-  // Number of replicas in the Sidecar Injector Deployment.
-  uint32 replicaCount = 15 [deprecated=true];
-
   //  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
   google.protobuf.BoolValue rewriteAppHTTPProbe = 16;
-
-  // Controls whether self-signed CA is used for Sidecar Injector to generate the certificate/key pair.
-  //
-  // Setting to false if you want to use your own root CA.
-  google.protobuf.BoolValue selfSigned = 17;
 
   string injectLabel = 18;
 
@@ -1819,28 +1428,11 @@ message SidecarInjectorConfig {
   // This is primarily to support PSP annotations.
   TypeMapStringInterface injectedAnnotations = 19;
 
-  // K8s resources settings.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 20 [deprecated=true];
-
   // Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
   TypeMapStringInterface objectSelector = 21;
 
-  TypeSliceOfMapStringInterface tolerations = 22 [deprecated=true];
-
-  TypeMapStringInterface lifecycle = 23;
-
-  // K8s annotations for pods.
-  //
-  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 24 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxSurge = 25 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxUnavailable = 26 [deprecated=true];
+  // Configure the injection url for sidecar injector webhook
+  string injectionURL = 22;
 }
 
 // Configuration for stdio adapter in mixer, recommended for debug usage only.
@@ -1917,12 +1509,6 @@ message TracerLightStepConfig {
 
   // Sets the lightstep access token.
   string accessToken = 2;
-
-  // Sets path to the file containing the cacert to use when verifying TLS.
-  string cacertPath = 3;
-
-  // Enables lightstep secure connection.
-  google.protobuf.BoolValue secure = 4;
 }
 
 // Configuration for the zipkin tracing service.
@@ -1952,9 +1538,6 @@ message TracerStackdriverConfig {
 message TracingConfig {
   // Enables tracing systems installation.
   google.protobuf.BoolValue enabled = 1;
-
-  // Controls legacy k8s ingress for addon tracing components.
-  TracingIngressConfig ingress = 2;
 
   // Defines Configuration for addon Jaeger tracing.
   TracingJaegerConfig jaeger = 3;
@@ -2007,17 +1590,6 @@ message TracingOpencensusConfig {
 
 message TracingOpencensusExportersConfig {
   TypeMapStringInterface stackdriver = 1;
-}
-// Controls legacy k8s ingress for addon tracing components.
-message TracingIngressConfig {
-  // Enables k8s ingress for addon tracing components.
-  google.protobuf.BoolValue enabled = 1;
-
-  TypeMapStringInterface annotations = 2;
-
-  repeated string hosts = 3;
-
-  TypeMapStringInterface tls = 4;
 }
 
 // Configuration for addon Jaeger tracing.
@@ -2142,15 +1714,6 @@ message KialiDashboardConfig {
   string jaegerInClusterURL = 9;
 }
 
-message KialiIngressConfig {
-  google.protobuf.BoolValue enabled = 1;
-
-  TypeMapStringInterface annotations = 2;
-
-  TypeSliceOfMapStringInterface tls = 3;
-
-  repeated string hosts = 4;
-}
 // Configuration for Kiali addon.
 message KialiConfig {
   google.protobuf.BoolValue enabled = 1;
@@ -2171,8 +1734,6 @@ message KialiConfig {
   KialiSecurityConfig security = 7;
 
   KialiDashboardConfig dashboard = 8;
-
-  KialiIngressConfig ingress = 9;
 
   string contextPath = 15;
 
@@ -2227,14 +1788,23 @@ message KialiConfig {
   KialiServiceConfig service = 19;
 }
 
-message Values {
-  CertManagerConfig certmanager = 1;
+message BaseConfig {
+  // For Helm2 use, adds the CRDs to templates.
+  google.protobuf.BoolValue enableCRDTemplates = 1;
 
+  // URL to use for validating webhook.
+  string validationURL = 2;
+}
+
+message IstiodRemoteConfig {
+  // URL to use for sidecar injector webhook.
+  string injectionURL = 1;
+}
+
+message Values {
   CNIConfig cni = 2;
 
   CoreDNSConfig istiocoredns = 3;
-
-  GalleyConfig galley = 4;
 
   GatewaysConfig gateways = 5;
 
@@ -2244,16 +1814,12 @@ message Values {
 
   MixerConfig mixer = 8;
 
-  NodeAgentConfig nodeagent = 9 [deprecated=true];
-
   PilotConfig pilot = 10;
 
   // Controls whether telemetry is exported for Pilot.
   TelemetryConfig telemetry = 23;
 
   PrometheusConfig prometheus = 11;
-
-  SecurityConfig security = 12;
 
   SidecarInjectorConfig sidecarInjectorWebhook = 13;
 
@@ -2274,6 +1840,12 @@ message Values {
 
   string revision = 21;
 
+  // TODO can this import the real mesh config API?
+  TypeInterface meshConfig = 36;
+
+  BaseConfig base = 37;
+
+  IstiodRemoteConfig istiodRemote = 38;
 }
 
 // GOTYPE: map[string]interface{}
@@ -2284,6 +1856,9 @@ message TypeSliceOfMapStringInterface {}
 
 // GOTYPE: *IntOrStringForPB
 message TypeIntOrStringForPB {}
+
+// GOTYPE: []string
+message TypeSliceString {}
 
 // ZeroVPNConfig enables cross-cluster access using SNI matching.
 message ZeroVPNConfig {

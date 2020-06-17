@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package chiron
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -356,7 +357,7 @@ func TestSubmitCSR(t *testing.T) {
 					},
 				},
 			}
-			reqRet, errRet := wc.certClient.CertificateSigningRequests().Create(k8sCSR)
+			reqRet, errRet := wc.certClient.CertificateSigningRequests().Create(context.TODO(), k8sCSR, metav1.CreateOptions{})
 			if errRet != nil && reqRet == nil {
 				t.Errorf("failed to create a CSR, return is nil or error (%v)", errRet)
 				continue

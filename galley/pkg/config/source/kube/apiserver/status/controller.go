@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package status
 
 import (
+	"context"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -159,7 +160,7 @@ mainloop:
 
 		ns := string(st.key.res.Namespace)
 		n := string(st.key.res.Name)
-		u, err := iface.Namespace(ns).Get(n, metav1.GetOptions{ResourceVersion: string(st.observedVersion)})
+		u, err := iface.Namespace(ns).Get(context.TODO(), n, metav1.GetOptions{ResourceVersion: string(st.observedVersion)})
 		if err != nil {
 			scope.Source.Errorf("Unable to read the resource while trying to update status: %v(%v): %v",
 				st.key.col, st.key.res, err)
@@ -197,7 +198,7 @@ mainloop:
 			}
 		}
 
-		_, err = iface.Namespace(ns).UpdateStatus(u, metav1.UpdateOptions{})
+		_, err = iface.Namespace(ns).UpdateStatus(context.TODO(), u, metav1.UpdateOptions{})
 		if err != nil {
 			// TODO: Reinsert work? It probably makes sense to reinsert (with a delay), in case of a transient failure.
 			scope.Source.Errorf("Unable to update status of Resource %v(%v): %v", st.key.col, st.key.res, err)

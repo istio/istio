@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package rt
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -27,6 +28,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/util/pb"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/listwatch"
 )
 
 func (p *Provider) getDynamicAdapter(r resource.Schema) *Adapter {
@@ -59,19 +61,22 @@ func (p *Provider) getDynamicAdapter(r resource.Schema) *Adapter {
 				return nil, err
 			}
 
-			return cache.NewSharedIndexInformer(
-				&cache.ListWatch{
+			mlw := listwatch.MultiNamespaceListerWatcher(p.namespaces, func(namespace string) cache.ListerWatcher {
+				return &cache.ListWatch{
 					ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-						return d.List(options)
+						return d.List(context.TODO(), options)
 					},
 					WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 						options.Watch = true
-						return d.Watch(options)
+						return d.Watch(context.TODO(), options)
 					},
-				},
-				&unstructured.Unstructured{},
-				p.resyncPeriod,
-				cache.Indexers{}), nil
+				}
+			})
+
+			informer := cache.NewSharedIndexInformer(mlw, &unstructured.Unstructured{}, p.resyncPeriod,
+				cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+			return informer, nil
 		},
 
 		parseJSON: func(data []byte) (interface{}, error) {

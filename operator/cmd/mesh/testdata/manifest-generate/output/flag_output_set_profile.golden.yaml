@@ -17,43 +17,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-  verbs: ["get", "watch", "list"]
-  resources: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: istiod-istio-system
   labels:
     app: istiod
@@ -76,7 +39,7 @@ rules:
     resources: ["gateways"]
 
   # istio configuration
-  - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
     verbs: ["get", "watch", "list"]
     resources: ["*"]
 
@@ -98,7 +61,7 @@ rules:
 
   # ingress controller
   - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
+    resources: ["ingresses", "ingressclasses"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
@@ -137,7 +100,7 @@ rules:
     verbs: ["get", "watch", "list"]
 
   # Use for Kubernetes Service APIs
-  - apiGroups: ["networking.x.k8s.io"]
+  - apiGroups: ["networking.x-k8s.io"]
     resources: ["*"]
     verbs: ["get", "watch", "list"]
 ---
@@ -153,14 +116,13 @@ metadata:
 rules:
   - apiGroups:
       - "config.istio.io"
-      - "rbac.istio.io"
       - "security.istio.io"
       - "networking.istio.io"
       - "authentication.istio.io"
     resources: ["*"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
-    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers"]
+    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["replicasets"]
@@ -189,24 +151,6 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
-    namespace: istio-system
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
   name: istiod-pilot-istio-system
   labels:
     app: pilot
@@ -217,1424 +161,67 @@ roleRef:
   name: istiod-istio-system
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-system
 ---
 
 
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
+apiVersion: v1
+kind: ServiceAccount
 metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
+  name: istio-reader-service-account
+  namespace: istio-system
   labels:
-    app: istio-citadel
-    chart: istio
-    heritage: Tiller
+    app: istio-reader
     release: istio
-  name: meshpolicies.authentication.istio.io
-spec:
-  group: authentication.istio.io
-  names:
-    categories:
-    - istio-io
-    - authentication-istio-io
-    kind: MeshPolicy
-    listKind: MeshPolicyList
-    plural: meshpolicies
-    singular: meshpolicy
-  scope: Cluster
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
-          properties:
-            originIsOptional:
-              description: Deprecated.
-              type: boolean
-            origins:
-              description: Deprecated.
-              items:
-                properties:
-                  jwt:
-                    description: Jwt params for the method.
-                    properties:
-                      audiences:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      issuer:
-                        description: Identifies the issuer that issued the JWT.
-                        format: string
-                        type: string
-                      jwks:
-                        description: JSON Web Key Set of public keys to validate signature
-                          of the JWT.
-                        format: string
-                        type: string
-                      jwks_uri:
-                        format: string
-                        type: string
-                      jwksUri:
-                        format: string
-                        type: string
-                      jwt_headers:
-                        description: JWT is sent in a request header.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      jwtHeaders:
-                        description: JWT is sent in a request header.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      jwtParams:
-                        description: JWT is sent in a query parameter.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      trigger_rules:
-                        items:
-                          properties:
-                            excluded_paths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            excludedPaths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            included_paths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            includedPaths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                          type: object
-                        type: array
-                      triggerRules:
-                        items:
-                          properties:
-                            excluded_paths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            excludedPaths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            included_paths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            includedPaths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                          type: object
-                        type: array
-                    type: object
-                type: object
-              type: array
-            peerIsOptional:
-              description: Deprecated.
-              type: boolean
-            peers:
-              items:
-                oneOf:
-                - required:
-                  - mtls
-                - properties:
-                    jwt: {}
-                  required:
-                  - jwt
-                properties:
-                  jwt:
-                    properties:
-                      audiences:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      issuer:
-                        description: Identifies the issuer that issued the JWT.
-                        format: string
-                        type: string
-                      jwks:
-                        description: JSON Web Key Set of public keys to validate signature
-                          of the JWT.
-                        format: string
-                        type: string
-                      jwks_uri:
-                        format: string
-                        type: string
-                      jwksUri:
-                        format: string
-                        type: string
-                      jwt_headers:
-                        description: JWT is sent in a request header.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      jwtHeaders:
-                        description: JWT is sent in a request header.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      jwtParams:
-                        description: JWT is sent in a query parameter.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      trigger_rules:
-                        items:
-                          properties:
-                            excluded_paths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            excludedPaths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            included_paths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            includedPaths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                          type: object
-                        type: array
-                      triggerRules:
-                        items:
-                          properties:
-                            excluded_paths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            excludedPaths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            included_paths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            includedPaths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                          type: object
-                        type: array
-                    type: object
-                  mtls:
-                    description: Set if mTLS is used.
-                    properties:
-                      allowTls:
-                        description: Deprecated.
-                        type: boolean
-                      mode:
-                        description: Defines the mode of mTLS authentication.
-                        enum:
-                        - STRICT
-                        - PERMISSIVE
-                        type: string
-                    type: object
-                type: object
-              type: array
-            principalBinding:
-              description: Deprecated.
-              enum:
-              - USE_PEER
-              - USE_ORIGIN
-              type: string
-            targets:
-              description: Deprecated.
-              items:
-                properties:
-                  name:
-                    description: The name must be a short name from the service registry.
-                    format: string
-                    type: string
-                  ports:
-                    description: Specifies the ports.
-                    items:
-                      oneOf:
-                      - required:
-                        - number
-                      - required:
-                        - name
-                      properties:
-                        name:
-                          format: string
-                          type: string
-                        number:
-                          type: integer
-                      type: object
-                    type: array
-                type: object
-              type: array
-          type: object
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
 ---
 
 
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
+apiVersion: v1
+kind: ServiceAccount
 metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
+  name: istiod-service-account
+  namespace: istio-system
   labels:
-    app: istio-citadel
-    chart: istio
-    heritage: Tiller
+    app: istiod
     release: istio
-  name: policies.authentication.istio.io
-spec:
-  group: authentication.istio.io
-  names:
-    categories:
-    - istio-io
-    - authentication-istio-io
-    kind: Policy
-    listKind: PolicyList
-    plural: policies
-    singular: policy
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
-          properties:
-            originIsOptional:
-              description: Deprecated.
-              type: boolean
-            origins:
-              description: Deprecated.
-              items:
-                properties:
-                  jwt:
-                    description: Jwt params for the method.
-                    properties:
-                      audiences:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      issuer:
-                        description: Identifies the issuer that issued the JWT.
-                        format: string
-                        type: string
-                      jwks:
-                        description: JSON Web Key Set of public keys to validate signature
-                          of the JWT.
-                        format: string
-                        type: string
-                      jwks_uri:
-                        format: string
-                        type: string
-                      jwksUri:
-                        format: string
-                        type: string
-                      jwt_headers:
-                        description: JWT is sent in a request header.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      jwtHeaders:
-                        description: JWT is sent in a request header.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      jwtParams:
-                        description: JWT is sent in a query parameter.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      trigger_rules:
-                        items:
-                          properties:
-                            excluded_paths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            excludedPaths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            included_paths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            includedPaths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                          type: object
-                        type: array
-                      triggerRules:
-                        items:
-                          properties:
-                            excluded_paths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            excludedPaths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            included_paths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            includedPaths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                          type: object
-                        type: array
-                    type: object
-                type: object
-              type: array
-            peerIsOptional:
-              description: Deprecated.
-              type: boolean
-            peers:
-              items:
-                oneOf:
-                - required:
-                  - mtls
-                - properties:
-                    jwt: {}
-                  required:
-                  - jwt
-                properties:
-                  jwt:
-                    properties:
-                      audiences:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      issuer:
-                        description: Identifies the issuer that issued the JWT.
-                        format: string
-                        type: string
-                      jwks:
-                        description: JSON Web Key Set of public keys to validate signature
-                          of the JWT.
-                        format: string
-                        type: string
-                      jwks_uri:
-                        format: string
-                        type: string
-                      jwksUri:
-                        format: string
-                        type: string
-                      jwt_headers:
-                        description: JWT is sent in a request header.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      jwtHeaders:
-                        description: JWT is sent in a request header.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      jwtParams:
-                        description: JWT is sent in a query parameter.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      trigger_rules:
-                        items:
-                          properties:
-                            excluded_paths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            excludedPaths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            included_paths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            includedPaths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                          type: object
-                        type: array
-                      triggerRules:
-                        items:
-                          properties:
-                            excluded_paths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            excludedPaths:
-                              description: List of paths to be excluded from the request.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            included_paths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                            includedPaths:
-                              description: List of paths that the request must include.
-                              items:
-                                oneOf:
-                                - required:
-                                  - exact
-                                - required:
-                                  - prefix
-                                - required:
-                                  - suffix
-                                - required:
-                                  - regex
-                                properties:
-                                  exact:
-                                    description: exact string match.
-                                    format: string
-                                    type: string
-                                  prefix:
-                                    description: prefix-based match.
-                                    format: string
-                                    type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                    format: string
-                                    type: string
-                                  suffix:
-                                    description: suffix-based match.
-                                    format: string
-                                    type: string
-                                type: object
-                              type: array
-                          type: object
-                        type: array
-                    type: object
-                  mtls:
-                    description: Set if mTLS is used.
-                    properties:
-                      allowTls:
-                        description: Deprecated.
-                        type: boolean
-                      mode:
-                        description: Defines the mode of mTLS authentication.
-                        enum:
-                        - STRICT
-                        - PERMISSIVE
-                        type: string
-                    type: object
-                type: object
-              type: array
-            principalBinding:
-              description: Deprecated.
-              enum:
-              - USE_PEER
-              - USE_ORIGIN
-              type: string
-            targets:
-              description: Deprecated.
-              items:
-                properties:
-                  name:
-                    description: The name must be a short name from the service registry.
-                    format: string
-                    type: string
-                  ports:
-                    description: Specifies the ports.
-                    items:
-                      oneOf:
-                      - required:
-                        - number
-                      - required:
-                        - name
-                      properties:
-                        name:
-                          format: string
-                          type: string
-                        number:
-                          type: integer
-                      type: object
-                    type: array
-                type: object
-              type: array
-          type: object
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
+---
+
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-istio-system
+  labels:
+    app: istiod
+    release: istio
+    istio: istiod
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/validate"
+      caBundle: "" # patched at runtime when the webhook is ready.
+    rules:
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
+        - config.istio.io
+        - security.istio.io
+        - authentication.istio.io
+        - networking.istio.io
+        apiVersions:
+        - "*"
+        resources:
+        - "*"
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    sideEffects: None
 ---
 
 
@@ -1659,6 +246,7 @@ spec:
     listKind: HTTPAPISpecList
     plural: httpapispecs
     singular: httpapispec
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1670,6 +258,14 @@ spec:
             api_keys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -1693,6 +289,14 @@ spec:
             apiKeys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -1718,6 +322,24 @@ spec:
                 attributes:
                   additionalProperties:
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - stringValue
+                        - required:
+                          - int64Value
+                        - required:
+                          - doubleValue
+                        - required:
+                          - boolValue
+                        - required:
+                          - bytesValue
+                        - required:
+                          - timestampValue
+                        - required:
+                          - durationValue
+                        - required:
+                          - stringMapValue
                     - required:
                       - stringValue
                     - required:
@@ -1771,6 +393,12 @@ spec:
               description: List of HTTP patterns to match.
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - uriTemplate
+                    - required:
+                      - regex
                 - required:
                   - uriTemplate
                 - required:
@@ -1781,6 +409,24 @@ spec:
                       attributes:
                         additionalProperties:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - stringValue
+                              - required:
+                                - int64Value
+                              - required:
+                                - doubleValue
+                              - required:
+                                - boolValue
+                              - required:
+                                - bytesValue
+                              - required:
+                                - timestampValue
+                              - required:
+                                - durationValue
+                              - required:
+                                - stringMapValue
                           - required:
                             - stringValue
                           - required:
@@ -1842,6 +488,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -1871,6 +520,7 @@ spec:
     listKind: HTTPAPISpecBindingList
     plural: httpapispecbindings
     singular: httpapispecbinding
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1936,6 +586,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -1965,6 +618,7 @@ spec:
     listKind: QuotaSpecList
     plural: quotaspecs
     singular: quotaspec
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1985,6 +639,14 @@ spec:
                         clause:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -2022,6 +684,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -2051,6 +716,7 @@ spec:
     listKind: QuotaSpecBindingList
     plural: quotaspecbindings
     singular: quotaspecbinding
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2103,6 +769,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -2147,6 +816,7 @@ spec:
     shortNames:
     - dr
     singular: destinationrule
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2248,11 +918,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -2440,11 +1147,48 @@ spec:
                               description: Settings controlling the load balancer
                                 algorithms.
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - simple
+                                  - properties:
+                                      consistentHash:
+                                        oneOf:
+                                        - not:
+                                            anyOf:
+                                            - required:
+                                              - httpHeaderName
+                                            - required:
+                                              - httpCookie
+                                            - required:
+                                              - useSourceIp
+                                            - required:
+                                              - httpQueryParameterName
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
+                                    required:
+                                    - consistentHash
                               - required:
                                 - simple
                               - properties:
                                   consistentHash:
                                     oneOf:
+                                    - not:
+                                        anyOf:
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
                                     - required:
                                       - httpHeaderName
                                     - required:
@@ -2704,11 +1448,48 @@ spec:
                 loadBalancer:
                   description: Settings controlling the load balancer algorithms.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - required:
+                        - simple
+                      - properties:
+                          consistentHash:
+                            oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - httpHeaderName
+                                - required:
+                                  - httpCookie
+                                - required:
+                                  - useSourceIp
+                                - required:
+                                  - httpQueryParameterName
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
+                        required:
+                        - consistentHash
                   - required:
                     - simple
                   - properties:
                       consistentHash:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
                         - required:
                           - httpHeaderName
                         - required:
@@ -2893,11 +1674,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -3089,6 +1907,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3150,6 +1971,14 @@ spec:
                   match:
                     description: Match on listener/route configuration/cluster.
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - listener
+                        - required:
+                          - routeConfiguration
+                        - required:
+                          - cluster
                     - required:
                       - listener
                     - required:
@@ -3310,76 +2139,6 @@ spec:
                     type: object
                 type: object
               type: array
-            filters:
-              items:
-                properties:
-                  filterConfig:
-                    type: object
-                  filterName:
-                    description: The name of the filter to instantiate.
-                    format: string
-                    type: string
-                  filterType:
-                    description: The type of filter to instantiate.
-                    enum:
-                    - INVALID
-                    - HTTP
-                    - NETWORK
-                    type: string
-                  insertPosition:
-                    description: Insert position in the filter chain.
-                    properties:
-                      index:
-                        description: Position of this filter in the filter chain.
-                        enum:
-                        - FIRST
-                        - LAST
-                        - BEFORE
-                        - AFTER
-                        type: string
-                      relativeTo:
-                        format: string
-                        type: string
-                    type: object
-                  listenerMatch:
-                    properties:
-                      address:
-                        description: One or more IP addresses to which the listener
-                          is bound.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      listenerProtocol:
-                        description: Selects a class of listeners for the same protocol.
-                        enum:
-                        - ALL
-                        - HTTP
-                        - TCP
-                        type: string
-                      listenerType:
-                        description: Inbound vs outbound sidecar listener or gateway
-                          listener.
-                        enum:
-                        - ANY
-                        - SIDECAR_INBOUND
-                        - SIDECAR_OUTBOUND
-                        - GATEWAY
-                        type: string
-                      portNamePrefix:
-                        format: string
-                        type: string
-                      portNumber:
-                        type: integer
-                    type: object
-                type: object
-              type: array
-            workloadLabels:
-              additionalProperties:
-                format: string
-                type: string
-              description: Deprecated.
-              type: object
             workloadSelector:
               properties:
                 labels:
@@ -3389,6 +2148,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3420,6 +2182,7 @@ spec:
     shortNames:
     - gw
     singular: gateway
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3538,6 +2301,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3594,6 +2360,7 @@ spec:
     shortNames:
     - se
     singular: serviceentry
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3635,6 +2402,9 @@ spec:
                       type: integer
                     description: Set of ports associated with the endpoint.
                     type: object
+                  serviceAccount:
+                    format: string
+                    type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
                     type: integer
@@ -3686,7 +2456,19 @@ spec:
                 format: string
                 type: string
               type: array
+            workloadSelector:
+              description: Applicable only for MESH_INTERNAL services.
+              properties:
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3719,6 +2501,7 @@ spec:
     listKind: SidecarList
     plural: sidecars
     singular: sidecar
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3746,6 +2529,74 @@ spec:
                       format: string
                       type: string
                     type: array
+                  localhostServerTls:
+                    properties:
+                      caCertificates:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      cipherSuites:
+                        description: 'Optional: If specified, only support the specified
+                          cipher list.'
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        description: 'Optional: Maximum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        description: 'Optional: Minimum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      serverCertificate:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -3779,6 +2630,37 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
+                  localhostClientTls:
+                    properties:
+                      caCertificates:
+                        format: string
+                        type: string
+                      clientCertificate:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      mode:
+                        enum:
+                        - DISABLE
+                        - SIMPLE
+                        - MUTUAL
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      sni:
+                        description: SNI string to present to the server during TLS
+                          handshake.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -3796,6 +2678,108 @@ spec:
                     type: object
                 type: object
               type: array
+            localhost:
+              properties:
+                clientTls:
+                  properties:
+                    caCertificates:
+                      format: string
+                      type: string
+                    clientCertificate:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    mode:
+                      enum:
+                      - DISABLE
+                      - SIMPLE
+                      - MUTUAL
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    sni:
+                      description: SNI string to present to the server during TLS
+                        handshake.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+                serverTls:
+                  properties:
+                    caCertificates:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    cipherSuites:
+                      description: 'Optional: If specified, only support the specified
+                        cipher list.'
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    credentialName:
+                      format: string
+                      type: string
+                    httpsRedirect:
+                      type: boolean
+                    maxProtocolVersion:
+                      description: 'Optional: Maximum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    minProtocolVersion:
+                      description: 'Optional: Minimum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    mode:
+                      enum:
+                      - PASSTHROUGH
+                      - SIMPLE
+                      - MUTUAL
+                      - AUTO_PASSTHROUGH
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                      format: string
+                      type: string
+                    serverCertificate:
+                      description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateHash:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateSpki:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+              type: object
             outboundTrafficPolicy:
               description: Configuration for the outbound traffic policy.
               properties:
@@ -3831,6 +2815,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -3882,6 +2869,7 @@ spec:
     shortNames:
     - vs
     singular: virtualservice
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3942,6 +2930,14 @@ spec:
                         description: String patterns that match allowed origins.
                         items:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -3969,12 +2965,32 @@ spec:
                       maxAge:
                         type: string
                     type: object
+                  delegate:
+                    properties:
+                      name:
+                        description: Name specifies the name of the delegate VirtualService.
+                        format: string
+                        type: string
+                      namespace:
+                        description: Namespace specifies the namespace where the delegate
+                          VirtualService resides.
+                        format: string
+                        type: string
+                    type: object
                   fault:
                     description: Fault injection policy to apply on HTTP traffic at
                       the client side.
                     properties:
                       abort:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpStatus
+                            - required:
+                              - grpcStatus
+                            - required:
+                              - http2Error
                         - required:
                           - httpStatus
                         - required:
@@ -4004,13 +3020,15 @@ spec:
                         type: object
                       delay:
                         oneOf:
-                        - properties:
-                            percent: {}
-                          required:
+                        - not:
+                            anyOf:
+                            - required:
+                              - fixedDelay
+                            - required:
+                              - exponentialDelay
+                        - required:
                           - fixedDelay
-                        - properties:
-                            percent: {}
-                          required:
+                        - required:
                           - exponentialDelay
                         properties:
                           exponentialDelay:
@@ -4077,6 +3095,14 @@ spec:
                       properties:
                         authority:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4105,6 +3131,14 @@ spec:
                         headers:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4130,6 +3164,14 @@ spec:
                           type: boolean
                         method:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4159,6 +3201,14 @@ spec:
                         queryParams:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4181,6 +3231,14 @@ spec:
                           type: object
                         scheme:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4211,6 +3269,14 @@ spec:
                           type: string
                         uri:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4232,6 +3298,14 @@ spec:
                         withoutHeaders:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4557,6 +3631,98 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+  - name: v1beta1
+    served: true
+    storage: false
+---
+
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: workloadentries.networking.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
+  - JSONPath: .spec.address
+    description: Address associated with the network endpoint.
+    name: Address
+    type: string
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: WorkloadEntry
+    listKind: WorkloadEntryList
+    plural: workloadentries
+    shortNames:
+    - we
+    singular: workloadentry
+  preserveUnknownFields: false
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: 'Configuration affecting VMs onboarded into the mesh. See more
+            details at: https://istio.io/docs/reference/config/networking/workload-entry.html'
+          properties:
+            address:
+              format: string
+              type: string
+            labels:
+              additionalProperties:
+                format: string
+                type: string
+              description: One or more labels associated with the endpoint.
+              type: object
+            locality:
+              description: The locality associated with the endpoint.
+              format: string
+              type: string
+            network:
+              format: string
+              type: string
+            ports:
+              additionalProperties:
+                type: integer
+              description: Set of ports associated with the endpoint.
+              type: object
+            serviceAccount:
+              format: string
+              type: string
+            weight:
+              description: The load balancing weight associated with the endpoint.
+              type: integer
+          type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha3
@@ -4591,6 +3757,7 @@ spec:
     listKind: attributemanifestList
     plural: attributemanifests
     singular: attributemanifest
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4637,6 +3804,9 @@ spec:
               format: string
               type: string
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -4696,15 +3866,58 @@ spec:
                 authentication:
                   description: Auth config for the connection to the backend.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - properties:
+                          tls:
+                            allOf:
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - tokenPath
+                                  - required:
+                                    - oauth
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - authHeader
+                                  - required:
+                                    - customHeader
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
+                        required:
+                        - tls
+                      - required:
+                        - mutual
                   - properties:
                       tls:
                         allOf:
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
                           - required:
                             - tokenPath
                           - required:
                             - oauth
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
                           - required:
                             - authHeader
                           - required:
@@ -4802,6 +4015,9 @@ spec:
               description: Depends on adapter implementation.
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -4865,6 +4081,9 @@ spec:
               format: string
               type: string
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -4896,6 +4115,7 @@ spec:
     listKind: ruleList
     plural: rules
     singular: rule
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -5021,6 +4241,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha2
@@ -5051,6 +4274,7 @@ spec:
     listKind: ClusterRbacConfigList
     plural: clusterrbacconfigs
     singular: clusterrbacconfig
+  preserveUnknownFields: false
   scope: Cluster
   subresources:
     status: {}
@@ -5058,8 +4282,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -5109,6 +4332,9 @@ spec:
               - ON_WITH_EXCLUSION
               type: string
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -5140,6 +4366,7 @@ spec:
     listKind: RbacConfigList
     plural: rbacconfigs
     singular: rbacconfig
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -5147,8 +4374,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -5198,6 +4424,9 @@ spec:
               - ON_WITH_EXCLUSION
               type: string
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -5229,6 +4458,7 @@ spec:
     listKind: ServiceRoleList
     plural: serviceroles
     singular: servicerole
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -5236,8 +4466,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             rules:
               description: The set of access rules (permissions) that the role has.
@@ -5310,6 +4539,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -5354,6 +4586,7 @@ spec:
     listKind: ServiceRoleBindingList
     plural: servicerolebindings
     singular: servicerolebinding
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -5361,8 +4594,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             actions:
               items:
@@ -5513,6 +4745,9 @@ spec:
                 type: object
               type: array
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1alpha1
@@ -5543,6 +4778,7 @@ spec:
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
     singular: authorizationpolicy
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -5713,6 +4949,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
@@ -5745,6 +4984,7 @@ spec:
     shortNames:
     - pa
     singular: peerauthentication
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -5792,6 +5032,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
@@ -5824,6 +5067,7 @@ spec:
     shortNames:
     - ra
     singular: requestauthentication
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -5900,6 +5144,9 @@ spec:
                   type: object
               type: object
           type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
       type: object
   versions:
   - name: v1beta1
@@ -5972,92 +5219,72 @@ spec:
 ---
 
 
-apiVersion: v1
-kind: Namespace
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
 metadata:
-  name: istio-system
+  name: istiooperators.install.istio.io
   labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
-
-
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-reader-service-account
-  namespace: istio-system
-  labels:
-    app: istio-reader
     release: istio
----
-
-
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-pilot-service-account
-  namespace: istio-system
-  labels:
-    app: pilot
-    release: istio
----
-
-
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istiod-istio-system
-  labels:
-    app: istiod
-    release: istio
-    istio: istiod
-webhooks:
-  - name: validation.istio.io
-    clientConfig:
-      service:
-        name: istiod
-        namespace: istio-system
-        path: "/validate"
-      caBundle: "" # patched at runtime when the webhook is ready.
-    rules:
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
-        - config.istio.io
-        - rbac.istio.io
-        - security.istio.io
-        - authentication.istio.io
-        - networking.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-    # Fail open until the validation webhook is ready. The webhook controller
-    # will update this to `Fail` and patch in the `caBundle` when the webhook
-    # endpoint is ready.
-    failurePolicy: Ignore
-    sideEffects: None
----
-
-
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  labels:
-    app: galley
-    release: istio
-    istio: galley
-webhooks:
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.revision
+    description: Istio control plane revision
+    name: Revision
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
 ---
 
 # Cni component is disabled.
 
 # EgressGateways istio-egressgateway component is disabled.
 
-# Galley component is disabled.
+# IstiodRemote component is disabled.
 
 # Resources for Pilot component
 
@@ -6069,6 +5296,7 @@ metadata:
   labels:
     app: istiod
     release: istio
+    istio.io/rev: default
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -6090,6 +5318,7 @@ metadata:
   name: istio
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio
 data:
 
@@ -6097,155 +5326,18 @@ data:
   meshNetworks: |-
     networks: {}
 
-  values.yaml: |-
-    appNamespaces: []
-    autoscaleEnabled: true
-    autoscaleMax: 5
-    autoscaleMin: 1
-    configMap: true
-    configNamespace: istio-config
-    configSource:
-      subscribedResources: []
-    cpu:
-      targetAverageUtilization: 80
-    deploymentLabels: {}
-    enableProtocolSniffingForInbound: false
-    enableProtocolSniffingForOutbound: true
-    enabled: true
-    env: {}
-    hub: ""
-    image: pilot
-    ingress:
-      ingressClass: istio
-      ingressControllerMode: STRICT
-      ingressService: istio-ingressgateway
-    jwksResolverExtraRootCA: ""
-    keepaliveMaxServerConnectionAge: 30m
-    meshNetworks:
-      networks: {}
-    namespace: istio-system
-    nodeSelector: {}
-    plugins: []
-    podAnnotations: {}
-    podAntiAffinityLabelSelector: []
-    podAntiAffinityTermLabelSelector: []
-    policy:
-      enabled: false
-    replicaCount: 1
-    resources:
-      requests:
-        cpu: 500m
-        memory: 2048Mi
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
-    tag: ""
-    tolerations: []
-    traceSampling: 1
-
   mesh: |-
-    # Set enableTracing to false to disable request tracing.
-    enableTracing: true
-
-    # Set accessLogFile to empty string to disable access log.
-    accessLogFile: ""
-
-    accessLogFormat: ""
-
-    accessLogEncoding: 'TEXT'
-
-    enableEnvoyAccessLogService: false
-    # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
-    reportBatchMaxEntries: 100
-    # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
-    reportBatchMaxTime: 1s
-    disableMixerHttpReports: true
-
-    # Set the following variable to true to disable policy checks by the Mixer.
-    # Note that metrics will still be reported to the Mixer.
-    disablePolicyChecks: true
-
-    # Automatic protocol detection uses a set of heuristics to
-    # determine whether the connection is using TLS or not (on the
-    # server side), as well as the application protocol being used
-    # (e.g., http vs tcp). These heuristics rely on the client sending
-    # the first bits of data. For server first protocols like MySQL,
-    # MongoDB, etc., Envoy will timeout on the protocol detection after
-    # the specified period, defaulting to non mTLS plain TCP
-    # traffic. Set this field to tweak the period that Envoy will wait
-    # for the client to send the first bits of data. (MUST BE >=1ms)
-    protocolDetectionTimeout: 100ms
-
-    # This is the k8s ingress service name, update if you used a different name
-    ingressService: "istio-ingressgateway"
-    ingressControllerMode: "STRICT"
-    ingressClass: "istio"
-
-    # The trust domain corresponds to the trust root of a system.
-    # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-    trustDomain: "cluster.local"
-
-    #  The trust domain aliases represent the aliases of trust_domain.
-    #  For example, if we have
-    #  trustDomain: td1
-    #  trustDomainAliases: ["td2", "td3"]
-    #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
-    #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
-    trustDomainAliases:
-
-    # Used by pilot-agent
-    sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
-    # If true, automatically configure client side mTLS settings to match the corresponding service's
-    # server side mTLS authentication policy, when destination rule for that service does not specify
-    # TLS settings.
-    enableAutoMtls: false
-
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY
-    localityLbSetting:
-      enabled: true
-
-    # Configures DNS certificates provisioned through Chiron linked into Pilot.
-    # The DNS certificate provisioning is enabled by default now so it get tested.
-    # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
-    certificates:
-      []
-
     defaultConfig:
-      #
-      # TCP connection timeout between Envoy & the application, and between Envoys.
-      connectTimeout: 10s
-      #
-      ### ADVANCED SETTINGS #############
-      # Where should envoy's configuration be stored in the istio-proxy container
-      configPath: "/etc/istio/proxy"
-      # The pseudo service name used for Envoy.
-      serviceCluster: istio-proxy
-      # These settings that determine how long an old Envoy
-      # process should be kept alive after an occasional reload.
-      drainDuration: 45s
-      parentShutdownDuration: 1m0s
-      #
-      # Port where Envoy listens (on local host) for admin commands
-      # You can exec into the istio-proxy container in a pod and
-      # curl the admin port (curl http://localhost:15000/) to obtain
-      # diagnostic information from Envoy. See
-      # https://lyft.github.io/envoy/docs/operations/admin.html
-      # for more details
-      proxyAdminPort: 15000
-      #
-      # Set concurrency to a specific number to control the number of Proxy worker threads.
-      # If set to 0 (default), then start worker thread for each CPU thread/core.
-      concurrency: 2
-      #
+      discoveryAddress: istiod.istio-system.svc:15012
+      proxyMetadata:
+        DNS_AGENT: ""
       tracing:
         zipkin:
-          # Address of the Zipkin collector
           address: zipkin.istio-system:9411
-
-      # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
-      controlPlaneAuthPolicy: NONE
-      discoveryAddress: istiod.istio-system.svc:15012
+    disableMixerHttpReports: true
+    enablePrometheusMerge: true
+    rootNamespace: istio-system
+    trustDomain: cluster.local
 ---
 
 
@@ -6255,6 +5347,7 @@ metadata:
   labels:
     app: istiod
     istio: pilot
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-system
@@ -6269,44 +5362,14 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
         istio: pilot
+        istio.io/rev: default
     spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
       containers:
       - args:
         - discovery
@@ -6341,30 +5404,27 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: CONFIG_NAMESPACE
-          value: istio-config
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "false"
+          value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
           value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istiod.istio-system.svc:15012
-        - name: PILOT_EXTERNAL_GALLEY
+        - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        envFrom:
-        - configMapRef:
-            name: istiod
-            optional: true
+        - name: CENTRAL_ISTIOD
+          value: "false"
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
         - containerPort: 8080
         - containerPort: 15010
         - containerPort: 15017
+        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -6397,12 +5457,9 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
-        - mountPath: /var/lib/istio/local
-          name: istiod
-          readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -6414,17 +5471,12 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istiod
-          optional: true
-        name: istiod
       - name: cacerts
         secret:
           optional: true
           secretName: cacerts
       - configMap:
           name: istio-sidecar-injector
-          optional: true
         name: inject
       - configMap:
           name: istio
@@ -6439,6 +5491,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio
 data:
 
@@ -6450,8 +5503,6 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
-        "certificates": [],
-        "configNamespace": "istio-system",
         "configValidation": true,
         "controlPlaneSecurityEnabled": true,
         "defaultNodeSelector": {},
@@ -6463,26 +5514,16 @@ data:
             "cpu": "10m"
           }
         },
-        "disablePolicyChecks": true,
         "enableHelmTest": false,
-        "enableTracing": true,
         "enabled": true,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
-          "enabled": true
+          "enableAnalysis": false
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
-        "localityLbSetting": {
-          "enabled": true
-        },
         "logAsJson": false,
         "logging": {
           "level": "default:info"
@@ -6493,10 +5534,6 @@ data:
         },
         "meshNetworks": {},
         "mountMtlsCerts": false,
-        "mtls": {
-          "auto": false,
-          "enabled": false
-        },
         "multiCluster": {
           "clusterName": "",
           "enabled": false
@@ -6506,52 +5543,21 @@ data:
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
         "operatorManageWebhooks": false,
-        "outboundTrafficPolicy": {
-          "mode": "ALLOW_ANY"
-        },
         "pilotCertProvider": "istiod",
-        "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
-        "prometheusNamespace": "istio-system",
         "proxy": {
-          "accessLogEncoding": "TEXT",
-          "accessLogFile": "",
-          "accessLogFormat": "",
           "autoInject": "enabled",
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
-          "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
-          "envoyAccessLogService": {
-            "enabled": false
-          },
-          "envoyMetricsService": {
-            "enabled": false,
-            "tcpKeepalive": {
-              "interval": "10s",
-              "probes": 3,
-              "time": "10s"
-            },
-            "tlsSettings": {
-              "mode": "DISABLE",
-              "subjectAltNames": []
-            }
-          },
-          "envoyStatsd": {
-            "enabled": false
-          },
           "excludeIPRanges": "",
           "excludeInboundPorts": "",
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
-          "protocolDetectionTimeout": "100ms",
           "readinessFailureThreshold": 30,
           "readinessInitialDelaySeconds": 1,
           "readinessPeriodSeconds": 2,
@@ -6586,7 +5592,6 @@ data:
             "aud": "istio-ca"
           }
         },
-        "securityNamespace": "istio-system",
         "sts": {
           "servicePort": 0
         },
@@ -6598,9 +5603,7 @@ data:
           },
           "lightstep": {
             "accessToken": "",
-            "address": "",
-            "cacertPath": "",
-            "secure": true
+            "address": ""
           },
           "stackdriver": {
             "debug": false,
@@ -6618,13 +5621,12 @@ data:
       "istio_cni": {
         "enabled": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
-        "enabled": false,
         "injectLabel": "istio-injection",
         "injectedAnnotations": {},
-        "namespace": "istio-system",
         "neverInjectSelector": [],
         "objectSelector": {
           "autoInject": true,
@@ -6642,16 +5644,11 @@ data:
   config: |-
     policy: enabled
     alwaysInjectSelector:
-            []
+      []
     neverInjectSelector:
-            []
+      []
     injectedAnnotations:
 
-    # Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
-    # Values.yaml, which should not be used by istiod.
-    
-    # Istiod only uses SDS based config ( files will mapped/handled by SDS).
-    
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       initContainers:
@@ -6683,7 +5680,11 @@ data:
         - "-b"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
         - "-d"
-        - "15090,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+        - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") -}}
+        - "-q"
+        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
+        {{ end -}}
         {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
         - "-o"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
@@ -6698,6 +5699,11 @@ data:
         {{ end -}}
         imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
       {{- if .Values.global.proxy_init.resources }}
+        env:
+        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
         resources:
           {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
       {{- else }}
@@ -6714,12 +5720,13 @@ data:
         {{- end }}
             drop:
             - ALL
-          readOnlyRootFilesystem: false
         {{- if not .Values.istio_cni.enabled }}
+          readOnlyRootFilesystem: false
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
         {{- else }}
+          readOnlyRootFilesystem: true
           runAsGroup: 1337
           runAsUser: 1337
           runAsNonRoot: true
@@ -6730,7 +5737,7 @@ data:
       - name: enable-core-dump
         args:
         - -c
-        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+        - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
       {{- if contains "/" .Values.global.proxy_init.image }}
@@ -6786,6 +5793,10 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
+      {{- if gt .ProxyConfig.Concurrency.GetValue 0 }}
+        - --concurrency
+        - "{{ .ProxyConfig.Concurrency.GetValue }}"
+      {{- end -}}
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -6799,10 +5810,8 @@ data:
         - name: CA_ADDR
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-        {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -6824,9 +5833,17 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: MESH_CONFIG
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
+        - name: PROXY_CONFIG
           value: |
-                 {{ protoToJSON .MeshConfig }}
+                 {{ protoToJSON .ProxyConfig }}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -6839,6 +5856,14 @@ data:
                 {{- end }}
               {{- end}}
             {{- end}}
+            ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+              {{- range $index, $container := .Spec.Containers }}
+                {{- if ne $index 0}},{{- end}}
+                {{ $container.Name }}
+              {{- end}}
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
@@ -6887,7 +5912,7 @@ data:
         readinessProbe:
           httpGet:
             path: /healthz/ready
-            port: 15090
+            port: 15021
           initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
           periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
           failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
@@ -6947,6 +5972,8 @@ data:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         {{- end }}
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
@@ -6966,8 +5993,8 @@ data:
         {{- end }}
         - name: istio-podinfo
           mountPath: /etc/istio/pod
-        {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
-        - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
+         {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
+        - mountPath: {{ directory .ProxyConfig.GetTracing.GetTlsSettings.GetCaCertificates }}
           name: lightstep-certs
           readOnly: true
         {{- end }}
@@ -6987,6 +6014,8 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - name: istio-data
+        emptyDir: {}
       - name: istio-podinfo
         downwardAPI:
           items:
@@ -7027,7 +6056,7 @@ data:
         {{ toYaml $value | indent 2 }}
         {{ end }}
         {{ end }}
-      {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+      {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
       - name: lightstep-certs
         secret:
           optional: true
@@ -7041,15 +6070,31 @@ data:
           {{- end }}
       {{- end }}
       podRedirectAnnot:
+      {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}
+      {{ if isset .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks` }}
+        k8s.v1.cni.cncf.io/networks: "{{ index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`}}, istio-cni"
+      {{- else }}
+        k8s.v1.cni.cncf.io/networks: "istio-cni"
+      {{- end }}
+      {{- end }}
         sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
         traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
         traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
         traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) }}"
         traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") }}
+        traffic.sidecar.istio.io/includeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
+      {{- end }}
       {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
         traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
       {{- end }}
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
 ---
 
 
@@ -7059,6 +6104,7 @@ metadata:
   name: istio-sidecar-injector
 
   labels:
+    istio.io/rev: default
     app: sidecar-injector
     release: istio
 webhooks:
@@ -7088,6 +6134,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio
     istio: pilot
 spec:
@@ -7105,7 +6152,9 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    istio.io/rev: default
     app: istiod
+    istio: pilot
     release: istio
 spec:
   ports:
@@ -7118,6 +6167,14 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
+    - name: dns
+      port: 53
+      targetPort: 15053
+      protocol: UDP
+    - name: dns-tls
+      port: 853
+      targetPort: 15053
+      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
@@ -7131,6 +6188,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7161,6 +6220,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7241,6 +6302,7 @@ spec:
                 {
                   "debug": "false",
                   "stat_prefix": "istio",
+                  "disable_host_header_fallback": true,
                 }
               vm_config:
                 vm_id: stats_outbound
@@ -7255,6 +6317,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7289,6 +6353,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -7343,6 +6409,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7434,6 +6502,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -7449,6 +6518,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -7476,7 +6547,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -7506,7 +6577,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -7536,7 +6607,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -7549,6 +6620,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7566,10 +6639,11 @@ spec:
           name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
-                configuration: envoy.wasm.metadata_exchange
+                configuration: |
+                  {}
                 vm_config:
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -7583,6 +6657,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -7640,6 +6716,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7659,14 +6737,14 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -7691,14 +6769,14 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_inbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_inbound
@@ -7723,7 +6801,7 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
@@ -7731,6 +6809,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -7746,6 +6825,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -7763,17 +6844,17 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_inbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -7793,17 +6874,17 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -7823,7 +6904,211 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio"
+                  }
+                vm_config:
+                  vm_id: tcp_stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: metadata-exchange-1.7
+  namespace: istio-system
+  labels:
+    istio.io/rev: default
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY # inbound, outbound, and gateway
+        proxy:
+          proxyVersion: '^1\.7.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            value:
+              config:
+                configuration: |
+                  {}
+                vm_config:
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.metadata_exchange
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-metadata-exchange-1.7
+  namespace: istio-system
+  labels:
+    istio.io/rev: default
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.7.*'
+        listener: {}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+            value:
+              protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.7.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: istio.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.7.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: istio.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter-1.7
+  namespace: istio-system
+  labels:
+    istio.io/rev: default
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.7.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio"
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.7.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio"
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.7.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
@@ -7831,9 +7116,112 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true
                   }
                 vm_config:
                   vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-stats-filter-1.7
+  namespace: istio-system
+  labels:
+    istio.io/rev: default
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.7.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio"
+                  }
+                vm_config:
+                  vm_id: tcp_stats_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.7.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio"
+                  }
+                vm_config:
+                  vm_id: tcp_stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.7.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio"
+                  }
+                vm_config:
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:

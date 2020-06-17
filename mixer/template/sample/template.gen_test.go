@@ -1,4 +1,4 @@
-// Copyright 2016 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 
 	adpTmpl "istio.io/api/mixer/adapter/model/v1beta1"
-	istio_mixer_v1_config "istio.io/api/policy/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/lang/checker"
@@ -794,11 +793,11 @@ func TestSetType(t *testing.T) {
 }
 
 type fakeExpr struct {
-	extraAttrManifest []*istio_mixer_v1_config.AttributeManifest
+	extraAttrManifest []*pb.AttributeManifest
 }
 
 // newFakeExpr returns the basic
-func newFakeExpr(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) *fakeExpr {
+func newFakeExpr(extraAttrManifest []*pb.AttributeManifest) *fakeExpr {
 	return &fakeExpr{extraAttrManifest: extraAttrManifest}
 }
 
@@ -806,9 +805,9 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 	return nil, nil
 }
 
-var baseManifests = []*istio_mixer_v1_config.AttributeManifest{
+var baseManifests = []*pb.AttributeManifest{
 	{
-		Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
+		Attributes: map[string]*pb.AttributeManifest_AttributeInfo{
 			"str.absent": {
 				ValueType: pb.STRING,
 			},
@@ -858,8 +857,8 @@ var baseManifests = []*istio_mixer_v1_config.AttributeManifest{
 	},
 }
 
-func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) attribute.AttributeDescriptorFinder {
-	attrs := make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo)
+func createAttributeDescriptorFinder(extraAttrManifest []*pb.AttributeManifest) attribute.AttributeDescriptorFinder {
+	attrs := make(map[string]*pb.AttributeManifest_AttributeInfo)
 	for _, m := range baseManifests {
 		for an, at := range m.Attributes {
 			attrs[an] = at

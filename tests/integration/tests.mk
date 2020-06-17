@@ -52,43 +52,42 @@ endif
 
 _INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 
+# If $(INTEGRATION_TEST_NETWORKS) is set, add the networkTopology flag
+_INTEGRATION_TEST_NETWORKS ?= $(INTEGRATION_TEST_NETWORKS)
+ifneq ($(_INTEGRATION_TEST_NETWORKS),)
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.networkTopology=$(_INTEGRATION_TEST_NETWORKS)
+endif
+
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # filter out non-standard test directories
 TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
 
-# Generate integration test targets for local environment.
-test.integration.%.local: | $(JUNIT_REPORT)
-	$(GO) test -p 1 ${T} -race ./tests/integration/$(subst .,/,$*)/... \
-	--istio.test.env native \
+test.integration...local:
+	echo "legacy target. This can be removed once the CI job is removed."
+
+# Generate presubmit integration test targets for each component in kubernetes environment
+test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
+	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-# Generate presubmit integration test targets for each component in kubernetes environment
-test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	--istio.test.env kube \
-	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Presubmit integration tests targeting Kubernetes environment.
 .PHONY: test.integration.kube.presubmit
-test.integration.kube.presubmit: istioctl | $(JUNIT_REPORT)
+test.integration.kube.presubmit: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ${TEST_PACKAGES} -timeout 30m \
- 	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Defines a target to run a minimal reachability testing basic traffic
 .PHONY: test.integration.kube.reachability
-test.integration.kube.reachability: istioctl | $(JUNIT_REPORT)
+test.integration.kube.reachability: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/security/ -timeout 30m \
-	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} \
 	--test.run=TestReachability \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))

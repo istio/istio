@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,18 @@
 package bookinfo
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path"
+	"time"
 
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/deployment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 type bookInfoConfig string
@@ -30,13 +35,13 @@ const (
 	// BookInfo uses "bookinfo.yaml"
 	BookInfo          bookInfoConfig = "bookinfo.yaml"
 	BookinfoRatingsv2 bookInfoConfig = "bookinfo-ratings-v2.yaml"
-	BookinfoDb        bookInfoConfig = "bookinfo-db.yaml"
+	BookinfoDB        bookInfoConfig = "bookinfo-db.yaml"
 )
 
-func deploy(ctx resource.Context, cfg Config) (i deployment.Instance, err error) {
+func deploy(ctx resource.Context, cfg Config) (undeployFunc func(), err error) {
 	ns := cfg.Namespace
 	if ns == nil {
-		ns, err = namespace.Claim(ctx, "default")
+		ns, err = namespace.Claim(ctx, "default", true)
 		if err != nil {
 			return nil, err
 		}
@@ -48,11 +53,26 @@ func deploy(ctx resource.Context, cfg Config) (i deployment.Instance, err error)
 		return nil, err
 	}
 
-	depcfg := deployment.Config{
-		Name:      string(cfg.Cfg),
-		Namespace: ns,
-		Yaml:      string(by),
+	name := string(cfg.Cfg)
+	scopes.Framework.Infof("=== BEGIN: Deployment %q ===", name)
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("deployment %q failed: %v", name, err) // nolint:golint
+			scopes.Framework.Errorf("Error deploying %q: %v", name, err)
+			scopes.Framework.Errorf("=== FAILED: Deployment %q ===", name)
+		} else {
+			scopes.Framework.Infof("=== SUCCEEDED: Deployment %q ===", name)
+		}
+	}()
+
+	cluster := kube.ClusterOrDefault(nil, ctx.Environment())
+
+	d := kube2.NewYamlContentDeployment(ns.Name(), string(by), cluster.Accessor)
+	if err = d.Deploy(true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5)); err != nil {
+		return nil, err
 	}
 
-	return deployment.New(ctx, depcfg)
+	return func() {
+		_ = d.Delete(true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
+	}, nil
 }

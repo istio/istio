@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	sm "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
 
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 )
 
 type generator interface {
@@ -243,11 +243,17 @@ func (hostGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principa
 }
 
 type pathGenerator struct {
+	isIstioVersionGE15 bool
 }
 
-func (pathGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
+func (g pathGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%s must not be used in TCP", key)
+	}
+
+	if !g.isIstioVersionGE15 {
+		m := matcher.HeaderMatcher(":path", value)
+		return permissionHeader(m), nil
 	}
 
 	m := matcher.PathMatcher(value)

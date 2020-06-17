@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,8 +24,9 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
-	xds "github.com/envoyproxy/go-control-plane/pkg/server"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
+	xds "github.com/envoyproxy/go-control-plane/pkg/server/v2"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 
@@ -186,7 +187,7 @@ func TestDynamicAttribute(t *testing.T) {
 
 	snapshots := cache.NewSnapshotCache(false, hasher{}, nil)
 	snapshot := cache.Snapshot{}
-	snapshot.Resources[cache.Endpoint] = cache.Resources{Version: "1", Items: map[string]cache.Resource{
+	snapshot.Resources[types.Endpoint] = cache.Resources{Version: "1", Items: map[string]types.Resource{
 		"backend": &v2.ClusterLoadAssignment{
 			ClusterName: "backend",
 			Endpoints: []*endpoint.LocalityLbEndpoints{{

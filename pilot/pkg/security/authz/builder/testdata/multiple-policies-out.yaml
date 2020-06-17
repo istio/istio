@@ -1,0 +1,173 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  rules:
+    policies:
+      ns[foo]-policy[httpbin-1]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: GET
+                    name: :method
+                - header:
+                    exactMatch: POST
+                    name: :method
+        principals:
+        - andIds:
+            ids:
+            - any: true
+      ns[foo]-policy[httpbin-2]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: /v1
+                - urlPath:
+                    path:
+                      exact: /v2
+        principals:
+        - andIds:
+            ids:
+            - any: true
+      ns[foo]-policy[httpbin-3]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: google.com
+                    name: :authority
+                - header:
+                    exactMatch: httpbin.org
+                    name: :authority
+        principals:
+        - andIds:
+            ids:
+            - any: true
+      ns[foo]-policy[httpbin-4]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - destinationPort: 80
+                - destinationPort: 90
+        principals:
+        - andIds:
+            ids:
+            - any: true
+      ns[foo]-policy[httpbin-5]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: principals1
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: principals2
+      ns[foo]-policy[httpbin-6]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: requestPrincipals1
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: requestPrincipals2
+      ns[foo]-policy[httpbin-7]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/namespaces1/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/namespaces2/.*
+      ns[foo]-policy[httpbin-8]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 1.2.3.4
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 5.6.7.0
+                    prefixLen: 24
+      ns[foo]-policy[httpbin-9]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - header:
+                    exactMatch: abc1
+                    name: X-abc
+                - header:
+                    exactMatch: abc2
+                    name: X-abc

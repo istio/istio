@@ -6,12 +6,18 @@ spec:
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
+        label:
+          aaa: aaa-val
+          bbb: bbb-val
         k8s:
           resources:
             requests:
               cpu: 111m
       - name: user-ingressgateway
         enabled: true
+        label:
+          ccc: ccc-val
+          ddd: ddd-val
         k8s:
           resources:
             requests:

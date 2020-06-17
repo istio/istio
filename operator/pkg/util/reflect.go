@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,28 +73,12 @@ func IsSliceInterfacePtr(v interface{}) bool {
 	return vv.Kind() == reflect.Ptr && vv.Elem().Kind() == reflect.Interface && vv.Elem().Elem().Kind() == reflect.Slice
 }
 
-// IsInterfacePtr reports whether v is a slice ptr type.
-func IsInterfacePtr(v interface{}) bool {
-	t := reflect.TypeOf(v)
-	return t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Interface
-}
-
-// IsTypeStruct reports whether t is a struct type.
-func IsTypeStruct(t reflect.Type) bool {
-	return t.Kind() == reflect.Struct
-}
-
 // IsTypeStructPtr reports whether v is a struct ptr type.
 func IsTypeStructPtr(t reflect.Type) bool {
 	if t == reflect.TypeOf(nil) {
 		return false
 	}
 	return t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct
-}
-
-// IsTypeSlice reports whether v is a slice type.
-func IsTypeSlice(t reflect.Type) bool {
-	return t.Kind() == reflect.Slice
 }
 
 // IsTypeSlicePtr reports whether v is a slice ptr type.
@@ -263,28 +247,6 @@ func UpdateSlicePtr(parentSlice interface{}, index int, value interface{}) error
 	return nil
 }
 
-// AppendToSlicePtr appends an entry in the parent, which must be a slice ptr, with the given value.
-func AppendToSlicePtr(parentSlice interface{}, value interface{}) error {
-	scope.Debugf("AppendToSlicePtr parent=\n%s\n, value=\n%v", pretty.Sprint(parentSlice), value)
-	pv := reflect.ValueOf(parentSlice)
-	v := reflect.ValueOf(value)
-
-	if !IsSliceInterfacePtr(parentSlice) {
-		// nolint: golint
-		return fmt.Errorf("AppendToSlicePtr parent type is %T, must be *[]interface{}", parentSlice)
-	}
-
-	pvv := pv.Elem()
-	var newSlice reflect.Value
-	if pvv.Kind() == reflect.Interface {
-		newSlice = reflect.Append(pv.Elem().Elem(), v)
-	} else {
-		newSlice = reflect.Append(pv.Elem(), v)
-	}
-	pv.Elem().Set(newSlice)
-	return nil
-}
-
 // InsertIntoMap inserts value with key into parent which must be a map, map ptr, or interface to map.
 func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) error {
 	scope.Debugf("InsertIntoMap key=%v, value=%s, map=\n%s", key, pretty.Sprint(value), pretty.Sprint(parentMap))
@@ -305,6 +267,19 @@ func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) er
 	}
 
 	v.SetMapIndex(kv, vv)
+
+	return nil
+}
+
+// DeleteFromMap deletes an entry with the given key parent, which must be a map.
+func DeleteFromMap(parentMap interface{}, key interface{}) error {
+	scope.Debugf("DeleteFromMap key=%s, parent:\n%s\n", key, pretty.Sprint(parentMap))
+	pv := reflect.ValueOf(parentMap)
+
+	if !IsMap(parentMap) {
+		return fmt.Errorf("deleteFromMap parent type is %T, must be map", parentMap)
+	}
+	pv.SetMapIndex(reflect.ValueOf(key), reflect.Value{})
 
 	return nil
 }

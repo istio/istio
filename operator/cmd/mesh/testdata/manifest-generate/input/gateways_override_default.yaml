@@ -11,14 +11,6 @@ spec:
       enabled: false
     telemetry:
       enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
     cni:
       enabled: false
     ingressGateways:

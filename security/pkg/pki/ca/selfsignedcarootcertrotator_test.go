@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,10 +63,10 @@ func TestRootCertRotatorWithoutRootCertSecret(t *testing.T) {
 	// Verifies that in self-signed CA mode, root cert rotator does not create CA secret.
 	rotator0 := getRootCertRotator(getDefaultSelfSignedIstioCAOptions(nil))
 	client0 := rotator0.config.client
-	client0.Secrets(rotator0.config.caStorageNamespace).Delete(CASecret, &metav1.DeleteOptions{})
+	client0.Secrets(rotator0.config.caStorageNamespace).Delete(context.TODO(), CASecret, metav1.DeleteOptions{})
 
 	rotator0.checkAndRotateRootCert()
-	caSecret, err := client0.Secrets(rotator0.config.caStorageNamespace).Get(CASecret, metav1.GetOptions{})
+	caSecret, err := client0.Secrets(rotator0.config.caStorageNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
 	if !errors.IsNotFound(err) || caSecret != nil {
 		t.Errorf("CA secret should not exist, but get %v: %v", caSecret, err)
 	}
@@ -102,7 +102,7 @@ func verifyRootCertAndPrivateKey(t *testing.T, shouldMatch bool, itemA, itemB ro
 
 func loadCert(rotator *SelfSignedCARootCertRotator) rootCertItem {
 	client := rotator.config.client
-	caSecret, _ := client.Secrets(rotator.config.caStorageNamespace).Get(CASecret, metav1.GetOptions{})
+	caSecret, _ := client.Secrets(rotator.config.caStorageNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
 	rootCert := rotator.ca.keyCertBundle.GetRootCertPem()
 	rootCertInConfigMap, _ := rotator.configMapController.GetCATLSRootCert()
 	return rootCertItem{caSecret: caSecret, rootCertInKeyCertBundle: rootCert,
@@ -141,7 +141,7 @@ func TestRootCertRotatorKeepCertFieldsUnchanged(t *testing.T) {
 	// Update CASecret with a new root cert generated from custom cert options. The
 	// cert options differ from default cert options used by rotator.
 	oldCertOrg := "old cert org"
-	oldCertRSAKeySize := 512
+	oldCertRSAKeySize := 2048
 	customCertOptions := util.CertOptions{
 		TTL:          rotator.config.caCertTTL,
 		Org:          oldCertOrg,
@@ -182,7 +182,7 @@ func updateRootCertWithCustomCertOptions(t *testing.T,
 	newSecret := certItem.caSecret
 	newSecret.Data[caCertID] = pemCert
 	newSecret.Data[caPrivateKeyID] = pemKey
-	rotator.config.client.Secrets(rotator.config.caStorageNamespace).Update(newSecret)
+	rotator.config.client.Secrets(rotator.config.caStorageNamespace).Update(context.TODO(), newSecret, metav1.UpdateOptions{})
 }
 
 // verifyRootCertFields verifies that certain fields in both new and old root
@@ -255,7 +255,7 @@ func TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel(t *testing.T) {
 	newSecret := certItem0.caSecret
 	newSecret.Data[caCertID] = pemCert
 	newSecret.Data[caPrivateKeyID] = pemKey
-	rotator.config.client.Secrets(rotator.config.caStorageNamespace).Update(newSecret)
+	rotator.config.client.Secrets(rotator.config.caStorageNamespace).Update(context.TODO(), newSecret, metav1.UpdateOptions{})
 
 	// Change grace period percentage to 0, so that root cert is not going to expire soon.
 	rotator.config.certInspector = certutil.NewCertUtil(0)

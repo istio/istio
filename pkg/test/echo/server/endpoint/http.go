@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package endpoint
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net"
@@ -27,6 +28,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
@@ -62,10 +65,11 @@ func newHTTP(config Config) Instance {
 }
 
 func (s *httpInstance) Start(onReady OnReadyFunc) error {
+	h2s := &http2.Server{}
 	s.server = &http.Server{
-		Handler: &httpHandler{
+		Handler: h2c.NewHandler(&httpHandler{
 			Config: s.Config,
-		},
+		}, h2s),
 	}
 
 	var listener net.Listener
@@ -74,6 +78,16 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	if s.isUDS() {
 		port = 0
 		listener, err = listenOnUDS(s.UDSServer)
+	} else if s.Port.TLS {
+		cert, cerr := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
+		if cerr != nil {
+			return fmt.Errorf("could not load TLS keys: %v", err)
+		}
+		config := &tls.Config{Certificates: []tls.Certificate{cert}}
+		// Listen on the given port and update the port if it changed from what was passed in.
+		listener, port, err = listenOnPortTLS(s.Port.Port, config)
+		// Store the actual listening port back to the argument.
+		s.Port.Port = port
 	} else {
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnPort(s.Port.Port)
@@ -87,6 +101,9 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 
 	if s.isUDS() {
 		fmt.Printf("Listening HTTP/1.1 on %v\n", s.UDSServer)
+	} else if s.Port.TLS {
+		s.server.Addr = fmt.Sprintf(":%d", port)
+		fmt.Printf("Listening HTTPS/1.1 on %v\n", port)
 	} else {
 		s.server.Addr = fmt.Sprintf(":%d", port)
 		fmt.Printf("Listening HTTP/1.1 on %v\n", port)
@@ -119,12 +136,15 @@ func (s *httpInstance) awaitReady(onReady OnReadyFunc, port int) {
 				return net.Dial("unix", s.UDSServer)
 			},
 		}
+	} else if s.Port.TLS {
+		url = fmt.Sprintf("https://127.0.0.1:%d", port)
+		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	} else {
 		url = fmt.Sprintf("http://127.0.0.1:%d", port)
 	}
 
 	err := retry.UntilSuccess(func() error {
-		resp, err := http.Get(url)
+		resp, err := client.Get(url)
 		if err != nil {
 			return err
 		}
@@ -169,7 +189,7 @@ type codeAndSlices struct {
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Infof("HTTP Request:\n  Method: %s\n  URL: %v,\n  Host: %s\n  Headers: %v",
 		r.Method, r.URL, r.Host, r.Header)
-	defer common.Metrics.HTTPRequests.With(common.Port.Value(strconv.Itoa(h.Port.Port))).Increment()
+	defer common.Metrics.HTTPRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
 	if !h.IsServerReady() {
 		// Handle readiness probe failure.
 		log.Infof("HTTP service not ready, returning 503")
@@ -260,12 +280,12 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, response.ServiceVersionField, h.Version)
 	writeField(body, response.ServicePortField, port)
 	writeField(body, response.HostField, r.Host)
+	writeField(body, response.URLField, r.URL.String())
+	writeField(body, response.ClusterField, h.Cluster)
 
-	writeField(body, response.Field("Method"), r.Method)
-	writeField(body, response.Field("URL"), r.URL.String())
-	writeField(body, response.Field("Proto"), r.Proto)
-	writeField(body, response.Field("RemoteAddr"), r.RemoteAddr)
-	writeField(body, response.Field("Method"), r.Method)
+	writeField(body, "Method", r.Method)
+	writeField(body, "Proto", r.Proto)
+	writeField(body, "RemoteAddr", r.RemoteAddr)
 
 	for name, values := range r.Header {
 		for _, value := range values {

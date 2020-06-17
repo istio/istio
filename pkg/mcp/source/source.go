@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -342,7 +342,7 @@ func (con *connection) pushServerResponse(w *watch, resp *WatchResponse) error {
 		Collection:        resp.Collection,
 		Resources:         added,
 		RemovedResources:  removed,
-		Incremental:       incremental,
+		Incremental:       con.streamNonce > 0 && incremental, // the first response was not consider as incremental
 	}
 
 	// increment nonce

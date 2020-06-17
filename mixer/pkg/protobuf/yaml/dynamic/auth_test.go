@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
-	attributeV1beta1 "istio.io/api/policy/v1beta1"
 	policypb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
@@ -276,7 +275,7 @@ func TestAuth(t *testing.T) {
 			metricDi := loadInstance(t, "metric", "template/metric/template_handler_service.descriptor_set",
 				v1beta1.TEMPLATE_VARIETY_REPORT)
 			h, err := BuildHandler("spy",
-				&attributeV1beta1.Connection{
+				&policypb.Connection{
 					Address:        s.Addr().String(),
 					Authentication: tt.authCfg,
 				},
@@ -344,8 +343,8 @@ func buildMetricInst(t *testing.T) *adapter.EncodedInstance {
 
 	minst := &metric.InstanceMsg{
 		Name: metricDi.Name,
-		Value: &attributeV1beta1.Value{
-			Value: &attributeV1beta1.Value_StringValue{
+		Value: &policypb.Value{
+			Value: &policypb.Value_StringValue{
 				StringValue: "aaaaaaaaaaaaaaaa",
 			},
 		},

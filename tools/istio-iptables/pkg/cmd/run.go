@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,8 +44,9 @@ func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) *Iptables
 }
 
 type NetworkRange struct {
-	IsWildcard bool
-	IPNets     []*net.IPNet
+	IsWildcard    bool
+	IPNets        []*net.IPNet
+	HasLoopBackIP bool
 }
 
 func split(s string) []string {
@@ -72,8 +73,14 @@ func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (Netw
 		}
 		if ip.To4() != nil {
 			ipv4Ranges.IPNets = append(ipv4Ranges.IPNets, ipNet)
+			if ip.IsLoopback() {
+				ipv4Ranges.HasLoopBackIP = true
+			}
 		} else {
 			ipv6Ranges.IPNets = append(ipv6Ranges.IPNets, ipNet)
+			if ip.IsLoopback() {
+				ipv6Ranges.HasLoopBackIP = true
+			}
 		}
 	}
 	return ipv4Ranges, ipv6Ranges, nil
@@ -84,15 +91,16 @@ func (iptConfigurator *IptablesConfigurator) logConfig() {
 	// TODO: Remove printing of obsolete environment variables, e.g. ISTIO_SERVICE_CIDR.
 	fmt.Println("Environment:")
 	fmt.Println("------------")
-	fmt.Println(fmt.Sprintf("ENVOY_PORT=%s", os.Getenv("ENVOY_PORT")))
-	fmt.Println(fmt.Sprintf("INBOUND_CAPTURE_PORT=%s", os.Getenv("INBOUND_CAPTURE_PORT")))
-	fmt.Println(fmt.Sprintf("ISTIO_INBOUND_INTERCEPTION_MODE=%s", os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE")))
-	fmt.Println(fmt.Sprintf("ISTIO_INBOUND_TPROXY_MARK=%s", os.Getenv("ISTIO_INBOUND_TPROXY_MARK")))
-	fmt.Println(fmt.Sprintf("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE")))
-	fmt.Println(fmt.Sprintf("ISTIO_INBOUND_PORTS=%s", os.Getenv("ISTIO_INBOUND_PORTS")))
-	fmt.Println(fmt.Sprintf("ISTIO_LOCAL_EXCLUDE_PORTS=%s", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS")))
-	fmt.Println(fmt.Sprintf("ISTIO_SERVICE_CIDR=%s", os.Getenv("ISTIO_SERVICE_CIDR")))
-	fmt.Println(fmt.Sprintf("ISTIO_SERVICE_EXCLUDE_CIDR=%s", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")))
+	fmt.Printf("ENVOY_PORT=%s\n", os.Getenv("ENVOY_PORT"))
+	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", os.Getenv("INBOUND_CAPTURE_PORT"))
+	fmt.Printf("ISTIO_INBOUND_INTERCEPTION_MODE=%s\n", os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE"))
+	fmt.Printf("ISTIO_INBOUND_TPROXY_MARK=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_MARK"))
+	fmt.Printf("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE"))
+	fmt.Printf("ISTIO_INBOUND_PORTS=%s\n", os.Getenv("ISTIO_INBOUND_PORTS"))
+	fmt.Printf("ISTIO_OUTBOUND_PORTS=%s\n", os.Getenv("ISTIO_OUTBOUND_PORTS"))
+	fmt.Printf("ISTIO_LOCAL_EXCLUDE_PORTS=%s\n", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS"))
+	fmt.Printf("ISTIO_SERVICE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_CIDR"))
+	fmt.Printf("ISTIO_SERVICE_EXCLUDE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR"))
 	fmt.Println("")
 	iptConfigurator.cfg.Print()
 }
@@ -151,7 +159,8 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 				// If an inbound packet belongs to an established socket, route it to the
 				// loopback interface.
-				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "-m", "socket", "-j", constants.ISTIODIVERT)
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
+					"-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", constants.ISTIODIVERT)
 				// Otherwise, it's a new connection. Redirect it using TPROXY.
 				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "-j", constants.ISTIOTPROXY)
 			} else {
@@ -162,9 +171,7 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			for _, port := range split(iptConfigurator.cfg.InboundPortsInclude) {
 				if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 					iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
-						"--dport", port, "-m", "socket", "-j", constants.ISTIODIVERT)
-					iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-m",
-						"socket", "-j", constants.ISTIODIVERT)
+						"--dport", port, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", constants.ISTIODIVERT)
 					iptConfigurator.iptables.AppendRuleV4(
 						constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOTPROXY)
 				} else {
@@ -182,16 +189,12 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesEx
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV6(
-		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
+		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
-	if iptConfigurator.cfg.InboundPortsInclude == "*" {
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
-			constants.REDIRECT, "--to-port", iptConfigurator.cfg.InboundCapturePort)
-	} else {
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
-			constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
-	}
+	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
+		constants.REDIRECT, "--to-ports", iptConfigurator.cfg.InboundCapturePort)
+
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 	// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
 	if iptConfigurator.cfg.InboundPortsInclude != "" {
@@ -349,18 +352,12 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV4(
-		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
+		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 
-	// PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
-	if iptConfigurator.cfg.InboundPortsInclude == "*" {
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
-			"--to-port", iptConfigurator.cfg.InboundCapturePort)
-	} else {
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
-			"--to-port", iptConfigurator.cfg.ProxyPort)
-	}
+	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
+		"--to-ports", iptConfigurator.cfg.InboundCapturePort)
 
 	iptConfigurator.handleInboundPortsInclude()
 
@@ -386,7 +383,10 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
+		if !ipv4RangesInclude.HasLoopBackIP && !ipv6RangesInclude.HasLoopBackIP {
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
@@ -401,7 +401,10 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
+		if !ipv4RangesInclude.HasLoopBackIP && !ipv6RangesInclude.HasLoopBackIP {
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
@@ -420,12 +423,42 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 	}
 
+	iptConfigurator.handleOutboundPortsInclude()
+
 	iptConfigurator.handleInboundIpv4Rules(ipv4RangesInclude)
 	if iptConfigurator.cfg.EnableInboundIPv6 {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
 	}
 
+	if dnsVar.Get() != "" {
+		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+			// TODO: add ip6 as well
+			if gid != "0" { // not clear why gid 0 would be excluded - istio-proxy is not running as 0
+				iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+					"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+			}
+		}
+		// TODO: also capture TCP 53
+		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+			"-p", "udp", "--dport", "53",
+			"-j", "REDIRECT", "--to-ports", "15013")
+	}
+	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
+		// mark outgoing packets from 127.0.0.1/32 with 1337, match it to policy routing entry setup for TPROXY mode
+		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE,
+			"-p", constants.TCP, "-s", "127.0.0.1/32", "!", "-d", "127.0.0.1/32",
+			"-j", constants.MARK, "--set-mark", iptConfigurator.cfg.InboundTProxyMark)
+	}
 	iptConfigurator.executeCommands()
+}
+
+func (iptConfigurator *IptablesConfigurator) handleOutboundPortsInclude() {
+	if iptConfigurator.cfg.OutboundPortsInclude != "" {
+		for _, port := range split(iptConfigurator.cfg.OutboundPortsInclude) {
+			iptConfigurator.iptables.AppendRuleV4(
+				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
+		}
+	}
 }
 
 func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, contents string) error {
@@ -463,10 +496,10 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 		cmd = constants.IP6TABLESRESTORE
 	}
 	rulesFile, err := ioutil.TempFile("", filename)
-	defer os.Remove(rulesFile.Name())
 	if err != nil {
 		return fmt.Errorf("unable to create iptables-restore file: %v", err)
 	}
+	defer os.Remove(rulesFile.Name())
 	if err := iptConfigurator.createRulesFile(rulesFile, data); err != nil {
 		return err
 	}

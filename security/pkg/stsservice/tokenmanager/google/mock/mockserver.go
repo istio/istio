@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,12 +32,13 @@ import (
 )
 
 var (
-	FakeFederatedToken = "FakeFederatedToken"
-	FakeAccessToken    = "FakeAccessToken"
-	FakeTrustDomain    = "FakeTrustDomain"
-	FakeSubjectToken   = "FakeSubjectToken"
-	FakeProjectNum     = "1234567"
-	FakeGKEClusterURL  = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
+	FakeFederatedToken   = "FakeFederatedToken"
+	FakeAccessToken      = "FakeAccessToken"
+	FakeTrustDomain      = "FakeTrustDomain"
+	FakeSubjectToken     = "FakeSubjectToken"
+	FakeProjectNum       = "1234567"
+	FakeGKEClusterURL    = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
+	FakeExpiresInSeconds = 3600
 )
 
 type federatedTokenRequest struct {
@@ -275,7 +276,7 @@ func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *htt
 		AccessToken:     FakeFederatedToken,
 		IssuedTokenType: "urn:ietf:params:oauth:token-type:access_token",
 		TokenType:       "Bearer",
-		ExpiresIn:       3600,
+		ExpiresIn:       int32(FakeExpiresInSeconds),
 	}
 	_ = json.NewEncoder(w).Encode(resp)
 }

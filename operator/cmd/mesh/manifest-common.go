@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,48 +18,13 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/istio/operator/pkg/helm"
-
 	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/validate"
 )
-
-var (
-	ignoreStdErrList = []string{
-		// TODO: remove when https://github.com/kubernetes/kubernetes/issues/82154 is fixed.
-		"Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply",
-	}
-)
-
-func ignoreError(stderr string) bool {
-	trimmedStdErr := strings.TrimSpace(stderr)
-	for _, ignore := range ignoreStdErrList {
-		if strings.HasPrefix(trimmedStdErr, ignore) {
-			return true
-		}
-	}
-	return trimmedStdErr == ""
-}
-
-// yamlFromSetFlags takes a slice of --set flag key-value pairs and returns a YAML tree representation.
-// If force is set, validation errors cause warning messages to be written to logger rather than causing error.
-func yamlFromSetFlags(setOverlay []string, force bool, l *Logger) (string, error) {
-	out, err := makeTreeFromSetList(setOverlay)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
-	}
-	if err := validate.ValidIOPYAML(out); err != nil {
-		if !force {
-			return "", fmt.Errorf("validation errors (use --force to override): \n%s", err)
-		}
-		l.logAndErrorf("Validation errors (continuing because of --force):\n%s", err)
-	}
-	return out, nil
-}
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
 func makeTreeFromSetList(setOverlay []string) (string, error) {
@@ -102,4 +67,16 @@ func fetchExtractInstallPackageHTTP(releaseTarURL string) (string, error) {
 		return "", err
 	}
 	return uf.DestDir(), nil
+}
+
+// --charts is an alias for --set installPackagePath=
+// --revision is an alias for --set revision=
+func applyFlagAliases(flags []string, charts, revision string) []string {
+	if charts != "" {
+		flags = append(flags, fmt.Sprintf("installPackagePath=%s", charts))
+	}
+	if revision != "" {
+		flags = append(flags, fmt.Sprintf("revision=%s", revision))
+	}
+	return flags
 }

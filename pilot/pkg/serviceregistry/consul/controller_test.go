@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -288,6 +288,7 @@ func TestGetService(t *testing.T) {
 	}
 	if service == nil {
 		t.Error("service should exist")
+		return
 	}
 
 	if service.Hostname != serviceHostname("productpage") {
@@ -532,7 +533,7 @@ func TestGetServiceByCache(t *testing.T) {
 		t.Errorf("client encountered error during GetService(): %v", err)
 	}
 	if service == nil {
-		t.Error("service should exist")
+		t.Fatalf("service should exist")
 	}
 
 	if service.Hostname != serviceHostname("productpage") {

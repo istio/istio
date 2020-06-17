@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,9 @@
 package v2
 
 import (
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"net"
+
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -24,7 +26,8 @@ import (
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
-// sidecar network and add a gateway endpoint to remote networks that have endpoints (if gateway exists).
+// sidecar network and add a gateway endpoint to remote networks that have endpoints
+// (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
 	// calculate the multiples of weight.
@@ -69,7 +72,8 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 			}
 		}
 
-		// Add remote networks' gateways to endpoints
+		// Add remote networks' gateways to endpoints if the gateway is a valid IP
+		// If its a dns name (like AWS ELB), skip adding all endpoints from this network.
 
 		// Iterate over all networks that have the cluster endpoint (weight>0) and
 		// for each one of those add a new endpoint that points to the network's
@@ -84,6 +88,10 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 
 			// There may be multiples gateways for one network. Add each gateway as an endpoint.
 			for _, gw := range gateways {
+				if net.ParseIP(gw.Addr) == nil {
+					// this is a gateway with hostname in it. skip this gateway as EDS can't take hostnames
+					continue
+				}
 				epAddr := util.BuildAddress(gw.Addr, gw.Port)
 				gwEp := &endpoint.LbEndpoint{
 					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -119,10 +127,10 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 // within the endpoint metadata. If exists, it will return the value.
 func istioMetadata(ep *endpoint.LbEndpoint, key string) string {
 	if ep.Metadata != nil &&
-		ep.Metadata.FilterMetadata["istio"] != nil &&
-		ep.Metadata.FilterMetadata["istio"].Fields != nil &&
-		ep.Metadata.FilterMetadata["istio"].Fields[key] != nil {
-		return ep.Metadata.FilterMetadata["istio"].Fields[key].GetStringValue()
+		ep.Metadata.FilterMetadata[util.IstioMetadataKey] != nil &&
+		ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields != nil &&
+		ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields[key] != nil {
+		return ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields[key].GetStringValue()
 	}
 	return ""
 }

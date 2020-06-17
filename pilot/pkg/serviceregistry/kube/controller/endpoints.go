@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,14 @@
 package controller
 
 import (
+	"context"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/informers"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -25,7 +30,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/listwatch"
 )
 
 type endpointsController struct {
@@ -34,53 +41,31 @@ type endpointsController struct {
 
 var _ kubeEndpointsController = &endpointsController{}
 
-func newEndpointsController(c *Controller, sharedInformers informers.SharedInformerFactory) *endpointsController {
-	informer := sharedInformers.Core().V1().Endpoints().Informer()
+func newEndpointsController(c *Controller, options Options) *endpointsController {
+	namespaces := strings.Split(options.WatchedNamespaces, ",")
+
+	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return c.client.CoreV1().Endpoints(namespace).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return c.client.CoreV1().Endpoints(namespace).Watch(context.TODO(), opts)
+			},
+		}
+	})
+
+	informer := cache.NewSharedIndexInformer(mlw, &v1.Endpoints{}, options.ResyncPeriod,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
 	out := &endpointsController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
 			informer: informer,
 		},
 	}
-	out.registerEndpointsHandler()
+	registerHandlers(informer, c.queue, "Endpoints", endpointsEqual, out.onEvent)
 	return out
-}
-
-func (e *endpointsController) registerEndpointsHandler() {
-	e.informer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			// TODO: filtering functions to skip over un-referenced resources (perf)
-			AddFunc: func(obj interface{}) {
-				incrementEvent("Endpoints", "add")
-				e.c.queue.Push(func() error {
-					return e.onEvent(obj, model.EventAdd)
-				})
-			},
-			UpdateFunc: func(old, cur interface{}) {
-				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
-				oldE := old.(*v1.Endpoints)
-				curE := cur.(*v1.Endpoints)
-
-				if !compareEndpoints(oldE, curE) {
-					incrementEvent("Endpoints", "update")
-					e.c.queue.Push(func() error {
-						return e.onEvent(cur, model.EventUpdate)
-					})
-				} else {
-					incrementEvent("Endpoints", "updatesame")
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				incrementEvent("Endpoints", "delete")
-				// Deleting the endpoints results in an empty set from EDS perspective - only
-				// deleting the service should delete the resources. The full sync replaces the
-				// maps.
-				// c.updateEDS(obj.(*v1.Endpoints))
-				e.c.queue.Push(func() error {
-					return e.onEvent(obj, model.EventDelete)
-				})
-			},
-		})
 }
 
 func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
@@ -91,14 +76,14 @@ func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *mod
 	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, ep := range eps {
-		instances := e.proxyServiceInstances(c, ep, proxy)
+		instances := endpointServiceInstances(c, ep, proxy)
 		out = append(out, instances...)
 	}
 
 	return out
 }
 
-func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
+func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
 	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
@@ -212,8 +197,65 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 		}
 	}
 
-	return e.handleEvent(ep.Name, ep.Namespace, event, curr, func(obj interface{}, event model.Event) {
-		ep := obj.(*v1.Endpoints)
-		e.c.updateEDS(ep, event)
-	})
+	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, curr)
+}
+
+func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {
+	endpoints := make([]*model.IstioEndpoint, 0)
+	ep := endpoint.(*v1.Endpoints)
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			pod := e.c.pods.getPodByIP(ea.IP)
+			if pod == nil {
+				// This means, the endpoint event has arrived before pod event. This might happen because
+				// PodCache is eventually consistent. We should try to get the pod from kube-api server.
+				if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
+					pod = e.c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
+					if pod == nil {
+						// If pod is still not available, this an unusual case.
+						endpointsWithNoPods.Increment()
+						log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
+						if e.c.metrics != nil {
+							e.c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, ea.IP)
+						}
+						continue
+					}
+				}
+			}
+
+			builder := NewEndpointBuilder(e.c, pod)
+
+			// EDS and ServiceEntry use name for service port - ADS will need to
+			// map to numbers.
+			for _, port := range ss.Ports {
+				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
+				endpoints = append(endpoints, istioEndpoint)
+			}
+		}
+	}
+	return endpoints
+}
+
+func (e *endpointsController) getServiceInfo(ep interface{}) (host.Name, string, string) {
+	endpoint := ep.(*v1.Endpoints)
+	return kube.ServiceHostname(endpoint.Name, endpoint.Namespace, e.c.domainSuffix), endpoint.Name, endpoint.Namespace
+}
+
+// endpointsEqual returns true if the two endpoints are the same in aspects Pilot cares about
+// This currently means only looking at "Ready" endpoints
+func endpointsEqual(first, second interface{}) bool {
+	a := first.(*v1.Endpoints)
+	b := second.(*v1.Endpoints)
+	if len(a.Subsets) != len(b.Subsets) {
+		return false
+	}
+	for i := range a.Subsets {
+		if !portsEqual(a.Subsets[i].Ports, b.Subsets[i].Ports) {
+			return false
+		}
+		if !addressesEqual(a.Subsets[i].Addresses, b.Subsets[i].Addresses) {
+			return false
+		}
+	}
+	return true
 }

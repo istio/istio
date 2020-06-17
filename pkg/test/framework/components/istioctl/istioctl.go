@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -26,12 +26,11 @@ import (
 // Instance represents "istioctl"
 type Instance interface {
 	// Invoke invokes an istioctl command and returns the output and exception.
-	// Cobra commands don't make it easy to separate stdout and stderr and the string parameter
-	// will receive both.
-	Invoke(args []string) (string, error)
+	// stdout and stderr will be returned as different strings
+	Invoke(args []string) (string, string, error)
 
 	// InvokeOrFail calls Invoke and fails tests if it returns en err
-	InvokeOrFail(t *testing.T, args []string) string
+	InvokeOrFail(t *testing.T, args []string) (string, string)
 }
 
 // Config is structured config for the istioctl component
@@ -43,10 +42,6 @@ type Config struct {
 // New returns a new instance of "istioctl".
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Native, func() {
-		i = newNative(ctx, cfg)
-		err = nil
-	})
 	ctx.Environment().Case(environment.Kube, func() {
 		i = newKube(ctx, cfg)
 		err = nil

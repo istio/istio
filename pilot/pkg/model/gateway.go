@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 
 				if server, exists := plaintextServers[s.Port.Number]; exists {
 					currentProto := protocol.Parse(server[0].Port.Protocol)
-					if currentProto != p || !p.IsHTTP() {
+					if !canMergeProtocols(currentProto, p) {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
 							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, server[0].Port.Name, server[0].Port.Number, server[0].Port.Protocol)
 						recordRejectedConfig(gatewayName)
@@ -200,6 +200,10 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 		ServersByRouteName:   serversByRouteName,
 		RouteNamesByServer:   routeNamesByServer,
 	}
+}
+
+func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {
+	return (current.IsHTTP() || current == p) && p.IsHTTP()
 }
 
 // checkDuplicates returns all of the hosts provided that are already known

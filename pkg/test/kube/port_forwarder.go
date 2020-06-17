@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,7 +83,8 @@ func (f *defaultPortForwarder) Close() error {
 	return nil
 }
 
-func newPortForwarder(restConfig *rest.Config, pod v1.Pod, localPort, remotePort uint16) (PortForwarder, error) {
+// NewPortForwarder creates a new PortForwarder to the given pod.
+func NewPortForwarder(restConfig *rest.Config, pod v1.Pod, localPort, remotePort uint16) (PortForwarder, error) {
 	restClient, err := rest.RESTClientFor(restConfig)
 	if err != nil {
 		return nil, err
@@ -92,7 +93,7 @@ func newPortForwarder(restConfig *rest.Config, pod v1.Pod, localPort, remotePort
 	req := restClient.Post().Resource("pods").Namespace(pod.Namespace).Name(pod.Name).SubResource("portforward")
 	serverURL := req.URL()
 
-	roundTripper, upgrader, err := spdy.RoundTripperFor(restConfig)
+	roundTripper, upgrader, err := roundTripperFor(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failure creating roundtripper: %v", err)
 	}

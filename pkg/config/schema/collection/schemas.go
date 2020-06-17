@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -113,6 +113,17 @@ func (s Schemas) MustFind(collection string) Schema {
 func (s Schemas) FindByGroupVersionKind(gvk resource.GroupVersionKind) (Schema, bool) {
 	for _, rs := range s.byAddOrder {
 		if rs.Resource().GroupVersionKind() == gvk {
+			return rs, true
+		}
+	}
+
+	return nil, false
+}
+
+// FindByKind searches and returns the first schema with the given kind
+func (s Schemas) FindByPlural(plural string) (Schema, bool) {
+	for _, rs := range s.byAddOrder {
+		if rs.Resource().Plural() == plural {
 			return rs, true
 		}
 	}

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -75,10 +75,17 @@ type origin struct {
 }
 
 var _ resource.Origin = &origin{}
+var _ resource.Reference = &reference{}
 
 func (o origin) Namespace() resource.Namespace { return "" }
 func (o origin) FriendlyName() string          { return o.friendlyName }
-func (o origin) Reference() string             { return "" }
+func (o origin) Reference() resource.Reference { return reference{name: ""} }
+
+type reference struct {
+	name string
+}
+
+func (r reference) String() string { return r.name }
 
 // This is a very basic benchmark on unit test data, so it doesn't tell us anything about how an analyzer performs at scale
 func BenchmarkAnalyzers(b *testing.B) {

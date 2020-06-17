@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -89,6 +89,8 @@ var (
 		diag.Warning: "\033[33m",   // yellow
 		diag.Error:   "\033[1;31m", // bold red
 	}
+
+	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
 
 // Analyze command
@@ -100,6 +102,7 @@ func Analyze() *cobra.Command {
 	for k := range msgOutputFormats {
 		msgOutputFormatKeys = append(msgOutputFormatKeys, k)
 	}
+	sort.Strings(msgOutputFormatKeys)
 
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
@@ -141,7 +144,7 @@ istioctl analyze -L
 				return nil
 			}
 
-			readers, err := gatherFiles(args)
+			readers, err := gatherFiles(cmd, args)
 			if err != nil {
 				return err
 			}
@@ -256,6 +259,7 @@ istioctl analyze -L
 				}
 			}
 
+			var returnError error
 			switch msgOutputFormat {
 			case LogOutput:
 				// Print validation message output, or a line indicating that none were found
@@ -279,6 +283,14 @@ istioctl analyze -L
 						fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
 					}
 				}
+
+				// Return code is based on the unfiltered validation message list/parse errors
+				// We're intentionally keeping failure threshold and output threshold decoupled for now
+				returnError = errorIfMessagesExceedThreshold(result.Messages)
+				if returnError == nil && parseErrors > 0 {
+					returnError = FileParseError{}
+				}
+
 			case JSONOutput:
 				jsonOutput, err := json.MarshalIndent(outputMessages, "", "\t")
 				if err != nil {
@@ -295,12 +307,6 @@ istioctl analyze -L
 				panic(fmt.Sprintf("%q not found in output format switch statement post validate?", msgOutputFormat))
 			}
 
-			// Return code is based on the unfiltered validation message list/parse errors
-			// We're intentionally keeping failure threshold and output threshold decoupled for now
-			returnError := errorIfMessagesExceedThreshold(result.Messages)
-			if returnError == nil && parseErrors > 0 {
-				returnError = FileParseError{}
-			}
 			return returnError
 		},
 	}
@@ -334,15 +340,15 @@ istioctl analyze -L
 	return analysisCmd
 }
 
-func gatherFiles(args []string) ([]local.ReaderSource, error) {
+func gatherFiles(cmd *cobra.Command, args []string) ([]local.ReaderSource, error) {
 	var readers []local.ReaderSource
 	for _, f := range args {
 		var r *os.File
 
 		// Handle "-" as stdin as a special case.
 		if f == "-" {
-			if isatty.IsTerminal(os.Stdin.Fd()) {
-				fmt.Fprint(os.Stderr, "Reading from stdin:\n")
+			if isatty.IsTerminal(os.Stdin.Fd()) && !isJSONorYAMLOutputFormat() {
+				fmt.Fprint(cmd.OutOrStdout(), "Reading from stdin:\n")
 			}
 			r = os.Stdin
 			readers = append(readers, local.ReaderSource{Name: f, Reader: r})
@@ -355,12 +361,16 @@ func gatherFiles(args []string) ([]local.ReaderSource, error) {
 		}
 
 		if fi.IsDir() {
-			dirReaders, err := gatherFilesInDirectory(f)
+			dirReaders, err := gatherFilesInDirectory(cmd, f)
 			if err != nil {
 				return nil, err
 			}
 			readers = append(readers, dirReaders...)
 		} else {
+			if !isValidFile(f) {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Skipping file %v, recognized file extensions are: %v\n", f, fileExtensions)
+				continue
+			}
 			rs, err := gatherFile(f)
 			if err != nil {
 				return nil, err
@@ -380,7 +390,7 @@ func gatherFile(f string) (local.ReaderSource, error) {
 	return local.ReaderSource{Name: f, Reader: r}, nil
 }
 
-func gatherFilesInDirectory(dir string) ([]local.ReaderSource, error) {
+func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSource, error) {
 	var readers []local.ReaderSource
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -393,6 +403,11 @@ func gatherFilesInDirectory(dir string) ([]local.ReaderSource, error) {
 			if !recursive && dir != path {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+
+		if !isValidFile(path) {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Skipping file %v, recognized file extensions are: %v\n", path, fileExtensions)
 			return nil
 		}
 
@@ -432,8 +447,8 @@ func renderMessage(m diag.Message) string {
 	origin := ""
 	if m.Resource != nil {
 		loc := ""
-		if m.Resource.Origin.Reference() != "" {
-			loc = " " + m.Resource.Origin.Reference()
+		if m.Resource.Origin.Reference() != nil {
+			loc = " " + m.Resource.Origin.Reference().String()
 		}
 		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
 	}
@@ -469,6 +484,16 @@ func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 	}
 
 	return nil
+}
+
+func isValidFile(f string) bool {
+	ext := filepath.Ext(f)
+	for _, e := range fileExtensions {
+		if e == ext {
+			return true
+		}
+	}
+	return false
 }
 
 type messageThreshold struct {
@@ -529,4 +554,9 @@ func analyzeTargetAsString() string {
 		return "all namespaces"
 	}
 	return fmt.Sprintf("namespace: %s", selectedNamespace)
+}
+
+// TODO: Refactor output writer so that it is smart enough to know when to output what.
+func isJSONorYAMLOutputFormat() bool {
+	return msgOutputFormat == JSONOutput || msgOutputFormat == YamlOutput
 }

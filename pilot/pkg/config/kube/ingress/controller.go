@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,23 @@
 package ingress
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"reflect"
+	"strings"
 	"time"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/informers/networking/v1beta1"
 
 	"istio.io/pkg/ledger"
 
 	ingress "k8s.io/api/networking/v1beta1"
-	"k8s.io/client-go/informers/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -33,12 +42,12 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -86,6 +95,8 @@ type controller struct {
 	informer               cache.SharedIndexInformer
 	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
 	gatewayHandlers        []func(model.Config, model.Config, model.Event)
+	// May be nil if ingress class is not supported in the cluster
+	classes *v1beta1.IngressClassInformer
 }
 
 var (
@@ -96,6 +107,19 @@ var (
 var (
 	errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 )
+
+func ingressClassSupported(client kubernetes.Interface) bool {
+	_, s, _ := client.Discovery().ServerGroupsAndResources()
+	// This may fail if any api service is down, but the result will still be populated, so we skip the error
+	for _, res := range s {
+		for _, api := range res.APIResources {
+			if api.Kind == "IngressClass" && strings.HasPrefix(res.GroupVersion, "networking.k8s.io/") {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
@@ -108,15 +132,38 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
-	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
-	informer := v1beta1.NewFilteredIngressInformer(client, options.WatchedNamespace, options.ResyncPeriod, cache.Indexers{}, nil)
+	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
 
+	mlw := listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return client.NetworkingV1beta1().Ingresses(namespace).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return client.NetworkingV1beta1().Ingresses(namespace).Watch(context.TODO(), opts)
+			},
+		}
+	})
+
+	informer := cache.NewSharedIndexInformer(mlw, &ingress.Ingress{}, options.ResyncPeriod,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespaces)
+
+	var classes *v1beta1.IngressClassInformer
+	if ingressClassSupported(client) {
+		sharedInformers := informers.NewSharedInformerFactory(client, options.ResyncPeriod)
+		i := sharedInformers.Networking().V1beta1().IngressClasses()
+		classes = &i
+	} else {
+		log.Infof("Skipping IngressClass, resource not supported")
+	}
 	c := &controller{
 		mesh:         mesh,
 		domainSuffix: options.DomainSuffix,
 		client:       client,
 		queue:        q,
 		informer:     informer,
+		classes:      classes,
 	}
 
 	informer.AddEventHandler(
@@ -143,16 +190,32 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	return c
 }
 
+func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingress.Ingress) (bool, error) {
+	var class *ingress.IngressClass
+	if c.classes != nil && i.Spec.IngressClassName != nil {
+		c, err := (*c.classes).Lister().Get(*i.Spec.IngressClassName)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return false, fmt.Errorf("failed to get ingress class %v: %v", i.Spec.IngressClassName, err)
+		}
+		class = c
+	}
+	return shouldProcessIngressWithClass(mesh, i, class), nil
+}
+
 func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	if !c.informer.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
 
-	ingress, ok := obj.(*ingress.Ingress)
-	if !ok || !shouldProcessIngress(c.mesh, ingress) {
+	ing, ok := obj.(*ingress.Ingress)
+	process, err := c.shouldProcessIngress(c.mesh, ing)
+	if err != nil {
+		return err
+	}
+	if !ok || !process {
 		return nil
 	}
-	log.Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
+	log.Infof("ingress event %s for %s/%s", event, ing.Namespace, ing.Name)
 
 	// Trigger updates for Gateway and VirtualService
 	// TODO: we could be smarter here and only trigger when real changes were found
@@ -214,6 +277,9 @@ func (c *controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 	go c.informer.Run(stop)
+	if c.classes != nil {
+		go (*c.classes).Informer().Run(stop)
+	}
 	<-stop
 }
 
@@ -222,29 +288,7 @@ func (c *controller) Schemas() collection.Schemas {
 	return schemas
 }
 
-//TODO: we don't return out of this function now
 func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
-	if typ != collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind() &&
-		typ != collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind() {
-		return nil
-	}
-
-	ingressName, _, _, err := decodeIngressRuleName(name)
-	if err != nil {
-		return nil
-	}
-
-	storeKey := kube.KeyFunc(ingressName, namespace)
-	obj, exists, err := c.informer.GetStore().GetByKey(storeKey)
-	if err != nil || !exists {
-		return nil
-	}
-
-	ingress := obj.(*ingress.Ingress)
-	if !shouldProcessIngress(c.mesh, ingress) {
-		return nil
-	}
-
 	return nil
 }
 
@@ -263,8 +307,11 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 		if namespace != "" && namespace != ingress.Namespace {
 			continue
 		}
-
-		if !shouldProcessIngress(c.mesh, ingress) {
+		process, err := c.shouldProcessIngress(c.mesh, ingress)
+		if err != nil {
+			return nil, err
+		}
+		if !process {
 			continue
 		}
 
@@ -272,7 +319,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 		case virtualServiceGvk:
 			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
 		case gatewayGvk:
-			gateways := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
+			gateways := ConvertIngressV1alpha3(*ingress, c.mesh, c.domainSuffix)
 			out = append(out, gateways)
 		}
 	}

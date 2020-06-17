@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"google.golang.org/grpc"
@@ -117,6 +118,19 @@ type Options struct {
 
 	// Existing certs, for VM or existing certificates
 	CertsDir string
+
+	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
+	TLSEnabled bool
+
+	// ClusterID is the cluster ID
+	ClusterID string
+
+	// The type of Elliptical Signature algorithm to use
+	// when generating private keys. Currently only ECDSA is supported.
+	ECCSigAlg string
+
+	// FileMountedCerts indicates file mounted certs.
+	FileMountedCerts bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -135,9 +149,10 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, false, options.UseLocalJWT,
+		workloadSds: newSDSService(workloadSecretCache, options.FileMountedCerts, options.UseLocalJWT,
+			options.FileMountedCerts,
 			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
-		gatewaySds: newSDSService(gatewaySecretCache, true, options.UseLocalJWT,
+		gatewaySds: newSDSService(gatewaySecretCache, true, options.UseLocalJWT, options.FileMountedCerts,
 			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
 	}
 	if options.EnableWorkloadSDS {
@@ -331,6 +346,12 @@ func setUpUds(udsPath string) (net.Listener, error) {
 		// Anything other than "file not found" is an error.
 		sdsServiceLog.Errorf("Failed to remove unix://%s: %v", udsPath, err)
 		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
+	}
+
+	// Attempt to create the folder in case it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(udsPath), 0750); err != nil {
+		// If we cannot create it, just warn here - we will fail later if there is a real error
+		sdsServiceLog.Warnf("Failed to create directory for %v: %v", udsPath, err)
 	}
 
 	var err error

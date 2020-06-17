@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -43,17 +44,36 @@ func newTCP(config Config) Instance {
 }
 
 func (s *tcpInstance) Start(onReady OnReadyFunc) error {
-	// Listen on the given port and update the port if it changed from what was passed in.
-	listener, p, err := listenOnPort(s.Port.Port)
+
+	var listener net.Listener
+	var port int
+	var err error
+	if s.Port.TLS {
+		cert, cerr := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
+		if cerr != nil {
+			return fmt.Errorf("could not load TLS keys: %v", err)
+		}
+		config := &tls.Config{Certificates: []tls.Certificate{cert}}
+		// Listen on the given port and update the port if it changed from what was passed in.
+		listener, port, err = listenOnPortTLS(s.Port.Port, config)
+		// Store the actual listening port back to the argument.
+		s.Port.Port = port
+	} else {
+		// Listen on the given port and update the port if it changed from what was passed in.
+		listener, port, err = listenOnPort(s.Port.Port)
+		// Store the actual listening port back to the argument.
+		s.Port.Port = port
+	}
 	if err != nil {
 		return err
 	}
 
-	// Store the actual listening port back to the argument.
-	s.Port.Port = p
 	s.l = listener
-
-	fmt.Printf("Listening TCP on %v\n", p)
+	if s.Port.TLS {
+		fmt.Printf("Listening TCP (over TLS) on %v\n", port)
+	} else {
+		fmt.Printf("Listening TCP on %v\n", port)
+	}
 
 	// Start serving TCP traffic.
 	go func() {
@@ -69,14 +89,14 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 	}()
 
 	// Notify the WaitGroup once the port has transitioned to ready.
-	go s.awaitReady(onReady, p)
+	go s.awaitReady(onReady, port)
 
 	return nil
 }
 
 // Handles incoming connection.
 func (s *tcpInstance) echo(conn net.Conn) {
-	defer common.Metrics.TCPRequests.With(common.Port.Value(strconv.Itoa(s.Port.Port))).Increment()
+	defer common.Metrics.TCPRequests.With(common.PortLabel.Value(strconv.Itoa(s.Port.Port))).Increment()
 	defer func() {
 		_ = conn.Close()
 	}()

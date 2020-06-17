@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"context"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	dto "github.com/prometheus/client_model/go"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -79,6 +80,18 @@ type Instance interface {
 	CallOrFail(t test.Failer, options CallOptions) client.ParsedResponses
 }
 
+// Workload port exposed by an Echo instance
+type WorkloadPort struct {
+	// Port number
+	Port int
+
+	// Protocol to be used for this port.
+	Protocol protocol.Instance
+
+	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
+	TLS bool
+}
+
 // Port exposed by an Echo Instance
 type Port struct {
 	// Name of this port
@@ -95,6 +108,9 @@ type Port struct {
 	// InstancePort number where this instance is listening for connections.
 	// This need not be the same as the ServicePort where the service is accessed.
 	InstancePort int
+
+	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
+	TLS bool
 }
 
 // Workload provides an interface for a single deployed echo server.
@@ -145,4 +161,7 @@ type Sidecar interface {
 	Logs() (string, error)
 	// LogsOrFail returns the logs for the sidecar container, or aborts if an error is found
 	LogsOrFail(t test.Failer) string
+
+	Stats() (map[string]*dto.MetricFamily, error)
+	StatsOrFail(t test.Failer) map[string]*dto.MetricFamily
 }

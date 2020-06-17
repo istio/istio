@@ -1,0 +1,924 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  rules:
+    policies:
+      ns[foo]-policy[httpbin-1]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: exact.com
+                    name: :authority
+                - header:
+                    name: :authority
+                    suffixMatch: .suffix.com
+                - header:
+                    name: :authority
+                    prefixMatch: prefix.
+                - header:
+                    name: :authority
+                    presentMatch: true
+            - notRule:
+                orRules:
+                  rules:
+                  - header:
+                      exactMatch: not-exact.com
+                      name: :authority
+                  - header:
+                      name: :authority
+                      suffixMatch: .not-suffix.com
+                  - header:
+                      name: :authority
+                      prefixMatch: not-prefix.
+                  - header:
+                      name: :authority
+                      presentMatch: true
+            - orRules:
+                rules:
+                - header:
+                    exactMatch: method
+                    name: :method
+                - header:
+                    name: :method
+                    prefixMatch: method-prefix-
+                - header:
+                    name: :method
+                    suffixMatch: -suffix-method
+                - header:
+                    name: :method
+                    presentMatch: true
+            - notRule:
+                orRules:
+                  rules:
+                  - header:
+                      exactMatch: not-method
+                      name: :method
+                  - header:
+                      name: :method
+                      prefixMatch: not-method-prefix-
+                  - header:
+                      name: :method
+                      suffixMatch: -not-suffix-method
+                  - header:
+                      name: :method
+                      presentMatch: true
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: /exact
+                - urlPath:
+                    path:
+                      prefix: /prefix/
+                - urlPath:
+                    path:
+                      suffix: /suffix
+                - urlPath:
+                    path:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
+            - notRule:
+                orRules:
+                  rules:
+                  - urlPath:
+                      path:
+                        exact: /not-exact
+                  - urlPath:
+                      path:
+                        prefix: /not-prefix/
+                  - urlPath:
+                      path:
+                        suffix: /not-suffix
+                  - urlPath:
+                      path:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+            - orRules:
+                rules:
+                - destinationPort: 80
+                - destinationPort: 90
+            - notRule:
+                orRules:
+                  rules:
+                  - destinationPort: 8000
+                  - destinationPort: 9000
+            - orRules:
+                rules:
+                - destinationIp:
+                    addressPrefix: 10.10.10.10
+                    prefixLen: 32
+                - destinationIp:
+                    addressPrefix: 192.168.10.0
+                    prefixLen: 24
+            - notRule:
+                orRules:
+                  rules:
+                  - destinationIp:
+                      addressPrefix: 90.10.10.10
+                      prefixLen: 32
+                  - destinationIp:
+                      addressPrefix: 90.168.10.0
+                      prefixLen: 24
+            - orRules:
+                rules:
+                - destinationPort: 91
+                - destinationPort: 92
+            - notRule:
+                orRules:
+                  rules:
+                  - destinationPort: 9001
+                  - destinationPort: 9002
+            - orRules:
+                rules:
+                - requestedServerName:
+                    exact: exact.com
+                - requestedServerName:
+                    suffix: .suffix.com
+                - requestedServerName:
+                    prefix: prefix.
+                - requestedServerName:
+                    safeRegex:
+                      googleRe2: {}
+                      regex: .+
+            - notRule:
+                orRules:
+                  rules:
+                  - requestedServerName:
+                      exact: not-exact.com
+                  - requestedServerName:
+                      suffix: .not-suffix.com
+                  - requestedServerName:
+                      prefix: not-prefix.
+                  - requestedServerName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
+            - orRules:
+                rules:
+                - metadata:
+                    filter: envoy.filters.a.b
+                    path:
+                    - key: c
+                    value:
+                      stringMatch:
+                        exact: exact
+                - metadata:
+                    filter: envoy.filters.a.b
+                    path:
+                    - key: c
+                    value:
+                      stringMatch:
+                        prefix: prefix-
+                - metadata:
+                    filter: envoy.filters.a.b
+                    path:
+                    - key: c
+                    value:
+                      stringMatch:
+                        suffix: -suffix
+                - metadata:
+                    filter: envoy.filters.a.b
+                    path:
+                    - key: c
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+            - notRule:
+                orRules:
+                  rules:
+                  - metadata:
+                      filter: envoy.filters.a.b
+                      path:
+                      - key: c
+                      value:
+                        stringMatch:
+                          exact: not-exact
+                  - metadata:
+                      filter: envoy.filters.a.b
+                      path:
+                      - key: c
+                      value:
+                        stringMatch:
+                          prefix: not-prefix-
+                  - metadata:
+                      filter: envoy.filters.a.b
+                      path:
+                      - key: c
+                      value:
+                        stringMatch:
+                          suffix: -not-suffix
+                  - metadata:
+                      filter: envoy.filters.a.b
+                      path:
+                      - key: c
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: principal
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        prefix: principal-prefix-
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        suffix: -suffix-principal
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: not-principal
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          prefix: not-principal-prefix-
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          suffix: -not-suffix-principal
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: requestPrincipals
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        prefix: requestPrincipals-prefix-
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        suffix: -suffix-requestPrincipals
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.principal
+                      value:
+                        stringMatch:
+                          exact: not-requestPrincipals
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.principal
+                      value:
+                        stringMatch:
+                          prefix: not-requestPrincipals-prefix-
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.principal
+                      value:
+                        stringMatch:
+                          suffix: -not-suffix-requestPrincipals
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/ns/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/ns-prefix-.*/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/.*-ns-suffix/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/.*/.*
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/not-ns/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/not-ns-prefix-.*/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/.*-not-ns-suffix/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/.*/.*
+            - orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 1.2.3.4
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 5.6.0.0
+                    prefixLen: 16
+            - notId:
+                orIds:
+                  ids:
+                  - sourceIp:
+                      addressPrefix: 9.0.0.1
+                      prefixLen: 32
+                  - sourceIp:
+                      addressPrefix: 9.2.0.0
+                      prefixLen: 16
+            - orIds:
+                ids:
+                - header:
+                    exactMatch: header
+                    name: X-header
+                - header:
+                    name: X-header
+                    prefixMatch: header-prefix-
+                - header:
+                    name: X-header
+                    suffixMatch: -suffix-header
+                - header:
+                    name: X-header
+                    presentMatch: true
+            - notId:
+                orIds:
+                  ids:
+                  - header:
+                      exactMatch: not-header
+                      name: X-header
+                  - header:
+                      name: X-header
+                      prefixMatch: not-header-prefix-
+                  - header:
+                      name: X-header
+                      suffixMatch: -not-suffix-header
+                  - header:
+                      name: X-header
+                      presentMatch: true
+            - orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 10.10.10.10
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 192.168.10.0
+                    prefixLen: 24
+            - notId:
+                orIds:
+                  ids:
+                  - sourceIp:
+                      addressPrefix: 90.10.10.10
+                      prefixLen: 32
+                  - sourceIp:
+                      addressPrefix: 90.168.10.0
+                      prefixLen: 24
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/ns/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/ns-prefix-.*/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/.*-ns-suffix/.*
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/.*/.*
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/not-ns/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/not-ns-prefix-.*/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/.*-not-ns-suffix/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/.*/.*
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        exact: principal
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        prefix: principal-prefix-
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        suffix: -suffix-principal
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: source.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: not-principal
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          prefix: not-principal-prefix-
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          suffix: -not-suffix-principal
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: requestPrincipals
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        prefix: requestPrincipals-prefix-
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        suffix: -suffix-requestPrincipals
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.principal
+                      value:
+                        stringMatch:
+                          exact: not-requestPrincipals
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.principal
+                      value:
+                        stringMatch:
+                          prefix: not-requestPrincipals-prefix-
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.principal
+                      value:
+                        stringMatch:
+                          suffix: -not-suffix-requestPrincipals
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.audiences
+                    value:
+                      stringMatch:
+                        exact: audiences
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.audiences
+                    value:
+                      stringMatch:
+                        prefix: audiences-prefix-
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.audiences
+                    value:
+                      stringMatch:
+                        suffix: -suffix-audiences
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.audiences
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.audiences
+                      value:
+                        stringMatch:
+                          exact: not-audiences
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.audiences
+                      value:
+                        stringMatch:
+                          prefix: not-audiences-prefix-
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.audiences
+                      value:
+                        stringMatch:
+                          suffix: -not-suffix-audiences
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.audiences
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.presenter
+                    value:
+                      stringMatch:
+                        exact: presenter
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.presenter
+                    value:
+                      stringMatch:
+                        prefix: presenter-prefix-
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.presenter
+                    value:
+                      stringMatch:
+                        suffix: -suffix-presenter
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.presenter
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.presenter
+                      value:
+                        stringMatch:
+                          exact: not-presenter
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.presenter
+                      value:
+                        stringMatch:
+                          prefix: not-presenter-prefix-
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.presenter
+                      value:
+                        stringMatch:
+                          suffix: -not-suffix-presenter
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.presenter
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: iss
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            exact: iss
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: iss
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            prefix: iss-prefix-
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: iss
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            suffix: -suffix-iss
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: iss
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            safeRegex:
+                              googleRe2: {}
+                              regex: .+
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: iss
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              exact: not-iss
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: iss
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              prefix: not-iss-prefix-
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: iss
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              suffix: -not-suffix-iss
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: iss
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              safeRegex:
+                                googleRe2: {}
+                                regex: .+

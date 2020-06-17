@@ -1,0 +1,212 @@
+#.Values.pilot for discovery and mesh wide config
+
+## Discovery Settings
+pilot:
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
+  replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+
+  hub: ""
+  tag: ""
+
+  # Can be a full hub/image:tag
+  image: pilot
+  traceSampling: 1.0
+
+  # Resources for a small pilot install
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2048Mi
+
+  # Applications namespace list pilot manages
+  appNamespaces: []
+
+  env: {}
+
+  cpu:
+    targetAverageUtilization: 80
+
+  # if protocol sniffing is enabled for outbound
+  enableProtocolSniffingForOutbound: true
+  # if protocol sniffing is enabled for inbound
+  enableProtocolSniffingForInbound: true
+
+  nodeSelector: {}
+  tolerations: []
+  podAnnotations: {}
+
+  # You can use jwksResolverExtraRootCA to provide a root certificate
+  # in PEM format. This will then be trusted by pilot when resolving
+  # JWKS URIs.
+  jwksResolverExtraRootCA: ""
+
+  # This is used to set the source of configuration for
+  # the associated address in configSource, if nothing is specificed
+  # the default MCP is assumed.
+  configSource:
+    subscribedResources: []
+
+  plugins: []
+
+  # Specify the pod anti-affinity that allows you to constrain which nodes
+  # your pod is eligible to be scheduled based on labels on pods that are
+  # already running on the node rather than based on labels on nodes.
+  # There are currently two types of anti-affinity:
+  #    "requiredDuringSchedulingIgnoredDuringExecution"
+  #    "preferredDuringSchedulingIgnoredDuringExecution"
+  # which denote "hard" vs. "soft" requirements, you can define your values
+  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  # correspondingly.
+  # For example:
+  # podAntiAffinityLabelSelector:
+  # - key: security
+  #   operator: In
+  #   values: S1,S2
+  #   topologyKey: "kubernetes.io/hostname"
+  # This pod anti-affinity rule says that the pod requires not to be scheduled
+  # onto a node if that node is already running a pod with label having key
+  # "security" and value "S1".
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+
+  # The following is used to limit how long a sidecar can be connected
+  # to a pilot. It balances out load across pilot instances at the cost of
+  # increasing system churn.
+  keepaliveMaxServerConnectionAge: 30m
+
+  # Additional labels to apply to the deployment.
+  deploymentLabels: {}
+
+
+  ## Mesh config settings
+
+  # Install the mesh config map, generated from values.yaml.
+  # If false, pilot wil use default values (by default) or user-supplied values.
+  configMap: true
+
+
+## Mixer settings
+mixer:
+  telemetry:
+    sessionAffinityEnabled: false
+  policy:
+    enabled: false
+
+sidecarInjectorWebhook:
+  # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
+  # always skip the injection on pods that match that label selector, regardless of the global policy.
+  # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
+  neverInjectSelector: []
+  alwaysInjectSelector: []
+
+  # injectedAnnotations are additional annotations that will be added to the pod spec after injection
+  # This is primarily to support PSP annotations. For example, if you defined a PSP with the annotations:
+  #
+  # annotations:
+  #   apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
+  #   apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
+  #
+  # The PSP controller would add corresponding annotations to the pod spec for each container. However, this happens before
+  # the inject adds additional containers, so we must specify them explicitly here. With the above example, we could specify:
+  # injectedAnnotations:
+  #   container.apparmor.security.beta.kubernetes.io/istio-init: runtime/default
+  #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
+  injectedAnnotations: {}
+
+  # This enables injection of sidecar in all namespaces,
+  # with the exception of namespaces with "istio-injection:disabled" annotation
+  # Only one environment should have this enabled.
+  enableNamespacesByDefault: false
+
+  # If set, will use the value as injection label. The value must match the 'release' label of the injector,
+  # except when 1.2 istio-injection label is used, which must be set to "enabled".
+  injectLabel: istio-injection
+
+  # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
+  # It is disabled by default since this function will only work after k8s v1.15.
+  objectSelector:
+    enabled: false
+    autoInject: true
+
+telemetry:
+  enabled: true
+  v1:
+    # Set true to enable Mixer based telemetry
+    enabled: false
+  v2:
+    # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
+    # This also enables metadata exchange.
+    enabled: true
+    metadataExchange:
+      # Indicates whether to enable WebAssembly runtime for metadata exchange filter.
+      wasmEnabled: false
+    # Indicate if prometheus stats filter is enabled or not
+    prometheus:
+      enabled: true
+      # Indicates whether to enable WebAssembly runtime for stats filter.
+      wasmEnabled: false
+    # stackdriver filter settings.
+    stackdriver:
+      enabled: false
+      logging: false
+      monitoring: false
+      topology: false
+      disableOutbound: false
+      #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
+
+      configOverride: {}
+      #  e.g.
+      #  enable_mesh_edges_reporting: true
+      #  disable_server_access_logging: false
+      #  meshEdgesReportingDuration: 500s
+      #  disable_host_header_fallback: true
+    # Access Log Policy Filter Settings. This enables filtering of access logs from stackdriver.
+    accessLogPolicy:
+      enabled: false
+      # To reduce the number of successful logs, default log window duration is
+      # set to 12 hours.
+      logWindowDuration: "43200s"
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
+
+# meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
+# See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
+meshConfig:
+
+  # Config for the default ProxyConfig.
+  # Initially using directly the proxy metadata - can also be activated using annotations
+  # on the pod. This is an unsupported low-level API, pending review and decisions on
+  # enabling the feature. Enabling the DNS listener is safe - and allows further testing
+  # and gradual adoption by setting capture only on specific workloads. It also allows
+  # VMs to use other DNS options, like dnsmasq or unbound.
+  defaultConfig:
+    proxyMetadata:
+      # If empty, agent will not start :15013 DNS listener and will not attempt
+      # to connect to Istiod DNS-TLS. This will also disable the core dns sidecar in
+      # istiod and the dns-over-tls listener.
+      # DNS_AGENT: DNS-TLS
+      DNS_AGENT: ""
+
+      # If empty, DNS capture is disabled.
+      # If set, intercept UDP port :53 and redirect to localhost:15013
+      # Currently only 'ALL' capture is supported - we may refine it if we want
+      # finer grained control.
+      # DNS_CAPTURE: ALL
+
+  # The namespace to treat as the administrative root namespace for Istio configuration.
+  # When processing a leaf namespace Istio will search for declarations in that namespace first
+  # and if none are found it will search in the root namespace. Any matching declaration found in the root namespace
+  # is processed as if it were declared in the leaf namespace.
+  rootNamespace: "istio-system"
+
+  # TODO: the intent is to eventually have this enabled by default when security is used.
+  # It is not clear if user should normally need to configure - the metadata is typically
+  # used as an escape and to control testing and rollout, but it is not intended as a long-term
+  # stable API.
+
+  # What we may configure in mesh config is the ".global" - and use of other suffixes.
+  # No hurry to do this in 1.6, we're trying to prove the code.

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/parser"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -115,7 +116,7 @@ func newAttributeProvider(attributes map[string]*v1beta1.AttributeManifest_Attri
 	return out
 }
 
-func (ap *attributeProvider) newEnvironment() celgo.Env {
+func (ap *attributeProvider) newEnvironment() *celgo.Env {
 	var declarations []*exprpb.Decl
 
 	// populate with root-level identifiers
@@ -133,6 +134,7 @@ func (ap *attributeProvider) newEnvironment() celgo.Env {
 		celgo.CustomTypeProvider(ap),
 		celgo.Declarations(declarations...),
 		celgo.Declarations(standardFunctions...),
+		ext.Strings(),
 		macros)
 
 	return env
@@ -249,7 +251,7 @@ func (v value) IsSet(index ref.Val) ref.Val {
 	return types.True
 }
 
-func (a attributeActivation) ResolveName(name string) (ref.Val, bool) {
+func (a attributeActivation) ResolveName(name string) (interface{}, bool) {
 	if node, ok := a.provider.root.children[name]; ok {
 		return resolve(node, a.bag), true
 	}

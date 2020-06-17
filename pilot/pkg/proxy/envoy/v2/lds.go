@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@ package v2
 import (
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -26,17 +27,16 @@ import (
 func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawListeners := s.generateRawListeners(con, push)
+	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
 
 	if s.DebugConfigs {
 		con.LDSListeners = rawListeners
 	}
-	response := ldsDiscoveryResponse(rawListeners, version, push.Version)
+	response := ldsDiscoveryResponse(rawListeners, version, push.Version, con.node.RequestedTypes.LDS)
 	err := con.send(response)
 	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
-		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
-		recordSendError(ldsSendErrPushes, err)
+		recordSendError("LDS", con.ConID, ldsSendErrPushes, err)
 		return err
 	}
 	ldsPushes.Increment()
@@ -45,24 +45,10 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) []*xdsapi.Listener {
-	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
-
-	for _, l := range rawListeners {
-		if err := l.Validate(); err != nil {
-			adsLog.Errorf("LDS: Generated invalid listener for node:%s: %v, %v", con.node.ID, err, l)
-			ldsBuildErrPushes.Increment()
-			// Generating invalid listeners is a bug.
-			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
-		}
-	}
-	return rawListeners
-}
-
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
-	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     ListenerType,
+func ldsDiscoveryResponse(ls []*listener.Listener, version, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+	resp := &discovery.DiscoveryResponse{
+		TypeUrl:     typeURL,
 		VersionInfo: version,
 		Nonce:       nonce(noncePrefix),
 	}
@@ -73,6 +59,7 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string, noncePrefix str
 			continue
 		}
 		lr := util.MessageToAny(ll)
+		lr.TypeUrl = typeURL
 		resp.Resources = append(resp.Resources, lr)
 	}
 

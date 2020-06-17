@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package crd
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
@@ -77,7 +78,11 @@ func FromJSONMap(s collection.Schema, data interface{}) (proto.Message, error) {
 
 // ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
 func ConvertObject(schema collection.Schema, object IstioObject, domain string) (*model.Config, error) {
-	data, err := FromJSONMap(schema, object.GetSpec())
+	js, err := json.Marshal(object.GetSpec())
+	if err != nil {
+		return nil, err
+	}
+	data, err := FromJSON(schema, string(js))
 	if err != nil {
 		return nil, err
 	}

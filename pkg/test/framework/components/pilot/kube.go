@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -15,11 +15,13 @@
 package pilot
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 
 	"github.com/hashicorp/go-multierror"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -50,7 +52,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	ns := icfg.ConfigNamespace
 
-	fetchFn := c.cluster.NewSinglePodFetch(ns, "istio=pilot")
+	fetchFn := testKube.NewSinglePodFetch(c.cluster.Accessor, ns, "istio=pilot")
 	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
@@ -105,11 +107,6 @@ func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 
-//func (c *kubeComponent) Start(ctx resource.Context) (err error) {
-//
-//
-//}
-
 // Close stops the kube pilot server.
 func (c *kubeComponent) Close() (err error) {
 	if c.client != nil {
@@ -125,7 +122,7 @@ func (c *kubeComponent) Close() (err error) {
 }
 
 func (c *kubeComponent) getGrpcPort(ns string) (uint16, error) {
-	svc, err := c.cluster.GetService(ns, pilotService)
+	svc, err := c.cluster.CoreV1().Services(ns).Get(context.TODO(), pilotService, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service %s: %v", pilotService, err)
 	}

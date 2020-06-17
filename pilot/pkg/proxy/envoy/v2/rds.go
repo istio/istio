@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,11 @@ package v2
 import (
 	"time"
 
-	"istio.io/istio/pkg/util/protomarshal"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
+	"istio.io/istio/pkg/util/protomarshal"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -27,7 +29,7 @@ import (
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	rawRoutes := s.generateRawRoutes(con, push)
+	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes)
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
 			con.RouteConfigs[r.Name] = r
@@ -38,12 +40,11 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 		}
 	}
 
-	response := routeDiscoveryResponse(rawRoutes, version, push.Version)
+	response := routeDiscoveryResponse(rawRoutes, version, push.Version, con.node.RequestedTypes.RDS)
 	err := con.send(response)
 	rdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
-		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.node.ID, err)
-		recordSendError(rdsSendErrPushes, err)
+		recordSendError("RDS", con.ConID, rdsSendErrPushes, err)
 		return err
 	}
 	rdsPushes.Increment()
@@ -52,28 +53,15 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) []*xdsapi.RouteConfiguration {
-	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes)
-	// Now validate each route
-	for _, r := range rawRoutes {
-		if err := r.Validate(); err != nil {
-			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", r.Name, con.node.ID, err, r)
-			rdsBuildErrPushes.Increment()
-			// Generating invalid routes is a bug.
-			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
-		}
-	}
-	return rawRoutes
-}
-
-func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
-	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     RouteType,
+func routeDiscoveryResponse(rs []*route.RouteConfiguration, version, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+	resp := &discovery.DiscoveryResponse{
+		TypeUrl:     typeURL,
 		VersionInfo: version,
 		Nonce:       nonce(noncePrefix),
 	}
 	for _, rc := range rs {
 		rr := util.MessageToAny(rc)
+		rr.TypeUrl = typeURL
 		resp.Resources = append(resp.Resources, rr)
 	}
 

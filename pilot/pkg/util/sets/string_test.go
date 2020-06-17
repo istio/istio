@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,5 +50,46 @@ func TestDifference(t *testing.T) {
 	}
 	if _, exist := d["d"]; !exist {
 		t.Errorf("d is not in %v", d)
+	}
+}
+
+func TestEquals(t *testing.T) {
+	tests := []struct {
+		name   string
+		first  Set
+		second Set
+		want   bool
+	}{
+		{
+			"both nil",
+			nil,
+			nil,
+			true,
+		},
+		{
+			"unequal length",
+			NewSet("test"),
+			NewSet("test", "test1"),
+			false,
+		},
+		{
+			"equal sets",
+			NewSet("test", "test1"),
+			NewSet("test", "test1"),
+			true,
+		},
+		{
+			"unequal sets",
+			NewSet("test", "test1"),
+			NewSet("test", "test2"),
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.first.Equals(tt.second); got != tt.want {
+				t.Errorf("Unexpected Equal. got %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

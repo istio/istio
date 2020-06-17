@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,8 +22,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/util/retry"
-
-	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -78,7 +76,6 @@ func TestTrafficShifting(t *testing.T) {
 
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "traffic-shifting",
@@ -111,7 +108,7 @@ func TestTrafficShifting(t *testing.T) {
 					}
 
 					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
-					g.ApplyConfigOrFail(t, ns, deployment)
+					ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
 
 					sendTraffic(t, 100, instances[0], instances[1], hosts, v, errorThreshold)
 				})
@@ -132,7 +129,6 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 			},
 		},
 		Subsets: []echo.SubsetConfig{{}},
-		Galley:  g,
 		Pilot:   p,
 	}
 }

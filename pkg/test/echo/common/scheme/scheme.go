@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,11 +18,9 @@ package scheme
 type Instance string
 
 const (
-	HTTP       Instance = "http"
-	HTTPS      Instance = "https"
-	GRPC       Instance = "grpc"
-	GRPCS      Instance = "grpcs"
-	WebSocket  Instance = "ws"
-	WebSocketS Instance = "wss"
-	TCP        Instance = "tcp"
+	HTTP      Instance = "http"
+	HTTPS     Instance = "https"
+	GRPC      Instance = "grpc"
+	WebSocket Instance = "ws"
+	TCP       Instance = "tcp"
 )

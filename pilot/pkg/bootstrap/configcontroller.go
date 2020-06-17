@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,8 +24,11 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/status"
+
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/istio/pilot/pkg/leaderelection"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
@@ -72,11 +75,11 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
-	} else if args.Config.FileDir != "" {
+	} else if args.RegistryOptions.FileDir != "" {
 		store := memory.Make(collections.Pilot)
 		configController := memory.NewController(store)
 
-		err := s.makeFileMonitor(args.Config.FileDir, configController)
+		err := s.makeFileMonitor(args.RegistryOptions.FileDir, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
 		if err != nil {
 			return err
 		}
@@ -88,26 +91,40 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
 		if features.EnableServiceApis {
-			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController))
+			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions))
 		}
 		if features.EnableAnalysis {
 			if err := s.initInprocessAnalysisController(args); err != nil {
 				return err
 			}
 		}
+		s.initStatusController(args, features.EnableStatus)
 	}
 
+	// Used for tests.
+	memStore := memory.Make(collections.Pilot)
+	memConfigController := memory.NewController(memStore)
+	s.ConfigStores = append(s.ConfigStores, memConfigController)
+	s.EnvoyXdsServer.MemConfigController = memConfigController
+
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if hasKubeRegistry(args.Service.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
+	if hasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
 		s.ConfigStores = append(s.ConfigStores,
-			ingress.NewController(s.kubeClient, meshConfig, args.Config.ControllerOptions))
+			ingress.NewController(s.kubeClient, meshConfig, args.RegistryOptions.KubeOptions))
 
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient, args.Config.ControllerOptions, s.leaderElection); errSyncer != nil {
-			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
+		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClient, args.RegistryOptions.KubeOptions)
+		if err != nil {
+			log.Warnf("Disabled ingress status syncer due to %v", err)
 		} else {
-			s.addStartFunc(func(stop <-chan struct{}) error {
-				go ingressSyncer.Run(stop)
+			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+				leaderelection.
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient).
+					AddRunFunction(func(stop <-chan struct{}) {
+						log.Infof("Starting ingress controller")
+						ingressSyncer.Run(stop)
+					}).
+					Run(stop)
 				return nil
 			})
 		}
@@ -142,12 +159,12 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 
 	var clients []*sink.Client
 	var conns []*grpc.ClientConn
-	var configStores []model.ConfigStoreCache
 
 	mcpOptions := &mcp.Options{
-		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-		ConfigLedger: buildLedger(args.Config),
+		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
+		ConfigLedger: buildLedger(args.RegistryOptions),
 		XDSUpdater:   s.EnvoyXdsServer,
+		Revision:     args.Revision,
 	}
 	reporter := monitoring.NewStatsContext("pilot")
 
@@ -161,14 +178,14 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 				if srcAddress.Path == "" {
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.Config))
+				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.RegistryOptions))
 				configController := memory.NewController(store)
 
-				err := s.makeFileMonitor(srcAddress.Path, configController)
+				err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
 				if err != nil {
 					return err
 				}
-				configStores = append(configStores, configController)
+				s.ConfigStores = append(s.ConfigStores, configController)
 				continue
 			}
 		}
@@ -179,7 +196,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 			return err
 		}
 		conns = append(conns, conn)
-		s.mcpController(mcpOptions, conn, reporter, &clients, &configStores)
+		mcpController, mcpClient := s.mcpController(mcpOptions, conn, reporter)
+		clients = append(clients, mcpClient)
+		s.ConfigStores = append(s.ConfigStores, mcpController)
 	}
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -212,25 +231,23 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 
 		return nil
 	})
-
-	s.ConfigStores = append(s.ConfigStores, configStores...)
 	return nil
 }
 
 func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSource) (grpc.DialOption, error) {
 	securityOption := grpc.WithInsecure()
 	if configSource.TlsSettings != nil &&
-		configSource.TlsSettings.Mode != networkingapi.TLSSettings_DISABLE {
+		configSource.TlsSettings.Mode != networkingapi.ClientTLSSettings_DISABLE {
 		var credentialOption *creds.Options
 		switch configSource.TlsSettings.Mode {
-		case networkingapi.TLSSettings_SIMPLE:
-		case networkingapi.TLSSettings_MUTUAL:
+		case networkingapi.ClientTLSSettings_SIMPLE:
+		case networkingapi.ClientTLSSettings_MUTUAL:
 			credentialOption = &creds.Options{
 				CertificateFile:   configSource.TlsSettings.ClientCertificate,
 				KeyFile:           configSource.TlsSettings.PrivateKey,
 				CACertificateFile: configSource.TlsSettings.CaCertificates,
 			}
-		case networkingapi.TLSSettings_ISTIO_MUTUAL:
+		case networkingapi.ClientTLSSettings_ISTIO_MUTUAL:
 			credentialOption = &creds.Options{
 				CertificateFile:   path.Join(constants.AuthCertsPath, constants.CertChainFilename),
 				KeyFile:           path.Join(constants.AuthCertsPath, constants.KeyFilename),
@@ -282,44 +299,62 @@ func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSour
 func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 	processingArgs := settings.DefaultArgs()
-	processingArgs.KubeConfig = args.Config.KubeConfig
-	processingArgs.EnableValidationController = false
-	processingArgs.EnableValidationServer = false
-	processingArgs.MonitoringPort = 0
-	processingArgs.Liveness.UpdateInterval = 0
-	processingArgs.Readiness.UpdateInterval = 0
-	processingArgs.Insecure = true // TODO - use sidecar?
-	processingArgs.EnableServer = false
-	processingArgs.MeshConfigFile = args.Mesh.ConfigFile
+	processingArgs.KubeConfig = args.RegistryOptions.KubeConfig
+	processingArgs.WatchedNamespaces = args.RegistryOptions.KubeOptions.WatchedNamespaces
+	processingArgs.MeshConfigFile = args.MeshConfigFile
 	processingArgs.EnableConfigAnalysis = true
 
 	processing := components.NewProcessing(processingArgs)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		if err := processing.Start(); err != nil {
-			return err
-		}
-
-		go func() {
-			<-stop
-			processing.Stop()
-		}()
+		go leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, s.kubeClient).
+			AddRunFunction(func(stop <-chan struct{}) {
+				if err := processing.Start(); err != nil {
+					log.Fatalf("Error starting Background Analysis: %s", err)
+				}
+				<-stop
+				processing.Stop()
+			}).Run(stop)
 		return nil
 	})
 	return nil
 }
 
+func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
+	s.statusReporter = &status.Reporter{
+		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
+		PodName:        args.PodName,
+	}
+	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+		s.statusReporter.Start(s.kubeClient, args.Namespace, s.configController, writeStatus, stop)
+		return nil
+	})
+	s.EnvoyXdsServer.StatusReporter = s.statusReporter
+	if writeStatus {
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			leaderelection.
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+				AddRunFunction(func(stop <-chan struct{}) {
+					controller := &status.DistributionController{
+						QPS:   float32(features.StatusQPS),
+						Burst: features.StatusBurst}
+					controller.Start(s.kubeConfig, args.Namespace, stop)
+				}).Run(stop)
+			return nil
+		})
+	}
+}
+
 func (s *Server) mcpController(
 	opts *mcp.Options,
 	conn *grpc.ClientConn,
-	reporter monitoring.Reporter,
-	clients *[]*sink.Client,
-	configStores *[]model.ConfigStoreCache) {
+	reporter monitoring.Reporter) (model.ConfigStoreCache, *sink.Client) {
 	clientNodeID := ""
 	all := collections.Pilot.All()
 	cols := make([]sink.CollectionOptions, 0, len(all))
 	for _, c := range all {
-		cols = append(cols, sink.CollectionOptions{Name: c.Name().String(), Incremental: false})
+		cols = append(cols, sink.CollectionOptions{Name: c.Name().String(), Incremental: features.EnableIncrementalMCP})
 	}
 
 	mcpController := mcp.NewController(opts)
@@ -333,8 +368,7 @@ func (s *Server) mcpController(
 	cl := mcpapi.NewResourceSourceClient(conn)
 	mcpClient := sink.NewClient(cl, sinkOptions)
 	configz.Register(mcpClient)
-	*clients = append(*clients, mcpClient)
-	*configStores = append(*configStores, mcpController)
+	return mcpController, mcpClient
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
@@ -354,18 +388,18 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 			return nil, err
 		}
 	}
-	configClient, err := controller.NewClient(args.Config.KubeConfig, "", schemas.Build(),
-		args.Config.ControllerOptions.DomainSuffix, buildLedger(args.Config), args.Revision)
+	configClient, err := controller.NewClient(args.RegistryOptions.KubeConfig, "", schemas.Build(),
+		args.RegistryOptions.KubeOptions.DomainSuffix, buildLedger(args.RegistryOptions), args.Revision)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
 
-	return controller.NewController(configClient, args.Config.ControllerOptions), nil
+	return controller.NewController(configClient, args.RegistryOptions.KubeOptions), nil
 }
 
-func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot)
-	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
+func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {
+	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot, domainSuffix)
+	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, fileSnapshot.ReadConfigFiles, fileDir)
 
 	// Defer starting the file monitor until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {

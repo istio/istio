@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -199,13 +199,9 @@ func (cr *store) Update(config model.Config) (string, error) {
 		return "", errNotFound
 	}
 
-	oldConfig, exists := ns.Load(config.Name)
+	_, exists = ns.Load(config.Name)
 	if !exists {
 		return "", errNotFound
-	}
-
-	if config.ResourceVersion != oldConfig.(model.Config).ResourceVersion {
-		return "", errors.New("old revision")
 	}
 
 	rev := time.Now().String()

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,4 +85,31 @@ func TestRetry(t *testing.T) {
 
 	// wait for the task to run twice.
 	wg.Wait()
+}
+
+func TestResourceFree(t *testing.T) {
+	q := NewQueue(1 * time.Microsecond)
+	stop := make(chan struct{})
+	signal := make(chan struct{})
+	go func() {
+		q.Run(stop)
+		signal <- struct{}{}
+	}()
+
+	q.Push(func() error {
+		t.Log("mock exec")
+		return nil
+	})
+
+	// mock queue block wait cond signal
+	time.AfterFunc(10*time.Millisecond, func() {
+		close(stop)
+	})
+
+	select {
+	case <-time.After(200 * time.Millisecond):
+		t.Error("close stop, method exit timeout.")
+	case <-signal:
+		t.Log("queue return.")
+	}
 }

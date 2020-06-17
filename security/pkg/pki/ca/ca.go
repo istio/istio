@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,6 +58,9 @@ const (
 
 	// The size of a private key for a self-signed Istio CA.
 	caKeySize = 2048
+
+	// The standard key size to use when generating an RSA private key
+	rsaKeySize = 2048
 )
 
 var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
@@ -98,14 +101,14 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 	// For the first time the CA is up, if readSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
-	caSecret, scrtErr := client.Secrets(namespace).Get(CASecret, metav1.GetOptions{})
+	caSecret, scrtErr := client.Secrets(namespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
 	if scrtErr != nil && readCertRetryInterval > time.Duration(0) {
 		pkiCaLog.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
 		ticker := time.NewTicker(readCertRetryInterval)
 		for scrtErr != nil {
 			select {
 			case <-ticker.C:
-				if caSecret, scrtErr = client.Secrets(namespace).Get(CASecret, metav1.GetOptions{}); scrtErr == nil {
+				if caSecret, scrtErr = client.Secrets(namespace).Get(context.TODO(), CASecret, metav1.GetOptions{}); scrtErr == nil {
 					pkiCaLog.Infof("Citadel successfully loaded the secret.")
 				}
 			case <-ctx.Done():
@@ -159,7 +162,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 
 		// Write the key/cert back to secret so they will be persistent when CA restarts.
 		secret := k8ssecret.BuildSecret("", CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
-		if _, err = client.Secrets(namespace).Create(secret); err != nil {
+		if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 			pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 			return nil, fmt.Errorf("failed to create CA due to secret write error")
 		}
@@ -330,7 +333,14 @@ func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert
 // returns the certificate chain and the private key.
 func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte, []byte, error) {
 	opts := util.CertOptions{
-		RSAKeySize: 2048,
+		RSAKeySize: rsaKeySize,
+	}
+
+	// use the type of private key the CA uses to generate an intermediate CA of that type (e.g. CA cert using RSA will
+	// cause intermediate CAs using RSA to be generated)
+	_, signingKey, _, _ := ca.keyCertBundle.GetAll()
+	if util.IsSupportedECPrivateKey(signingKey) {
+		opts.ECSigAlg = util.EcdsaSigAlg
 	}
 
 	csrPEM, privPEM, err := util.GenCSR(opts)

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ func TestParseDownwardApi(t *testing.T) {
 			map[string]string{"foo": "bar"},
 		},
 		{
-			"multi line",
+			"multi",
 			map[string]string{
 				"app":               "istio-ingressgateway",
 				"chart":             "gateways",
@@ -45,9 +45,18 @@ func TestParseDownwardApi(t *testing.T) {
 			},
 		},
 		{
+			"multi line",
+			map[string]string{
+				"config": `foo: bar
+other: setting`,
+				"istio": "ingressgateway",
+			},
+		},
+		{
 			"weird values",
 			map[string]string{
 				"foo": `a1_-.as1`,
+				"bar": `a=b`,
 			},
 		},
 	}

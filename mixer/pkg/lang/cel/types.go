@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -157,6 +157,12 @@ func recoverValue(value ref.Val) (interface{}, error) {
 		}
 		return value.Value(), nil
 	case wrapperType:
+		return value.Value(), nil
+	case types.ListType:
+		size := value.(traits.Sizer).Size()
+		if size.Type() == types.IntType && size.Value().(int64) == 0 {
+			return []string{}, nil
+		}
 		return value.Value(), nil
 	}
 	return nil, fmt.Errorf("failed to recover of type %s", value.Type())

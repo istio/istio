@@ -1,9 +1,0 @@
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: denyingress
-spec:
-  match: (source.labels["istio"] | "") == "ingressgateway" && (request.headers["x-user"] | "") == "john"
-  actions:
-    - handler: handler
-      instances: [ denyrequest ]

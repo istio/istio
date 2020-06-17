@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,12 +15,29 @@
 package controller
 
 import (
+	"context"
 	"time"
+
+	"istio.io/pkg/log"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
+
+const (
+	// The Istio secret annotation type
+	IstioSecretType = "istio.io/key-and-cert"
+
+	// The ID/name for the certificate chain file.
+	CertChainID = "cert-chain.pem"
+	// The ID/name for the private key file.
+	PrivateKeyID = "key.pem"
+	// The ID/name for the CA root certificate file.
+	RootCertID = "root-cert.pem"
+)
+
+var k8sControllerLog = log.RegisterScope("secretcontroller", "Citadel kubernetes controller log", 0)
 
 // CaSecretController manages the self-signed signing CA secret.
 type CaSecretController struct {
@@ -42,7 +59,7 @@ func (csc *CaSecretController) LoadCASecretWithRetry(secretName, namespace strin
 	var caSecret *v1.Secret
 	var scrtErr error
 	for {
-		caSecret, scrtErr = csc.client.Secrets(namespace).Get(secretName, metav1.GetOptions{})
+		caSecret, scrtErr = csc.client.Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 		if scrtErr == nil {
 			return caSecret, scrtErr
 		}
@@ -63,7 +80,7 @@ func (csc *CaSecretController) UpdateCASecretWithRetry(caSecret *v1.Secret,
 	retryInterval, timeout time.Duration) error {
 	start := time.Now()
 	for {
-		_, scrtErr := csc.client.Secrets(caSecret.Namespace).Update(caSecret)
+		_, scrtErr := csc.client.Secrets(caSecret.Namespace).Update(context.TODO(), caSecret, metav1.UpdateOptions{})
 		if scrtErr == nil {
 			return nil
 		}

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,9 +21,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/stretchr/testify/assert"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -64,6 +68,47 @@ func TestNodeMetadata(t *testing.T) {
 						"foo": "bar",
 					},
 				}},
+		},
+		{
+			"proxy config",
+			model.NodeMetadata{ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
+				ConfigPath:             "foo",
+				DrainDuration:          types.DurationProto(time.Second * 5),
+				ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+				EnvoyAccessLogService: &meshconfig.RemoteService{
+					Address: "address",
+					TlsSettings: &v1alpha3.ClientTLSSettings{
+						SubjectAltNames: []string{"san"},
+					},
+				},
+			})},
+			// nolint: lll
+			`{"PROXY_CONFIG":{"configPath":"foo","drainDuration":"5s","controlPlaneAuthPolicy":"MUTUAL_TLS","envoyAccessLogService":{"address":"address","tlsSettings":{"subjectAltNames":["san"]}}}}`,
+			model.NodeMetadata{ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
+				ConfigPath:             "foo",
+				DrainDuration:          types.DurationProto(time.Second * 5),
+				ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+				EnvoyAccessLogService: &meshconfig.RemoteService{
+					Address: "address",
+					TlsSettings: &v1alpha3.ClientTLSSettings{
+						SubjectAltNames: []string{"san"},
+					},
+				},
+			}),
+				Raw: map[string]interface{}{
+					"PROXY_CONFIG": map[string]interface{}{
+						"drainDuration":          "5s",
+						"configPath":             "foo",
+						"controlPlaneAuthPolicy": "MUTUAL_TLS",
+						"envoyAccessLogService": map[string]interface{}{
+							"address": "address",
+							"tlsSettings": map[string]interface{}{
+								"subjectAltNames": []interface{}{"san"},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {

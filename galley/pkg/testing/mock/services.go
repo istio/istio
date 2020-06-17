@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package mock
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -40,7 +41,7 @@ func newServiceInterface() corev1.ServiceInterface {
 	}
 }
 
-func (s *serviceImpl) Create(obj *apicorev1.Service) (*apicorev1.Service, error) {
+func (s *serviceImpl) Create(ctx context.Context, obj *apicorev1.Service, opts metav1.CreateOptions) (*apicorev1.Service, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -53,7 +54,7 @@ func (s *serviceImpl) Create(obj *apicorev1.Service) (*apicorev1.Service, error)
 	return obj, nil
 }
 
-func (s *serviceImpl) Update(obj *apicorev1.Service) (*apicorev1.Service, error) {
+func (s *serviceImpl) Update(ctx context.Context, obj *apicorev1.Service, opts metav1.UpdateOptions) (*apicorev1.Service, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -66,7 +67,7 @@ func (s *serviceImpl) Update(obj *apicorev1.Service) (*apicorev1.Service, error)
 	return obj, nil
 }
 
-func (s *serviceImpl) Delete(name string, options *metav1.DeleteOptions) error {
+func (s *serviceImpl) Delete(ctx context.Context, name string, options metav1.DeleteOptions) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -84,7 +85,7 @@ func (s *serviceImpl) Delete(name string, options *metav1.DeleteOptions) error {
 	return nil
 }
 
-func (s *serviceImpl) List(opts metav1.ListOptions) (*apicorev1.ServiceList, error) {
+func (s *serviceImpl) List(ctx context.Context, opts metav1.ListOptions) (*apicorev1.ServiceList, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -97,7 +98,7 @@ func (s *serviceImpl) List(opts metav1.ListOptions) (*apicorev1.ServiceList, err
 	return out, nil
 }
 
-func (s *serviceImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+func (s *serviceImpl) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -115,15 +116,16 @@ func (s *serviceImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 	return w, nil
 }
 
-func (s *serviceImpl) UpdateStatus(*apicorev1.Service) (*apicorev1.Service, error) {
+func (s *serviceImpl) UpdateStatus(context.Context, *apicorev1.Service, metav1.UpdateOptions) (*apicorev1.Service, error) {
 	panic("not implemented")
 }
 
-func (s *serviceImpl) Get(name string, options metav1.GetOptions) (*apicorev1.Service, error) {
+func (s *serviceImpl) Get(ctx context.Context, name string, options metav1.GetOptions) (*apicorev1.Service, error) {
 	panic("not implemented")
 }
 
-func (s *serviceImpl) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *apicorev1.Service, err error) {
+func (s *serviceImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte,
+	opts metav1.PatchOptions, subresources ...string) (result *apicorev1.Service, err error) {
 	panic("not implemented")
 }
 

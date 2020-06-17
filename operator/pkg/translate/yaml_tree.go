@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,8 @@ package translate
 import (
 	"gopkg.in/yaml.v2"
 
-	"istio.io/istio/operator/pkg/util"
-
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util"
 )
 
 // YAMLTree takes an input tree inTreeStr, a partially constructed output tree outTreeStr, and a map of
@@ -37,7 +36,7 @@ func YAMLTree(inTreeStr, outTreeStr string, translations map[string]string) (str
 
 	for inPath, translation := range translations {
 		path := util.PathFromString(inPath)
-		node, found, err := tpath.GetFromTreePath(inTree, path)
+		node, found, err := tpath.Find(inTree, path)
 		if err != nil {
 			return "", err
 		}

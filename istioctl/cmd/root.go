@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -34,6 +33,7 @@ import (
 	"istio.io/pkg/log"
 )
 
+// CommandParseError distinguishes an error parsing istioctl CLI arguments from an error processing
 type CommandParseError struct {
 	e error
 }
@@ -49,11 +49,11 @@ var (
 	istioNamespace   string
 	defaultNamespace string
 
-	// Create a kubernetes.ExecClient (or mockExecClient)
-	clientExecFactory = newExecClient
+	// Create a kubernetes client (or mockClient) for talking to control plane components
+	kubeClientWithRevision = newKubeClientWithRevision
 
-	// Create a kubernetes.ExecClientSDS
-	clientExecSdsFactory = newSDSExecClient
+	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
+	kubeClient = newKubeClient
 
 	loggingOptions = defaultLogOptions()
 )
@@ -69,6 +69,7 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("installer", log.WarnLevel)
 	o.SetOutputLevel("translator", log.WarnLevel)
 	o.SetOutputLevel("kube", log.ErrorLevel)
+	o.SetOutputLevel("default", log.WarnLevel)
 
 	return o
 }
@@ -135,6 +136,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(Analyze())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
+	experimentalCmd.AddCommand(install.NewPrecheckCommand())
 	experimentalCmd.AddCommand(AuthZ())
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(graduatedCmd("convert-ingress"))
@@ -145,23 +147,29 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(softGraduatedCmd(Analyze()))
+	experimentalCmd.AddCommand(vmBootstrapCommand())
 	experimentalCmd.AddCommand(waitCmd())
 
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)
 
-	manifestCmd := mesh.ManifestCmd()
+	manifestCmd := mesh.ManifestCmd(loggingOptions)
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(manifestCmd)
 	operatorCmd := mesh.OperatorCmd()
 	rootCmd.AddCommand(operatorCmd)
+	installCmd := mesh.InstallCmd(loggingOptions)
+	hideInheritedFlags(installCmd, "namespace", "istioNamespace")
+	rootCmd.AddCommand(installCmd)
 
 	profileCmd := mesh.ProfileCmd()
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(profileCmd)
 
-	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UpgradeCmd()))
-	rootCmd.AddCommand(mesh.UpgradeCmd())
+	upgradeCmd := mesh.UpgradeCmd()
+	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace")
+	experimentalCmd.AddCommand(softGraduatedCmd(upgradeCmd))
+	rootCmd.AddCommand(upgradeCmd)
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
 	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())

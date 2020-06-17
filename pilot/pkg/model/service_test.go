@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,98 +19,8 @@ import (
 
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 )
-
-var validServiceKeys = map[string]struct {
-	service *Service
-	labels  labels.Collection
-}{
-	"example-service1.default|grpc,http|a=b,c=d;e=f": {
-		service: &Service{
-			Hostname: "example-service1.default",
-			Ports:    []*Port{{Name: "http", Port: 80}, {Name: "grpc", Port: 90}}},
-		labels: labels.Collection{{"e": "f"}, {"c": "d", "a": "b"}}},
-	"my-service": {
-		service: &Service{
-			Hostname: "my-service",
-			Ports:    []*Port{{Name: "", Port: 80}}}},
-	"svc.ns": {
-		service: &Service{
-			Hostname: "svc.ns",
-			Ports:    []*Port{{Name: "", Port: 80}}}},
-	"svc||istio.io/my_tag-v1.test=my_value-v2.value": {
-		service: &Service{
-			Hostname: "svc",
-			Ports:    []*Port{{Name: "", Port: 80}}},
-		labels: labels.Collection{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
-	"svc|test|prod": {
-		service: &Service{
-			Hostname: "svc",
-			Ports:    []*Port{{Name: "test", Port: 80}}},
-		labels: labels.Collection{{"prod": ""}}},
-	"svc.default.svc.cluster.local|http-test": {
-		service: &Service{
-			Hostname: "svc.default.svc.cluster.local",
-			Ports:    []*Port{{Name: "http-test", Port: 80}}}},
-}
-
-func TestServiceString(t *testing.T) {
-	for s, svc := range validServiceKeys {
-		if err := svc.service.Validate(); err != nil {
-			t.Errorf("Valid service failed validation: %v,  %#v", err, svc.service)
-		}
-		s1 := ServiceKey(svc.service.Hostname, svc.service.Ports, svc.labels)
-		if s1 != s {
-			t.Errorf("ServiceKey => Got %s, expected %s", s1, s)
-		}
-		hostname, ports, l := ParseServiceKey(s)
-		if hostname != svc.service.Hostname {
-			t.Errorf("ParseServiceKey => Got %s, expected %s for %s", hostname, svc.service.Hostname, s)
-		}
-		if !compareLabels(l, svc.labels) {
-			t.Errorf("ParseServiceKey => Got %#v, expected %#v for %s", l, svc.labels, s)
-		}
-		if len(ports) != len(svc.service.Ports) {
-			t.Errorf("ParseServiceKey => Got %#v, expected %#v for %s", ports, svc.service.Ports, s)
-		}
-	}
-}
-
-// compare two slices of strings as sets
-func compare(a, b []string) bool {
-	ma := make(map[string]bool)
-	mb := make(map[string]bool)
-	for _, i := range a {
-		ma[i] = true
-	}
-	for _, i := range b {
-		mb[i] = true
-	}
-	for key := range ma {
-		if !mb[key] {
-			return false
-		}
-	}
-	for key := range mb {
-		if !ma[key] {
-			return false
-		}
-	}
-
-	return true
-}
-
-// compareLabels compares sets of labels
-func compareLabels(a, b []labels.Instance) bool {
-	var as, bs []string
-	for _, i := range a {
-		as = append(as, i.String())
-	}
-	for _, j := range b {
-		bs = append(bs, j.String())
-	}
-	return compare(as, bs)
-}
 
 func TestGetByPort(t *testing.T) {
 	ports := PortList{{
@@ -233,6 +143,164 @@ func TestGetLocalityOrDefault(t *testing.T) {
 			got := GetLocalityLabelOrDefault(testCase.label, testCase.defaultLabel)
 			if got != testCase.expected {
 				t.Errorf("expected locality %s, but got %s", testCase.expected, got)
+			}
+		})
+	}
+}
+
+func TestForeignSeviceInstancesEqual(t *testing.T) {
+	exampleInstance := &ServiceInstance{
+		Service: &Service{},
+		Endpoint: &IstioEndpoint{
+			Labels:          labels.Instance{"app": "prod-app"},
+			Address:         "an-address",
+			ServicePortName: "service-port-name",
+			UID:             "UID",
+			EnvoyEndpoint:   nil,
+			ServiceAccount:  "service-account",
+			Network:         "Network",
+			Locality: Locality{
+				ClusterID: "cluster-id",
+				Label:     "region1/zone1/subzone1",
+			},
+			EndpointPort: 22,
+			LbWeight:     100,
+			TLSMode:      "mutual",
+		},
+		ServicePort: &Port{
+			Name:     "a-faux-ssh-port",
+			Port:     22,
+			Protocol: protocol.UDP,
+		},
+	}
+	differingAddr := exampleInstance.DeepCopy()
+	differingAddr.Endpoint.Address = "another-address"
+	differingNetwork := exampleInstance.DeepCopy()
+	differingNetwork.Endpoint.Network = "AnotherNetwork"
+	differingTLSMode := exampleInstance.DeepCopy()
+	differingTLSMode.Endpoint.TLSMode = "permitted"
+	differingLabels := exampleInstance.DeepCopy()
+	differingLabels.Endpoint.Labels = labels.Instance{
+		"app":         "prod-app",
+		"another-app": "blah",
+	}
+	differingServiceAccount := exampleInstance.DeepCopy()
+	differingServiceAccount.Endpoint.ServiceAccount = "service-account-two"
+	differingLocality := exampleInstance.DeepCopy()
+	differingLocality.Endpoint.Locality = Locality{
+		ClusterID: "cluster-id-two",
+		Label:     "region2/zone2/subzone2",
+	}
+	differingLbWeight := exampleInstance.DeepCopy()
+	differingLbWeight.Endpoint.LbWeight = 0
+	differingUID := exampleInstance.DeepCopy()
+	differingUID.Endpoint.UID = "UID-TWO"
+
+	cases := []struct {
+		comparer *ServiceInstance
+		comparee *ServiceInstance
+		shouldEq bool
+		name     string
+	}{
+		{
+			comparer: &ServiceInstance{},
+			comparee: &ServiceInstance{},
+			shouldEq: true,
+			name:     "two null endpoints",
+		},
+		{
+			comparer: &ServiceInstance{
+				ServicePort: &Port{
+					Name:     "a-faux-ssh-port",
+					Port:     22,
+					Protocol: protocol.UDP,
+				},
+			},
+			comparee: &ServiceInstance{
+				ServicePort: &Port{
+					Name:     "a-faux-non-ssh-port",
+					Port:     80,
+					Protocol: protocol.UDP,
+				},
+			},
+			shouldEq: true,
+			name:     "two null endpoints with different service ports",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: exampleInstance.DeepCopy(),
+			shouldEq: true,
+			name:     "exact same endpoints",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingAddr.DeepCopy(),
+			shouldEq: false,
+			name:     "different Addresses",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingNetwork.DeepCopy(),
+			shouldEq: false,
+			name:     "different Network",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingTLSMode.DeepCopy(),
+			shouldEq: false,
+			name:     "different TLS Mode",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingLabels.DeepCopy(),
+			shouldEq: false,
+			name:     "different Labels",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingServiceAccount.DeepCopy(),
+			shouldEq: false,
+			name:     "different Service Account",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingLocality.DeepCopy(),
+			shouldEq: false,
+			name:     "different Locality",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingLbWeight.DeepCopy(),
+			shouldEq: false,
+			name:     "different LbWeight",
+		},
+		{
+			comparer: exampleInstance.DeepCopy(),
+			comparee: differingUID.DeepCopy(),
+			shouldEq: false,
+			name:     "different UID",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run("ForeignSeviceInstancesEqual: "+testCase.name, func(t *testing.T) {
+			isEq := ForeignSeviceInstancesEqual(testCase.comparer, testCase.comparee)
+			isEqReverse := ForeignSeviceInstancesEqual(testCase.comparee, testCase.comparer)
+
+			if isEq != isEqReverse {
+				t.Errorf(
+					"returned different for reversing arguments for structs: %v , and %v",
+					testCase.comparer,
+					testCase.comparee,
+				)
+			}
+			if isEq != testCase.shouldEq {
+				t.Errorf(
+					"equality of %v , and %v do not equal expected %t",
+					testCase.comparer,
+					testCase.comparee,
+					testCase.shouldEq,
+				)
 			}
 		})
 	}

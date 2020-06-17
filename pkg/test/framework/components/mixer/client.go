@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -47,9 +47,8 @@ type client struct {
 	clients    map[string]istioMixerV1.MixerClient
 	forwarders []kube.PortForwarder
 
-	args    *server.Args
-	server  *server.Server
-	workdir string
+	args   *server.Args
+	server *server.Server
 }
 
 // Report implements DeployedMixer.Report.

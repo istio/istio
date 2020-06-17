@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,14 +24,12 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestTrafficRouting(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "traffic-routing",
@@ -106,8 +104,8 @@ spec:
 			}
 			for _, tt := range cases {
 				ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
-					g.ApplyConfigOrFail(ctx, ns, tt.vs)
-					defer g.DeleteConfigOrFail(ctx, ns, tt.vs)
+					ctx.ApplyConfigOrFail(ctx, ns.Name(), tt.vs)
+					defer ctx.DeleteConfigOrFail(ctx, ns.Name(), tt.vs)
 					retry.UntilSuccessOrFail(ctx, func() error {
 						resp, err := client.Call(echo.CallOptions{
 							Target:   server,

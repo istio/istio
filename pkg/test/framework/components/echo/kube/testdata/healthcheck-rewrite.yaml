@@ -13,7 +13,6 @@ spec:
   selector:
     app: healthcheck
 ---
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -42,6 +41,8 @@ spec:
           runAsUser: 1
         args:
           - --metrics=15014
+          - --cluster
+          - "0"
           - --port
           - "8080"
           - --port

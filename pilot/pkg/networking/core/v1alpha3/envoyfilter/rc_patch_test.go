@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,7 @@ package envoyfilter
 import (
 	"testing"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -103,7 +102,7 @@ func Test_virtualHostMatch(t *testing.T) {
 
 func Test_routeConfigurationMatch(t *testing.T) {
 	type args struct {
-		rc           *xdsapi.RouteConfiguration
+		rc           *route.RouteConfiguration
 		patchContext networking.EnvoyFilter_PatchContext
 		cp           *model.EnvoyFilterConfigPatchWrapper
 	}
@@ -133,7 +132,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 						},
 					},
 				},
-				rc: &xdsapi.RouteConfiguration{Name: "scooby.90"},
+				rc: &route.RouteConfiguration{Name: "scooby.90"},
 			},
 			want: false,
 		},
@@ -148,7 +147,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 						},
 					},
 				},
-				rc: &xdsapi.RouteConfiguration{Name: "80"},
+				rc: &route.RouteConfiguration{Name: "80"},
 			},
 			want: true,
 		},
@@ -163,7 +162,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 						},
 					},
 				},
-				rc: &xdsapi.RouteConfiguration{Name: "90"},
+				rc: &route.RouteConfiguration{Name: "90"},
 			},
 			want: false,
 		},
@@ -182,7 +181,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 						},
 					},
 				},
-				rc: &xdsapi.RouteConfiguration{Name: "https.443.app1.gw1.ns1"},
+				rc: &route.RouteConfiguration{Name: "https.443.app1.gw1.ns1"},
 			},
 			want: true,
 		},
@@ -201,7 +200,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 						},
 					},
 				},
-				rc: &xdsapi.RouteConfiguration{Name: "http.80"},
+				rc: &route.RouteConfiguration{Name: "http.80"},
 			},
 			want: false,
 		},
@@ -318,7 +317,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundRC := &xdsapi.RouteConfiguration{
+	sidecarOutboundRC := &route.RouteConfiguration{
 		Name: "80",
 		VirtualHosts: []*route.VirtualHost{
 			{
@@ -346,7 +345,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		},
 		RequestHeadersToRemove: []string{"h1", "h2"},
 	}
-	patchedSidecarOutputRC := &xdsapi.RouteConfiguration{
+	patchedSidecarOutputRC := &route.RouteConfiguration{
 		Name: "80",
 		VirtualHosts: []*route.VirtualHost{
 			{
@@ -369,7 +368,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		},
 		RequestHeadersToRemove: []string{"h1", "h2", "h3", "h4"},
 	}
-	sidecarInboundRC := &xdsapi.RouteConfiguration{
+	sidecarInboundRC := &route.RouteConfiguration{
 		Name: "inbound|http|80",
 		VirtualHosts: []*route.VirtualHost{
 			{
@@ -377,7 +376,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			},
 		},
 	}
-	patchedSidecarInboundRC := &xdsapi.RouteConfiguration{
+	patchedSidecarInboundRC := &route.RouteConfiguration{
 		Name: "inbound|http|80",
 		VirtualHosts: []*route.VirtualHost{
 			{
@@ -386,7 +385,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		},
 	}
 
-	gatewayRC := &xdsapi.RouteConfiguration{
+	gatewayRC := &route.RouteConfiguration{
 		Name: "80",
 		VirtualHosts: []*route.VirtualHost{
 			{
@@ -399,7 +398,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			},
 		},
 	}
-	patchedGatewayRC := &xdsapi.RouteConfiguration{
+	patchedGatewayRC := &route.RouteConfiguration{
 		Name: "80",
 		VirtualHosts: []*route.VirtualHost{
 			{
@@ -424,12 +423,12 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		patchContext       networking.EnvoyFilter_PatchContext
 		proxy              *model.Proxy
 		push               *model.PushContext
-		routeConfiguration *xdsapi.RouteConfiguration
+		routeConfiguration *route.RouteConfiguration
 	}
 	tests := []struct {
 		name string
 		args args
-		want *xdsapi.RouteConfiguration
+		want *route.RouteConfiguration
 	}{
 		{
 			name: "sidecar outbound rds patch",

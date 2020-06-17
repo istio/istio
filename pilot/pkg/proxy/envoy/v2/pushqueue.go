@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,8 +47,8 @@ func NewPushQueue() *PushQueue {
 	}
 }
 
-// Add will mark a proxy as pending a push. If it is already pending, pushInfo will be merged.
-// edsUpdatedServices will be added together, and full will be set if either were full
+// Enqueue will mark a proxy as pending a push. If it is already pending, pushInfo will be merged.
+// ServiceEntry updates will be added together, and full will be set if either were full
 func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *model.PushRequest) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

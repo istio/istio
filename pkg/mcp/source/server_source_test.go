@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,10 +35,6 @@ import (
 type serverHarness struct {
 	grpc.ServerStream
 	*sourceTestHarness
-}
-
-func (h *serverHarness) EstablishResourceStream(ctx context.Context, opts ...grpc.CallOption) (mcp.ResourceSource_EstablishResourceStreamServer, error) { // nolint: lll
-	return h, h.openError()
 }
 
 func (*serverHarness) SendHeader(metadata.MD) error {

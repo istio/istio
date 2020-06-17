@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package kubernetesenv
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -23,7 +24,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/informers"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -70,18 +72,45 @@ func podIP(obj interface{}) ([]string, error) {
 // It configures the index informer to list/watch k8sCache and send update events
 // to a mutations channel for processing (in this case, logging).
 func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env, stopChan chan struct{}) cacheController {
-	sharedInformers := informers.NewSharedInformerFactory(clientset, refreshDuration)
-	podInformer := sharedInformers.Core().V1().Pods().Informer()
-	_ = podInformer.AddIndexers(cache.Indexers{
+	podInformer := env.NewInformer(clientset, &v1.Pod{}, refreshDuration, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return clientset.CoreV1().Pods(namespace).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return clientset.CoreV1().Pods(namespace).Watch(context.TODO(), opts)
+			},
+		}
+	}, cache.Indexers{
 		"ip": podIP,
 	})
+	replicaSetInformer := env.NewInformer(clientset, &appsv1.ReplicaSet{}, refreshDuration, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return clientset.AppsV1().ReplicaSets(namespace).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return clientset.AppsV1().ReplicaSets(namespace).Watch(context.TODO(), opts)
+			},
+		}
+	}, cache.Indexers{})
+	replicationControllerInformer := env.NewInformer(clientset, &v1.ReplicationController{}, refreshDuration, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return clientset.CoreV1().ReplicationControllers(namespace).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return clientset.CoreV1().ReplicationControllers(namespace).Watch(context.TODO(), opts)
+			},
+		}
+	}, cache.Indexers{})
 
 	return &controllerImpl{
 		env:      env,
 		stopChan: stopChan,
 		pods:     podInformer,
-		rs:       sharedInformers.Apps().V1().ReplicaSets().Informer(),
-		rc:       sharedInformers.Core().V1().ReplicationControllers().Informer(),
+		rs:       replicaSetInformer,
+		rc:       replicationControllerInformer,
 	}
 }
 

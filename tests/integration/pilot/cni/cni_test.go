@@ -1,4 +1,4 @@
-//  Copyright 2020 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -20,20 +20,18 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("cni", m).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+		Setup(istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 components:
   cni:
@@ -55,30 +53,19 @@ components:
 func TestCNIReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g, err := galley.New(ctx, galley.Config{})
-			if err != nil {
-				ctx.Fatal(err)
-			}
-			p, err := pilot.New(ctx, pilot.Config{
-				Galley: g,
-			})
-			if err != nil {
-				ctx.Fatal(err)
-			}
 			kenv := ctx.Environment().(*kube.Environment)
 			cluster := kenv.KubeClusters[0]
-			_, err = cluster.WaitUntilPodsAreReady(cluster.NewSinglePodFetch("kube-system", "k8s-app=istio-cni-node"))
+			_, err := cluster.WaitUntilPodsAreReady(kube2.NewSinglePodFetch(cluster.Accessor, "kube-system", "k8s-app=istio-cni-node"))
 			if err != nil {
 				ctx.Fatal(err)
 			}
-			rctx := reachability.CreateContext(ctx, g, p)
+			rctx := reachability.CreateContext(ctx, pilot.NewOrFail(t, ctx, pilot.Config{}))
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "global-mtls-on.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "global-mtls-on.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {

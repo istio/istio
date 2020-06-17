@@ -1,0 +1,419 @@
+# Kiali Operator 'v1.18' All-in-One YAML
+# This operator will be granted permission to create cluster roles. Use with caution!
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: monitoringdashboards.monitoring.kiali.io
+  labels:
+    app: kiali
+    version: v1.18
+spec:
+  group: monitoring.kiali.io
+  names:
+    kind: MonitoringDashboard
+    listKind: MonitoringDashboardList
+    plural: monitoringdashboards
+    singular: monitoringdashboard
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: kialis.kiali.io
+  labels:
+    app: kiali-operator
+    version: v1.18
+spec:
+  group: kiali.io
+  names:
+    kind: Kiali
+    listKind: KialiList
+    plural: kialis
+    singular: kiali
+  scope: Namespaced
+  subresources:
+    status: {}
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+# NOTE: Changes to this file must be reflected in the OperatorHub.io CSV file
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kiali-operator
+  labels:
+    app: kiali-operator
+    version: v1.18
+rules:
+- apiGroups: [""]
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - persistentvolumeclaims
+  - pods
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: [""]
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - patch
+- apiGroups: [""]
+  resources:
+  - secrets
+  verbs:
+  - create
+  - list
+  - watch
+- apiGroups: [""]
+  resourceNames:
+  - kiali-signing-key
+  resources:
+  - secrets
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["apps"]
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["monitoring.coreos.com"]
+  resources:
+  - servicemonitors
+  verbs:
+  - create
+  - get
+- apiGroups: ["apps"]
+  resourceNames:
+  - kiali-operator
+  resources:
+  - deployments/finalizers
+  verbs:
+  - update
+- apiGroups: ["kiali.io"]
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["apiextensions.k8s.io"]
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["extensions"]
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["route.openshift.io"]
+  resources:
+  - routes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["oauth.openshift.io"]
+  resources:
+  - oauthclients
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["config.openshift.io"]
+  resources:
+  - clusteroperators
+  verbs:
+  - list
+  - watch
+- apiGroups: ["config.openshift.io"]
+  resourceNames:
+  - kube-apiserver
+  resources:
+  - clusteroperators
+  verbs:
+  - get
+- apiGroups: ["console.openshift.io"]
+  resources:
+  - consolelinks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["monitoring.kiali.io"]
+  resources:
+  - monitoringdashboards
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# The permissions below are for Kiali itself; operator needs these so it can escalate when creating Kiali's roles
+- apiGroups: [""]
+  resources:
+  - configmaps
+  - endpoints
+  - namespaces
+  - nodes
+  - pods
+  - pods/log
+  - replicationcontrollers
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["extensions", "apps"]
+  resources:
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["autoscaling"]
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["batch"]
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.istio.io
+  - networking.istio.io
+  - authentication.istio.io
+  - rbac.istio.io
+  - security.istio.io
+  resources: ["*"]
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups: ["authentication.maistra.io"]
+  resources:
+  - servicemeshpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups: ["rbac.maistra.io"]
+  resources:
+  - servicemeshrbacconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups: ["apps.openshift.io"]
+  resources:
+  - deploymentconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["project.openshift.io"]
+  resources:
+  - projects
+  verbs:
+  - get
+- apiGroups: ["route.openshift.io"]
+  resources:
+  - routes
+  verbs:
+  - get
+- apiGroups: ["monitoring.kiali.io"]
+  resources:
+  - monitoringdashboards
+  verbs:
+  - get
+  - list
+- apiGroups: ["iter8.tools"]
+  resources:
+  - experiments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kiali-operator
+  namespace: istio-system
+  labels:
+    app: kiali-operator
+    version: v1.18
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kiali-operator
+  labels:
+    app: kiali-operator
+    version: v1.18
+subjects:
+- kind: ServiceAccount
+  name: kiali-operator
+  namespace: istio-system
+roleRef:
+  kind: ClusterRole
+  name: kiali-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiali-operator
+  namespace: istio-system
+  labels:
+    app: kiali-operator
+    version: v1.18
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kiali-operator
+  template:
+    metadata:
+      name: kiali-operator
+      labels:
+        app: kiali-operator
+        # required for the operator SDK metric service selector
+        name: kiali-operator
+        version: v1.18
+      annotations:
+        prometheus.io/scrape: "true"
+    spec:
+      serviceAccountName: kiali-operator
+      containers:
+      - name: operator
+        image: quay.io/kiali/kiali-operator:v1.18
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /tmp/ansible-operator/runner
+          name: runner
+        env:
+        - name: WATCH_NAMESPACE
+          value: istio-system
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: OPERATOR_NAME
+          value: "kiali-operator"
+        - name: ANSIBLE_DEBUG_LOGS
+          value: "True"
+        ports:
+        - name: http-metrics
+          containerPort: 8383
+        - name: cr-metrics
+          containerPort: 8686
+      volumes:
+      - name: runner
+        emptyDir: {}
+---
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: kiali
+  namespace: istio-system
+spec:
+  deployment:
+    accessible_namespaces: ["**"]
+  auth:
+    strategy: anonymous

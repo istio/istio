@@ -1,9 +1,60 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: istio-reader
+    release: istio
+  name: istio-reader-istio-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-reader-istio-system
+subjects:
+- kind: ServiceAccount
+  name: my-service-role
+  namespace: istio-system
+---
+
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    app: sidecar-injector
+    istio.io/rev: default
+    release: istio
+  name: istio-sidecar-injector-istio-control
+webhooks:
+- clientConfig:
+    caBundle: ""
+    service:
+      name: foo
+      namespace: istio-control
+      path: /inject
+  failurePolicy: Fail
+  name: sidecar-injector.istio.io
+  namespaceSelector:
+    matchLabels:
+      istio-injection: enabled
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+---
+
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
     app: istiod
     istio: pilot
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-control
@@ -18,44 +69,14 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
         istio: pilot
+        istio.io/rev: default
     spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
       containers:
       - args:
         - discovery
@@ -67,8 +88,6 @@ spec:
         - --keepaliveMaxServerConnectionAge
         - 60m
         env:
-        - name: REVISION
-          value: default
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
@@ -81,8 +100,8 @@ spec:
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
+              apiVersion: v2
+              fieldPath: metadata.myPath
         - name: SERVICE_ACCOUNT
           valueFrom:
             fieldRef:
@@ -90,30 +109,27 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: CONFIG_NAMESPACE
-          value: istio-config
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "false"
+          value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
-          value: istio-sidecar-injector
+          value: istio-sidecar-injector-istio-control
         - name: ISTIOD_ADDR
           value: istiod.istio-control.svc:15012
-        - name: PILOT_EXTERNAL_GALLEY
+        - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        envFrom:
-        - configMapRef:
-            name: istiod
-            optional: true
+        - name: CENTRAL_ISTIOD
+          value: "false"
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
         - containerPort: 1234
         - containerPort: 15010
         - containerPort: 15017
+        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -125,13 +141,6 @@ spec:
           requests:
             cpu: 123m
             memory: 2048Mi
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
@@ -146,12 +155,9 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
-        - mountPath: /var/lib/istio/local
-          name: istiod
-          readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -163,17 +169,12 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istiod
-          optional: true
-        name: istiod
       - name: cacerts
         secret:
           optional: true
           secretName: cacerts
       - configMap:
           name: istio-sidecar-injector
-          optional: true
         name: inject
       - configMap:
           name: istio
@@ -186,6 +187,8 @@ kind: Service
 metadata:
   labels:
     app: istiod
+    istio: pilot
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-control
@@ -200,6 +203,14 @@ spec:
     targetPort: 15017
   - name: http-monitoring
     port: 15014
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: 15053
+  - name: dns-tls
+    port: 853
+    protocol: TCP
+    targetPort: 15053
   selector:
     app: istiod
     istio: pilot

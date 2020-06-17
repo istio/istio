@@ -10,7 +10,7 @@ FROM docker.io/istio/base:${BASE_VERSION} as default
 USER 1337:1337
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM gcr.io/distroless/static@sha256:23aa732bba4c8618c0d97c26a72a32997363d591807b0d4c31b0bbc8a774bddf as distroless
+FROM gcr.io/distroless/static-debian10@sha256:4433370ec2b3b97b338674b4de5ffaef8ce5a38d1c9c0cb82403304b8718cde9 as distroless
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006

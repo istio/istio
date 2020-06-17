@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,9 +29,7 @@ import (
 	"testing"
 	"time"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-
-	"istio.io/api/networking/v1alpha3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
@@ -69,10 +67,7 @@ func TestEds(t *testing.T) {
 		server.EnvoyXdsServer.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 		server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 			newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
-	},
-		func(args *bootstrap.PilotArgs) {
-			args.MeshConfig.LocalityLbSetting = &v1alpha3.LocalityLoadBalancerSetting{}
-		})
+	})
 	defer tearDown()
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
@@ -310,7 +305,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         fmt.Sprintf("10.10.10.10"),
+			Address:         "10.10.10.10",
 			ServicePortName: "http",
 			EndpointPort:    80,
 			Locality:        model.Locality{Label: asdcLocality},
@@ -323,7 +318,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         fmt.Sprintf("10.10.10.11"),
+			Address:         "10.10.10.11",
 			ServicePortName: "http",
 			EndpointPort:    80,
 			Locality:        model.Locality{Label: asdc2Locality},
@@ -387,9 +382,10 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 
 	server.EnvoyXdsServer.Push(&model.PushRequest{
 		Full: true,
-		EdsUpdates: map[string]struct{}{
-			"overlapping.cluster.local": {},
-		}})
+		ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			Kind: model.ServiceEntryKind,
+			Name: "overlapping.cluster.local",
+		}: {}}})
 	_, _ = adsc.Wait(5 * time.Second)
 
 	// After the incremental push, we should still see the endpoint
@@ -618,7 +614,19 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			log.Println("Waiting for pushes ", id)
 
 			// Pushes may be merged so we may not get nPushes pushes
-			_, err = adscConn.Wait(15*time.Second, "eds")
+			got, err := adscConn.Wait(15*time.Second, "eds")
+
+			// If in incremental mode, shouldn't receive cds|rds|lds here
+			if inc {
+				for _, g := range got {
+					if g == "cds" || g == "rds" || g == "lds" {
+						errChan <- fmt.Errorf("should be eds incremental but received cds. %v %v",
+							err, id)
+						return
+					}
+				}
+			}
+
 			atomic.AddInt32(&rcvPush, 1)
 			if err != nil {
 				log.Println("Recv failed", err, id)
@@ -643,13 +651,13 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	for j := 0; j < nPushes; j++ {
 		if inc {
 			// This will be throttled - we want to trigger a single push
-			updates := map[string]struct{}{
-				edsIncSvc: {},
-			}
 			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
-				Full:       true,
-				EdsUpdates: updates,
-				Push:       server.EnvoyXdsServer.Env.PushContext,
+				Full: false,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{{
+					Kind: model.ServiceEntryKind,
+					Name: edsIncSvc,
+				}: {}},
+				Push: server.EnvoyXdsServer.Env.PushContext,
 			})
 		} else {
 			v2.AdsPushAll(server.EnvoyXdsServer)

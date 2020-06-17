@@ -1,0 +1,6 @@
+apiVersion: networking.istio.io/v1beta1
+kind: WorkloadEntry
+metadata:
+  name: valid-workload-entry
+spec:
+  address: ""

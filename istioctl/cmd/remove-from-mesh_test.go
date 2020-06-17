@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,11 +51,11 @@ var (
 							Labels: map[string]string{"app": "details"},
 						},
 						Spec: coreV1.PodSpec{
-							Containers: []v1.Container{
+							Containers: []coreV1.Container{
 								{Name: "details", Image: "docker.io/istio/examples-bookinfo-details-v1:1.15.0"},
 								{Name: "istio-proxy", Image: "docker.io/istio/proxyv2:1.2.2"},
 							},
-							InitContainers: []v1.Container{
+							InitContainers: []coreV1.Container{
 								{Name: "istio-init", Image: "docker.io/istio/proxy_init:1.2.2"},
 							},
 						},

@@ -1,0 +1,124 @@
+admin:
+  access_log_path: {{.AccessLogPath}}
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: {{.Ports.AdminPort}}
+node:
+  id: id
+  cluster: sdstest
+static_resources:
+  clusters:
+  - name: backend
+    connect_timeout: 5s
+    hosts:
+    - socket_address:
+        address: 127.0.0.1
+        port_value: {{.Ports.BackendPort}}
+    type: STATIC
+  - name: outbound_cluster_tls
+    connect_timeout: 5s
+    max_requests_per_connection: 1
+    hosts:
+    - socket_address:
+        address: 127.0.0.1
+        port_value: {{.Ports.ServerProxyPort}}
+    type: STATIC
+    tls_context:
+      common_tls_context:
+        tls_certificate_sds_secret_configs:
+          - name: "outbound-sds"
+            sds_config:
+              api_config_source:
+                api_type: GRPC
+                grpc_services:
+                  - envoy_grpc:
+                      cluster_name: "sds-grpc"
+                refresh_delay: 60s
+        combined_validation_context:
+          default_validation_context: {}
+          validation_context_sds_secret_config:
+            name: ROOTCA
+            sds_config:
+              api_config_source:
+                api_type: GRPC
+                grpc_services:
+                - envoy_grpc:
+                    cluster_name: sds-grpc
+  - name: sds-grpc
+    type: STATIC
+    http2_protocol_options: {}
+    connect_timeout: 5s
+    lb_policy: ROUND_ROBIN
+    hosts:
+    - pipe:
+        path: {{.SDSPath}}
+  listeners:
+  - name: outbound_listener
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: {{.Ports.ClientProxyPort}}
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        config:
+          codec_type: auto
+          stat_prefix: outbound
+          http_filters:
+          - name: envoy.router
+          route_config:
+            name: outbound_cluster_tls
+            virtual_hosts:
+            - name: outbound_cluster_tls
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: /
+                route:
+                  cluster: outbound_cluster_tls
+  - name: inbound_listener_tls
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: {{.Ports.ServerProxyPort}}
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager 
+        config:
+          codec_type: auto
+          stat_prefix: inbound
+          http_filters:
+          - name: envoy.router
+          route_config:
+            name: backend
+            virtual_hosts:
+            - name: backend  
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: /
+                route:
+                  cluster: backend
+      tls_context:
+        common_tls_context:
+          tls_certificate_sds_secret_configs:
+            - name: "inbound-sds"
+              sds_config:
+                api_config_source:
+                  api_type: GRPC
+                  grpc_services:
+                    - envoy_grpc:
+                        cluster_name: "sds-grpc"
+                  refresh_delay: 60s
+          combined_validation_context:
+            default_validation_context: {}
+            validation_context_sds_secret_config:
+              name: ROOTCA
+              sds_config:
+                api_config_source:
+                  api_type: GRPC
+                  grpc_services:
+                  - envoy_grpc:
+                      cluster_name: sds-grpc
+          

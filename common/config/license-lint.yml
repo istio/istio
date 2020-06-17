@@ -1,5 +1,6 @@
 unrestricted_licenses:
   - Apache-2.0
+  - CC-BY-3.0
   - ISC
   - AFL-2.1
   - AFL-3.0
@@ -9,6 +10,7 @@ unrestricted_licenses:
   - BSD-1-Clause
   - BSD-2-Clause
   - BSD-3-Clause
+  - 0BSD
   - FTL
   - LPL-1.02
   - MS-PL
@@ -32,6 +34,7 @@ reciprocal_licenses:
   - MPL-1.0
   - MPL-1.1
   - MPL-2.0
+  - MPL-2.0-no-copyleft-exception
   - Ruby
 
 restricted_licenses:
@@ -97,8 +100,13 @@ whitelisted_modules:
   - github.com/libopenstorage/openstorage
   - github.com/logrusorgru/aurora
   - github.com/magiconair/properties
+
+  # MIT licenses but not correctly identified
   - github.com/Masterminds/semver
   - github.com/Masterminds/sprig
+  - github.com/Masterminds/squirrel
+  - github.com/Masterminds/vcs
+
   - github.com/mesos/mesos-go
   - github.com/miekg/dns
   - github.com/munnerz/goautoneg
@@ -111,8 +119,10 @@ whitelisted_modules:
   - github.com/projectcalico/go-yaml
   - github.com/projectcalico/go-yaml-wrapper
   - github.com/rcrowley/go-metrics
+  - github.com/yvasiyarov/go-metrics # fork of above with identical license
   - github.com/russross/blackfriday
   - github.com/russross/blackfriday/v2
+  - gopkg.in/russross/blackfriday.v2
   - github.com/sean-/seed
   - github.com/smartystreets/assertions
   - github.com/smartystreets/goconvey
@@ -147,6 +157,23 @@ whitelisted_modules:
   # The core library is MIT licensed, but a submodule imports a BSD-3 license that licensee fails to correctly identify
   - github.com/vektah/gqlparser
 
+  # Apache 2.0
+  - github.com/spf13/cobra
+  - github.com/spf13/afero
+
+  # BSD-3 by pointer to another repo (github.com/gonum/license/blob/master/LICENSE)
+  - gonum.org/v1/plot
+
+  # FTL (https://github.com/golang/freetype/blob/master/licenses/ftl.txt)
+  - github.com/golang/freetype
+
+  # CC-BY-3
+  - github.com/ajstarks/svgo
+
+  # MIT
+  - github.com/dgryski/go-metro
+  - github.com/hhatto/gorst
+
   - github.com/ziutek/mymysql
   - gopkg.in/check.v1
   - gopkg.in/mgo.v2
@@ -155,7 +182,31 @@ whitelisted_modules:
   - gopkg.in/yaml.v3
   - gotest.tools
   - istio.io/tools
+
+  # Helm is Apache 2.0: https://github.com/helm/helm/blob/master/LICENSE
+  # However, it has a bunch of LICENSE test files that our linter fails to understand
   - k8s.io/helm
+  - helm.sh/helm/v3
+
   - k8s.io/kubernetes
   - modernc.org/cc
   - sigs.k8s.io/yaml
+
+  # BSD-3: https://github.com/phayes/freeport/blob/master/LICENSE.md
+  - github.com/phayes/freeport
+
+  # Apache 2.0: https://github.com/xeipuuv/gojsonschema/blob/master/LICENSE-APACHE-2.0.txt
+  - github.com/xeipuuv/gojsonschema
+
+  # Apache 2.0 (but missing appendix): https://github.com/garyburd/redigo/blob/master/LICENSE
+  - github.com/garyburd/redigo
+  - github.com/gomodule/redigo
+
+  # Apache 2.0: https://github.com/xdg/scram/blob/master/LICENSE
+  - github.com/xdg/scram
+
+  # Apache 2.0: https://github.com/xdg/stringprep/blob/master/LICENSE
+  - github.com/xdg/stringprep
+
+  # BSD-3: https://github.com/golang/tools/blob/master/LICENSE
+  - golang.org/x/tools

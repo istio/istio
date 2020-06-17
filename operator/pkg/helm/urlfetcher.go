@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,18 +23,20 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/operator/pkg/version"
-
 	"github.com/mholt/archiver"
 
 	"istio.io/istio/operator/pkg/httprequest"
+	"istio.io/istio/operator/pkg/version"
 )
 
 const (
 	// InstallationDirectory is temporary folder name for caching downloaded installation packages.
 	InstallationDirectory = "istio-install-packages"
 	// OperatorSubdirFilePath is file path of installation packages to helm charts.
-	OperatorSubdirFilePath = "install/kubernetes/operator"
+	OperatorSubdirFilePath = "manifests"
+	// OperatorSubdirFilePath15 is the file path of installation packages to helm charts for 1.5 and earlier.
+	// TODO: remove in 1.7.
+	OperatorSubdirFilePath15 = "install/kubernetes/operator"
 )
 
 // URLFetcher is used to fetch and manipulate charts from remote url
@@ -121,13 +123,19 @@ func DownloadTo(srcURL, dest string) (string, error) {
 func URLToDirname(url string) (string, *version.Version, error) {
 	fn := path.Base(url)
 	fv := strings.Split(fn, "-")
-	if len(fv) < 2 || fv[0] != "istio" {
+	fvl := len(fv)
+	if fvl < 2 || fv[0] != "istio" {
 		return "", nil, fmt.Errorf("wrong format for release tar name, got: %s, expect https://.../istio-{version}-{platform}.tar.gz", url)
 	}
 	ver, err := version.NewVersionFromString(fv[1])
 	if err != nil {
 		return "", nil, err
 	}
-	// get rid of the suffix
-	return fn[:strings.LastIndex(fn, "-")], ver, nil
+	// get rid of the suffix like -linux-arch or -osx
+	if fv[fvl-2] == "linux" {
+		// linux names also have arch appended, trim this off
+		fv = fv[:fvl-1]
+	}
+
+	return strings.Join(fv[:len(fv)-1], "-"), ver, nil
 }

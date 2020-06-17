@@ -1,4 +1,4 @@
-# K8s object with invalid Istio annotations
+# K8s object with unknown Istio annotations
 apiVersion: v1
 kind: Service
 metadata:
@@ -17,6 +17,21 @@ spec:
     targetPort: 80
   selector:
     app: httpbin
+---
+# K8s object with invalid Istio annotations
+apiVersion: v1
+kind: Pod
+metadata:
+  name: invalid-annotations
+  annotations:
+    # Validation checks this is an int - this should be invalid
+    readiness.status.sidecar.istio.io/initialDelaySeconds: bar
+    # Validation checks this is an int - this should be valid
+    readiness.status.sidecar.istio.io/periodSeconds: "10"
+spec:
+  containers:
+    - name: "foo"
+      command: ['curl']
 ---
 apiVersion: v1
 kind: Service

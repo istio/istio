@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,53 +16,12 @@ package helm
 
 import (
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"istio.io/istio/operator/pkg/util/httpserver"
 )
-
-type Server struct {
-	srv  *httptest.Server
-	root string
-}
-
-func (s *Server) start() {
-	fd := http.FileServer(http.Dir(s.root))
-	http.Handle(s.root+"/", fd)
-	s.srv = httptest.NewServer(fd)
-}
-
-func (s *Server) URL() string {
-	return s.srv.URL
-}
-
-func NewServer(root string) *Server {
-	srv := &Server{root: root}
-	srv.start()
-	return srv
-}
-
-func (s *Server) moveFiles(origin string) ([]string, error) {
-	files, err := filepath.Glob(origin)
-	if err != nil {
-		return []string{}, err
-	}
-	tmpFiles := make([]string, len(files))
-	for i, file := range files {
-		data, err := ioutil.ReadFile(file)
-		if err != nil {
-			return []string{}, err
-		}
-		newName := filepath.Join(s.root, filepath.Base(file))
-		if err := ioutil.WriteFile(newName, data, 0755); err != nil {
-			return []string{}, err
-		}
-		tmpFiles[i] = newName
-	}
-	return tmpFiles, nil
-}
 
 func TestFetch(t *testing.T) {
 	tests := []struct {
@@ -80,14 +39,14 @@ func TestFetch(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	server := NewServer(tmp)
-	defer server.srv.Close()
-	if _, err := server.moveFiles("testdata/*.tar.gz*"); err != nil {
+	server := httpserver.NewServer(tmp)
+	defer server.Close()
+	if _, err := server.MoveFiles("testdata/*.tar.gz*"); err != nil {
 		t.Error(err)
 		return
 	}
 	for _, tt := range tests {
-		outdir := filepath.Join(server.root, "testout")
+		outdir := filepath.Join(server.Root, "testout")
 		os.RemoveAll(outdir)
 		os.Mkdir(outdir, 0755)
 		fq := NewURLFetcher(server.URL()+"/"+tt.installationPackageName, tmp+"/testout")
