@@ -46,8 +46,8 @@ var (
 )
 
 var (
-	// Can be used by Envoy or istioctl debug tools.
-	xdsAddr = env.RegisterStringVar("XDS_LOCAL", "127.0.0.1:15002",
+	// Can be used by Envoy or istioctl debug tools. Recommended value: 127.0.0.1:15002
+	xdsAddr = env.RegisterStringVar("XDS_LOCAL", "",
 		"Address for a local XDS proxy. If empty, the proxy is disabled")
 
 )
@@ -57,6 +57,12 @@ var (
 // adsc would be used to get MCP-over-XDS, and the server would generate
 // configs.
 func (sa *Agent) initXDS() {
+	if sa.LocalXDSAddr == "" {
+		sa.LocalXDSAddr = xdsAddr.Get() // default using the env.
+	}
+	if sa.LocalXDSAddr == "" {
+		return // not enabled
+	}
 	s := xds.NewXDS()
 	sa.xdsServer = s
 
@@ -84,26 +90,22 @@ func (sa *Agent) initXDS() {
 	serverOptions.GrpcServer = grpc.NewServer()
 
 	var err error
-	if sa.LocalXDSAddr == "" {
-		sa.LocalXDSAddr = xdsAddr.Get() // default using the env.
+	sa.localListener, err = net.Listen("tcp", sa.LocalXDSAddr)
+	if err != nil {
+		log.Errorf("Failed to set up TCP path: %v", err)
 	}
-	if sa.LocalXDSAddr != "" {
-		sa.localListener, err = net.Listen("tcp", sa.LocalXDSAddr)
-		if err != nil {
-			log.Errorf("Failed to set up TCP path: %v", err)
-		}
-		sa.localGrpcServer = grpc.NewServer()
-		s.DiscoveryServer.Register(sa.localGrpcServer)
-		sa.LocalXDSListener = sa.localListener
-	}
+	sa.localGrpcServer = grpc.NewServer()
+	s.DiscoveryServer.Register(sa.localGrpcServer)
+	sa.LocalXDSListener = sa.localListener
+
 }
 
 // startXDS will start the XDS proxy and client. Will connect to Istiod (or XDS server),
 // and start fetching configs to be cached.
+// If 'RequireCerts' is set, will attempt to get certificates. Will then attempt to connect to
+// the XDS server (istiod), and fetch the initial config. Once the config is ready, will start the
+// local XDS proxy and return.
 func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.SecretManager) error {
-	// TODO: handle certificates and security - similar with the
-	// code we generate for envoy !
-
 	cfg := &adsc.Config{}
 	if sa.RequireCerts {
 		cfg.Secrets = secrets
@@ -111,10 +113,9 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.Sec
 	ads, err := adsc.Dial(proxyConfig.DiscoveryAddress,
 		"", cfg)
 	if err != nil {
-		// Exit immediately - the XDS server is not reachable. The sidecar should restart.
-		// TODO: we can also return an error, but eventually it should still exit - and let
-		// k8s report and deal with restarts.
-		log.Fatala("Failed to connect to XDS server ", err)
+		// Error to be handled by caller - probably by exit if
+		// we are in 'envoy using proxy' mode.
+		return err
 	}
 
 	ads.LocalCacheDir = savePath.Get()

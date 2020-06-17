@@ -98,6 +98,9 @@ func TestAgent(t *testing.T) {
 				ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
 			}, "custom", "", "", "kubernetes")
 
+		// Enable proxy - off by default, will be XDS_LOCAL env in install.
+		sa.LocalXDSAddr = "127.0.0.1:15002"
+
 		// Override agent auth - start will use this instead of a gRPC
 		// TODO: add a test for cert-based config.
 		// TODO: add a test for JWT-based ( using some mock OIDC in Istiod)

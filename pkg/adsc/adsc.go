@@ -26,12 +26,13 @@ import (
 	"sync"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/cenkalti/backoff"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -40,7 +41,6 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -89,6 +89,9 @@ type Config struct {
 
 	// Secrets is the interface used for getting keys and rootCA.
 	Secrets cache.SecretManager
+
+	// backoffPolicy determines the reconnect policy. Based on MCP client.
+	BackoffPolicy backoff.BackOff
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -174,6 +177,7 @@ type ADSC struct {
 	// ResponseHandler will be called on each DiscoveryResponse.
 	// TODO: mirror Generator, allow adding handler per type
 	ResponseHandler ResponseHandler
+
 }
 
 type ResponseHandler interface {
@@ -192,6 +196,24 @@ const (
 var (
 	adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 )
+
+// New creates a new ADSC, maintaining a connection to an XDS server.
+// Will:
+// - get certificate using the Secret provider, if CertRequired
+// - connect to the XDS server specified in ProxyConfig
+// - send initial request for watched resources
+// - wait for respose from XDS server
+// - on success, start a background thread to maintain the connection, with exp. backoff.
+func New(proxyConfig *v1alpha1.ProxyConfig, opts *Config) (*ADSC, error) {
+	// We want to reconnect
+	if opts.BackoffPolicy == nil {
+		opts.BackoffPolicy = backoff.NewExponentialBackOff()
+	}
+
+	adsc, err := Dial(proxyConfig.DiscoveryAddress, "", opts)
+
+	return adsc, err
+}
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
@@ -373,17 +395,31 @@ func (a *ADSC) hasSynced() bool {
 	return true
 }
 
+func (a *ADSC) reconnect() {
+	err := a.Run()
+	if err == nil {
+		a.cfg.BackoffPolicy.Reset()
+	} else {
+		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
+	}
+}
+
 func (a *ADSC) handleRecv() {
 	for {
 		var err error
 		msg, err := a.stream.Recv()
 		if err != nil {
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
-			a.RecvWg.Done()
-			a.Close()
-			a.WaitClear()
-			a.Updates <- ""
-			a.XDSUpdates <- nil
+			// if 'reconnect' enabled - schedule a new Run
+			if a.cfg.BackoffPolicy != nil {
+				time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
+			} else {
+				a.RecvWg.Done()
+				a.Close()
+				a.WaitClear()
+				a.Updates <- ""
+				a.XDSUpdates <- nil
+			}
 			return
 		}
 

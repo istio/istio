@@ -366,7 +366,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 		return nil, err
 	}
 
-	// Start the XDS for envoy.
+	// Start the XDS client and proxy.
 	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets)
 	if err != nil {
 		return nil, err
