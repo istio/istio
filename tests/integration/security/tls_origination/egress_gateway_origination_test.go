@@ -257,14 +257,6 @@ spec:
         protocol: HTTP
       hosts:
         - some-external-site.com
-    - port:
-        number: 443
-        name: https-port-for-tls-origination
-        protocol: HTTPS
-      hosts:
-        - some-external-site.com
-      tls:
-        mode: ISTIO_MUTUAL
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -295,26 +287,12 @@ spec:
         - destination:
             host: istio-egressgateway.istio-system.svc.cluster.local
             port:
-              number: 443
+              number: 80
           weight: 100
     - match:
         - gateways:
             - istio-egressgateway
           port: 80
-      route:
-        - destination:
-            host: destination.{{.AppNamespace}}.svc.cluster.local
-            port:
-              number: 80
-          weight: 100
-      headers:
-        request:
-          add:
-            handled-by-egress-gateway: "true"
-    - match:
-        - gateways:
-            - istio-egressgateway
-          port: 443
       route:
         - destination:
             host: destination.{{.AppNamespace}}.svc.cluster.local
