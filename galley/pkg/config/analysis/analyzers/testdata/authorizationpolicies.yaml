@@ -179,10 +179,26 @@ spec:
         - key: request.auth.claims[iss]
           values: ["https://accounts.google.com"]
 ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod-httpbin
+  labels:
+    istio-injection: "enabled"
+spec: {}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: httpbin-test
+  labels:
+    istio-injection: "enabled"
+spec: {}
+---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: httpbin-bogus-ns # Invalid: there is one namespace listed that doesn't exist
+  name: httpbin-bogus-ns # Invalid: there is one source namespace expr that doesn't match any namespace
   namespace: httpbin
 spec:
   selector:
@@ -194,7 +210,13 @@ spec:
         - source:
             principals: ["cluster.local/ns/default/sa/sleep"]
         - source:
-            namespaces: ["bogus-ns"] # This namespace doesn't exist in the mesh
+            namespaces:
+              - "prod-*"
+              - "*-test"
+              - "*-bogus" # No namespace matching
+              - "bogus-*" # No namespace matching
+              - "*"
+              - "httpbin"
       to:
         - operation:
             methods: ["GET"]

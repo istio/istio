@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -158,12 +158,38 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 	for _, rule := range ap.Rules {
 		for _, from := range rule.From {
 			for _, ns := range from.Source.Namespaces {
-				if !c.Exists(collections.K8SCoreV1Namespaces.Name(), resource.NewFullName("", resource.LocalName(ns))) {
+				if !matchNamespace(ns, c) {
 					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewReferencedResourceNotFound(r, "namespace", ns))
 				}
 			}
 		}
 	}
+}
+
+func matchNamespace(exp string, c analysis.Context) bool {
+	match := false
+	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
+		ns := r.Metadata.FullName.String()
+		match = prefixSuffixExactMatch(ns, exp)
+		return !match
+	})
+
+	return match
+}
+
+func prefixSuffixExactMatch(ns, exp string) bool {
+	match := false
+	if strings.EqualFold(exp, "*") {
+		match = true
+	} else if strings.HasPrefix(exp, "*") {
+		match = strings.HasSuffix(ns, strings.TrimPrefix(exp, "*"))
+	} else if strings.HasSuffix(exp, "*") {
+		match = strings.HasPrefix(ns, strings.TrimSuffix(exp, "*"))
+	} else {
+		match = strings.EqualFold(ns, exp)
+	}
+
+	return match
 }
 
 func (a *AuthorizationPoliciesAnalyzer) analyzeHostNotFound(r *resource.Instance, c analysis.Context,
