@@ -128,9 +128,7 @@ spec:
 				BuildOrFail(t)
 
 			for _, tt := range []string{"grpc", "http", "tcp"} {
-				ctx.NewSubTest(tt).
-					Features("security.egress.mtls").
-					Run(func(ctx framework.TestContext) {
+				t.Run(tt, func(t *testing.T) {
 					retry.UntilSuccessOrFail(ctx, func() error {
 						opts := echo.CallOptions{
 							Target:   server,

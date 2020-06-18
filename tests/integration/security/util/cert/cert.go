@@ -131,3 +131,55 @@ func ReadSampleCertFromFile(f string) ([]byte, error) {
 	}
 	return b, nil
 }
+
+// CreateCustomEgressSecret creates a k8s secret "cacerts" to store egress gateways CA key and cert.
+func CreateCustomEgressSecret(ctx resource.Context) error {
+	name := "cacerts"
+	systemNs, err := namespace.ClaimSystemNamespace(ctx)
+	if err != nil {
+		return err
+	}
+
+	var caKey, certChain, rootCert, fakeRootCert []byte
+	if caKey, err = ReadCustomCertFromFile("key.pem"); err != nil {
+		return err
+	}
+	if certChain, err = ReadCustomCertFromFile("cert-chain.pem"); err != nil {
+		return err
+	}
+	if rootCert, err = ReadCustomCertFromFile("root-cert.pem"); err != nil {
+		return err
+	}
+	if fakeRootCert, err = ReadCustomCertFromFile("fake-root-cert.pem"); err != nil {
+		return err
+	}
+
+	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: systemNs.Name(),
+		},
+		Data: map[string][]byte{
+			"key.pem":            caKey,
+			"cert-chain.pem":     certChain,
+			"root-cert.pem":      rootCert,
+			"fake-root-cert.pem": fakeRootCert,
+		},
+	}
+
+	_, err = kubeAccessor.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ReadCustomCertFromFile(f string) ([]byte, error) {
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}

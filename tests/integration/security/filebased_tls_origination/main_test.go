@@ -17,6 +17,8 @@ package egressgatewayorigination
 import (
 	"testing"
 
+	"istio.io/istio/tests/integration/security/util/cert"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -37,7 +39,8 @@ func TestMain(m *testing.M) {
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
 		RequireSingleCluster().
-		Setup(istio.Setup(&inst, setupConfig)).
+		Label("CustomSetup").
+		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
@@ -55,5 +58,8 @@ func setupConfig(cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 components:
   egressGateways:
-  - enabled: true`
+  - enabled: true
+  ingressGateways:
+  - enabled: false
+`
 }

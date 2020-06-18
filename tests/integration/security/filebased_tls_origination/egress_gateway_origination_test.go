@@ -23,6 +23,11 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+
 	"istio.io/istio/pkg/test/framework/resource"
 
 	"io/ioutil"
@@ -30,7 +35,6 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -43,7 +47,7 @@ import (
 )
 
 func mustReadCert(t *testing.T, f string) string {
-	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs", f))
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}
@@ -56,37 +60,93 @@ func mustReadCert(t *testing.T, f string) string {
 // are routed securely through the egress gateway and that the TLS origination happens at the gateway.
 func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.egress.tls").
+		Features("security.egress.tls.filebased").
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
 
-			client, server, appNamespace, serviceNamespace := setupEcho(t, ctx)
+			internalClient, externalServer, appNamespace, _ := setupEcho(t, ctx)
 
 			testCases := map[string]struct {
 				destinationRuleMode string
 				response            []string
-				portName            string
+				gateway             bool //  If gateway is true, request is expected to pass through the egress gateway
+				fakeRootCert        bool // If Fake root cert is to be used to verify server's presented certificate
 			}{
+				// Mutual Connection is originated by our DR but server side drops the connection to
+				// only use Simple TLS as it doesn't verify client side cert
+				// TODO: mechanism to enforce mutual TLS(client cert) validation by the server
+				"Mutual TLS origination from egress gateway to https endpoint": {
+					destinationRuleMode: "MUTUAL",
+					response:            []string{response.StatusCodeOK},
+					gateway:             true,
+					fakeRootCert:        false,
+				},
 				"SIMPLE TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "SIMPLE",
 					response:            []string{response.StatusCodeOK},
-					portName:            "http",
+					gateway:             true,
+					fakeRootCert:        false,
 				},
-				"No TLS origination from egress gateway to http endpoint": {
+				"No TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "DISABLE",
 					response:            []string{response.StatusCodeBadRequest},
-					portName:            "http",
+					gateway:             false, // 400 response will not contain header
+				},
+				// Egress Gateway can't "originate" ISTIO_MUTUAL to server as the server is outside the mesh and has no
+				// sidecar proxy
+				"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint with strict mTLS": {
+					destinationRuleMode: "ISTIO_MUTUAL",
+					response:            []string{response.StatusCodeBadRequest},
+					gateway:             false, // 400 response will not contain header
+					fakeRootCert:        false,
+				},
+				"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
+					destinationRuleMode: "SIMPLE",
+					response:            []string{response.StatusCodeBadRequest},
+					gateway:             false, // 400 response will not contain header
+					fakeRootCert:        true,
 				},
 			}
 
 			for name, tc := range testCases {
+				// Test cases:
+				// 1. Mutual TLS origination from egress gateway to https endpoint:
+				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//      VS Routing (add Egress Header) --> Egress Gateway(originates mTLS with client certs)
+				//      --> externalServer(443 with only Simple TLS used and client cert is not verified)
+
+				// 2. Simple TLS case:
+				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//      VS Routing (add Egress Header) --> Egress Gateway(originates TLS)
+				//      --> externalServer(443 with TLS enforced)
+
+				// 3. No TLS case:
+				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//      VS Routing (add Egress Header) --> Egress Gateway(does not originate TLS)
+				//      --> externalServer(443 with TLS enforced) request fails as gateway tries plain text only
+
+				// 4. ISTIO_MUTUAL TLS origination case::
+				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//      VS Routing (add Egress Header) --> Egress Gateway(originates istio mutual TLS)
+				//      --> externalServer(443 with TLS enforced)
+				//     request fails as server has no sidecar proxy and istio_mutual case shouldn't be used
+
+				// 5. SIMPLE TLS origination with "fake" root cert::
+				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//      VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
+				//      --> externalServer(443 with TLS enforced)
+				//     request fails as the server cert can't be validated using the fake root cert used during origination
+
 				t.Run(name, func(t *testing.T) {
-					createDestinationRule(t, ctx, appNamespace, serviceNamespace, tc.destinationRuleMode)
+					bufDestinationRule := createDestinationRule(t, appNamespace, tc.destinationRuleMode, tc.fakeRootCert)
+
+					ctx.ApplyConfigOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
+					defer ctx.DeleteConfigOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
 
 					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := client.Call(echo.CallOptions{
-							Target:   server,
-							PortName: tc.portName,
+						resp, err := internalClient.Call(echo.CallOptions{
+							Target:   externalServer,
+							PortName: "http",
 							Headers: map[string][]string{
 								"Host": {"some-external-site.com"},
 							},
@@ -102,7 +162,7 @@ func TestEgressGatewayTls(t *testing.T) {
 							return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
 						}
 						for _, r := range resp {
-							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; !f {
+							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
 								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
 							}
 						}
@@ -114,40 +174,84 @@ func TestEgressGatewayTls(t *testing.T) {
 }
 
 const (
-	// paths to test configs
-	DestinationRuleConfig = `
+	// Destination Rule configs
+	DestinationRuleConfigSimple = `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: originate-tls-for-server
 spec:
-  host: "destination.{{.AppNamespace}}.svc.cluster.local"
+  host: "server.{{.AppNamespace}}.svc.cluster.local"
   trafficPolicy:
     portLevelSettings:
       - port:
           number: 443
         tls:
           mode: {{.Mode}}
+          caCertificates: {{.RootCertPath}}
+
+`
+	// Destination Rule configs
+	DestinationRuleConfigDisabledOrIstioMutual = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: originate-tls-for-server
+spec:
+  host: "server.{{.AppNamespace}}.svc.cluster.local"
+  trafficPolicy:
+    portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: {{.Mode}}
+
+`
+	DestinationRuleConfigMutual = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: originate-mtls-for-server
+spec:
+  host: "server.{{.AppNamespace}}.svc.cluster.local"
+  trafficPolicy:
+    portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: {{.Mode}}
+          clientCertificate: /etc/certs/custom/cert-chain.pem
+          privateKey: /etc/certs/custom/key.pem
+          caCertificates: {{.RootCertPath}}
 `
 )
 
-func createDestinationRule(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance,
-	serviceNamespace namespace.Instance, destinationRuleMode string) {
-	tmpl, err := template.New("DestinationRule").Parse(DestinationRuleConfig)
+func createDestinationRule(t *testing.T, appsNamespace namespace.Instance,
+	destinationRuleMode string, fakeRootCert bool) bytes.Buffer {
+	var destinationRuleToParse string
+	var rootCertPathToUse string
+	if destinationRuleMode == "MUTUAL" {
+		destinationRuleToParse = DestinationRuleConfigMutual
+	} else if destinationRuleMode == "SIMPLE" {
+		destinationRuleToParse = DestinationRuleConfigSimple
+	} else {
+		destinationRuleToParse = DestinationRuleConfigDisabledOrIstioMutual
+	}
+	if fakeRootCert {
+		rootCertPathToUse = "/etc/certs/custom/fake-root-cert.pem"
+	} else {
+		rootCertPathToUse = "/etc/certs/custom/root-cert.pem"
+	}
+	tmpl, err := template.New("DestinationRule").Parse(destinationRuleToParse)
 	if err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name(), "Mode": destinationRuleMode}); err != nil {
+	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name(), "Mode": destinationRuleMode, "RootCertPath": rootCertPathToUse}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.ApplyConfig(serviceNamespace.Name(), buf.String()); err != nil {
-		t.Fatalf("failed to apply destinationRule: %v. template: %v", err, buf.String())
-	}
-	if err := ctx.ApplyConfig(appsNamespace.Name(), buf.String()); err != nil {
-		t.Fatalf("failed to apply destinationRule: %v. template: %v", err, buf.String())
-	}
+	return buf
 }
 
 // setupEcho creates two namespaces app and service. It also brings up two echo instances server and
@@ -165,25 +269,27 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		Inject: true,
 	})
 
-	var client, server echo.Instance
+	var internalClient, externalServer echo.Instance
 	echoboot.NewBuilderOrFail(t, ctx).
-		With(&client, echo.Config{
+		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,
 			Pilot:     p,
-			Subsets:   []echo.SubsetConfig{{}},
+			Ports:     []echo.Port{},
+			Subsets: []echo.SubsetConfig{{
+				Version: "v1",
+			}},
 		}).
-		With(&server, echo.Config{
-			Service:   "destination",
+		With(&externalServer, echo.Config{
+			Service:   "server",
 			Namespace: appsNamespace,
 			Ports: []echo.Port{
 				{
-					// Plain HTTP port
+					// Plain HTTP port only used to route request to egress gateway
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  80,
 					InstancePort: 8080,
-					TLS:          false, // default
 				},
 				{
 					// HTTPS port
@@ -198,25 +304,36 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 			// Set up TLS certs on the server. This will make the server listen with these credentials.
 			TLSSettings: &common.TLSSettings{
 				// Echo has these test certs baked into the docker image
-				RootCert:   mustReadCert(t, "cacert.pem"),
-				ClientCert: mustReadCert(t, "cert.crt"),
-				Key:        mustReadCert(t, "cert.key"),
+				RootCert:   mustReadCert(t, "root-cert.pem"),
+				ClientCert: mustReadCert(t, "cert-chain.pem"),
+				Key:        mustReadCert(t, "key.pem"),
+				// Override hostname to match the SAN in the cert we are using
+				Hostname: "server.default.svc",
 			},
+			Subsets: []echo.SubsetConfig{{
+				Version:     "v1",
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			}},
 		}).
 		BuildOrFail(t)
 
-	// External traffic should work even if we have service entries on the same ports
-	// Only Service namespace is known so that app namespace "appears" to be outside the mesh
+	// Create a sidecarScope to only allow traffic to service namespace so that the traffic only goes
+	// through the egress gateway set up in service namespace. This way client cannot directly call our server
+	// in the same namespace("app") and is forced to route traffic to egress gateway
 	createSidecarScope(t, ctx, appsNamespace, serviceNamespace)
 
-	// Apply Egress Gateway for service namespace to handle external traffic
+	if err := mountCACerts(ctx); err != nil {
+		t.Fatalf("failed to apply gateway patch, %v", err)
+	}
+
+	// Apply Egress Gateway for service namespace to originate external traffic
 	createGateway(t, ctx, appsNamespace, serviceNamespace)
 
-	if err := WaitUntilNotCallable(client, server); err != nil {
+	if err := WaitUntilNotCallable(internalClient, externalServer); err != nil {
 		t.Fatalf("failed to apply sidecar, %v", err)
 	}
 
-	return client, server, appsNamespace, serviceNamespace
+	return internalClient, externalServer, appsNamespace, serviceNamespace
 }
 
 const (
@@ -237,6 +354,8 @@ spec:
 
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
 // we can import only the service namespace, so the apps are not known
+// If some service(client) in appNamespace wants to call another service in appNamespace(server) it cannot
+// directly call it as sidecarScope only allows traffic to serviceNamespace
 func createSidecarScope(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	tmpl, err := template.New("SidecarScope").Parse(SidecarScope)
 	if err != nil {
@@ -267,7 +386,7 @@ spec:
         name: http-port-for-tls-origination
         protocol: HTTP
       hosts:
-        - "some-external-site.com"
+        - some-external-site.com
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -275,7 +394,7 @@ metadata:
   name: route-via-egressgateway
 spec:
   hosts:
-    - "some-external-site.com"
+    - some-external-site.com
   gateways:
     - istio-egressgateway
     - mesh
@@ -296,7 +415,7 @@ spec:
           port: 80
       route:
         - destination:
-            host: destination.{{.AppNamespace}}.svc.cluster.local
+            host: server.{{.AppNamespace}}.svc.cluster.local
             port:
               number: 443
           weight: 100
@@ -308,7 +427,10 @@ spec:
 )
 
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
-// we can import only the service namespace, so the apps are not known
+// we can import only the service namespace, so the apps are not known.
+// If some service(client) in appNamespace wants to call another service in appNamespace(server) it cannot
+// directly call it as sidecarscope only allows traffic to serviceNamespace, Gateway in serviceNamespace
+// then comes into action and receives this "outgoing" traffic to only route it back into appNamespace(server)
 func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	tmpl, err := template.New("Gateway").Parse(Gateway)
 	if err != nil {
@@ -329,7 +451,7 @@ func clusterName(target echo.Instance, port echo.Port) string {
 	return fmt.Sprintf("outbound|%d||%s.%s.svc.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
 }
 
-// Wait for the destination to NOT be callable by the client. This allows us to simulate external traffic.
+// Wait for the server to NOT be callable by the client. This allows us to simulate external traffic.
 // This essentially just waits for the Sidecar to be applied, without sleeping.
 func WaitUntilNotCallable(c echo.Instance, dest echo.Instance) error {
 	accept := func(cfg *envoyAdmin.ConfigDump) (bool, error) {
@@ -355,6 +477,45 @@ func WaitUntilNotCallable(c echo.Instance, dest echo.Instance) error {
 			}
 		}
 	}
+
+	return nil
+}
+
+func mountCACerts(ctx resource.Context) error {
+	systemNs, err := namespace.ClaimSystemNamespace(ctx)
+	if err != nil {
+		return err
+	}
+
+	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	err = kubeAccessor.PatchDeployment(systemNs.Name(), "istio-egressgateway", `
+[{
+  "op": "add",
+  "path": "/spec/template/spec/containers/0/volumeMounts/0",
+  "value": {
+    "mountPath": "/etc/certs/custom",
+    "name": "client-custom-certs",
+    "readOnly": true
+  }
+},
+{
+  "op": "add",
+  "path": "/spec/template/spec/volumes/0",
+  "value": {
+  "name": "client-custom-certs",
+    "secret": {
+      "secretName": "cacerts",
+      "optional": true
+    }
+  }
+}]
+`, types.JSONPatchType)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Figure out if theres a way to poll for readiness instead of sleeping to avoid flakes
+	time.Sleep(time.Second * 40)
 
 	return nil
 }
