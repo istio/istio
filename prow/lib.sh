@@ -144,8 +144,6 @@ function setup_kind_cluster() {
     echo "No existing kind cluster with name ${NAME}. Continue..."
   fi
 
-  modprobe -v ip6table_nat
-
   # explicitly disable shellcheck since we actually want $NAME to expand now
   # shellcheck disable=SC2064
   trap "cleanup_kind_cluster ${NAME}" EXIT
@@ -183,8 +181,7 @@ EOF
   kubectl get nodes -owide
   kubectl describe nodes
   kubectl logs -n kube-system -lapp=kindnet --tail=100000
-  kubectl logs -n kube-system -lapp=kindnet --tail=100000 -p
-  exit 1
+  kubectl logs -n kube-system -lapp=kindnet --tail=100000 -p || true
   kubectl apply -f ./prow/config/metrics
 }
 
