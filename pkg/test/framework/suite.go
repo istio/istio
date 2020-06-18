@@ -111,7 +111,7 @@ func deriveSuiteName(caller string) string {
 }
 
 // NewSuite returns a new suite instance.
-func NewSuite(testID string, m *testing.M) *Suite {
+func NewSuite(m *testing.M) *Suite {
 	_, f, _, _ := goruntime.Caller(1)
 	return newSuite(deriveSuiteName(f),
 		func(_ *suiteContext) int {

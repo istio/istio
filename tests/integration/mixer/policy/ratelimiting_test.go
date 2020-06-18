@@ -149,7 +149,7 @@ func deleteConfigOrFail(t *testing.T, config string, ctx resource.Context) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mixer_policy_ratelimit", m).
+		NewSuite(m).
 		Label(label.CustomSetup).
 		RequireSingleCluster().
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {

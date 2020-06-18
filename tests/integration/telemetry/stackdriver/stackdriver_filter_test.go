@@ -172,7 +172,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("stackdriver_filter_test", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(getIstioInstance(), setupConfig)).
