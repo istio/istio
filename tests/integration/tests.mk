@@ -65,7 +65,7 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # filter out non-standard test directories
-TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
+TEST_PACKAGES ?= $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
 
 test.integration...local:
 	echo "legacy target. This can be removed once the CI job is removed."
