@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	goruntime "runtime"
 	"strings"
 	"sync"
@@ -52,6 +53,21 @@ const (
 var (
 	rt   *runtime
 	rtMu sync.Mutex
+
+	// Well-known paths which are stripped when generating test IDs.
+	// Note: Order matters! Always specify the most specific directory first.
+	wellKnownPaths = mustCompileAll(
+		// This allows us to trim test IDs on the istio.io/istio.io repo.
+		".*/istio.io/istio.io/",
+
+		// These allow us to trim test IDs on istio.io/istio repo.
+		".*/istio.io/istio/tests/integration/",
+		".*/istio.io/istio/",
+
+		// These are also used for istio.io/istio, but make help to satisfy
+		// the feature label enforcement when running with BUILD_WITH_CONTAINER=1.
+		"^/work/tests/integration/",
+		"^/work/")
 )
 
 // getSettingsFunc is a function used to extract the default settings for the Suite.
@@ -78,14 +94,17 @@ type Suite struct {
 // Given the filename of a test, derive its suite name
 func deriveSuiteName(caller string) string {
 	d := filepath.Dir(caller)
-	matches := []string{"istio.io/istio.io", "istio.io/istio", "tests/integration"}
 	// We will trim out paths preceding some well known paths. This should handle anything in istio or docs repo,
 	// as well as special case tests/integration. The end result is a test under ./tests/integration/pilot/ingress
 	// will become pilot_ingress
 	// Note: if this fails to trim, we end up with "ugly" suite names but otherwise no real impact.
-	for _, match := range matches {
-		if i := strings.Index(d, match); i >= 0 {
-			d = d[i+len(match)+1:]
+	for _, wellKnownPath := range wellKnownPaths {
+		// Try removing this path from the directory name.
+		result := wellKnownPath.ReplaceAllString(d, "")
+		if len(result) < len(d) {
+			// Successfully found and removed this path from the directory.
+			d = result
+			break
 		}
 	}
 	return strings.ReplaceAll(d, "/", "_")
@@ -425,4 +444,13 @@ func getSettings(testID string) (*resource.Settings, error) {
 	}
 
 	return resource.SettingsFromCommandLine(testID)
+}
+
+func mustCompileAll(patterns ...string) []*regexp.Regexp {
+	out := make([]*regexp.Regexp, 0, len(patterns))
+	for _, pattern := range patterns {
+		out = append(out, regexp.MustCompile(pattern))
+	}
+
+	return out
 }
