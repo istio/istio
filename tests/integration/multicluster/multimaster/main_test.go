@@ -59,11 +59,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots)
+	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots, "installation.multicluster.multimaster")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, clusterLocalNS, pilots)
+	multicluster.ClusterLocalTest(t, clusterLocalNS, pilots, "installation.multicluster.multimaster")
 }
 
 func TestTelemetry(t *testing.T) {

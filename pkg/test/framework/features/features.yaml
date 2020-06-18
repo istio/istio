@@ -58,3 +58,7 @@ features:
   extensibility:
   # features releated to the lifecycle of istio installations
   installation:
+    multicluster:
+      central-istiod:
+      mutlimaster:
+      remote:
