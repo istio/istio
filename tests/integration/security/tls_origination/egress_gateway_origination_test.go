@@ -68,14 +68,14 @@ func TestEgressGatewayTls(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
 
-			client, server, _, serviceNamespace := setupEcho(t, ctx)
+			client, server, appNamespace, serviceNamespace := setupEcho(t, ctx)
 
 			testCases := map[string]struct {
 				destinationRulePath string
 				response            []string
 				portName            string
 			}{
-				"SIMPLE TLS origination from egress gateway succeeds": {
+				"SIMPLE TLS origination from egress gateway to https endpoint": {
 					destinationRulePath: simpleTLSDestinationRuleConfig,
 					response:            []string{response.StatusCodeOK},
 					portName:            "https",
@@ -106,6 +106,8 @@ func TestEgressGatewayTls(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					ctx.ApplyConfigOrFail(ctx, serviceNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
 					defer ctx.DeleteConfigOrFail(ctx, serviceNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+					ctx.ApplyConfigOrFail(ctx, appNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+					defer ctx.DeleteConfigOrFail(ctx, appNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := client.Call(echo.CallOptions{
@@ -255,6 +257,14 @@ spec:
         protocol: HTTP
       hosts:
         - some-external-site.com
+    - port:
+        number: 443
+        name: https-port-for-tls-origination
+        protocol: HTTPS
+      hosts:
+        - some-external-site.com
+      tls:
+        mode: ISTIO_MUTUAL
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -285,7 +295,7 @@ spec:
         - destination:
             host: istio-egressgateway.istio-system.svc.cluster.local
             port:
-              number: 80
+              number: 443
           weight: 100
     - match:
         - gateways:
