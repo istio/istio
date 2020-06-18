@@ -25,9 +25,9 @@ import (
 	"sync"
 
 	"gopkg.in/square/go-jose.v2"
-	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -134,7 +134,7 @@ func RetrieveSpiffeBundleRootCerts(config []configTuple, extraTrustedCerts []*x5
 	httpClient := &http.Client{}
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get SystemCertPool: %v", err)
+		return nil, fmt.Errorf("failed to get SystemCertPool: %v", err)
 	}
 	for _, cert := range extraTrustedCerts {
 		caCertPool.AddCert(cert)
@@ -147,7 +147,7 @@ func RetrieveSpiffeBundleRootCerts(config []configTuple, extraTrustedCerts []*x5
 		}
 		u, err := url.Parse(tuple.URL)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to split the SPIFFE bundle URL: %v", err)
+			return nil, fmt.Errorf("failed to split the SPIFFE bundle URL: %v", err)
 		}
 
 		config := &tls.Config{
@@ -186,10 +186,10 @@ func RetrieveSpiffeBundleRootCerts(config []configTuple, extraTrustedCerts []*x5
 			}
 		}
 		if cert == nil {
-			return nil, fmt.Errorf("Trust domain [%s] at URL [%s] does not provide a X509 SVID", tuple.TrustDomain, tuple.URL)
+			return nil, fmt.Errorf("trust domain [%s] at URL [%s] does not provide a X509 SVID", tuple.TrustDomain, tuple.URL)
 		}
-		if val, ok := ret[tuple.TrustDomain]; ok {
-			val = append(val, cert)
+		if certs, ok := ret[tuple.TrustDomain]; ok {
+			ret[tuple.TrustDomain] = append(certs, cert)
 		} else {
 			ret[tuple.TrustDomain] = []*x509.Certificate{cert}
 		}
