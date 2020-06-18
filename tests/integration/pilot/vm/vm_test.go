@@ -71,44 +71,50 @@ spec:
 					ServicePort:  8090,
 				},
 			}
-			for i, vmImage := range vmImages {
-				ctx.NewSubTest(vmImage).
-					Run(func(ctx framework.TestContext) {
-						var pod, vm echo.Instance
-						echoboot.NewBuilderOrFail(t, ctx).
-							With(&vm, echo.Config{
-								Service:    fmt.Sprintf("vm-legacy-%v", i),
-								Namespace:  ns,
-								Ports:      ports,
-								Pilot:      p,
-								DeployAsVM: true,
-								VMImage:    vmImage,
-							}).
-							With(&pod, echo.Config{
-								Service:   "pod",
-								Namespace: ns,
-								Ports:     ports,
-								Pilot:     p,
-							}).
-							BuildOrFail(t)
 
-						// Check pod -> VM
-						retry.UntilSuccessOrFail(ctx, func() error {
-							r, err := pod.Call(echo.CallOptions{Target: vm, PortName: "http"})
-							if err != nil {
-								return err
-							}
-							return r.CheckOK()
-						}, retry.Delay(100*time.Millisecond))
-						// Check VM -> pod
-						retry.UntilSuccessOrFail(ctx, func() error {
-							r, err := vm.Call(echo.CallOptions{Target: pod, PortName: "http"})
-							if err != nil {
-								return err
-							}
-							return r.CheckOK()
-						}, retry.Delay(100*time.Millisecond))
-					})
+			var pod echo.Instance
+			vmInstances := make([]echo.Instance, len(vmImages))
+
+			// builder to build the instances iteratively
+			echoBuilder := echoboot.NewBuilderOrFail(t, ctx).
+				With(&pod, echo.Config{
+					Service:   "pod",
+					Namespace: ns,
+					Ports:     ports,
+					Pilot:     p,
+				})
+
+			// build the VM instances in the array
+			for i := 0; i < len(vmImages); i++ {
+				echoBuilder = echoBuilder.With(&(vmInstances[i]), echo.Config{
+					Service:    fmt.Sprintf("vm-legacy-%v", i),
+					Namespace:  ns,
+					Ports:      ports,
+					Pilot:      p,
+					DeployAsVM: true,
+					VMImage:    vmImages[i],
+				})
+			}
+			echoBuilder.BuildOrFail(t)
+
+			for i, vmInstance := range vmInstances {
+				t.Logf("Testing %v", vmImages[i])
+				// Check pod -> VM
+				retry.UntilSuccessOrFail(ctx, func() error {
+					r, err := pod.Call(echo.CallOptions{Target: vmInstance, PortName: "http"})
+					if err != nil {
+						return err
+					}
+					return r.CheckOK()
+				}, retry.Delay(100*time.Millisecond))
+				// Check VM -> pod
+				retry.UntilSuccessOrFail(ctx, func() error {
+					r, err := vmInstance.Call(echo.CallOptions{Target: pod, PortName: "http"})
+					if err != nil {
+						return err
+					}
+					return r.CheckOK()
+				}, retry.Delay(100*time.Millisecond))
 			}
 		})
 }
