@@ -103,6 +103,10 @@ func TestMulticlusterReachability(t *testing.T) {
 	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots)
 }
 
+func TestMulticlusterRouting(t *testing.T) {
+	multicluster.RoutingTest(t, mcReachabilityNS, pilots, "traffic.routing")
+}
+
 func TestClusterLocalService(t *testing.T) {
 	multicluster.ClusterLocalTest(t, clusterLocalNS, pilots)
 }

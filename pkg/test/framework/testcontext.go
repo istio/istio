@@ -268,6 +268,7 @@ func (c *testContext) NewSubTest(name string) *Test {
 		name:   name,
 		parent: c.test,
 		s:      c.test.s,
+		featureLabels: c.test.featureLabels,
 	}
 }
 
