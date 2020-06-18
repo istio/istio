@@ -520,10 +520,6 @@ outbound_traffic_policy_telemetry_v2,TestOutboundTrafficPolicy_RegistryOnly_Tele
 pilot,TestAddToAndRemoveFromMesh
 pilot,TestAuthZCheck
 pilot,TestDescribe
-pilot,TestDestinationRuleTLS
-pilot,TestDestinationRuleTLS/grpc
-pilot,TestDestinationRuleTLS/http
-pilot,TestDestinationRuleTLS/tcp
 pilot,TestMirroring
 pilot,TestMirroringExternalService
 pilot,TestProxyConfig

@@ -72,9 +72,9 @@ func TestEgressGatewayTls(t *testing.T) {
 					response:            []string{response.StatusCodeOK},
 					portName:            "http",
 				},
-				"TLS origination from egress gateway to http endpoint": {
+				"No TLS origination from egress gateway to http endpoint": {
 					destinationRuleMode: "DISABLE",
-					response:            []string{response.StatusCodeUnavailable},
+					response:            []string{response.StatusCodeBadRequest},
 					portName:            "http",
 				},
 			}
@@ -131,7 +131,8 @@ spec:
 `
 )
 
-func createDestinationRule(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance, destinationRuleMode string) {
+func createDestinationRule(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance,
+	serviceNamespace namespace.Instance, destinationRuleMode string) {
 	tmpl, err := template.New("DestinationRule").Parse(DestinationRuleConfig)
 	if err != nil {
 		t.Errorf("failed to create template: %v", err)
