@@ -20,25 +20,5 @@ ROOT=$(dirname "$WD")
 
 set -eux
 
-pkill dockerd
-cat <<EOF > /etc/docker/daemon.json
-{
-  "max-concurrent-uploads": 1
-}
-EOF
-
-daemon -U -- dockerd
-
-echo "Waiting for dockerd to start..."
-while :
-do
-  echo "Checking for running docker daemon."
-  if [[ $(docker info > /dev/null 2>&1) -eq 0 ]]; then
-    echo "The docker daemon is running."
-    break
-  fi
-  sleep 1
-done
-
 
 DRY_RUN=true "${ROOT}"/prow/release-commit.sh
