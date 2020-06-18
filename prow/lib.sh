@@ -144,6 +144,8 @@ function setup_kind_cluster() {
     echo "No existing kind cluster with name ${NAME}. Continue..."
   fi
 
+  modprobe -v ip6table_nat
+
   # explicitly disable shellcheck since we actually want $NAME to expand now
   # shellcheck disable=SC2064
   trap "cleanup_kind_cluster ${NAME}" EXIT
