@@ -177,6 +177,10 @@ EOF
     exit 1
   fi
 
+  kubectl get pods -A -owide
+  kubectl get nodes -owide
+  kubectl describe nodes
+  exit 1
   kubectl apply -f ./prow/config/metrics
 }
 
