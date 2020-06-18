@@ -18,8 +18,7 @@ ENV GOROOT=/usr/local/go \
 RUN curl -o /usr/local/bin/bazel -L https://github.com/bazelbuild/bazelisk/releases/download/v1.1.0/bazelisk-linux-amd64 && \
     chmod +x /usr/local/bin/bazel
 
-RUN ln -s /usr/bin/cmake3 /usr/bin/cmake && \
-    ln -s /usr/bin/ninja-build /usr/bin/ninja
+RUN ln -s /usr/bin/cmake3 /usr/bin/cmake
 
 RUN echo "/opt/rh/httpd24/root/usr/lib64" > /etc/ld.so.conf.d/httpd24.conf && \
     ldconfig
