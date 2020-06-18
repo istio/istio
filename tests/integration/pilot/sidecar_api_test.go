@@ -15,6 +15,9 @@
 package pilot
 
 import (
+	"io/ioutil"
+	"istio.io/istio/pkg/test/env"
+	"path"
 	"testing"
 	"time"
 
@@ -29,6 +32,14 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/structpath"
 )
+
+func mustReadFile(t *testing.T, f string) string {
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
+	if err != nil {
+		t.Fatalf("failed to read %v: %v", f, err)
+	}
+	return string(b)
+}
 
 func TestSidecarListeners(t *testing.T) {
 	framework.
