@@ -86,7 +86,7 @@ func TestEgressGatewayTls(t *testing.T) {
 					portName:            "http",
 				},
 				"No TLS origination from egress gateway to http endpoint": {
-					destinationRulePath: disableTLSDestinationRuleConfig,
+					destinationRulePath: mutualTLSDestinationRuleConfig,
 					response:            []string{response.StatusCodeUnavailable},
 					portName:            "http",
 				},
@@ -165,7 +165,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 				{
 					// HTTPS port
 					Name:         "https",
-					Protocol:     protocol.TLS,
+					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
 					InstancePort: 8443,
 					TLS:          true,
