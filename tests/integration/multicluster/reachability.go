@@ -34,9 +34,9 @@ const mcReachabilitySvcPerCluster = 3
 func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance, feature features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
+		Features(feature).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("reachability").
-				Features(feature).
 				Run(func(ctx framework.TestContext) {
 					// Deploy services in different clusters.
 					// There are multiple instances in each cluster to tease out cases where proxies inconsistently

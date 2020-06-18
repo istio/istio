@@ -34,9 +34,9 @@ import (
 func TelemetryTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance, feature features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
+		Features(feature).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("telemetry").
-				Features(feature).
 				Run(func(ctx framework.TestContext) {
 					clusters := ctx.Environment().Clusters()
 					services := map[resource.ClusterIndex][]*echo.Instance{}

@@ -31,8 +31,9 @@ import (
 // clusterLocalNS have been configured in meshConfig.serviceSettings to be clusterLocal.
 func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []pilot.Instance, feature features.Feature) {
 	framework.NewTest(t).
+		Features(feature).
 		Run(func(ctx framework.TestContext) {
-			ctx.NewSubTest("respect-cluster-local-config").Features(feature).Run(func(ctx framework.TestContext) {
+			ctx.NewSubTest("respect-cluster-local-config").Run(func(ctx framework.TestContext) {
 				clusters := ctx.Environment().Clusters()
 				for i := range clusters {
 					i := i

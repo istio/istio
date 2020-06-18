@@ -67,5 +67,5 @@ func TestClusterLocalService(t *testing.T) {
 }
 
 func TestTelemetry(t *testing.T) {
-	multicluster.TelemetryTest(t, mcReachabilityNS, pilots)
+	multicluster.TelemetryTest(t, mcReachabilityNS, pilots, "installation.multicluster.multimaster")
 }
