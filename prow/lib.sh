@@ -180,6 +180,8 @@ EOF
   kubectl get pods -A -owide
   kubectl get nodes -owide
   kubectl describe nodes
+  kubectl logs -n kube-system -lapp=kindnet --tail=100000
+  kubectl logs -n kube-system -lapp=kindnet --tail=100000 -p
   exit 1
   kubectl apply -f ./prow/config/metrics
 }
