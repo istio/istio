@@ -20,13 +20,12 @@ spec:
           requests:
             cpu: 2000m
   addonComponents:
-    # Grafana is disabled by default, but supported with --set values.grafana.enabled=true
-    # This requires enabling prometheus.
     grafana:
-      enabled: false
-    # Prometheus is disabled by default, but supported with --set values.prometheus.enabled=true
+      enabled: true
     prometheus:
-      enabled: false
+      enabled: true
+    kiali:
+      enabled: true
   values:
     # Protocol sniffing is not supported
     pilot:
