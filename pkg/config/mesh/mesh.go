@@ -87,7 +87,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		ReportBatchMaxTime:          types.DurationProto(1 * time.Second),
 		DisableMixerHttpReports:     true,
 		DisablePolicyChecks:         true,
-		ProtocolDetectionTimeout:    types.DurationProto(100 * time.Millisecond),
+		ProtocolDetectionTimeout:    types.DurationProto(500 * time.Millisecond),
 		IngressService:              "istio-ingressgateway",
 		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
 		IngressClass:                "istio",
