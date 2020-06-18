@@ -34,7 +34,7 @@ import (
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("pilot_test", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `

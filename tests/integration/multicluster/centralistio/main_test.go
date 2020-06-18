@@ -37,7 +37,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("multicluster/centralistio", m).
+		NewSuite(m).
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).

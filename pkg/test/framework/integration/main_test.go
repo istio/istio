@@ -21,5 +21,5 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("framework_test", m).Run()
+	framework.NewSuite(m).Run()
 }

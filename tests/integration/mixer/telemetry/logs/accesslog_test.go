@@ -66,7 +66,7 @@ func TestIstioAccessLog(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mixer_telemetry_logs", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
