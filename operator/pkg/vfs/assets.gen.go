@@ -32361,7 +32361,7 @@ var _chartsIstioTelemetryGrafanaValuesYaml = []byte(`grafana:
   replicaCount: 1
   image:
     repository: grafana/grafana
-    tag: 6.5.2
+    tag: 6.7.4
   persist: false
   storageClassName: ""
   accessMode: ReadWriteMany
@@ -32437,7 +32437,7 @@ var _chartsIstioTelemetryGrafanaValuesYaml = []byte(`grafana:
     # GF_SMTP_HOST: email-smtp.eu-west-1.amazonaws.com:2587
     # GF_SMTP_FROM_ADDRESS: alerts@mydomain.com
     # GF_SMTP_FROM_NAME: Grafana
-  
+
   envSecrets: {}
     # The key name and ENV name must match in the secrets file.
     # @see https://grafana.com/docs/installation/configuration/#using-environment-variables
@@ -41628,7 +41628,7 @@ spec:
     grafana:
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 6.7.4
       persist: false
       storageClassName: ""
       accessMode: ReadWriteMany

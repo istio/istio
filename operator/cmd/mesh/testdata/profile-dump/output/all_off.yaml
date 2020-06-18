@@ -449,7 +449,7 @@ spec:
       envSecrets: {}
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 6.7.4
       ingress:
         enabled: false
         hosts:
