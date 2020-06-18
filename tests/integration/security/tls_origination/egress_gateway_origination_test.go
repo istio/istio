@@ -68,37 +68,27 @@ func TestEgressGatewayTls(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
 
-			client, server, appNamespace, serviceNamespace := setupEcho(t, ctx)
+			client, server, _, serviceNamespace := setupEcho(t, ctx)
 
 			testCases := map[string]struct {
 				destinationRulePath string
 				response            []string
 				portName            string
 			}{
-				"SIMPLE TLS origination from egress gateway to https endpoint": {
-					destinationRulePath: simpleTLSDestinationRuleConfig,
-					response:            []string{response.StatusCodeOK},
-					portName:            "https",
-				},
-				"TLS origination from egress gateway to http endpoint": {
+				"SIMPLE TLS origination from egress gateway(http) to https endpoint": {
 					destinationRulePath: simpleTLSDestinationRuleConfig,
 					response:            []string{response.StatusCodeOK},
 					portName:            "http",
 				},
-				"No TLS origination from egress gateway to https endpoint": {
+				"TLS origination from egress gateway(http) to http endpoint": {
 					destinationRulePath: disableTLSDestinationRuleConfig,
-					response:            []string{response.StatusCodeOK},
-					portName:            "https",
+					response:            []string{response.StatusCodeUnavailable},
+					portName:            "http",
 				},
 				"No TLS origination from egress gateway to http endpoint": {
 					destinationRulePath: disableTLSDestinationRuleConfig,
-					response:            []string{response.StatusCodeOK},
+					response:            []string{response.StatusCodeUnavailable},
 					portName:            "http",
-				},
-				"Mutual TLS origination from egress gateway to https endpoint no certs": {
-					destinationRulePath: mutualTLSDestinationRuleConfig,
-					response:            []string{response.StatusCodeOK},
-					portName:            "https",
 				},
 			}
 
@@ -106,8 +96,6 @@ func TestEgressGatewayTls(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					ctx.ApplyConfigOrFail(ctx, serviceNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
 					defer ctx.DeleteConfigOrFail(ctx, serviceNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
-					ctx.ApplyConfigOrFail(ctx, appNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
-					defer ctx.DeleteConfigOrFail(ctx, appNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := client.Call(echo.CallOptions{
@@ -133,7 +121,7 @@ func TestEgressGatewayTls(t *testing.T) {
 							}
 						}
 						return nil
-					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
+					}, retry.Delay(time.Second), retry.Timeout(5*time.Second))
 				})
 			}
 		})
@@ -177,7 +165,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 				{
 					// HTTPS port
 					Name:         "https",
-					Protocol:     protocol.HTTPS,
+					Protocol:     protocol.TLS,
 					ServicePort:  443,
 					InstancePort: 8443,
 					TLS:          true,
@@ -273,16 +261,6 @@ spec:
         - gateways:
             - mesh # from sidecars, route to egress gateway service
           port: 80
-      route:
-        - destination:
-            host: istio-egressgateway.istio-system.svc.cluster.local
-            port:
-              number: 80
-          weight: 100
-    - match:
-        - gateways:
-            - mesh # from sidecars, route to egress gateway service
-          port: 443
       route:
         - destination:
             host: istio-egressgateway.istio-system.svc.cluster.local
