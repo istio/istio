@@ -3,7 +3,7 @@ kind: DestinationRule
 metadata:
   name: originate-mtls-for-server
 spec:
-  host: destination.app.svc.cluster.local
+  host: "some-external-site.com"
   trafficPolicy:
     portLevelSettings:
       - port:

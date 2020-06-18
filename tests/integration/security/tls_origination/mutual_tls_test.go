@@ -41,12 +41,12 @@ func mustReadFile(t *testing.T, f string) string {
 	return string(b)
 }
 
-// TestDestinationRuleTLS tests that MUTUAL tls mode is respected in DestinationRule.
+// TestDestinationRuleTls tests that MUTUAL tls mode is respected in DestinationRule.
 // This sets up a client and server with appropriate cert config and ensures we can successfully send a message.
-func TestDestinationRuleTLS(t *testing.T) {
+func TestDestinationRuleTls(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.egress.tls").
+		Features("security.egress.mtls").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "tls",

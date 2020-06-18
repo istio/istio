@@ -15,11 +15,15 @@
 package egressgatewayorigination
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"path"
 	"reflect"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/resource"
 
 	"io/ioutil"
 
@@ -121,18 +125,17 @@ func TestEgressGatewayTls(t *testing.T) {
 						if !reflect.DeepEqual(codes, tc.response) {
 							return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
 						}
+						for _, r := range resp {
+							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; !f {
+								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+							}
+						}
 						return nil
 					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
 				})
 			}
 		})
 }
-
-const (
-	// paths to setup configs
-	simpleTLSGatewayConfig = "testdata/gateway-tls-origination.yaml"
-	sidecarScopeConfig     = "testdata/sidecar-scope.yaml"
-)
 
 // setupEcho creates two namespaces app and service. It also brings up two echo instances server and
 // client in app namespace. HTTP and HTTPS port on the server echo are set up. Sidecar scope config
@@ -186,29 +189,150 @@ func setupEcho(t *testing.T, ctx framework.TestContext) (echo.Instance, echo.Ins
 				ClientCert: mustReadCert(t, "cert.crt"),
 				Key:        mustReadCert(t, "cert.key"),
 			},
-			// Do not inject, as we are testing non-Istio TLS here
-			//Subsets: []echo.SubsetConfig{{
-			//	Version:     "v1",
-			//	Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-			//}},
 		}).
 		BuildOrFail(t)
 
 	// External traffic should work even if we have service entries on the same ports
 	// Only Service namespace is known so that app namespace "appears" to be outside the mesh
-	if err := ctx.ApplyConfig(appsNamespace.Name(), file.AsStringOrFail(ctx, sidecarScopeConfig)); err != nil {
-		ctx.Fatalf("failed to apply configuration file %s; err: %v", sidecarScopeConfig, err)
-	}
+	createSidecarScope(t, ctx, appsNamespace, serviceNamespace)
+
 	// Apply Egress Gateway for service namespace to handle external traffic
-	if err := ctx.ApplyConfig(serviceNamespace.Name(), file.AsStringOrFail(ctx, simpleTLSGatewayConfig)); err != nil {
-		ctx.Fatalf("failed to apply configuration file %s; err: %v", simpleTLSGatewayConfig, err)
-	}
+	createGateway(t, ctx, appsNamespace, serviceNamespace)
 
 	if err := WaitUntilNotCallable(client, server); err != nil {
 		t.Fatalf("failed to apply sidecar, %v", err)
 	}
 
 	return client, server, appsNamespace, serviceNamespace
+}
+
+const (
+	SidecarScope = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: restrict-to-service-entry-namespace
+spec:
+  egress:
+  - hosts:
+    - "{{.ImportNamespace}}/*"
+    - "istio-system/*"
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+`
+)
+
+// We want to test "external" traffic. To do this without actually hitting an external endpoint,
+// we can import only the service namespace, so the apps are not known
+func createSidecarScope(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
+	tmpl, err := template.New("SidecarScope").Parse(SidecarScope)
+	if err != nil {
+		t.Errorf("failed to create template: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]string{"ImportNamespace": serviceNamespace.Name()}); err != nil {
+		t.Errorf("failed to create template: %v", err)
+	}
+	if err := ctx.ApplyConfig(appsNamespace.Name(), buf.String()); err != nil {
+		t.Errorf("failed to apply sidecar scope: %v", err)
+	}
+}
+
+const (
+	Gateway = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-egressgateway
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+    - port:
+        number: 80
+        name: http-port-for-tls-origination
+        protocol: HTTP
+      hosts:
+        - some-external-site.com
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route-via-egressgateway
+spec:
+  hosts:
+    - "some-external-site.com"
+  gateways:
+    - istio-egressgateway
+    - mesh
+  http:
+    - match:
+        - gateways:
+            - mesh # from sidecars, route to egress gateway service
+          port: 80
+      route:
+        - destination:
+            host: istio-egressgateway.istio-system.svc.cluster.local
+            port:
+              number: 80
+          weight: 100
+    - match:
+        - gateways:
+            - mesh # from sidecars, route to egress gateway service
+          port: 443
+      route:
+        - destination:
+            host: istio-egressgateway.istio-system.svc.cluster.local
+            port:
+              number: 80
+          weight: 100
+    - match:
+        - gateways:
+            - istio-egressgateway
+          port: 80
+      route:
+        - destination:
+            host: destination.{{.AppNamespace}}.svc.cluster.local
+            port:
+              number: 80
+          weight: 100
+      headers:
+        request:
+          add:
+            handled-by-egress-gateway: "true"
+    - match:
+        - gateways:
+            - istio-egressgateway
+          port: 443
+      route:
+        - destination:
+            host: destination.{{.AppNamespace}}.svc.cluster.local
+            port:
+              number: 443
+          weight: 100
+      headers:
+        request:
+          add:
+            handled-by-egress-gateway: "true"
+`
+)
+
+// We want to test "external" traffic. To do this without actually hitting an external endpoint,
+// we can import only the service namespace, so the apps are not known
+func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
+	tmpl, err := template.New("Gateway").Parse(Gateway)
+	if err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name()}); err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+	if err := ctx.ApplyConfig(serviceNamespace.Name(), buf.String()); err != nil {
+		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
+	}
 }
 
 func clusterName(target echo.Instance, port echo.Port) string {
