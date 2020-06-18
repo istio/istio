@@ -36,7 +36,7 @@ exit_graceful(){
 
 function rm_bin_files() {
   echo "Removing existing binaries"
-  rm -f /host/opt/cni/bin/istio-cni /host/opt/cni/bin/istio-iptables.sh
+  rm -f /host/opt/cni/bin/istio-cni /host/opt/cni/bin/istio-iptables
 }
 # find_cni_conf_file
 #   Finds the CNI config file in the mounted CNI config dir.
