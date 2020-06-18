@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -51,13 +50,6 @@ func mustReadCert(t *testing.T, f string) string {
 	return string(b)
 }
 
-const (
-	// paths to test configs
-	simpleTLSDestinationRuleConfig  = "testdata/destination-rule-tls-origination.yaml"
-	mutualTLSDestinationRuleConfig  = "testdata/destination-rule-mtls-origination.yaml"
-	disableTLSDestinationRuleConfig = "testdata/destination-rule-no-tls-origination.yaml"
-)
-
 // TestEgressGatewayTls brings up an cluster and will ensure that the TLS origination at
 // egress gateway allows secure communication between the egress gateway and external workload.
 // This test brings up an egress gateway to originate TLS connection. The test will ensure that requests
@@ -68,25 +60,20 @@ func TestEgressGatewayTls(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
 
-			client, server, _, serviceNamespace := setupEcho(t, ctx)
+			client, server, appNamespace, serviceNamespace := setupEcho(t, ctx)
 
 			testCases := map[string]struct {
-				destinationRulePath string
+				destinationRuleMode string
 				response            []string
 				portName            string
 			}{
-				"SIMPLE TLS origination from egress gateway(http) to https endpoint": {
-					destinationRulePath: simpleTLSDestinationRuleConfig,
+				"SIMPLE TLS origination from egress gateway to https endpoint": {
+					destinationRuleMode: "SIMPLE",
 					response:            []string{response.StatusCodeOK},
 					portName:            "http",
 				},
-				"TLS origination from egress gateway(http) to http endpoint": {
-					destinationRulePath: disableTLSDestinationRuleConfig,
-					response:            []string{response.StatusCodeUnavailable},
-					portName:            "http",
-				},
-				"No TLS origination from egress gateway to http endpoint": {
-					destinationRulePath: mutualTLSDestinationRuleConfig,
+				"TLS origination from egress gateway to http endpoint": {
+					destinationRuleMode: "DISABLE",
 					response:            []string{response.StatusCodeUnavailable},
 					portName:            "http",
 				},
@@ -94,8 +81,7 @@ func TestEgressGatewayTls(t *testing.T) {
 
 			for name, tc := range testCases {
 				t.Run(name, func(t *testing.T) {
-					ctx.ApplyConfigOrFail(ctx, serviceNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
-					defer ctx.DeleteConfigOrFail(ctx, serviceNamespace.Name(), file.AsStringOrFail(ctx, tc.destinationRulePath))
+					createDestinationRule(t, ctx, appNamespace, serviceNamespace, tc.destinationRuleMode)
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := client.Call(echo.CallOptions{
@@ -125,6 +111,42 @@ func TestEgressGatewayTls(t *testing.T) {
 				})
 			}
 		})
+}
+
+const (
+	// paths to test configs
+	DestinationRuleConfig = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: originate-tls-for-server
+spec:
+  host: "destination.{{.AppNamespace}}.svc.cluster.local"
+  trafficPolicy:
+    portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: {{.Mode}}
+`
+)
+
+func createDestinationRule(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance, destinationRuleMode string) {
+	tmpl, err := template.New("DestinationRule").Parse(DestinationRuleConfig)
+	if err != nil {
+		t.Errorf("failed to create template: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name(), "Mode": destinationRuleMode}); err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+	if err := ctx.ApplyConfig(serviceNamespace.Name(), buf.String()); err != nil {
+		t.Fatalf("failed to apply destinationRule: %v. template: %v", err, buf.String())
+	}
+	if err := ctx.ApplyConfig(appsNamespace.Name(), buf.String()); err != nil {
+		t.Fatalf("failed to apply destinationRule: %v. template: %v", err, buf.String())
+	}
 }
 
 // setupEcho creates two namespaces app and service. It also brings up two echo instances server and
@@ -244,7 +266,7 @@ spec:
         name: http-port-for-tls-origination
         protocol: HTTP
       hosts:
-        - some-external-site.com
+        - "some-external-site.com"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
