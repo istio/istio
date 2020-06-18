@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	nsSetupProg = "istio-iptables.sh"
+	nsSetupProg = "istio-iptables"
 )
 
 type iptables struct {
