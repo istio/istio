@@ -90,6 +90,10 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 	}
 
 	for i, tls := range ingress.Spec.TLS {
+		if tls.SecretName == "" {
+			log.Infof("invalid ingress rule %s:%s for hosts %q, no secretName defined", ingress.Namespace, ingress.Name, tls.Hosts)
+			continue
+		}
 		// TODO validation when multiple wildcard tls secrets are given
 		if len(tls.Hosts) == 0 {
 			tls.Hosts = []string{"*"}

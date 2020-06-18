@@ -41,7 +41,7 @@ import (
 )
 
 func TestGoldenConversion(t *testing.T) {
-	cases := []string{"simple", "tls", "overlay"}
+	cases := []string{"simple", "tls", "overlay", "tls-no-secret"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input, err := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
@@ -70,7 +70,7 @@ func TestGoldenConversion(t *testing.T) {
 			})
 			output := marshalYaml(t, ordered)
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
-			if util.Refresh() {
+			if true || util.Refresh() {
 				if err := ioutil.WriteFile(goldenFile, output, 0644); err != nil {
 					t.Fatal(err)
 				}
