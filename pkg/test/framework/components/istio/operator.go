@@ -249,7 +249,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
-	if env.IsMulticluster() {
+	if env.IsMulticluster() && !isCentralIstio(env, cfg) {
 		// For multicluster, configure direct access so each control plane can get endpoints from all
 		// API servers.
 		if err := configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
@@ -462,7 +462,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 					return fmt.Errorf("failed to deploy centralIstiod base for cluster %v: %v", cluster.Name(), err)
 				}
 				// remote ingress gateway will not start unless the create-remote-secret command has run and created the istiod-ca-cert configmap
-				if err := configureDirectAPIServerAccess(c.ctx, c.environment, cfg); err != nil {
+				if err := configureDirectAPIServiceAccessForCluster(c.ctx, c.environment, cfg, cluster); err != nil {
 					return fmt.Errorf("failed to create-remote-secret: %v", err)
 				}
 			}
@@ -545,18 +545,24 @@ func configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment,
 	// Configure direct access for each control plane to each APIServer. This allows each control plane to
 	// automatically discover endpoints in remote clusters.
 	for _, cluster := range env.KubeClusters {
-		// Create a secret.
-		secret, err := createRemoteSecret(ctx, cluster, cfg)
-		if err != nil {
-			return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
+		if err := configureDirectAPIServiceAccessForCluster(ctx, env, cfg, cluster); err != nil {
+			return err
 		}
+	}
+	return nil
+}
 
-		// Copy this secret to all control plane clusters.
-		for _, remote := range env.ControlPlaneClusters() {
-			if cluster.Index() != remote.Index() {
-				if _, err := remote.ApplyContents(cfg.SystemNamespace, secret); err != nil {
-					return fmt.Errorf("failed applying remote secret to cluster %s: %v", remote.Name(), err)
-				}
+func configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config, cluster kube.Cluster) error {
+	// Create a secret.
+	secret, err := createRemoteSecret(ctx, cluster, cfg)
+	if err != nil {
+		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
+	}
+	// Copy this secret to all control plane clusters.
+	for _, remote := range env.ControlPlaneClusters() {
+		if cluster.Index() != remote.Index() {
+			if _, err := remote.ApplyContents(cfg.SystemNamespace, secret); err != nil {
+				return fmt.Errorf("failed applying remote secret to cluster %s: %v", remote.Name(), err)
 			}
 		}
 	}
