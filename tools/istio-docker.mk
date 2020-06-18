@@ -106,7 +106,7 @@ docker.app: $(ISTIO_DOCKER)/certs
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
-docker.app_sidecar_xenial: BUILD_ARGS=--build-arg IMAGE_NAME=ubuntu:xenial
+docker.app_sidecar_xenial: BUILD_ARGS=--build-arg IMAGE_NAME=ubuntu IMAGE_VERSION=xenial
 docker.app_sidecar_xenial: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar_xenial: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_xenial: $(ISTIO_DOCKER)/certs
@@ -117,7 +117,7 @@ docker.app_sidecar_xenial: pkg/test/echo/docker/Dockerfile.app_sidecar
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:bionic (for non-k8s).
-docker.app_sidecar_bionic: BUILD_ARGS=--build-arg IMAGE_NAME=ubuntu:bionic
+docker.app_sidecar_bionic: BUILD_ARGS=--build-arg IMAGE_NAME=ubuntu IMAGE_VERSION=bionic
 docker.app_sidecar_bionic: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar_bionic: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_bionic: $(ISTIO_DOCKER)/certs
@@ -128,7 +128,7 @@ docker.app_sidecar_bionic: pkg/test/echo/docker/Dockerfile.app_sidecar
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:focal (for non-k8s).
-docker.app_sidecar_focal: BUILD_ARGS=--build-arg IMAGE_NAME=ubuntu:focal
+docker.app_sidecar_focal: BUILD_ARGS=--build-arg IMAGE_NAME=ubuntu IMAGE_VERSION=focal
 docker.app_sidecar_focal: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar_focal: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_focal: $(ISTIO_DOCKER)/certs
@@ -139,7 +139,7 @@ docker.app_sidecar_focal: pkg/test/echo/docker/Dockerfile.app_sidecar
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with debian 9 (for non-k8s).
-docker.app_sidecar_debian9: BUILD_ARGS=--build-arg IMAGE_NAME=debian:9
+docker.app_sidecar_debian9: BUILD_ARGS=--build-arg IMAGE_NAME=debian IMAGE_VERSION=9
 docker.app_sidecar_debian9: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar_debian9: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_debian9: $(ISTIO_DOCKER)/certs
@@ -150,7 +150,7 @@ docker.app_sidecar_debian9: pkg/test/echo/docker/Dockerfile.app_sidecar
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with debian 10 (for non-k8s).
-docker.app_sidecar_debian10: BUILD_ARGS=--build-arg IMAGE_NAME=debian:10
+docker.app_sidecar_debian10: BUILD_ARGS=--build-arg IMAGE_NAME=debian IMAGE_VERSION=10
 docker.app_sidecar_debian10: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar_debian10: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_debian10: $(ISTIO_DOCKER)/certs

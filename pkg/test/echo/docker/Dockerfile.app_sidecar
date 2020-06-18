@@ -1,4 +1,4 @@
-FROM ${IMAGE_NAME}
+FROM ${IMAGE_NAME}:${IMAGE_VERSION}
 # Dockerfile for different VM OS versions
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -17,7 +17,9 @@ RUN apt-get update && \
    && rm -rf  /var/log/*log /var/lib/apt/lists/* /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old
 
 # Fix the bug of --to-ports not available
-RUN if ["$IMAGE_NAME" = "debian:10" ]; then update-alternatives --set iptables /usr/sbin/iptables-legacy && update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
+RUN if [ "$IMAGE_NAME" = "debian" ] && [ "$IMAGE_VERSION" = "10" ]; then \
+update-alternatives --set iptables /usr/sbin/iptables-legacy && \
+update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy; fi
 
 # Sudoers used to allow tcpdump and other debug utilities.
 RUN useradd -m --uid 1337 istio-proxy && \
