@@ -60,5 +60,5 @@ features:
   installation:
     multicluster:
       central-istiod:
-      mutlimaster:
+      multimaster:
       remote:
