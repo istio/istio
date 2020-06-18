@@ -45,6 +45,8 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -94,62 +96,6 @@ func init() {
 
 func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
-}
-
-// Options stores the configurable attributes of a Controller.
-type Options struct {
-	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
-	WatchedNamespaces string
-	ResyncPeriod      time.Duration
-	DomainSuffix      string
-
-	// ClusterID identifies the remote cluster in a multicluster env.
-	ClusterID string
-
-	// FetchCaRoot defines the function to get caRoot
-	FetchCaRoot func() map[string]string
-
-	// Metrics for capturing node-based metrics.
-	Metrics model.Metrics
-
-	// XDSUpdater will push changes to the xDS server.
-	XDSUpdater model.XDSUpdater
-
-	// TrustDomain used in SPIFFE identity
-	TrustDomain string
-
-	// NetworksWatcher observes changes to the mesh networks config.
-	NetworksWatcher mesh.NetworksWatcher
-
-	// EndpointMode decides what source to use to get endpoint information
-	EndpointMode EndpointMode
-
-	// CABundlePath defines the caBundle path for istiod Server
-	CABundlePath string
-}
-
-// EndpointMode decides what source to use to get endpoint information
-type EndpointMode int
-
-const (
-	// EndpointsOnly type will use only Kubernetes Endpoints
-	EndpointsOnly EndpointMode = iota
-
-	// EndpointSliceOnly type will use only Kubernetes EndpointSlices
-	EndpointSliceOnly
-
-	// TODO: add other modes. Likely want a mode with Endpoints+EndpointSlices that are not controlled by
-	// Kubernetes Controller (e.g. made by user and not duplicated with Endpoints), or a mode with both that
-	// does deduping. Simply doing both won't work for now, since not all Kubernetes components support EndpointSlice.
-)
-
-var EndpointModeNames = map[EndpointMode]string{
-	EndpointsOnly:     "EndpointsOnly",
-	EndpointSliceOnly: "EndpointSliceOnly",
-}
-
-func (m EndpointMode) String() string {
-	return EndpointModeNames[m]
 }
 
 var _ serviceregistry.Instance = &Controller{}
@@ -213,7 +159,7 @@ type Controller struct {
 
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
-func NewController(client kubernetes.Interface, metadataClient metadata.Interface, options Options) *Controller {
+func NewController(client kubernetes.Interface, metadataClient metadata.Interface, options bootstrap.Options) *Controller {
 	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
 		options.WatchedNamespaces, options.ResyncPeriod)
 
@@ -253,9 +199,9 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	registerHandlers(c.serviceInformer, c.queue, "Services", reflect.DeepEqual, c.onServiceEvent)
 
 	switch options.EndpointMode {
-	case EndpointsOnly:
+	case bootstrap.EndpointsOnly:
 		c.endpoints = newEndpointsController(c, options)
-	case EndpointSliceOnly:
+	case bootstrap.EndpointSliceOnly:
 		c.endpoints = newEndpointSliceController(c, options)
 	}
 

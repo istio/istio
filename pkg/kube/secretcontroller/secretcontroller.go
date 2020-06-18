@@ -36,6 +36,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -64,10 +66,12 @@ var CreateMetadataInterfaceFromClusterConfig = kube.CreateMetadataInterfaceFromC
 var CreateDynamicInterfaceFromClusterConfig = kube.CreateDynamicInterfaceFromClusterConfig
 
 // addSecretCallback prototype for the add secret callback function.
-type addSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface, dynamicClient dynamic.Interface, dataKey string) error
+type addSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface,
+	dynamicClient dynamic.Interface, dataKey string, config *clientcmdapi.Config) error
 
 // updateSecretCallback prototype for the update secret callback function.
-type updateSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface, dynamicClient dynamic.Interface, dataKey string) error
+type updateSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface,
+	dynamicClient dynamic.Interface, dataKey string, config *clientcmdapi.Config) error
 
 // removeSecretCallback prototype for the remove secret callback function.
 type removeSecretCallback func(dataKey string) error
@@ -91,6 +95,7 @@ type RemoteCluster struct {
 	metadataClient metadata.Interface
 	dynamicClient  dynamic.Interface
 	kubeConfigSha  [sha256.Size]byte
+	config         *clientcmdapi.Config
 }
 
 // ClusterStore is a collection of clusters
@@ -282,6 +287,7 @@ func createRemoteCluster(kubeConfig []byte, secretName string) (*RemoteCluster, 
 		metadataClient: metadataClient,
 		dynamicClient:  dynamicClient,
 		kubeConfigSha:  sha256.Sum256(kubeConfig),
+		config:         clientConfig,
 	}, nil
 }
 
@@ -299,7 +305,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 			}
 
 			c.cs.remoteClusters[clusterID] = remoteCluster
-			if err := c.addCallback(remoteCluster.client, remoteCluster.metadataClient, remoteCluster.dynamicClient, clusterID); err != nil {
+			if err := c.addCallback(remoteCluster.client, remoteCluster.metadataClient, remoteCluster.dynamicClient, clusterID, remoteCluster.config); err != nil {
 				log.Errorf("Error creating cluster_id=%s from secret %v: %v",
 					clusterID, secretName, err)
 			}
@@ -323,7 +329,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 					continue
 				}
 				c.cs.remoteClusters[clusterID] = remoteCluster
-				if err := c.updateCallback(remoteCluster.client, remoteCluster.metadataClient, remoteCluster.dynamicClient, clusterID); err != nil {
+				if err := c.updateCallback(remoteCluster.client, remoteCluster.metadataClient, remoteCluster.dynamicClient, clusterID, remoteCluster.config); err != nil {
 					log.Errorf("Error updating cluster_id from secret=%v: %s %v",
 						clusterID, secretName, err)
 				}

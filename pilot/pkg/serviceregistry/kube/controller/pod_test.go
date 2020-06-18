@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -109,7 +111,7 @@ func TestPodCache(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/20676
 func TestIPReuse(t *testing.T) {
-	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: bootstrap.EndpointsOnly})
 	defer c.Stop()
 	initTestEnv(t, c.client, fx)
 
@@ -176,7 +178,7 @@ func waitForPod(c *Controller, ip string) error {
 
 func testPodCache(t *testing.T) {
 	c, fx := newFakeControllerWithOptions(fakeControllerOptions{
-		mode:              EndpointsOnly,
+		mode:              bootstrap.EndpointsOnly,
 		watchedNamespaces: "nsa,nsb",
 	})
 	defer c.Stop()
@@ -236,11 +238,11 @@ func testPodCache(t *testing.T) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: bootstrap.EndpointsOnly})
 	defer c.Stop()
 
 	ns := "default"
-	podCache := newPodCache(c, Options{WatchedNamespaces: ns})
+	podCache := newPodCache(c, bootstrap.Options{WatchedNamespaces: ns})
 
 	f := podCache.onEvent
 

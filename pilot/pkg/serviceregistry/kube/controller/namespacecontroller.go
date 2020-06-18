@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -65,7 +67,7 @@ type NamespaceController struct {
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(data func() map[string]string, options Options, kubeClient kubernetes.Interface) *NamespaceController {
+func NewNamespaceController(data func() map[string]string, options bootstrap.Options, kubeClient kubernetes.Interface) *NamespaceController {
 	c := &NamespaceController{
 		getData: data,
 		client:  kubeClient.CoreV1(),

@@ -197,13 +197,17 @@ func NewForConfig(cfg *rest.Config, schemas collection.Schemas, domainSuffix str
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
 // You can also choose a config context by providing the desired context name.
-func NewClient(config string, context string, schemas collection.Schemas, domainSuffix string, configLedger ledger.Ledger, revision string) (*Client, error) {
-	cfg, err := kubecfg.BuildClientConfig(config, context)
+func NewClient(restConfig *rest.Config, kubeconfig string, context string, schemas collection.Schemas,
+	domainSuffix string, configLedger ledger.Ledger, revision string) (*Client, error) {
+	if restConfig != nil {
+		return NewForConfig(restConfig, schemas, domainSuffix, configLedger, revision)
+	}
+	cfg, err := kubecfg.BuildClientConfig(kubeconfig, context)
 	if err != nil {
 		return nil, err
 	}
-
 	return NewForConfig(cfg, schemas, domainSuffix, configLedger, revision)
+
 }
 
 // Schemas for the store

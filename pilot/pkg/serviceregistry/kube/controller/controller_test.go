@@ -47,6 +47,8 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
+
+	"istio.io/istio/pilot/pkg/util/bootstrap"
 )
 
 const (
@@ -146,7 +148,7 @@ type fakeControllerOptions struct {
 	networksWatcher   mesh.NetworksWatcher
 	serviceHandler    func(service *model.Service, event model.Event)
 	instanceHandler   func(instance *model.ServiceInstance, event model.Event)
-	mode              EndpointMode
+	mode              bootstrap.EndpointMode
 	clusterID         string
 	watchedNamespaces string
 }
@@ -159,7 +161,7 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	metaV1.AddMetaToScheme(scheme)
 	metadataClient := metafake.NewSimpleMetadataClient(scheme)
 
-	c := NewController(clientSet, metadataClient, Options{
+	c := NewController(clientSet, metadataClient, bootstrap.Options{
 		WatchedNamespaces: opts.watchedNamespaces, // default is all namespaces
 		ResyncPeriod:      resync,
 		DomainSuffix:      domainSuffix,
@@ -211,7 +213,7 @@ func TestServices(t *testing.T) {
 		},
 	})
 
-	for mode, name := range EndpointModeNames {
+	for mode, name := range bootstrap.EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			ctl, fx := newFakeControllerWithOptions(fakeControllerOptions{networksWatcher: networksWatcher, mode: mode})
@@ -425,7 +427,7 @@ func TestController_GetPodLocality(t *testing.T) {
 			t.Parallel()
 			// Setup kube caches
 			// Pod locality only matters for Endpoints
-			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: bootstrap.EndpointsOnly})
 			defer controller.Stop()
 			addNodes(t, controller, tc.nodes...)
 			addPods(t, controller, tc.pods...)
@@ -461,7 +463,7 @@ func TestController_GetPodLocality(t *testing.T) {
 
 func TestGetProxyServiceInstances(t *testing.T) {
 	clusterID := "fakeCluster"
-	for mode, name := range EndpointModeNames {
+	for mode, name := range bootstrap.EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{
@@ -838,7 +840,7 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 	}
 
 	for _, c := range testCases {
-		for mode, name := range EndpointModeNames {
+		for mode, name := range bootstrap.EndpointModeNames {
 			mode := mode
 			t.Run(fmt.Sprintf("%s_%s", c.name, name), func(t *testing.T) {
 				// Setup kube caches
@@ -878,7 +880,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	spiffe.SetTrustDomain(domainSuffix)
 	defer spiffe.SetTrustDomain(oldTrustDomain)
 
-	for mode, name := range EndpointModeNames {
+	for mode, name := range bootstrap.EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
@@ -952,7 +954,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 }
 
 func TestController_Service(t *testing.T) {
-	for mode, name := range EndpointModeNames {
+	for mode, name := range bootstrap.EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
@@ -1043,7 +1045,7 @@ func TestController_Service(t *testing.T) {
 }
 
 func TestExternalNameServiceInstances(t *testing.T) {
-	for mode, name := range EndpointModeNames {
+	for mode, name := range bootstrap.EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
@@ -1070,7 +1072,7 @@ func TestExternalNameServiceInstances(t *testing.T) {
 }
 
 func TestController_ExternalNameService(t *testing.T) {
-	for mode, name := range EndpointModeNames {
+	for mode, name := range bootstrap.EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			deleteWg := sync.WaitGroup{}
@@ -1523,7 +1525,7 @@ func addNodes(t *testing.T, controller *Controller, nodes ...*coreV1.Node) {
 }
 
 func TestEndpointUpdate(t *testing.T) {
-	for mode, name := range EndpointModeNames {
+	for mode, name := range bootstrap.EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
@@ -1589,7 +1591,7 @@ func TestEndpointUpdate(t *testing.T) {
 
 // Validates that when Pilot sees Endpoint before the corresponding Pod, it loads Pod from K8S and proceed.
 func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
-	for mode, name := range EndpointModeNames {
+	for mode, name := range bootstrap.EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})

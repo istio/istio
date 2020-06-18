@@ -83,14 +83,14 @@ var (
 	deleted string
 )
 
-func addCallback(_ kubernetes.Interface, _ metadata.Interface, _ dynamic.Interface, id string) error {
+func addCallback(_ kubernetes.Interface, _ metadata.Interface, _ dynamic.Interface, id string, _ *clientcmdapi.Config) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = id
 	return nil
 }
 
-func updateCallback(_ kubernetes.Interface, _ metadata.Interface, _ dynamic.Interface, id string) error {
+func updateCallback(_ kubernetes.Interface, _ metadata.Interface, _ dynamic.Interface, id string, _ *clientcmdapi.Config) error {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = id

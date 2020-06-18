@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,7 +51,7 @@ type PodCache struct {
 	c *Controller
 }
 
-func newPodCache(c *Controller, options Options) *PodCache {
+func newPodCache(c *Controller, options bootstrap.Options) *PodCache {
 	namespaces := strings.Split(options.WatchedNamespaces, ",")
 
 	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {

@@ -28,6 +28,6 @@ var (
 )
 
 func newConfigStore() (model.ConfigStore, error) {
-	return controller.NewClient(kubeconfig, configContext, collections.Pilot,
+	return controller.NewClient(nil, kubeconfig, configContext, collections.Pilot,
 		"", &model.DisabledLedger{}, "")
 }

@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +47,7 @@ type endpointSliceController struct {
 
 var _ kubeEndpointsController = &endpointSliceController{}
 
-func newEndpointSliceController(c *Controller, options Options) *endpointSliceController {
+func newEndpointSliceController(c *Controller, options bootstrap.Options) *endpointSliceController {
 	namespaces := strings.Split(options.WatchedNamespaces, ",")
 
 	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {

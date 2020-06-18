@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -25,7 +27,6 @@ import (
 
 	"istio.io/pkg/ledger"
 
-	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -48,7 +49,7 @@ type controller struct {
 	domain string
 }
 
-func NewController(client kubernetes.Interface, c model.ConfigStoreCache, options controller2.Options) model.ConfigStoreCache {
+func NewController(client kubernetes.Interface, c model.ConfigStoreCache, options bootstrap.Options) model.ConfigStoreCache {
 	return &controller{client, c, options.DomainSuffix}
 }
 

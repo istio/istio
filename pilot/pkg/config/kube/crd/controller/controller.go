@@ -22,6 +22,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/ledger"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,9 +42,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/queue"
+
+	"istio.io/istio/pilot/pkg/util/bootstrap"
 )
 
 // controller is a collection of synchronized resource watchers.
@@ -107,7 +111,7 @@ func knownCrdsWithRetry(client *Client) map[string]struct{} {
 
 // NewController creates a new Kubernetes controller for CRDs
 // Use "" for namespace to listen for all namespace changes
-func NewController(client *Client, options controller2.Options) model.ConfigStoreCache {
+func NewController(client *Client, options bootstrap.Options) model.ConfigStoreCache {
 	log.Infof("CRD controller watching namespaces %q", options.WatchedNamespaces)
 
 	// The queue requires a time duration for a retry delay after a handler error
@@ -462,4 +466,31 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 		}
 	}
 	return out, nil
+}
+
+func MakeKubeConfigController(args bootstrap.RegistryOptions, revision string) (model.ConfigStoreCache, error) {
+	// TODO(howardjohn) allow the collection here to be configurable to allow running with only
+	// Kubernetes APIs.
+	schemas := collection.NewSchemasBuilder()
+	if features.EnableServiceApis {
+		schemas = schemas.
+			MustAdd(collections.K8SServiceApisV1Alpha1Tcproutes).
+			MustAdd(collections.K8SServiceApisV1Alpha1Gatewayclasses).
+			MustAdd(collections.K8SServiceApisV1Alpha1Gateways).
+			MustAdd(collections.K8SServiceApisV1Alpha1Httproutes).
+			MustAdd(collections.K8SServiceApisV1Alpha1Trafficsplits)
+	}
+	for _, schema := range collections.Pilot.All() {
+		if err := schemas.Add(schema); err != nil {
+			return nil, err
+		}
+	}
+
+	configClient, err := NewClient(args.RestConfig, args.KubeConfig, "", schemas.Build(),
+		args.KubeOptions.DomainSuffix, bootstrap.BuildLedger(args), revision)
+	if err != nil {
+		return nil, multierror.Prefix(err, "failed to open a config client.")
+	}
+
+	return NewController(configClient, args.KubeOptions), nil
 }

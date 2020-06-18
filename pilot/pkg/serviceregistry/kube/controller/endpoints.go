@@ -18,6 +18,8 @@ import (
 	"context"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -41,7 +43,7 @@ type endpointsController struct {
 
 var _ kubeEndpointsController = &endpointsController{}
 
-func newEndpointsController(c *Controller, options Options) *endpointsController {
+func newEndpointsController(c *Controller, options bootstrap.Options) *endpointsController {
 	namespaces := strings.Split(options.WatchedNamespaces, ",")
 
 	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {

@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/util/bootstrap"
 
 	"istio.io/pkg/log"
 )
@@ -23,11 +24,13 @@ import (
 // initClusterRegistries starts the secret controller to watch for remote
 // clusters and initialize the multicluster structures.
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	if hasKubeRegistry(args.RegistryOptions.Registries) {
+	if bootstrap.HasKubeRegistry(args.RegistryOptions.Registries) {
 		log.Info("initializing Kubernetes cluster registry")
 		mc, err := controller.NewMulticluster(s.kubeClient,
 			args.RegistryOptions.ClusterRegistriesNamespace,
 			args.RegistryOptions.KubeOptions,
+			s.ConfigStores,
+			args.Revision,
 			s.ServiceController(),
 			s.EnvoyXdsServer,
 			s.environment)

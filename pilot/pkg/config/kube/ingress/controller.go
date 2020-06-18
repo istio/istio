@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,7 +44,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -124,7 +125,7 @@ func ingressClassSupported(client kubernetes.Interface) bool {
 
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
-	options kubecontroller.Options) model.ConfigStoreCache {
+	options bootstrap.Options) model.ConfigStoreCache {
 
 	// queue requires a time duration for a retry delay after a handler error
 	q := queue.NewQueue(1 * time.Second)

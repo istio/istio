@@ -24,10 +24,11 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/aggregate/fakes"
 	"istio.io/istio/pilot/pkg/model"
-	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+
+	"istio.io/istio/pilot/pkg/util/bootstrap"
 )
 
 var (
@@ -83,7 +84,7 @@ func TestListInvalidGroupVersionKind(t *testing.T) {
 	g := NewGomegaWithT(t)
 	clientSet := fake.NewSimpleClientset()
 	store := &fakes.ConfigStoreCache{}
-	controller := NewController(clientSet, store, controller2.Options{})
+	controller := NewController(clientSet, store, bootstrap.Options{})
 
 	typ := resource.GroupVersionKind{Kind: "wrong-kind"}
 	c, err := controller.List(typ, "ns1")
@@ -96,7 +97,7 @@ func TestListGatewayResourceType(t *testing.T) {
 
 	clientSet := fake.NewSimpleClientset()
 	store := &fakes.ConfigStoreCache{}
-	controller := NewController(clientSet, store, controller2.Options{})
+	controller := NewController(clientSet, store, bootstrap.Options{})
 
 	gwClassType := collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource()
 	gwSpecType := collections.K8SServiceApisV1Alpha1Gateways.Resource()
@@ -158,7 +159,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 
 	clientSet := fake.NewSimpleClientset()
 	store := &fakes.ConfigStoreCache{}
-	controller := NewController(clientSet, store, controller2.Options{})
+	controller := NewController(clientSet, store, bootstrap.Options{})
 
 	gwClassType := collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource()
 	gwSpecType := collections.K8SServiceApisV1Alpha1Gateways.Resource()

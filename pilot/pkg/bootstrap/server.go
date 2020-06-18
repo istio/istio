@@ -39,6 +39,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 
+	utilbootstrap "istio.io/istio/pilot/pkg/util/bootstrap"
+
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -295,7 +297,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 func getClusterID(args *PilotArgs) string {
 	clusterID := args.RegistryOptions.KubeOptions.ClusterID
 	if clusterID == "" {
-		if hasKubeRegistry(args.RegistryOptions.Registries) {
+		if utilbootstrap.HasKubeRegistry(args.RegistryOptions.Registries) {
 			clusterID = string(serviceregistry.Kubernetes)
 		}
 	}
@@ -375,7 +377,7 @@ func (s *Server) WaitUntilCompletion() {
 
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	if hasKubeRegistry(args.RegistryOptions.Registries) {
+	if utilbootstrap.HasKubeRegistry(args.RegistryOptions.Registries) {
 		var err error
 		// Used by validation
 		s.kubeConfig, err = kubelib.BuildClientConfig(args.RegistryOptions.KubeConfig, "")

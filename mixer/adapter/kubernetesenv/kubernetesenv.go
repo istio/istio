@@ -39,6 +39,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // needed for auth
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
@@ -372,7 +373,7 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 	return k8s.NewForConfig(config)
 }
 
-func (b *builder) createCacheController(k8sInterface k8s.Interface, _ kubemeta.Interface, _ dynamic.Interface, clusterID string) error {
+func (b *builder) createCacheController(k8sInterface k8s.Interface, _ kubemeta.Interface, _ dynamic.Interface, clusterID string, _ *clientcmdapi.Config) error {
 	controller, err := runNewController(b, k8sInterface, b.kubeHandler.env)
 	if err == nil {
 		b.Lock()
@@ -390,11 +391,11 @@ func (b *builder) createCacheController(k8sInterface k8s.Interface, _ kubemeta.I
 	return b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
 }
 
-func (b *builder) updateCacheController(k8sInterface k8s.Interface, _ kubemeta.Interface, _ dynamic.Interface, clusterID string) error {
+func (b *builder) updateCacheController(k8sInterface k8s.Interface, _ kubemeta.Interface, _ dynamic.Interface, clusterID string, _ *clientcmdapi.Config) error {
 	if err := b.deleteCacheController(clusterID); err != nil {
 		return err
 	}
-	return b.createCacheController(k8sInterface, nil, nil, clusterID)
+	return b.createCacheController(k8sInterface, nil, nil, clusterID, nil)
 }
 
 func (b *builder) deleteCacheController(clusterID string) error {

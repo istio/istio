@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -117,11 +119,13 @@ func Test_KubeSecretController(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
 	mc, err := NewMulticluster(clientset,
 		testSecretNameSpace,
-		Options{
+		bootstrap.Options{
 			WatchedNamespaces: WatchedNamespaces,
 			DomainSuffix:      DomainSuffix,
 			ResyncPeriod:      ResyncPeriod,
 		},
+		nil,
+		"",
 		mockserviceController, nil, nil)
 
 	if err != nil {

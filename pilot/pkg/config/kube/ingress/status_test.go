@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	coreV1 "k8s.io/api/core/v1"
 	ingress "k8s.io/api/networking/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +30,6 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -128,7 +129,7 @@ func makeStatusSyncer(t *testing.T, client kubernetes.Interface) (*StatusSyncer,
 	// Restore env settings
 	defer setAndRestoreEnv(t, oldEnvs)
 
-	return NewStatusSyncer(&m, client, kubecontroller.Options{
+	return NewStatusSyncer(&m, client, bootstrap.Options{
 		WatchedNamespaces: testNamespace,
 		ResyncPeriod:      resync,
 	})

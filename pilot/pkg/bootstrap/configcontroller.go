@@ -32,12 +32,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/schema/collection"
 
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
+
+	utilbootstrap "istio.io/istio/pilot/pkg/util/bootstrap"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -85,7 +85,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
 	} else {
-		configController, err := s.makeKubeConfigController(args)
+		configController, err := controller.MakeKubeConfigController(args.RegistryOptions, args.Revision)
 		if err != nil {
 			return err
 		}
@@ -108,7 +108,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	s.EnvoyXdsServer.MemConfigController = memConfigController
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if hasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
+	if utilbootstrap.HasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
 		s.ConfigStores = append(s.ConfigStores,
 			ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
@@ -162,7 +162,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 
 	mcpOptions := &mcp.Options{
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
-		ConfigLedger: buildLedger(args.RegistryOptions),
+		ConfigLedger: utilbootstrap.BuildLedger(args.RegistryOptions),
 		XDSUpdater:   s.EnvoyXdsServer,
 		Revision:     args.Revision,
 	}
@@ -178,7 +178,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 				if srcAddress.Path == "" {
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.RegistryOptions))
+				store := memory.MakeWithLedger(collections.Pilot, utilbootstrap.BuildLedger(args.RegistryOptions))
 				configController := memory.NewController(store)
 
 				err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
@@ -369,32 +369,6 @@ func (s *Server) mcpController(
 	mcpClient := sink.NewClient(cl, sinkOptions)
 	configz.Register(mcpClient)
 	return mcpController, mcpClient
-}
-
-func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
-	// TODO(howardjohn) allow the collection here to be configurable to allow running with only
-	// Kubernetes APIs.
-	schemas := collection.NewSchemasBuilder()
-	if features.EnableServiceApis {
-		schemas = schemas.
-			MustAdd(collections.K8SServiceApisV1Alpha1Tcproutes).
-			MustAdd(collections.K8SServiceApisV1Alpha1Gatewayclasses).
-			MustAdd(collections.K8SServiceApisV1Alpha1Gateways).
-			MustAdd(collections.K8SServiceApisV1Alpha1Httproutes).
-			MustAdd(collections.K8SServiceApisV1Alpha1Trafficsplits)
-	}
-	for _, schema := range collections.Pilot.All() {
-		if err := schemas.Add(schema); err != nil {
-			return nil, err
-		}
-	}
-	configClient, err := controller.NewClient(args.RegistryOptions.KubeConfig, "", schemas.Build(),
-		args.RegistryOptions.KubeOptions.DomainSuffix, buildLedger(args.RegistryOptions), args.Revision)
-	if err != nil {
-		return nil, multierror.Prefix(err, "failed to open a config client.")
-	}
-
-	return controller.NewController(configClient, args.RegistryOptions.KubeOptions), nil
 }
 
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {

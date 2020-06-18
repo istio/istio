@@ -31,6 +31,8 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
+	utilbootstrap "istio.io/istio/pilot/pkg/util/bootstrap"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -98,7 +100,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 			GRPCAddr:        ":0",
 			EnableProfiling: true,
 		}
-		p.RegistryOptions = bootstrap.RegistryOptions{
+		p.RegistryOptions = utilbootstrap.RegistryOptions{
 			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
 			// Static testdata, should include all configs we want to test.
 			FileDir: env.IstioSrc + "/tests/testdata/config",

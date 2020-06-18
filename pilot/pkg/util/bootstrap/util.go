@@ -20,7 +20,7 @@ import (
 	"istio.io/pkg/ledger"
 )
 
-func hasKubeRegistry(registries []string) bool {
+func HasKubeRegistry(registries []string) bool {
 	for _, r := range registries {
 		if serviceregistry.ProviderID(r) == serviceregistry.Kubernetes {
 			return true
@@ -29,7 +29,7 @@ func hasKubeRegistry(registries []string) bool {
 	return false
 }
 
-func buildLedger(ca RegistryOptions) ledger.Ledger {
+func BuildLedger(ca RegistryOptions) ledger.Ledger {
 	var result ledger.Ledger
 	if ca.DistributionTrackingEnabled {
 		result = ledger.Make(ca.DistributionCacheRetention)

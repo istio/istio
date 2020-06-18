@@ -24,9 +24,10 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pilot/pkg/util/bootstrap"
+
 	"istio.io/pkg/filewatcher"
 
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/testcerts"
 )
@@ -133,8 +134,8 @@ func TestNewServer(t *testing.T) {
 					MonitoringAddr: ":0",
 					GRPCAddr:       ":0",
 				}
-				p.RegistryOptions = RegistryOptions{
-					KubeOptions: kubecontroller.Options{
+				p.RegistryOptions = bootstrap.RegistryOptions{
+					KubeOptions: bootstrap.Options{
 						DomainSuffix: c.domain,
 					},
 					FileDir: configDir,

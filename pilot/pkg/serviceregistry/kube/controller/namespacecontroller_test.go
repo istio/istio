@@ -27,6 +27,8 @@ import (
 
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/util"
+
+	"istio.io/istio/pilot/pkg/util/bootstrap"
 )
 
 func TestNamespaceController(t *testing.T) {
@@ -34,7 +36,7 @@ func TestNamespaceController(t *testing.T) {
 	testdata := map[string]string{"key": "value"}
 	nc := NewNamespaceController(func() map[string]string {
 		return testdata
-	}, Options{}, client)
+	}, bootstrap.Options{}, client)
 
 	stop := make(chan struct{})
 	nc.Run(stop)
