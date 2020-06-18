@@ -74,9 +74,15 @@ type Config struct {
 	IP string
 
 	// CertDir is the directory where mTLS certs are configured.
-	// If empty, an insecure connection will be used.
-	// TODO: also allow passing in-memory certs.
+	// If CertDir and Secret are empty, an insecure connection will be used.
+	// TODO: implement SecretManager for cert dir
 	CertDir string
+
+	// Secrets is the interface used for getting keys and rootCA.
+	Secrets cache.SecretManager
+
+	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
+	XDSSAN string
 
 	// Watch is a list of resources to watch, represented as URLs (for new XDS resource naming)
 	// or type URLs.
@@ -86,9 +92,6 @@ type Config struct {
 	// If empty reconnect will not be attempted.
 	// TODO: client will use exponential backoff to reconnect.
 	InitialReconnectDelay time.Duration
-
-	// Secrets is the interface used for getting keys and rootCA.
-	Secrets cache.SecretManager
 
 	// backoffPolicy determines the reconnect policy. Based on MCP client.
 	BackoffPolicy backoff.BackOff
@@ -105,9 +108,6 @@ type ADSC struct {
 
 	// NodeID is the node identity sent to Pilot.
 	nodeID string
-
-	// certDir is used if the key and secrets are stored in file system.
-	certDir string
 
 	url string
 
@@ -278,13 +278,13 @@ func getPrivateIPIfAvailable() net.IP {
 	return net.IPv4zero
 }
 
-func tlsConfig(server, certDir string, secrets cache.SecretManager) (*tls.Config, error) {
+func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var clientCert tls.Certificate
 	var serverCABytes []byte
 	var err error
 
-	if secrets != nil {
-		key, err := secrets.GenerateSecret(context.Background(), "agent",
+	if a.cfg.Secrets != nil {
+		key, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
 			cache.WorkloadKeyCertResourceName, "")
 		if err != nil {
 			return nil, err
@@ -294,7 +294,7 @@ func tlsConfig(server, certDir string, secrets cache.SecretManager) (*tls.Config
 			return nil, err
 		}
 		// This is a bit crazy - we could just use the file
-		rootCA, err := secrets.GenerateSecret(context.Background(), "agent",
+		rootCA, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
 			cache.RootCertReqResourceName, "")
 		if err != nil {
 			return nil, err
@@ -302,12 +302,12 @@ func tlsConfig(server, certDir string, secrets cache.SecretManager) (*tls.Config
 
 		serverCABytes = rootCA.RootCert
 	} else {
-		clientCert, err = tls.LoadX509KeyPair(certDir+"/cert-chain.pem",
-			certDir+"/key.pem")
+		clientCert, err = tls.LoadX509KeyPair(a.cfg.CertDir+"/cert-chain.pem",
+			a.cfg.CertDir+"/key.pem")
 		if err != nil {
 			return nil, err
 		}
-		serverCABytes, err = ioutil.ReadFile(certDir + "/root-cert.pem")
+		serverCABytes, err = ioutil.ReadFile(a.cfg.CertDir + "/root-cert.pem")
 		if err != nil {
 			return nil, err
 		}
@@ -318,7 +318,10 @@ func tlsConfig(server, certDir string, secrets cache.SecretManager) (*tls.Config
 		return nil, err
 	}
 
-	shost, _, _ := net.SplitHostPort(server)
+	shost, _, _ := net.SplitHostPort(a.url)
+	if a.cfg.XDSSAN != "" {
+		shost = a.cfg.XDSSAN
+	}
 	return &tls.Config{
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      serverCAs,
@@ -342,7 +345,7 @@ func (a *ADSC) Run() error {
 	// TODO: pass version info, nonce properly
 	var err error
 	if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
-		tlsCfg, err := tlsConfig(a.url, a.certDir, a.cfg.Secrets)
+		tlsCfg, err := a.tlsConfig()
 		if err != nil {
 			return err
 		}

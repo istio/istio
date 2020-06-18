@@ -83,8 +83,9 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 	defer meshFile.Close()
 	meshConfig := mesh.DefaultMeshConfig()
+
 	// Secure GRPC address
-	meshConfig.DefaultConfig.DiscoveryAddress = "localhost:0"
+	meshConfig.DefaultConfig.DiscoveryAddress = "localhost:15012"
 
 	meshConfig.EnableAutoMtls.Value = false
 	tearFunc := func() {

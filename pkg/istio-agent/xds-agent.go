@@ -57,10 +57,10 @@ var (
 // adsc would be used to get MCP-over-XDS, and the server would generate
 // configs.
 func (sa *Agent) initXDS() {
-	if sa.LocalXDSAddr == "" {
-		sa.LocalXDSAddr = xdsAddr.Get() // default using the env.
+	if sa.cfg.LocalXDSAddr == "" {
+		sa.cfg.LocalXDSAddr = xdsAddr.Get() // default using the env.
 	}
-	if sa.LocalXDSAddr == "" {
+	if sa.cfg.LocalXDSAddr == "" {
 		return // not enabled
 	}
 	s := xds.NewXDS()
@@ -90,7 +90,7 @@ func (sa *Agent) initXDS() {
 	serverOptions.GrpcServer = grpc.NewServer()
 
 	var err error
-	sa.localListener, err = net.Listen("tcp", sa.LocalXDSAddr)
+	sa.localListener, err = net.Listen("tcp", sa.cfg.LocalXDSAddr)
 	if err != nil {
 		log.Errorf("Failed to set up TCP path: %v", err)
 	}
@@ -106,7 +106,12 @@ func (sa *Agent) initXDS() {
 // the XDS server (istiod), and fetch the initial config. Once the config is ready, will start the
 // local XDS proxy and return.
 func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.SecretManager) error {
-	cfg := &adsc.Config{}
+	if sa.cfg.LocalXDSAddr == "" {
+		return nil
+	}
+	cfg := &adsc.Config{
+		XDSSAN: sa.XDSSAN,
+	}
 	if sa.RequireCerts {
 		cfg.Secrets = secrets
 	}

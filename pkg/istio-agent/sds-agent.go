@@ -159,10 +159,6 @@ var (
 // - root cert to use for connecting to XDS server
 // - CA address, with proper defaults and detection
 type Agent struct {
-	// Location of JWTPath to connect to CA. If empty, SDS is not possible.
-	// If set SDS will be used - either local or via hostPath.
-	JWTPath string
-
 	// SDSAddress is the address of the SDS server. Starts with unix: for hostpath mount or built-in
 	// May also be a https address.
 	SDSAddress string
@@ -174,12 +170,6 @@ type Agent struct {
 	// - if controlPlaneAuthEnabled is set
 	// - port of discovery server is not 15010 (the plain text default).
 	RequireCerts bool
-
-	// PilotCertProvider is the provider of the Pilot certificate
-	PilotCertProvider string
-
-	// OutputKeyCertToDir is the directory for output the key and certificate
-	OutputKeyCertToDir string
 
 	// RootCert is the CA root certificate. It is loaded part of detecting the
 	// SDS operating mode - may be the Citadel CA, Kubernentes CA or a custom
@@ -196,17 +186,13 @@ type Agent struct {
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
 
-	// ClusterID is the cluster where the agent resides
-	ClusterID string
-
 	// FileMountedCerts indicates whether the proxy is using file mounted certs.
 	FileMountedCerts bool
-	proxyConfig      *mesh.ProxyConfig
 
-	// LocalXDSAddr is the address of the XDS proxy. If not set, the env variable will be used.
-	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
-	// Set for tests to 127.0.0.1:0
-	LocalXDSAddr string
+	// Expected SAN for the discovery address, for tests.
+	XDSSAN string
+
+	proxyConfig      *mesh.ProxyConfig
 
 	// Listener for the XDS proxy
 	LocalXDSListener net.Listener
@@ -220,6 +206,36 @@ type Agent struct {
 	localGrpcServer *grpc.Server
 
 	xdsServer *xds.Server
+
+	cfg *AgentConfig
+}
+
+// AgentConfig contains additional config for the agent, not included in ProxyConfig.
+// Most are from env variables ( still experimental ) or for testing only.
+// Eventually most non-test settings should graduate to ProxyConfig
+// Please don't add 100 parameters to the NewAgent function (or any other)!
+type AgentConfig struct {
+	// PilotCertProvider is the provider of the Pilot certificate (PILOT_CERT_PROVIDER env)
+	// Determines the root CA file to use for connecting to CA gRPC:
+	// - istiod
+	// - kubernetes
+	// - custom -
+	PilotCertProvider string
+
+	// OutputKeyCertToDir is the directory for output the key and certificate
+	OutputKeyCertToDir string
+
+	// Location of JWTPath to connect to CA. If empty, SDS is not possible.
+	// If set SDS will be used - either local or via hostPath.
+	JWTPath string
+
+	// ClusterID is the cluster where the agent resides
+	ClusterID string
+
+	// LocalXDSAddr is the address of the XDS proxy. If not set, the env variable XDS_LOCAL will be used.
+	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
+	// Set for tests to 127.0.0.1:0.
+	LocalXDSAddr string
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -230,15 +246,15 @@ type Agent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir, clusterID string) *Agent {
+func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig) *Agent {
 	a := &Agent{
 		proxyConfig: proxyConfig,
+		cfg: cfg,
 	}
 
 	discAddr := proxyConfig.DiscoveryAddress
 
 	a.SDSAddress = "unix:" + LocalSDS
-	a.ClusterID = clusterID
 
 	// If a workload is using file mounted certs, we do not to have to process CA related configuration.
 	if !shouldProvisionCertificates() {
@@ -247,43 +263,37 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, pilotCertProvider, jwtPath, outputK
 		return a
 	}
 
-	a.PilotCertProvider = pilotCertProvider
-	a.OutputKeyCertToDir = outputKeyCertToDir
-
 	_, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
 		log.Fatalf("Invalid discovery address %v %v", discAddr, err)
 	}
 
-	if _, err := os.Stat(jwtPath); err == nil && citadel.ProvCert == "" {
-		// If the JWT file exists, and explicit 'prov cert' is not - use the JWT
-		a.JWTPath = jwtPath
-	} else {
-		// If original /etc/certs or a separate 'provisioning certs' (VM) are present, use them instead of tokens
-		certDir := "./etc/certs"
-		if citadel.ProvCert != "" {
-			certDir = citadel.ProvCert
-		}
-		if _, err := os.Stat(certDir + "/key.pem"); err == nil {
-			a.CertsPath = certDir
-		}
-		// If the root-cert is in the old location, use it.
-		if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
-			CitadelCACertPath = certDir
-		}
+	// Auth logic for istio-agent to Cert provider:
+	// - if PROV_CERT is set, it'll be included in the TLS context sent to the server
+	//   This is a 'provisioning certificate' - long lived, managed by a tool, exchanged for
+	//   the short lived certs.
+	// - if a JWTPath token exists, will be included in the request.
 
-		if a.CertsPath != "" {
-			log.Warna("Using existing certificate ", a.CertsPath)
-		} else {
-			// Can't use in-process SDS.
-			log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
+	if _, err := os.Stat(a.cfg.JWTPath); err != nil {
+		log.Warna("Missing JWT token ", a.cfg.JWTPath)
+		a.cfg.JWTPath = ""
+	}
+	// If original /etc/certs or a separate 'provisioning certs' (VM) are present,
+	// add them to the tlsContext. If server asks for them and they exist - will be provided.
+	certDir := "./etc/certs"
+	if citadel.ProvCert != "" {
+		certDir = citadel.ProvCert
+	}
+	if _, err := os.Stat(certDir + "/key.pem"); err == nil {
+		a.CertsPath = certDir
+	}
+	if a.CertsPath != "" {
+		log.Warna("Using existing certificate ", a.CertsPath)
+	}
 
-			// TODO do not special case port 15012
-			if discPort == "15012" {
-				log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
-			}
-			// continue to initialize the agent.
-		}
+	// If the root-cert is in the old location, use it.
+	if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
+		CitadelCACertPath = certDir
 	}
 
 	a.CAEndpoint = caEndpointEnv
@@ -325,15 +335,14 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 
 	gatewaySdsCacheOptions = workloadSdsCacheOptions
 
-	serverOptions.PilotCertProvider = sa.PilotCertProvider
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
 	serverOptions.CertsDir = sa.CertsPath
-	serverOptions.JWTPath = sa.JWTPath
-	serverOptions.OutputKeyCertToDir = sa.OutputKeyCertToDir
+	serverOptions.JWTPath = sa.cfg.JWTPath
+	serverOptions.OutputKeyCertToDir = sa.cfg.OutputKeyCertToDir
 	serverOptions.CAEndpoint = sa.CAEndpoint
 	serverOptions.TLSEnabled = sa.RequireCerts
-	serverOptions.ClusterID = sa.ClusterID
+	serverOptions.ClusterID = sa.cfg.ClusterID
 	serverOptions.FileMountedCerts = sa.FileMountedCerts
 	// If proxy is using file mounted certs, JWT token is not needed.
 	if sa.FileMountedCerts {
@@ -428,19 +437,19 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 			log.Info("Istio Agent uses default istiod CA")
 			serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
 
-			if serverOptions.PilotCertProvider == "istiod" {
+			if sa.cfg.PilotCertProvider == "istiod" {
 				log.Info("istiod uses self-issued certificate")
 				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 					certReadErr = true
 				} else {
 					log.Infof("the CA cert of istiod is: %v", string(rootCert))
 				}
-			} else if serverOptions.PilotCertProvider == "kubernetes" {
+			} else if sa.cfg.PilotCertProvider == "kubernetes" {
 				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
 				if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
 					certReadErr = true
 				}
-			} else if serverOptions.PilotCertProvider == "custom" {
+			} else if sa.cfg.PilotCertProvider == "custom" {
 				log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
 					cache.DefaultRootCertFilePath)
 				if rootCert, err = ioutil.ReadFile(cache.DefaultRootCertFilePath); err != nil {
@@ -463,26 +472,26 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
 			} else if serverOptions.TLSEnabled {
-				if serverOptions.PilotCertProvider == "istiod" {
+				if sa.cfg.PilotCertProvider == "istiod" {
 					log.Info("istiod uses self-issued certificate")
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 						certReadErr = true
 					} else {
 						log.Infof("the CA cert of istiod is: %v", string(rootCert))
 					}
-				} else if serverOptions.PilotCertProvider == "kubernetes" {
+				} else if sa.cfg.PilotCertProvider == "kubernetes" {
 					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
 					if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
 						certReadErr = true
 					}
-				} else if serverOptions.PilotCertProvider == "custom" {
+				} else if sa.cfg.PilotCertProvider == "custom" {
 					log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
 						cache.DefaultRootCertFilePath)
 					if rootCert, err = ioutil.ReadFile(cache.DefaultRootCertFilePath); err != nil {
 						certReadErr = true
 					}
 				} else {
-					log.Errorf("unknown cert provider %v", serverOptions.PilotCertProvider)
+					log.Errorf("unknown cert provider %v", sa.cfg.PilotCertProvider)
 					certReadErr = true
 				}
 				if certReadErr {
@@ -500,7 +509,10 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 			}
 		}
 
+		// rootCert is used as a bundle - it can include multiple root certs !
+		// If nil, the 'system' (public CA) roots are used to connect to the CA.
 		sa.RootCert = rootCert
+
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
