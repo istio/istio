@@ -183,7 +183,82 @@ spec:
           - name: extracacerts
             mountPath: /cacerts
           {{- end }}
+
+      {{- if .Values.istiodGateway }}
+        - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+{{- end }}
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
+          args:
+          - proxy
+          - router
+          - --domain
+          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+        {{- if .Values.global.proxy.logLevel }}
+          - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
+        {{- end}}
+        {{- if .Values.global.proxy.componentLogLevel }}
+          - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
+        {{- end}}
+        {{- if .Values.global.logging.level }}
+          - --log_output_level={{ .Values.global.logging.level }}
+        {{- end}}
+        {{- if .Values.global.logAsJson }}
+          - --log_as_json
+        {{- end }}
+          - --serviceCluster
+          - "istiod"
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
+          env:
+          - name: PROXY_CONFIG
+            value: |
+              {"discoveryAddress":"127.0.0.1:15010"}
+          # Explicit config - Istiod will populate this.
+          - name: PROV_CERT
+            value: /etc/certs
+          volumeMounts:
+            - name: istio-envoy
+              mountPath: /etc/istio/proxy
+            - name: local-certs
+              mountPath: /etc/certs
+            # Must exist, writeable
+            - name: ingressgatewaysdsudspath
+              mountPath: /var/run/ingress_gateway
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15021
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+
+
+      {{- end }}
+
       volumes:
+      - name: ingressgatewaysdsudspath
+        emptyDir: {}
+
+      - name: istio-envoy
+        emptyDir:
+          medium: Memory
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
       - emptyDir:
@@ -203,6 +278,7 @@ spec:
         secret:
           secretName: cacerts
           optional: true
+
       # Optional - image should have
       - name: inject
         configMap:
