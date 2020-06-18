@@ -468,7 +468,7 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		s.fileWatcher.Close()
-		model.JwtKeyResolver.Close()
+		model.GetJwtKeyResolver().Close()
 
 		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
 		// force stop them. This does not happen normally.
