@@ -139,7 +139,7 @@ func TestStats(t *testing.T) {
 		name   string
 		envoy  string
 		app    string
-		agent string
+		agent  string
 		output string
 	}{
 		{
@@ -222,7 +222,7 @@ my_other_metric{} 0
 					Port: strings.Split(app.URL, ":")[2],
 				},
 				envoyStatsPort: envoyPort,
-				statusPort: uint16(agentPort),
+				statusPort:     uint16(agentPort),
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)
@@ -275,7 +275,7 @@ func TestStatsError(t *testing.T) {
 					Port: strconv.Itoa(tt.app),
 				},
 				envoyStatsPort: tt.envoy,
-				statusPort: uint16(tt.agent),
+				statusPort:     uint16(tt.agent),
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)

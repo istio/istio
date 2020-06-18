@@ -16,12 +16,9 @@ package status
 
 import (
 	"context"
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"go.opencensus.io/stats/view"
 	"io"
 	"io/ioutil"
 	"net"
@@ -34,9 +31,12 @@ import (
 	"syscall"
 	"time"
 
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats/view"
+
 	"istio.io/pkg/env"
 
-	"istio.io/istio/pilot/pkg/model"
 
 	"istio.io/pkg/log"
 
