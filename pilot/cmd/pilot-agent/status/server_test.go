@@ -139,6 +139,7 @@ func TestStats(t *testing.T) {
 		name   string
 		envoy  string
 		app    string
+		agent string
 		output string
 	}{
 		{
@@ -202,7 +203,17 @@ my_other_metric{} 0
 				}
 			}))
 			defer app.Close()
+			agent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if _, err := w.Write([]byte(tt.agent)); err != nil {
+					t.Fatalf("write failed: %v", err)
+				}
+			}))
+			defer agent.Close()
 			envoyPort, err := strconv.Atoi(strings.Split(envoy.URL, ":")[2])
+			if err != nil {
+				t.Fatal(err)
+			}
+			agentPort, err := strconv.Atoi(strings.Split(agent.URL, ":")[2])
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -211,6 +222,7 @@ my_other_metric{} 0
 					Port: strings.Split(app.URL, ":")[2],
 				},
 				envoyStatsPort: envoyPort,
+				statusPort: uint16(agentPort),
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)
@@ -246,12 +258,14 @@ func TestStatsError(t *testing.T) {
 		name  string
 		envoy int
 		app   int
+		agent int
 		resp  int
 	}{
-		{"both pass", passPort, passPort, 200},
-		{"envoy pass", passPort, failPort, 503},
-		{"app pass", failPort, passPort, 503},
-		{"both fail", failPort, failPort, 503},
+		{"three pass", passPort, passPort, passPort, 200},
+		{"envoy pass", passPort, failPort, failPort, 503},
+		{"app pass", failPort, passPort, failPort, 503},
+		{"agent pass", failPort, failPort, passPort, 503},
+		{"three fail", failPort, failPort, failPort, 503},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -261,6 +275,7 @@ func TestStatsError(t *testing.T) {
 					Port: strconv.Itoa(tt.app),
 				},
 				envoyStatsPort: tt.envoy,
+				statusPort: uint16(tt.agent),
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)

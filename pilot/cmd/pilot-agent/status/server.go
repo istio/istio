@@ -16,9 +16,12 @@ package status
 
 import (
 	"context"
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats/view"
 	"io"
 	"io/ioutil"
 	"net"
@@ -60,6 +63,7 @@ var PrometheusScrapingConfig = env.RegisterStringVar("ISTIO_PROMETHEUS_ANNOTATIO
 
 var (
 	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz)$`)
+	promStatsExporter *ocprom.Exporter
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
@@ -112,6 +116,13 @@ func NewServer(config Config) (*Server, error) {
 	if err := json.Unmarshal([]byte(config.KubeAppProbers), &s.appKubeProbers); err != nil {
 		return nil, fmt.Errorf("failed to decode app prober err = %v, json string = %v", err, config.KubeAppProbers)
 	}
+	// setup a prometheus stats exporter for istio-agent.
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
+	if err != nil {
+		return nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+	promStatsExporter = exporter
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
 		if !appProberPattern.Match([]byte(path)) {
@@ -167,6 +178,7 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(`/stats/prometheus`, s.handleStats)
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
+	mux.Handle("/agent-health", promStatsExporter)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
@@ -245,7 +257,7 @@ type PrometheusScrapeConfiguration struct {
 // is not exposing the same metrics as Envoy.
 // TODO(https://github.com/istio/istio/issues/22825) expose istio-agent stats here as well
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	var envoy, application []byte
+	var envoy, application, istio_agent []byte
 	var err error
 	if envoy, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
 		log.Errora(err)
@@ -260,12 +272,21 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if istio_agent, err = s.scrape(fmt.Sprintf("http://localhost:%d/agent-health", s.statusPort), r.Header); err != nil {
+		log.Errora(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	if _, err := w.Write(envoy); err != nil {
 		log.Errorf("failed to write envoy metrics: %v", err)
 		return
 	}
 	if _, err := w.Write(application); err != nil {
 		log.Errorf("failed to write application metrics: %v", err)
+	}
+	if _, err := w.Write(istio_agent); err != nil {
+		log.Errorf("failed to write agent metrics: %v", err)
 	}
 }
 
