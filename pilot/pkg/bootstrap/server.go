@@ -904,8 +904,8 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 	return key, cert
 }
 
-// getRootCertificates returns the root certificates from TLSOptions if available or from ca, or from SPIFFE bundle
-// endpoint.
+// getRootCertificates returns the root certificates from TLSOptions if available or from ca, and from SPIFFE bundle
+// endpoints.
 func (s *Server) getRootCertificates(tlsOptions TLSOptions) (*x509.CertPool, error) {
 	var rootCertBytes []byte
 	var err error

@@ -195,13 +195,8 @@ func TestGenCustomSpiffe(t *testing.T) {
 }
 
 func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
-	inputStringTemplate1 := `[
-		{"trustdomain": "foo", "url": "URL1"}
-]`
-	inputStringTemplate2 := `[
-	{"trustdomain": "foo", "url": "URL1"},
-	{"trustdomain": "bar", "url": "URL2"}
-]`
+	inputStringTemplate1 := `{"map": {"foo": "URL1"}}`
+	inputStringTemplate2 := `{"map": {"foo": "URL1", "bar": "URL2"}}`
 	testCases := []struct {
 		name        string
 		trustCert   bool

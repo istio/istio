@@ -325,6 +325,5 @@ var (
 
 	SpiffeBundlePaths = env.RegisterStringVar("SPIFFE_BUNDLE_PATHS", "",
 		"The paths to the SPIFFE bundle endpoints, in JSON format. For example: "+
-			"[{\"trustdomain\": \"foo\", \"url\": \"https://exampleurl1.com:123/path\"},"+
-			"{\"trustdomain\": \"bar\", \"url\": \"https://exampleurl2.com:123/path\"}]").Get()
+			"{map: {\"foo\": \"https://url1.com:123/path1\", \"bar\": \"https://url2.com:123/path2\"}}").Get()
 )

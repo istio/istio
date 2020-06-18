@@ -46,9 +46,8 @@ var (
 	spiffeLog = log.RegisterScope("spiffe", "SPIFFE library logging", 0)
 )
 
-type configTuple struct {
-	TrustDomain string `json:"trustdomain,omitempty"`
-	URL         string `json:"url,omitempty"`
+type spiffeConfig struct {
+	Map map[string]string `json:"map"`
 }
 
 type bundleDoc struct {
@@ -113,24 +112,22 @@ func GenCustomSpiffe(identity string) string {
 // RetrieveSpiffeBundleRootCertsFromStringInput retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
 // It can use the system cert pool and the supplied certificates to validate the endpoints.
 // The input endpointTuples should be in the json format of:
-// [
-//		{"trustdomain": "foo", "url": "..."},
-//		{"trustdomain": "bar", "url": "..."}
-// ]
+//		{"map": {"foo": "URL1", "bar": "URL2"}}
 func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrustedCerts []*x509.Certificate) (
 	map[string][]*x509.Certificate, error) {
-	var converted []configTuple
+	var converted spiffeConfig
 	err := json.Unmarshal([]byte(inputString), &converted)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarchalling the input: %v", err)
 	}
-	spiffeLog.Infof("Processed SPIFFE bundle configuration: %v+", converted)
+	spiffeLog.Infof("Processed SPIFFE bundle configuration: %v", converted)
 	return RetrieveSpiffeBundleRootCerts(converted, extraTrustedCerts)
 }
 
 // RetrieveSpiffeBundleRootCerts retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
 // It can use the system cert pool and the supplied certificates to validate the endpoints.
-func RetrieveSpiffeBundleRootCerts(config []configTuple, extraTrustedCerts []*x509.Certificate) (map[string][]*x509.Certificate, error) {
+func RetrieveSpiffeBundleRootCerts(config spiffeConfig, extraTrustedCerts []*x509.Certificate) (
+	map[string][]*x509.Certificate, error) {
 	httpClient := &http.Client{}
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
@@ -141,11 +138,11 @@ func RetrieveSpiffeBundleRootCerts(config []configTuple, extraTrustedCerts []*x5
 	}
 
 	ret := map[string][]*x509.Certificate{}
-	for _, tuple := range config {
-		if !strings.HasPrefix(tuple.URL, "https://") {
-			tuple.URL = "https://" + tuple.URL
+	for trustdomain, endpoint := range config.Map {
+		if !strings.HasPrefix(endpoint, "https://") {
+			endpoint = "https://" + endpoint
 		}
-		u, err := url.Parse(tuple.URL)
+		u, err := url.Parse(endpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to split the SPIFFE bundle URL: %v", err)
 		}
@@ -159,7 +156,7 @@ func RetrieveSpiffeBundleRootCerts(config []configTuple, extraTrustedCerts []*x5
 			TLSClientConfig: config,
 		}
 
-		resp, err := httpClient.Get(tuple.URL)
+		resp, err := httpClient.Get(endpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch bundle: %v", err)
 		}
@@ -186,12 +183,12 @@ func RetrieveSpiffeBundleRootCerts(config []configTuple, extraTrustedCerts []*x5
 			}
 		}
 		if cert == nil {
-			return nil, fmt.Errorf("trust domain [%s] at URL [%s] does not provide a X509 SVID", tuple.TrustDomain, tuple.URL)
+			return nil, fmt.Errorf("trust domain [%s] at URL [%s] does not provide a X509 SVID", trustdomain, endpoint)
 		}
-		if certs, ok := ret[tuple.TrustDomain]; ok {
-			ret[tuple.TrustDomain] = append(certs, cert)
+		if certs, ok := ret[trustdomain]; ok {
+			ret[trustdomain] = append(certs, cert)
 		} else {
-			ret[tuple.TrustDomain] = []*x509.Certificate{cert}
+			ret[trustdomain] = []*x509.Certificate{cert}
 		}
 	}
 	return ret, nil
