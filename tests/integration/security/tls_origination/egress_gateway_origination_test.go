@@ -82,12 +82,12 @@ func TestEgressGatewayTls(t *testing.T) {
 				},
 				"TLS origination from egress gateway to http endpoint": {
 					destinationRulePath: simpleTLSDestinationRuleConfig,
-					response:            []string{response.StatusCodeUnavailable},
+					response:            []string{response.StatusCodeOK},
 					portName:            "http",
 				},
 				"No TLS origination from egress gateway to https endpoint": {
 					destinationRulePath: disableTLSDestinationRuleConfig,
-					response:            []string{response.StatusCodeUnavailable},
+					response:            []string{response.StatusCodeOK},
 					portName:            "https",
 				},
 				"No TLS origination from egress gateway to http endpoint": {
@@ -97,7 +97,7 @@ func TestEgressGatewayTls(t *testing.T) {
 				},
 				"Mutual TLS origination from egress gateway to https endpoint no certs": {
 					destinationRulePath: mutualTLSDestinationRuleConfig,
-					response:            []string{response.StatusCodeUnavailable},
+					response:            []string{response.StatusCodeOK},
 					portName:            "https",
 				},
 			}

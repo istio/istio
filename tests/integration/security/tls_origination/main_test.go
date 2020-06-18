@@ -31,7 +31,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("tls_origination_test", m).
+		NewSuite(m).
 		Label(label.CustomSetup).
 
 		// SDS requires Kubernetes 1.13
