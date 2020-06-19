@@ -17,8 +17,6 @@ package vm
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/label"
-
 	"istio.io/istio/pkg/test/framework/components/namespace"
 
 	"istio.io/istio/pkg/test/framework"
@@ -38,7 +36,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Label(label.Postsubmit).
 		RequireSingleCluster().
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
