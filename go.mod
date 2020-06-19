@@ -174,3 +174,5 @@ require (
 	sigs.k8s.io/service-apis v0.0.0-20200610082005-c8dc1033d310
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace istio.io/api => github.com/dgn/api v0.0.0-20200623113743-e5268abc0aae

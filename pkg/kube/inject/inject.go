@@ -500,6 +500,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"directory":           directory,
 		"contains":            flippedContains,
 		"toLower":             strings.ToLower,
+		"join":                strings.Join,
 	}
 
 	// Allows the template to use env variables from istiod.

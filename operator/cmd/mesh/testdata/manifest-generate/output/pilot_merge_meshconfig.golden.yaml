@@ -17,9 +17,15 @@ data:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
       drainDuration: 12s
+      includeOutboundIpRanges:
+      - '*'
+      proxyInitImage: docker.io/istio/proxyv2:1.1.4
+      proxyInitImagePullPolicy: ""
       proxyMetadata:
         DNS_AGENT: ""
         TERMINATION_DRAIN_DURATION_SECONDS: "120"
+      proxyStatusPort: 15020
+      rewriteAppHttpProbe: true
       tracing:
         zipkin:
           address: zipkin.istio-system:9411

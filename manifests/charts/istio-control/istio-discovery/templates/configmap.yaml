@@ -53,6 +53,50 @@
     {{- end }}
 
     defaultConfig:
+      rewriteAppHttpProbe: {{ .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe }}
+      {{- if .Values.istio_cni.enabled }}
+      interceptionTechnique: CNI
+      {{- end }}
+      proxyStatusPort: {{ .Values.global.proxy.statusPort }}      
+
+      {{- if .Values.global.proxy.includeIPRanges }}
+      includeOutboundIpRanges:
+{{ splitList "," .Values.global.proxy.includeIPRanges | toYaml | indent 6 }}
+      {{- else }}
+      includeOutboundIpRanges:
+      - "*"
+      {{- end }}
+      {{- if .Values.global.proxy.excludeIPRanges }}
+      excludeOutboundIpRanges:
+{{ splitList "," .Values.global.proxy.excludeIPRanges | toYaml | indent 6 }}
+      {{- end }}
+
+      {{- if .Values.global.proxy.includeInboundPorts }}
+      includeInboundPorts:
+{{ splitList "," .Values.global.proxy.includeInboundPorts | toYaml | indent 6 }}
+      {{- end }}
+
+      {{- if .Values.global.proxy.excludeInboundPorts }}
+      excludeInboundPorts:
+{{ splitList "," .Values.global.proxy.excludeInboundPorts | toYaml | indent 6 }}
+      {{- end }}
+
+      {{- if contains "/" .Values.global.proxy_init.image }}
+      proxyInitImage: "{{ .Values.global.proxy_init.image }}"
+      {{- else }}
+      proxyInitImage: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
+      {{- end }}
+      {{- if .Values.global.proxy_init.imagePullPolicy }}
+      proxyInitImagePullPolicy: "{{ .Values.global.proxy_init.imagePullPolicy }}"
+      {{- else }}
+      proxyInitImagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+      {{ end }}
+
+      {{- if .Values.global.podDNSSearchNamespaces }}
+      podDnsSearchNamespaces:
+{{ .Values.global.podDNSSearchNamespaces | toYaml | indent 6 }}
+      {{- end }}
+
       tracing:
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
         lightstep:
