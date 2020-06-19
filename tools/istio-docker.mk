@@ -71,9 +71,9 @@ else
 	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
 endif
 
-# The file must be named 'envoy_bootstrap_v2.json' because Dockerfile.proxyv2 hard-codes this.
-${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap_v2.json: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH}
-	cp ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH} ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap_v2.json
+# The file must be named 'envoy_bootstrap.json' because Dockerfile.proxyv2 hard-codes this.
+${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH}
+	cp ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH} ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 
 # rule for wasm extensions.
 $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm: init
@@ -82,7 +82,7 @@ $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
 # Default proxy image.
 docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
-docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap_v2.json
+docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
@@ -108,11 +108,12 @@ docker.app: $(ISTIO_OUT_LINUX)/server
 docker.app: $(ISTIO_DOCKER)/certs
 	$(DOCKER_RULE)
 
+<<<<<<< HEAD
 # Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
 docker.app_sidecar_ubuntu_xenial: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=xenial
 docker.app_sidecar_ubuntu_xenial: VM_TARGET=docker.app_sidecar_ubuntu_xenial
 docker.app_sidecar_ubuntu_xenial: $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE)
-docker.app_sidecar_ubuntu_xenial: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar_ubuntu_xenial: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_xenial: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_ubuntu_xenial: pkg/test/echo/docker/echo-start.sh
@@ -124,7 +125,7 @@ docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar_ubuntu_bionic: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=bionic
 docker.app_sidecar_ubuntu_bionic: VM_TARGET=docker.app_sidecar_ubuntu_bionic
 docker.app_sidecar_ubuntu_bionic: $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE)
-docker.app_sidecar_ubuntu_bionic: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar_ubuntu_bionic: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_bionic: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_ubuntu_bionic: pkg/test/echo/docker/echo-start.sh
@@ -136,7 +137,7 @@ docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar_ubuntu_focal: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=focal
 docker.app_sidecar_ubuntu_focal: VM_TARGET=docker.app_sidecar_ubuntu_focal
 docker.app_sidecar_ubuntu_focal: $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE)
-docker.app_sidecar_ubuntu_focal: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar_ubuntu_focal: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_focal: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_ubuntu_focal: pkg/test/echo/docker/echo-start.sh
@@ -148,7 +149,7 @@ docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar_debian_9: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=9
 docker.app_sidecar_debian_9: VM_TARGET=docker.app_sidecar_debian_9
 docker.app_sidecar_debian_9: $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE)
-docker.app_sidecar_debian_9: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar_debian_9: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_debian_9: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_debian_9: pkg/test/echo/docker/echo-start.sh
@@ -160,7 +161,7 @@ docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar_debian_10: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=10
 docker.app_sidecar_debian_10: VM_TARGET=docker.app_sidecar_debian_10
 docker.app_sidecar_debian_10: $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE)
-docker.app_sidecar_debian_10: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar_debian_10: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_debian_10: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_debian_10: pkg/test/echo/docker/echo-start.sh
