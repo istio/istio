@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework/components/namespace"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -29,13 +31,21 @@ import (
 )
 
 func TestVmOS(t *testing.T) {
-	// read from a config list to construct the test matrix
+	vmImages := []string{"app_sidecar_bionic"}
+	VMTestBody(t, vmImages)
+}
+
+func TestVmOSPost(t *testing.T) {
 	vmImages := []string{"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal", "app_sidecar_ubuntu_bionic",
 		"app_sidecar_debian_9", "app_sidecar_debian_10"}
+	VMTestBody(t, vmImages, label.Postsubmit)
+}
 
+func VMTestBody(t *testing.T, vmImages []string, label ...label.Instance) {
 	framework.
 		NewTest(t).
 		Features("traffic.reachability").
+		Label(label...).
 		Run(func(ctx framework.TestContext) {
 			ns = namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "virtual-machine",

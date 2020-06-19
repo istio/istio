@@ -111,63 +111,58 @@ docker.app: $(ISTIO_DOCKER)/certs
 
 # Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
 docker.app_sidecar_ubuntu_xenial: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=xenial
-docker.app_sidecar_ubuntu_xenial: VM_TARGET=docker.app_sidecar_ubuntu_xenial
-docker.app_sidecar_ubuntu_xenial: $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE)
 docker.app_sidecar_ubuntu_xenial: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_xenial: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_ubuntu_xenial: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/server
-	$(VM_DOCKER_RULE)
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:bionic (for non-k8s).
 docker.app_sidecar_ubuntu_bionic: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=bionic
-docker.app_sidecar_ubuntu_bionic: VM_TARGET=docker.app_sidecar_ubuntu_bionic
-docker.app_sidecar_ubuntu_bionic: $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE)
 docker.app_sidecar_ubuntu_bionic: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_bionic: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_ubuntu_bionic: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/server
-	$(VM_DOCKER_RULE)
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:focal (for non-k8s).
 docker.app_sidecar_ubuntu_focal: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=focal
-docker.app_sidecar_ubuntu_focal: VM_TARGET=docker.app_sidecar_ubuntu_focal
-docker.app_sidecar_ubuntu_focal: $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE)
 docker.app_sidecar_ubuntu_focal: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_focal: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_ubuntu_focal: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/server
-	$(VM_DOCKER_RULE)
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with debian 9 (for non-k8s).
 docker.app_sidecar_debian_9: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=9
-docker.app_sidecar_debian_9: VM_TARGET=docker.app_sidecar_debian_9
-docker.app_sidecar_debian_9: $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE)
 docker.app_sidecar_debian_9: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_debian_9: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_debian_9: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/server
-	$(VM_DOCKER_RULE)
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with debian 10 (for non-k8s).
 docker.app_sidecar_debian_10: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=10
-docker.app_sidecar_debian_10: VM_TARGET=docker.app_sidecar_debian_10
-docker.app_sidecar_debian_10: $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE)
 docker.app_sidecar_debian_10: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_debian_10: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_debian_10: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/server
-	$(VM_DOCKER_RULE)
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
 docker.test_policybackend: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
@@ -221,8 +216,7 @@ docker.install-cni: cni/deployments/kubernetes/install/scripts/filter.jq
 # We then generate a "bake" file, which defines all of the docker files in the repo
 # Finally, we call `docker buildx bake` to generate the images.
 dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@ && cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
-dockerx: RENAME_TEMPLATE?=mv $(DOCKERX_BUILD_TOP)/$(VM_TARGET)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$(VM_TARGET)/Dockerfile$(suffix $(VM_TARGET))
-dockerx: VM_DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$(VM_TARGET) && cp -r $^ $(DOCKERX_BUILD_TOP)/$(VM_TARGET) && $(RENAME_TEMPLATE) && cd $(DOCKERX_BUILD_TOP)/$(VM_TARGET) $(BUILD_PRE)
+dockerx: RENAME_TEMPLATE?=cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
 	HUB=$(HUB) \
@@ -260,8 +254,7 @@ DOCKER_BUILD_VARIANTS ?= default
 DOCKER_ALL_VARIANTS ?= default distroless
 DEFAULT_DISTRIBUTION=default
 DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE) && docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
-RENAME_TEMPLATE ?= mv $(DOCKER_BUILD_TOP)/$(VM_TARGET)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKER_BUILD_TOP)/$(VM_TARGET)/Dockerfile$(suffix $(VM_TARGET))
-VM_DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$(VM_TARGET) && cp -r $^ $(DOCKER_BUILD_TOP)/$(VM_TARGET) && $(RENAME_TEMPLATE) && cd $(DOCKER_BUILD_TOP)/$(VM_TARGET) $(BUILD_PRE) && docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$(VM_TARGET)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $(VM_TARGET)) .); )
+RENAME_TEMPLATE ?= cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKER_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.
