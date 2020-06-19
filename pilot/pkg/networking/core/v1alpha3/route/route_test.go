@@ -474,8 +474,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with subsets with port level settings with ring hash", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		virtualService := model.Config{ConfigMeta: model.ConfigMeta{GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
-			Name: "acme",
+		virtualService := model.Config{ConfigMeta: model.ConfigMeta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme",
 		},
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
 		}
