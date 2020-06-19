@@ -366,6 +366,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		},
 	}
 
+
 	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{service})
 	for _, instance := range instances {
 		serviceDiscovery.AddInstance(instance.Service.Hostname, instance)
@@ -1351,14 +1352,13 @@ func TestGatewayLocalityLB(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	for _, cluster := range clusters {
-		if cluster.Name == util.BlackHoleCluster {
+		if !strings.Contains(cluster.Name, "8080") {
 			continue
 		}
 		if cluster.CommonLbConfig == nil {
 			t.Errorf("CommonLbConfig should be set for cluster %+v", cluster)
 		}
 		g.Expect(cluster.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
-
 		g.Expect(len(cluster.LoadAssignment.Endpoints)).To(Equal(3))
 		for _, localityLbEndpoint := range cluster.LoadAssignment.Endpoints {
 			locality := localityLbEndpoint.Locality
@@ -1400,7 +1400,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	for _, cluster := range clusters {
-		if cluster.Name == util.BlackHoleCluster {
+		if !strings.Contains(cluster.Name, "8080") {
 			continue
 		}
 		if cluster.CommonLbConfig == nil {
@@ -1675,6 +1675,9 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			configStore := &fakes.IstioConfigStore{}
 			serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{service})
 			serviceDiscovery.WantGetProxyServiceInstances = c.instances
+			for _, i := range c.instances {
+				serviceDiscovery.AddInstance(i.Service.Hostname, i)
+			}
 
 			env := c.newEnv(serviceDiscovery, configStore)
 			actual := buildLocalityLbEndpoints(proxy, env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
