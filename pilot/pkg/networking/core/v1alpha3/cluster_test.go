@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -280,8 +281,6 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*cluster.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-
 	servicePort := model.PortList{
 		&model.Port{
 			Name:     "default",
@@ -367,9 +366,8 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		},
 	}
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
-	serviceDiscovery.InstancesByPortReturns(instances, nil)
+	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{service})
+	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	configStore := &fakes.IstioConfigStore{
 		ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
@@ -1672,9 +1670,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			configStore := &fakes.IstioConfigStore{}
-			serviceDiscovery := &fakes.ServiceDiscovery{}
-			serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-			serviceDiscovery.InstancesByPortReturns(c.instances, nil)
+			serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{service})
+			serviceDiscovery.WantGetProxyServiceInstances = c.instances
 
 			env := c.newEnv(serviceDiscovery, configStore)
 			actual := buildLocalityLbEndpoints(proxy, env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
@@ -1783,7 +1780,7 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
 	configStore := &fakes.IstioConfigStore{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
@@ -1806,7 +1803,7 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
 	configStore := &fakes.IstioConfigStore{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
@@ -1962,7 +1959,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 
 			configgen := NewConfigGenerator([]plugin.Plugin{})
-			serviceDiscovery := &fakes.ServiceDiscovery{}
+			serviceDiscovery := memory.NewServiceDiscovery(nil)
 
 			configStore := &fakes.IstioConfigStore{
 				ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
@@ -2003,8 +2000,6 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 
 	proxy := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
 
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-
 	servicePort := &model.Port{
 		Name:     "redis-port",
 		Port:     6379,
@@ -2018,7 +2013,7 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 		Resolution:  model.Passthrough,
 	}
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{service})
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
@@ -2040,8 +2035,6 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 
 	proxy := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
 
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-
 	servicePort := &model.Port{
 		Name:     "redis-port",
 		Port:     6379,
@@ -2060,7 +2053,7 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	features.EnableRedisFilter = true
 	defer func() { features.EnableRedisFilter = defaultValue }()
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{service})
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
@@ -2400,7 +2393,6 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	cfg := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := &fakes.ServiceDiscovery{}
 	service := &model.Service{
 		Hostname:    host.Name("static.test"),
 		Address:     "1.1.1.1",
@@ -2419,9 +2411,7 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-	serviceDiscovery.GetProxyServiceInstancesReturns([]*model.ServiceInstance{}, nil)
-	serviceDiscovery.InstancesByPortReturns([]*model.ServiceInstance{}, nil)
+	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{service})
 	proxy.ServiceInstances = []*model.ServiceInstance{}
 
 	configStore := &fakes.IstioConfigStore{}

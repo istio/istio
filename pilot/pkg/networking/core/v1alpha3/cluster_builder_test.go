@@ -413,7 +413,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			serviceDiscovery := &fakes.ServiceDiscovery{}
+			serviceDiscovery := memory.NewServiceDiscovery(nil)
 			configStore := &fakes.IstioConfigStore{}
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
@@ -459,7 +459,7 @@ func TestBuildPassthroughClusters(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			serviceDiscovery := &fakes.ServiceDiscovery{}
+			serviceDiscovery := memory.NewServiceDiscovery(nil)
 			configStore := &fakes.IstioConfigStore{}
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
