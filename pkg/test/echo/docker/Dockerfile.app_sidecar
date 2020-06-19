@@ -1,5 +1,5 @@
-ARG VM_IMAGE_NAME
-ARG VM_IMAGE_VERSION
+ARG VM_IMAGE_NAME=ubuntu
+ARG VM_IMAGE_VERSION=bionic
 FROM ${VM_IMAGE_NAME}:${VM_IMAGE_VERSION}
 # Dockerfile for different VM OS versions
 ENV DEBIAN_FRONTEND=noninteractive
@@ -18,7 +18,8 @@ RUN apt-get update && \
    && apt-get clean \
    && rm -rf  /var/log/*log /var/lib/apt/lists/* /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old
 
-# Fix the bug of --to-ports not available. Redeclare ARGs to avoid reset
+# Fix the bug of --to-ports not available.
+# Redeclare ARGs to acquire values declared outside of build stage
 ARG VM_IMAGE_NAME
 ARG VM_IMAGE_VERSION
 RUN if [ "$VM_IMAGE_NAME" = "debian" ] && [ "$VM_IMAGE_VERSION" = "10" ]; then \
