@@ -548,17 +548,11 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 		return nil
 	}
 
-	certPool, err := s.getRootCertificates(tlsOptions)
-	if err != nil {
-		return err
-	}
-
 	// TODO: check if client certs can be used with coredns or others.
 	// If yes - we may require or optionally use them
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.NoClientCert,
-		ClientCAs:      certPool,
 	}
 
 	// create secure grpc listener

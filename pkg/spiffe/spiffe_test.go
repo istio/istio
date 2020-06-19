@@ -20,6 +20,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 var (
@@ -66,6 +67,27 @@ var (
 		`U/WaWqV2hERbkmxXFh6cUdlkX2MeoG4v6ZD2OKAPx5DpJCfp0TEq6PznP+Z1mLd/ZjGsOF8R2WGQJEuU8HRzvsr` +
 		`0wsX9UyLMqf5XViDK11V/W+dcIvjHCayBpX2se3dfex5jFht+JcQc+iwB8caSXkR6tGSiargEtSJODORacO9IB8` +
 		`b6W8Sm//JWf/8zyiCcMm1i2yVVphwE1kczFwunAh0JB896VaXGVxXeKEAMQoXHjgDdCYp8/Etxjb8UkCmyjU="]
+		}
+	]
+}`
+
+	invalidResponse = `
+{
+	"spiffe_sequence": 1,
+	"spiffe_refresh_hint": 450000,
+	"keys": [
+		{
+		"kty": "RSA",
+		"use": "x509-svid",
+		"n": "r10W2IcjT-vvSTpaFsS4OAcPOX87kw-zKZuJgXhxDhkOQyBdPZpUfK4H8yZ2q14Laym4bmiMLocIeGP70k` +
+		`UXcp9T4SP-P0DmBTPx3hVgP3YteHzaKsja056VtDs9kAufmFGemTSCenMt7aSlryUbLRO0H-__fTeNkCXR7uIoq` +
+		`RfU6jL0nN4EBh02q724iGuX6dpJcQam5bEJjq6Kn4Ry4qn1xHXqQXM4o2f6xDT13sp4U32stpmKh0HOd1WWKr0W` +
+		`RYnAh4GnToKr21QySZi9QWTea3zqeFmti-Isji1dKZkgZA2S89BdTWSLe6S_9lV0mtdXvDaT8RmaIX72jE_Abhn` +
+		`bUYV84pNYv-T2LtIKoi5PjWk0raaYoexAjtCWiu3PnizxjYOnNwpzgQN9Qh_rY2jv74cgzG50_Ft1B7XUiakNFx` +
+		`AiD1k6pNuiu4toY0Es7qt1yeqaC2zcIuuV7HUv1AbFBkIdF5quJHVtZ5AE1MCh1ipLPq-lIjmFdQKSRdbssVw8y` +
+		`q9FtFVyVqTz9GnQtoctCIPGQqmJDWmt8E7gjFhweUQo-fGgGuTlZRl9fiPQ6luPyGQ1WL6wH79G9eu4UtmgUDNw` +
+		`q7kpYq0_NQ5vw_1WQSY3LsPclfKzkZ-Lw2RVef-SFVVvUFMcd_3ALeeEnnSe4GSY-7vduPUAE5qMH7M",
+		"e": "AQAB"
 		}
 	]
 }`
@@ -194,10 +216,14 @@ func TestGenCustomSpiffe(t *testing.T) {
 	}
 }
 
+// The test starts one or two local servers and tests RetrieveSpiffeBundleRootCerts is able to correctly retrieve the
+// SPIFFE bundles.
 func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
-	inputStringTemplate1 := `{"map": {"foo": "URL1"}}`
-	inputStringTemplate2 := `{"map": {"foo": "URL1", "bar": "URL2"}}`
+	inputStringTemplate1 := `foo|URL1`
+	inputStringTemplate2 := `foo|URL1||bar|URL2`
+	totalRetryTimeout = time.Millisecond * 50
 	testCases := []struct {
+		template    string
 		name        string
 		trustCert   bool
 		status      int
@@ -207,6 +233,7 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 	}{
 		{
 			name:       "success",
+			template:   inputStringTemplate1,
 			trustCert:  true,
 			status:     http.StatusOK,
 			body:       validResponse,
@@ -214,13 +241,42 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 		},
 		{
 			name:       "success",
+			template:   inputStringTemplate2,
 			trustCert:  true,
 			status:     http.StatusOK,
 			body:       validResponse,
 			twoServers: true,
 		},
 		{
+			name:        "Invalid input 1",
+			template:    "foo||URL1",
+			trustCert:   false,
+			status:      http.StatusOK,
+			body:        validResponse,
+			twoServers:  false,
+			errContains: "config is invalid",
+		},
+		{
+			name:        "Invalid input 2",
+			template:    "foo|URL1|bar|URL2",
+			trustCert:   false,
+			status:      http.StatusOK,
+			body:        validResponse,
+			twoServers:  true,
+			errContains: "config is invalid",
+		},
+		{
+			name:        "Invalid input 3",
+			template:    "URL1||bar|URL2",
+			trustCert:   false,
+			status:      http.StatusOK,
+			body:        validResponse,
+			twoServers:  true,
+			errContains: "config is invalid",
+		},
+		{
 			name:        "Unauthenticated cert",
+			template:    inputStringTemplate1,
 			trustCert:   false,
 			status:      http.StatusOK,
 			body:        validResponse,
@@ -229,14 +285,25 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 		},
 		{
 			name:        "non-200 status",
+			template:    inputStringTemplate1,
 			trustCert:   true,
 			status:      http.StatusServiceUnavailable,
 			body:        "tHe SYsTEm iS DowN",
 			twoServers:  false,
-			errContains: "unexpected status 503 fetching bundle: tHe SYsTEm iS DowN",
+			errContains: "unexpected status: 503, fetching bundle: tHe SYsTEm iS DowN",
+		},
+		{
+			name:        "Certificate absent",
+			template:    inputStringTemplate1,
+			trustCert:   true,
+			status:      http.StatusOK,
+			body:        invalidResponse,
+			twoServers:  false,
+			errContains: "expected 1 certificate in x509-svid entry 0; got 0",
 		},
 		{
 			name:        "invalid bundle content",
+			template:    inputStringTemplate1,
 			trustCert:   true,
 			status:      http.StatusOK,
 			body:        "NOT JSON",
@@ -253,13 +320,13 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 				_, _ = w.Write([]byte(testCase.body))
 			})
 			server := httptest.NewTLSServer(handler)
-			input := strings.Replace(inputStringTemplate1, "URL1", server.Listener.Addr().String(), 1)
+			input := strings.Replace(testCase.template, "URL1", server.Listener.Addr().String(), 1)
 			var trustedCerts []*x509.Certificate
 			if testCase.trustCert {
 				trustedCerts = append(trustedCerts, server.Certificate())
 			}
 			if testCase.twoServers {
-				input = strings.Replace(inputStringTemplate2, "URL1", server.Listener.Addr().String(), 1)
+				input = strings.Replace(testCase.template, "URL1", server.Listener.Addr().String(), 1)
 				handler2 := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 					w.WriteHeader(testCase.status)
 					_, _ = w.Write([]byte(testCase.body))
