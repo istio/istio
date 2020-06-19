@@ -75,10 +75,10 @@ function build_images() {
   targets="docker.pilot docker.proxyv2 "
 
   # use ubuntu:bionic to test vms by default
-  targets+="docker.app docker.app_sidecar_bionic docker.test_policybackend "
+  targets+="docker.app docker.app_sidecar_ubuntu_bionic docker.test_policybackend "
   if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" ]]; then
-    targets+="docker.app_sidecar_xenial docker.app_sidecar_focal docker.app_sidecar_bionic "
-    targets+="docker.app_sidecar_debian9 docker.app_sidecar_debian10 "
+    targets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_ubuntu_focal docker.app_sidecar_ubuntu_bionic "
+    targets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 "
   fi
   targets+="docker.mixer "
   targets+="docker.operator "
