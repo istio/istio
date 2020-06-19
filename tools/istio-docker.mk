@@ -108,7 +108,6 @@ docker.app: $(ISTIO_OUT_LINUX)/server
 docker.app: $(ISTIO_DOCKER)/certs
 	$(DOCKER_RULE)
 
-<<<<<<< HEAD
 # Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
 docker.app_sidecar_ubuntu_xenial: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=xenial
 docker.app_sidecar_ubuntu_xenial: VM_TARGET=docker.app_sidecar_ubuntu_xenial
