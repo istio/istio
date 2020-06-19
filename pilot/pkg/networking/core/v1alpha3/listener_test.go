@@ -382,10 +382,9 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			p := &fakePlugin{}
 			virtualService := model.Config{
 				ConfigMeta: model.ConfigMeta{
-					Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-					Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-					Name:      "test_vs",
-					Namespace: "default",
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+					Name:             "test_vs",
+					Namespace:        "default",
 				},
 				Spec: virtualServiceSpec,
 			}
@@ -2550,10 +2549,9 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 				return []model.Config{
 					{
 						ConfigMeta: model.ConfigMeta{
-							Type:      collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(),
-							Version:   collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Version(),
-							Name:      limitedSvcName,
-							Namespace: "default",
+							GroupVersionKind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
+							Name:             limitedSvcName,
+							Namespace:        "default",
 						},
 						Spec: quotaSpec,
 					},
@@ -2562,10 +2560,9 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 				return []model.Config{
 					{
 						ConfigMeta: model.ConfigMeta{
-							Type:      collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(),
-							Version:   collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Version(),
-							Name:      limitedSvcName,
-							Namespace: "default",
+							GroupVersionKind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
+							Name:             limitedSvcName,
+							Namespace:        "default",
 						},
 						Spec: &mixerClient.QuotaSpecBinding{
 							Services: []*mixerClient.IstioService{

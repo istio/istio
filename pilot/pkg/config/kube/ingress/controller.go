@@ -223,18 +223,14 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	for _, f := range c.virtualServiceHandlers {
 		f(model.Config{}, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    virtualServiceGvk.Kind,
-				Version: virtualServiceGvk.Version,
-				Group:   virtualServiceGvk.Group,
+				GroupVersionKind: virtualServiceGvk,
 			},
 		}, event)
 	}
 	for _, f := range c.gatewayHandlers {
 		f(model.Config{}, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    gatewayGvk.Kind,
-				Version: gatewayGvk.Version,
-				Group:   gatewayGvk.Group,
+				GroupVersionKind: gatewayGvk,
 			},
 		}, event)
 	}

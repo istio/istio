@@ -23,6 +23,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pkg/adsc"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -403,10 +404,8 @@ func TestAdsPushScoping(t *testing.T) {
 	addVirtualService := func(i int, hosts ...string) {
 		if _, err := server.EnvoyXdsServer.MemConfigController.Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    model.VirtualServiceKind.Kind,
-				Version: model.VirtualServiceKind.Version,
-				Group:   model.VirtualServiceKind.Group,
-				Name:    fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				GroupVersionKind: model.VirtualServiceKind,
+				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace},
 			Spec: &networking.VirtualService{
 				Hosts: hosts,
 				Http: []*networking.HTTPRoute{{Redirect: &networking.HTTPRedirect{
@@ -426,10 +425,8 @@ func TestAdsPushScoping(t *testing.T) {
 	addDestinationRule := func(i int, host string) {
 		if _, err := server.EnvoyXdsServer.MemConfigController.Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    model.DestinationRuleKind.Kind,
-				Version: model.DestinationRuleKind.Version,
-				Group:   model.DestinationRuleKind.Group,
-				Name:    fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace},
+				GroupVersionKind: model.DestinationRuleKind,
+				Name:             fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace},
 			Spec: &networking.DestinationRule{
 				Host:     host,
 				ExportTo: nil,
@@ -452,10 +449,8 @@ func TestAdsPushScoping(t *testing.T) {
 	sidecarKind := collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind()
 	if _, err := server.EnvoyXdsServer.MemConfigController.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:    sidecarKind.Kind,
-			Version: sidecarKind.Version,
-			Group:   sidecarKind.Group,
-			Name:    "sc", Namespace: model.IstioDefaultConfigNamespace},
+			GroupVersionKind: sidecarKind,
+			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace},
 		Spec: sc,
 	}); err != nil {
 		t.Fatal(err)

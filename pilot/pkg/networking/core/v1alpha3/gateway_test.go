@@ -931,25 +931,25 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "virtual-service",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "virtual-service",
+			Namespace:        "default",
 		},
 		Spec: virtualServiceSpec,
 	}
 	virtualServiceCopy := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "virtual-service-copy",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "virtual-service-copy",
+			Namespace:        "default",
 		},
 		Spec: virtualServiceSpec,
 	}
 	virtualServiceWildcard := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "virtual-service-wildcard",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "virtual-service-wildcard",
+			Namespace:        "default",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},

@@ -216,9 +216,8 @@ func TestApplyDestinationRule(t *testing.T) {
 						if tt.destRule != nil {
 							return []model.Config{
 								{ConfigMeta: model.ConfigMeta{
-									Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-									Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-									Name:    "acme",
+									GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+									Name:             "acme",
 								},
 									Spec: tt.destRule,
 								}}, nil

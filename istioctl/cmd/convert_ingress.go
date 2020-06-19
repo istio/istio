@@ -134,9 +134,9 @@ func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error
 
 func writeYAMLOutput(schemas collection.Schemas, configs []model.Config, writer io.Writer) {
 	for i, cfg := range configs {
-		s, exists := schemas.FindByGroupVersionKind(cfg.GroupVersionKind())
+		s, exists := schemas.FindByGroupVersionKind(cfg.GroupVersionKind)
 		if !exists {
-			log.Errorf("Unknown kind %q for %v", cfg.Type, cfg.Name)
+			log.Errorf("Unknown kind %q for %v", cfg.GroupVersionKind, cfg.Name)
 			continue
 		}
 		obj, err := crd.ConvertConfig(s, cfg)
@@ -159,7 +159,7 @@ func writeYAMLOutput(schemas collection.Schemas, configs []model.Config, writer 
 func validateConfigs(configs []model.Config) error {
 	var errs error
 	for _, cfg := range configs {
-		if collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind() == cfg.Type {
+		if collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind() == cfg.GroupVersionKind {
 			if err := validation.ValidateVirtualService(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
 				errs = multierror.Append(err, errs)
 			}

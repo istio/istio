@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 
 	istio "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 )
@@ -158,12 +159,10 @@ func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSp
 			}
 			vsConfig := model.Config{
 				ConfigMeta: model.ConfigMeta{
-					Type:      istioVsResource.Kind(),
-					Group:     istioVsResource.Group(),
-					Version:   istioVsResource.Version(),
-					Name:      name,
-					Namespace: obj.Namespace,
-					Domain:    r.Domain,
+					GroupVersionKind: istioVsResource.GroupVersionKind(),
+					Name:             name,
+					Namespace:        obj.Namespace,
+					Domain:           r.Domain,
 				},
 				Spec: &istio.VirtualService{
 					Hosts:    hosts,
@@ -314,12 +313,10 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 		}
 		gatewayConfig := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      istioGwResource.Kind(),
-				Group:     istioGwResource.Group(),
-				Version:   istioGwResource.Version(),
-				Name:      name,
-				Namespace: obj.Namespace,
-				Domain:    "", // TODO hardcoded
+				GroupVersionKind: istioGwResource.GroupVersionKind(),
+				Name:             name,
+				Namespace:        obj.Namespace,
+				Domain:           "", // TODO hardcoded
 			},
 			Spec: &istio.Gateway{
 				Servers: servers,
