@@ -30,8 +30,8 @@ import (
 
 func TestVmOS(t *testing.T) {
 	// read from a config list to construct the test matrix
-	vmImages := []string{"app_sidecar_xenial", "app_sidecar_focal", "app_sidecar_bionic", "app_sidecar_debian9",
-		"app_sidecar_debian10"}
+	vmImages := []string{"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal", "app_sidecar_ubuntu_bionic",
+		"app_sidecar_debian_9", "app_sidecar_debian_10"}
 
 	framework.
 		NewTest(t).
