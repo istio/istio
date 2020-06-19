@@ -38,16 +38,16 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pkg/config/schema/collections"
 	istio_proto "istio.io/istio/pkg/proto"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -60,26 +60,22 @@ var (
 	}
 )
 
-func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
-	return &fakes.IstioConfigStore{
-		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-			if kind == gvk.EnvoyFilter {
-				// to emulate returning multiple envoy filter configs
-				for i, cp := range configPatches {
-					configs = append(configs, model.Config{
-						ConfigMeta: model.ConfigMeta{
-							Name:      fmt.Sprintf("test-envoyfilter-%d", i),
-							Namespace: "not-default",
-						},
-						Spec: &networking.EnvoyFilter{
-							ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
-						},
-					})
-				}
-			}
-			return
-		},
+func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.IstioConfigStore {
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+
+	for i, cp := range configPatches {
+		store.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name:      fmt.Sprintf("test-envoyfilter-%d", i),
+				Namespace: "not-default",
+				GroupVersionKind: gvk.EnvoyFilter,
+			},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
+			},
+		})
 	}
+	return store
 }
 
 func buildPatchStruct(config string) *types.Struct {
@@ -882,7 +878,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 	}
-	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
@@ -1038,7 +1034,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 			},
 		},
 	}
-	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)

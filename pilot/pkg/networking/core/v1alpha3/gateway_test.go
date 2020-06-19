@@ -27,6 +27,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -1119,16 +1120,15 @@ func TestBuildGatewayListeners(t *testing.T) {
 func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pilot_model.Config) pilot_model.Environment {
 	serviceDiscovery := memory.NewServiceDiscovery(nil)
 
-	configStore := &fakes.IstioConfigStore{}
-	configStore.GatewaysReturns(gateways)
-	configStore.ListStub = func(kind resource.GroupVersionKind, namespace string) (configs []pilot_model.Config, e error) {
-		switch kind {
-		case gvk.VirtualService:
-			return virtualServices, nil
-		case gvk.Gateway:
-			return gateways, nil
-		default:
-			return nil, nil
+	configStore := pilot_model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
+	for _, cfg := range gateways {
+		if _, err := configStore.Create(cfg); err != nil {
+			panic(err.Error())
+		}
+	}
+	for _, cfg := range virtualServices {
+		if _, err := configStore.Create(cfg); err != nil {
+			panic(err.Error())
 		}
 	}
 	m := mesh.DefaultMeshConfig()
