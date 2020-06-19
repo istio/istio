@@ -32,7 +32,11 @@ import (
 	"time"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats/view"
+
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+
 	"istio.io/istio/pilot/pkg/model"
 	"go.opencensus.io/stats/view"
 

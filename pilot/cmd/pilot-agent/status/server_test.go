@@ -220,7 +220,7 @@ my_other_metric{} 0
 			if rec.Code != 200 {
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)
 			}
-			if rec.Body.String() != tt.output {
+			if !strings.Contains(rec.Body.String(), tt.output) {
 				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
 			}
 		})
@@ -245,18 +245,19 @@ func TestStatsError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := ExportAgentPrometheus(); err != nil {
+		t.Fatal(err)
+	}
 	cases := []struct {
 		name  string
 		envoy int
 		app   int
-		agent int
 		resp  int
 	}{
-		{"three pass", passPort, passPort, passPort, 200},
-		{"envoy pass", passPort, failPort, failPort, 503},
-		{"app pass", failPort, passPort, failPort, 503},
-		{"agent pass", failPort, failPort, passPort, 503},
-		{"three fail", failPort, failPort, failPort, 503},
+		{"three pass", passPort, passPort, 200},
+		{"envoy pass", passPort, failPort, 503},
+		{"app pass", failPort, passPort, 503},
+		{"three fail", failPort, failPort, 503},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -266,7 +267,6 @@ func TestStatsError(t *testing.T) {
 					Port: strconv.Itoa(tt.app),
 				},
 				envoyStatsPort: tt.envoy,
-				statusPort:     uint16(tt.agent),
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)
