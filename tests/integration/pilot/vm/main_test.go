@@ -37,7 +37,7 @@ var (
 // with no Service, no DNS, no service account, etc to simulate a VM.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("vm_test", m).
+		NewSuite(m).
 		Label(label.Postsubmit).
 		RequireSingleCluster().
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
