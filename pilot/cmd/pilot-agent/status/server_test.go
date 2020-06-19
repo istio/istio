@@ -139,7 +139,6 @@ func TestStats(t *testing.T) {
 		name   string
 		envoy  string
 		app    string
-		agent  string
 		output string
 	}{
 		{
@@ -203,17 +202,10 @@ my_other_metric{} 0
 				}
 			}))
 			defer app.Close()
-			agent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if _, err := w.Write([]byte(tt.agent)); err != nil {
-					t.Fatalf("write failed: %v", err)
-				}
-			}))
-			defer agent.Close()
-			envoyPort, err := strconv.Atoi(strings.Split(envoy.URL, ":")[2])
-			if err != nil {
+			if err := ExportAgentPrometheus(); err != nil {
 				t.Fatal(err)
 			}
-			agentPort, err := strconv.Atoi(strings.Split(agent.URL, ":")[2])
+			envoyPort, err := strconv.Atoi(strings.Split(envoy.URL, ":")[2])
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -222,7 +214,6 @@ my_other_metric{} 0
 					Port: strings.Split(app.URL, ":")[2],
 				},
 				envoyStatsPort: envoyPort,
-				statusPort:     uint16(agentPort),
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)

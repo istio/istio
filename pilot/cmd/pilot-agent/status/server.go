@@ -30,13 +30,13 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"github.com/prometheus/client_golang/prometheus"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/prometheus/client_golang/prometheus"
+	"istio.io/istio/pilot/pkg/model"
 	"go.opencensus.io/stats/view"
 
 	"istio.io/pkg/env"
-
 
 	"istio.io/pkg/log"
 
@@ -116,13 +116,9 @@ func NewServer(config Config) (*Server, error) {
 	if err := json.Unmarshal([]byte(config.KubeAppProbers), &s.appKubeProbers); err != nil {
 		return nil, fmt.Errorf("failed to decode app prober err = %v, json string = %v", err, config.KubeAppProbers)
 	}
-	// setup a prometheus stats exporter for istio-agent.
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
-	if err != nil {
-		return nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
+	if err := ExportAgentPrometheus(); err != nil {
+		return nil, err
 	}
-	view.RegisterExporter(exporter)
-	promStatsExporter = exporter
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
 		if !appProberPattern.Match([]byte(path)) {
@@ -165,6 +161,17 @@ func FormatProberURL(container string) (string, string, string) {
 	return fmt.Sprintf("/app-health/%v/readyz", container),
 		fmt.Sprintf("/app-health/%v/livez", container),
 		fmt.Sprintf("/app-health/%v/startupz", container)
+}
+
+func ExportAgentPrometheus() error {
+	// setup a prometheus stats exporter for istio-agent.
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
+	if err != nil {
+		return fmt.Errorf("could not set up prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+	promStatsExporter = exporter
+	return nil
 }
 
 // Run opens a the status port and begins accepting probes.
@@ -255,9 +262,8 @@ type PrometheusScrapeConfiguration struct {
 // the application metrics and merge them together.
 // The merge here is a simple string concatenation. This works for almost all cases, assuming the application
 // is not exposing the same metrics as Envoy.
-// TODO(https://github.com/istio/istio/issues/22825) expose istio-agent stats here as well
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	var envoy, application, istioAgent []byte
+	var envoy, application []byte
 	var err error
 	if envoy, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
 		log.Errora(err)
@@ -272,11 +278,6 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if istioAgent, err = s.scrape(fmt.Sprintf("http://localhost:%d/agent-health", s.statusPort), r.Header); err != nil {
-		log.Errora(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 
 	if _, err := w.Write(envoy); err != nil {
 		log.Errorf("failed to write envoy metrics: %v", err)
@@ -285,9 +286,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(application); err != nil {
 		log.Errorf("failed to write application metrics: %v", err)
 	}
-	if _, err := w.Write(istioAgent); err != nil {
-		log.Errorf("failed to write agent metrics: %v", err)
-	}
+	promStatsExporter.ServeHTTP(w, r)
 }
 
 func applyHeaders(into http.Header, from http.Header, keys ...string) {
