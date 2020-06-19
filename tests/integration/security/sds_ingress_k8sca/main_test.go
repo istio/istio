@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS multiple Gateway flow when
 	// the control plane certificate provider is k8s CA.
 	framework.
-		NewSuite("sds_ingress_k8sca", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Run()

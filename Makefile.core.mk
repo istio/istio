@@ -280,7 +280,8 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
   ./operator/cmd/operator \
-  ./cni/cmd/istio-cni ./cni/cmd/istio-cni-repair
+  ./cni/cmd/istio-cni ./cni/cmd/istio-cni-repair \
+  ./tools/istio-iptables
 
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient

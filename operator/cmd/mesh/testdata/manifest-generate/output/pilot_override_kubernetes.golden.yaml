@@ -45,6 +45,7 @@ webhooks:
     - CREATE
     resources:
     - pods
+  sideEffects: None
 ---
 
 

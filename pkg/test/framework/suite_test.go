@@ -414,6 +414,42 @@ func TestSuite_GetResource(t *testing.T) {
 	})
 }
 
+func TestDeriveSuiteName(t *testing.T) {
+	cases := []struct {
+		caller   string
+		expected string
+	}{
+		{
+			caller:   "/home/me/go/src/istio.io/istio/some/path/mytest.go",
+			expected: "some_path",
+		},
+		{
+			caller:   "/home/me/go/src/istio.io/istio.io/some/path/mytest.go",
+			expected: "some_path",
+		},
+		{
+			caller:   "/home/me/go/src/istio.io/istio/tests/integration/some/path/mytest.go",
+			expected: "some_path",
+		},
+		{
+			caller:   "/work/some/path/mytest.go",
+			expected: "some_path",
+		},
+		{
+			caller:   "/work/tests/integration/some/path/mytest.go",
+			expected: "some_path",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.caller, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			actual := deriveSuiteName(c.caller)
+			g.Expect(actual).To(Equal(c.expected))
+		})
+	}
+}
+
 func newFakeEnvironmentFactory(numClusters int) resource.EnvironmentFactory {
 	e := fakeEnvironment{numClusters: numClusters}
 	return func(ctx resource.Context) (resource.Environment, error) {
