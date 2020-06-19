@@ -89,9 +89,6 @@ func LoadValuesVFS(profileName string) (string, error) {
 }
 
 func LoadValues(profileName string, chartsDir string) (string, error) {
-	if err := CheckCompiledInCharts(); err != nil {
-		return "", err
-	}
 	path := filepath.Join(chartsDir, profilesRoot, BuiltinProfileToFilename(profileName))
 	scope.Infof("Loading values at path %s", path)
 	b, err := ioutil.ReadFile(path)
@@ -99,12 +96,12 @@ func LoadValues(profileName string, chartsDir string) (string, error) {
 }
 
 func readProfiles(chartsDir string) (map[string]bool, error) {
-	if err := CheckCompiledInCharts(); err != nil {
-		return nil, err
-	}
 	profiles := map[string]bool{}
 	switch chartsDir {
 	case "":
+		if err := CheckCompiledInCharts(); err != nil {
+			return nil, err
+		}
 		profilePaths, err := vfs.ReadDir(chartsDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read profiles: %v", err)
