@@ -40,16 +40,11 @@ const (
 	BlockGenSecretError = "BLOCK_GENERATE_SECRET_FOR_TEST_ERROR"
 )
 
-type void struct{}
-
-var (
-	member void
-)
 /*
-	 Validate that secrets are cleaned after connection is closed in such two cases:
+	Validate that secrets are cleaned after connection is closed in such two cases:
 	1. workflow are run completely and connection is closed
 	2. workflow are terminated and connection is closed  after secret are generated
- */
+*/
 func TestSDSAgentStreamWithCacheAndConnectionCleaned(t *testing.T) {
 	setup := StartStreamTest(t)
 	defer setup.server.Stop()
@@ -61,9 +56,9 @@ func TestSDSAgentStreamWithCacheAndConnectionCleaned(t *testing.T) {
 	// verify that the first SDS request sent by two streams do not hit cache.
 	waitForStreamSecretCacheCheck(t, setup.secretStore, false, 1)
 	waitForStreamNotificationToProceed(t, notifyChan, "notify push secret 1")
-	secretKeyMap := make(map[interface{}]struct{})
+	secretKeyMap := make(map[interface{}]bool)
 	setup.secretStore.secrets.Range(func(key, value interface{}) bool {
-		secretKeyMap[key] = member
+		secretKeyMap[key] = true
 		return false
 	})
 	conn.Close()
@@ -75,9 +70,9 @@ func TestSDSAgentStreamWithCacheAndConnectionCleaned(t *testing.T) {
 	waitForStreamSecretCacheCheck(t, setup.secretStore, false, 1)
 	waitForStreamNotificationToProceed(t, notifyChan, "notify push secret 2")
 
-	secretKeyMap = make(map[interface{}]struct{})
+	secretKeyMap = make(map[interface{}]bool)
 	setup.secretStore.secrets.Range(func(key, value interface{}) bool {
-		secretKeyMap[key] = member
+		secretKeyMap[key] = true
 		return false
 	})
 	conn.Close()
@@ -85,22 +80,22 @@ func TestSDSAgentStreamWithCacheAndConnectionCleaned(t *testing.T) {
 	waitForSecretCacheCleanUp(t, setup.secretStore, secretKeyMap)
 }
 
-func waitForSecretCacheCleanUp(t *testing.T, secretsStore *mockIngressGatewaySecretStore, secretMap map[interface{}]struct{}) {
+func waitForSecretCacheCleanUp(t *testing.T, secretsStore *mockIngressGatewaySecretStore, secretMap map[interface{}]bool) {
 	waitTimeout := 2 * time.Second
 	start := time.Now()
 	for {
-		cacheCleaned := false
+		cacheNotCleaned := false
 		secretsStore.secrets.Range(func(key, value interface{}) bool {
 			_, found := secretMap[key]
 			if found {
-				cacheCleaned = true
+				cacheNotCleaned = true
 			}
 			return false
 		})
-		if !cacheCleaned {
+		if !cacheNotCleaned {
 			return
 		}
-		if time.Since(start) > waitTimeout && cacheCleaned {
+		if time.Since(start) > waitTimeout && cacheNotCleaned {
 			t.Fatalf("cache is not cleaned")
 			return
 		}
