@@ -257,7 +257,7 @@ type PrometheusScrapeConfiguration struct {
 // is not exposing the same metrics as Envoy.
 // TODO(https://github.com/istio/istio/issues/22825) expose istio-agent stats here as well
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	var envoy, application, istio_agent []byte
+	var envoy, application, istioAgent []byte
 	var err error
 	if envoy, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
 		log.Errora(err)
@@ -272,7 +272,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if istio_agent, err = s.scrape(fmt.Sprintf("http://localhost:%d/agent-health", s.statusPort), r.Header); err != nil {
+	if istioAgent, err = s.scrape(fmt.Sprintf("http://localhost:%d/agent-health", s.statusPort), r.Header); err != nil {
 		log.Errora(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -285,7 +285,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(application); err != nil {
 		log.Errorf("failed to write application metrics: %v", err)
 	}
-	if _, err := w.Write(istio_agent); err != nil {
+	if _, err := w.Write(istioAgent); err != nil {
 		log.Errorf("failed to write agent metrics: %v", err)
 	}
 }
