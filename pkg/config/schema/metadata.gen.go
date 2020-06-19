@@ -454,6 +454,7 @@ resources:
     version: "v1alpha1"
     protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.GatewaySpec"
+    validate: "EmptyValidate"
 
   - Kind: "HTTPRoute"
     plural: "httproutes"
