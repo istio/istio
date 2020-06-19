@@ -35,7 +35,7 @@ type operatorCommonArgs struct {
 	operatorNamespace string
 	// watchedNamespaces is the namespaces the operator controller watches, could be namespace list separated by comma.
 	watchedNamespaces string
-	// istioNamespace is the namespace Istio is installed into.
+	// istioNamespace is deprecated, use watchedNamespaces instead.
 	istioNamespace string
 	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	charts string
