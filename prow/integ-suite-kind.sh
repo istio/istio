@@ -128,4 +128,4 @@ if [[ "${VARIANT:-}" != "" ]]; then
   export TAG="${TAG}-${VARIANT}"
 fi
 
-make "${PARAMS[*]}"
+make test.integration.kube.presubmit
