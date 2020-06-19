@@ -40,6 +40,16 @@ const (
 	BlockGenSecretError = "BLOCK_GENERATE_SECRET_FOR_TEST_ERROR"
 )
 
+type void struct{}
+
+var (
+	member void
+)
+/*
+	 Validate that secrets are cleaned after connection is closed in such two cases:
+	1. workflow are run completely and connection is closed
+	2. workflow are terminated and connection is closed  after secret are generated
+ */
 func TestSDSAgentStreamWithCacheAndConnectionCleaned(t *testing.T) {
 	setup := StartStreamTest(t)
 	defer setup.server.Stop()
@@ -51,26 +61,40 @@ func TestSDSAgentStreamWithCacheAndConnectionCleaned(t *testing.T) {
 	// verify that the first SDS request sent by two streams do not hit cache.
 	waitForStreamSecretCacheCheck(t, setup.secretStore, false, 1)
 	waitForStreamNotificationToProceed(t, notifyChan, "notify push secret 1")
+	secretKeyMap := make(map[interface{}]struct{})
+	setup.secretStore.secrets.Range(func(key, value interface{}) bool {
+		secretKeyMap[key] = member
+		return false
+	})
 	conn.Close()
 	// verify the cache is cleaned when connection is closed
-	waitForSecretCacheCleanUp(t, setup.secretStore)
+	waitForSecretCacheCleanUp(t, setup.secretStore, secretKeyMap)
 
 	conn, stream = createSDSStream(t, setup.socket, fakeToken1)
-	go testSDSInvalidIngressStreamCache(stream, InValidProxyID, notifyChan)
+	go testSDSTerminatedIngressStreamCache(stream, InValidProxyID, notifyChan)
 	waitForStreamSecretCacheCheck(t, setup.secretStore, false, 1)
 	waitForStreamNotificationToProceed(t, notifyChan, "notify push secret 2")
+
+	secretKeyMap = make(map[interface{}]struct{})
+	setup.secretStore.secrets.Range(func(key, value interface{}) bool {
+		secretKeyMap[key] = member
+		return false
+	})
 	conn.Close()
 	// verify the cache is cleaned when connection is closed
-	waitForSecretCacheCleanUp(t, setup.secretStore)
+	waitForSecretCacheCleanUp(t, setup.secretStore, secretKeyMap)
 }
 
-func waitForSecretCacheCleanUp(t *testing.T, secretsStore *mockIngressGatewaySecretStore) {
-	waitTimeout := 8 * time.Second
+func waitForSecretCacheCleanUp(t *testing.T, secretsStore *mockIngressGatewaySecretStore, secretMap map[interface{}]struct{}) {
+	waitTimeout := 2 * time.Second
 	start := time.Now()
 	for {
 		cacheCleaned := false
 		secretsStore.secrets.Range(func(key, value interface{}) bool {
-			cacheCleaned = true
+			_, found := secretMap[key]
+			if found {
+				cacheCleaned = true
+			}
 			return false
 		})
 		if !cacheCleaned {
@@ -116,6 +140,7 @@ func waitForStreamSecretCacheCheck(t *testing.T, mss *mockIngressGatewaySecretSt
 	}
 }
 
+// workflow are run completely
 func testSDSSuccessIngressStreamCache(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
 	req := &discovery.DiscoveryRequest{
@@ -144,7 +169,8 @@ func testSDSSuccessIngressStreamCache(stream sds.SecretDiscoveryService_StreamSe
 	notifyChan <- notifyMsg{Err: nil, Message: "notify push secret 1"}
 }
 
-func testSDSInvalidIngressStreamCache(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
+// workflow are terminated after secret are generated
+func testSDSTerminatedIngressStreamCache(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
 	req := &discovery.DiscoveryRequest{
 		TypeUrl:       SecretTypeV3,
@@ -309,7 +335,7 @@ func (ms *mockIngressGatewaySecretStore) ShouldWaitForIngressGatewaySecret(conne
 	return false
 }
 
-// StartTest starts SDS server and checks SDS connectivity.
+// StartStreamTest starts SDS server and checks SDS connectivity.
 func StartStreamTest(t *testing.T) *StreamSetup {
 	s := &StreamSetup{t: t}
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime,
