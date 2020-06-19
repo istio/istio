@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"go.uber.org/atomic"
 
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pilot/pkg/config/aggregate"
@@ -149,8 +150,6 @@ func TestAggregateStoreFails(t *testing.T) {
 }
 
 func TestAggregateStoreCache(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
 
@@ -165,12 +164,14 @@ func TestAggregateStoreCache(t *testing.T) {
 	stores := []model.ConfigStoreCache{controller1, controller2}
 
 	cacheStore, err := aggregate.MakeCache(stores)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("it registers an event handler", func(t *testing.T) {
-		handled := false
+		handled := atomic.NewBool(false)
 		cacheStore.RegisterEventHandler(resource.GroupVersionKind{Kind: "SomeConfig"}, func(model.Config, model.Config, model.Event) {
-			handled = true
+			handled.Store(true)
 		})
 
 		controller1.Create(model.Config{
@@ -180,7 +181,7 @@ func TestAggregateStoreCache(t *testing.T) {
 			},
 		})
 		retry.UntilSuccessOrFail(t, func() error {
-			if !handled {
+			if !handled.Load() {
 				return fmt.Errorf("not handled")
 			}
 			return nil
