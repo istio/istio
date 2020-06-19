@@ -98,7 +98,7 @@ func TestAgent(t *testing.T) {
 				ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
 			}, &istioagent.AgentConfig{
 				PilotCertProvider: "custom",
-				ClusterID: "kubernetes",
+				ClusterID:         "kubernetes",
 				// Enable proxy - off by default, will be XDS_LOCAL env in install.
 				LocalXDSAddr: "127.0.0.1:15002",
 			})
@@ -136,7 +136,6 @@ func TestAgent(t *testing.T) {
 	t.Run("adscTLSDirect", func(t *testing.T) {
 		testAdscTLS(t, bs, creds)
 	})
-
 
 }
 

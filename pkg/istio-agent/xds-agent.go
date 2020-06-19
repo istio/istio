@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -49,7 +50,6 @@ var (
 	// Can be used by Envoy or istioctl debug tools. Recommended value: 127.0.0.1:15002
 	xdsAddr = env.RegisterStringVar("XDS_LOCAL", "",
 		"Address for a local XDS proxy. If empty, the proxy is disabled")
-
 )
 
 // initXDS starts an XDS proxy server, using the adsc connection.
@@ -66,7 +66,7 @@ func (sa *Agent) initXDS() {
 	s := xds.NewXDS()
 	sa.xdsServer = s
 
-	p := s. NewProxy()
+	p := s.NewProxy()
 	sa.proxyGen = p
 	// Configure the XDS server running in istio-agent.
 	// Code is shared with Istiod - meaning the internal connection handling, metrics, auth are common
@@ -115,8 +115,9 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.Sec
 	if sa.RequireCerts {
 		cfg.Secrets = secrets
 	}
-	ads, err := adsc.Dial(proxyConfig.DiscoveryAddress,
-		"", cfg)
+	ads, err := adsc.New(proxyConfig, &adsc.Config{
+		ResponseHandler: sa.proxyGen,
+	})
 	if err != nil {
 		// Error to be handled by caller - probably by exit if
 		// we are in 'envoy using proxy' mode.

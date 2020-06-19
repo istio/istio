@@ -41,6 +41,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -95,6 +96,10 @@ type Config struct {
 
 	// backoffPolicy determines the reconnect policy. Based on MCP client.
 	BackoffPolicy backoff.BackOff
+
+	// ResponseHandler will be called on each DiscoveryResponse.
+	// TODO: mirror Generator, allow adding handler per type
+	ResponseHandler ResponseHandler
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -173,10 +178,6 @@ type ADSC struct {
 	sync   map[string]time.Time
 	syncCh chan string
 	m      sync.RWMutex
-
-	// ResponseHandler will be called on each DiscoveryResponse.
-	// TODO: mirror Generator, allow adding handler per type
-	ResponseHandler ResponseHandler
 
 }
 
@@ -430,9 +431,9 @@ func (a *ADSC) handleRecv() {
 		gvk := strings.SplitN(msg.TypeUrl, "/", 3)
 
 		adscLog.Infoa("Received ", a.url, " type ", msg.TypeUrl,
-				" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
-		if a.ResponseHandler != nil {
-			a.ResponseHandler.HandleResponse(a, msg)
+			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
+		if a.cfg.ResponseHandler != nil {
+			a.cfg.ResponseHandler.HandleResponse(a, msg)
 		}
 
 		if msg.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&

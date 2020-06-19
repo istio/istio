@@ -102,7 +102,6 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, w *model.WatchedResource
 	return isAck
 }
 
-
 // handleReqAck checks if the message is an ack/nack and handles it, returning true.
 // If false, the request should be processed by calling the generator.
 func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *discovery.DiscoveryRequest) (*model.WatchedResource, bool) {

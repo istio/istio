@@ -15,10 +15,12 @@ package xds
 
 import (
 	"net"
+	"sync"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
 	"istio.io/istio/pkg/adsc"
 
 	"istio.io/pkg/log"
@@ -61,9 +63,11 @@ type Server struct {
 
 	// syncCh is used for detecting if the stores have synced,
 	// which needs to happen before serving requests.
-	syncCh           chan string
+	syncCh chan string
 
 	ConfigStoreCache model.ConfigStoreCache
+
+	m sync.RWMutex
 }
 
 // Creates an basic, functional discovery server, using the same code as Istiod, but
@@ -161,7 +165,7 @@ func (s *Server) StartGRPC(addr string) error {
 // ProxyGen implements a proxy generator - any request is forwarded using the agent ADSC connection.
 // Responses are forwarded back on the connection that they are received.
 type ProxyGen struct {
-	adsc *adsc.ADSC
+	adsc   *adsc.ADSC
 	server *Server
 }
 
@@ -180,8 +184,9 @@ func (s *Server) NewProxy() *ProxyGen {
 }
 
 func (p *ProxyGen) AddClient(adsc *adsc.ADSC) {
-	p.adsc = adsc
-	adsc.ResponseHandler = p
+	p.server.m.Lock()
+	p.adsc = adsc // TODO: list
+	p.server.m.Unlock()
 }
 
 // TODO: remove clients, multiple clients (agent has only one)
@@ -201,4 +206,3 @@ func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mode
 
 	return nil
 }
-

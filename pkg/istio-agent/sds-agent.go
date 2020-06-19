@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/pkg/config/constants"
@@ -192,14 +193,14 @@ type Agent struct {
 	// Expected SAN for the discovery address, for tests.
 	XDSSAN string
 
-	proxyConfig      *mesh.ProxyConfig
+	proxyConfig *mesh.ProxyConfig
 
 	// Listener for the XDS proxy
 	LocalXDSListener net.Listener
 
 	// ProxyGen is a generator for proxied types - will 'generate' XDS by using
 	// an adsc connection.
-	proxyGen         *xds.ProxyGen
+	proxyGen *xds.ProxyGen
 
 	// used for XDS portion.
 	localListener   net.Listener
@@ -249,7 +250,7 @@ type AgentConfig struct {
 func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig) *Agent {
 	a := &Agent{
 		proxyConfig: proxyConfig,
-		cfg: cfg,
+		cfg:         cfg,
 	}
 
 	discAddr := proxyConfig.DiscoveryAddress

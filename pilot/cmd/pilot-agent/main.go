@@ -213,11 +213,11 @@ var (
 				log.Info("Using existing certs")
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig {
-				PilotCertProvider: pilotCertProvider,
-				JWTPath: jwtPath,
+			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{
+				PilotCertProvider:  pilotCertProvider,
+				JWTPath:            jwtPath,
 				OutputKeyCertToDir: outputKeyCertToDir,
-				ClusterID: clusterIDVar.Get(),
+				ClusterID:          clusterIDVar.Get(),
 			})
 
 			// Connection to Istiod secure port
