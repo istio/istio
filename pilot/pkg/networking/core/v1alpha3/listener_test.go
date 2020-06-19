@@ -2248,16 +2248,21 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
 	serviceDiscovery := memory.NewServiceDiscovery(services)
 
+	instances := make([]*model.ServiceInstance, 0, len(services))
 	for _, s := range services {
-		serviceDiscovery.AddInstance(s.Hostname, &model.ServiceInstance{
+		i := &model.ServiceInstance{
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
 				Address:      "172.0.0.1",
 				EndpointPort: 8080,
 			},
 			ServicePort: s.Ports[0],
-		})
+		}
+		instances = append(instances, i)
+		serviceDiscovery.AddInstance(s.Hostname, i)
 	}
+	// TODO stop faking this. proxy ip must match the instance IP
+	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	envoyFilter := model.Config{
 		ConfigMeta: model.ConfigMeta{
