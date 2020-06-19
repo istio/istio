@@ -17,8 +17,8 @@ package multicluster
 import (
 	"fmt"
 	"testing"
+	"time"
 
-	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -26,10 +26,12 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
-// RoutingTest validates that source and destination labels are collected
-// for multicluster traffic.
+// RoutingTest verifies that traffic resources created in a cluster are reflected in the
+// configs a sidecar receives in multicluster scenarios.
 func RoutingTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance, feature features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
@@ -37,22 +39,11 @@ func RoutingTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance, f
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("routing").
 				Run(func(ctx framework.TestContext) {
-
-					type tmpObj struct {
-						name      string
-						vs        string
-						validator func(*echoclient.ParsedResponse) error
-						client    *echo.Instance
-						server    *echo.Instance
-					}
-
-					cases := []tmpObj{}
-
-					vs := `
+					vsTmpl := `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: cluster-%d-vs
 spec:
   hosts:
   - server-%d
@@ -67,47 +58,57 @@ spec:
 
 					clusters := ctx.Environment().Clusters()
 					builder := echoboot.NewBuilderOrFail(ctx, ctx)
+
+					clients := map[resource.ClusterIndex]*echo.Instance{}
+					servers := map[resource.ClusterIndex]*echo.Instance{}
+
 					for _, cluster := range clusters {
 
 						var client echo.Instance
-						ref := &client
+						clientRef := &client
 						svcName := fmt.Sprintf("client-%d", cluster.Index())
-						builder = builder.With(ref, newEchoConfig(svcName, ns, cluster, pilots))
+						builder = builder.With(clientRef, newEchoConfig(svcName, ns, cluster, pilots))
+						clients[cluster.Index()] = clientRef
 
 						var server echo.Instance
-						servRef := &server
+						serverRef := &server
 						svcName = fmt.Sprintf("server-%d", cluster.Index())
-						builder = builder.With(servRef, newEchoConfig(svcName, ns, cluster, pilots))
-						vs := fmt.Sprintf(vs, cluster.Index(), cluster.Index())
-						cases = append(cases, tmpObj{
-							name:   fmt.Sprintf("cluster-%d-routing", cluster.Index()),
-							vs:     vs,
-							client: ref,
-							server: servRef,
-						})
+						builder = builder.With(serverRef, newEchoConfig(svcName, ns, cluster, pilots))
+						servers[cluster.Index()] = serverRef
+
+						vs := fmt.Sprintf(vsTmpl, cluster.Index(), cluster.Index(), cluster.Index())
 						cluster.ApplyConfigOrFail(t, ns.Name(), vs)
+						defer cluster.DeleteConfigOrFail(t, ns.Name(), vs)
 					}
 					builder.BuildOrFail(ctx)
 
-					for _, tt := range cases {
-						ctx.NewSubTest(tt.name).
+					for index := range clients {
+						src := *clients[index]
+						dst := *servers[index]
+						subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
+							src.Config().Service,
+							"http",
+							dst.Config().Service,
+							"http",
+							"/")
+						ctx.NewSubTest(subTestName).
 							Run(func(ctx framework.TestContext) {
-								//(*tt.cluster).ApplyConfigOrFail(t, ns.Name(), tt.vs)
-								//defer (*tt.cluster).DeleteConfigOrFail(t, ns.Name(), tt.vs)
-								resp := callOrFail(ctx, *tt.client, *tt.server)
-								if len(resp) < 1 {
-									ctx.Fatalf("unexpected response count: %v", resp)
-								}
-								found := false
-								for _, r := range resp {
-									if r.RawResponse["Istio-Custom-Header"] == "user-defined-value" {
-										found = true
-										break
+								retry.UntilSuccessOrFail(ctx, func() error {
+									resp, err := src.Call(echo.CallOptions{
+										Target:   dst,
+										PortName: "http",
+									})
+									if err != nil {
+										return err
 									}
-								}
-								if !found {
-									ctx.Errorf("missing request header, have %+v", resp[0].RawResponse)
-								}
+									if len(resp) != 1 {
+										ctx.Fatalf("unexpected response count: %v", resp)
+									}
+									if resp[0].RawResponse["Istio-Custom-Header"] != "user-defined-value" {
+										return fmt.Errorf("missing request header, have %+v", resp[0].RawResponse)
+									}
+									return nil
+								}, retry.Delay(time.Millisecond*100))
 							})
 					}
 				})
