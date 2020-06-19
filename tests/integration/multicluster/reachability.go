@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -30,9 +31,10 @@ import (
 const mcReachabilitySvcPerCluster = 3
 
 // ReachabilityTest tests that services in 2 different clusters can talk to each other.
-func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance) {
+func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance, feature features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
+		Features(feature).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("reachability").
 				Run(func(ctx framework.TestContext) {

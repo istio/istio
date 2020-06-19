@@ -1,16 +1,7 @@
-# AddonComponents grafana component is disabled.
-
----
 # AddonComponents istiocoredns component is disabled.
 
 ---
-# AddonComponents kiali component is disabled.
-
----
 # AddonComponents prometheus component is disabled.
-
----
-# AddonComponents istio-tracing component is disabled.
 
 # Base component is disabled.
 
@@ -312,8 +303,8 @@ data:
           "image": "proxyv2",
           "resources": {
             "limits": {
-              "cpu": "100m",
-              "memory": "50Mi"
+              "cpu": "2000m",
+              "memory": "1024Mi"
             },
             "requests": {
               "cpu": "10m",
@@ -540,12 +531,9 @@ data:
           value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
-        # Temp, pending PR to make it default or based on the istiodAddr env
-        - name: CA_ADDR
         {{- if .Values.global.caAddress }}
+        - name: CA_ADDR
           value: {{ .Values.global.caAddress }}
-        {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -849,6 +837,7 @@ webhooks:
         namespace: istio-system
         path: "/inject"
       caBundle: ""
+    sideEffects: None
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]

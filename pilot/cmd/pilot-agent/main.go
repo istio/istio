@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"google.golang.org/grpc/grpclog"
@@ -334,7 +335,13 @@ var (
 				ProvCert:            citadel.ProvCert,
 			})
 
-			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
+			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
+			if ds, f := features.TerminationDrainDuration.Lookup(); f {
+				// Legacy environment variable is set, us that instead
+				drainDuration = time.Second * time.Duration(ds)
+			}
+
+			agent := envoy.NewAgent(envoyProxy, drainDuration)
 
 			// Watcher is also kicking envoy start.
 			watcher := envoy.NewWatcher(tlsCerts, agent.Restart)

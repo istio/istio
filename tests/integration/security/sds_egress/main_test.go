@@ -33,7 +33,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("sds_egress_workload_mtls_istio_mutual_test", m).
+		NewSuite(m).
 		Skip("https://github.com/istio/istio/issues/17933").
 		Label(label.CustomSetup).
 

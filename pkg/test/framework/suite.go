@@ -111,7 +111,7 @@ func deriveSuiteName(caller string) string {
 }
 
 // NewSuite returns a new suite instance.
-func NewSuite(testID string, m *testing.M) *Suite {
+func NewSuite(m *testing.M) *Suite {
 	_, f, _, _ := goruntime.Caller(1)
 	return newSuite(deriveSuiteName(f),
 		func(_ *suiteContext) int {
@@ -162,9 +162,9 @@ func (s *Suite) RequireMinClusters(minClusters int) *Suite {
 	}
 
 	fn := func(ctx resource.Context) error {
-		if len(ctx.Environment().Clusters()) < minClusters {
+		if len(clusters(ctx)) < minClusters {
 			s.Skip(fmt.Sprintf("Number of clusters %d does not exceed minimum %d",
-				len(ctx.Environment().Clusters()), minClusters))
+				len(clusters(ctx)), minClusters))
 		}
 		return nil
 	}
@@ -181,9 +181,9 @@ func (s *Suite) RequireMaxClusters(maxClusters int) *Suite {
 	}
 
 	fn := func(ctx resource.Context) error {
-		if len(ctx.Environment().Clusters()) > maxClusters {
+		if len(clusters(ctx)) > maxClusters {
 			s.Skip(fmt.Sprintf("Number of clusters %d exceeds maximum %d",
-				len(ctx.Environment().Clusters()), maxClusters))
+				len(clusters(ctx)), maxClusters))
 		}
 		return nil
 	}
@@ -200,8 +200,7 @@ func (s *Suite) RequireSingleCluster() *Suite {
 // RequireEnvironmentVersion validates the environment meets a minimum version
 func (s *Suite) RequireEnvironmentVersion(version string) *Suite {
 	fn := func(ctx resource.Context) error {
-
-		if ctx.Environment().EnvironmentName() == environment.Kube {
+		if environmentName(ctx) == environment.Kube {
 			kenv := ctx.Environment().(*kube.Environment)
 			ver, err := kenv.KubeClusters[0].GetKubernetesVersion()
 			if err != nil {
@@ -343,6 +342,27 @@ type SuiteOutcome struct {
 	TestOutcomes []TestOutcome
 }
 
+func environmentName(ctx resource.Context) environment.Name {
+	if ctx.Environment() != nil {
+		return ctx.Environment().EnvironmentName()
+	}
+	return ""
+}
+
+func isMulticluster(ctx resource.Context) bool {
+	if ctx.Environment() != nil {
+		return ctx.Environment().IsMulticluster()
+	}
+	return false
+}
+
+func clusters(ctx resource.Context) []resource.Cluster {
+	if ctx.Environment() != nil {
+		return ctx.Environment().Clusters()
+	}
+	return nil
+}
+
 func (s *Suite) writeOutput() {
 	// the ARTIFACTS env var is set by prow, and uploaded to GCS as part of the job artifact
 	artifactsPath := os.Getenv("ARTIFACTS")
@@ -351,8 +371,8 @@ func (s *Suite) writeOutput() {
 		ctx.outcomeMu.RLock()
 		out := SuiteOutcome{
 			Name:         ctx.Settings().TestID,
-			Environment:  ctx.Environment().EnvironmentName().String(),
-			Multicluster: ctx.Environment().IsMulticluster(),
+			Environment:  environmentName(ctx).String(),
+			Multicluster: isMulticluster(ctx),
 			TestOutcomes: ctx.testOutcomes,
 		}
 		ctx.outcomeMu.RUnlock()
