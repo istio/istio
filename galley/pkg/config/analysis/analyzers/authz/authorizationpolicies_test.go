@@ -20,14 +20,43 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPrefSuffixExactMathc(t *testing.T) {
+func TestNamespaceMatch(t *testing.T) {
 	assert := assert.New(t)
 
-	assert.True(prefixSuffixExactMatch("test-login", "*"))
+	assert.True(namespaceMatch("test-login", "*"))
 
-	assert.True(prefixSuffixExactMatch("test-login", "test-*"))
-	assert.False(prefixSuffixExactMatch("test-login", "*-test"))
+	assert.True(namespaceMatch("test-login", "test-*"))
+	assert.False(namespaceMatch("test-login", "*-test"))
 
-	assert.False(prefixSuffixExactMatch("test-login", "login-*"))
-	assert.True(prefixSuffixExactMatch("test-login", "*-login"))
+	assert.False(namespaceMatch("test-login", "login-*"))
+	assert.True(namespaceMatch("test-login", "*-login"))
+}
+
+func TestHostMatch(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.True(hostMatch("*.istio.io", "*"))
+	assert.True(hostMatch("subsystem.istio.io", "*"))
+	assert.True(hostMatch("reviews", "*"))
+	assert.True(hostMatch("reviews.bookinfo.svc.cluster.local", "*"))
+
+	assert.True(hostMatch("*.istio.io", "*.istio.io"))
+	assert.True(hostMatch("subsystem.istio.io", "*.istio.io"))
+	assert.False(hostMatch("reviews", "*.istio.io"))
+	assert.False(hostMatch("reviews.bookinfo.svc.cluster.local", "*.istio.io"))
+
+	assert.True(hostMatch("*.istio.io", "subsystem.istio.io"))
+	assert.True(hostMatch("subsystem.istio.io", "subsystem.istio.io"))
+	assert.False(hostMatch("reviews", "subsystem.istio.io"))
+	assert.False(hostMatch("reviews.bookinfo.svc.cluster.local", "subsystem.istio.io"))
+
+	assert.True(hostMatch("*.istio.io", "*stio.io"))
+	assert.True(hostMatch("subsystem.istio.io", "*stio.io"))
+	assert.False(hostMatch("reviews", "*stio.io"))
+	assert.False(hostMatch("reviews.bookinfo.svc.cluster.local", "*stio.io"))
+
+	assert.False(hostMatch("*.istio.io", "subsystem.istio*"))
+	assert.True(hostMatch("subsystem.istio.io", "subsystem.istio*"))
+	assert.False(hostMatch("reviews", "subsystem.istio*"))
+	assert.False(hostMatch("reviews.bookinfo.svc.cluster.local", "subsystem.istio*"))
 }

@@ -53,6 +53,7 @@ metadata:
 spec:
   hosts:
   - subsystem.istio.io
+  - "*.kiali.io"
   location: MESH_EXTERNAL
   ports:
   - number: 80
@@ -246,7 +247,11 @@ spec:
             namespaces: ["httpbin"]
       to:
         - operation:
-            hosts: ["bogus-svc.httpbin.svc.cluster.local"] # Host not found: service not present
+            hosts:
+            - "bogus-svc.httpbin.svc.cluster.local" # Host not found: service not present
+            - "*bin.httpbin.svc.cluster.local"
+            - "httpbin.*"
+            - "httpbin.httpbin.svc.cluster.local"
             methods: ["GET"]
             paths: ["/info*"]
         - operation:
@@ -274,7 +279,9 @@ spec:
             namespaces: ["httpbin"]
       to:
         - operation:
-            hosts: ["bogus.istio.io"] # Host not found: service entry not present
+            hosts:
+            - "bogus.istio.io" # Host not found: service entry not present
+            - "api.kiali.io"
             methods: ["GET"]
             paths: ["/info*"]
         - operation:

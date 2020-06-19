@@ -170,14 +170,14 @@ func matchNamespace(exp string, c analysis.Context) bool {
 	match := false
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
 		ns := r.Metadata.FullName.String()
-		match = prefixSuffixExactMatch(ns, exp)
+		match = namespaceMatch(ns, exp)
 		return !match
 	})
 
 	return match
 }
 
-func prefixSuffixExactMatch(ns, exp string) bool {
+func namespaceMatch(ns, exp string) bool {
 	match := false
 	if strings.EqualFold(exp, "*") {
 		match = true
@@ -195,16 +195,55 @@ func prefixSuffixExactMatch(ns, exp string) bool {
 func (a *AuthorizationPoliciesAnalyzer) analyzeHostNotFound(r *resource.Instance, c analysis.Context,
 	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
 	ap := r.Message.(*v1beta1.AuthorizationPolicy)
+	apNs := r.Metadata.FullName.Namespace
+
 	for _, rule := range ap.Rules {
 		for _, to := range rule.To {
 			for _, host := range to.Operation.Hosts {
 				// Check if the host is either a Service or a Service Entry
-				if se := util.GetDestinationHost(r.Metadata.FullName.Namespace, host, serviceEntryHosts); se == nil {
+				if !hasMatchingHost(apNs, host, serviceEntryHosts) {
 					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewNoHostFound(r, host))
 				}
 			}
 		}
 	}
+}
+
+func hasMatchingHost(ns resource.Namespace, hostExpr string, serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) bool {
+	if se := util.GetDestinationHost(ns, hostExpr, serviceEntryHosts); se != nil {
+		return true
+	}
+
+	for sfqdn := range serviceEntryHosts {
+		if sfqdn.InScopeOf(ns.String()) {
+			_, fqdn := sfqdn.GetScopeAndFqdn()
+			if hostMatch(fqdn, hostExpr) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hostMatch(host, exp string) bool {
+	match := false
+	trimmedHost := strings.TrimPrefix(host, "*")
+	if strings.EqualFold(host, exp) || strings.EqualFold(exp, "*") {
+		match = true
+	} else if strings.HasPrefix(exp, "*") {
+		if !strings.HasSuffix(host, "*") {
+			match = strings.HasSuffix(trimmedHost, strings.TrimPrefix(exp, "*"))
+		}
+	} else if strings.HasSuffix(exp, "*") {
+		if !strings.HasPrefix(host, "*") {
+			match = strings.HasPrefix(trimmedHost, strings.TrimSuffix(exp, "*"))
+		}
+	} else {
+		// Wildcard host
+		match = strings.HasSuffix(exp, trimmedHost)
+	}
+
+	return match
 }
 
 // Whether the pod is part of the mesh or not
