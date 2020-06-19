@@ -42,7 +42,7 @@ The configuration provided will be passed to envoy using the [`--config-yaml`](h
 
 This will merge the passed in configuration with the default configuration. Singular values will replace the default values, while repeated values will be appended.
 
-For reference, [the default bootstrap configuration](/tools/packaging/common/envoy_bootstrap_v2.json) and Envoy's [configuration reference](https://www.envoyproxy.io/docs/envoy/latest/configuration/configuration#config) may be useful
+For reference, [the default bootstrap configuration](/tools/packaging/common/envoy_bootstrap.json) and Envoy's [configuration reference](https://www.envoyproxy.io/docs/envoy/latest/configuration/configuration#config) may be useful
 
 ## Cleanup
 
