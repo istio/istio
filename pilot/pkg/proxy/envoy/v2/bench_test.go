@@ -164,7 +164,7 @@ func buildTestEnv(t test.Failer, cfg []model.Config, input ConfigInput) model.En
 	}
 	serviceDiscovery := mock.NewDiscovery(svcs, 1)
 
-	configStore := model.NewFakeStore()
+	configStore := memory.Make(collections.Pilot)
 	for _, cfg := range cfg {
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Fatalf("failed to create config %v: %v", cfg.Name, err)

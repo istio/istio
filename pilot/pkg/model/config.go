@@ -230,7 +230,6 @@ func (meta *ConfigMeta) Key() string {
 // Handlers execute on the single worker queue in the order they are appended.
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be registered before starting the cache controller.
-//go:generate counterfeiter -o ../config/aggregate/fakes/config_store_cache.gen.go --fake-name ConfigStoreCache . ConfigStoreCache
 type ConfigStoreCache interface {
 	ConfigStore
 

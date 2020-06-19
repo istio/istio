@@ -22,7 +22,8 @@ import (
 	svc "sigs.k8s.io/service-apis/api/v1alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/config/aggregate/fakes"
+
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -82,7 +83,7 @@ var (
 func TestListInvalidGroupVersionKind(t *testing.T) {
 	g := NewGomegaWithT(t)
 	clientSet := fake.NewSimpleClientset()
-	store := &fakes.ConfigStoreCache{}
+	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, controller2.Options{})
 
 	typ := resource.GroupVersionKind{Kind: "wrong-kind"}
@@ -95,7 +96,7 @@ func TestListGatewayResourceType(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	clientSet := fake.NewSimpleClientset()
-	store := &fakes.ConfigStoreCache{}
+	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, controller2.Options{})
 
 	gwClassType := collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource()
@@ -103,42 +104,36 @@ func TestListGatewayResourceType(t *testing.T) {
 	gwType := collections.IstioNetworkingV1Alpha3Gateways.Resource()
 	k8sHTTPRouteType := collections.K8SServiceApisV1Alpha1Httproutes.Resource()
 
-	store.ListReturnsOnCall(0, []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Type:      gwClassType.GroupVersionKind().Kind,
-				Group:     gwClassType.GroupVersionKind().Group,
-				Version:   gwClassType.GroupVersionKind().Version,
-				Name:      "gwclass",
-				Namespace: "ns1",
-			},
-			Spec: gatewayClassSpec,
+	store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      gwClassType.GroupVersionKind().Kind,
+			Group:     gwClassType.GroupVersionKind().Group,
+			Version:   gwClassType.GroupVersionKind().Version,
+			Name:      "gwclass",
+			Namespace: "ns1",
 		},
-	}, nil)
-	store.ListReturnsOnCall(1, []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Type:      gwSpecType.GroupVersionKind().Kind,
-				Group:     gwSpecType.GroupVersionKind().Group,
-				Version:   gwSpecType.GroupVersionKind().Version,
-				Name:      "gwspec",
-				Namespace: "ns1",
-			},
-			Spec: gatewaySpec,
+		Spec: gatewayClassSpec,
+	})
+	store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      gwSpecType.GroupVersionKind().Kind,
+			Group:     gwSpecType.GroupVersionKind().Group,
+			Version:   gwSpecType.GroupVersionKind().Version,
+			Name:      "gwspec",
+			Namespace: "ns1",
 		},
-	}, nil)
-	store.ListReturnsOnCall(2, []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Type:      k8sHTTPRouteType.GroupVersionKind().Kind,
-				Group:     k8sHTTPRouteType.GroupVersionKind().Group,
-				Version:   k8sHTTPRouteType.GroupVersionKind().Version,
-				Name:      "http-route",
-				Namespace: "ns1",
-			},
-			Spec: httpRouteSpec,
+		Spec: gatewaySpec,
+	})
+	store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      k8sHTTPRouteType.GroupVersionKind().Kind,
+			Group:     k8sHTTPRouteType.GroupVersionKind().Group,
+			Version:   k8sHTTPRouteType.GroupVersionKind().Version,
+			Name:      "http-route",
+			Namespace: "ns1",
 		},
-	}, nil)
+		Spec: httpRouteSpec,
+	})
 
 	cfg, err := controller.List(gwType.GroupVersionKind(), "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
@@ -157,7 +152,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	clientSet := fake.NewSimpleClientset()
-	store := &fakes.ConfigStoreCache{}
+	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, controller2.Options{})
 
 	gwClassType := collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource()
@@ -165,42 +160,36 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 	vsType = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 	k8sHTTPRouteType := collections.K8SServiceApisV1Alpha1Httproutes.Resource()
 
-	store.ListReturnsOnCall(0, []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Type:      gwClassType.GroupVersionKind().Kind,
-				Group:     gwClassType.GroupVersionKind().Group,
-				Version:   gwClassType.GroupVersionKind().Version,
-				Name:      "gwclass",
-				Namespace: "ns1",
-			},
-			Spec: gatewayClassSpec,
+	store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      gwClassType.GroupVersionKind().Kind,
+			Group:     gwClassType.GroupVersionKind().Group,
+			Version:   gwClassType.GroupVersionKind().Version,
+			Name:      "gwclass",
+			Namespace: "ns1",
 		},
-	}, nil)
-	store.ListReturnsOnCall(1, []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Type:      gwSpecType.GroupVersionKind().Kind,
-				Group:     gwSpecType.GroupVersionKind().Group,
-				Version:   gwSpecType.GroupVersionKind().Version,
-				Name:      "gwspec",
-				Namespace: "ns1",
-			},
-			Spec: gatewaySpec,
+		Spec: gatewayClassSpec,
+	})
+	store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      gwSpecType.GroupVersionKind().Kind,
+			Group:     gwSpecType.GroupVersionKind().Group,
+			Version:   gwSpecType.GroupVersionKind().Version,
+			Name:      "gwspec",
+			Namespace: "ns1",
 		},
-	}, nil)
-	store.ListReturnsOnCall(2, []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Type:      k8sHTTPRouteType.GroupVersionKind().Kind,
-				Group:     k8sHTTPRouteType.GroupVersionKind().Group,
-				Version:   k8sHTTPRouteType.GroupVersionKind().Version,
-				Name:      "http-route",
-				Namespace: "ns1",
-			},
-			Spec: httpRouteSpec,
+		Spec: gatewaySpec,
+	})
+	store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      k8sHTTPRouteType.GroupVersionKind().Kind,
+			Group:     k8sHTTPRouteType.GroupVersionKind().Group,
+			Version:   k8sHTTPRouteType.GroupVersionKind().Version,
+			Name:      "http-route",
+			Namespace: "ns1",
 		},
-	}, nil)
+		Spec: httpRouteSpec,
+	})
 
 	cfg, err := controller.List(vsType.GroupVersionKind(), "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
