@@ -183,7 +183,7 @@ func init() {
 }
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("locality_prioritized_failover_loadbalancing", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).

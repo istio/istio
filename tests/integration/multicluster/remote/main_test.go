@@ -38,7 +38,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("multicluster/remote", m).
+		NewSuite(m).
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
@@ -69,13 +69,13 @@ func TestMain(m *testing.M) {
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots)
+	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots, "installation.multicluster.remote")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, clusterLocalNS, pilots)
+	multicluster.ClusterLocalTest(t, clusterLocalNS, pilots, "installation.multicluster.remote")
 }
 
 func TestTelemetry(t *testing.T) {
-	multicluster.TelemetryTest(t, mcReachabilityNS, pilots)
+	multicluster.TelemetryTest(t, mcReachabilityNS, pilots, "installation.multicluster.remote")
 }

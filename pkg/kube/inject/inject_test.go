@@ -302,11 +302,10 @@ func TestIntoResourceFile(t *testing.T) {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
-			m := mesh.DefaultMeshConfig()
+			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, c.setFlags, c.inFilePath)
 			if c.mesh != nil {
-				c.mesh(&m)
+				c.mesh(m)
 			}
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, c.setFlags, c.inFilePath)
 			inputFilePath := "testdata/inject/" + c.in
 			wantFilePath := "testdata/inject/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -315,7 +314,7 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -414,8 +413,7 @@ func TestRewriteAppProbe(t *testing.T) {
 	for i, c := range cases {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
-			m := mesh.DefaultMeshConfig()
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, nil, "")
+			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, nil, "")
 			inputFilePath := "testdata/inject/app_probe/" + c.in
 			wantFilePath := "testdata/inject/app_probe/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -424,7 +422,7 @@ func TestRewriteAppProbe(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -469,7 +467,7 @@ func TestInvalidAnnotations(t *testing.T) {
 	m := mesh.DefaultMeshConfig()
 	for _, c := range cases {
 		t.Run(c.annotation, func(t *testing.T) {
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, nil, "")
+			sidecarTemplate, valuesConfig, _ := loadInjectionSettings(t, nil, "")
 			inputFilePath := "testdata/inject/" + c.in
 			in, err := os.Open(inputFilePath)
 			if err != nil {

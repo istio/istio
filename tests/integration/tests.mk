@@ -64,9 +64,6 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 	${_INTEGRATION_TEST_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-# filter out non-standard test directories
-TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
-
 test.integration...local:
 	echo "legacy target. This can be removed once the CI job is removed."
 
@@ -80,7 +77,7 @@ test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
 # Presubmit integration tests targeting Kubernetes environment.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT)
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ${TEST_PACKAGES} -timeout 30m \
+	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples) -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 

@@ -31,7 +31,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("security", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {

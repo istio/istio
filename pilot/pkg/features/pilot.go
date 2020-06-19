@@ -107,7 +107,7 @@ var (
 		return ptypes.DurationProto(timeout)
 	}()
 
-	terminationDrainDurationVar = env.RegisterIntVar(
+	TerminationDrainDuration = env.RegisterIntVar(
 		"TERMINATION_DRAIN_DURATION_SECONDS",
 		5,
 		"The amount of time allowed for connections to complete on pilot-agent shutdown. "+
@@ -115,9 +115,6 @@ var (
 			"preventing any new connections and allowing existing connections to complete. It then "+
 			"sleeps for the TerminationDrainDuration and then kills any remaining active Envoy processes.",
 	)
-	TerminationDrainDuration = func() time.Duration {
-		return time.Second * time.Duration(terminationDrainDurationVar.Get())
-	}
 
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.

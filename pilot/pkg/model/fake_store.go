@@ -39,7 +39,7 @@ func NewFakeStore() *FakeStore {
 
 var _ ConfigStore = (*FakeStore)(nil)
 
-func (*FakeStore) Schemas() collection.Schemas {
+func (s *FakeStore) Schemas() collection.Schemas {
 	return collections.Pilot
 }
 

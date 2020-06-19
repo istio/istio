@@ -36,7 +36,7 @@ var ns namespace.Instance
 // with no Service, no DNS, no service account, etc to simulate a VM.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("vm_test", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Setup(func(ctx resource.Context) error {
 			var err error
