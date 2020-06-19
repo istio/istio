@@ -221,7 +221,7 @@ docker.install-cni: cni/deployments/kubernetes/install/scripts/filter.jq
 # We then generate a "bake" file, which defines all of the docker files in the repo
 # Finally, we call `docker buildx bake` to generate the images.
 dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@ && cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
-dockerx: RENAME_TEMPLATE ?= mv $(DOCKERX_BUILD_TOP)/$(VM_TARGET)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$(VM_TARGET)/Dockerfile$(suffix $(VM_TARGET))
+dockerx: RENAME_TEMPLATE?=mv $(DOCKERX_BUILD_TOP)/$(VM_TARGET)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$(VM_TARGET)/Dockerfile$(suffix $(VM_TARGET))
 dockerx: VM_DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$(VM_TARGET) && cp -r $^ $(DOCKERX_BUILD_TOP)/$(VM_TARGET) && $(RENAME_TEMPLATE) && cd $(DOCKERX_BUILD_TOP)/$(VM_TARGET) $(BUILD_PRE)
 dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
