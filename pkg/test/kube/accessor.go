@@ -34,6 +34,7 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
@@ -139,6 +140,9 @@ type Accessor interface {
 
 	// Delete the config in the given filename using kubectl.
 	Delete(namespace string, filename string) error
+
+	// Patch a given deployment using kubectl
+	PatchDeployment(namespace string, deployment string, contents string) error
 
 	// Logs calls the logs command for the specified pod, with -c, if container is specified.
 	Logs(namespace string, pod string, container string, previousLog bool) (string, error)
@@ -439,6 +443,22 @@ func (a *accessorImpl) DeleteUnstructured(gvr schema.GroupVersionResource, names
 	if err := a.dynamicClient.Resource(gvr).Namespace(namespace).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{}); err != nil {
 		return fmt.Errorf("failed to delete resource %v of type %v: %v", name, gvr, err)
 	}
+	return nil
+}
+
+// PatchDeployment patches a deployment with the specificed yaml
+func (a *accessorImpl) PatchDeployment(namespace string, deployment string, contents string) error {
+	patchOptions := kubeApiMeta.PatchOptions{
+		FieldManager: "istio-ci",
+		TypeMeta: kubeApiMeta.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "apps/v1",
+		},
+	}
+	if _, err := a.AppsV1().Deployments(namespace).Patch(context.TODO(), deployment, types.ApplyPatchType, []byte(contents), patchOptions); err != nil {
+		return fmt.Errorf("failed patch deployment %s: %v", deployment, err)
+	}
+
 	return nil
 }
 

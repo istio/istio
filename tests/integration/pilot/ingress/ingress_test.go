@@ -45,7 +45,7 @@ var (
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("pilot_test", m).
+		NewSuite(m).
 		Label(label.CustomSetup).
 
 		// IngressClass is only present in 1.18+

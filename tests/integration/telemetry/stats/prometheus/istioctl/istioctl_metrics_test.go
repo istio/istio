@@ -49,7 +49,7 @@ func TestIstioctlMetrics(t *testing.T) {
 // is added to istioctl experimental metrics and support for non-default
 // output formats is added.
 func TestMain(m *testing.M) {
-	framework.NewSuite("istioctl_metrics_test", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(http.GetIstioInstance(), setupConfig)).

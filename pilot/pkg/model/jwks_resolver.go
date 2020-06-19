@@ -93,8 +93,9 @@ var (
 		"Total number of failed network fetch by pilot jwks resolver",
 	)
 
-	// JwtKeyResolver resolves JWT public key and JwksURI.
-	JwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	// jwtKeyResolverOnce lazy init jwt key resolver
+	jwtKeyResolverOnce sync.Once
+	jwtKeyResolver     *JwksResolver
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -148,6 +149,14 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 		refreshInterval,
 		[]string{jwksPublicRootCABundlePath, jwksExtraRootCABundlePath},
 	)
+}
+
+// GetJwtKeyResolver lazy-creates JwtKeyResolver resolves JWT public key and JwksURI.
+func GetJwtKeyResolver() *JwksResolver {
+	jwtKeyResolverOnce.Do(func() {
+		jwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	})
+	return jwtKeyResolver
 }
 
 func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval time.Duration, caBundlePaths []string) *JwksResolver {

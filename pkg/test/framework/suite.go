@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	goruntime "runtime"
 	"strings"
 	"sync"
@@ -52,6 +53,21 @@ const (
 var (
 	rt   *runtime
 	rtMu sync.Mutex
+
+	// Well-known paths which are stripped when generating test IDs.
+	// Note: Order matters! Always specify the most specific directory first.
+	wellKnownPaths = mustCompileAll(
+		// This allows us to trim test IDs on the istio.io/istio.io repo.
+		".*/istio.io/istio.io/",
+
+		// These allow us to trim test IDs on istio.io/istio repo.
+		".*/istio.io/istio/tests/integration/",
+		".*/istio.io/istio/",
+
+		// These are also used for istio.io/istio, but make help to satisfy
+		// the feature label enforcement when running with BUILD_WITH_CONTAINER=1.
+		"^/work/tests/integration/",
+		"^/work/")
 )
 
 // getSettingsFunc is a function used to extract the default settings for the Suite.
@@ -78,21 +94,24 @@ type Suite struct {
 // Given the filename of a test, derive its suite name
 func deriveSuiteName(caller string) string {
 	d := filepath.Dir(caller)
-	matches := []string{"istio.io/istio.io", "istio.io/istio", "tests/integration"}
 	// We will trim out paths preceding some well known paths. This should handle anything in istio or docs repo,
 	// as well as special case tests/integration. The end result is a test under ./tests/integration/pilot/ingress
 	// will become pilot_ingress
 	// Note: if this fails to trim, we end up with "ugly" suite names but otherwise no real impact.
-	for _, match := range matches {
-		if i := strings.Index(d, match); i >= 0 {
-			d = d[i+len(match)+1:]
+	for _, wellKnownPath := range wellKnownPaths {
+		// Try removing this path from the directory name.
+		result := wellKnownPath.ReplaceAllString(d, "")
+		if len(result) < len(d) {
+			// Successfully found and removed this path from the directory.
+			d = result
+			break
 		}
 	}
 	return strings.ReplaceAll(d, "/", "_")
 }
 
 // NewSuite returns a new suite instance.
-func NewSuite(testID string, m *testing.M) *Suite {
+func NewSuite(m *testing.M) *Suite {
 	_, f, _, _ := goruntime.Caller(1)
 	return newSuite(deriveSuiteName(f),
 		func(_ *suiteContext) int {
@@ -143,9 +162,9 @@ func (s *Suite) RequireMinClusters(minClusters int) *Suite {
 	}
 
 	fn := func(ctx resource.Context) error {
-		if len(ctx.Environment().Clusters()) < minClusters {
+		if len(clusters(ctx)) < minClusters {
 			s.Skip(fmt.Sprintf("Number of clusters %d does not exceed minimum %d",
-				len(ctx.Environment().Clusters()), minClusters))
+				len(clusters(ctx)), minClusters))
 		}
 		return nil
 	}
@@ -162,9 +181,9 @@ func (s *Suite) RequireMaxClusters(maxClusters int) *Suite {
 	}
 
 	fn := func(ctx resource.Context) error {
-		if len(ctx.Environment().Clusters()) > maxClusters {
+		if len(clusters(ctx)) > maxClusters {
 			s.Skip(fmt.Sprintf("Number of clusters %d exceeds maximum %d",
-				len(ctx.Environment().Clusters()), maxClusters))
+				len(clusters(ctx)), maxClusters))
 		}
 		return nil
 	}
@@ -181,8 +200,7 @@ func (s *Suite) RequireSingleCluster() *Suite {
 // RequireEnvironmentVersion validates the environment meets a minimum version
 func (s *Suite) RequireEnvironmentVersion(version string) *Suite {
 	fn := func(ctx resource.Context) error {
-
-		if ctx.Environment().EnvironmentName() == environment.Kube {
+		if environmentName(ctx) == environment.Kube {
 			kenv := ctx.Environment().(*kube.Environment)
 			ver, err := kenv.KubeClusters[0].GetKubernetesVersion()
 			if err != nil {
@@ -324,6 +342,27 @@ type SuiteOutcome struct {
 	TestOutcomes []TestOutcome
 }
 
+func environmentName(ctx resource.Context) environment.Name {
+	if ctx.Environment() != nil {
+		return ctx.Environment().EnvironmentName()
+	}
+	return ""
+}
+
+func isMulticluster(ctx resource.Context) bool {
+	if ctx.Environment() != nil {
+		return ctx.Environment().IsMulticluster()
+	}
+	return false
+}
+
+func clusters(ctx resource.Context) []resource.Cluster {
+	if ctx.Environment() != nil {
+		return ctx.Environment().Clusters()
+	}
+	return nil
+}
+
 func (s *Suite) writeOutput() {
 	// the ARTIFACTS env var is set by prow, and uploaded to GCS as part of the job artifact
 	artifactsPath := os.Getenv("ARTIFACTS")
@@ -332,8 +371,8 @@ func (s *Suite) writeOutput() {
 		ctx.outcomeMu.RLock()
 		out := SuiteOutcome{
 			Name:         ctx.Settings().TestID,
-			Environment:  ctx.Environment().EnvironmentName().String(),
-			Multicluster: ctx.Environment().IsMulticluster(),
+			Environment:  environmentName(ctx).String(),
+			Multicluster: isMulticluster(ctx),
 			TestOutcomes: ctx.testOutcomes,
 		}
 		ctx.outcomeMu.RUnlock()
@@ -425,4 +464,13 @@ func getSettings(testID string) (*resource.Settings, error) {
 	}
 
 	return resource.SettingsFromCommandLine(testID)
+}
+
+func mustCompileAll(patterns ...string) []*regexp.Regexp {
+	out := make([]*regexp.Regexp, 0, len(patterns))
+	for _, pattern := range patterns {
+		out = append(out, regexp.MustCompile(pattern))
+	}
+
+	return out
 }
