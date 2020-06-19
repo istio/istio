@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -231,17 +231,14 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 		},
 	}
 
-	gwSvcName := host.Name("istio-ingressgateway.istio-system.svc.cluster.local")
-	serviceDiscovery := NewMemServiceDiscovery(map[host.Name]*model.Service{
-		gwSvcName: {
-			Hostname: gwSvcName,
-			Attributes: model.ServiceAttributes{
-				ClusterExternalAddresses: map[string][]string{
-					"cluster2": {"2.2.2.2"},
-				},
+	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{{
+		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
+		Attributes: model.ServiceAttributes{
+			ClusterExternalAddresses: map[string][]string{
+				"cluster2": {"2.2.2.2"},
 			},
 		},
-	}, 0)
+	}})
 
 	env.ServiceDiscovery = serviceDiscovery
 
@@ -412,17 +409,14 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 		},
 	}
 
-	gwSvcName := host.Name("istio-ingressgateway.istio-system.svc.cluster.local")
-	serviceDiscovery := NewMemServiceDiscovery(map[host.Name]*model.Service{
-		gwSvcName: {
-			Hostname: gwSvcName,
-			Attributes: model.ServiceAttributes{
-				ClusterExternalAddresses: map[string][]string{
-					"cluster2": {"aeiou.scooby.do"},
-				},
+	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{{
+		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
+		Attributes: model.ServiceAttributes{
+			ClusterExternalAddresses: map[string][]string{
+				"cluster2": {"aeiou.scooby.do"},
 			},
 		},
-	}, 0)
+	}})
 
 	env.ServiceDiscovery = serviceDiscovery
 
@@ -581,7 +575,7 @@ func xdsConnection(network string) *XdsConnection {
 //  - 0 gateways for network4
 func environment() *model.Environment {
 	return &model.Environment{
-		ServiceDiscovery: NewMemServiceDiscovery(nil, 0),
+		ServiceDiscovery: memory.NewServiceDiscovery(nil),
 		IstioConfigStore: &fakes.IstioConfigStore{},
 		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
