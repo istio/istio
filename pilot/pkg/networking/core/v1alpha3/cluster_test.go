@@ -367,6 +367,9 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	}
 
 	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{service})
+	for _, instance := range instances {
+		serviceDiscovery.AddInstance(instance.Service.Hostname, instance)
+	}
 	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	configStore := &fakes.IstioConfigStore{
