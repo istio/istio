@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -373,7 +374,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 
 	configStore := &fakes.IstioConfigStore{
 		ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-			if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
+			if typ == gvk.DestinationRule {
 				return []model.Config{
 					{ConfigMeta: model.ConfigMeta{
 						GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
@@ -382,7 +383,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 						Spec: destRule,
 					}}, nil
 			}
-			if typ == collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() && peerAuthn != nil {
+			if typ == gvk.PeerAuthentication && peerAuthn != nil {
 				policyName := "default"
 				if peerAuthn.Selector != nil {
 					policyName = "acme"
@@ -1964,7 +1965,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 
 			configStore := &fakes.IstioConfigStore{
 				ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-					if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
+					if typ == gvk.DestinationRule {
 						return []model.Config{
 							{ConfigMeta: model.ConfigMeta{
 								GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),

@@ -20,13 +20,13 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/config/schema/collections"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -47,7 +47,7 @@ func convertPort(port *networking.Port) *model.Port {
 // See convertServices() for the reverse conversion, used by Istio to handle ServiceEntry configs.
 // See kube.ConvertService for the conversion from K8S to internal Service.
 func ServiceToServiceEntry(svc *model.Service) *model.Config {
-	gvk := collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
+	gvk := gvk.ServiceEntry
 	se := &networking.ServiceEntry{
 		// Host is fully qualified: name, namespace, domainSuffix
 		Hosts: []string{string(svc.Hostname)},

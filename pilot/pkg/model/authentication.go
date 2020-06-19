@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // MutualTLSMode is the mutule TLS mode specified by authentication policy.
@@ -90,7 +91,7 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 	}
 
 	if configs, err := env.List(
-		collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+		gvk.RequestAuthentication, NamespaceAll); err == nil {
 		sortConfigByCreationTime(configs)
 		policy.addRequestAuthentication(configs)
 	} else {
@@ -98,7 +99,7 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 	}
 
 	if configs, err := env.List(
-		collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+		gvk.PeerAuthentication, NamespaceAll); err == nil {
 		policy.addPeerAuthentication(configs)
 	} else {
 		return nil, err

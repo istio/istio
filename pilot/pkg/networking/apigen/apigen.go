@@ -118,7 +118,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 
 		// TODO: MeshConfig, current dynamic ProxyConfig (for this proxy), Networks
 
-		if w.TypeUrl == collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String() {
+		if w.TypeUrl == gvk.ServiceEntry.String() {
 			// Include 'synthetic' SE - but without the endpoints. Used to generate CDS, LDS.
 			// EDS is pass-through.
 			svcs := push.Services(proxy)

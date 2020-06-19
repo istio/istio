@@ -31,7 +31,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/tests/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -336,7 +336,7 @@ func TestAdsPushScoping(t *testing.T) {
 			hostname := host.Name(name)
 			server.EnvoyXdsServer.MemRegistry.RemoveService(hostname)
 			configsUpdated[model.ConfigKey{
-				Kind:      model.ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
 			}] = struct{}{}
@@ -360,7 +360,7 @@ func TestAdsPushScoping(t *testing.T) {
 		for _, name := range names {
 			hostname := host.Name(name)
 			configsUpdated[model.ConfigKey{
-				Kind:      model.ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
 			}] = struct{}{}
@@ -397,14 +397,14 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 
 		server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: model.ServiceEntryKind, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace}: {},
+			{Kind: gvk.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace}: {},
 		}})
 	}
 
 	addVirtualService := func(i int, hosts ...string) {
 		if _, err := server.EnvoyXdsServer.MemConfigController.Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind: model.VirtualServiceKind,
+				GroupVersionKind: gvk.VirtualService,
 				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace},
 			Spec: &networking.VirtualService{
 				Hosts: hosts,
@@ -420,12 +420,12 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 	}
 	removeVirtualService := func(i int) {
-		server.EnvoyXdsServer.MemConfigController.Delete(model.VirtualServiceKind, fmt.Sprintf("vs%d", i), model.IstioDefaultConfigNamespace)
+		server.EnvoyXdsServer.MemConfigController.Delete(gvk.VirtualService, fmt.Sprintf("vs%d", i), model.IstioDefaultConfigNamespace)
 	}
 	addDestinationRule := func(i int, host string) {
 		if _, err := server.EnvoyXdsServer.MemConfigController.Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind: model.DestinationRuleKind,
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace},
 			Spec: &networking.DestinationRule{
 				Host:     host,
@@ -436,7 +436,7 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 	}
 	removeDestinationRule := func(i int) {
-		server.EnvoyXdsServer.MemConfigController.Delete(model.DestinationRuleKind, fmt.Sprintf("dr%d", i), model.IstioDefaultConfigNamespace)
+		server.EnvoyXdsServer.MemConfigController.Delete(gvk.DestinationRule, fmt.Sprintf("dr%d", i), model.IstioDefaultConfigNamespace)
 	}
 
 	sc := &networking.Sidecar{
@@ -446,10 +446,9 @@ func TestAdsPushScoping(t *testing.T) {
 			},
 		},
 	}
-	sidecarKind := collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind()
 	if _, err := server.EnvoyXdsServer.MemConfigController.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			GroupVersionKind: sidecarKind,
+			GroupVersionKind: gvk.Sidecar,
 			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace},
 		Spec: sc,
 	}); err != nil {

@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -150,7 +151,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, req *model.PushRequest) {
 	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-		version, model.ConfigNamesOfKind(req.ConfigsUpdated, model.ServiceEntryKind), s.adsClientCount())
+		version, model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry), s.adsClientCount())
 	s.startPush(req)
 }
 
@@ -167,7 +168,7 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 	s.ConfigUpdate(&model.PushRequest{
 		Full: fp,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind:      model.ServiceEntryKind,
+			Kind:      gvk.ServiceEntry,
 			Name:      serviceName,
 			Namespace: namespace,
 		}: {}},
@@ -399,7 +400,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 
 	var edsUpdatedServices map[string]struct{} = nil
 	if updates != nil {
-		edsUpdatedServices = model.ConfigNamesOfKind(updates, model.ServiceEntryKind)
+		edsUpdatedServices = model.ConfigNamesOfKind(updates, gvk.ServiceEntry)
 	}
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
