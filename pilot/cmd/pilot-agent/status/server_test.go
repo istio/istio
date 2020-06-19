@@ -202,9 +202,6 @@ my_other_metric{} 0
 				}
 			}))
 			defer app.Close()
-			if err := ExportAgentPrometheus(); err != nil {
-				t.Fatal(err)
-			}
 			envoyPort, err := strconv.Atoi(strings.Split(envoy.URL, ":")[2])
 			if err != nil {
 				t.Fatal(err)
@@ -243,9 +240,6 @@ func TestStatsError(t *testing.T) {
 	}
 	passPort, err := strconv.Atoi(strings.Split(pass.URL, ":")[2])
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := ExportAgentPrometheus(); err != nil {
 		t.Fatal(err)
 	}
 	cases := []struct {

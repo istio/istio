@@ -103,6 +103,15 @@ type Server struct {
 	envoyStatsPort      int
 }
 
+func init() {
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
+	if err != nil {
+		log.Fatalf("could not setup exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+	promStatsExporter = exporter
+}
+
 // NewServer creates a new status server.
 func NewServer(config Config) (*Server, error) {
 	s := &Server{
@@ -119,9 +128,6 @@ func NewServer(config Config) (*Server, error) {
 	}
 	if err := json.Unmarshal([]byte(config.KubeAppProbers), &s.appKubeProbers); err != nil {
 		return nil, fmt.Errorf("failed to decode app prober err = %v, json string = %v", err, config.KubeAppProbers)
-	}
-	if err := ExportAgentPrometheus(); err != nil {
-		return nil, err
 	}
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
@@ -165,17 +171,6 @@ func FormatProberURL(container string) (string, string, string) {
 	return fmt.Sprintf("/app-health/%v/readyz", container),
 		fmt.Sprintf("/app-health/%v/livez", container),
 		fmt.Sprintf("/app-health/%v/startupz", container)
-}
-
-func ExportAgentPrometheus() error {
-	// setup a prometheus stats exporter for istio-agent.
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
-	if err != nil {
-		return fmt.Errorf("could not set up prometheus exporter: %v", err)
-	}
-	view.RegisterExporter(exporter)
-	promStatsExporter = exporter
-	return nil
 }
 
 // Run opens a the status port and begins accepting probes.
