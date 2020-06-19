@@ -48,7 +48,7 @@ data:
         zipkin:
           address: zipkin.istio-system:9411
     disableMixerHttpReports: true
-    enablePrometheusMerge: false
+    enablePrometheusMerge: true
     rootNamespace: istio-system
     trustDomain: cluster.local
 ---
@@ -379,12 +379,9 @@ data:
           value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
-        # Temp, pending PR to make it default or based on the istiodAddr env
-        - name: CA_ADDR
         {{- if .Values.global.caAddress }}
+        - name: CA_ADDR
           value: {{ .Values.global.caAddress }}
-        {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -662,7 +659,7 @@ data:
         traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
       {{- end }}
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
-    {{- if .Values.global.imagePullSecrets }}
+      {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- range .Values.global.imagePullSecrets }}
         - name: {{ . }}
@@ -731,6 +728,8 @@ spec:
         istio.io/rev: default
         istio: pilot
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istiod-service-account
@@ -1923,6 +1922,7 @@ webhooks:
         namespace: istio-system
         path: "/inject"
       caBundle: ""
+    sideEffects: None
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
