@@ -178,7 +178,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 				if srcAddress.Path == "" {
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.RegistryOptions))
+				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.RegistryOptions), false)
 				configController := memory.NewController(store)
 
 				err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
