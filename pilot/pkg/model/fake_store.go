@@ -16,6 +16,7 @@ package model
 
 import (
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 
 	"time"
@@ -24,9 +25,8 @@ import (
 )
 
 type FakeStore struct {
-	store   map[resource.GroupVersionKind]map[string][]Config
-	ledger  ledger.Ledger
-	schemas collection.Schemas
+	store  map[resource.GroupVersionKind]map[string][]Config
+	ledger ledger.Ledger
 }
 
 func NewFakeStore() *FakeStore {
@@ -40,11 +40,7 @@ func NewFakeStore() *FakeStore {
 var _ ConfigStore = (*FakeStore)(nil)
 
 func (s *FakeStore) Schemas() collection.Schemas {
-	return s.schemas
-}
-
-func (s *FakeStore) SetSchemas(schemas collection.Schemas) {
-	s.schemas = schemas
+	return collections.Pilot
 }
 
 func (*FakeStore) Get(typ resource.GroupVersionKind, name, namespace string) *Config { return nil }
