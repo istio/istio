@@ -31,7 +31,7 @@ import (
 )
 
 func TestVmOS(t *testing.T) {
-	vmImages := []string{"app_sidecar_bionic"}
+	vmImages := []string{"app_sidecar_ubuntu_bionic"}
 	VMTestBody(t, vmImages)
 }
 
