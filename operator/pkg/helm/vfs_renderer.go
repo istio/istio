@@ -79,6 +79,9 @@ func (h *VFSRenderer) RenderManifest(values string) (string, error) {
 
 // LoadValuesVFS loads the compiled in file corresponding to the given profile name.
 func LoadValuesVFS(profileName string) (string, error) {
+	if err := CheckCompiledInCharts(); err != nil {
+		return "", err
+	}
 	path := filepath.Join(profilesRoot, BuiltinProfileToFilename(profileName))
 	scope.Infof("Loading values from compiled in VFS at path %s", path)
 	b, err := vfs.ReadFile(path)
@@ -96,6 +99,9 @@ func readProfiles(chartsDir string) (map[string]bool, error) {
 	profiles := map[string]bool{}
 	switch chartsDir {
 	case "":
+		if err := CheckCompiledInCharts(); err != nil {
+			return nil, err
+		}
 		profilePaths, err := vfs.ReadDir(chartsDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read profiles: %v", err)
@@ -169,7 +175,8 @@ func ListProfiles(charts string) ([]string, error) {
 // binaries using go build instead of make and tries to use compiled in charts.
 func CheckCompiledInCharts() error {
 	if _, err := vfs.Stat(ChartsSubdirName); err != nil {
-		return fmt.Errorf("compiled in charts not found in this development build, use --charts with local charts instead or run make gen-charts")
+		return fmt.Errorf("compiled in charts not found in this development build, use --charts with " +
+			"local charts instead (e.g. istioctl install --charts manifests/) or run make gen-charts and rebuild istioctl")
 	}
 	return nil
 }
