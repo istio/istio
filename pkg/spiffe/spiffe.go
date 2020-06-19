@@ -115,12 +115,12 @@ func GenCustomSpiffe(identity string) string {
 //		{"map": {"foo": "URL1", "bar": "URL2"}}
 func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrustedCerts []*x509.Certificate) (
 	map[string][]*x509.Certificate, error) {
+	spiffeLog.Infof("Processing SPIFFE bundle configuration: %v", inputString)
 	var converted spiffeConfig
 	err := json.Unmarshal([]byte(inputString), &converted)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarchalling the input: %v", err)
 	}
-	spiffeLog.Infof("Processed SPIFFE bundle configuration: %v", converted)
 	return RetrieveSpiffeBundleRootCerts(converted, extraTrustedCerts)
 }
 
@@ -190,6 +190,9 @@ func RetrieveSpiffeBundleRootCerts(config spiffeConfig, extraTrustedCerts []*x50
 		} else {
 			ret[trustdomain] = []*x509.Certificate{cert}
 		}
+	}
+	for trustDomain, certs := range ret {
+		spiffeLog.Infof("Loaded SPIFFE trust bundle for: %v, containing %d certs", trustDomain, len(certs))
 	}
 	return ret, nil
 }
