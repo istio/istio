@@ -173,7 +173,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
-	model.JwtKeyResolver.PushFunc = func() {
+	model.GetJwtKeyResolver().PushFunc = func() {
 		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
 	}
 

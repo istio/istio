@@ -82,6 +82,7 @@ function build_images() {
   fi
   targets+="docker.mixer "
   targets+="docker.operator "
+  targets+="docker.install-cni "
   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
@@ -120,16 +121,6 @@ function kind_load_images_on_clusters() {
   for pid in "${LOAD_IMAGE_JOBS[@]}"; do
     wait "${pid}" || return 1
   done
-}
-
-function clone_cni() {
-  # Clone the CNI repo so the CNI artifacts can be built.
-  if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
-      TMP_DIR=$PWD
-      cd ../ || return
-      git clone -b "${GIT_BRANCH}" "https://github.com/istio/cni.git"
-      cd "${TMP_DIR}" || return
-  fi
 }
 
 function cleanup_kind_cluster() {
@@ -354,23 +345,6 @@ function ips_to_cidrs() {
 from ipaddress import summarize_address_range, IPv4Address
 [ print(n.compressed) for n in summarize_address_range(IPv4Address(u'$IP_RANGE_START'), IPv4Address(u'$IP_RANGE_END')) ]
 EOF
-}
-
-function cni_run_daemon_kind() {
-  echo 'Run the CNI daemon set'
-  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-testing}
-  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-latest}
-
-  # TODO: this should not be pulling from external charts, instead the tests should checkout the CNI repo
-  chartdir=$(mktemp -d)
-  helm init --client-only
-  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts/
-  helm fetch --devel --untar --untardir "${chartdir}" istio.io/istio-cni
-
-  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" \
-    --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni >  "${chartdir}"/istio-cni_install.yaml
-
-  kubectl apply -f  "${chartdir}"/istio-cni_install.yaml
 }
 
 # setup_cluster_reg is used to set up a cluster registry for multicluster testing

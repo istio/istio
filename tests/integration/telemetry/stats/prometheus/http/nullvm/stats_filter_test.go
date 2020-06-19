@@ -34,7 +34,7 @@ func TestStatsFilter(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("stats_filter_test", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).

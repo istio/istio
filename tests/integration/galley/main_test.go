@@ -29,7 +29,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("galley_test", m).
+		NewSuite(m).
 		Setup(istio.Setup(nil, nil)).
 		Setup(func(ctx resource.Context) error {
 			cluster = ctx.Environment().Clusters()[0].(kube.Cluster)

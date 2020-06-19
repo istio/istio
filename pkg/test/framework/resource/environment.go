@@ -23,6 +23,13 @@ import (
 // EnvironmentFactory creates an Environment.
 type EnvironmentFactory func(ctx Context) (Environment, error)
 
+var _ EnvironmentFactory = NilEnvironmentFactory
+
+// NilEnvironmentFactory is an EnvironmentFactory that returns nil.
+func NilEnvironmentFactory(Context) (Environment, error) {
+	return nil, nil
+}
+
 // Environment is the ambient environment that the test runs in.
 type Environment interface {
 	Resource
