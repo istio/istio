@@ -38,6 +38,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	istio_proto "istio.io/istio/pkg/proto"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -881,7 +882,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 	}
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
@@ -1037,7 +1038,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 			},
 		},
 	}
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)

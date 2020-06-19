@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -437,9 +438,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 
 			env := buildListenerEnv(services)
-			serviceDiscovery := new(fakes.ServiceDiscovery)
-			serviceDiscovery.ServicesReturns(services, nil)
-			serviceDiscovery.InstancesByPortReturns(tt.instances, nil)
+			serviceDiscovery := memory.NewServiceDiscovery(services)
+			for _, i := range tt.instances {
+				serviceDiscovery.AddInstance(i.Service.Hostname, i)
+			}
 			env.ServiceDiscovery = serviceDiscovery
 			if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 				t.Errorf("Failed to initialize push context: %v", err)
@@ -2234,7 +2236,8 @@ func buildServiceInstance(service *model.Service, instanceIP string) *model.Serv
 		Endpoint: &model.IstioEndpoint{
 			Address: instanceIP,
 		},
-		Service: service,
+		ServicePort: service.Ports[0],
+		Service:     service,
 	}
 }
 
@@ -2243,21 +2246,18 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 }
 
 func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
-	serviceDiscovery := new(fakes.ServiceDiscovery)
-	serviceDiscovery.ServicesReturns(services, nil)
+	serviceDiscovery := memory.NewServiceDiscovery(services)
 
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
+	for _, s := range services {
+		serviceDiscovery.AddInstance(s.Hostname, &model.ServiceInstance{
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
 				Address:      "172.0.0.1",
 				EndpointPort: 8080,
 			},
 			ServicePort: s.Ports[0],
-		}
+		})
 	}
-	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
 
 	envoyFilter := model.Config{
 		ConfigMeta: model.ConfigMeta{
@@ -2536,8 +2536,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	serviceDiscovery := new(fakes.ServiceDiscovery)
-	serviceDiscovery.ServicesReturns(services, nil)
+	serviceDiscovery := memory.NewServiceDiscovery(services)
 
 	quotaSpec := &client.Quota{
 		Quota:  "test",

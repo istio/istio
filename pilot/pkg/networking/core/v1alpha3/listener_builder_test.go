@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -397,7 +398,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 	}
 	configStore := buildEnvoyFilterConfigStore(configPatches)
 
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
