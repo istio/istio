@@ -254,10 +254,10 @@ func TestStatsError(t *testing.T) {
 		app   int
 		resp  int
 	}{
-		{"three pass", passPort, passPort, 200},
+		{"both pass", passPort, passPort, 200},
 		{"envoy pass", passPort, failPort, 503},
 		{"app pass", failPort, passPort, 503},
-		{"three fail", failPort, failPort, 503},
+		{"both fail", failPort, failPort, 503},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
