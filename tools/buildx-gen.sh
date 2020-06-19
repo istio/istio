@@ -55,7 +55,9 @@ for file in "$@"; do
       output='output = ["type=registry"]'
     fi
 
-    # wild card check to assign the vm name and version
+    # Wild card check to assign the vm name and version
+    # The name of the VM image would be app_sidecar_IMAGE_VERSION
+    # Split the $image using "_"
     VM_IMAGE_NAME=""
     VM_IMAGE_VERSION=""
     if [[ "$image" == *"app_sidecar"* ]]; then

@@ -28,6 +28,7 @@ docker.app_sidecar_ubuntu_bionic docker.app_sidecar_ubuntu_focal docker.app_side
 docker.app_sidecar_debian_10 docker.test_policybackend docker.mixer docker.mixer_codegen \
 docker.istioctl docker.operator docker.install-cni
 
+# Echo docker directory and the template to pass image name and version to for VM testing
 ECHO_DOCKER ?= pkg/test/echo/docker
 VM_OS_DOCKERFILE_TEMPLATE ?= Dockerfile.app_sidecar
 
@@ -251,6 +252,8 @@ docker.base: docker/Dockerfile.base
 # 3. This rule then changes directories to $(DOCKER_BUID_TOP)/$@
 # 4. This rule runs $(BUILD_PRE) prior to any docker build and only if specified as a dependency variable
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
+# VM_DOCKER_RULE stays rough the same. However, it does involve an extra step of renaming the Dockerfile.app_sidecar
+# If the file is not renamed, it will throw an error since the build filename is determined by the target name.
 
 # DOCKER_BUILD_VARIANTS ?=default distroless
 DOCKER_BUILD_VARIANTS ?= default
