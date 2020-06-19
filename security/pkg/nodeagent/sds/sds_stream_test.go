@@ -66,6 +66,7 @@ func TestSDSAgentStreamWithCacheAndConnectionCleaned(t *testing.T) {
 	waitForSecretCacheCleanUp(t, setup.secretStore, secretKeyMap)
 
 	conn, stream = createSDSStream(t, setup.socket, fakeToken1)
+	// When proxy ID has "invalid", SDS server closes the connection and returns an error
 	go testSDSTerminatedIngressStreamCache(stream, InValidProxyID, notifyChan)
 	waitForStreamSecretCacheCheck(t, setup.secretStore, false, 1)
 	waitForStreamNotificationToProceed(t, notifyChan, "notify push secret 2")
@@ -258,21 +259,6 @@ func (ms *mockIngressGatewaySecretStore) GenerateSecret(ctx context.Context, con
 		// to earlier terminate the flow and then test whether the secret will be deleted
 		// after connection is stopped
 
-		if strings.Contains(conID, "invalid") {
-			return s, fmt.Errorf("invalid connection for test")
-		}
-		return s, nil
-	}
-
-	if resourceName == cache.RootCertReqResourceName || strings.HasPrefix(resourceName, "file-root:") {
-		s := &model.SecretItem{
-			RootCert:     fakeRootCert,
-			ResourceName: cache.RootCertReqResourceName,
-			Version:      time.Now().Format("01-02 15:04:05.000"),
-			Token:        token,
-		}
-		fmt.Println("Store root cert for key: ", key, ". token: ", token)
-		ms.secrets.Store(key, s)
 		if strings.Contains(conID, "invalid") {
 			return s, fmt.Errorf("invalid connection for test")
 		}
