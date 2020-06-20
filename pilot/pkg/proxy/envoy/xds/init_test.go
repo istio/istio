@@ -21,7 +21,7 @@ import (
 	"net"
 	"time"
 
-	corexds "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
@@ -166,7 +166,7 @@ func adsReceive(ads AdsClient, to time.Duration) (*discovery.DiscoveryResponse, 
 func sendEDSReq(clusters []string, node string, edsClient AdsClient) error {
 	err := edsClient.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &corexds.Node{
+		Node: &corev3.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
@@ -189,7 +189,7 @@ func sendEDSNack(_ []string, node string, client AdsClient) error {
 // reconnect problems.
 func sendEDSReqReconnect(clusters []string, client AdsClient, res *discovery.DiscoveryResponse) error {
 	err := client.Send(&discovery.DiscoveryRequest{
-		Node: &corexds.Node{
+		Node: &corev3.Node{
 			Id:       sidecarID(app3Ip, "app3"),
 			Metadata: nodeMetadata,
 		},
@@ -211,7 +211,7 @@ func sendLDSReq(node string, client AdsClient) error {
 func sendLDSReqWithLabels(node string, ldsclient AdsClient, labels map[string]string) error {
 	err := ldsclient.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &corexds.Node{
+		Node: &corev3.Node{
 			Id:       node,
 			Metadata: model.NodeMetadata{Labels: labels}.ToStruct(),
 		},
@@ -230,7 +230,7 @@ func sendLDSNack(node string, client AdsClient) error {
 func sendRDSReq(node string, routes []string, nonce string, rdsclient AdsClient) error {
 	err := rdsclient.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: nonce,
-		Node: &corexds.Node{
+		Node: &corev3.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
@@ -246,7 +246,7 @@ func sendRDSReq(node string, routes []string, nonce string, rdsclient AdsClient)
 func sendRDSNack(node string, _ []string, nonce string, rdsclient AdsClient) error {
 	err := rdsclient.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: nonce,
-		Node: &corexds.Node{
+		Node: &corev3.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
@@ -294,7 +294,7 @@ func sendXds(node string, client AdsClient, typeURL string, errMsg string) error
 	}
 	err := client.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &corexds.Node{
+		Node: &corev3.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
