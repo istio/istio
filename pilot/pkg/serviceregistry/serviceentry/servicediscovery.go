@@ -556,19 +556,24 @@ func (s *ServiceEntryStore) deleteExistingInstances(ckey configKey, instances []
 	s.storeMutex.Lock()
 	defer s.storeMutex.Unlock()
 
+	deleteInstances(ckey, instances, s.instances, s.ip2instance)
+}
+
+// This method is not concurrent safe.
+func deleteInstances(key configKey, instances []*model.ServiceInstance, instancemap map[instancesKey]map[configKey][]*model.ServiceInstance,
+	ip2instance map[string][]*model.ServiceInstance) {
 	for _, i := range instances {
-		delete(s.instances[makeInstanceKey(i)], ckey)
-		delete(s.ip2instance, i.Endpoint.Address)
+		delete(instancemap[makeInstanceKey(i)], key)
+		delete(ip2instance, i.Endpoint.Address)
 	}
 }
 
 // updateExistingInstances updates the indexes (by host, byip maps) for the passed in instances.
 func (s *ServiceEntryStore) updateExistingInstances(ckey configKey, instances []*model.ServiceInstance) {
-	// First, delete the existing instances to avoid leaking memory.
-	s.deleteExistingInstances(ckey, instances)
-
 	s.storeMutex.Lock()
 	defer s.storeMutex.Unlock()
+	// First, delete the existing instances to avoid leaking memory.
+	deleteInstances(ckey, instances, s.instances, s.ip2instance)
 	// Update the indexes with new instances.
 	updateInstances(ckey, instances, s.instances, s.ip2instance)
 }
