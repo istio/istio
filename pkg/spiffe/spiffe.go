@@ -109,10 +109,19 @@ func GenCustomSpiffe(identity string) string {
 	return URIPrefix + GetTrustDomain() + "/" + identity
 }
 
+// GetTrustDomainFromURISAN extracts the trust domain part from the URI SAN in the X.509 certificate.
+func GetTrustDomainFromURISAN(uriSan string) (string, error) {
+	parsed, err := url.Parse(uriSan)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse URI SAN %s. Error: %v", uriSan, err)
+	}
+	return parsed.Hostname(), nil
+}
+
 // RetrieveSpiffeBundleRootCertsFromStringInput retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
 // It can use the system cert pool and the supplied certificates to validate the endpoints.
-// The input endpointTuples should be in the json format of:
-//		foo|URL1||bar|URL2
+// The input endpointTuples should be in the format of:
+// "foo|URL1||bar|URL2||baz|URL3..."
 func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrustedCerts []*x509.Certificate) (
 	map[string][]*x509.Certificate, error) {
 	spiffeLog.Infof("Processing SPIFFE bundle configuration: %v", inputString)
@@ -220,4 +229,72 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, extraTrustedCerts [
 		spiffeLog.Infof("Loaded SPIFFE trust bundle for: %v, containing %d certs", trustDomain, len(certs))
 	}
 	return ret, nil
+}
+
+// PeerCertVerifier is an instance to verify the peer certificate in the SPIFFE way using the retrieved root certificates.
+type PeerCertVerifier struct {
+	certPools map[string]*x509.CertPool
+}
+
+// NewPeerCertVerifier returns a new PeerCertVerifier.
+func NewPeerCertVerifier() *PeerCertVerifier {
+	return &PeerCertVerifier{
+		certPools: make(map[string]*x509.CertPool),
+	}
+}
+
+// AddMapping adds a new trust domain to certificates mapping to the certPools map.
+func (v *PeerCertVerifier) AddMapping(trustDomain string, certs []*x509.Certificate) {
+	if v.certPools[trustDomain] == nil {
+		v.certPools[trustDomain] = x509.NewCertPool()
+	}
+	for _, cert := range certs {
+		v.certPools[trustDomain].AddCert(cert)
+	}
+	spiffeLog.Infof("Added %d certs to trust domain %s in peer cert verifier", len(certs), trustDomain)
+}
+
+// AddMappings merges a trust domain to certs map to the certPools map.
+func (v *PeerCertVerifier) AddMappings(certMap map[string][]*x509.Certificate) {
+	for trustDomain, certs := range certMap {
+		v.AddMapping(trustDomain, certs)
+	}
+}
+
+// VerifyPeerCert is an implementation of tls.Config.VerifyPeerCertificate.
+// It verifies the peer certificate using the root certificates associated with its trust domain.
+func (v *PeerCertVerifier) VerifyPeerCert(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+	if len(rawCerts) == 0 {
+		return fmt.Errorf("certificate chain is unexpectedly empty")
+	}
+	var peerCert *x509.Certificate
+	intCertPool := x509.NewCertPool()
+	for id, rawCert := range rawCerts {
+		cert, err := x509.ParseCertificate(rawCert)
+		if err != nil {
+			return err
+		}
+		if id == 0 {
+			peerCert = cert
+		} else {
+			intCertPool.AddCert(cert)
+		}
+	}
+	if len(peerCert.URIs) != 1 {
+		return fmt.Errorf("peer certificate does not contain 1 URI type SAN, detected %d", len(peerCert.URIs))
+	}
+	trustDomain, err := GetTrustDomainFromURISAN(peerCert.URIs[0].String())
+	if err != nil {
+		return err
+	}
+	rootCertPool, ok := v.certPools[trustDomain]
+	if !ok {
+		return fmt.Errorf("no cert pool found for trust domain %s", trustDomain)
+	}
+
+	_, err = peerCert.Verify(x509.VerifyOptions{
+		Roots:         rootCertPool,
+		Intermediates: intCertPool,
+	})
+	return err
 }
