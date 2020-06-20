@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"go.opencensus.io/stats/view"
 	"io"
 	"io/ioutil"
 	"net"
@@ -32,6 +31,8 @@ import (
 	"syscall"
 	"time"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"go.opencensus.io/stats/view"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
