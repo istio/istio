@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 
 	"github.com/pkg/errors"
 
@@ -65,7 +65,7 @@ type Reporter struct {
 	distributionEventQueue chan distributionEvent
 }
 
-var _ v2.DistributionStatusCache = &Reporter{}
+var _ xds.DistributionStatusCache = &Reporter{}
 
 const labelKey = "internal.istio.io/distribution-report"
 const dataField = "distribution-report"
@@ -242,11 +242,11 @@ func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v
 
 type distributionEvent struct {
 	conID            string
-	distributionType v2.EventType
+	distributionType xds.EventType
 	nonce            string
 }
 
-func (r *Reporter) QueryLastNonce(conID string, distributionType v2.EventType) (noncePrefix string) {
+func (r *Reporter) QueryLastNonce(conID string, distributionType xds.EventType) (noncePrefix string) {
 	key := conID + string(distributionType)
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -256,7 +256,7 @@ func (r *Reporter) QueryLastNonce(conID string, distributionType v2.EventType) (
 // Register that a dataplane has acknowledged a new version of the config.
 // Theoretically, we could use the ads connections themselves to harvest this data,
 // but the mutex there is pretty hot, and it seems best to trade memory for time.
-func (r *Reporter) RegisterEvent(conID string, distributionType v2.EventType, nonce string) {
+func (r *Reporter) RegisterEvent(conID string, distributionType xds.EventType, nonce string) {
 	d := distributionEvent{nonce: nonce, distributionType: distributionType, conID: conID}
 	select {
 	case r.distributionEventQueue <- d:
@@ -273,7 +273,7 @@ func (r *Reporter) readFromEventQueue() {
 	}
 
 }
-func (r *Reporter) processEvent(conID string, distributionType v2.EventType, nonce string) {
+func (r *Reporter) processEvent(conID string, distributionType xds.EventType, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true
@@ -281,7 +281,7 @@ func (r *Reporter) processEvent(conID string, distributionType v2.EventType, non
 	r.deleteKeyFromReverseMap(key)
 	var version string
 	if len(nonce) > 12 {
-		version = nonce[:v2.VersionLen]
+		version = nonce[:xds.VersionLen]
 	} else {
 		version = nonce
 	}
@@ -309,7 +309,7 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 }
 
 // When a dataplane disconnects, we should no longer count it, nor expect it to ack config.
-func (r *Reporter) RegisterDisconnect(conID string, types []v2.EventType) {
+func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true

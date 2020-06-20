@@ -28,8 +28,8 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/proto"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/tests/integration/pilot/sidecarscope"
 )

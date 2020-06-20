@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package v2_test
+package xds_test
 
 import (
 	"fmt"
@@ -26,8 +26,9 @@ import (
 	"istio.io/istio/pkg/adsc"
 
 	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -46,7 +47,7 @@ func TestInternalEvents(t *testing.T) {
 	defer tearDown()
 
 	ldsr, close1, err := connectADSC(util.MockPilotGrpcAddr, &adsc.Config{
-		Watch: []string{v2.TypeURLConnections},
+		Watch: []string{xds.TypeURLConnections},
 		Meta: model.NodeMetadata{
 			Generator: "event",
 		}.ToStruct(),
@@ -56,7 +57,7 @@ func TestInternalEvents(t *testing.T) {
 	}
 	defer close1()
 
-	dr, err := ldsr.WaitVersion(5*time.Second, v2.TypeURLConnections, "")
+	dr, err := ldsr.WaitVersion(5*time.Second, xds.TypeURLConnections, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +76,7 @@ func TestInternalEvents(t *testing.T) {
 	defer close2()
 
 	//
-	dr, err = ldsr.WaitVersion(5*time.Second, v2.TypeURLConnections,
+	dr, err = ldsr.WaitVersion(5*time.Second, xds.TypeURLConnections,
 		dr.VersionInfo)
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +161,7 @@ func TestAdsReconnect(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// event happens
-	v2.AdsPushAll(s.EnvoyXdsServer)
+	xds.AdsPushAll(s.EnvoyXdsServer)
 	// will trigger recompute and push (we may need to make a change once diff is implemented
 
 	m, err := adsReceive(edsstr2, 3*time.Second)
@@ -773,7 +774,7 @@ func TestAdsUpdate(t *testing.T) {
 
 	// will trigger recompute and push for all clients - including some that may be closing
 	// This reproduced the 'push on closed connection' bug.
-	v2.AdsPushAll(server.EnvoyXdsServer)
+	xds.AdsPushAll(server.EnvoyXdsServer)
 
 	res1, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
@@ -814,7 +815,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 		t.Fatal("No routes returned")
 	}
 
-	v2.AdsPushAll(server.EnvoyXdsServer)
+	xds.AdsPushAll(server.EnvoyXdsServer)
 
 	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
@@ -874,7 +875,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 		t.Fatal("Expected only the http.80 route to be returned")
 	}
 
-	v2.AdsPushAll(server.EnvoyXdsServer)
+	xds.AdsPushAll(server.EnvoyXdsServer)
 
 	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {

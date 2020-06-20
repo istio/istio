@@ -32,8 +32,9 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -145,7 +146,7 @@ type ADSC struct {
 	Store model.IstioConfigStore
 
 	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
-	Registry *v2.MemServiceDiscovery
+	Registry *xds.MemServiceDiscovery
 
 	// LocalCacheDir is set to a base name used to save fetched resources.
 	// If set, each update will be saved.

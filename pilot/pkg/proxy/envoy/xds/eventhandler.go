@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package xds
 
-import v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+import (
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
+)
 
 // EventType represents the type of object we are tracking. This is distinct from Envoy's TypeUrl
 // as TypeUrl is versioned, whereas EventType is not
@@ -37,13 +40,13 @@ var AllEventTypes = []EventType{
 
 func TypeURLToEventType(typeURL string) EventType {
 	switch typeURL {
-	case ClusterType, v3.ClusterType:
+	case v2.ClusterType, v3.ClusterType:
 		return ClusterEventType
-	case EndpointType, v3.EndpointType:
+	case v2.EndpointType, v3.EndpointType:
 		return EndpointEventType
-	case RouteType, v3.RouteType:
+	case v2.RouteType, v3.RouteType:
 		return RouteEventType
-	case ListenerType, v3.ListenerType:
+	case v2.ListenerType, v3.ListenerType:
 		return ListenerEventType
 	default:
 		return UnknownEventType

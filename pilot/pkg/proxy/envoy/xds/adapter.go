@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package xds
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package v2_test
+package xds_test
 
 import (
 	"encoding/json"
@@ -33,7 +33,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -453,7 +453,7 @@ func edsUpdates(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.3", "hello-sa", "v1"))
 
-	v2.AdsPushAll(server.EnvoyXdsServer)
+	xds.AdsPushAll(server.EnvoyXdsServer)
 
 	// will trigger recompute and push
 
@@ -660,7 +660,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 				Push: server.EnvoyXdsServer.Env.PushContext,
 			})
 		} else {
-			v2.AdsPushAll(server.EnvoyXdsServer)
+			xds.AdsPushAll(server.EnvoyXdsServer)
 		}
 		log.Println("Push done ", j)
 	}

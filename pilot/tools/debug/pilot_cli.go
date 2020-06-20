@@ -72,7 +72,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	"istio.io/pkg/env"

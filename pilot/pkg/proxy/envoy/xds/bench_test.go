@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package xds
 
 import (
 	"bytes"
@@ -27,6 +27,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
 	"istio.io/istio/pkg/test"
 
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -271,7 +272,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				r := configgen.BuildHTTPRoutes(&proxy, env.PushContext, routeNames)
-				response = routeDiscoveryResponse(r, "", "", RouteType)
+				response = routeDiscoveryResponse(r, "", "", v2.RouteType)
 			}
 			_ = response
 		})
@@ -286,7 +287,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				c := configgen.BuildClusters(&proxy, env.PushContext)
-				response = cdsDiscoveryResponse(c, "", ClusterType)
+				response = cdsDiscoveryResponse(c, "", v2.ClusterType)
 			}
 			_ = response
 		})
@@ -301,7 +302,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				l := configgen.BuildListeners(&proxy, env.PushContext)
-				response = ldsDiscoveryResponse(l, "", "", ListenerType)
+				response = ldsDiscoveryResponse(l, "", "", v2.ListenerType)
 			}
 			_ = response
 		})
@@ -355,7 +356,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh().LocalityLbSetting, true)
 					loadAssignments = append(loadAssignments, l)
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, EndpointType)
+				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, v2.EndpointType)
 			}
 		})
 	}

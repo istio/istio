@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
@@ -188,7 +188,7 @@ func poll(acceptedVersions []string, targetResource string, opts clioptions.Cont
 	}
 	versionCount := make(map[string]int)
 	for _, response := range pilotResponses {
-		var configVersions []v2.SyncedVersions
+		var configVersions []xds.SyncedVersions
 		err = json.Unmarshal(response, &configVersions)
 		if err != nil {
 			return 0, 0, err

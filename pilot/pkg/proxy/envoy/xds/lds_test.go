@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package v2_test
+package xds_test
 
 import (
 	"io/ioutil"
@@ -21,7 +21,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -278,7 +278,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	}
 }
 
-// TestLDS is running LDSv2 tests.
+// TestLDS is running LDS tests.
 func TestLDS(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
@@ -523,12 +523,12 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 	}
 }
 
-func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *v2.MemServiceDiscovery {
+func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *xds.MemServiceDiscovery {
 	index, found := server.ServiceController().GetRegistryIndex("v2-debug")
 	if !found {
 		t.Fatal("Could not find Mock ServiceRegistry")
 	}
-	registry, ok := server.ServiceController().GetRegistries()[index].(serviceregistry.Simple).ServiceDiscovery.(*v2.MemServiceDiscovery)
+	registry, ok := server.ServiceController().GetRegistries()[index].(serviceregistry.Simple).ServiceDiscovery.(*xds.MemServiceDiscovery)
 	if !ok {
 		t.Fatal("Unexpected type of Mock ServiceRegistry")
 	}

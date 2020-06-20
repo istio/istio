@@ -43,6 +43,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -54,7 +55,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"

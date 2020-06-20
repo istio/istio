@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2_test
+package xds_test
 
 import (
 	"encoding/json"
@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/tests/util"
 )
 
@@ -127,7 +127,7 @@ func TestSyncz(t *testing.T) {
 	})
 }
 
-func getSyncStatus(t *testing.T, server *v2.DiscoveryServer) []v2.SyncStatus {
+func getSyncStatus(t *testing.T, server *xds.DiscoveryServer) []xds.SyncStatus {
 	req, err := http.NewRequest("GET", "/debug", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -135,14 +135,14 @@ func getSyncStatus(t *testing.T, server *v2.DiscoveryServer) []v2.SyncStatus {
 	rr := httptest.NewRecorder()
 	syncz := http.HandlerFunc(server.Syncz)
 	syncz.ServeHTTP(rr, req)
-	got := []v2.SyncStatus{}
+	got := []xds.SyncStatus{}
 	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
 		t.Error(err)
 	}
 	return got
 }
 
-func verifySyncStatus(t *testing.T, s *v2.DiscoveryServer, nodeID string, wantSent, wantAcked bool) {
+func verifySyncStatus(t *testing.T, s *xds.DiscoveryServer, nodeID string, wantSent, wantAcked bool) {
 	// This is a mostly horrible hack because the single pilot instance is shared across multiple tests
 	// This makes this test contaminated by others and gives it horrible timing windows
 	attempts := 5
@@ -258,7 +258,7 @@ func TestConfigDump(t *testing.T) {
 	}
 }
 
-func getConfigDump(t *testing.T, s *v2.DiscoveryServer, proxyID string, wantCode int) *configdump.Wrapper {
+func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCode int) *configdump.Wrapper {
 	path := "/config_dump"
 	if proxyID != "" {
 		path += fmt.Sprintf("?proxyID=%v", proxyID)

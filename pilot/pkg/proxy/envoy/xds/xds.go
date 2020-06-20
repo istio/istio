@@ -25,7 +25,6 @@ import (
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
@@ -34,10 +33,10 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-type Server struct {
+type SimpleServer struct {
 	// DiscoveryServer is the gRPC XDS implementation
 	// Env and MemRegistry are available as fields, as well as the default PushContext.
-	DiscoveryServer *v2.DiscoveryServer
+	DiscoveryServer *DiscoveryServer
 
 	// MemoryStore is an in-memory config store, part of the aggregate store used by the discovery server.
 	MemoryConfigStore model.IstioConfigStore
@@ -54,7 +53,7 @@ type Server struct {
 // Can be used in tests, or as a minimal XDS discovery server with no dependency on K8S or
 // the complex bootstrap used by Istiod. A memory registry and memory config store are used to
 // generate the configs - they can be programmatically updated.
-func NewXDS() *Server {
+func NewXDS() *SimpleServer {
 	// Prepare a working XDS server, with aggregate config and registry stores and a memory store for each.
 	// TODO: refactor bootstrap code to use this server, and add more registries.
 
@@ -65,7 +64,7 @@ func NewXDS() *Server {
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()
 
-	ds := v2.NewDiscoveryServer(env, nil)
+	ds := NewDiscoveryServer(env, nil)
 
 	// Config will have a fixed format:
 	// - aggregate store
@@ -77,7 +76,7 @@ func NewXDS() *Server {
 	schemas := collections.Pilot
 
 	store := memory.Make(schemas)
-	s := &Server{
+	s := &SimpleServer{
 		DiscoveryServer: ds,
 	}
 	s.syncCh = make(chan string, len(schemas.All()))
@@ -95,7 +94,7 @@ func NewXDS() *Server {
 	}
 	serviceControllers.AddRegistry(serviceEntryRegistry)
 
-	sd := v2.NewMemServiceDiscovery(map[host.Name]*model.Service{}, 0)
+	sd := NewMemServiceDiscovery(map[host.Name]*model.Service{}, 0)
 	sd.EDSUpdater = ds
 	ds.MemRegistry = sd
 	serviceControllers.AddRegistry(serviceregistry.Simple{
@@ -122,7 +121,7 @@ func NewXDS() *Server {
 	return s
 }
 
-func (s *Server) StartGRPC(addr string) error {
+func (s *SimpleServer) StartGRPC(addr string) error {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err

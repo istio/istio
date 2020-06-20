@@ -32,8 +32,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
 	"istio.io/istio/pkg/config/schema/collections"
 
 	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
@@ -49,7 +49,7 @@ var (
 func TestGRPC(t *testing.T) {
 	ds := xds.NewXDS()
 	ds.DiscoveryServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &envoyv2.EdsGenerator{ds.DiscoveryServer}
+	epGen := &xds.EdsGenerator{Server: ds.DiscoveryServer}
 	ds.DiscoveryServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
 
 	sd := ds.DiscoveryServer.MemRegistry

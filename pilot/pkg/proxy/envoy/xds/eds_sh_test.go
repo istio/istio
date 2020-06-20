@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package v2_test
+package xds_test
 
 import (
 	"fmt"
@@ -27,8 +27,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -239,7 +239,7 @@ func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc
 // the ingress with the provided external IP
 func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string, numOfEndpoints int) {
 	id := fmt.Sprintf("network%d", clusterNum)
-	memRegistry := v2.NewMemServiceDiscovery(
+	memRegistry := xds.NewMemServiceDiscovery(
 		map[host.Name]*model.Service{}, 2)
 	memRegistry.EDSUpdater = server.EnvoyXdsServer
 
@@ -247,7 +247,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 		ClusterID:        id,
 		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: memRegistry,
-		Controller:       &v2.MemServiceController{},
+		Controller:       &xds.MemServiceController{},
 	})
 
 	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)

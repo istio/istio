@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package xds
 
 import (
 	"context"
@@ -39,7 +39,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
 )
 
 var (
@@ -304,28 +305,28 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			}
 
 			switch discReq.TypeUrl {
-			case ClusterType, v3.ClusterType:
+			case v2.ClusterType, v3.ClusterType:
 				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
 					return err
 				}
 				if err := s.handleCds(con, discReq); err != nil {
 					return err
 				}
-			case ListenerType, v3.ListenerType:
+			case v2.ListenerType, v3.ListenerType:
 				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.LDS); err != nil {
 					return err
 				}
 				if err := s.handleLds(con, discReq); err != nil {
 					return err
 				}
-			case RouteType, v3.RouteType:
+			case v2.RouteType, v3.RouteType:
 				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.RDS); err != nil {
 					return err
 				}
 				if err := s.handleRds(con, discReq); err != nil {
 					return err
 				}
-			case EndpointType, v3.EndpointType:
+			case v2.EndpointType, v3.EndpointType:
 				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.EDS); err != nil {
 					return err
 				}
@@ -873,17 +874,17 @@ func (conn *XdsConnection) send(res *discovery.DiscoveryResponse) error {
 		conn.mu.Lock()
 		if res.Nonce != "" {
 			switch res.TypeUrl {
-			case ClusterType, v3.ClusterType:
+			case v2.ClusterType, v3.ClusterType:
 				conn.ClusterNonceSent = res.Nonce
-			case ListenerType, v3.ListenerType:
+			case v2.ListenerType, v3.ListenerType:
 				conn.ListenerNonceSent = res.Nonce
-			case RouteType, v3.RouteType:
+			case v2.RouteType, v3.RouteType:
 				conn.RouteNonceSent = res.Nonce
-			case EndpointType, v3.EndpointType:
+			case v2.EndpointType, v3.EndpointType:
 				conn.EndpointNonceSent = res.Nonce
 			}
 		}
-		if res.TypeUrl == RouteType || res.TypeUrl == v3.RouteType {
+		if res.TypeUrl == v2.RouteType || res.TypeUrl == v3.RouteType {
 			conn.RouteVersionInfoSent = res.VersionInfo
 		}
 		conn.mu.Unlock()
