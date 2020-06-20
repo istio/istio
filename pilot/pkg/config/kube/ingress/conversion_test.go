@@ -23,14 +23,18 @@ import (
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/schema/collections"
 
+	coreV1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -52,7 +56,7 @@ func TestGoldenConversion(t *testing.T) {
 			cfgs := map[string]*model.Config{}
 			for _, obj := range input {
 				ingress := obj.(*v1beta1.Ingress)
-				ConvertIngressVirtualService(*ingress, "mydomain", cfgs)
+				ConvertIngressVirtualService(*ingress, "mydomain", cfgs, fake.NewSimpleClientset())
 			}
 			ordered := []model.Config{}
 			for _, v := range cfgs {
@@ -213,8 +217,8 @@ func TestConversion(t *testing.T) {
 		},
 	}
 	cfgs := map[string]*model.Config{}
-	ConvertIngressVirtualService(ingress, "mydomain", cfgs)
-	ConvertIngressVirtualService(ingress2, "mydomain", cfgs)
+	ConvertIngressVirtualService(ingress, "mydomain", cfgs, fake.NewSimpleClientset())
+	ConvertIngressVirtualService(ingress2, "mydomain", cfgs, fake.NewSimpleClientset())
 
 	if len(cfgs) != 3 {
 		t.Error("VirtualServices, expected 3 got ", len(cfgs))
@@ -360,5 +364,97 @@ func TestIngressClass(t *testing.T) {
 					!c.shouldProcess, c.shouldProcess)
 			}
 		})
+	}
+}
+
+func TestNamedPortIngressConversion(t *testing.T) {
+	ingress := v1beta1.Ingress{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Namespace: "mock",
+		},
+		Spec: v1beta1.IngressSpec{
+			Rules: []v1beta1.IngressRule{
+				{
+					Host: "host.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/test/*",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "foo",
+										ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "test-port"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	service := &coreV1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "mock",
+		},
+		Spec: coreV1.ServiceSpec{
+			Ports: []coreV1.ServicePort{
+				{
+					Name:     "test-svc-port",
+					Protocol: "TCP",
+					Port:     8888,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.String,
+						StrVal: "test-port",
+					},
+				},
+			},
+			Selector: map[string]string{
+				"app": "test-app",
+			},
+		},
+	}
+	pod := &coreV1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app-pod",
+			Namespace: "test-ns",
+			Labels:    map[string]string{"app": "test-app"},
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name: "app-container",
+					Ports: []coreV1.ContainerPort{
+						{Name: "test-port", ContainerPort: 1234},
+					},
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(service, pod)
+	cfgs := map[string]*model.Config{}
+	ConvertIngressVirtualService(ingress, "mydomain", cfgs, client)
+	if len(cfgs) != 1 {
+		t.Error("VirtualServices, expected 1 got ", len(cfgs))
+	}
+	if cfgs["host.com"] == nil {
+		t.Error("Host, found nil")
+	}
+	vs := cfgs["host.com"].Spec.(*networking.VirtualService)
+	if len(vs.Http) != 1 {
+		t.Error("HttpSpec, expected 1 got ", len(vs.Http))
+	}
+	http := vs.Http[0]
+	if len(http.Route) != 1 {
+		t.Error("Route, expected 1 got ", len(http.Route))
+	}
+	route := http.Route[0]
+	if route.Destination.Port.Number != 1234 {
+		t.Error("PortNumer, expected 1234 got ", route.Destination.Port.Number)
 	}
 }

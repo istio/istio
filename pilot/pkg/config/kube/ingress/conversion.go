@@ -15,6 +15,7 @@
 package ingress
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -22,7 +23,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/networking/v1beta1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -133,7 +137,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 }
 
 // ConvertIngressVirtualService converts from ingress spec to Istio VirtualServices
-func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, ingressByHost map[string]*model.Config) {
+func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, ingressByHost map[string]*model.Config, client kubernetes.Interface) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
@@ -187,7 +191,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 				httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
 			}
 
-			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix)
+			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix, client)
 			if httpRoute == nil {
 				log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
 				continue
@@ -236,7 +240,8 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 	}
 }
 
-func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string, domainSuffix string) *networking.HTTPRoute {
+func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string, domainSuffix string,
+	client kubernetes.Interface) *networking.HTTPRoute {
 	if backend == nil {
 		return nil
 	}
@@ -246,8 +251,11 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 	if backend.ServicePort.Type == intstr.Int {
 		port.Number = uint32(backend.ServicePort.IntVal)
 	} else {
-		// Port names are not allowed in destination rules.
-		return nil
+		resolvedPort := resolveNamedPort(backend, namespace, client)
+		if resolvedPort == -1 {
+			return nil
+		}
+		port.Number = uint32(resolvedPort)
 	}
 
 	return &networking.HTTPRoute{
@@ -261,6 +269,30 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 			},
 		},
 	}
+}
+
+func resolveNamedPort(backend *v1beta1.IngressBackend, namespace string, client kubernetes.Interface) int32 {
+	svc, err := client.CoreV1().Services(namespace).Get(context.TODO(), backend.ServiceName, metaV1.GetOptions{})
+	if err != nil {
+		return -1
+	}
+	opts := metaV1.ListOptions{
+		LabelSelector: k8sLabels.Set(svc.Spec.Selector).String(),
+	}
+	podList, err := client.CoreV1().Pods("").List(context.TODO(), opts)
+	if err != nil {
+		return -1
+	}
+	if len(podList.Items) > 0 {
+		for _, container := range podList.Items[0].Spec.Containers {
+			for _, port := range container.Ports {
+				if port.Name == backend.ServicePort.StrVal {
+					return port.ContainerPort
+				}
+			}
+		}
+	}
+	return -1
 }
 
 // shouldProcessIngress determines whether the given ingress resource should be processed

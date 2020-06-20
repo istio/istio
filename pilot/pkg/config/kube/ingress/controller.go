@@ -312,7 +312,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 
 		switch typ {
 		case gvk.VirtualService:
-			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
+			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost, c.client)
 		case gvk.Gateway:
 			gateways := ConvertIngressV1alpha3(*ingress, c.meshWatcher.Mesh(), c.domainSuffix)
 			out = append(out, gateways)

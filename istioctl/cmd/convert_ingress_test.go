@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/test/util"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestConvertIngress(t *testing.T) {
@@ -56,7 +57,7 @@ func TestConvertIngress(t *testing.T) {
 			}
 			defer out.Close() // nolint: errcheck
 
-			if err := convertConfigs(readers, out); err != nil {
+			if err := convertConfigs(readers, out, fake.NewSimpleClientset()); err != nil {
 				t.Fatalf("Unexpected error converting configs: %v", err)
 			}
 
