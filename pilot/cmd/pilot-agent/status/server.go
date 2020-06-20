@@ -104,11 +104,11 @@ type Server struct {
 }
 
 func init() {
-	registery := prometheus.NewRegistry()
-	wrapped := prometheus.WrapRegistererWith(map[string]string{"agent": "istio"}, prometheus.Registerer(registery))
+	registry := prometheus.NewRegistry()
+	wrapped := prometheus.WrapRegistererWith(map[string]string{"agent": "istio"}, prometheus.Registerer(registry))
 	wrapped.MustRegister(prometheus.NewGoCollector())
 
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registery, Registerer: wrapped, ConstLabels: map[string]string{"agent": "istio"}})
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry, Registerer: wrapped, ConstLabels: map[string]string{"agent": "istio"}})
 	if err != nil {
 		log.Fatalf("could not setup exporter: %v", err)
 	}
