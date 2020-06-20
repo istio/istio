@@ -23,6 +23,8 @@ export CLUSTER_NAMES=("${CLUSTER1_NAME}" "${CLUSTER2_NAME}" "${CLUSTER3_NAME}")
 export CLUSTER_POD_SUBNETS=(10.10.0.0/16 10.20.0.0/16 10.30.0.0/16)
 export CLUSTER_SVC_SUBNETS=(10.255.10.0/24 10.255.20.0/24 10.255.30.0/24)
 
+export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
+
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
     gcloud auth configure-docker -q
@@ -50,7 +52,6 @@ function setup_and_export_git_sha() {
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
     export GIT_SHA
-    export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
   fi
   GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
   export GIT_BRANCH
