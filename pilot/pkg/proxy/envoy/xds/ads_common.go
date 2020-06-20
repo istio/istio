@@ -84,6 +84,7 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 	return false
 }
 
+// nolint
 type XdsType int
 
 const (

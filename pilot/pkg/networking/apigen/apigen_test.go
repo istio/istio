@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/schema/collections"
 
@@ -59,7 +59,7 @@ func TestAPIGen(t *testing.T) {
 	ds := initDS()
 	ds.DiscoveryServer.Generators["api"] = &apigen.APIGenerator{}
 	epGen := &xds.EdsGenerator{Server: ds.DiscoveryServer}
-	ds.DiscoveryServer.Generators["api/"+envoyv2.EndpointType] = epGen
+	ds.DiscoveryServer.Generators["api/"+v2.EndpointType] = epGen
 
 	err := ds.StartGRPC(grpcAddr)
 	if err != nil {

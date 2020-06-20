@@ -58,6 +58,7 @@ type DiscoveryStream interface {
 	grpc.ServerStream
 }
 
+// nolint
 // XdsConnection is a listener connection type.
 type XdsConnection struct {
 	// Mutex to protect changes to this XDS connection
@@ -109,6 +110,7 @@ type XdsConnection struct {
 	xdsNode *core.Node
 }
 
+// nolint
 // XdsEvent represents a config or registry event that results in a push.
 type XdsEvent struct {
 	// Indicate whether the push is Full Push

@@ -24,11 +24,10 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
 )

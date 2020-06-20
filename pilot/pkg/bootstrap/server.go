@@ -56,7 +56,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -980,9 +980,9 @@ func (s *Server) initNamespaceController(args *PilotArgs) {
 func (s *Server) initGenerators() {
 	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	epGen := &xds.EdsGenerator{Server: s.EnvoyXdsServer}
-	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
+	s.EnvoyXdsServer.Generators["grpc/"+v2.EndpointType] = epGen
 	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
-	s.EnvoyXdsServer.Generators["api/"+envoyv2.EndpointType] = epGen
+	s.EnvoyXdsServer.Generators["api/"+v2.EndpointType] = epGen
 	s.EnvoyXdsServer.InternalGen = &xds.InternalGen{
 		Server: s.EnvoyXdsServer,
 	}
