@@ -127,7 +127,7 @@ func TestStartWithBadBinaryShouldFail(t *testing.T) {
 	defer h.Close()
 
 	i := h.NewOrFail(t, envoy.Config{
-		BinaryPath: absPath("testdata/envoy_bootstrap_v2.json"), // Not a binary file.
+		BinaryPath: absPath("testdata/envoy_bootstrap.json"), // Not a binary file.
 		Options:    options(envoy.ConfigYaml(h.BootstrapContent(t))),
 	})
 

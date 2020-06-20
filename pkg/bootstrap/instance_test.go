@@ -474,10 +474,10 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 			replacement: []byte("$1/test-path/$2"),
 		},
 		{
-			// Example: "customConfigFile":"../../tools/packaging/common/envoy_bootstrap_v2.json"
+			// Example: "customConfigFile":"../../tools/packaging/common/envoy_bootstrap.json"
 			// The path may change in CI/other machines
-			pattern:     regexp.MustCompile(`("customConfigFile":").*(envoy_bootstrap_v2.json")`),
-			replacement: []byte(`"customConfigFile":"envoy_bootstrap_v2.json"`),
+			pattern:     regexp.MustCompile(`("customConfigFile":").*(envoy_bootstrap.json")`),
+			replacement: []byte(`"customConfigFile":"envoy_bootstrap.json"`),
 		},
 	}
 	if excludeLocality {
@@ -517,7 +517,7 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 	if gobase == "" {
 		gobase = "../.."
 	}
-	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap_v2.json"
+	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap.json"
 	return cfg, nil
 }
 

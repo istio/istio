@@ -319,4 +319,13 @@ var (
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
+
+	SpiffeBundlePaths = env.RegisterStringVar("SPIFFE_BUNDLE_ENDPOINTS", "",
+		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
+			"bundle endpoint and use it to verify client certifiates from that trust domain. The endpoint must be "+
+			"compliant to the SPIFFE Bundle Endpoint standard. For details, please refer to "+
+			"https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md . "+
+			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
+			"Use || between <trustdomain, endpoint> tuples. Use | as delimiter between trust domain and endpoint in "+
+			"each tuple. For example: foo|https://url/for/foo||bar|https://url/for/bar").Get()
 )
