@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"go.opencensus.io/stats/view"
 	"io"
 	"io/ioutil"
 	"net"
@@ -32,10 +33,8 @@ import (
 	"time"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"go.opencensus.io/stats/view"
-
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
 	"go.opencensus.io/stats/view"
@@ -104,7 +103,11 @@ type Server struct {
 }
 
 func init() {
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
+	registery := prometheus.NewRegistry()
+	wrapped := prometheus.WrapRegistererWith(map[string]string{"agent": "istio"}, prometheus.Registerer(registery))
+	wrapped.MustRegister(prometheus.NewGoCollector())
+
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registery, Registerer: wrapped, ConstLabels: map[string]string{"agent": "istio"}})
 	if err != nil {
 		log.Fatalf("could not setup exporter: %v", err)
 	}

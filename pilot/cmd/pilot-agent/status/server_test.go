@@ -220,6 +220,7 @@ my_other_metric{} 0
 			if !strings.Contains(rec.Body.String(), tt.output) {
 				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
 			}
+			fmt.Println(rec.Body.String())
 		})
 	}
 }
