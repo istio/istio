@@ -16,7 +16,6 @@ package framework
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -79,8 +78,6 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 
 // Label applies the given labels to this test.
 func (t *Test) Features(feats ...features.Feature) *Test {
-	pwd, _ := os.Getwd()
-	log.Error(pwd)
 	c, err := features.BuildChecker(env.IstioSrc + "/pkg/test/framework/features/features.yaml")
 	if err != nil {
 		log.Errorf("Unable to build feature checker: %s", err)
