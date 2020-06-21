@@ -1,6 +1,6 @@
 ---
 title: List
-description: Adapter that performs whitelist or blacklist checks.
+description: Adapter that performs allowlist or blacklist checks.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/list.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
@@ -9,7 +9,7 @@ aliases:
   - /docs/reference/config/adapters/list.html
 number_of_entries: 2
 ---
-<p>The <code>list</code> adapter makes it possible to perform simple whitelist or blacklist
+<p>The <code>list</code> adapter makes it possible to perform simple allowlist or blacklist
 checks. You can configure the adapter with the list to check, or you can point
 it to a URL from where the list should be fetched. Lists can be simple strings,
 IP addresses, or regex patterns.</p>
@@ -117,7 +117,7 @@ No
 <td><code>blacklist</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Whether the list operates as a blacklist or a whitelist.</p>
+<p>Whether the list operates as a blacklist or a allowlist.</p>
 
 </td>
 <td>
