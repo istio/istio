@@ -58,12 +58,12 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
 # The file must be named 'envoy', depends on the release.
-${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
+${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 ifdef DEBUG_IMAGE
-	cp ${ISTIO_ENVOY_LINUX_DEBUG_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
+	cp ${ISTIO_ENVOY_LINUX_DEBUG_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
 else
-	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
+	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
 endif
 
 # The file must be named 'envoy_bootstrap_v2.json' because Dockerfile.proxyv2 hard-codes this.
@@ -75,16 +75,18 @@ $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm: init
 $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
 
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent
-docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
+docker.proxyv2: BUILD_PRE=&& chmod 755 ${SIDECAR} pilot-agent
+docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION} --build-arg SIDECAR=${SIDECAR}
 docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap_v2.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
-docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
+docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/${SIDECAR}
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
+ifeq ($(SIDECAR),envoy)
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
+endif
 	$(DOCKER_RULE)
 
 docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery cacert.pem
