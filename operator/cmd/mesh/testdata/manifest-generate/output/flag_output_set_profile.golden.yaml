@@ -4741,6 +4741,10 @@ spec:
     description: Istio control plane revision
     name: Revision
     type: string
+  - JSONPath: .status.status
+    description: IOP current state
+    type: string
+    name: Status
   - JSONPath: .metadata.creationTimestamp
     description: 'CreationTimestamp is a timestamp representing the server time when
       this object was created. It is not guaranteed to be set in happens-before order
