@@ -99,15 +99,30 @@ func run() {
 		log.Fatalf("Could not get apiserver config: %v", err)
 	}
 
-	namespaces := strings.Split(watchNS, ",")
+	var mgrOpt manager.Options
+	if watchNS != "" {
+		namespaces := strings.Split(watchNS, ",")
+		// Create MultiNamespacedCache with watched namespaces if it's not empty.
+		mgrOpt = manager.Options{
+			NewCache:                cache.MultiNamespacedCacheBuilder(namespaces),
+			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			LeaderElection:          leaderElectionEnabled,
+			LeaderElectionNamespace: leaderElectionNS,
+			LeaderElectionID:        "istio-operator-lock",
+		}
+	} else {
+		// Create manager option for watching all namespaces.
+		mgrOpt = manager.Options{
+			Namespace:               watchNS,
+			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			LeaderElection:          leaderElectionEnabled,
+			LeaderElectionNamespace: leaderElectionNS,
+			LeaderElectionID:        "istio-operator-lock",
+		}
+	}
+
 	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{
-		NewCache:                cache.MultiNamespacedCacheBuilder(namespaces),
-		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		LeaderElection:          leaderElectionEnabled,
-		LeaderElectionNamespace: leaderElectionNS,
-		LeaderElectionID:        "istio-operator-lock",
-	})
+	mgr, err := manager.New(cfg, mgrOpt)
 	if err != nil {
 		log.Fatalf("Could not create a controller manager: %v", err)
 	}
