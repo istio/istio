@@ -115,11 +115,20 @@ func (c *controllerImpl) Pod(podKey string) (*v1.Pod, bool) {
 		return nil, false
 	}
 	if len(objs) > 0 {
-		pod, ok := objs[0].(*v1.Pod)
-		if !ok {
-			return nil, false
+		var latestPod *v1.Pod
+		for i, obj := range objs {
+			pod, ok := obj.(*v1.Pod)
+			if !ok {
+				return nil, false
+			}
+			// If Pods associated with completed Jobs exist, there can be a case
+			// where more than 1 Pod is found during lookup, and we should
+			// always pick the latest created Pod out of the lot.
+			if i == 0 || latestPod.CreationTimestamp.Before(&pod.CreationTimestamp) {
+				latestPod = pod
+			}
 		}
-		return pod, true
+		return latestPod, true
 	}
 	item, exists, err := indexer.GetByKey(podKey)
 	if !exists || err != nil {
