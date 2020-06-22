@@ -29,6 +29,10 @@ spec:
         backend:
           serviceName: productpage
           servicePort: 9080
+      - path: /static/*
+        backend:
+          serviceName: productpage
+          servicePort: 9080
       - path: /login
         backend:
           serviceName: productpage

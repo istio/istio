@@ -36,6 +36,8 @@ setup_and_export_git_sha
 
 TOPOLOGY=SINGLE_CLUSTER
 
+PARAMS=()
+
 while (( "$#" )); do
   case "$1" in
     # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
@@ -54,6 +56,10 @@ while (( "$#" )); do
     ;;
     --skip-build)
       SKIP_BUILD=true
+      shift
+    ;;
+    --manual)
+      MANUAL=true
       shift
     ;;
     --topology)
@@ -124,8 +130,18 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
 fi
 
 # If a variant is defined, update the tag accordingly
-if [[ "${VARIANT:-}" != "" ]]; then
+if [[ -n "${VARIANT:-}" ]]; then
   export TAG="${TAG}-${VARIANT}"
 fi
 
-make "${PARAMS[*]}"
+# Run the test target if provided.
+if [[ -n "${PARAMS:-}" ]]; then
+  make "${PARAMS[*]}"
+fi
+
+# Check if the user is running the clusters in manual mode.
+if [[ -n "${MANUAL:-}" ]]; then
+  echo "Running cluster(s) in manual mode. Press any key to shutdown and exit..."
+  read -rsn1
+  exit 0
+fi

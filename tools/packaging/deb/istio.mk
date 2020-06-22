@@ -30,7 +30,7 @@ $(foreach DEST,$(ISTIO_DEB_DEST),\
         $(eval ${ISTIO_OUT_LINUX}/istio-sidecar.deb:   tools/packaging/common/$(notdir $(DEST))) \
         $(eval SIDECAR_FILES+=${REPO_ROOT}/tools/packaging/common/$(notdir $(DEST))=$(DEST)))
 
-SIDECAR_FILES+=${REPO_ROOT}/tools/packaging/common/envoy_bootstrap_v2.json=/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+SIDECAR_FILES+=${REPO_ROOT}/tools/packaging/common/envoy_bootstrap.json=/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
 
 # original name used in 0.2 - will be updated to 'istio.deb' since it now includes all istio binaries.

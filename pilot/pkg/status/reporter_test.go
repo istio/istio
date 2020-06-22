@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -61,7 +62,7 @@ func initReporterWithoutStarting() (out Reporter) {
 func TestBuildReport(t *testing.T) {
 	RegisterTestingT(t)
 	r := initReporterWithoutStarting()
-	r.store = model.NewFakeStore()
+	r.store = memory.Make(collections.All)
 	l := ledger.Make(time.Minute)
 	resources := []*model.Config{
 		{
