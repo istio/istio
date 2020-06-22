@@ -43,7 +43,7 @@ func TestParallel(t *testing.T) {
 		}
 	}
 
-	framework.NewTest(t).
+	framework.NewTest(t).Features().
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("top").
 				Run(func(ctx framework.TestContext) {

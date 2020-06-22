@@ -36,7 +36,10 @@ type Test struct {
 	goTest *testing.T
 	labels []label.Instance
 	// featureLabels maps features to the scenarios they cover.
-	featureLabels       map[features.Feature][]string
+	featureLabels map[features.Feature][]string
+	// If true, we will not assert there is a feature label associated. This should not be used to bypass the checks;
+	// rather for tests that truly have no associated features like internal test framework testing.
+	skipFeature         bool
 	notImplemented      bool
 	s                   *suiteContext
 	requiredMinClusters int
@@ -78,6 +81,10 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 
 // Label applies the given labels to this test.
 func (t *Test) Features(feats ...features.Feature) *Test {
+	if len(feats) == 0 {
+		t.skipFeature = true
+		return t
+	}
 	c, err := features.BuildChecker(env.IstioSrc + "/pkg/test/framework/features/features.yaml")
 	if err != nil {
 		log.Errorf("Unable to build feature checker: %s", err)
@@ -203,8 +210,7 @@ func (t *Test) runInternal(fn func(ctx TestContext), parallel bool) {
 		myGoTest = t.parent.goTest
 	}
 	suiteName := t.s.settings.TestID
-	if len(t.featureLabels) < 1 && !features.GlobalWhitelist.Contains(suiteName, myGoTest.Name()) {
-
+	if len(t.featureLabels) < 1 && !features.GlobalWhitelist.Contains(suiteName, myGoTest.Name()) && !t.skipFeature {
 		myGoTest.Fatalf("Detected new test %s in suite %s with no feature labels.  "+
 			"See istio/istio/pkg/test/framework/features/README.md", myGoTest.Name(), suiteName)
 	}
