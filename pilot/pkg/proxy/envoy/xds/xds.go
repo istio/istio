@@ -202,7 +202,7 @@ func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mode
 
 	// TODO: track requests to connections, so resonses from server are dispatched to the right con
 	//
-	p.adsc.Send(w.LastRequest)
+	_ = p.adsc.Send(w.LastRequest)
 
 	return nil
 }

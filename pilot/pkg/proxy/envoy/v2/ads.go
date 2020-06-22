@@ -161,6 +161,9 @@ func receiveThread(con *XdsConnection, reqChannel chan *discovery.DiscoveryReque
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
+			con.mu.RLock()
+			cid := con.ConID
+			con.mu.RUnlock()
 			if isExpectedGRPCError(err) {
 				con.mu.RLock()
 				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)

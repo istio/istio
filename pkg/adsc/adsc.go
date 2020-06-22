@@ -178,7 +178,6 @@ type ADSC struct {
 	sync   map[string]time.Time
 	syncCh chan string
 	m      sync.RWMutex
-
 }
 
 type ResponseHandler interface {
@@ -519,7 +518,7 @@ func (a *ADSC) handleRecv() {
 				}
 
 			default:
-				a.handleMCP(gvk, rsc, valBytes)
+				_ = a.handleMCP(gvk, rsc, valBytes)
 			}
 		}
 		// last resource of this type. IstioStore doesn't yet have a way to indicate this

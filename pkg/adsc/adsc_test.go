@@ -22,20 +22,19 @@ import (
 	"sync"
 	"testing"
 
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 )
 
 type testAdscRunServer struct{}
 
-var StreamHandler func(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
+var StreamHandler func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
 
-func (t *testAdscRunServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (t *testAdscRunServer) StreamAggregatedResources(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	return StreamHandler(stream)
 }
 
-func (t *testAdscRunServer) DeltaAggregatedResources(ads.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+func (t *testAdscRunServer) DeltaAggregatedResources(xdsapi.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	return nil
 }
 
@@ -44,7 +43,7 @@ func TestADSC_Run(t *testing.T) {
 		desc                 string
 		inAdsc               *ADSC
 		port                 uint32
-		streamHandler        func(server ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
+		streamHandler        func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
 		expectedADSResources *ADSC
 	}{
 		{
@@ -60,7 +59,7 @@ func TestADSC_Run(t *testing.T) {
 				},
 			},
 			port: uint32(49133),
-			streamHandler: func(server ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+			streamHandler: func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				return nil
 			},
 			expectedADSResources: &ADSC{
@@ -80,7 +79,7 @@ func TestADSC_Run(t *testing.T) {
 				},
 			},
 			port: uint32(49133),
-			streamHandler: func(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				_ = stream.Send(&xdsapi.DiscoveryResponse{
 					TypeUrl: "foo",
 				})
@@ -111,7 +110,7 @@ func TestADSC_Run(t *testing.T) {
 				t.Errorf("Unable to listen on port %v with tcp err %v", tt.port, err)
 			}
 			xds := grpc.NewServer()
-			ads.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
+			xdsapi.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
 			go func() {
 				err = xds.Serve(l)
 				if err != nil {
