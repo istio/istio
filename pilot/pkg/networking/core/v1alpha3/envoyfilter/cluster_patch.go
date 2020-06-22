@@ -43,8 +43,10 @@ func ApplyClusterPatches(
 		return out
 	}
 
+	patches := rollupPatches(patchContext, efw.Patches)[networking.EnvoyFilter_CLUSTER]
+
 	clustersRemoved := false
-	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
+	for _, cp := range patches {
 		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE &&
 			cp.Operation != networking.EnvoyFilter_Patch_MERGE {
 			continue
@@ -55,7 +57,7 @@ func ApplyClusterPatches(
 				continue
 			}
 
-			if commonConditionMatch(patchContext, cp) && clusterMatch(clusters[i], cp) {
+			if clusterMatch(clusters[i], cp) {
 				if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 					clusters[i] = nil
 					clustersRemoved = true
@@ -67,11 +69,9 @@ func ApplyClusterPatches(
 	}
 
 	// Add cluster if the operation is add, and patch context matches
-	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
+	for _, cp := range patches {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-			if commonConditionMatch(patchContext, cp) {
-				clusters = append(clusters, proto.Clone(cp.Value).(*cluster.Cluster))
-			}
+			clusters = append(clusters, proto.Clone(cp.Value).(*cluster.Cluster))
 		}
 	}
 
@@ -85,6 +85,7 @@ func ApplyClusterPatches(
 		}
 		clusters = trimmedClusters
 	}
+
 	return clusters
 }
 
@@ -92,6 +93,10 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 	cMatch := cp.Match.GetCluster()
 	if cMatch == nil {
 		return true
+	}
+
+	if cluster == nil {
+		return false
 	}
 
 	if cMatch.Name != "" {

@@ -67,6 +67,8 @@ func doListenerListOperation(
 	skipAdds bool) []*xdslistener.Listener {
 	listenersRemoved := false
 
+	patches := rollupPatches(patchContext, envoyFilterWrapper.Patches)
+
 	// do all the changes for a single envoy filter crd object. [including adds]
 	// then move on to the next one
 
@@ -76,11 +78,11 @@ func doListenerListOperation(
 			// removed by another op
 			continue
 		}
-		doListenerOperation(patchContext, envoyFilterWrapper.Patches, listener, &listenersRemoved)
+		doListenerOperation(patchContext, patches, listener, &listenersRemoved)
 	}
 	// adds at listener level if enabled
 	if !skipAdds {
-		for _, cp := range envoyFilterWrapper.Patches[networking.EnvoyFilter_LISTENER] {
+		for _, cp := range patches[networking.EnvoyFilter_LISTENER] {
 			if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 				if !commonConditionMatch(patchContext, cp) {
 					continue
@@ -130,6 +132,7 @@ func doListenerOperation(patchContext networking.EnvoyFilter_PatchContext,
 func doFilterChainListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener) {
+
 	filterChainsRemoved := false
 	for i, fc := range listener.FilterChains {
 		if fc.Filters == nil {
@@ -182,6 +185,7 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain) {
+
 	networkFiltersRemoved := false
 	for i, filter := range fc.Filters {
 		if filter.Name == "" {
@@ -282,46 +286,51 @@ func doNetworkFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 			// nothing more to do in other patches as we removed this filter
 			return
 		} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
-			// proto merge doesn't work well when merging two filters with ANY typed configs
-			// especially when the incoming cp.Value is a struct that could contain the json config
-			// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
-			// typed output of json)
-			if filter.GetTypedConfig() == nil {
-				// TODO(rshriram): fixme
-				// skip this op as we would possibly have to do a merge of Any with struct
-				// which doesn't seem to work well.
-				continue
-			}
-			userFilter := cp.Value.(*xdslistener.Filter)
-			var err error
-			// we need to be able to overwrite filter names or simply empty out a filter's configs
-			// as they could be supplied through per route filter configs
-			filterName := filter.Name
-			if userFilter.Name != "" {
-				filterName = userFilter.Name
-			}
-			var retVal *any.Any
-			if userFilter.GetTypedConfig() != nil {
-				// user has any typed struct
-				// The type may not match up exactly. For example, if we use v2 internally but they use v3.
-				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
-				// If we did not do this, proto.Merge below will panic (which is recovered), so even though this
-				// is not 100% reliable its better than doing nothing
-				if userFilter.GetTypedConfig().TypeUrl != filter.GetTypedConfig().TypeUrl {
-					userFilter.ConfigType.(*xdslistener.Filter_TypedConfig).TypedConfig.TypeUrl = filter.GetTypedConfig().TypeUrl
-				}
-				if retVal, err = util.MergeAnyWithAny(filter.GetTypedConfig(), userFilter.GetTypedConfig()); err != nil {
-					retVal = filter.GetTypedConfig()
-				}
-			}
-			filter.Name = filterName
-			if retVal != nil {
-				filter.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: retVal}
-			}
+			doNetworkFilterMerge(filter, cp)
 		}
 	}
 	if filter.Name == wellknown.HTTPConnectionManager {
 		doHTTPFilterListOperation(patchContext, patches, listener, fc, filter)
+	}
+}
+
+func doNetworkFilterMerge(dst proto.Message, cp *model.EnvoyFilterConfigPatchWrapper) {
+	filter := dst.(*xdslistener.Filter)
+	// proto merge doesn't work well when merging two filters with ANY typed configs
+	// especially when the incoming cp.Value is a struct that could contain the json config
+	// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
+	// typed output of json)
+	if filter.GetTypedConfig() == nil {
+		// TODO(rshriram): fixme
+		// skip this op as we would possibly have to do a merge of Any with struct
+		// which doesn't seem to work well.
+		return
+	}
+	userFilter := cp.Value.(*xdslistener.Filter)
+	var err error
+	// we need to be able to overwrite filter names or simply empty out a filter's configs
+	// as they could be supplied through per route filter configs
+	filterName := filter.Name
+	if userFilter.Name != "" {
+		filterName = userFilter.Name
+	}
+	var retVal *any.Any
+	if userFilter.GetTypedConfig() != nil {
+		// user has any typed struct
+		// The type may not match up exactly. For example, if we use v2 internally but they use v3.
+		// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
+		// If we did not do this, proto.Merge below will panic (which is recovered), so even though this
+		// is not 100% reliable its better than doing nothing
+		if userFilter.GetTypedConfig().TypeUrl != filter.GetTypedConfig().TypeUrl {
+			userFilter.ConfigType.(*xdslistener.Filter_TypedConfig).TypedConfig.TypeUrl = filter.GetTypedConfig().TypeUrl
+		}
+		if retVal, err = util.MergeAnyWithAny(filter.GetTypedConfig(), userFilter.GetTypedConfig()); err != nil {
+			retVal = filter.GetTypedConfig()
+		}
+	}
+	filter.Name = filterName
+	if retVal != nil {
+		filter.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: retVal}
 	}
 }
 
@@ -336,6 +345,7 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 			//  as this loop will be called very frequently
 		}
 	}
+
 	httpFiltersRemoved := false
 	for _, httpFilter := range hcm.HttpFilters {
 		if httpFilter.Name == "" {
@@ -438,43 +448,49 @@ func doHTTPFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 			// nothing more to do in other patches as we removed this filter
 			return
 		} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
-			// proto merge doesn't work well when merging two filters with ANY typed configs
-			// especially when the incoming cp.Value is a struct that could contain the json config
-			// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
-			// typed output of json)
-			if httpFilter.GetTypedConfig() == nil {
-				// TODO(rshriram): fixme
-				// skip this op as we would possibly have to do a merge of Any with struct
-				// which doesn't seem to work well.
-				continue
-			}
-			userHTTPFilter := cp.Value.(*http_conn.HttpFilter)
-			var err error
-			// we need to be able to overwrite filter names or simply empty out a filter's configs
-			// as they could be supplied through per route filter configs
-			httpFilterName := httpFilter.Name
-			if userHTTPFilter.Name != "" {
-				httpFilterName = userHTTPFilter.Name
-			}
-			var retVal *any.Any
-			if userHTTPFilter.GetTypedConfig() != nil {
-				// user has any typed struct
-				// The type may not match up exactly. For example, if we use v2 internally but they use v3.
-				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
-				// If we did not do this, proto.Merge below will panic (which is recovered), so even though this
-				// is not 100% reliable its better than doing nothing
-				if userHTTPFilter.GetTypedConfig().TypeUrl != httpFilter.GetTypedConfig().TypeUrl {
-					userHTTPFilter.ConfigType.(*http_conn.HttpFilter_TypedConfig).TypedConfig.TypeUrl = httpFilter.GetTypedConfig().TypeUrl
-				}
-				if retVal, err = util.MergeAnyWithAny(httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
-					retVal = httpFilter.GetTypedConfig()
-				}
-			}
-			httpFilter.Name = httpFilterName
-			if retVal != nil {
-				httpFilter.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: retVal}
-			}
+			doHttpFilterMerge(httpFilter, cp)
 		}
+	}
+}
+
+func doHttpFilterMerge(dst proto.Message, cp *model.EnvoyFilterConfigPatchWrapper) {
+	httpFilter := dst.(*http_conn.HttpFilter)
+
+	// proto merge doesn't work well when merging two filters with ANY typed configs
+	// especially when the incoming cp.Value is a struct that could contain the json config
+	// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
+	// typed output of json)
+	if httpFilter.GetTypedConfig() == nil {
+		// TODO(rshriram): fixme
+		// skip this op as we would possibly have to do a merge of Any with struct
+		// which doesn't seem to work well.
+		return
+	}
+	userHTTPFilter := cp.Value.(*http_conn.HttpFilter)
+	var err error
+	// we need to be able to overwrite filter names or simply empty out a filter's configs
+	// as they could be supplied through per route filter configs
+	httpFilterName := httpFilter.Name
+	if userHTTPFilter.Name != "" {
+		httpFilterName = userHTTPFilter.Name
+	}
+	var retVal *any.Any
+	if userHTTPFilter.GetTypedConfig() != nil {
+		// user has any typed struct
+		// The type may not match up exactly. For example, if we use v2 internally but they use v3.
+		// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
+		// If we did not do this, proto.Merge below will panic (which is recovered), so even though this
+		// is not 100% reliable its better than doing nothing
+		if userHTTPFilter.GetTypedConfig().TypeUrl != httpFilter.GetTypedConfig().TypeUrl {
+			userHTTPFilter.ConfigType.(*http_conn.HttpFilter_TypedConfig).TypedConfig.TypeUrl = httpFilter.GetTypedConfig().TypeUrl
+		}
+		if retVal, err = util.MergeAnyWithAny(httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
+			retVal = httpFilter.GetTypedConfig()
+		}
+	}
+	httpFilter.Name = httpFilterName
+	if retVal != nil {
+		httpFilter.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: retVal}
 	}
 }
 
@@ -482,6 +498,9 @@ func listenerMatch(listener *xdslistener.Listener, cp *model.EnvoyFilterConfigPa
 	cMatch := cp.Match.GetListener()
 	if cMatch == nil {
 		return true
+	}
+	if listener == nil {
+		return false
 	}
 
 	if cMatch.Name != "" && cMatch.Name != listener.Name {
@@ -512,6 +531,9 @@ func filterChainMatch(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPa
 	cMatch := cp.Match.GetListener()
 	if cMatch == nil {
 		return true
+	}
+	if fc == nil {
+		return false
 	}
 
 	match := cMatch.FilterChain
@@ -569,6 +591,9 @@ func networkFilterMatch(filter *xdslistener.Filter, cp *model.EnvoyFilterConfigP
 	if !hasNetworkFilterMatch(cp) {
 		return true
 	}
+	if filter == nil {
+		return false
+	}
 
 	return cp.Match.GetListener().FilterChain.Filter.Name == filter.Name
 }
@@ -586,6 +611,9 @@ func hasHTTPFilterMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
 func httpFilterMatch(filter *http_conn.HttpFilter, cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	if !hasHTTPFilterMatch(cp) {
 		return true
+	}
+	if filter == nil {
+		return false
 	}
 
 	match := cp.Match.GetListener().FilterChain.Filter.SubFilter
