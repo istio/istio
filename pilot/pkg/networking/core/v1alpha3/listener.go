@@ -942,7 +942,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				// iptables i.e. bindToPort is false.
 				bindToPort = true
 			} else if strings.HasPrefix(egressListener.IstioListener.Bind, model.UnixAddressPrefix) {
-				// If the bind is a Unix domain socket, set bindtoPort to false as it makes no
+				// If the bind is a Unix domain socket, set bindtoPort to true as it makes no
 				// sense to have ORIG_DST listener for unix domain socket listeners.
 				bindToPort = true
 			}
