@@ -25,3 +25,28 @@ spec:
       delay:
         percent: 50
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: no-selector
+  namespace: default
+spec:
+  ingress:
+  - port:
+      number: 9080
+    localhostClientTls:
+      mode: SIMPLE
+    defaultEndpoint: unix:///var/run/some.sock
+  egress:
+  - hosts:
+    - "./*"
+    localhostServerTls:
+      mode: SIMPLE
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+    egressProxy:
+      host: example
+      port:
+        number: 9080
+  localhost:
+    clientTls:
