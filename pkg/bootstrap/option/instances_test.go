@@ -119,8 +119,10 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "node metadata",
 			key:      "meta_json_str",
-			option: option.NodeMetadata(&model.NodeMetadata{
-				IstioVersion: "fake",
+			option: option.NodeMetadata(&model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					IstioVersion: "fake",
+				},
 			}, map[string]interface{}{
 				"key": "value",
 			}),
@@ -507,7 +509,7 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "envoy metrics tls nil",
 			key:      "envoy_metrics_service_tls",
-			option:   option.EnvoyMetricsServiceTLS(nil, &model.NodeMetadata{}),
+			option:   option.EnvoyMetricsServiceTLS(nil, &model.BootstrapNodeMetadata{}),
 			expected: nil,
 		},
 		{
@@ -515,7 +517,7 @@ func TestOptions(t *testing.T) {
 			key:      "envoy_metrics_service_tls",
 			option: option.EnvoyMetricsServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
-			}, &model.NodeMetadata{}),
+			}, &model.BootstrapNodeMetadata{}),
 			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\",\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}}", // nolint: lll
 		},
 		{
@@ -577,7 +579,7 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "envoy accesslog tls nil",
 			key:      "envoy_accesslog_service_tls",
-			option:   option.EnvoyAccessLogServiceTLS(nil, &model.NodeMetadata{}),
+			option:   option.EnvoyAccessLogServiceTLS(nil, &model.BootstrapNodeMetadata{}),
 			expected: nil,
 		},
 		{
@@ -585,7 +587,7 @@ func TestOptions(t *testing.T) {
 			key:      "envoy_accesslog_service_tls",
 			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
-			}, &model.NodeMetadata{}),
+			}, &model.BootstrapNodeMetadata{}),
 			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\",\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_accesslog_service\"}}", // nolint: lll
 		},
 		{
@@ -689,7 +691,7 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "tracing tls nil",
 			key:      "tracing_tls",
-			option:   option.TracingTLS(nil, &model.NodeMetadata{}, false),
+			option:   option.TracingTLS(nil, &model.BootstrapNodeMetadata{}, false),
 			expected: nil,
 		},
 		{
@@ -698,7 +700,7 @@ func TestOptions(t *testing.T) {
 			option: option.TracingTLS(&networkingAPI.ClientTLSSettings{
 				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
 				CaCertificates: "/etc/tracing/ca.pem",
-			}, &model.NodeMetadata{}, false),
+			}, &model.BootstrapNodeMetadata{}, false),
 			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\"," +
 				"\"common_tls_context\":{\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/tracing/ca.pem\"}}}}}",
 		},
