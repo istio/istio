@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 const (
@@ -35,9 +36,7 @@ const (
 )
 
 var (
-	peerAuthenticationGvk    = collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind()
-	requestAuthenticationGvk = collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind()
-	baseTimestamp            = time.Date(2020, 2, 2, 2, 2, 2, 0, time.UTC)
+	baseTimestamp = time.Date(2020, 2, 2, 2, 2, 2, 0, time.UTC)
 )
 
 func TestSdsCertificateConfigFromResourceName(t *testing.T) {
@@ -127,7 +126,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "foo",
 					},
@@ -135,7 +134,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "istio-config",
 					},
@@ -145,7 +144,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -158,7 +157,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -179,7 +178,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "bar",
 					},
@@ -187,7 +186,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "istio-config",
 					},
@@ -197,7 +196,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -218,7 +217,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "istio-config",
 					},
@@ -228,7 +227,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -249,7 +248,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "foo",
 					},
@@ -257,7 +256,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "with-selector",
 						Namespace:        "foo",
 					},
@@ -272,7 +271,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "istio-config",
 					},
@@ -280,7 +279,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "global-with-selector",
 						Namespace:        "istio-config",
 					},
@@ -296,7 +295,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -309,7 +308,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "peer-with-selector",
 						Namespace:         "foo",
@@ -327,7 +326,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -348,7 +347,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "bar",
 					},
@@ -356,7 +355,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "istio-config",
 					},
@@ -364,7 +363,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "global-with-selector",
 						Namespace:        "istio-config",
 					},
@@ -380,7 +379,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -401,7 +400,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "foo",
 					},
@@ -409,7 +408,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        "istio-config",
 					},
@@ -417,7 +416,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "global-with-selector",
 						Namespace:        "istio-config",
 					},
@@ -433,7 +432,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -446,7 +445,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -494,7 +493,7 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -529,7 +528,7 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -542,7 +541,7 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "peer-with-selector",
 						Namespace:         "foo",
@@ -575,7 +574,7 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind:  peerAuthenticationGvk,
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -627,7 +626,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        rootNamespace,
 					},
@@ -649,7 +648,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        rootNamespace,
 					},
@@ -664,7 +663,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "global-with-selector",
 						Namespace:        rootNamespace,
 					},
@@ -694,7 +693,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "with-selector",
 						Namespace:        "foo",
 					},
@@ -719,7 +718,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "default",
 						Namespace:        rootNamespace,
 					},
@@ -734,7 +733,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						GroupVersionKind: requestAuthenticationGvk,
+						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "global-with-selector",
 						Namespace:        rootNamespace,
 					},

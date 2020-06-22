@@ -25,11 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
-
-var serviceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
-var workloadEntryKind = collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind()
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
 
@@ -89,8 +86,8 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 		refreshIndexes:               true,
 	}
 	if configController != nil {
-		configController.RegisterEventHandler(serviceEntryKind, s.serviceEntryHandler)
-		configController.RegisterEventHandler(workloadEntryKind, s.workloadEntryHandler)
+		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
+		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
 	}
 	return s
 }
@@ -190,7 +187,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 	for _, svcs := range [][]*model.Service{addedSvcs, deletedSvcs, updatedSvcs} {
 		for _, svc := range svcs {
 			configsUpdated[model.ConfigKey{
-				Kind:      model.ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace}] = struct{}{}
 		}
@@ -207,7 +204,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 				// fqdn endpoints have changed. Need full push
 				for _, svc := range unchangedSvcs {
 					configsUpdated[model.ConfigKey{
-						Kind:      model.ServiceEntryKind,
+						Kind:      gvk.ServiceEntry,
 						Name:      string(svc.Hostname),
 						Namespace: svc.Attributes.Namespace}] = struct{}{}
 				}
@@ -515,7 +512,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 
 	s.storeMutex.RUnlock()
 
-	wles, err := s.store.List(workloadEntryKind, model.NamespaceAll)
+	wles, err := s.store.List(gvk.WorkloadEntry, model.NamespaceAll)
 	if err != nil {
 		log.Errorf("Error listing workload entries: %v", err)
 	}

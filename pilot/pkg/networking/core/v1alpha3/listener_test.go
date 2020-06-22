@@ -56,6 +56,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -2313,13 +2314,13 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	configStore := &fakes.IstioConfigStore{
 		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
 			switch kind {
-			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
+			case gvk.VirtualService:
 				result := make([]model.Config, len(virtualServices))
 				for i := range virtualServices {
 					result[i] = *virtualServices[i]
 				}
 				return result, nil
-			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
+			case gvk.EnvoyFilter:
 				return []model.Config{envoyFilter}, nil
 			default:
 				return nil, nil
@@ -2580,7 +2581,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	configStore := &fakes.IstioConfigStore{
 		ListStub: func(kind resource.GroupVersionKind, s string) (configs []model.Config, err error) {
-			if kind.String() == collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind().String() {
+			if kind.String() == gvk.QuotaSpec.String() {
 				return []model.Config{
 					{
 						ConfigMeta: model.ConfigMeta{
@@ -2591,7 +2592,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 						Spec: quotaSpec,
 					},
 				}, nil
-			} else if kind.String() == collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind().String() {
+			} else if kind.String() == gvk.QuotaSpecBinding.String() {
 				return []model.Config{
 					{
 						ConfigMeta: model.ConfigMeta{

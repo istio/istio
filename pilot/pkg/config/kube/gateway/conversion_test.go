@@ -23,6 +23,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -59,9 +60,9 @@ func splitOutput(configs []model.Config) IstioResources {
 	}
 	for _, c := range configs {
 		switch c.GroupVersionKind {
-		case gatewayType.GroupVersionKind():
+		case gvk.Gateway:
 			out.Gateway = append(out.Gateway, c)
-		case vsType.GroupVersionKind():
+		case gvk.VirtualService:
 			out.VirtualService = append(out.VirtualService, c)
 		}
 	}

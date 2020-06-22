@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/mcp/sink"
 )
@@ -231,7 +232,7 @@ func (c *controller) Apply(change *sink.Change) error {
 	c.configStoreMu.Unlock()
 	c.sync(change.Collection)
 
-	if kind == collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind() {
+	if kind == gvk.ServiceEntry {
 		c.serviceEntryEvents(innerStore, prevStore)
 	} else if c.options.XDSUpdater != nil {
 		c.options.XDSUpdater.ConfigUpdate(&model.PushRequest{
@@ -332,7 +333,7 @@ func (c *controller) sync(collection string) {
 
 func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
 	dispatch := func(prev model.Config, model model.Config, event model.Event) {}
-	if handlers, ok := c.eventHandlers[collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()]; ok {
+	if handlers, ok := c.eventHandlers[gvk.ServiceEntry]; ok {
 		dispatch = func(prev model.Config, config model.Config, event model.Event) {
 			log.Debugf("MCP event dispatch: key=%v event=%v", config.Key(), event.String())
 			for _, handler := range handlers {

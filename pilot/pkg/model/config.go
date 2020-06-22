@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -381,7 +381,7 @@ func MakeIstioStore(store ConfigStore) IstioConfigStore {
 }
 
 func (store *istioConfigStore) ServiceEntries() []Config {
-	serviceEntries, err := store.List(collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(), NamespaceAll)
+	serviceEntries, err := store.List(gvk.ServiceEntry, NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -404,7 +404,7 @@ func sortConfigByCreationTime(configs []Config) {
 }
 
 func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Config {
-	configs, err := store.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(), NamespaceAll)
+	configs, err := store.List(gvk.Gateway, NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -533,14 +533,14 @@ func filterQuotaSpecsByDestination(hostname host.Name, bindings []Config, specs 
 // associated with destination service instances.
 func (store *istioConfigStore) QuotaSpecByDestination(hostname host.Name) []Config {
 	log.Debugf("QuotaSpecByDestination(%v)", hostname)
-	bindings, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
+	bindings, err := store.List(gvk.QuotaSpecBinding, NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
 		return nil
 	}
 
 	log.Debugf("QuotaSpecByDestination bindings[%d] %v", len(bindings), bindings)
-	specs, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
+	specs, err := store.List(gvk.QuotaSpec, NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecs: %v", err)
 		return nil
@@ -552,7 +552,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(hostname host.Name) []Conf
 }
 
 func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {
-	authorizationPolicies, err := store.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(), namespace)
+	authorizationPolicies, err := store.List(gvk.AuthorizationPolicy, namespace)
 	if err != nil {
 		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
 		return nil
