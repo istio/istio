@@ -425,8 +425,8 @@ func CloneLbEndpoint(endpoint *endpoint.LbEndpoint) *endpoint.LbEndpoint {
 // name.namespace of the config, the type, etc. Used by Mixer client
 // to generate attributes for policy and telemetry.
 func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
-	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
+	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
 	return &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{
 			IstioMetadataKey: {
@@ -443,8 +443,8 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 }
 
 func BuildConfigInfoMetadataV2(config model.ConfigMeta) *core.Metadata {
-	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
+	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
 	return &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{
 			IstioMetadataKey: {

@@ -84,6 +84,9 @@ type Config struct {
 	// If enabled, echo will be deployed as a "VM". This means it will run Envoy in the same pod as echo,
 	// disable sidecar injection, etc.
 	DeployAsVM bool
+
+	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
+	VMImage string
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).

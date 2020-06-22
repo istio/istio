@@ -259,21 +259,17 @@ func TestSidecarScope(t *testing.T) {
 	}
 	configWithWorkloadSelector := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(),
-			Group:     collections.IstioNetworkingV1Alpha3Sidecars.Resource().Group(),
-			Version:   collections.IstioNetworkingV1Alpha3Sidecars.Resource().Version(),
-			Name:      "foo",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			Name:             "foo",
+			Namespace:        "default",
 		},
 		Spec: sidecarWithWorkloadSelector,
 	}
 	rootConfig := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(),
-			Group:     collections.IstioNetworkingV1Alpha3Sidecars.Resource().Group(),
-			Version:   collections.IstioNetworkingV1Alpha3Sidecars.Resource().Version(),
-			Name:      "global",
-			Namespace: "istio-system",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			Name:             "global",
+			Namespace:        "istio-system",
 		},
 		Spec: sidecarWithoutWorkloadSelector,
 	}
@@ -598,11 +594,9 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 
 	rule1 := Config{
 		ConfigMeta: ConfigMeta{
-			Name:      "rule1",
-			Namespace: "test1",
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Group:     collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group(),
-			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+			Name:             "rule1",
+			Namespace:        "test1",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"rule1.com"},
@@ -611,11 +605,9 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 	rule2 := Config{
 		ConfigMeta: ConfigMeta{
-			Name:      "rule2",
-			Namespace: "test2",
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Group:     collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group(),
-			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+			Name:             "rule2",
+			Namespace:        "test2",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"rule2.com"},
@@ -624,11 +616,9 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 	rule3 := Config{
 		ConfigMeta: ConfigMeta{
-			Name:      "rule3",
-			Namespace: "test3",
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Group:     collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group(),
-			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+			Name:             "rule3",
+			Namespace:        "test3",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"rule3.com"},
@@ -637,11 +627,9 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 	rootNS := Config{
 		ConfigMeta: ConfigMeta{
-			Name:      "zzz",
-			Namespace: "zzz",
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Group:     collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group(),
-			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+			Name:             "zzz",
+			Namespace:        "zzz",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		},
 		Spec: &networking.VirtualService{
 			Hosts: []string{"rootNS.com"},

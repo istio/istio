@@ -142,5 +142,5 @@ type IstioObjectList interface {
 }
 
 func APIVersionFromConfig(config *model.Config) string {
-	return config.Group + "/" + config.Version
+	return config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version
 }

@@ -33,6 +33,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -1123,5 +1124,55 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 			}
 		}
 	}
+
+	//=======
+	//if len(gvk) != 3 {
+	//	continue
+	//}
+	//// Generic - fill up the store
+	//if a.Store != nil {
+	//	m := &mcp.Resource{}
+	//	err = types.UnmarshalAny(&types.Any{
+	//		TypeUrl: rsc.TypeUrl,
+	//		Value:   rsc.Value,
+	//	}, m)
+	//	if err != nil {
+	//		continue
+	//	}
+	//	val, err := mcpToPilot(m)
+	//	if err != nil {
+	//		continue
+	//	}
+	//	val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
+	//	if err != nil {
+	//		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
+	//	} else {
+	//		cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
+	//		if cfg == nil {
+	//			_, err = a.Store.Create(*val)
+	//			if err != nil {
+	//				continue
+	//			}
+	//		} else {
+	//			_, err = a.Store.Update(*val)
+	//			if err != nil {
+	//				continue
+	//			}
+	//		}
+	//	}
+	//	if a.LocalCacheDir != "" {
+	//		strResponse, err := json.MarshalIndent(val, "  ", "  ")
+	//		if err != nil {
+	//			continue
+	//		}
+	//		err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
+	//				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+	//		if err != nil {
+	//			continue
+	//		}
+	//	}
+	//}
+	//>>>>>>> b576237ad1280f5abc17291d84b1a913032b7183
+
 	return nil
 }

@@ -28,6 +28,7 @@ import (
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -101,47 +102,40 @@ func TestListGatewayResourceType(t *testing.T) {
 
 	gwClassType := collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource()
 	gwSpecType := collections.K8SServiceApisV1Alpha1Gateways.Resource()
-	gwType := collections.IstioNetworkingV1Alpha3Gateways.Resource()
 	k8sHTTPRouteType := collections.K8SServiceApisV1Alpha1Httproutes.Resource()
 
 	store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      gwClassType.GroupVersionKind().Kind,
-			Group:     gwClassType.GroupVersionKind().Group,
-			Version:   gwClassType.GroupVersionKind().Version,
-			Name:      "gwclass",
-			Namespace: "ns1",
+			GroupVersionKind: gwClassType.GroupVersionKind(),
+			Name:             "gwclass",
+			Namespace:        "ns1",
 		},
 		Spec: gatewayClassSpec,
 	})
-	store.Create(model.Config{
+	if _, err := store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      gwSpecType.GroupVersionKind().Kind,
-			Group:     gwSpecType.GroupVersionKind().Group,
-			Version:   gwSpecType.GroupVersionKind().Version,
-			Name:      "gwspec",
-			Namespace: "ns1",
+			GroupVersionKind: gwSpecType.GroupVersionKind(),
+			Name:             "gwspec",
+			Namespace:        "ns1",
 		},
 		Spec: gatewaySpec,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      k8sHTTPRouteType.GroupVersionKind().Kind,
-			Group:     k8sHTTPRouteType.GroupVersionKind().Group,
-			Version:   k8sHTTPRouteType.GroupVersionKind().Version,
-			Name:      "http-route",
-			Namespace: "ns1",
+			GroupVersionKind: k8sHTTPRouteType.GroupVersionKind(),
+			Name:             "http-route",
+			Namespace:        "ns1",
 		},
 		Spec: httpRouteSpec,
 	})
 
-	cfg, err := controller.List(gwType.GroupVersionKind(), "ns1")
+	cfg, err := controller.List(gvk.Gateway, "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(cfg).To(HaveLen(1))
 	for _, c := range cfg {
-		g.Expect(c.Type).To(Equal(gwType.GroupVersionKind().Kind))
-		g.Expect(c.Group).To(Equal(gwType.GroupVersionKind().Group))
-		g.Expect(c.Version).To(Equal(gwType.GroupVersionKind().Version))
+		g.Expect(c.GroupVersionKind).To(Equal(gvk.Gateway))
 		g.Expect(c.Name).To(Equal("gwspec" + "-" + constants.KubernetesGatewayName))
 		g.Expect(c.Namespace).To(Equal("ns1"))
 		g.Expect(c.Spec).To(Equal(expectedgw))
@@ -157,47 +151,38 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 
 	gwClassType := collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource()
 	gwSpecType := collections.K8SServiceApisV1Alpha1Gateways.Resource()
-	vsType = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 	k8sHTTPRouteType := collections.K8SServiceApisV1Alpha1Httproutes.Resource()
 
 	store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      gwClassType.GroupVersionKind().Kind,
-			Group:     gwClassType.GroupVersionKind().Group,
-			Version:   gwClassType.GroupVersionKind().Version,
-			Name:      "gwclass",
-			Namespace: "ns1",
+			GroupVersionKind: gwClassType.GroupVersionKind(),
+			Name:             "gwclass",
+			Namespace:        "ns1",
 		},
 		Spec: gatewayClassSpec,
 	})
 	store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      gwSpecType.GroupVersionKind().Kind,
-			Group:     gwSpecType.GroupVersionKind().Group,
-			Version:   gwSpecType.GroupVersionKind().Version,
-			Name:      "gwspec",
-			Namespace: "ns1",
+			GroupVersionKind: gwSpecType.GroupVersionKind(),
+			Name:             "gwspec",
+			Namespace:        "ns1",
 		},
 		Spec: gatewaySpec,
 	})
 	store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      k8sHTTPRouteType.GroupVersionKind().Kind,
-			Group:     k8sHTTPRouteType.GroupVersionKind().Group,
-			Version:   k8sHTTPRouteType.GroupVersionKind().Version,
-			Name:      "http-route",
-			Namespace: "ns1",
+			GroupVersionKind: k8sHTTPRouteType.GroupVersionKind(),
+			Name:             "http-route",
+			Namespace:        "ns1",
 		},
 		Spec: httpRouteSpec,
 	})
 
-	cfg, err := controller.List(vsType.GroupVersionKind(), "ns1")
+	cfg, err := controller.List(gvk.VirtualService, "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(cfg).To(HaveLen(1))
 	for _, c := range cfg {
-		g.Expect(c.Type).To(Equal(vsType.GroupVersionKind().Kind))
-		g.Expect(c.Group).To(Equal(vsType.GroupVersionKind().Group))
-		g.Expect(c.Version).To(Equal(vsType.GroupVersionKind().Version))
+		g.Expect(c.GroupVersionKind).To(Equal(gvk.VirtualService))
 		g.Expect(c.Name).To(Equal("test-cluster-local-http-route-" + constants.KubernetesGatewayName))
 		g.Expect(c.Namespace).To(Equal("ns1"))
 		g.Expect(c.Spec).To(Equal(expectedvs))
