@@ -30,11 +30,15 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+// Test wrapper for the VM OS version test. This test will run in pre-submit
+// to avoid building and testing all OS images
 func TestVmOS(t *testing.T) {
 	vmImages := []string{"app_sidecar_ubuntu_bionic"}
 	VMTestBody(t, vmImages)
 }
 
+// Post-submit test wrapper to test against all OS images. These images will be build
+// in post-submit to reduce the runtime of prow/lib.sh
 func TestVmOSPost(t *testing.T) {
 	vmImages := []string{"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal", "app_sidecar_ubuntu_bionic",
 		"app_sidecar_debian_9", "app_sidecar_debian_10"}
@@ -57,20 +61,20 @@ func VMTestBody(t *testing.T, vmImages []string, label ...label.Instance) {
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
- name: default
+  name: default
 spec:
- mtls:
-   mode: STRICT
+  mtls:
+    mode: STRICT
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
- name: send-mtls
+  name: send-mtls
 spec:
- host: "*.svc.cluster.local"
- trafficPolicy:
-   tls:
-     mode: ISTIO_MUTUAL
+  host: "*.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
 `)
 			ports := []echo.Port{
 				{
@@ -98,7 +102,7 @@ spec:
 				var vm echo.Instance
 				echoboot.NewBuilderOrFail(t, ctx).
 					With(&vm, echo.Config{
-						Service:    fmt.Sprintf("vm-legacy-%v", i),
+						Service:    fmt.Sprintf("vm-%v", i),
 						Namespace:  ns,
 						Ports:      ports,
 						Pilot:      p,
