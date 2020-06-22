@@ -36,6 +36,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/schema/collections"
 	proto2 "istio.io/istio/pkg/proto"
 )
 
@@ -322,12 +323,10 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 		{
 			"destination-rule",
 			model.ConfigMeta{
-				Group:     "networking.istio.io",
-				Version:   "v1alpha3",
-				Name:      "svcA",
-				Namespace: "default",
-				Domain:    "svc.cluster.local",
-				Type:      "destination-rule",
+				Name:             "svcA",
+				Namespace:        "default",
+				Domain:           "svc.cluster.local",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{

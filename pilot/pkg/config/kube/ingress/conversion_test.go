@@ -92,9 +92,9 @@ func marshalYaml(t *testing.T, cl []model.Config) []byte {
 	result := []byte{}
 	separator := []byte("---\n")
 	for _, config := range cl {
-		s, exists := collections.All.FindByGroupVersionKind(config.GroupVersionKind())
+		s, exists := collections.All.FindByGroupVersionKind(config.GroupVersionKind)
 		if !exists {
-			t.Fatalf("Unknown kind %v for %v", config.GroupVersionKind(), config.Name)
+			t.Fatalf("Unknown kind %v for %v", config.GroupVersionKind, config.Name)
 		}
 		obj, err := crd.ConvertConfig(s, config)
 		if err != nil {

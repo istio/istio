@@ -24,6 +24,7 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
+
 	"istio.io/istio/pilot/pkg/model/test"
 )
 

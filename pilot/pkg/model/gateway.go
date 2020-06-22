@@ -21,9 +21,10 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/pkg/monitoring"
+
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/pkg/monitoring"
 )
 
 // MergedGateway describes a set of gateways for a workload merged into a single logical gateway.

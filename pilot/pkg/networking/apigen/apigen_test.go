@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
 )
@@ -89,7 +90,7 @@ func TestAPIGen(t *testing.T) {
 
 		adscConn.WatchConfig()
 
-		_, err = adscConn.WaitVersion(10*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
+		_, err = adscConn.WaitVersion(10*time.Second, gvk.ServiceEntry.String(), "")
 		if err != nil {
 			t.Fatal("Failed to receive lds", err)
 		}
@@ -98,7 +99,7 @@ func TestAPIGen(t *testing.T) {
 		for _, se := range ses {
 			t.Log(se)
 		}
-		sec, _ := adscConn.Store.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(), "")
+		sec, _ := adscConn.Store.List(gvk.EnvoyFilter, "")
 		for _, se := range sec {
 			t.Log(se)
 		}

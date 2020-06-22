@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -210,13 +211,12 @@ func TestApplyDestinationRule(t *testing.T) {
 
 			configStore := &fakes.IstioConfigStore{
 				ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-					if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
+					if typ == gvk.DestinationRule {
 						if tt.destRule != nil {
 							return []model.Config{
 								{ConfigMeta: model.ConfigMeta{
-									Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-									Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-									Name:    "acme",
+									GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+									Name:             "acme",
 								},
 									Spec: tt.destRule,
 								}}, nil

@@ -74,7 +74,7 @@ func (r *Resource) ToModelKey() string {
 }
 
 func ResourceFromModelConfig(c model.Config) *Resource {
-	gvr := GVKtoGVR(c.GroupVersionKind())
+	gvr := GVKtoGVR(c.GroupVersionKind)
 	if gvr == nil {
 		return nil
 	}

@@ -260,9 +260,9 @@ func (cl *Client) Create(config model.Config) (string, error) {
 		return "", fmt.Errorf("unrecognized apiVersion %q", config)
 	}
 
-	s, exists := rc.schemas.FindByGroupVersionKind(config.GroupVersionKind())
+	s, exists := rc.schemas.FindByGroupVersionKind(config.GroupVersionKind)
 	if !exists {
-		return "", fmt.Errorf("unrecognized type: %s", config.GroupVersionKind())
+		return "", fmt.Errorf("unrecognized type: %s", config.GroupVersionKind)
 	}
 
 	if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
@@ -293,9 +293,9 @@ func (cl *Client) Update(config model.Config) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("unrecognized apiVersion %q", config)
 	}
-	s, exists := rc.schemas.FindByGroupVersionKind(config.GroupVersionKind())
+	s, exists := rc.schemas.FindByGroupVersionKind(config.GroupVersionKind)
 	if !exists {
-		return "", fmt.Errorf("unrecognized type %q", config.Type)
+		return "", fmt.Errorf("unrecognized type %q", config.GroupVersionKind)
 	}
 
 	if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {

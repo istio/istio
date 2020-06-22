@@ -18,10 +18,12 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/pkg/ledger"
+
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/ledger"
 
 	. "github.com/onsi/gomega"
 	"k8s.io/utils/clock"
@@ -61,7 +63,7 @@ func initReporterWithoutStarting() (out Reporter) {
 func TestBuildReport(t *testing.T) {
 	RegisterTestingT(t)
 	r := initReporterWithoutStarting()
-	r.store = model.NewFakeStore()
+	r.store = memory.Make(collections.All)
 	l := ledger.Make(time.Minute)
 	resources := []*model.Config{
 		{
@@ -90,10 +92,8 @@ func TestBuildReport(t *testing.T) {
 	var myResources []Resource
 	col := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 	for _, res := range resources {
-		// Set Group Version and Type to real world values from VS
-		res.Group = col.Group()
-		res.Version = col.Version()
-		res.Type = col.Kind()
+		// Set Group Version and GroupVersionKind to real world values from VS
+		res.GroupVersionKind = col.GroupVersionKind()
 		resStr := res.Key()
 		myResources = append(myResources, *ResourceFromModelConfig(*res))
 		// Add each resource to our ledger for tracking history

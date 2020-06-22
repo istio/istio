@@ -179,11 +179,9 @@ func Make(namespace string, i int) model.Config {
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      mockGvk.Kind,
-			Group:     "test.istio.io",
-			Version:   "v1",
-			Name:      name,
-			Namespace: namespace,
+			GroupVersionKind: mockGvk,
+			Name:             name,
+			Namespace:        namespace,
 			Labels: map[string]string{
 				"key": name,
 			},
@@ -253,18 +251,18 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	invalid := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            mockGvk.Kind,
-			Name:            "invalid",
-			ResourceVersion: revs[0],
+			GroupVersionKind: mockGvk,
+			Name:             "invalid",
+			ResourceVersion:  revs[0],
 		},
 		Spec: &config.MockConfig{},
 	}
 
 	missing := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            mockGvk.Kind,
-			Name:            "missing",
-			ResourceVersion: revs[0],
+			GroupVersionKind: mockGvk,
+			Name:             "missing",
+			ResourceVersion:  revs[0],
 		},
 		Spec: &config.MockConfig{Key: "missing"},
 	}
@@ -390,10 +388,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 
 	for _, c := range cases {
 		configMeta := model.ConfigMeta{
-			Type:    c.schema.Resource().Kind(),
-			Name:    c.configName,
-			Group:   c.schema.Resource().Group(),
-			Version: c.schema.Resource().Version(),
+			GroupVersionKind: c.schema.Resource().GroupVersionKind(),
+			Name:             c.configName,
 		}
 		if !c.schema.Resource().IsClusterScoped() {
 			configMeta.Namespace = namespace
@@ -449,7 +445,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	// validate cache consistency
 	cache.RegisterEventHandler(mockGvk, func(_, config model.Config, ev model.Event) {
 		elts, _ := cache.List(mockGvk, namespace)
-		elt := cache.Get(o.GroupVersionKind(), o.Name, o.Namespace)
+		elt := cache.Get(o.GroupVersionKind, o.Name, o.Namespace)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
