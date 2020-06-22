@@ -1093,13 +1093,11 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 		if err != nil {
 			return err
 		}
-		val.Group = gvk[0]
-		val.Version = gvk[1]
-		val.Type = gvk[2]
+		val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
 		if err != nil {
 			adscLog.Warna("Invalid data ", err, " ", string(valBytes))
 		} else {
-			cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
+			cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
 			if cfg == nil {
 				_, err = a.Store.Create(*val)
 				if err != nil {
@@ -1118,61 +1116,12 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 				return err
 			}
 			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-				val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
 			if err != nil {
 				return err
 			}
 		}
 	}
-
-	//=======
-	//if len(gvk) != 3 {
-	//	continue
-	//}
-	//// Generic - fill up the store
-	//if a.Store != nil {
-	//	m := &mcp.Resource{}
-	//	err = types.UnmarshalAny(&types.Any{
-	//		TypeUrl: rsc.TypeUrl,
-	//		Value:   rsc.Value,
-	//	}, m)
-	//	if err != nil {
-	//		continue
-	//	}
-	//	val, err := mcpToPilot(m)
-	//	if err != nil {
-	//		continue
-	//	}
-	//	val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
-	//	if err != nil {
-	//		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
-	//	} else {
-	//		cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
-	//		if cfg == nil {
-	//			_, err = a.Store.Create(*val)
-	//			if err != nil {
-	//				continue
-	//			}
-	//		} else {
-	//			_, err = a.Store.Update(*val)
-	//			if err != nil {
-	//				continue
-	//			}
-	//		}
-	//	}
-	//	if a.LocalCacheDir != "" {
-	//		strResponse, err := json.MarshalIndent(val, "  ", "  ")
-	//		if err != nil {
-	//			continue
-	//		}
-	//		err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-	//				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
-	//		if err != nil {
-	//			continue
-	//		}
-	//	}
-	//}
-	//>>>>>>> b576237ad1280f5abc17291d84b1a913032b7183
-
+	
 	return nil
 }
