@@ -225,8 +225,10 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
-			proxy := getProxy()
-			proxy.SetSidecarScope(env.PushContext)
+			tt.proxy.SetSidecarScope(env.PushContext)
+			tt.proxy.Active = map[string]*model.CoreWatchedResource{
+				v3.ClusterShortType: {},
+			}
 
 			cb := NewClusterBuilder(tt.proxy, env.PushContext)
 

@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, version string) error {
@@ -32,7 +33,7 @@ func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, vers
 	if s.DebugConfigs {
 		con.LDSListeners = rawListeners
 	}
-	response := ldsDiscoveryResponse(rawListeners, version, push.Version, con.node.RequestedTypes.LDS)
+	response := ldsDiscoveryResponse(rawListeners, version, push.Version, con.node.Active[v3.ListenerShortType].TypeUrl)
 	err := con.send(response)
 	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {

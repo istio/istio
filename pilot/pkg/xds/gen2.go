@@ -54,12 +54,12 @@ func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.Disco
 
 	t := discReq.TypeUrl
 	con.mu.Lock()
-	w := con.node.Active[t]
+	w := con.node.ActiveExperimental[t]
 	if w == nil {
 		w = &model.WatchedResource{
 			TypeUrl: t,
 		}
-		con.node.Active[t] = w
+		con.node.ActiveExperimental[t] = w
 		isAck = false // newly watched resource
 	}
 	con.mu.Unlock()

@@ -1900,7 +1900,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 			},
 		}
 		connectionManager.RouteSpecifier = rds
-		if pluginParams.Node.RequestedTypes.LDS == v3.ListenerType {
+		if pluginParams.Node.Active[v3.ListenerShortType].TypeUrl == v3.ListenerType {
 			// For v3 listeners, send v3 routes
 			rds.Rds.ConfigSource.ResourceApiVersion = core.ApiVersion_V3
 		}

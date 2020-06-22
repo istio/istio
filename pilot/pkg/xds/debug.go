@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
@@ -481,7 +482,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		if err != nil {
 			return nil, err
 		}
-		cluster.TypeUrl = conn.node.RequestedTypes.CDS
+		cluster.TypeUrl = conn.node.Active[v3.ClusterShortType].TypeUrl
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cluster})
 	}
 	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
@@ -499,7 +500,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		if err != nil {
 			return nil, err
 		}
-		listener.TypeUrl = conn.node.RequestedTypes.LDS
+		listener.TypeUrl = conn.node.Active[v3.ListenerShortType].TypeUrl
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
 			Name:        cs.Name,
 			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener}})
@@ -521,7 +522,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 			if err != nil {
 				return nil, err
 			}
-			route.TypeUrl = conn.node.RequestedTypes.RDS
+			route.TypeUrl = conn.node.Active[v3.RouteShortType].TypeUrl
 			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: route})
 		}
 		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})

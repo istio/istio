@@ -21,6 +21,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/util/protomarshal"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -40,7 +41,7 @@ func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, ve
 		}
 	}
 
-	response := routeDiscoveryResponse(rawRoutes, version, push.Version, con.node.RequestedTypes.RDS)
+	response := routeDiscoveryResponse(rawRoutes, version, push.Version, con.node.Active[v3.RouteShortType].TypeUrl)
 	err := con.send(response)
 	rdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {

@@ -14,7 +14,10 @@
 
 package v3
 
-import "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+import (
+	resourcev2 "github.com/envoyproxy/go-control-plane/pkg/resource/v2"
+	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+)
 
 const (
 	ClusterType  = resource.ClusterType
@@ -22,3 +25,25 @@ const (
 	ListenerType = resource.ListenerType
 	RouteType    = resource.RouteType
 )
+
+var (
+	ListenerShortType = "LDS"
+	RouteShortType    = "RDS"
+	EndpointShortType = "EDS"
+	ClusterShortType  = "CDS"
+)
+
+func GetShortType(typeURL string) string {
+	switch typeURL {
+	case resourcev2.ClusterType, ClusterType:
+		return ClusterShortType
+	case resourcev2.ListenerType, ListenerType:
+		return ListenerShortType
+	case resourcev2.RouteType, RouteType:
+		return RouteShortType
+	case resourcev2.EndpointType, EndpointType:
+		return EndpointShortType
+	default:
+		return typeURL
+	}
+}

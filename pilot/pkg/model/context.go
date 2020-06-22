@@ -210,27 +210,43 @@ type Proxy struct {
 	// of configuration.
 	XdsResourceGenerator XdsResourceGenerator
 
-	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
-	// It is nil if the Proxy uses the default generator
-	Active map[string]*WatchedResource
+	// ActiveExperimental contains the list of watched resources for the proxy, keyed by the canonical DiscoveryRequest type.
+	// Note that the key may not be equal to the proper TypeUrl. For example, Envoy types like Cluster will share a single
+	// key for multiple versions.
+	ActiveExperimental map[string]*WatchedResource
 
+	// Active contains the list of watched resources. See comment on CoreWatchedResource for rationale behind
+	// splitting this from ActiveExperimental.
+	Active map[string]*CoreWatchedResource
+}
+
+// CoreWatchedResource tracks an active DiscoveryRequest type. This is a subset of WatchedResource, use for tracking
+// the core XDS types (CDS/LDS/RDS/EDS). The intent is that over time there will be just one WatchedResource type, as the
+// experimental and core types converge.
+// We chose to keep the core and experimental types isolated (rather than just using a subset of the fields) because
+// the experimental types behave differently, and are not processed as part of the standard push queue. As a result,
+// there would be concurrent access requiring numerous mutexes throughout the code base. Once this is resolved, the two
+// can be merged.
+type CoreWatchedResource struct {
+	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
+	// nolint
 	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
 	// only generate one version or the other, because the protos are wire compatible we can cast to the
-	// requested version. This struct keeps track of the types requested for each resource type.
-	// For example, if Envoy requests Clusters v3, we would track that here. Pilot would generate a v2
-	// cluster response, but change the TypeUrl in the response to be v3.
-	RequestedTypes struct {
-		CDS string
-		EDS string
-		RDS string
-		LDS string
-	}
+	// requested version. The TypeUrl specified here is the one we should send.
+	// For example, if Envoy requests Clusters v2, we would track that here. Pilot would generate a v3
+	// cluster response, but change the TypeUrl in the response to be v2.
+	TypeUrl string
 }
 
 // WatchedResource tracks an active DiscoveryRequest type.
 type WatchedResource struct {
 	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
 	// nolint
+	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
+	// only generate one version or the other, because the protos are wire compatible we can cast to the
+	// requested version. The TypeUrl specified here is the one we should send.
+	// For example, if Envoy requests Clusters v2, we would track that here. Pilot would generate a v3
+	// cluster response, but change the TypeUrl in the response to be v2.
 	TypeUrl string
 
 	// ResourceNames tracks the list of resources that are actively watched. If empty, all resources of the

@@ -223,32 +223,23 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 		return nil
 	}
 
+	if err := s.handleTypeURL(discReq.TypeUrl, con.node); err != nil {
+		return err
+	}
 	switch discReq.TypeUrl {
 	case v2.ClusterType, v3.ClusterType:
-		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
-			return err
-		}
 		if err := s.handleCds(con, discReq); err != nil {
 			return err
 		}
 	case v2.ListenerType, v3.ListenerType:
-		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.LDS); err != nil {
-			return err
-		}
 		if err := s.handleLds(con, discReq); err != nil {
 			return err
 		}
 	case v2.RouteType, v3.RouteType:
-		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.RDS); err != nil {
-			return err
-		}
 		if err := s.handleRds(con, discReq); err != nil {
 			return err
 		}
 	case v2.EndpointType, v3.EndpointType:
-		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.EDS); err != nil {
-			return err
-		}
 		if err := s.handleEds(con, discReq); err != nil {
 			return err
 		}
@@ -349,12 +340,16 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 // an error is returned. For example, if a v2 cluster request was sent initially, then a v3 response was received, we will throw an error.
 // This is to ensure that when we do pushes, we are sending a consistent type, rather than flipping between v2 and v3.
 // A proper XDS client will not send mixed versions.
-func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) error {
-	if *requestedType == "" {
-		*requestedType = typeURL
-	} else if *requestedType != typeURL {
-		return fmt.Errorf("invalid type %v, expected %v", typeURL, *requestedType)
+func (s *DiscoveryServer) handleTypeURL(typeURL string, node *model.Proxy) error {
+	short := v3.GetShortType(typeURL)
+	current, f := node.Active[short]
+	if f && typeURL != current.TypeUrl {
+		return fmt.Errorf("invalid type %v, expected %v", typeURL, current)
 	}
+	if !f {
+		node.Active[short] = &model.CoreWatchedResource{}
+	}
+	node.Active[short].TypeUrl = typeURL
 	return nil
 }
 
@@ -530,7 +525,8 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 
 	// Based on node metadata and version, we can associate a different generator.
 	// TODO: use a map of generators, so it's easily customizable and to avoid deps
-	proxy.Active = map[string]*model.WatchedResource{}
+	proxy.ActiveExperimental = map[string]*model.WatchedResource{}
+	proxy.Active = map[string]*model.CoreWatchedResource{}
 	if proxy.Metadata.Generator != "" {
 		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
 	}
@@ -688,7 +684,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// Each Generator is responsible for determining if the push event requires a push -
 	// returning nil if the push is not needed.
 	if con.node.XdsResourceGenerator != nil {
-		for _, w := range con.node.Active {
+		for _, w := range con.node.ActiveExperimental {
 			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, w, pushEv.configsUpdated)
 			if err != nil {
 				return err

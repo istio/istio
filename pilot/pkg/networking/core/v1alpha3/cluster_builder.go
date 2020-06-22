@@ -82,7 +82,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
 	// discovery type.
-	maybeApplyEdsConfig(c, cb.proxy.RequestedTypes.CDS)
+	maybeApplyEdsConfig(c, cb.proxy.Active[v3.ClusterShortType].TypeUrl)
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
@@ -134,7 +134,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 			applyTrafficPolicy(opts)
 		}
 
-		maybeApplyEdsConfig(subsetCluster, cb.proxy.RequestedTypes.CDS)
+		maybeApplyEdsConfig(subsetCluster, cb.proxy.Active[v3.ClusterShortType].TypeUrl)
 
 		subsetCluster.Metadata = util.AddSubsetToMetadata(clusterMetadata, subset.Name)
 		subsetClusters = append(subsetClusters, subsetCluster)

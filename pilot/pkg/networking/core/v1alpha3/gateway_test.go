@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -1157,6 +1158,9 @@ func TestBuildGatewayListeners(t *testing.T) {
 		proxyGateway.SetGatewaysForProxy(env.PushContext)
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
 		proxyGateway.DiscoverIPVersions()
+		proxyGateway.Active = map[string]*pilot_model.CoreWatchedResource{
+			v3.ListenerShortType: &pilot_model.CoreWatchedResource{},
+		}
 		builder := configgen.buildGatewayListeners(&proxyGateway, env.PushContext, &ListenerBuilder{})
 		var listeners []string
 		for _, l := range builder.gatewayListeners {

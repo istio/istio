@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
@@ -55,7 +56,7 @@ func (s *DiscoveryServer) pushCds(con *Connection, push *model.PushContext, vers
 	if s.DebugConfigs {
 		con.CDSClusters = rawClusters
 	}
-	response := cdsDiscoveryResponse(rawClusters, push.Version, con.node.RequestedTypes.CDS)
+	response := cdsDiscoveryResponse(rawClusters, push.Version, con.node.Active[v3.ClusterShortType].TypeUrl)
 	err := con.send(response)
 	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {

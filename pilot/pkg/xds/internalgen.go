@@ -91,7 +91,7 @@ func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 	// Create a temp map to avoid locking the add/remove
 	pending := []*Connection{}
 	for _, v := range sg.Server.adsClients {
-		if v.node.Active[typeURL] != nil {
+		if v.node.ActiveExperimental[typeURL] != nil {
 			pending = append(pending, v)
 		}
 	}

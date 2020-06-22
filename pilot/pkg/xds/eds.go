@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -443,7 +444,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.node.RequestedTypes.EDS)
+	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.node.Active[v3.EndpointShortType].TypeUrl)
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
