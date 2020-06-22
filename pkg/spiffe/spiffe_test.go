@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	validResponse = `
+	validSpiffeX509Bundle = `
 {
 	"spiffe_sequence": 1,
 	"spiffe_refresh_hint": 450000,
@@ -74,7 +74,7 @@ var (
 	]
 }`
 
-	invalidResponse = `
+	invalidSpiffeX509Bundle = `
 {
 	"spiffe_sequence": 1,
 	"spiffe_refresh_hint": 450000,
@@ -95,6 +95,12 @@ var (
 	]
 }`
 
+	// validRootCert, validIntCert and validWorkloadCert are in a certification chain.
+	// They are generated using tools/certs/Makefile. Replace "cluster.local" with "foo.doamin.com"
+	// export INTERMEDIATE_DAYS=3650
+	// export WORKLOAD_DAYS=3650
+	// make foo-certs-selfSigned
+	// TODO(myidpt): put the following data into files in security/pkg/pki/testdata.
 	validRootCert = `-----BEGIN CERTIFICATE-----
 MIIC3TCCAcWgAwIBAgIQVtsuf26VCWmMjpm8BHnNwzANBgkqhkiG9w0BAQsFADAY
 MRYwFAYDVQQKEw1jbHVzdGVyLmxvY2FsMB4XDTIwMDYyMjA1NTYyNloXDTMwMDYy
@@ -406,7 +412,7 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 			template:   inputStringTemplate1,
 			trustCert:  true,
 			status:     http.StatusOK,
-			body:       validResponse,
+			body:       validSpiffeX509Bundle,
 			twoServers: false,
 		},
 		{
@@ -414,7 +420,7 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 			template:   inputStringTemplate2,
 			trustCert:  true,
 			status:     http.StatusOK,
-			body:       validResponse,
+			body:       validSpiffeX509Bundle,
 			twoServers: true,
 		},
 		{
@@ -422,7 +428,7 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 			template:    "foo||URL1",
 			trustCert:   false,
 			status:      http.StatusOK,
-			body:        validResponse,
+			body:        validSpiffeX509Bundle,
 			twoServers:  false,
 			errContains: "config is invalid",
 		},
@@ -431,7 +437,7 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 			template:    "foo|URL1|bar|URL2",
 			trustCert:   false,
 			status:      http.StatusOK,
-			body:        validResponse,
+			body:        validSpiffeX509Bundle,
 			twoServers:  true,
 			errContains: "config is invalid",
 		},
@@ -440,7 +446,7 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 			template:    "URL1||bar|URL2",
 			trustCert:   false,
 			status:      http.StatusOK,
-			body:        validResponse,
+			body:        validSpiffeX509Bundle,
 			twoServers:  true,
 			errContains: "config is invalid",
 		},
@@ -449,7 +455,7 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 			template:    inputStringTemplate1,
 			trustCert:   false,
 			status:      http.StatusOK,
-			body:        validResponse,
+			body:        validSpiffeX509Bundle,
 			twoServers:  false,
 			errContains: "x509: certificate signed by unknown authority",
 		},
@@ -467,7 +473,7 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 			template:    inputStringTemplate1,
 			trustCert:   true,
 			status:      http.StatusOK,
-			body:        invalidResponse,
+			body:        invalidSpiffeX509Bundle,
 			twoServers:  false,
 			errContains: "expected 1 certificate in x509-svid entry 0; got 0",
 		},
