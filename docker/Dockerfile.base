@@ -30,7 +30,7 @@ RUN apt-get update && \
 
 # Create nonroot user that aligns with distroless uid/gid/path
 RUN groupadd --gid 65532 nonroot && \
-    useradd --home-dir /home/nonroot --gid 65532 nonroot
+    useradd --home-dir /home/nonroot --uid 65532 --gid 65532 nonroot
 
 # Sudoers used to allow tcpdump and other debug utilities.
 RUN useradd -m --uid 1337 istio-proxy && \
