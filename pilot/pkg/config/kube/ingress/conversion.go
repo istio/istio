@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 const (
@@ -120,7 +121,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 
 	gatewayConfig := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			GroupVersionKind: gatewayGvk,
+			GroupVersionKind: gvk.Gateway,
 			Name:             ingress.Name + "-" + constants.IstioIngressGatewayName,
 			Namespace:        ingressNamespace,
 			Domain:           domainSuffix,
@@ -199,7 +200,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 
 		virtualServiceConfig := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind: virtualServiceGvk,
+				GroupVersionKind: gvk.VirtualService,
 				Name:             namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
 				Namespace:        ingress.Namespace,
 				Domain:           domainSuffix,

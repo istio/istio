@@ -971,7 +971,7 @@ var (
 			Proto:         "k8s.io.service_apis.api.v1alpha1.GatewaySpec",
 			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateGateway,
 		}.MustBuild(),
 	}.MustBuild()
 
