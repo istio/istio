@@ -120,7 +120,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  time build_images
+  time build_images "${PARAMS[*]}"
 
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
     time kind_load_images ""
