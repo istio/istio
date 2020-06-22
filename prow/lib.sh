@@ -71,9 +71,16 @@ function download_untar_istio_release() {
 }
 
 function build_images() {
+  SELECT_TEST="${1}"
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
-  targets+="docker.app docker.app_sidecar docker.test_policybackend "
+
+  # use ubuntu:bionic to test vms by default
+  targets+="docker.app docker.app_sidecar_ubuntu_bionic docker.test_policybackend "
+  if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" ]]; then
+    targets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_ubuntu_focal docker.app_sidecar_ubuntu_bionic "
+    targets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 "
+  fi
   targets+="docker.mixer "
   targets+="docker.operator "
   targets+="docker.install-cni "
