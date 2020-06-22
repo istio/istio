@@ -690,7 +690,7 @@ webhooks:
       service:
         name: istiod
         namespace: istio-system
-        path: "/inject"      
+        path: "/inject"
       caBundle: 
     rules:
       - operations: [ "CREATE" ]
