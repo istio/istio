@@ -57,7 +57,6 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 # BUILD_PRE tells $(DOCKER_RULE) to run the command specified before executing a docker build
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
-# The file must be named 'envoy', depends on the release.
 ${ISTIO_SIDECAR_LINUX_RELEASE_DIR}/${SIDECAR}: ${ISTIO_SIDECAR_LINUX_RELEASE_PATH}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 ifdef DEBUG_IMAGE
