@@ -15,10 +15,18 @@ FROM gcr.io/distroless/static-debian10@sha256:4433370ec2b3b97b338674b4de5ffaef8c
 # hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
 
+ENV USER_UID=1001 \
+    USER_NAME=istio-operator
+
 # install operator binary
 COPY operator /usr/local/bin/
+
+COPY user_setup /usr/local/bin
+RUN  /usr/local/bin/user_setup
 
 # add operator manifests
 COPY manifests/ /var/lib/istio/manifests/
 
 ENTRYPOINT ["/usr/local/bin/operator"]
+
+USER ${USER_UID}
