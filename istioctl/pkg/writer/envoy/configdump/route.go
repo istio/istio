@@ -63,12 +63,14 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 			if filter.Verbose {
 				for _, vhosts := range route.GetVirtualHosts() {
 					for _, r := range vhosts.Routes {
-						fmt.Fprintf(w, "%v\t%s\t%s\t%s\t%s\n",
-							route.Name,
-							describeRouteDomains(vhosts.GetDomains()),
-							describeMatch(r.GetMatch()),
-							describeConfig(r.GetTypedPerFilterConfig()),
-							describeManagement(r.GetMetadata()))
+						if !isPassthrough(r.GetAction()) {
+							fmt.Fprintf(w, "%v\t%s\t%s\t%s\t%s\n",
+								route.Name,
+								describeRouteDomains(vhosts.GetDomains()),
+								describeMatch(r.GetMatch()),
+								describeConfig(r.GetTypedPerFilterConfig()),
+								describeManagement(r.GetMetadata()))
+						}
 					}
 				}
 			} else {
@@ -216,4 +218,16 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 		return iName < jName
 	})
 	return routes, nil
+}
+
+func isPassthrough(action interface{}) bool {
+	a, ok := action.(*route.Route_Route)
+	if !ok {
+		return false
+	}
+	cl, ok := a.Route.ClusterSpecifier.(*route.RouteAction_Cluster)
+	if !ok {
+		return false
+	}
+	return cl.Cluster == "PassthroughCluster"
 }
