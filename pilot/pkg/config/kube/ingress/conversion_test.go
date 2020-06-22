@@ -420,7 +420,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 		},
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      "test-app-pod",
-			Namespace: "test-ns",
+			Namespace: "mock",
 			Labels:    map[string]string{"app": "test-app"},
 		},
 		Spec: coreV1.PodSpec{

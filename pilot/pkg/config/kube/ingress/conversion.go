@@ -16,6 +16,7 @@ package ingress
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -42,6 +43,10 @@ import (
 
 const (
 	IstioIngressController = "istio.io/ingress-controller"
+)
+
+var (
+	errNotFound = errors.New("item not found")
 )
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
@@ -251,8 +256,9 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 	if backend.ServicePort.Type == intstr.Int {
 		port.Number = uint32(backend.ServicePort.IntVal)
 	} else {
-		resolvedPort := resolveNamedPort(backend, namespace, client)
-		if resolvedPort == -1 {
+		resolvedPort, err := resolveNamedPort(backend, namespace, client)
+		if err != nil {
+			log.Infof("failed to resolve named port %s, error: %s", backend.ServicePort.StrVal, err.Error())
 			return nil
 		}
 		port.Number = uint32(resolvedPort)
@@ -271,28 +277,28 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 	}
 }
 
-func resolveNamedPort(backend *v1beta1.IngressBackend, namespace string, client kubernetes.Interface) int32 {
+func resolveNamedPort(backend *v1beta1.IngressBackend, namespace string, client kubernetes.Interface) (int32, error) {
 	svc, err := client.CoreV1().Services(namespace).Get(context.TODO(), backend.ServiceName, metaV1.GetOptions{})
 	if err != nil {
-		return -1
+		return 0, err
 	}
 	opts := metaV1.ListOptions{
 		LabelSelector: k8sLabels.Set(svc.Spec.Selector).String(),
 	}
-	podList, err := client.CoreV1().Pods("").List(context.TODO(), opts)
+	podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), opts)
 	if err != nil {
-		return -1
+		return 0, err
 	}
 	if len(podList.Items) > 0 {
 		for _, container := range podList.Items[0].Spec.Containers {
 			for _, port := range container.Ports {
 				if port.Name == backend.ServicePort.StrVal {
-					return port.ContainerPort
+					return port.ContainerPort, nil
 				}
 			}
 		}
 	}
-	return -1
+	return 0, errNotFound
 }
 
 // shouldProcessIngress determines whether the given ingress resource should be processed
