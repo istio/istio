@@ -136,73 +136,74 @@ func Test_clusterMatch(t *testing.T) {
 	}
 }
 
+var configPatches = []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+	{
+		ApplyTo: networking.EnvoyFilter_CLUSTER,
+		Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+			Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+		},
+		Patch: &networking.EnvoyFilter_Patch{
+			Operation: networking.EnvoyFilter_Patch_ADD,
+			Value:     buildPatchStruct(`{"name":"new-cluster1"}`),
+		},
+	},
+	{
+		ApplyTo: networking.EnvoyFilter_CLUSTER,
+		Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+			Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+		},
+		Patch: &networking.EnvoyFilter_Patch{
+			Operation: networking.EnvoyFilter_Patch_ADD,
+			Value:     buildPatchStruct(`{"name":"new-cluster2"}`),
+		},
+	},
+	{
+		ApplyTo: networking.EnvoyFilter_CLUSTER,
+		Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+			Context: networking.EnvoyFilter_GATEWAY,
+			ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+				Cluster: &networking.EnvoyFilter_ClusterMatch{
+					Service: "gateway.com",
+				},
+			},
+		},
+		Patch: &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_REMOVE},
+	},
+	{
+		ApplyTo: networking.EnvoyFilter_CLUSTER,
+		Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+			Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+			ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+				Cluster: &networking.EnvoyFilter_ClusterMatch{
+					PortNumber: 9999,
+				},
+			},
+		},
+		Patch: &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_REMOVE},
+	},
+	{
+		ApplyTo: networking.EnvoyFilter_CLUSTER,
+		Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+			Context: networking.EnvoyFilter_ANY,
+		},
+		Patch: &networking.EnvoyFilter_Patch{
+			Operation: networking.EnvoyFilter_Patch_MERGE,
+			Value:     buildPatchStruct(`{"dns_lookup_family":"V6_ONLY"}`),
+		},
+	},
+	{
+		ApplyTo: networking.EnvoyFilter_CLUSTER,
+		Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+			Context: networking.EnvoyFilter_ANY,
+		},
+		Patch: &networking.EnvoyFilter_Patch{
+			Operation: networking.EnvoyFilter_Patch_MERGE,
+			Value:     buildPatchStruct(`{"lb_policy":"RING_HASH"}`),
+		},
+	},
+}
+
 func TestApplyClusterPatches(t *testing.T) {
-	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-		{
-			ApplyTo: networking.EnvoyFilter_CLUSTER,
-			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-			},
-			Patch: &networking.EnvoyFilter_Patch{
-				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value:     buildPatchStruct(`{"name":"new-cluster1"}`),
-			},
-		},
-		{
-			ApplyTo: networking.EnvoyFilter_CLUSTER,
-			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-			},
-			Patch: &networking.EnvoyFilter_Patch{
-				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value:     buildPatchStruct(`{"name":"new-cluster2"}`),
-			},
-		},
-		{
-			ApplyTo: networking.EnvoyFilter_CLUSTER,
-			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-				Context: networking.EnvoyFilter_GATEWAY,
-				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-					Cluster: &networking.EnvoyFilter_ClusterMatch{
-						Service: "gateway.com",
-					},
-				},
-			},
-			Patch: &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_REMOVE},
-		},
-		{
-			ApplyTo: networking.EnvoyFilter_CLUSTER,
-			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
-				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-					Cluster: &networking.EnvoyFilter_ClusterMatch{
-						PortNumber: 9999,
-					},
-				},
-			},
-			Patch: &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_REMOVE},
-		},
-		{
-			ApplyTo: networking.EnvoyFilter_CLUSTER,
-			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-				Context: networking.EnvoyFilter_ANY,
-			},
-			Patch: &networking.EnvoyFilter_Patch{
-				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value:     buildPatchStruct(`{"dns_lookup_family":"V6_ONLY"}`),
-			},
-		},
-		{
-			ApplyTo: networking.EnvoyFilter_CLUSTER,
-			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-				Context: networking.EnvoyFilter_ANY,
-			},
-			Patch: &networking.EnvoyFilter_Patch{
-				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value:     buildPatchStruct(`{"lb_policy":"RING_HASH"}`),
-			},
-		},
-	}
 
 	sidecarOutboundIn := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
@@ -295,5 +296,46 @@ func TestApplyClusterPatches(t *testing.T) {
 				t.Errorf("ApplyClusterPatches(): %s mismatch (-want +got):\n%s", tc.name, diff)
 			}
 		})
+	}
+}
+
+func BenchmarkApplyClusterPatches(b *testing.B) {
+	// push context with 10*len(configPatches)
+	var cp []*networking.EnvoyFilter_EnvoyConfigObjectPatch
+	for i := 0; i < 50; i++ {
+		cp = append(cp, configPatches...)
+	}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(cp))
+	push := model.NewPushContext()
+	_ = push.InitContext(env, nil, nil)
+
+	// 1000 clusters
+	var clusters []*cluster.Cluster
+	for i := 0; i < 1000; i++ {
+		clusters = append(clusters,
+			&cluster.Cluster{
+				Name:            "cluster1",
+				DnsLookupFamily: cluster.Cluster_V4_ONLY,
+				LbPolicy:        cluster.Cluster_ROUND_ROBIN,
+			},
+			&cluster.Cluster{
+				Name: "cluster2",
+				Http2ProtocolOptions: &core.Http2ProtocolOptions{
+					AllowConnect:  true,
+					AllowMetadata: true,
+				},
+				LbPolicy: cluster.Cluster_MAGLEV,
+			},
+		)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = ApplyClusterPatches(
+			networking.EnvoyFilter_SIDECAR_OUTBOUND,
+			&model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
+			push,
+			clusters)
 	}
 }
