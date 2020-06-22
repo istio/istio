@@ -111,15 +111,9 @@ func ServiceToServiceEntry(svc *model.Service) *model.Config {
 
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      gvk.Kind,
-			Group:     gvk.Group,
-			Version:   gvk.Version,
-			Name:      "synthetic-" + svc.Attributes.Name,
-			Namespace: svc.Attributes.Namespace,
-			//Domain:            "",
-			//Labels:            nil,
-			//Annotations:       nil,
-			//ResourceVersion:   "",
+			GroupVersionKind:  gvk,
+			Name:              "synthetic-" + svc.Attributes.Name,
+			Namespace:         svc.Attributes.Namespace,
 			CreationTimestamp: svc.CreationTime,
 		},
 		Spec: se,

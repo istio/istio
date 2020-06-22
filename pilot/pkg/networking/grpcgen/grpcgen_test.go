@@ -68,11 +68,9 @@ func TestGRPC(t *testing.T) {
 
 	store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      se.Kind(),
-			Group:     se.Group(),
-			Version:   se.Version(),
-			Name:      "fortio",
-			Namespace: "fortio",
+			GroupVersionKind: se.GroupVersionKind(),
+			Name:             "fortio",
+			Namespace:        "fortio",
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{

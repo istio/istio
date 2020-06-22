@@ -61,7 +61,7 @@ func callInstanceHandlers(instances []*model.ServiceInstance, sd *ServiceEntrySt
 func deleteConfigs(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
 	t.Helper()
 	for _, cfg := range configs {
-		err := store.Delete(cfg.GroupVersionKind(), cfg.Name, cfg.Namespace)
+		err := store.Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace)
 		if err != nil {
 			t.Errorf("error occurred crearting ServiceEntry config: %v", err)
 		}
@@ -791,9 +791,7 @@ func TestNonServiceConfig(t *testing.T) {
 	// Create a non-service configuration element. This should not affect the service registry at all.
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-			Group:             collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
-			Version:           collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",
@@ -821,7 +819,7 @@ func TestNonServiceConfig(t *testing.T) {
 func TestServicesDiff(t *testing.T) {
 	var updatedHTTPDNS = &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,

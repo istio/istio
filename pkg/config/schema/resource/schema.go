@@ -95,7 +95,7 @@ type Builder struct {
 	// ClusterScoped is true for resource in cluster-level.
 	ClusterScoped bool
 
-	// Type is the config proto type.
+	// Kind is the config proto type.
 	Kind string
 
 	// Plural is the type in plural.

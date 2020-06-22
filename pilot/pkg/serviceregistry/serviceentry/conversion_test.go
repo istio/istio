@@ -35,9 +35,7 @@ import (
 var GlobalTime = time.Now()
 var httpNone = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
-		Group:             serviceEntryKind.Group,
-		Version:           serviceEntryKind.Version,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "httpNone",
 		Namespace:         "httpNone",
 		Domain:            "svc.cluster.local",
@@ -56,9 +54,7 @@ var httpNone = &model.Config{
 
 var tcpNone = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
-		Group:             serviceEntryKind.Group,
-		Version:           serviceEntryKind.Version,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "tcpNone",
 		Namespace:         "tcpNone",
 		CreationTimestamp: GlobalTime,
@@ -76,9 +72,7 @@ var tcpNone = &model.Config{
 
 var httpStatic = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
-		Group:             serviceEntryKind.Group,
-		Version:           serviceEntryKind.Version,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "httpStatic",
 		Namespace:         "httpStatic",
 		CreationTimestamp: GlobalTime,
@@ -114,9 +108,7 @@ var httpStatic = &model.Config{
 // Shares the same host as httpStatic, but adds some endpoints. We expect these to be merge
 var httpStaticOverlay = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
-		Group:             serviceEntryKind.Group,
-		Version:           serviceEntryKind.Version,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "httpStaticOverlay",
 		Namespace:         "httpStatic",
 		CreationTimestamp: GlobalTime,
@@ -139,9 +131,7 @@ var httpStaticOverlay = &model.Config{
 
 var httpDNSnoEndpoints = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
-		Group:             serviceEntryKind.Group,
-		Version:           serviceEntryKind.Version,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "httpDNSnoEndpoints",
 		Namespace:         "httpDNSnoEndpoints",
 		CreationTimestamp: GlobalTime,
@@ -160,9 +150,7 @@ var httpDNSnoEndpoints = &model.Config{
 
 var httpDNS = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
-		Group:             serviceEntryKind.Group,
-		Version:           serviceEntryKind.Version,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "httpDNS",
 		Namespace:         "httpDNS",
 		CreationTimestamp: GlobalTime,
@@ -197,9 +185,7 @@ var httpDNS = &model.Config{
 
 var tcpDNS = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
-		Group:             serviceEntryKind.Group,
-		Version:           serviceEntryKind.Version,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "tcpDNS",
 		Namespace:         "tcpDNS",
 		CreationTimestamp: GlobalTime,
@@ -227,9 +213,7 @@ var tcpDNS = &model.Config{
 
 var tcpStatic = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
-		Group:             serviceEntryKind.Group,
-		Version:           serviceEntryKind.Version,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "tcpStatic",
 		Namespace:         "tcpStatic",
 		CreationTimestamp: GlobalTime,
@@ -258,7 +242,7 @@ var tcpStatic = &model.Config{
 
 var httpNoneInternal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "httpNoneInternal",
 		Namespace:         "httpNoneInternal",
 		CreationTimestamp: GlobalTime,
@@ -277,7 +261,7 @@ var httpNoneInternal = &model.Config{
 
 var tcpNoneInternal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "tcpNoneInternal",
 		Namespace:         "tcpNoneInternal",
 		CreationTimestamp: GlobalTime,
@@ -296,7 +280,7 @@ var tcpNoneInternal = &model.Config{
 
 var multiAddrInternal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "multiAddrInternal",
 		Namespace:         "multiAddrInternal",
 		CreationTimestamp: GlobalTime,
@@ -315,7 +299,7 @@ var multiAddrInternal = &model.Config{
 
 var udsLocal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "udsLocal",
 		Namespace:         "udsLocal",
 		CreationTimestamp: GlobalTime,
@@ -336,9 +320,7 @@ var udsLocal = &model.Config{
 // ServiceEntry with a selector
 var selector = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              serviceEntryKind.Kind,
-		Group:             serviceEntryKind.Group,
-		Version:           serviceEntryKind.Version,
+		GroupVersionKind:  serviceEntryKind,
 		Name:              "selector",
 		Namespace:         "selector",
 		CreationTimestamp: GlobalTime,
@@ -360,9 +342,7 @@ var selector = &model.Config{
 func createWorkloadEntry(name, namespace string, spec *networking.WorkloadEntry) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              workloadEntryKind.Kind,
-			Group:             workloadEntryKind.Group,
-			Version:           workloadEntryKind.Version,
+			GroupVersionKind:  workloadEntryKind,
 			Name:              name,
 			Namespace:         namespace,
 			CreationTimestamp: GlobalTime,

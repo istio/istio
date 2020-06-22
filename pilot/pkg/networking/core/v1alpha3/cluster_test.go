@@ -376,9 +376,8 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 			if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
 				return []model.Config{
 					{ConfigMeta: model.ConfigMeta{
-						Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-						Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-						Name:    "acme",
+						GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+						Name:             "acme",
 					},
 						Spec: destRule,
 					}}, nil
@@ -390,10 +389,9 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				}
 				return []model.Config{
 					{ConfigMeta: model.ConfigMeta{
-						Type:      collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind(),
-						Version:   collections.IstioSecurityV1Beta1Peerauthentications.Resource().Version(),
-						Name:      policyName,
-						Namespace: TestServiceNamespace,
+						GroupVersionKind: collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(),
+						Name:             policyName,
+						Namespace:        TestServiceNamespace,
 					},
 						Spec: peerAuthn,
 					}}, nil
@@ -802,7 +800,7 @@ func TestClusterMetadata(t *testing.T) {
 			istio := md.FilterMetadata[util.IstioMetadataKey]
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
+			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
 			if strings.Contains(cluster.Name, "Subset") {
 				foundSubset = true
 				sub := istio.Fields["subset"]
@@ -831,7 +829,7 @@ func TestClusterMetadata(t *testing.T) {
 			istio := md.FilterMetadata[util.IstioMetadataKey]
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
+			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
 			if strings.Contains(cluster.Name, "foobar") {
 				foundSNISubset = true
 				sub := istio.Fields["subset"]
@@ -1969,9 +1967,8 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
 						return []model.Config{
 							{ConfigMeta: model.ConfigMeta{
-								Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-								Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-								Name:    "acme",
+								GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+								Name:             "acme",
 							},
 								Spec: c.destRule,
 							}}, nil
