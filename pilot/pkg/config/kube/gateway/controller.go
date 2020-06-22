@@ -28,14 +28,13 @@ import (
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 
 	"istio.io/istio/pilot/pkg/model"
 )
 
 var (
-	vsType             = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
-	gatewayType        = collections.IstioNetworkingV1Alpha3Gateways.Resource()
 	errUnsupportedOp   = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
 	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway & virtual service resource type")
 	_                  = svc.HTTPRoute{}
@@ -72,7 +71,7 @@ func (c controller) Get(typ resource.GroupVersionKind, name, namespace string) *
 }
 
 func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
-	if typ != gatewayType.GroupVersionKind() && typ != vsType.GroupVersionKind() {
+	if typ != gvk.Gateway && typ != gvk.VirtualService {
 		return nil, errUnsupportedType
 	}
 
@@ -117,9 +116,9 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 	output := convertResources(input)
 
 	switch typ {
-	case gatewayType.GroupVersionKind():
+	case gvk.Gateway:
 		return output.Gateway, nil
-	case vsType.GroupVersionKind():
+	case gvk.VirtualService:
 		return output.VirtualService, nil
 	}
 	return nil, errUnsupportedOp
