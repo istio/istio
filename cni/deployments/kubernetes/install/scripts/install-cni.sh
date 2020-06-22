@@ -206,17 +206,17 @@ do
 done
 
 # Create a temp file in the same directory as the target, in order for the final rename to be atomic.
-TMP_CONF="${MOUNTED_CNI_NET_DIR}/istio-cni.conf.tmp"
-true > "${TMP_CONF}"
+TMP_CNI_CONF_FILE="${MOUNTED_CNI_NET_DIR}/istio-cni.conf.tmp"
+true > "${TMP_CNI_CONF_FILE}"
 # If specified, overwrite the network configuration file.
 : "${CNI_NETWORK_CONFIG_FILE:=}"
 : "${CNI_NETWORK_CONFIG:=}"
 if [ -e "${CNI_NETWORK_CONFIG_FILE}" ]; then
   echo "Using CNI config template from ${CNI_NETWORK_CONFIG_FILE}."
-  cp "${CNI_NETWORK_CONFIG_FILE}" "${TMP_CONF}"
+  cp "${CNI_NETWORK_CONFIG_FILE}" "${TMP_CNI_CONF_FILE}"
 elif [ -n "${CNI_NETWORK_CONFIG}" ]; then
   echo "Using CNI config template from CNI_NETWORK_CONFIG environment variable."
-  cat >"${TMP_CONF}" <<EOF
+  cat > "${TMP_CNI_CONF_FILE}" <<EOF
 ${CNI_NETWORK_CONFIG}
 EOF
 fi
@@ -249,9 +249,10 @@ if [ -f "$SERVICE_ACCOUNT_PATH/token" ]; then
   # writing more complete kubeconfig files. This is only used
   # if the provided CNI network config references it.
   # Create / overwrite this file atomically.
-  touch "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}.tmp"
-  chmod "${KUBECONFIG_MODE:-600}" "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}.tmp"
-  cat > "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}.tmp" <<EOF
+  TMP_KUBECFG_FILE="${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}.tmp"
+  touch "${TMP_KUBECFG_FILE}"
+  chmod "${KUBECONFIG_MODE:-600}" "${TMP_KUBECFG_FILE}"
+  cat > "${TMP_KUBECFG_FILE}" <<EOF
 # Kubeconfig file for Istio CNI plugin.
 apiVersion: v1
 kind: Config
@@ -271,8 +272,7 @@ contexts:
     user: istio-cni
 current-context: istio-cni-context
 EOF
-  mv "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}.tmp" "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
-
+  mv "${TMP_KUBECFG_FILE}" "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
 fi
 
 
@@ -283,23 +283,23 @@ sed -e "s/__KUBERNETES_SERVICE_HOST__/${KUBERNETES_SERVICE_HOST}/g" \
     -e "s/__KUBECONFIG_FILENAME__/${KUBECFG_FILE_NAME}/g" \
     -e "s~__KUBECONFIG_FILEPATH__~${HOST_CNI_NET_DIR}/${KUBECFG_FILE_NAME}~g" \
     -e "s~__LOG_LEVEL__~${LOG_LEVEL:-warn}~g" \
-    -i "${TMP_CONF}"
+    -i "${TMP_CNI_CONF_FILE}"
 
-CNI_OLD_CONF_NAME=${CNI_OLD_CONF_NAME:-${CNI_CONF_NAME}}
+OLD_CNI_CONF_NAME=${OLD_CNI_CONF_NAME:-${CNI_CONF_NAME}}
 
 # Log the config file before inserting service account token.
 # This way auth token is not visible in the logs.
 echo -n "CNI config: "
-cat "${TMP_CONF}"
+cat "${TMP_CNI_CONF_FILE}"
 
-sed -e "s/__SERVICEACCOUNT_TOKEN__/${SERVICEACCOUNT_TOKEN:-}/g" -i "${TMP_CONF}"
+sed -e "s/__SERVICEACCOUNT_TOKEN__/${SERVICEACCOUNT_TOKEN:-}/g" -i "${TMP_CNI_CONF_FILE}"
 
 if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
   if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
       # This section overwrites an existing plugins list entry to for istio-cni
-      CNI_TMP_CONF_DATA=$(cat "${TMP_CONF}")
-      CNI_CONF_DATA=$(jq --argjson CNI_TMP_CONF_DATA "$CNI_TMP_CONF_DATA" -f /filter.jq < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
-      echo "${CNI_CONF_DATA}" > "${TMP_CONF}"
+      TMP_CNI_CONF_DATA=$(cat "${TMP_CNI_CONF_FILE}")
+      CNI_CONF_DATA=$(jq --argjson TMP_CNI_CONF_DATA "${TMP_CNI_CONF_DATA}" -f /filter.jq < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
+      echo "${CNI_CONF_DATA}" > "${TMP_CNI_CONF_FILE}"
   fi
 
   # If the old config filename ends with .conf, rename it to .conflist, because it has changed to be a list
@@ -309,13 +309,13 @@ if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
   fi
 
   # Delete old CNI config files for upgrades.
-  if [ "${CNI_CONF_NAME}" != "${CNI_OLD_CONF_NAME}" ]; then
-      rm -f "${MOUNTED_CNI_NET_DIR}/${CNI_OLD_CONF_NAME}"
+  if [ "${CNI_CONF_NAME}" != "${OLD_CNI_CONF_NAME}" ]; then
+      rm -f "${MOUNTED_CNI_NET_DIR}/${OLD_CNI_CONF_NAME}"
   fi
 fi
 
 # Move the temporary CNI config into place.
-mv "${TMP_CONF}" "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" || \
+mv "${TMP_CNI_CONF_FILE}" "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" || \
   exit_with_error "Failed to mv files. This may be caused by selinux configuration on the host, or something else."
 
 echo "Created CNI config ${CNI_CONF_NAME}"
