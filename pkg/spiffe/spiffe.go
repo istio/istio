@@ -233,14 +233,21 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, extraTrustedCerts [
 
 // PeerCertVerifier is an instance to verify the peer certificate in the SPIFFE way using the retrieved root certificates.
 type PeerCertVerifier struct {
-	certPools map[string]*x509.CertPool
+	generalCertPool *x509.CertPool
+	certPools       map[string]*x509.CertPool
 }
 
 // NewPeerCertVerifier returns a new PeerCertVerifier.
 func NewPeerCertVerifier() *PeerCertVerifier {
 	return &PeerCertVerifier{
-		certPools: make(map[string]*x509.CertPool),
+		generalCertPool: x509.NewCertPool(),
+		certPools:       make(map[string]*x509.CertPool),
 	}
+}
+
+// GetGeneralCertPool returns generalCertPool containing all root certs.
+func (v *PeerCertVerifier) GetGeneralCertPool() *x509.CertPool {
+	return v.generalCertPool
 }
 
 // AddMapping adds a new trust domain to certificates mapping to the certPools map.
@@ -250,6 +257,7 @@ func (v *PeerCertVerifier) AddMapping(trustDomain string, certs []*x509.Certific
 	}
 	for _, cert := range certs {
 		v.certPools[trustDomain].AddCert(cert)
+		v.generalCertPool.AddCert(cert)
 	}
 	spiffeLog.Infof("Added %d certs to trust domain %s in peer cert verifier", len(certs), trustDomain)
 }
@@ -265,7 +273,8 @@ func (v *PeerCertVerifier) AddMappings(certMap map[string][]*x509.Certificate) {
 // It verifies the peer certificate using the root certificates associated with its trust domain.
 func (v *PeerCertVerifier) VerifyPeerCert(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 	if len(rawCerts) == 0 {
-		return fmt.Errorf("certificate chain is unexpectedly empty")
+		// Peer doesn't present a certificate. Just skip. Other authn methods may be used.
+		return nil
 	}
 	var peerCert *x509.Certificate
 	intCertPool := x509.NewCertPool()

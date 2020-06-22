@@ -586,9 +586,9 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error 
 	log.Info("initializing secure discovery service")
 
 	cfg := &tls.Config{
-		GetCertificate: s.getIstiodCertificate,
-		// Rely on verifyPeerCert to verify the certificate.
-		InsecureSkipVerify:    true,
+		GetCertificate:        s.getIstiodCertificate,
+		ClientAuth:            tls.VerifyClientCertIfGiven,
+		ClientCAs:             s.peerCertVerifier.GetGeneralCertPool(),
 		VerifyPeerCertificate: s.peerCertVerifier.VerifyPeerCert,
 	}
 
