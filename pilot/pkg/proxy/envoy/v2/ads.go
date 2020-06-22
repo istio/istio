@@ -159,26 +159,26 @@ func isExpectedGRPCError(err error) bool {
 func receiveThread(con *XdsConnection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
+		con.mu.RLock()
+		cid := con.ConID
+		con.mu.RUnlock()
 		req, err := con.stream.Recv()
 		if err != nil {
-			con.mu.RLock()
-			cid := con.ConID
-			con.mu.RUnlock()
 			if isExpectedGRPCError(err) {
 				con.mu.RLock()
-				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, cid, err)
 				con.mu.RUnlock()
 				return
 			}
 			*errP = err
-			adsLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
+			adsLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, cid, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
-			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, cid)
 			return
 		}
 	}
