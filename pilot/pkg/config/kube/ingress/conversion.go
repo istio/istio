@@ -120,12 +120,10 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 
 	gatewayConfig := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      gatewayGvk.Kind,
-			Group:     gatewayGvk.Group,
-			Version:   gatewayGvk.Version,
-			Name:      ingress.Name + "-" + constants.IstioIngressGatewayName,
-			Namespace: ingressNamespace,
-			Domain:    domainSuffix,
+			GroupVersionKind: gatewayGvk,
+			Name:             ingress.Name + "-" + constants.IstioIngressGatewayName,
+			Namespace:        ingressNamespace,
+			Domain:           domainSuffix,
 		},
 		Spec: gateway,
 	}
@@ -201,12 +199,10 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 
 		virtualServiceConfig := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      virtualServiceGvk.Kind,
-				Group:     virtualServiceGvk.Group,
-				Version:   virtualServiceGvk.Version,
-				Name:      namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
-				Namespace: ingress.Namespace,
-				Domain:    domainSuffix,
+				GroupVersionKind: virtualServiceGvk,
+				Name:             namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
+				Namespace:        ingress.Namespace,
+				Domain:           domainSuffix,
 			},
 			Spec: virtualService,
 		}

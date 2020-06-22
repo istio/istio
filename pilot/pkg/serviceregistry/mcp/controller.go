@@ -158,9 +158,7 @@ func (c *controller) Apply(change *sink.Change) error {
 		}
 		conf := &model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:              kind.Kind,
-				Group:             s.Resource().Group(),
-				Version:           s.Resource().Version(),
+				GroupVersionKind:  kind,
 				Name:              name,
 				Namespace:         namespace,
 				ResourceVersion:   obj.Metadata.Version,

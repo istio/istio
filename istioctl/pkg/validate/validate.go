@@ -400,9 +400,7 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schema.Resource().Kind(),
-			Group:             schema.Resource().Group(),
-			Version:           schema.Resource().Version(),
+			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              un.GetName(),
 			Namespace:         un.GetNamespace(),
 			Domain:            domain,
