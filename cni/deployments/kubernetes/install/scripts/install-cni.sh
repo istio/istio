@@ -129,17 +129,42 @@ function cleanup() {
 HOST_CNI_NET_DIR=${CNI_NET_DIR:-/etc/cni/net.d}
 MOUNTED_CNI_NET_DIR=${MOUNTED_CNI_NET_DIR:-/host/etc/cni/net.d}
 
-CNI_CONF_NAME_OVERRIDE=${CNI_CONF_NAME:-}
-
-# default to first file in `ls` output
-# if dir is empty, default to a filename that is not likely to be lexicographically first in the dir
-CNI_CONF_NAME=${CNI_CONF_NAME:-$(find_cni_conf_file)}
-CNI_CONF_NAME=${CNI_CONF_NAME:-YYY-istio-cni.conflist}
-KUBECFG_FILE_NAME=${KUBECFG_FILE_NAME:-ZZZ-istio-cni-kubeconfig}
-CFGCHECK_INTERVAL=${CFGCHECK_INTERVAL:-1}
-
 # Whether the Istio CNI plugin should be installed as a chained plugin (defaults to true) or as a standalone plugin (when false)
 CHAINED_CNI_PLUGIN=${CHAINED_CNI_PLUGIN:-true}
+
+# if user sets CNI_CONF_NAME, keep track of override
+CNI_CONF_NAME_OVERRIDE=${CNI_CONF_NAME:-}
+# else if a CNI config file exists, default to first CNI config file (will overwrite config)
+CNI_CONF_NAME=${CNI_CONF_NAME:-$(find_cni_conf_file)}
+
+if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
+  # chained CNI plugin
+  # waits until a main CNI plugin writes a CNI config file
+  while : ; do
+    if [ -z "${CNI_CONF_NAME}" ]; then
+      echo "CNI_CONF_NAME is null. Finding config file..."
+      CNI_CONF_NAME=$(find_cni_conf_file)
+    elif [ ! -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
+      if [ "${CNI_CONF_NAME: -5}" = ".conf" ] && [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}list" ]; then
+          echo "${CNI_CONF_NAME} doesn't exist, but ${CNI_CONF_NAME}list does; Using it instead."
+          CNI_CONF_NAME="${CNI_CONF_NAME}list"
+      else
+        echo "CNI config file ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME} does not exist. Waiting for file to be written..."
+      fi
+    else
+      echo "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME} exists."
+      break
+    fi
+    sleep 2
+  done
+else
+  # standalone CNI plugin
+  # if no existing CNI config file, default to a filename that is not likely to be lexicographically first
+  CNI_CONF_NAME=${CNI_CONF_NAME:-YYY-istio-cni.conflist}
+fi
+
+KUBECFG_FILE_NAME=${KUBECFG_FILE_NAME:-ZZZ-istio-cni-kubeconfig}
+CFGCHECK_INTERVAL=${CFGCHECK_INTERVAL:-1}
 
 trap exit_graceful SIGINT
 trap exit_graceful SIGTERM
@@ -270,11 +295,6 @@ cat "${TMP_CONF}"
 sed -e "s/__SERVICEACCOUNT_TOKEN__/${SERVICEACCOUNT_TOKEN:-}/g" -i "${TMP_CONF}"
 
 if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
-  if [ ! -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ] && [ "${CNI_CONF_NAME: -5}" = ".conf" ] && [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}list" ]; then
-      echo "${CNI_CONF_NAME} doesn't exist, but ${CNI_CONF_NAME}list does; Using it instead."
-      CNI_CONF_NAME="${CNI_CONF_NAME}list"
-  fi
-
   if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
       # This section overwrites an existing plugins list entry to for istio-cni
       CNI_TMP_CONF_DATA=$(cat "${TMP_CONF}")
