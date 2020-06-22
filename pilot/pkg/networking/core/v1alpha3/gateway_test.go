@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/proto"
 )
@@ -1121,9 +1122,9 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 	configStore.GatewaysReturns(gateways)
 	configStore.ListStub = func(kind resource.GroupVersionKind, namespace string) (configs []pilot_model.Config, e error) {
 		switch kind {
-		case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
+		case gvk.VirtualService:
 			return virtualServices, nil
-		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
+		case gvk.Gateway:
 			return gateways, nil
 		default:
 			return nil, nil

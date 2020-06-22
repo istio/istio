@@ -16,15 +16,15 @@ package v2
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // configKindAffectedProxyTypes contains known config types which will affect certain node types.
 var configKindAffectedProxyTypes = map[resource.GroupVersionKind][]model.NodeType{
-	collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():           {model.Router},
-	collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():        {model.SidecarProxy},
-	collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(): {model.SidecarProxy},
+	gvk.Gateway:          {model.Router},
+	gvk.QuotaSpec:        {model.SidecarProxy},
+	gvk.QuotaSpecBinding: {model.SidecarProxy},
 }
 
 // ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
@@ -73,7 +73,7 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 	if len(proxy.ServiceInstances) > 0 && pushEv.configsUpdated != nil {
 		svc := proxy.ServiceInstances[0].Service
 		if _, ok := pushEv.configsUpdated[model.ConfigKey{
-			Kind:      model.ServiceEntryKind,
+			Kind:      gvk.ServiceEntry,
 			Name:      string(svc.Hostname),
 			Namespace: svc.Attributes.Namespace,
 		}]; ok {
@@ -112,39 +112,39 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 	if proxy.Type == model.SidecarProxy {
 		for config := range pushEv.configsUpdated {
 			switch config.Kind {
-			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
+			case gvk.VirtualService:
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
+			case gvk.Gateway:
 				// Do not push
-			case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
+			case gvk.ServiceEntry:
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
+			case gvk.DestinationRule:
 				out[CDS] = true
 				out[EDS] = true
 				out[RDS] = true
-			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-				out[RDS] = true
-			case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
+			case gvk.EnvoyFilter:
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
-				collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
+			case gvk.Sidecar:
+				out[CDS] = true
+				out[EDS] = true
+				out[LDS] = true
+				out[RDS] = true
+			case gvk.QuotaSpec,
+				gvk.QuotaSpecBinding:
 				// LDS must be pushed, otherwise RDS is not reloaded
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
-				collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+			case gvk.AuthorizationPolicy,
+				gvk.RequestAuthentication:
 				out[LDS] = true
-			case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+			case gvk.PeerAuthentication:
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
@@ -162,33 +162,33 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 	} else {
 		for config := range pushEv.configsUpdated {
 			switch config.Kind {
-			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
+			case gvk.VirtualService:
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
+			case gvk.Gateway:
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
+			case gvk.ServiceEntry:
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
+			case gvk.DestinationRule:
 				out[CDS] = true
 				out[EDS] = true
-			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
+			case gvk.EnvoyFilter:
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
-				collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
-				collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
+			case gvk.Sidecar,
+				gvk.QuotaSpec,
+				gvk.QuotaSpecBinding:
 				// do not push for gateway
-			case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
-				collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+			case gvk.AuthorizationPolicy,
+				gvk.RequestAuthentication:
 				out[LDS] = true
-			case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+			case gvk.PeerAuthentication:
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true

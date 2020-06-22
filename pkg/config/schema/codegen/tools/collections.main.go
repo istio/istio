@@ -57,10 +57,20 @@ func main() {
 		os.Exit(-4)
 	}
 
-	contents, err := codegen.StaticCollections(pkg, m)
-	if err != nil {
-		fmt.Printf("Error applying static init template: %v", err)
-		os.Exit(-3)
+	var contents string
+
+	if pkg == "gvk" {
+		contents, err = codegen.WriteGvk(pkg, m)
+		if err != nil {
+			fmt.Printf("Error applying static init template: %v", err)
+			os.Exit(-3)
+		}
+	} else {
+		contents, err = codegen.StaticCollections(pkg, m)
+		if err != nil {
+			fmt.Printf("Error applying static init template: %v", err)
+			os.Exit(-3)
+		}
 	}
 
 	if err = ioutil.WriteFile(output, []byte(contents), os.ModePerm); err != nil {

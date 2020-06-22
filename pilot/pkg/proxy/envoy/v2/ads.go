@@ -35,6 +35,7 @@ import (
 
 	istiolog "istio.io/pkg/log"
 
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -654,7 +655,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
-		edsUpdatedServices := model.ConfigNamesOfKind(pushEv.configsUpdated, model.ServiceEntryKind)
+		edsUpdatedServices := model.ConfigNamesOfKind(pushEv.configsUpdated, gvk.ServiceEntry)
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 && len(edsUpdatedServices) > 0 {

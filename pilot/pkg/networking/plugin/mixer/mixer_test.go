@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -364,7 +365,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 	ns := "ns3"
 	l := &fakeStore{
 		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(): {
+			gvk.QuotaSpecBinding: {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Namespace: ns,
@@ -385,7 +386,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 					},
 				},
 			},
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {
+			gvk.QuotaSpec: {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count",
