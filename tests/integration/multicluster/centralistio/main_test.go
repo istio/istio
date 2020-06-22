@@ -37,7 +37,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("multicluster/centralistio", m).
+		NewSuite(m).
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
@@ -100,9 +100,9 @@ values:
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots)
+	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots, "installation.multicluster.central-istiod")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, clusterLocalNS, pilots)
+	multicluster.ClusterLocalTest(t, clusterLocalNS, pilots, "installation.multicluster.central-istiod")
 }

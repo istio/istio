@@ -78,15 +78,9 @@ func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersio
 // The revision is optional, and if provided, identifies the
 // last update operation on the object.
 type ConfigMeta struct {
-	// Type is a short configuration name that matches the content message type
+	// GroupVersionKind is a short configuration name that matches the content message type
 	// (e.g. "route-rule")
-	Type string `json:"type,omitempty"`
-
-	// Group is the API group of the config.
-	Group string `json:"group,omitempty"`
-
-	// Version is the API version of the Config.
-	Version string `json:"version,omitempty"`
+	GroupVersionKind resource.GroupVersionKind `json:"type,omitempty"`
 
 	// Name is a unique immutable identifier in a namespace
 	Name string `json:"name,omitempty"`
@@ -123,14 +117,6 @@ type ConfigMeta struct {
 
 	// CreationTimestamp records the creation time
 	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
-}
-
-func (c *Config) GroupVersionKind() resource.GroupVersionKind {
-	return resource.GroupVersionKind{
-		Group:   c.Group,
-		Version: c.Version,
-		Kind:    c.Type,
-	}
 }
 
 // Config is a configuration unit consisting of the type of configuration, the
@@ -213,8 +199,9 @@ func Key(typ, name, namespace string) string {
 }
 
 // Key is the unique identifier for a configuration object
+// TODO: this is *not* unique - needs the version and group
 func (meta *ConfigMeta) Key() string {
-	return Key(meta.Type, meta.Name, meta.Namespace)
+	return Key(meta.GroupVersionKind.Kind, meta.Name, meta.Namespace)
 }
 
 // ConfigStoreCache is a local fully-replicated cache of the config store.  The
@@ -230,7 +217,6 @@ func (meta *ConfigMeta) Key() string {
 // Handlers execute on the single worker queue in the order they are appended.
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be registered before starting the cache controller.
-//go:generate counterfeiter -o ../config/aggregate/fakes/config_store_cache.gen.go --fake-name ConfigStoreCache . ConfigStoreCache
 type ConfigStoreCache interface {
 	ConfigStore
 

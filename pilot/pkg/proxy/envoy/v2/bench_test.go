@@ -101,9 +101,7 @@ func createEndpoints(numEndpoints int, numServices int) []model.Config {
 		}
 		result = append(result, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
-				Group:             collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Group(),
-				Version:           collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
+				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 				Name:              fmt.Sprintf("foo-%d", s),
 				Namespace:         "default",
 				CreationTimestamp: time.Now(),
@@ -164,7 +162,7 @@ func buildTestEnv(t test.Failer, cfg []model.Config, input ConfigInput) model.En
 	}
 	serviceDiscovery := mock.NewDiscovery(svcs, 1)
 
-	configStore := model.NewFakeStore()
+	configStore := memory.Make(collections.Pilot)
 	for _, cfg := range cfg {
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Fatalf("failed to create config %v: %v", cfg.Name, err)

@@ -191,7 +191,7 @@ func TestListAllNameSpace(t *testing.T) {
 	g.Expect(len(c)).To(Equal(3))
 
 	for _, conf := range c {
-		g.Expect(conf.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(conf.GroupVersionKind).To(Equal(gatewayGvk))
 		if conf.Name == "some-gateway1" {
 			g.Expect(conf.Spec).To(Equal(message))
 			g.Expect(conf.Namespace).To(Equal("namespace1"))
@@ -230,7 +230,7 @@ func TestListSpecificNameSpace(t *testing.T) {
 	g.Expect(len(c)).To(Equal(2))
 
 	for _, conf := range c {
-		g.Expect(conf.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(conf.GroupVersionKind).To(Equal(gatewayGvk))
 		g.Expect(conf.Namespace).To(Equal("namespace1"))
 		if conf.Name == "some-gateway1" {
 			g.Expect(conf.Spec).To(Equal(message))
@@ -294,7 +294,7 @@ func TestApplyValidTypeWithNoNamespace(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(c)).To(Equal(1))
 		g.Expect(c[0].Name).To(Equal("some-gateway"))
-		g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(c[0].GroupVersionKind).To(Equal(gatewayGvk))
 		g.Expect(c[0].Spec).To(Equal(message))
 		g.Expect(c[0].Spec).To(ContainSubstring(fmt.Sprintf("number:%d", port)))
 	}
@@ -322,7 +322,7 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind).To(Equal(gatewayGvk))
 	g.Expect(c[0].Spec).To(Equal(message))
 }
 
@@ -346,7 +346,7 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind).To(Equal(gatewayGvk))
 	g.Expect(c[0].Spec).To(Equal(message))
 }
 
@@ -372,7 +372,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind).To(Equal(gatewayGvk))
 	g.Expect(c[0].Spec).To(Equal(message))
 
 	change = convertToChange([]proto.Message{},
@@ -501,9 +501,7 @@ func TestEventHandler(t *testing.T) {
 	makeServiceEntryModel := func(name, host, version string) model.Config {
 		return model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:              serviceEntryGvk.Kind,
-				Group:             serviceEntryGvk.Group,
-				Version:           serviceEntryGvk.Version,
+				GroupVersionKind:  serviceEntryGvk,
 				Name:              name,
 				Namespace:         "default",
 				Domain:            "cluster.local",
@@ -786,7 +784,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	g.Expect(update).To(Equal("ConfigUpdate"))
 
 	for _, gw := range entries {
-		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(gw.GroupVersionKind).To(Equal(gatewayGvk))
 		switch gw.Name {
 		case "test-gateway":
 			g.Expect(gw.Spec).To(Equal(message))
@@ -856,7 +854,7 @@ func TestApplyIncrementalChange(t *testing.T) {
 	g.Expect(entries).To(HaveLen(2))
 
 	for _, gw := range entries {
-		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(gw.GroupVersionKind).To(Equal(gatewayGvk))
 		switch gw.Name {
 		case "test-gateway":
 			g.Expect(gw.Spec).To(Equal(message))

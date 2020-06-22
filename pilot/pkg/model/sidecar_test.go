@@ -611,10 +611,10 @@ var (
 
 	virtualServices1 = []Config{
 		{
-			ConfigMeta: ConfigMeta{Type: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-				Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-				Name:      "virtualbar",
-				Namespace: "foo",
+			ConfigMeta: ConfigMeta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "virtualbar",
+				Namespace:        "foo",
 			},
 			Spec: &networking.VirtualService{
 				Hosts: []string{"virtualbar"},

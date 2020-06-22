@@ -239,13 +239,13 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 					continue
 				}
 				var selector labels.Instance
-				switch cfg.Type {
-				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind():
-					selector = labels.Instance(cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels())
-				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind():
-					selector = labels.Instance(cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels())
+				switch cfg.GroupVersionKind {
+				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+					selector = cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
+				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
 				default:
-					log.Warnf("Not support authentication type %q", cfg.Type)
+					log.Warnf("Not support authentication type %q", cfg.GroupVersionKind)
 					continue
 				}
 				if workloadLabels.IsSupersetOf(selector) {
