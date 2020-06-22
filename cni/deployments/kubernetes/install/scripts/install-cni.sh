@@ -38,11 +38,11 @@ function rm_bin_files() {
   echo "Removing existing binaries"
   rm -f /host/opt/cni/bin/istio-cni /host/opt/cni/bin/istio-iptables
 }
+
 # find_cni_conf_file
 #   Finds the CNI config file in the mounted CNI config dir.
 #   - Follows the same semantics as kubelet
 #     https://github.com/kubernetes/kubernetes/blob/954996e231074dc7429f7be1256a579bedd8344c/pkg/kubelet/dockershim/network/cni/cni.go#L144-L184
-#
 function find_cni_conf_file() {
     cni_cfg=
     for cfgf in "${MOUNTED_CNI_NET_DIR}"/*; do
@@ -73,9 +73,9 @@ function check_install() {
     if [ -n "${CNI_CONF_NAME_OVERRIDE}" ]; then
        # Install was run with overridden cni config file so don't error out on the preempt check.
        # Likely the only use for this is testing this script.
-       echo "WARNING: Configured CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" preempted by \"$cfgfile_nm\"."
+       echo "WARNING: Configured CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" preempted by \"${cfgfile_nm}\"."
     else
-       echo "ERROR: CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" preempted by \"$cfgfile_nm\"."
+       echo "ERROR: CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" preempted by \"${cfgfile_nm}\"."
        exit 1
     fi
   fi
@@ -172,37 +172,37 @@ trap cleanup EXIT
 
 # Choose which default cni binaries should be copied
 SKIP_CNI_BINARIES=${SKIP_CNI_BINARIES:-""}
-SKIP_CNI_BINARIES=",$SKIP_CNI_BINARIES,"
+SKIP_CNI_BINARIES=",${SKIP_CNI_BINARIES},"
 UPDATE_CNI_BINARIES=${UPDATE_CNI_BINARIES:-"true"}
 
 # Place the new binaries if the directory is writable.
 for dir in /host/opt/cni/bin /host/secondary-bin-dir
 do
-  if [ ! -w "$dir" ];
+  if [ ! -w "${dir}" ];
   then
-    echo "$dir is non-writable, skipping"
+    echo "${dir} is non-writable, skipping"
     continue
   fi
   for path in /opt/cni/bin/*;
   do
-    filename=$(basename "$path")
-    tmp=",$filename,"
-    if [ "${SKIP_CNI_BINARIES#*$tmp}" != "$SKIP_CNI_BINARIES" ];
+    filename=$(basename "${path}")
+    tmp=",${filename},"
+    if [ "${SKIP_CNI_BINARIES#*$tmp}" != "${SKIP_CNI_BINARIES}" ];
     then
-      echo "$filename is in SKIP_CNI_BINARIES, skipping"
+      echo "${filename} is in SKIP_CNI_BINARIES, skipping"
       continue
     fi
-    if [ "${UPDATE_CNI_BINARIES}" != "true" ] && [ -f "$dir/$filename" ];
+    if [ "${UPDATE_CNI_BINARIES}" != "true" ] && [ -f "${dir}/${filename}" ];
     then
-      echo "$dir/$filename is already here and UPDATE_CNI_BINARIES isn't true, skipping"
+      echo "${dir}/${filename} is already here and UPDATE_CNI_BINARIES isn't true, skipping"
       continue
     fi
     # Copy files atomically by first copying into the same directory then renaming.
     # shellcheck disable=SC2015
-    cp "${path}" "${dir}/${filename}.tmp" && mv "${dir}/${filename}.tmp" "${dir}/${filename}" || exit_with_error "Failed to copy $path into $dir. This may be caused by selinux configuration on the host."
+    cp "${path}" "${dir}/${filename}.tmp" && mv "${dir}/${filename}.tmp" "${dir}/${filename}" || exit_with_error "Failed to copy ${path} into ${dir}. This may be caused by selinux configuration on the host."
   done
 
-  echo "Wrote Istio CNI binaries to $dir."
+  echo "Wrote Istio CNI binaries to ${dir}."
 done
 
 # Create a temp file in the same directory as the target, in order for the final rename to be atomic.
@@ -221,15 +221,15 @@ ${CNI_NETWORK_CONFIG}
 EOF
 fi
 
-
+# Set variables for writing kubeconfig file for the CNI plugin
 SERVICE_ACCOUNT_PATH=/var/run/secrets/kubernetes.io/serviceaccount
-KUBE_CA_FILE=${KUBE_CA_FILE:-$SERVICE_ACCOUNT_PATH/ca.crt}
+KUBE_CA_FILE=${KUBE_CA_FILE:-${SERVICE_ACCOUNT_PATH}/ca.crt}
 SKIP_TLS_VERIFY=${SKIP_TLS_VERIFY:-false}
 # Pull out service account token.
-SERVICEACCOUNT_TOKEN=$(cat "$SERVICE_ACCOUNT_PATH/token")
+SERVICEACCOUNT_TOKEN=$(cat "${SERVICE_ACCOUNT_PATH}/token")
 
 # Check if we're running as a k8s pod.
-if [ -f "$SERVICE_ACCOUNT_PATH/token" ]; then
+if [ -f "${SERVICE_ACCOUNT_PATH}/token" ]; then
   # We're running as a k8d pod - expect some variables.
   if [ -z "${KUBERNETES_SERVICE_HOST}" ]; then
     echo "KUBERNETES_SERVICE_HOST not set"; exit 1;
@@ -238,10 +238,10 @@ if [ -f "$SERVICE_ACCOUNT_PATH/token" ]; then
     echo "KUBERNETES_SERVICE_PORT not set"; exit 1;
   fi
 
-  if [ "$SKIP_TLS_VERIFY" = "true" ]; then
+  if [ "${SKIP_TLS_VERIFY}" = "true" ]; then
     TLS_CFG="insecure-skip-tls-verify: true"
-  elif [ -f "$KUBE_CA_FILE" ]; then
-    TLS_CFG="certificate-authority-data: "$(base64 < "$KUBE_CA_FILE" | tr -d '\n')
+  elif [ -f "${KUBE_CA_FILE}" ]; then
+    TLS_CFG="certificate-authority-data: "$(base64 < "${KUBE_CA_FILE}" | tr -d '\n')
   fi
 
   # Write a kubeconfig file for the CNI plugin.  Do this
