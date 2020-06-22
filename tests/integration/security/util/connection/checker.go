@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -32,12 +33,15 @@ type Checker struct {
 
 // Check whether the target endpoint is reachable from the source.
 func (c *Checker) Check() error {
+	scopes.Framework.Infof("starting call from %s to %s:%s using %s", c.From.Config().Service, c.Options.Target.Config().Service, c.Options.PortName, c.Options.Scheme,)
 	results, err := c.From.Call(c.Options)
 	if c.ExpectSuccess {
 		if err == nil {
 			err = results.CheckOK()
 		}
 		if err != nil {
+			scopes.Framework.Errorf("%s to %s:%s using %s: expected success but failed: %v",
+				c.From.Config().Service, c.Options.Target.Config().Service, c.Options.PortName, c.Options.Scheme, err)
 			return fmt.Errorf("%s to %s:%s using %s: expected success but failed: %v",
 				c.From.Config().Service, c.Options.Target.Config().Service, c.Options.PortName, c.Options.Scheme, err)
 		}
@@ -46,6 +50,8 @@ func (c *Checker) Check() error {
 
 	// Expect failure...
 	if err == nil && results.CheckOK() == nil {
+		scopes.Framework.Errorf("%s to %s:%s using %s: expected failed, actually success",
+			c.From.Config().Service, c.Options.Target.Config().Service, c.Options.PortName, c.Options.Scheme)
 		return fmt.Errorf("%s to %s:%s using %s: expected failed, actually success",
 			c.From.Config().Service, c.Options.Target.Config().Service, c.Options.PortName, c.Options.Scheme)
 	}

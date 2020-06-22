@@ -128,74 +128,76 @@ func (rc *Context) Run(testCases []TestCase) {
 		},
 	}
 
-	for _, c := range testCases {
-		// Create a copy to avoid races, as tests are run in parallel
-		c := c
-		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
-		test := rc.ctx.NewSubTest(testName)
+	for i := 0; i < 2; i++ {
+		for _, c := range testCases {
+			// Create a copy to avoid races, as tests are run in parallel
+			c := c
+			testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
+			test := rc.ctx.NewSubTest(fmt.Sprintf("%s-%d", testName, i))
 
-		test.Run(func(ctx framework.TestContext) {
-			// Apply the policy.
-			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
-			retry.UntilSuccessOrFail(ctx, func() error {
-				ctx.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
-				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return rc.ctx.ApplyConfig(c.Namespace.Name(), policyYAML)
-			})
-			ctx.WhenDone(func() error {
-				return rc.ctx.DeleteConfig(c.Namespace.Name(), policyYAML)
-			})
+			test.Run(func(ctx framework.TestContext) {
+				// Apply the policy.
+				policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
+				retry.UntilSuccessOrFail(ctx, func() error {
+					ctx.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
+					// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
+					return rc.ctx.ApplyConfig(c.Namespace.Name(), policyYAML)
+				})
+				ctx.WhenDone(func() error {
+					return rc.ctx.DeleteConfig(c.Namespace.Name(), policyYAML)
+				})
 
-			// Give some time for the policy propagate.
-			// TODO: query pilot or app to know instead of sleep.
-			ctx.Logf("[%s] [%v] Wait for config propagate to endpoints...", testName, time.Now())
-			time.Sleep(10 * time.Second)
-			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
+				// Give some time for the policy propagate.
+				// TODO: query pilot or app to know instead of sleep.
+				ctx.Logf("[%s] [%v] Wait for config propagate to endpoints...", testName, time.Now())
+				time.Sleep(10 * time.Second)
+				ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
 
-			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
-				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked} {
-					copts := &callOptions
-					// If test case specified service call options, use that instead.
-					if c.CallOpts != nil {
-						copts = &c.CallOpts
-					}
-					for _, opts := range *copts {
-						// Copy the loop variables so they won't change for the subtests.
-						src := src
-						dest := dest
-						opts := opts
-						onPreRun := c.OnRun
+				for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
+					for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked} {
+						copts := &callOptions
+						// If test case specified service call options, use that instead.
+						if c.CallOpts != nil {
+							copts = &c.CallOpts
+						}
+						for _, opts := range *copts {
+							// Copy the loop variables so they won't change for the subtests.
+							src := src
+							dest := dest
+							opts := opts
+							onPreRun := c.OnRun
 
-						// Set the target on the call options.
-						opts.Target = dest
+							// Set the target on the call options.
+							opts.Target = dest
 
-						if c.Include(src, opts) {
-							expectSuccess := c.ExpectSuccess(src, opts)
+							if c.Include(src, opts) {
+								expectSuccess := c.ExpectSuccess(src, opts)
 
-							subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
-								src.Config().Service,
-								opts.Scheme,
-								dest.Config().Service,
-								opts.PortName,
-								opts.Path)
+								subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
+									src.Config().Service,
+									opts.Scheme,
+									dest.Config().Service,
+									opts.PortName,
+									opts.Path)
 
-							ctx.NewSubTest(subTestName).
-								RunParallel(func(ctx framework.TestContext) {
-									if onPreRun != nil {
-										onPreRun(ctx, src, opts)
-									}
+								ctx.NewSubTest(subTestName).
+									RunParallel(func(ctx framework.TestContext) {
+										if onPreRun != nil {
+											onPreRun(ctx, src, opts)
+										}
 
-									checker := connection.Checker{
-										From:          src,
-										Options:       opts,
-										ExpectSuccess: expectSuccess,
-									}
-									checker.CheckOrFail(ctx)
-								})
+										checker := connection.Checker{
+											From:          src,
+											Options:       opts,
+											ExpectSuccess: expectSuccess,
+										}
+										checker.CheckOrFail(ctx)
+									})
+							}
 						}
 					}
 				}
-			}
-		})
+			})
+		}
 	}
 }
