@@ -371,6 +371,36 @@ func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
 }
 
+// BootstrapNodeMetadata is a superset of NodeMetadata, intended to model the entirety of the node metadata
+// we configure in the Envoy bootstrap. This is split out from NodeMetadata to explicitly segment the parameters
+// that are consumed by Pilot from the parameters used only as part of the bootstrap. Fields used by bootstrap only
+// are consumed by Envoy itself, such as the telemetry filters.
+type BootstrapNodeMetadata struct {
+	NodeMetadata
+
+	// ExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
+	ExchangeKeys StringList `json:"EXCHANGE_KEYS,omitempty"`
+
+	// InstanceName is the short name for the workload instance (ex: pod name)
+	// replaces POD_NAME
+	InstanceName string `json:"NAME,omitempty"`
+
+	// WorkloadName specifies the name of the workload represented by this node.
+	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
+
+	// Owner specifies the workload owner (opaque string). Typically, this is the owning controller of
+	// of the workload instance (ex: k8s deployment for a k8s pod).
+	Owner string `json:"OWNER,omitempty"`
+
+	// PlatformMetadata contains any platform specific metadata
+	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
+
+	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
+	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
+	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
+	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
+}
+
 // NodeMetadata defines the metadata associated with a proxy
 // Fields should not be assumed to exist on the proxy, especially newly added fields which will not exist
 // on older versions.
@@ -420,23 +450,6 @@ type NodeMetadata struct {
 	// RequestedNetworkView specifies the networks that the proxy wants to see
 	RequestedNetworkView StringList `json:"REQUESTED_NETWORK_VIEW,omitempty"`
 
-	// ExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
-	ExchangeKeys StringList `json:"EXCHANGE_KEYS,omitempty"`
-
-	// PlatformMetadata contains any platform specific metadata
-	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
-
-	// InstanceName is the short name for the workload instance (ex: pod name)
-	// replaces POD_NAME
-	InstanceName string `json:"NAME,omitempty"`
-
-	// WorkloadName specifies the name of the workload represented by this node.
-	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
-
-	// Owner specifies the workload owner (opaque string). Typically, this is the owning controller of
-	// of the workload instance (ex: k8s deployment for a k8s pod).
-	Owner string `json:"OWNER,omitempty"`
-
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
 
@@ -444,11 +457,6 @@ type NodeMetadata struct {
 	PolicyCheckRetries           string `json:"policy.istio.io/checkRetries,omitempty"`
 	PolicyCheckBaseRetryWaitTime string `json:"policy.istio.io/checkBaseRetryWaitTime,omitempty"`
 	PolicyCheckMaxRetryWaitTime  string `json:"policy.istio.io/checkMaxRetryWaitTime,omitempty"`
-
-	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
-	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
-	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
-	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
 
 	// TLSServerCertChain is the absolute path to server cert-chain file
 	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
@@ -498,11 +506,11 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 	return def
 }
 
-func (m *NodeMetadata) UnmarshalJSON(data []byte) error {
+func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
 	// Create a new type from the target type to avoid recursion.
-	type NodeMetadata2 NodeMetadata
+	type BootstrapNodeMetadata2 BootstrapNodeMetadata
 
-	t2 := &NodeMetadata2{}
+	t2 := &BootstrapNodeMetadata2{}
 	if err := json.Unmarshal(data, t2); err != nil {
 		return err
 	}
@@ -510,7 +518,7 @@ func (m *NodeMetadata) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	*m = NodeMetadata(*t2)
+	*m = BootstrapNodeMetadata(*t2)
 	m.Raw = raw
 
 	return nil
@@ -774,11 +782,11 @@ func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
 	if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, metadata); err != nil {
 		return nil, fmt.Errorf("failed to read node metadata %v: %v", metadata, err)
 	}
-	meta := &NodeMetadata{}
+	meta := &BootstrapNodeMetadata{}
 	if err := json.Unmarshal(buf.Bytes(), meta); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal node metadata (%v): %v", buf.String(), err)
 	}
-	return meta, nil
+	return &meta.NodeMetadata, nil
 }
 
 // ParseServiceNodeWithMetadata parse the Envoy Node from the string generated by ServiceNode

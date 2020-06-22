@@ -64,6 +64,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -705,7 +706,7 @@ func (s *Server) initRegistryEventHandlers() error {
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      model.ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
@@ -724,7 +725,7 @@ func (s *Server) initRegistryEventHandlers() error {
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      model.ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(si.Service.Hostname),
 				Namespace: si.Service.Attributes.Namespace,
 			}: {}},
@@ -747,7 +748,7 @@ func (s *Server) initRegistryEventHandlers() error {
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
-					Kind:      curr.GroupVersionKind(),
+					Kind:      curr.GroupVersionKind,
 					Name:      curr.Name,
 					Namespace: curr.Namespace,
 				}: {}},

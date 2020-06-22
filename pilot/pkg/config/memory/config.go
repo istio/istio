@@ -149,7 +149,7 @@ func (cr *store) Delete(kind resource.GroupVersionKind, name, namespace string) 
 }
 
 func (cr *store) Create(config model.Config) (string, error) {
-	kind := config.GroupVersionKind()
+	kind := config.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
 		return "", errors.New("unknown type")
@@ -174,7 +174,7 @@ func (cr *store) Create(config model.Config) (string, error) {
 			config.CreationTimestamp = tnow
 		}
 
-		_, err := cr.ledger.Put(model.Key(kind.Kind, config.Namespace, config.Name), config.Version)
+		_, err := cr.ledger.Put(model.Key(kind.Kind, config.Namespace, config.Name), config.ResourceVersion)
 		if err != nil {
 			log.Warnf(ledgerLogf, err)
 		}
@@ -185,7 +185,7 @@ func (cr *store) Create(config model.Config) (string, error) {
 }
 
 func (cr *store) Update(config model.Config) (string, error) {
-	kind := config.GroupVersionKind()
+	kind := config.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
 		return "", errors.New("unknown type")
@@ -206,7 +206,7 @@ func (cr *store) Update(config model.Config) (string, error) {
 
 	rev := time.Now().String()
 	config.ResourceVersion = rev
-	_, err := cr.ledger.Put(model.Key(kind.Kind, config.Namespace, config.Name), config.Version)
+	_, err := cr.ledger.Put(model.Key(kind.Kind, config.Namespace, config.Name), config.ResourceVersion)
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}

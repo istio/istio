@@ -86,6 +86,10 @@ var testGrid = []testCase{
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
 			{msg.Deprecated, "VirtualService productpage.foo"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
 		},
 	},
 	{

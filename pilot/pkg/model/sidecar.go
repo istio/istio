@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 
 	"istio.io/istio/pkg/config/constants"
@@ -33,9 +34,9 @@ const (
 )
 
 var sidecarScopeKnownConfigTypes = map[resource.GroupVersionKind]struct{}{
-	ServiceEntryKind:    {},
-	VirtualServiceKind:  {},
-	DestinationRuleKind: {},
+	gvk.ServiceEntry:    {},
+	gvk.VirtualService:  {},
+	gvk.DestinationRule: {},
 }
 
 // SidecarScope is a wrapper over the Sidecar resource with some
@@ -167,7 +168,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			out.destinationRules[s.Hostname] = dr
 		}
 		out.AddConfigDependencies(ConfigKey{
-			Kind:      ServiceEntryKind,
+			Kind:      gvk.ServiceEntry,
 			Name:      string(s.Hostname),
 			Namespace: s.Attributes.Namespace,
 		})
@@ -175,7 +176,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 
 	for _, dr := range out.destinationRules {
 		out.AddConfigDependencies(ConfigKey{
-			Kind:      DestinationRuleKind,
+			Kind:      gvk.DestinationRule,
 			Name:      dr.Name,
 			Namespace: dr.Namespace,
 		})
@@ -184,7 +185,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	for _, el := range out.EgressListeners {
 		for _, vs := range el.virtualServices {
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      VirtualServiceKind,
+				Kind:      gvk.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
 			})
@@ -232,7 +233,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		if foundSvc, found := servicesAdded[s.Hostname]; !found {
 			servicesAdded[s.Hostname] = s
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(s.Hostname),
 				Namespace: s.Attributes.Namespace,
 			})
@@ -269,7 +270,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		for _, vs := range listener.virtualServices {
 			v := vs.Spec.(*networking.VirtualService)
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      VirtualServiceKind,
+				Kind:      gvk.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
 			})
@@ -313,7 +314,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		if dr != nil {
 			out.destinationRules[s.Hostname] = dr
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      DestinationRuleKind,
+				Kind:      gvk.DestinationRule,
 				Name:      dr.Name,
 				Namespace: dr.Namespace,
 			})

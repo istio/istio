@@ -220,7 +220,7 @@ var (
 	}
 )
 
-func getStatsOptions(meta *model.NodeMetadata, nodeIPs []string, config *meshAPI.ProxyConfig) []option.Instance {
+func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config *meshAPI.ProxyConfig) []option.Instance {
 	parseOption := func(metaOption string, required string) []string {
 		var inclusionOption []string
 		if len(metaOption) > 0 {
@@ -269,7 +269,7 @@ func lightstepAccessTokenFile(config string) string {
 	return path.Join(config, lightstepAccessTokenBase)
 }
 
-func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interface{},
+func getNodeMetadataOptions(meta *model.BootstrapNodeMetadata, rawMeta map[string]interface{},
 	platEnv platform.Environment, config *meshAPI.ProxyConfig) []option.Instance {
 	// Add locality options.
 	opts := getLocalityOptions(meta, platEnv)
@@ -280,7 +280,7 @@ func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interfa
 	return opts
 }
 
-func getLocalityOptions(meta *model.NodeMetadata, platEnv platform.Environment) []option.Instance {
+func getLocalityOptions(meta *model.BootstrapNodeMetadata, platEnv platform.Environment) []option.Instance {
 	var l *core.Locality
 	if meta.Labels[model.LocalityLabel] == "" {
 		l = platEnv.Locality()
@@ -293,7 +293,7 @@ func getLocalityOptions(meta *model.NodeMetadata, platEnv platform.Environment) 
 	return []option.Instance{option.Region(l.Region), option.Zone(l.Zone), option.SubZone(l.SubZone)}
 }
 
-func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.NodeMetadata) ([]option.Instance, error) {
+func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {
 	// Add a few misc options.
 	opts := make([]option.Instance, 0)
 
@@ -431,7 +431,7 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 	return
 }
 
-func extractAttributesMetadata(envVars []string, plat platform.Environment, meta *model.NodeMetadata) {
+func extractAttributesMetadata(envVars []string, plat platform.Environment, meta *model.BootstrapNodeMetadata) {
 	var additionalMetaExchangeKeys []string
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
@@ -470,8 +470,8 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
 func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string, stsPort int,
-	pc *meshAPI.ProxyConfig) (*model.NodeMetadata, map[string]interface{}, error) {
-	meta := &model.NodeMetadata{}
+	pc *meshAPI.ProxyConfig) (*model.BootstrapNodeMetadata, map[string]interface{}, error) {
+	meta := &model.BootstrapNodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
 	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
@@ -489,7 +489,8 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := meta.UnmarshalJSON(j); err != nil {
+
+	if err := json.Unmarshal(j, meta); err != nil {
 		return nil, nil, err
 	}
 	extractAttributesMetadata(envs, plat, meta)
