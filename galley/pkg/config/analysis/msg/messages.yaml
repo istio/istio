@@ -297,12 +297,3 @@ messages:
     args:
       - name: labels
         type: string
-
-  - name: "NoHostFound"
-    code: IST0128
-    level: Warning
-    description: "The host specified in this resource doesn't match with any existing service o service entry"
-    template: "No matching services or service entries for the following host in this resource: %s"
-    args:
-      - name: host
-        type: string

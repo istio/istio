@@ -307,8 +307,8 @@ var testGrid = []testCase{
 			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-nopods.httpbin"},
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
-			{msg.NoHostFound, "AuthorizationPolicy httpbin-bogus-svc.httpbin"},
-			{msg.NoHostFound, "AuthorizationPolicy httpbin-bogus-se.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
 		},
 	},
 }
