@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/test/util"
+
 	"k8s.io/client-go/kubernetes/fake"
 )
 

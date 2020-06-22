@@ -31,10 +31,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 
 	coreV1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -135,7 +133,7 @@ func readConfig(t *testing.T, filename string) ([]runtime.Object, error) {
 
 func TestConversion(t *testing.T) {
 	ingress := v1beta1.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metaV1.ObjectMeta{
 			Namespace: "mock", // goes into backend full name
 		},
 		Spec: v1beta1.IngressSpec{
@@ -192,7 +190,7 @@ func TestConversion(t *testing.T) {
 		},
 	}
 	ingress2 := v1beta1.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metaV1.ObjectMeta{
 			Namespace: "mock",
 		},
 		Spec: v1beta1.IngressSpec{
@@ -288,7 +286,7 @@ func TestEncoding(t *testing.T) {
 func TestIngressClass(t *testing.T) {
 	istio := mesh.DefaultMeshConfig().IngressClass
 	ingressClassIstio := &v1beta1.IngressClass{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metaV1.ObjectMeta{
 			Name: "istio",
 		},
 		Spec: v1beta1.IngressClassSpec{
@@ -296,7 +294,7 @@ func TestIngressClass(t *testing.T) {
 		},
 	}
 	ingressClassOther := &v1beta1.IngressClass{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metaV1.ObjectMeta{
 			Name: "foo",
 		},
 		Spec: v1beta1.IngressClassSpec{
@@ -339,7 +337,7 @@ func TestIngressClass(t *testing.T) {
 		}
 		t.Run(fmt.Sprintf("%d %s %s %s", i, c.ingressMode, c.annotation, className), func(t *testing.T) {
 			ing := v1beta1.Ingress{
-				ObjectMeta: meta_v1.ObjectMeta{
+				ObjectMeta: metaV1.ObjectMeta{
 					Name:        "test-ingress",
 					Namespace:   "default",
 					Annotations: make(map[string]string),
@@ -369,7 +367,7 @@ func TestIngressClass(t *testing.T) {
 
 func TestNamedPortIngressConversion(t *testing.T) {
 	ingress := v1beta1.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metaV1.ObjectMeta{
 			Namespace: "mock",
 		},
 		Spec: v1beta1.IngressSpec{
@@ -394,7 +392,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 		},
 	}
 	service := &coreV1.Service{
-		ObjectMeta: metav1.ObjectMeta{
+		ObjectMeta: metaV1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "mock",
 		},
@@ -416,17 +414,17 @@ func TestNamedPortIngressConversion(t *testing.T) {
 		},
 	}
 	pod := &coreV1.Pod{
-		TypeMeta: metav1.TypeMeta{
+		TypeMeta: metaV1.TypeMeta{
 			Kind:       "Pod",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
+		ObjectMeta: metaV1.ObjectMeta{
 			Name:      "test-app-pod",
 			Namespace: "test-ns",
 			Labels:    map[string]string{"app": "test-app"},
 		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
+		Spec: coreV1.PodSpec{
+			Containers: []coreV1.Container{
 				{
 					Name: "app-container",
 					Ports: []coreV1.ContainerPort{
