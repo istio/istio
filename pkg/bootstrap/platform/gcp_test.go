@@ -209,7 +209,7 @@ func TestGCPMetadata(t *testing.T) {
 			for e, v := range tt.env {
 				os.Setenv(e, v)
 			}
-			once = sync.Once{}
+			envOnce = sync.Once{}
 			mg := gcpEnv{tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn,
 				tt.instanceTemplateFn, tt.instanceCreatedByFn}
 			got := mg.Metadata()

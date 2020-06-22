@@ -16,8 +16,6 @@ package platform
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-
-	"istio.io/istio/pilot/pkg/model"
 )
 
 // Environment provides information for the platform on which the bootstrapping
@@ -35,10 +33,10 @@ type Environment interface {
 
 	// Labels returns a collection of labels that exist on the underlying
 	// instance, structured as a map for label name to values.
-	Labels(meta *model.NodeMetadata) map[string]string
+	Labels() map[string]string
 
 	// IsKubernetes determines if running on Kubernetes
-	IsKubernetes(meta *model.NodeMetadata) bool
+	IsKubernetes() bool
 }
 
 // Unknown provides a default platform environment for cases in which the platform
@@ -56,11 +54,11 @@ func (*Unknown) Locality() *core.Locality {
 }
 
 // Labels returns an empty map.
-func (*Unknown) Labels(meta *model.NodeMetadata) map[string]string {
+func (*Unknown) Labels() map[string]string {
 	return map[string]string{}
 }
 
 // IsKubernetes is true to avoid label collisions
-func (*Unknown) IsKubernetes(meta *model.NodeMetadata) bool {
+func (*Unknown) IsKubernetes() bool {
 	return true
 }

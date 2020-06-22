@@ -28,7 +28,6 @@ import (
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/option"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -174,7 +173,7 @@ func (e *gcpEnv) Metadata() map[string]string {
 }
 
 var (
-	once        sync.Once
+	envOnce     sync.Once
 	envPid      string
 	envNpid     string
 	envCluster  string
@@ -182,7 +181,7 @@ var (
 )
 
 func parseGCPMetadata() (pid, npid, cluster, location string) {
-	once.Do(func() {
+	envOnce.Do(func() {
 		gcpmd := gcpMetadataVar.Get()
 		if len(gcpmd) > 0 {
 			log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
@@ -230,9 +229,28 @@ func (e *gcpEnv) Locality() *core.Locality {
 	return &l
 }
 
-// Labels attempts to retrieve the GCE instance labels from provided metadata within the timeout
+var (
+	mdOnce   sync.Once
+	project  string
+	zone     string
+	instance string
+	cluster  string
+)
+
+// Retrieves needed metadata strictly from the Google Compute API
+func getMetadataAttributes(e *gcpEnv) {
+	mdOnce.Do(func() {
+		project, _ = e.projectIDFn()
+		zone, _ = e.locationFn()
+		instance, _ = e.instanceNameFn()
+		cluster, _ = e.clusterNameFn()
+	})
+}
+
+// Labels attempts to retrieve the GCE instance labels within the timeout
 // Requires read access to the Compute API (compute.instances.get)
-func (e *gcpEnv) Labels(meta *model.NodeMetadata) map[string]string {
+func (e *gcpEnv) Labels() map[string]string {
+	getMetadataAttributes(e)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
@@ -240,8 +258,6 @@ func (e *gcpEnv) Labels(meta *model.NodeMetadata) map[string]string {
 	labels := map[string]string{}
 	var instanceLabels map[string]string
 	go func() {
-		md := meta.PlatformMetadata
-		project, zone, instance := md[GCPProject], md[GCPLocation], md[GCEInstance]
 		// use explicit credentials with compute.instances.get IAM permissions
 		creds, err := google.FindDefaultCredentials(ctx, compute.CloudPlatformScope)
 		if err != nil {
@@ -279,8 +295,8 @@ func (e *gcpEnv) Labels(meta *model.NodeMetadata) map[string]string {
 const KubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
 
 // Checks metadata to see if GKE metadata or Kubernetes env vars exist
-func (e *gcpEnv) IsKubernetes(meta *model.NodeMetadata) bool {
-	_, onGKE := meta.PlatformMetadata[GCPCluster]
+func (e *gcpEnv) IsKubernetes() bool {
+	getMetadataAttributes(e)
 	_, onKubernetes := os.LookupEnv(KubernetesServiceHost)
-	return onGKE || onKubernetes
+	return cluster != "" || onKubernetes
 }
