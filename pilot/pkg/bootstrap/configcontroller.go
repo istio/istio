@@ -322,16 +322,17 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 }
 
 func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
-	s.statusReporter = &status.Reporter{
-		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
-		PodName:        args.PodName,
-	}
-	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-		s.statusReporter.Start(s.kubeClient, args.Namespace, s.configController, writeStatus, stop)
-		return nil
-	})
-	s.EnvoyXdsServer.StatusReporter = s.statusReporter
 	if writeStatus {
+		s.statusReporter = &status.Reporter{
+			UpdateInterval: time.Millisecond * 500, // TODO: use args here?
+			PodName:        args.PodName,
+		}
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			s.statusReporter.Start(s.kubeClient, args.Namespace, s.configController, writeStatus, stop)
+			return nil
+		})
+		s.EnvoyXdsServer.StatusReporter = s.statusReporter
+
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
