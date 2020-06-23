@@ -35,7 +35,13 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
-		Setup(istio.Setup(&i, nil)).
+		Setup(istio.Setup(&i, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  global:
+    meshExpansion:
+      enabled: true`
+		})).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err

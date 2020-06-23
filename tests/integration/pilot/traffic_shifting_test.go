@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -66,57 +68,106 @@ type VirtualServiceConfig struct {
 	Weight2   int32
 }
 
+// Test case for regular echo instances
 func TestTrafficShifting(t *testing.T) {
+	trafficShifting(t, []string{}) // pass empty list to indicate no VM
+}
+
+// Test case for VM traffic shifting. Client a will sent requests to 3 VMs
+// VM image version is default to ubuntu:bionic
+// All other images will be tested in post-submit to reduce runtime
+func TestVMTrafficShifting(t *testing.T) {
+	testcases := []string{"app_sidecar_ubuntu_bionic"}
+	trafficShifting(t, testcases)
+}
+
+// Test case for post-submit to test all OS types/versions
+func TestVMTrafficShiftingPost(t *testing.T) {
+	testcases := []string{"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal", "app_sidecar_ubuntu_bionic",
+		"app_sidecar_debian_9", "app_sidecar_debian_10"}
+	trafficShifting(t, testcases, label.Postsubmit) // mark it to be post-submit
+}
+
+func trafficShifting(t *testing.T, vmImages []string, label ...label.Instance) {
 	// Traffic distribution
 	weights := map[string][]int32{
 		"20-80":    {20, 80},
 		"50-50":    {50, 50},
 		"33-33-34": {33, 33, 34},
 	}
-
 	framework.
 		NewTest(t).
+		Features("traffic.routing").
+		Label(label...).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "traffic-shifting",
 				Inject: true,
 			})
 
-			var instances [4]echo.Instance
+			// placeholder to ensure the test to run for non-vm tests
+			if len(vmImages) == 0 {
+				vmImages = append(vmImages, "")
+			}
+
+			// continue using this one client to call different version of hosts
+			var client echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&instances[0], echoConfig(ns, "a")).
-				With(&instances[1], echoConfig(ns, "b")).
-				With(&instances[2], echoConfig(ns, "c")).
-				With(&instances[3], echoConfig(ns, "d")).
+				With(&client, echoConfig(ns, "a")).
 				BuildOrFail(t)
 
-			hosts := []string{"b", "c", "d"}
+			// build and test with set of VM instances
+			for i, vmImage := range vmImages {
+				if vmImage != "" {
+					t.Logf("Running as VMs. Testing %v", vmImage)
+				}
 
-			for k, v := range weights {
-				t.Run(k, func(t *testing.T) {
-					v = append(v, make([]int32, 3-len(v))...)
+				// build instances with their image name
+				var instances [3]echo.Instance
+				hosts := []string{fmt.Sprintf("b-%v", i),
+					fmt.Sprintf("c-%v", i),
+					fmt.Sprintf("d-%v", i)}
+				echoboot.NewBuilderOrFail(t, ctx).
+					With(&instances[0], echoConfig(ns, hosts[0], vmImage)).
+					With(&instances[1], echoConfig(ns, hosts[1], vmImage)).
+					With(&instances[2], echoConfig(ns, hosts[2], vmImage)).
+					BuildOrFail(t)
 
-					vsc := VirtualServiceConfig{
-						"traffic-shifting-rule",
-						hosts[0],
-						hosts[1],
-						hosts[2],
-						ns.Name(),
-						v[0],
-						v[1],
-						v[2],
-					}
+				// traverse the weights and apply the VirtualService
+				for k, v := range weights {
+					t.Run(k, func(t *testing.T) {
+						v = append(v, make([]int32, 3-len(v))...)
 
-					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
-					ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
+						vsc := VirtualServiceConfig{
+							"traffic-shifting-rule",
+							hosts[0],
+							hosts[1],
+							hosts[2],
+							ns.Name(),
+							v[0],
+							v[1],
+							v[2],
+						}
 
-					sendTraffic(t, 100, instances[0], instances[1], hosts, v, errorThreshold)
-				})
+						deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
+						ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
+
+						sendTraffic(t, 100, client, instances[0], hosts, v, errorThreshold)
+					})
+				}
 			}
 		})
 }
 
-func echoConfig(ns namespace.Instance, name string) echo.Config {
+// Echo config helper function. If no vmImage or empty string is provided, non-vm pod will be created
+// Else, it will create a VM pod using the vmImage.
+func echoConfig(ns namespace.Instance, name string, vmImage ...string) echo.Config {
+	deployAsVM := false
+	vmImageName := ""
+	if len(vmImage) > 0 && vmImage[0] != "" {
+		deployAsVM = true
+		vmImageName = vmImage[0]
+	}
 	return echo.Config{
 		Service:   name,
 		Namespace: ns,
@@ -126,10 +177,13 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 				Protocol: protocol.HTTP,
 				// We use a port > 1024 to not require root
 				InstancePort: 8090,
+				ServicePort:  8090,
 			},
 		},
-		Subsets: []echo.SubsetConfig{{}},
-		Pilot:   p,
+		Subsets:    []echo.SubsetConfig{{}},
+		Pilot:      p,
+		DeployAsVM: deployAsVM,
+		VMImage:    vmImageName,
 	}
 }
 
