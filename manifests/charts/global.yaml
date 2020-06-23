@@ -104,11 +104,13 @@ global:
     # be allowed by the sidecar
     includeIPRanges: "*"
     excludeIPRanges: ""
+    includeOutboundPorts: ""
     excludeOutboundPorts: ""
 
     # istio ingress capture whitelist
     # examples:
     #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+    includeInboundPorts: "*"
     excludeInboundPorts: ""
 
     # This controls the 'policy' in the sidecar injector.
@@ -214,6 +216,7 @@ global:
   # set of DNS settings than the normal application pods (e.g., in
   # multicluster scenarios).
   # NOTE: If using templates, follow the pattern in the commented example below.
+  podDNSSearchNamespaces: []
   #podDNSSearchNamespaces:
   #- global
   #- "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"

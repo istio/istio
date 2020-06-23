@@ -1350,6 +1350,9 @@ message ProxyConfig {
   string excludeOutboundPorts = 28;
 
   TypeMapStringInterface lifecycle = 36;
+
+  string includeOutboundPorts = 37;
+  string includeInboundPorts = 38;
 }
 
 // Specifies which tracer to use.

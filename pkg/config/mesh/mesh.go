@@ -60,8 +60,6 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 			},
 		},
 
-		RewriteAppHttpProbe: false,
-
 		// Code defaults
 		BinaryPath:            constants.BinaryPathFilename,
 		StatsdUdpAddress:      "",
