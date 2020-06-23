@@ -40,10 +40,10 @@ import (
 // Server represents the XDS serving feature of Istiod (pilot).
 // Unlike bootstrap/, this packet has no dependencies on K8S, CA,
 // and other features. It'll be used initially in the istio-agent,
-// to provide a minimap proxy while reusing the same code as istiod.
+// to provide a minimal proxy while reusing the same code as istiod.
 // Portions of the code will also be used in istiod - after it becomes
 // stable the plan is to refactor bootstrap to use this code instead
-// of directly bootsraping XDS.
+// of directly bootstrapping XDS.
 //
 // The server support proxy/federation of multiple sources - last part
 // or parity with MCP/Galley and MCP-over-XDS.
