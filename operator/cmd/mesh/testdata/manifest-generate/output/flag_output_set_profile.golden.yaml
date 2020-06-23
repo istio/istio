@@ -4843,6 +4843,8 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
+      includeInboundPorts:
+      - '*'
       includeOutboundIpRanges:
       - '*'
       proxyInitImage: gcr.io/istio-testing/proxyv2:latest
@@ -5076,6 +5078,8 @@ data:
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
+          "includeInboundPorts": "*",
+          "includeOutboundPorts": "",
           "logLevel": "warning",
           "privileged": false,
           "readinessFailureThreshold": 30,

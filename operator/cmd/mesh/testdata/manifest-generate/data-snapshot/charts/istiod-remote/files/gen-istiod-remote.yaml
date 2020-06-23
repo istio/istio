@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-sidecar-injector
-  namespace: default
+  namespace: istio-operator
   labels:
     istio.io/rev: default
     release: istiod-remote
@@ -64,6 +64,7 @@ data:
         "oneNamespace": false,
         "operatorManageWebhooks": false,
         "pilotCertProvider": "istiod",
+        "podDNSSearchNamespaces": [],
         "policyNamespace": "istio-system",
         "priorityClassName": "",
         "prometheusNamespace": "istio-system",
@@ -77,6 +78,8 @@ data:
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
+          "includeInboundPorts": "*",
+          "includeOutboundPorts": "",
           "logLevel": "warning",
           "privileged": false,
           "readinessFailureThreshold": 30,
@@ -171,19 +174,16 @@ data:
     injectedAnnotations:
 
     template: |
-      rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
+      rewriteAppHTTPProbe: {{ .ProxyConfig.RewriteAppHttpProbe }}
       initContainers:
       {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-      {{ if .Values.istio_cni.enabled -}}
+      {{- if eq .ProxyConfig.InterceptionTechnique.String "CNI" }}
       - name: istio-validation
-      {{ else -}}
-      - name: istio-init
-      {{ end -}}
-      {{- if contains "/" .Values.global.proxy_init.image }}
-        image: "{{ .Values.global.proxy_init.image }}"
       {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
+      - name: istio-init
       {{- end }}
+        image: "{{ .ProxyConfig.ProxyInitImage }}"
+        imagePullPolicy: "{{ valueOrDefault .ProxyConfig.ProxyInitImagePullPolicy `Always` }}"
         args:
         - istio-iptables
         - "-p"
@@ -195,30 +195,29 @@ data:
         - "-m"
         - "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
         - "-i"
-        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
+        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` (join .ProxyConfig.IncludeOutboundIpRanges ",") }}"
         - "-x"
-        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
+        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` (join .ProxyConfig.ExcludeOutboundIpRanges ",") }}"
         - "-b"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
         - "-d"
-        - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
-        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") -}}
+        - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .ProxyConfig.ProxyStatusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` (join .ProxyConfig.ExcludeInboundPorts ",")) }}"
+        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (join .ProxyConfig.IncludeOutboundPorts ",") "") -}}
         - "-q"
-        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
+        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` (join .ProxyConfig.IncludeOutboundPorts ",") }}"
         {{ end -}}
-        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
+        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (join .ProxyConfig.ExcludeOutboundPorts ",") "") -}}
         - "-o"
-        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
+        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` (join .ProxyConfig.ExcludeOutboundPorts ",") }}"
         {{ end -}}
         {{ if (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces`) -}}
         - "-k"
         - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
         {{ end -}}
-        {{ if .Values.istio_cni.enabled -}}
+        {{ if eq .ProxyConfig.InterceptionTechnique.String "CNI" -}}
         - "--run-validation"
         - "--skip-rule-apply"
         {{ end -}}
-        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
       {{- if .Values.global.proxy_init.resources }}
         env:
         {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
@@ -234,14 +233,14 @@ data:
           allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
           privileged: {{ .Values.global.proxy.privileged }}
           capabilities:
-        {{- if not .Values.istio_cni.enabled }}
+        {{- if not (eq .ProxyConfig.InterceptionTechnique.String "CNI") }}
             add:
             - NET_ADMIN
             - NET_RAW
         {{- end }}
             drop:
             - ALL
-        {{- if not .Values.istio_cni.enabled }}
+        {{- if not (eq .ProxyConfig.InterceptionTechnique.String "CNI") }}
           readOnlyRootFilesystem: false
           runAsGroup: 0
           runAsNonRoot: false
@@ -261,12 +260,8 @@ data:
         - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
-      {{- if contains "/" .Values.global.proxy_init.image }}
-        image: "{{ .Values.global.proxy_init.image }}"
-      {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
-      {{- end }}
-        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
+        image: "{{ .ProxyConfig.ProxyInitImage }}"
+        imagePullPolicy: "{{ valueOrDefault .ProxyConfig.ProxyInitImagePullPolicy `Always` }}"
         resources: {}
         securityContext:
           allowPrivilegeEscalation: true
@@ -580,15 +575,15 @@ data:
           optional: true
           secretName: lightstep.cacert
       {{- end }}
-      {{- if .Values.global.podDNSSearchNamespaces }}
+      {{- if .ProxyConfig.PodDnsSearchNamespaces }}
       dnsConfig:
         searches:
-          {{- range .Values.global.podDNSSearchNamespaces }}
+          {{- range .ProxyConfig.PodDnsSearchNamespaces }}
           - {{ render . }}
           {{- end }}
       {{- end }}
       podRedirectAnnot:
-      {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}
+      {{- if and (eq .ProxyConfig.InterceptionTechnique.String "CNI") (not .Values.istio_cni.chained) }}
       {{ if isset .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks` }}
         k8s.v1.cni.cncf.io/networks: "{{ index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`}}, istio-cni"
       {{- else }}
@@ -596,15 +591,15 @@ data:
       {{- end }}
       {{- end }}
         sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
-        traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
-        traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` (join .ProxyConfig.IncludeOutboundIpRanges ",") }}"
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` (join .ProxyConfig.ExcludeOutboundIpRanges ",") }}"
         traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) }}"
-        traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
-      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") }}
-        traffic.sidecar.istio.io/includeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
+        traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` (join .ProxyConfig.ExcludeInboundPorts ",")) }}"
+      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (join .ProxyConfig.IncludeOutboundPorts ",") "") }}
+        traffic.sidecar.istio.io/includeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` (join .ProxyConfig.IncludeOutboundPorts ",") }}"
       {{- end }}
-      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
-        traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
+      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (join .ProxyConfig.ExcludeOutboundPorts ",") "") }}
+        traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` (join .ProxyConfig.ExcludeOutboundPorts ",") }}"
       {{- end }}
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
       {{- if .Values.global.imagePullSecrets }}
@@ -619,7 +614,7 @@ data:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: istio-sidecar-injector-default
+  name: istio-sidecar-injector-istio-operator
   labels:
     istio.io/rev: default
     app: sidecar-injector

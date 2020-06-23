@@ -83,7 +83,7 @@ spec:
               fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
-            {"proxyStatusPort":15020,"proxyMetadata":{"DNS_AGENT":""},"rewriteAppHttpProbe":true,"proxyInitImage":"gcr.io/istio-testing/proxyv2:latest","includeOutboundIpRanges":["*"]}
+            {"proxyStatusPort":15020,"proxyMetadata":{"DNS_AGENT":""},"rewriteAppHttpProbe":true,"proxyInitImage":"gcr.io/istio-testing/proxyv2:latest","includeOutboundIpRanges":["*"],"includeInboundPorts":["*"]}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [

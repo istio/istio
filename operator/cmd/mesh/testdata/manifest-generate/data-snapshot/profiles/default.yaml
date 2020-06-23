@@ -238,7 +238,9 @@ spec:
         readinessFailureThreshold: 30
         includeIPRanges: "*"
         excludeIPRanges: ""
+        includeOutboundPorts: ""
         excludeOutboundPorts: ""
+        includeInboundPorts: "*"
         excludeInboundPorts: ""
         autoInject: enabled
         tracer: "zipkin"

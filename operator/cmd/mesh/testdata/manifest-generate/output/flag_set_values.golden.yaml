@@ -69,6 +69,8 @@ data:
           "excludeOutboundPorts": "",
           "image": "myproxy",
           "includeIPRanges": "172.30.0.0/16,172.21.0.0/16",
+          "includeInboundPorts": "*",
+          "includeOutboundPorts": "",
           "logLevel": "warning",
           "privileged": false,
           "readinessFailureThreshold": 30,

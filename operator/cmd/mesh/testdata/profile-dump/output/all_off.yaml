@@ -282,6 +282,8 @@ spec:
         excludeOutboundPorts: ""
         image: proxyv2
         includeIPRanges: '*'
+        includeInboundPorts: '*'
+        includeOutboundPorts: ""
         logLevel: warning
         privileged: false
         readinessFailureThreshold: 30
