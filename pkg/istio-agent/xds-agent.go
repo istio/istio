@@ -111,13 +111,12 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.Sec
 	}
 	cfg := &adsc.Config{
 		XDSSAN: sa.XDSSAN,
+		ResponseHandler: sa.proxyGen,
 	}
 	if sa.RequireCerts {
 		cfg.Secrets = secrets
 	}
-	ads, err := adsc.New(proxyConfig, &adsc.Config{
-		ResponseHandler: sa.proxyGen,
-	})
+	ads, err := adsc.New(proxyConfig, cfg)
 	if err != nil {
 		// Error to be handled by caller - probably by exit if
 		// we are in 'envoy using proxy' mode.
