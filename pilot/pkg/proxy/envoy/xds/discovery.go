@@ -25,6 +25,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -73,7 +74,7 @@ type DiscoveryServer struct {
 	Env *model.Environment
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
-	MemRegistry *MemServiceDiscovery
+	MemRegistry *memory.ServiceDiscovery
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemConfigController model.ConfigStoreCache

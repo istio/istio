@@ -27,10 +27,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
@@ -239,15 +238,14 @@ func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc
 // the ingress with the provided external IP
 func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string, numOfEndpoints int) {
 	id := fmt.Sprintf("network%d", clusterNum)
-	memRegistry := xds.NewMemServiceDiscovery(
-		map[host.Name]*model.Service{}, 2)
+	memRegistry := memory.NewServiceDiscovery(nil)
 	memRegistry.EDSUpdater = server.EnvoyXdsServer
 
 	server.ServiceController().AddRegistry(serviceregistry.Simple{
 		ClusterID:        id,
 		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: memRegistry,
-		Controller:       &xds.MemServiceController{},
+		Controller:       &memory.ServiceController{},
 	})
 
 	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)

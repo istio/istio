@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -231,9 +232,7 @@ func TestGetLocalityLbSetting(t *testing.T) {
 }
 
 func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-
-	serviceDiscovery.ServicesReturns([]*model.Service{
+	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{
 		{
 			Hostname:    "test.example.org",
 			Address:     "1.1.1.1",
@@ -246,7 +245,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 				},
 			},
 		},
-	}, nil)
+	})
 
 	meshConfig := &meshconfig.MeshConfig{
 		ConnectTimeout: &types.Duration{
@@ -270,9 +269,8 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-			Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-			Name:    "acme",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			Name:             "acme",
 		},
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
@@ -286,9 +284,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 }
 
 func buildEnvForClustersWithFailover() *model.Environment {
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-
-	serviceDiscovery.ServicesReturns([]*model.Service{
+	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{
 		{
 			Hostname:    "test.example.org",
 			Address:     "1.1.1.1",
@@ -301,7 +297,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 				},
 			},
 		},
-	}, nil)
+	})
 
 	meshConfig := &meshconfig.MeshConfig{
 		ConnectTimeout: &types.Duration{
@@ -330,9 +326,8 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-			Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-			Name:    "acme",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			Name:             "acme",
 		},
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",

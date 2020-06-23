@@ -152,7 +152,7 @@ func (cr *store) List(typ resource.GroupVersionKind, namespace string) ([]model.
 			errs = multierror.Append(errs, err)
 		}
 		for _, config := range storeConfigs {
-			key := config.Type + config.Namespace + config.Name
+			key := config.GroupVersionKind.Kind + config.Namespace + config.Name
 			if _, exist := configMap[key]; exist {
 				continue
 			}

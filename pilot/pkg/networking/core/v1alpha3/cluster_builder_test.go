@@ -32,9 +32,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -188,8 +190,6 @@ func TestApplyDestinationRule(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 
-			serviceDiscovery := &fakes.ServiceDiscovery{}
-
 			instances := []*model.ServiceInstance{
 				{
 					Service:     tt.service,
@@ -206,19 +206,17 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			}
 
-			serviceDiscovery.ServicesReturns([]*model.Service{tt.service}, nil)
-			serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
-			serviceDiscovery.InstancesByPortReturns(instances, nil)
+			serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{tt.service})
+			serviceDiscovery.WantGetProxyServiceInstances = instances
 
 			configStore := &fakes.IstioConfigStore{
 				ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-					if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
+					if typ == gvk.DestinationRule {
 						if tt.destRule != nil {
 							return []model.Config{
 								{ConfigMeta: model.ConfigMeta{
-									Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-									Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-									Name:    "acme",
+									GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+									Name:             "acme",
 								},
 									Spec: tt.destRule,
 								}}, nil
@@ -415,7 +413,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			serviceDiscovery := &fakes.ServiceDiscovery{}
+			serviceDiscovery := memory.NewServiceDiscovery(nil)
 			configStore := &fakes.IstioConfigStore{}
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
@@ -461,7 +459,7 @@ func TestBuildPassthroughClusters(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			serviceDiscovery := &fakes.ServiceDiscovery{}
+			serviceDiscovery := memory.NewServiceDiscovery(nil)
 			configStore := &fakes.IstioConfigStore{}
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 

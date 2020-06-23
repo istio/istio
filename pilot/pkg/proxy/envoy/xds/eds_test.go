@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -383,7 +384,7 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 	server.EnvoyXdsServer.Push(&model.PushRequest{
 		Full: true,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind: model.ServiceEntryKind,
+			Kind: gvk.ServiceEntry,
 			Name: "overlapping.cluster.local",
 		}: {}}})
 	_, _ = adsc.Wait(5 * time.Second)
@@ -654,7 +655,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
-					Kind: model.ServiceEntryKind,
+					Kind: gvk.ServiceEntry,
 					Name: edsIncSvc,
 				}: {}},
 				Push: server.EnvoyXdsServer.Env.PushContext,

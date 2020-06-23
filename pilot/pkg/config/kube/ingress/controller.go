@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/pkg/queue"
@@ -80,9 +81,6 @@ var (
 	schemas = collection.SchemasFor(
 		collections.IstioNetworkingV1Alpha3Virtualservices,
 		collections.IstioNetworkingV1Alpha3Gateways)
-
-	virtualServiceGvk = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()
-	gatewayGvk        = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
 )
 
 // Control needs RBAC permissions to write to Pods.
@@ -223,18 +221,14 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	for _, f := range c.virtualServiceHandlers {
 		f(model.Config{}, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    virtualServiceGvk.Kind,
-				Version: virtualServiceGvk.Version,
-				Group:   virtualServiceGvk.Group,
+				GroupVersionKind: gvk.VirtualService,
 			},
 		}, event)
 	}
 	for _, f := range c.gatewayHandlers {
 		f(model.Config{}, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    gatewayGvk.Kind,
-				Version: gatewayGvk.Version,
-				Group:   gatewayGvk.Group,
+				GroupVersionKind: gvk.Gateway,
 			},
 		}, event)
 	}
@@ -244,9 +238,9 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 
 func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func(model.Config, model.Config, model.Event)) {
 	switch kind {
-	case virtualServiceGvk:
+	case gvk.VirtualService:
 		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
-	case gatewayGvk:
+	case gvk.Gateway:
 		c.gatewayHandlers = append(c.gatewayHandlers, f)
 	}
 }
@@ -294,8 +288,8 @@ func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) 
 }
 
 func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
-	if typ != collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind() &&
-		typ != collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind() {
+	if typ != gvk.Gateway &&
+		typ != gvk.VirtualService {
 		return nil, errUnsupportedOp
 	}
 
@@ -317,15 +311,15 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 		}
 
 		switch typ {
-		case virtualServiceGvk:
+		case gvk.VirtualService:
 			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
-		case gatewayGvk:
+		case gvk.Gateway:
 			gateways := ConvertIngressV1alpha3(*ingress, c.meshWatcher.Mesh(), c.domainSuffix)
 			out = append(out, gateways)
 		}
 	}
 
-	if typ == virtualServiceGvk {
+	if typ == gvk.VirtualService {
 		for _, obj := range ingressByHost {
 			out = append(out, *obj)
 		}

@@ -22,7 +22,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
 func Test_virtualHostMatch(t *testing.T) {
@@ -411,7 +411,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)

@@ -38,6 +38,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	istio_proto "istio.io/istio/pkg/proto"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -45,7 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/test/env"
 )
@@ -62,7 +63,7 @@ var (
 func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
 	return &fakes.IstioConfigStore{
 		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-			if kind == collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind() {
+			if kind == gvk.EnvoyFilter {
 				// to emulate returning multiple envoy filter configs
 				for i, cp := range configPatches {
 					configs = append(configs, model.Config{
@@ -881,7 +882,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 	}
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
@@ -1037,7 +1038,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 			},
 		},
 	}
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
@@ -144,7 +145,7 @@ func TestProxyQueue(t *testing.T) {
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind: model.ServiceEntryKind,
+				Kind: gvk.ServiceEntry,
 				Name: "foo",
 			}: {}},
 			Start: firstTime,
@@ -153,7 +154,7 @@ func TestProxyQueue(t *testing.T) {
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      model.ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      "bar",
 				Namespace: "ns1",
 			}: {}},
@@ -165,16 +166,16 @@ func TestProxyQueue(t *testing.T) {
 			t.Errorf("Expected start time to be %v, got %v", firstTime, info.Start)
 		}
 		expectedEds := map[model.ConfigKey]struct{}{{
-			Kind:      model.ServiceEntryKind,
+			Kind:      gvk.ServiceEntry,
 			Name:      "foo",
 			Namespace: "",
 		}: {}, {
-			Kind:      model.ServiceEntryKind,
+			Kind:      gvk.ServiceEntry,
 			Name:      "bar",
 			Namespace: "ns1",
 		}: {}}
-		if !reflect.DeepEqual(model.ConfigsOfKind(info.ConfigsUpdated, model.ServiceEntryKind), expectedEds) {
-			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, model.ConfigsOfKind(info.ConfigsUpdated, model.ServiceEntryKind))
+		if !reflect.DeepEqual(model.ConfigsOfKind(info.ConfigsUpdated, gvk.ServiceEntry), expectedEds) {
+			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, model.ConfigsOfKind(info.ConfigsUpdated, gvk.ServiceEntry))
 		}
 		if info.Full != false {
 			t.Errorf("Expected full to be false, got true")
@@ -227,7 +228,7 @@ func TestProxyQueue(t *testing.T) {
 				for _, pr := range proxies {
 					p.Enqueue(pr, &model.PushRequest{
 						ConfigsUpdated: map[model.ConfigKey]struct{}{{
-							Kind: model.ServiceEntryKind,
+							Kind: gvk.ServiceEntry,
 							Name: fmt.Sprintf("%d", eds),
 						}: {}}})
 				}
@@ -239,7 +240,7 @@ func TestProxyQueue(t *testing.T) {
 		go func() {
 			for {
 				con, info := p.Dequeue()
-				for eds := range model.ConfigNamesOfKind(info.ConfigsUpdated, model.ServiceEntryKind) {
+				for eds := range model.ConfigNamesOfKind(info.ConfigsUpdated, gvk.ServiceEntry) {
 					mu.Lock()
 					delete(expected, key(con, eds))
 					mu.Unlock()

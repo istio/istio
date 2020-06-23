@@ -52,10 +52,12 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -158,6 +160,9 @@ func TestInboundListenerConfig(t *testing.T) {
 			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
 		testInboundListenerConfigWithSidecarWithoutServices(t, p)
 	}
+
+	testInboundListenerConfigWithGrpc(t, &proxy,
+		buildService("test1.com", wildcardIP, protocol.GRPC, tnow.Add(1*time.Second)))
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
@@ -253,7 +258,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 			&model.Port{
 				Name:     "udp",
 				Port:     9000,
-				Protocol: protocol.HTTP,
+				Protocol: protocol.GRPC,
 			},
 		},
 		Resolution: model.Passthrough,
@@ -382,10 +387,9 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			p := &fakePlugin{}
 			virtualService := model.Config{
 				ConfigMeta: model.ConfigMeta{
-					Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-					Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-					Name:      "test_vs",
-					Namespace: "default",
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+					Name:             "test_vs",
+					Namespace:        "default",
 				},
 				Spec: virtualServiceSpec,
 			}
@@ -437,9 +441,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 
 			env := buildListenerEnv(services)
-			serviceDiscovery := new(fakes.ServiceDiscovery)
-			serviceDiscovery.ServicesReturns(services, nil)
-			serviceDiscovery.InstancesByPortReturns(tt.instances, nil)
+			serviceDiscovery := memory.NewServiceDiscovery(services)
+			for _, i := range tt.instances {
+				serviceDiscovery.AddInstance(i.Service.Hostname, i)
+			}
 			env.ServiceDiscovery = serviceDiscovery
 			if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 				t.Errorf("Failed to initialize push context: %v", err)
@@ -838,6 +843,22 @@ func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*mo
 	verifyFilterChainMatch(t, listeners[0])
 }
 
+func testInboundListenerConfigWithGrpc(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+	t.Helper()
+	p := &fakePlugin{}
+	listeners := buildInboundListeners(t, p, proxy, nil, services...)
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+	hcm := &hcm.HttpConnectionManager{}
+	if err := getFilterConfig(listeners[0].FilterChains[0].Filters[0], hcm); err != nil {
+		t.Fatalf("failed to get HCM, config %v", hcm)
+	}
+	if !hasGrpcStatusFilter(hcm.HttpFilters) {
+		t.Fatalf("gRPC status filter is expected for gRPC ports")
+	}
+}
+
 func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
@@ -959,6 +980,15 @@ func hasAlpnFilter(filters []*hcm.HttpFilter) bool {
 	return false
 }
 
+func hasGrpcStatusFilter(filters []*hcm.HttpFilter) bool {
+	for _, f := range filters {
+		if f.Name == wellknown.HTTPGRPCStats {
+			return true
+		}
+	}
+	return false
+}
+
 func isHTTPFilterChain(fc *listener.FilterChain) bool {
 	return len(fc.Filters) > 0 && fc.Filters[0].Name == "envoy.http_connection_manager"
 }
@@ -980,7 +1010,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 				{
 					Port: &networking.Port{
 						Number:   9000,
-						Protocol: "HTTP",
+						Protocol: "GRPC",
 						Name:     "uds",
 					},
 					Hosts: []string{"*/*"},
@@ -1047,6 +1077,13 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 
 	if l := findListenerByPort(listeners, 9000); !isHTTPListener(l) {
 		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
+		hcm := &hcm.HttpConnectionManager{}
+		if err := getFilterConfig(l.FilterChains[1].Filters[0], hcm); err != nil {
+			t.Fatalf("failed to get HCM, config %v", hcm)
+		}
+		if !hasGrpcStatusFilter(hcm.HttpFilters) {
+			t.Fatalf("gRPC status filter is expected for gRPC ports")
+		}
 	}
 
 	l = findListenerByPort(listeners, 8888)
@@ -2234,7 +2271,8 @@ func buildServiceInstance(service *model.Service, instanceIP string) *model.Serv
 		Endpoint: &model.IstioEndpoint{
 			Address: instanceIP,
 		},
-		Service: service,
+		ServicePort: service.Ports[0],
+		Service:     service,
 	}
 }
 
@@ -2243,12 +2281,11 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 }
 
 func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
-	serviceDiscovery := new(fakes.ServiceDiscovery)
-	serviceDiscovery.ServicesReturns(services, nil)
+	serviceDiscovery := memory.NewServiceDiscovery(services)
 
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
+	instances := make([]*model.ServiceInstance, 0, len(services))
+	for _, s := range services {
+		i := &model.ServiceInstance{
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
 				Address:      "172.0.0.1",
@@ -2256,8 +2293,11 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 			},
 			ServicePort: s.Ports[0],
 		}
+		instances = append(instances, i)
+		serviceDiscovery.AddInstance(s.Hostname, i)
 	}
-	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
+	// TODO stop faking this. proxy ip must match the instance IP
+	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	envoyFilter := model.Config{
 		ConfigMeta: model.ConfigMeta{
@@ -2279,13 +2319,13 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	configStore := &fakes.IstioConfigStore{
 		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
 			switch kind {
-			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
+			case gvk.VirtualService:
 				result := make([]model.Config, len(virtualServices))
 				for i := range virtualServices {
 					result[i] = *virtualServices[i]
 				}
 				return result, nil
-			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
+			case gvk.EnvoyFilter:
 				return []model.Config{envoyFilter}, nil
 			default:
 				return nil, nil
@@ -2536,8 +2576,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	serviceDiscovery := new(fakes.ServiceDiscovery)
-	serviceDiscovery.ServicesReturns(services, nil)
+	serviceDiscovery := memory.NewServiceDiscovery(services)
 
 	quotaSpec := &client.Quota{
 		Quota:  "test",
@@ -2546,26 +2585,24 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	configStore := &fakes.IstioConfigStore{
 		ListStub: func(kind resource.GroupVersionKind, s string) (configs []model.Config, err error) {
-			if kind.String() == collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind().String() {
+			if kind.String() == gvk.QuotaSpec.String() {
 				return []model.Config{
 					{
 						ConfigMeta: model.ConfigMeta{
-							Type:      collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(),
-							Version:   collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Version(),
-							Name:      limitedSvcName,
-							Namespace: "default",
+							GroupVersionKind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
+							Name:             limitedSvcName,
+							Namespace:        "default",
 						},
 						Spec: quotaSpec,
 					},
 				}, nil
-			} else if kind.String() == collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind().String() {
+			} else if kind.String() == gvk.QuotaSpecBinding.String() {
 				return []model.Config{
 					{
 						ConfigMeta: model.ConfigMeta{
-							Type:      collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(),
-							Version:   collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Version(),
-							Name:      limitedSvcName,
-							Namespace: "default",
+							GroupVersionKind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
+							Name:             limitedSvcName,
+							Namespace:        "default",
 						},
 						Spec: &mixerClient.QuotaSpecBinding{
 							Services: []*mixerClient.IstioService{

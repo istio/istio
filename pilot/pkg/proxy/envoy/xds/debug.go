@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
@@ -39,7 +40,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pkg/config/host"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -87,9 +87,7 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, webhook *inject.Webhook) {
 	// For debugging and load testing v2 we add an memory registry.
-	s.MemRegistry = NewMemServiceDiscovery(
-		map[host.Name]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
-		}, 2)
+	s.MemRegistry = memory.NewServiceDiscovery(nil)
 	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ClusterID = "v2-debug"
 

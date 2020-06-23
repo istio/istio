@@ -29,14 +29,14 @@ func TestTlsContextConvert(t *testing.T) {
 		desc         string
 		tls          *networkingAPI.ClientTLSSettings
 		sni          string
-		meta         *model.NodeMetadata
+		meta         *model.BootstrapNodeMetadata
 		expectTLSCtx *auth.UpstreamTLSContext
 	}{
 		{
 			desc:         "no-tls",
 			tls:          &networkingAPI.ClientTLSSettings{},
 			sni:          "",
-			meta:         &model.NodeMetadata{},
+			meta:         &model.BootstrapNodeMetadata{},
 			expectTLSCtx: nil,
 		},
 		{
@@ -45,7 +45,7 @@ func TestTlsContextConvert(t *testing.T) {
 				Mode: networkingAPI.ClientTLSSettings_SIMPLE,
 			},
 			sni:  "",
-			meta: &model.NodeMetadata{},
+			meta: &model.BootstrapNodeMetadata{},
 			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					ValidationContext: nil,
@@ -61,7 +61,7 @@ func TestTlsContextConvert(t *testing.T) {
 				Sni:            "foo",
 			},
 			sni:  "",
-			meta: &model.NodeMetadata{},
+			meta: &model.BootstrapNodeMetadata{},
 			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					ValidationContext: &auth.CertificateValidationContext{
@@ -82,8 +82,10 @@ func TestTlsContextConvert(t *testing.T) {
 				Sni:            "foo",
 			},
 			sni: "",
-			meta: &model.NodeMetadata{
-				TLSClientRootCert: "/foo/bar/baz.pem",
+			meta: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					TLSClientRootCert: "/foo/bar/baz.pem",
+				},
 			},
 			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
@@ -113,7 +115,7 @@ func TestTlsContextConvert(t *testing.T) {
 				Sni:               "bar",
 			},
 			sni:  "",
-			meta: &model.NodeMetadata{},
+			meta: &model.BootstrapNodeMetadata{},
 			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					TLSCertificates: []*auth.TLSCertificate{
@@ -137,7 +139,7 @@ func TestTlsContextConvert(t *testing.T) {
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			},
 			sni:  "i-should-be-sni",
-			meta: &model.NodeMetadata{},
+			meta: &model.BootstrapNodeMetadata{},
 			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					TLSCertificates: []*auth.TLSCertificate{
@@ -168,7 +170,7 @@ func TestTlsContextConvert(t *testing.T) {
 				PrivateKey:        "bar.pem",
 			},
 			sni:  "i-should-be-sni",
-			meta: &model.NodeMetadata{},
+			meta: &model.BootstrapNodeMetadata{},
 			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					TLSCertificates: []*auth.TLSCertificate{
@@ -199,9 +201,11 @@ func TestTlsContextConvert(t *testing.T) {
 				PrivateKey:        "bar.pem",
 			},
 			sni: "i-should-be-sni",
-			meta: &model.NodeMetadata{
-				TLSClientCertChain: "better-foo.pem",
-				TLSClientKey:       "better-bar.pem",
+			meta: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					TLSClientCertChain: "better-foo.pem",
+					TLSClientKey:       "better-bar.pem",
+				},
 			},
 			expectTLSCtx: &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{

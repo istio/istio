@@ -27,8 +27,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	controllermemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -94,7 +94,7 @@ func NewXDS() *SimpleServer {
 	}
 	serviceControllers.AddRegistry(serviceEntryRegistry)
 
-	sd := NewMemServiceDiscovery(map[host.Name]*model.Service{}, 0)
+	sd := controllermemory.NewServiceDiscovery(nil)
 	sd.EDSUpdater = ds
 	ds.MemRegistry = sd
 	serviceControllers.AddRegistry(serviceregistry.Simple{

@@ -18,8 +18,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 
-	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/monitoring"
+
+	"istio.io/istio/pkg/mcp/status"
 )
 
 var (
