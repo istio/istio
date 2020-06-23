@@ -109,7 +109,7 @@ components:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-pilot
+            name: istiod
           metrics:
            - resource:
                name: cpu
