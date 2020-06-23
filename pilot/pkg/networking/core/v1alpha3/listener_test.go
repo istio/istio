@@ -49,7 +49,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -59,7 +58,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 const (
@@ -2579,53 +2577,40 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	serviceDiscovery := memory.NewServiceDiscovery(services)
 
-	quotaSpec := &client.Quota{
-		Quota:  "test",
-		Charge: 1,
-	}
-
-	configStore := &fakes.IstioConfigStore{
-		ListStub: func(kind resource.GroupVersionKind, s string) (configs []model.Config, err error) {
-			if kind.String() == gvk.QuotaSpec.String() {
-				return []model.Config{
-					{
-						ConfigMeta: model.ConfigMeta{
-							GroupVersionKind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
-							Name:             limitedSvcName,
-							Namespace:        "default",
-						},
-						Spec: quotaSpec,
-					},
-				}, nil
-			} else if kind.String() == gvk.QuotaSpecBinding.String() {
-				return []model.Config{
-					{
-						ConfigMeta: model.ConfigMeta{
-							GroupVersionKind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
-							Name:             limitedSvcName,
-							Namespace:        "default",
-						},
-						Spec: &mixerClient.QuotaSpecBinding{
-							Services: []*mixerClient.IstioService{
-								{
-									Name:      "thrift-service",
-									Namespace: "default",
-									Domain:    "cluster.local",
-									Service:   "thrift-service.default.svc.cluster.local",
-								},
-							},
-							QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
-								{
-									Name:      "thrift-service",
-									Namespace: "default",
-								},
-							},
-						},
-					},
-				}, nil
-			}
-			return []model.Config{}, nil
+	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
+	for _, config := range []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.QuotaSpec,
+				Name:             limitedSvcName,
+				Namespace:        "default",
+			},
+			Spec: &mixerClient.QuotaSpec{},
 		},
+		{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.QuotaSpecBinding,
+				Name:             limitedSvcName,
+				Namespace:        "default",
+			},
+			Spec: &mixerClient.QuotaSpecBinding{
+				Services: []*mixerClient.IstioService{
+					{
+						Service: "thrift-service.default.svc.cluster.local",
+					},
+				},
+				QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
+					{
+						Name:      "thrift-service",
+						Namespace: "default",
+					},
+				},
+			},
+		},
+	} {
+		if _, err := configStore.Create(config); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	m := mesh.DefaultMeshConfig()
