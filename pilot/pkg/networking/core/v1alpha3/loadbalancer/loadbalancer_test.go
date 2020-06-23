@@ -27,6 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -257,7 +258,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 		},
 	}
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
@@ -314,7 +315,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 		},
 	}
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
