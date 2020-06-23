@@ -39,11 +39,8 @@ var (
 	envoyUserVar = env.RegisterStringVar(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
 	// Enable interception of DNS.
 	// Will be moved to mesh config after it's stable.
-	// TODO: this captures everything, if we want to split cluster.local to TLS and
-	// keep using plain UDP for the rest - we'll need to add another rule to allow
-	// istio-proxy to send.
 	dnsVar = env.RegisterStringVar("DNS_CAPTURE", "",
-		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to :15013")
+		"If set, enables the capture of outgoing DNS packets on UDP port 53, redirecting to envoy on :15013")
 )
 
 var rootCmd = &cobra.Command{

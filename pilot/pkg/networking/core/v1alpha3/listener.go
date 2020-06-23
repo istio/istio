@@ -101,6 +101,9 @@ const (
 	// virtualInboundCatchAllHTTPFilterChainName is the name of the catch all http filter chain
 	virtualInboundCatchAllHTTPFilterChainName = "virtualInbound-catchall-http"
 
+	// dnsListenerName is the name for the DNS resolver listener
+	dnsListenerName = "dns"
+
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
 
@@ -454,7 +457,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushCont
 			buildSidecarOutboundListeners(configgen).
 			buildHTTPProxyListener(configgen).
 			buildVirtualOutboundListener(configgen).
-			buildVirtualInboundListener(configgen)
+			buildVirtualInboundListener(configgen).
+			buildSidecarDNSListener(configgen)
 	}
 
 	return builder

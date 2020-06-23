@@ -88,6 +88,9 @@ const (
 	// level tls transport socket configuration
 	EnvoyTLSSocketName = wellknown.TransportSocketTls
 
+	// EnvoyDNSListenerFilterName is the name of UDP listener filter for resolving DNS queries
+	EnvoyDNSListenerFilterName = "envoy.filters.udp.dns_filter"
+
 	// StatName patterns
 	serviceStatPattern         = "%SERVICE%"
 	serviceFQDNStatPattern     = "%SERVICE_FQDN%"

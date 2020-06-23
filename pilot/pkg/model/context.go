@@ -948,3 +948,7 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 
 	return InterceptionRedirect
 }
+
+// SidecarDNSListenerPort specifes the port at which the sidecar hosts a DNS resolver listener.
+// TODO: customize me
+const SidecarDNSListenerPort = 15013
