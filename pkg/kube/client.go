@@ -17,7 +17,6 @@ package kube
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -206,7 +205,7 @@ func (c *client) PodLogs(ctx context.Context, namespace string, pod string, cont
 	return builder.String(), nil
 }
 
-// ProxyGet returns a response of the pod by calling it through the proxy.
+// proxyGet returns a response of the pod by calling it through the proxy.
 // Not a part of client-go https://github.com/kubernetes/kubernetes/issues/90768
 func (c *client) proxyGet(name, namespace, path string, port int) rest.ResponseWrapper {
 	pathURL, err := url.Parse(path)
@@ -339,73 +338,34 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		return nil, fmt.Errorf("no running Istio pods in %q", namespace)
 	}
 
-	// exclude data plane components from control plane list
-	labelToPodDetail := map[string]podDetail{
-		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
-		"istiod":           {"/usr/local/bin/pilot-discovery", "discovery"},
-		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
-		"galley":           {"/usr/local/bin/galley", "galley"},
-		"telemetry":        {"/usr/local/bin/mixs", "mixer"},
-		"policy":           {"/usr/local/bin/mixs", "mixer"},
-		"sidecar-injector": {"/usr/local/bin/sidecar-injector", "sidecar-injector-webhook"},
-	}
-
 	var errs error
 	res := version.MeshInfo{}
 	for _, pod := range pods {
 		component := pod.Labels["istio"]
-
-		// Special cases
-		switch component {
-		case "statsd-prom-bridge":
-			continue
-		case "mixer":
-			component = pod.Labels["istio-mixer-type"]
-		}
-
 		server := version.ServerInfo{Component: component}
 
-		if detail, ok := labelToPodDetail[component]; ok {
-			cmd := []string{detail.binary, "version"}
-			cmdJSON := append(cmd, "-o", "json")
-
-			var info version.BuildInfo
-			var v version.Version
-
-			stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, detail.container, cmdJSON)
-
-			if err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("error exec'ing into %s %s container: %v", pod.Name, detail.container, err))
-				continue
-			}
-
-			// At first try parsing stdout
-			err = json.Unmarshal(stdout.Bytes(), &v)
-			if err == nil && v.ClientVersion.Version != "" {
-				info = *v.ClientVersion
-			} else {
-				// If stdout fails, try the old behavior
-				if strings.HasPrefix(stderr.String(), "Error: unknown shorthand flag") {
-					stdout, err := c.ExtractExecResult(pod.Name, pod.Namespace, detail.container, cmd)
-					if err != nil {
-						errs = multierror.Append(errs, fmt.Errorf("error exec'ing into %s %s container: %v", pod.Name, detail.container, err))
-						continue
-					}
-
-					info, err = version.NewBuildInfoFromOldString(string(stdout))
-					if err != nil {
-						errs = multierror.Append(errs, fmt.Errorf("error converting server info from JSON: %v", err))
-						continue
-					}
-				} else {
-					errs = multierror.Append(errs, fmt.Errorf("error execing into %s %s container: %v", pod.Name, detail.container, stderr.String()))
-					continue
-				}
-			}
-
-			server.Info = info
+		// :15014/version returns something like
+		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
+		result, err := c.proxyGet(pod.Name, pod.Namespace, "/version", 15014).DoRaw(ctx)
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("error port-forewarding into %s : %v", pod.Name, err))
+			continue
 		}
-		res = append(res, server)
+		if len(result) > 0 {
+			versionParts := strings.Split(string(result), "-")
+			nParts := len(versionParts)
+			if nParts >= 3 {
+				server.Info.Version = strings.Join(versionParts[0:nParts-2], "-")
+				server.Info.GitTag = server.Info.Version
+				server.Info.GitRevision = versionParts[nParts-2]
+				server.Info.BuildStatus = versionParts[nParts-1]
+			} else {
+				server.Info.Version = string(result)
+			}
+			// (Golang version not available through :15014/version endpoint)
+
+			res = append(res, server)
+		}
 	}
 	return &res, errs
 }
