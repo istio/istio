@@ -213,7 +213,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				configStore.Create(model.Config{
 					ConfigMeta: model.ConfigMeta{
 						GroupVersionKind: gvk.DestinationRule,
-						Name:    "acme",
+						Name:             "acme",
 					},
 					Spec: tt.destRule,
 				})

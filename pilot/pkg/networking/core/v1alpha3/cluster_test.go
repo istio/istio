@@ -376,7 +376,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	_, err := configStore.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
 			GroupVersionKind: gvk.DestinationRule,
-			Name:    "acme",
+			Name:             "acme",
 		},
 		Spec: destRule,
 	})
@@ -391,8 +391,8 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		_, err := configStore.Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
 				GroupVersionKind: gvk.PeerAuthentication,
-				Name:      policyName,
-				Namespace: TestServiceNamespace,
+				Name:             policyName,
+				Namespace:        TestServiceNamespace,
 			},
 			Spec: peerAuthn,
 		})
@@ -1967,7 +1967,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			configStore.Create(model.Config{
 				ConfigMeta: model.ConfigMeta{
 					GroupVersionKind: gvk.DestinationRule,
-					Name:    "acme",
+					Name:             "acme",
 				},
 				Spec: c.destRule,
 			})

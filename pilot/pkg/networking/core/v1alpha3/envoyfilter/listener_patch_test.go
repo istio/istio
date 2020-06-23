@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
 )
@@ -66,8 +67,8 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 	for i, cp := range configPatches {
 		store.Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Name:      fmt.Sprintf("test-envoyfilter-%d", i),
-				Namespace: "not-default",
+				Name:             fmt.Sprintf("test-envoyfilter-%d", i),
+				Namespace:        "not-default",
 				GroupVersionKind: gvk.EnvoyFilter,
 			},
 			Spec: &networking.EnvoyFilter{
