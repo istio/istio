@@ -905,7 +905,7 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 
 // setPeerCertVerifier sets up a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
-	if tlsOptions.CaCertFile == "" && s.ca == nil && features.SpiffeBundleEndpoints == "" {
+	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" {
 		// Running locally without configured certs - no TLS mode
 		return nil
 	}
@@ -916,8 +916,8 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
 			return err
 		}
-	} else if s.ca != nil {
-		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	} else if s.CA != nil {
+		rootCertBytes = s.CA.GetCAKeyCertBundle().GetRootCertPem()
 	}
 
 	if len(rootCertBytes) != 0 {
