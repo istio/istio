@@ -15,7 +15,6 @@
 package pilot
 
 import (
-	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -33,7 +32,6 @@ var (
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
-	os.Setenv("PILOT_ENABLE_STATUS", "true")
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
