@@ -30,11 +30,10 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -1118,7 +1117,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 }
 
 func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pilot_model.Config) pilot_model.Environment {
-	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 
 	configStore := pilot_model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
 	for _, cfg := range gateways {

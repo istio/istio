@@ -31,11 +31,10 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -400,7 +399,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 	}
 	configStore := buildEnvoyFilterConfigStore(configPatches)
 
-	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
