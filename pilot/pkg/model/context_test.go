@@ -30,7 +30,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
 )
@@ -535,8 +535,8 @@ func TestSetServiceInstances(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery := new(fakes.ServiceDiscovery)
-	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
