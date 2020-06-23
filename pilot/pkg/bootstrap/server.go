@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -168,6 +169,9 @@ type Server struct {
 
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
+
+	// The SPIFFE based cert verifier
+	peerCertVerifier *spiffe.PeerCertVerifier
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -236,6 +240,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// Create Istiod certs and setup watches.
 	if err := s.initIstiodCerts(args, string(istiodHost)); err != nil {
+		return nil, err
+	}
+
+	// Initialize the SPIFFE peer cert verifier.
+	if err := s.setPeerCertVerifier(args.ServerOptions.TLSOptions); err != nil {
 		return nil, err
 	}
 
@@ -570,23 +579,18 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error {
-	if args.ServerOptions.TLSOptions.CaCertFile == "" && s.CA == nil {
+	if s.peerCertVerifier == nil {
 		// Running locally without configured certs - no TLS mode
+		log.Warnf("The secure discovery service is disabled")
 		return nil
 	}
 	log.Info("initializing secure discovery service")
 
-	// TODO(ramaraochavali): Restart Server if root certificate changes.
-	certPool, err := s.getRootCertificates(args.ServerOptions.TLSOptions)
-	if err != nil {
-		return err
-	}
-
-	// TODO(myidpt): Verify the client certificate's trust domain matches the corresponding root cert.
 	cfg := &tls.Config{
-		GetCertificate: s.getIstiodCertificate,
-		ClientAuth:     tls.VerifyClientCertIfGiven,
-		ClientCAs:      certPool,
+		GetCertificate:        s.getIstiodCertificate,
+		ClientAuth:            tls.VerifyClientCertIfGiven,
+		ClientCAs:             s.peerCertVerifier.GetGeneralCertPool(),
+		VerifyPeerCertificate: s.peerCertVerifier.VerifyPeerCert,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
@@ -899,35 +903,45 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 	return key, cert
 }
 
-// getRootCertificates returns the root certificates from TLSOptions if available or from ca, and from SPIFFE bundle
-// endpoints.
-func (s *Server) getRootCertificates(tlsOptions TLSOptions) (*x509.CertPool, error) {
+// setPeerCertVerifier sets up a SPIFFE certificate verifier with the current istiod configuration.
+func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
+	if tlsOptions.CaCertFile == "" && s.ca == nil && features.SpiffeBundleEndpoints == "" {
+		// Running locally without configured certs - no TLS mode
+		return nil
+	}
+	s.peerCertVerifier = spiffe.NewPeerCertVerifier()
 	var rootCertBytes []byte
 	var err error
 	if tlsOptions.CaCertFile != "" {
 		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
-			return nil, err
+			return err
 		}
-	} else {
-		rootCertBytes = s.CA.GetCAKeyCertBundle().GetRootCertPem()
+	} else if s.ca != nil {
+		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	}
-	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(rootCertBytes)
 
-	if features.SpiffeBundlePaths != "" {
-		certMap, err := spiffe.RetrieveSpiffeBundleRootCertsFromStringInput(features.SpiffeBundlePaths, []*x509.Certificate{})
+	if len(rootCertBytes) != 0 {
+		block, _ := pem.Decode(rootCertBytes)
+		if block == nil {
+			return fmt.Errorf("failed to decode root cert PEM")
+		}
+		rootCert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("failed to parse certificate: %v", err)
 		}
-		// Add all the retrieved CA certs into the cert pool for general X.509 cert verification.
-		for _, certs := range certMap {
-			for _, cert := range certs {
-				cp.AddCert(cert)
-			}
-		}
+		s.peerCertVerifier.AddMapping(spiffe.GetTrustDomain(), []*x509.Certificate{rootCert})
 	}
 
-	return cp, nil
+	if features.SpiffeBundleEndpoints != "" {
+		certMap, err := spiffe.RetrieveSpiffeBundleRootCertsFromStringInput(
+			features.SpiffeBundleEndpoints, []*x509.Certificate{})
+		if err != nil {
+			return err
+		}
+		s.peerCertVerifier.AddMappings(certMap)
+	}
+
+	return nil
 }
 
 // hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
