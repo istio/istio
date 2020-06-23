@@ -258,7 +258,7 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 	} else {
 		resolvedPort, err := resolveNamedPort(backend, namespace, client)
 		if err != nil {
-			log.Infof("failed to resolve named port %s, error: %s", backend.ServicePort.StrVal, err.Error())
+			log.Infof("failed to resolve named port %s, error: %v", backend.ServicePort.StrVal, err)
 			return nil
 		}
 		port.Number = uint32(resolvedPort)
