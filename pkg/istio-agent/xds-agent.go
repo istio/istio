@@ -110,7 +110,7 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.Sec
 		return nil
 	}
 	cfg := &adsc.Config{
-		XDSSAN: sa.XDSSAN,
+		XDSSAN:          sa.XDSSAN,
 		ResponseHandler: sa.proxyGen,
 	}
 	if sa.RequireCerts {
