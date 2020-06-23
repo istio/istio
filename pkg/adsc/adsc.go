@@ -159,9 +159,6 @@ type ADSC struct {
 	// Retrieved configurations can be stored using the common istio model interface.
 	Store model.IstioConfigStore
 
-	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
-	Registry *v2.MemServiceDiscovery
-
 	// LocalCacheDir is set to a base name used to save fetched resources.
 	// If set, each update will be saved.
 	// TODO: also load at startup - so we can support warm up in init-container, and survive
