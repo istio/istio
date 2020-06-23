@@ -1122,6 +1122,6 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 			}
 		}
 	}
-	
+
 	return nil
 }

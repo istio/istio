@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 
 	mesh "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/bootstrap"
 	istioagent "istio.io/istio/pkg/istio-agent"
 	secretmodel "istio.io/istio/security/pkg/nodeagent/model"
 
@@ -138,13 +137,13 @@ func TestAgent(t *testing.T) {
 	})
 
 	t.Run("adscTLSDirect", func(t *testing.T) {
-		testAdscTLS(t, bs, creds)
+		testAdscTLS(t, creds)
 	})
 
 }
 
 // testAdscTLS tests that ADSC helper can connect using TLS to Istiod
-func testAdscTLS(t *testing.T, bs *bootstrap.Server, creds cache.SecretManager) {
+func testAdscTLS(t *testing.T, creds cache.SecretManager) {
 	// connect to the local XDS proxy - it's using a transient port.
 	ldsr, err := adsc.Dial(util.MockPilotSGrpcAddr, "",
 		&adsc.Config{
