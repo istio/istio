@@ -31,9 +31,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
-	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pkg/config/schema/resource"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -46,6 +43,10 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"istio.io/istio/pilot/pkg/networking/util"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
@@ -144,9 +145,6 @@ type ADSC struct {
 
 	// Retrieved configurations can be stored using the common istio model interface.
 	Store model.IstioConfigStore
-
-	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
-	Registry *v2.MemServiceDiscovery
 
 	// LocalCacheDir is set to a base name used to save fetched resources.
 	// If set, each update will be saved.
