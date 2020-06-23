@@ -40,8 +40,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
+	v2 "istio.io/istio/pkg/xds/v2"
+	v3 "istio.io/istio/pkg/xds/v3"
 )
 
 var (

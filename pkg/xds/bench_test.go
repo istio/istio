@@ -27,8 +27,8 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
 	"istio.io/istio/pkg/test"
+	v2 "istio.io/istio/pkg/xds/v2"
 
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"

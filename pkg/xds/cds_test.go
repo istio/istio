@@ -16,7 +16,7 @@ package xds_test
 import (
 	"testing"
 
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
+	v3 "istio.io/istio/pkg/xds/v3"
 	"istio.io/istio/tests/util"
 )
 

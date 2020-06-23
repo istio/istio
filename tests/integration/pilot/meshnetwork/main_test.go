@@ -25,7 +25,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -37,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
+	v3 "istio.io/istio/pkg/xds/v3"
 )
 
 const (

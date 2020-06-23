@@ -27,12 +27,12 @@ import (
 	"istio.io/istio/pkg/adsc"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/xds"
+	v2 "istio.io/istio/pkg/xds/v2"
+	v3 "istio.io/istio/pkg/xds/v3"
 	"istio.io/istio/tests/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"

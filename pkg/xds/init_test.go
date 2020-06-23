@@ -31,13 +31,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v3"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	v3 "istio.io/istio/pkg/xds/v3"
 
 	"istio.io/istio/tests/util"
 )

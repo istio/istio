@@ -19,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
-
 	"github.com/pkg/errors"
 
 	"gopkg.in/yaml.v2"
@@ -32,6 +30,7 @@ import (
 	"k8s.io/utils/clock"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/xds"
 )
 
 func NewIstioContext(stop <-chan struct{}) context.Context {

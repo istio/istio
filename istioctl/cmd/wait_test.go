@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	"istio.io/istio/pkg/xds"
 )
 
 func TestWaitCmd(t *testing.T) {

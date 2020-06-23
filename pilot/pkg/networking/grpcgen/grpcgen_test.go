@@ -32,9 +32,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/xds/v2"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/xds"
+	v2 "istio.io/istio/pkg/xds/v2"
 
 	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
 )

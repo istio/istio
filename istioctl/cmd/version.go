@@ -25,8 +25,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/operator/cmd/mesh"
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
-
+	"istio.io/istio/pkg/xds"
 	istioVersion "istio.io/pkg/version"
 )
 
