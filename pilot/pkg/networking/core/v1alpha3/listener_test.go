@@ -43,6 +43,7 @@ import (
 	mixerClient "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -2310,8 +2311,9 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 
 	envoyFilter := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Name:      "test-envoyfilter",
-			Namespace: "not-default",
+			Name:             "test-envoyfilter",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.EnvoyFilter,
 		},
 		Spec: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
@@ -2325,21 +2327,11 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 			},
 		},
 	}
-	configStore := &fakes.IstioConfigStore{
-		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-			switch kind {
-			case gvk.VirtualService:
-				result := make([]model.Config, len(virtualServices))
-				for i := range virtualServices {
-					result[i] = *virtualServices[i]
-				}
-				return result, nil
-			case gvk.EnvoyFilter:
-				return []model.Config{envoyFilter}, nil
-			default:
-				return nil, nil
-			}
-		},
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+	for _, c := range append(virtualServices, &envoyFilter) {
+		if _, err := configStore.Create(*c); err != nil {
+			panic(err.Error())
+		}
 	}
 
 	m := mesh.DefaultMeshConfig()

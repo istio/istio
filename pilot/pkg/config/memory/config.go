@@ -17,6 +17,7 @@ package memory
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -159,7 +160,7 @@ func (cr *store) Create(config model.Config) (string, error) {
 	kind := config.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
-		return "", errors.New("unknown type")
+		return "", fmt.Errorf("unknown type %v", kind)
 	}
 	if !cr.skipValidation {
 		if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {

@@ -27,6 +27,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -35,8 +37,8 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 type LdsEnv struct {
@@ -586,24 +588,20 @@ func buildPatchStruct(config string) *types.Struct {
 	return val
 }
 
-func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
-	return &fakes.IstioConfigStore{
-		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-			if kind == gvk.EnvoyFilter {
-				// to emulate returning multiple envoy filter configs
-				for i, cp := range configPatches {
-					configs = append(configs, model.Config{
-						ConfigMeta: model.ConfigMeta{
-							Name:      fmt.Sprintf("test-envoyfilter-%d", i),
-							Namespace: "not-default",
-						},
-						Spec: &networking.EnvoyFilter{
-							ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
-						},
-					})
-				}
-			}
-			return
-		},
+func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.IstioConfigStore {
+	cs := model.MakeIstioStore(memory.Make(collections.Pilot))
+	for i, cp := range configPatches {
+		if _, err := cs.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name:             fmt.Sprintf("test-envoyfilter-%d", i),
+				Namespace:        "not-default",
+				GroupVersionKind: gvk.EnvoyFilter,
+			},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
+			}}); err != nil {
+			panic(err.Error())
+		}
 	}
+	return cs
 }

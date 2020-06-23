@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -899,8 +900,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 func TestGatewayHTTPRouteConfig(t *testing.T) {
 	httpGateway := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Name:      "gateway",
-			Namespace: "default",
+			Name:             "gateway",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
 		},
 		Spec: &networking.Gateway{
 			Selector: map[string]string{"istio": "ingressgateway"},
@@ -932,7 +934,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service",
 			Namespace:        "default",
 		},
@@ -940,7 +942,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceCopy := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service-copy",
 			Namespace:        "default",
 		},
@@ -948,7 +950,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceWildcard := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service-wildcard",
 			Namespace:        "default",
 		},
@@ -1098,7 +1100,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 	for _, tt := range cases {
 		p := &fakePlugin{}
 		configgen := NewConfigGenerator([]plugin.Plugin{p})
-		env := buildEnv(t, []pilot_model.Config{{Spec: tt.gateway}}, []pilot_model.Config{})
+		env := buildEnv(t, []pilot_model.Config{{ConfigMeta: pilot_model.ConfigMeta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}}, []pilot_model.Config{})
 		proxyGateway.SetGatewaysForProxy(env.PushContext)
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
 		proxyGateway.DiscoverIPVersions()
