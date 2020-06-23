@@ -51,7 +51,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -444,7 +444,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 
 			env := buildListenerEnv(services)
-			serviceDiscovery := memory.NewServiceDiscovery(services)
+			serviceDiscovery := memregistry.NewServiceDiscovery(services)
 			for _, i := range tt.instances {
 				serviceDiscovery.AddInstance(i.Service.Hostname, i)
 			}
@@ -2288,7 +2288,7 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 }
 
 func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
-	serviceDiscovery := memory.NewServiceDiscovery(services)
+	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
 	instances := make([]*model.ServiceInstance, 0, len(services))
 	for _, s := range services {
@@ -2574,7 +2574,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	serviceDiscovery := memory.NewServiceDiscovery(services)
+	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
 	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
 	for _, config := range []model.Config{

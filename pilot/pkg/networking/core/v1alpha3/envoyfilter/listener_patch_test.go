@@ -40,7 +40,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config/schema/collections"
 	istio_proto "istio.io/istio/pkg/proto"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
