@@ -818,7 +818,7 @@ func TestBuildAddress(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			addr := BuildAddressV2(test.addr, test.port)
+			addr := BuildAddress(test.addr, test.port)
 			if !reflect.DeepEqual(addr, test.expected) {
 				t.Errorf("expected add %v, but got %v", test.expected, addr)
 			}
