@@ -37,14 +37,15 @@ func TestStatusMaps(t *testing.T) {
 	r.processEvent("conC", typ, "c")
 	r.processEvent("conD", typ, "d")
 	RegisterTestingT(t)
+	x := struct{}{}
 	Expect(r.status).To(Equal(map[string]string{"conA": "a", "conB": "a", "conC": "c", "conD": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string][]string{"a": {"conA", "conB"}, "c": {"conC"}, "d": {"conD"}}))
+	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conA": x, "conB": x}, "c": {"conC": x}, "d": {"conD": x}}))
 	r.processEvent("conA", typ, "d")
 	Expect(r.status).To(Equal(map[string]string{"conA": "d", "conB": "a", "conC": "c", "conD": "d"}))
 	Expect(r.reverseStatus).To(Equal(map[string][]string{"a": {"conB"}, "c": {"conC"}, "d": {"conD", "conA"}}))
 	r.RegisterDisconnect("conA", []xds.EventType{typ})
 	Expect(r.status).To(Equal(map[string]string{"conB": "a", "conC": "c", "conD": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string][]string{"a": {"conB"}, "c": {"conC"}, "d": {"conD"}}))
+	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB": x}, "c": {"conC": x}, "d": {"conD": x}}))
 }
 
 func initReporterWithoutStarting() (out Reporter) {
@@ -55,7 +56,7 @@ func initReporterWithoutStarting() (out Reporter) {
 	out.UpdateInterval = 300 * time.Millisecond
 	out.store = nil // TODO
 	out.cm = nil    // TODO
-	out.reverseStatus = make(map[string][]string)
+	out.reverseStatus = make(map[string]map[string]struct{})
 	out.status = make(map[string]string)
 	return
 }
