@@ -321,11 +321,6 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 	return list.Items, nil
 }
 
-type podDetail struct {
-	binary    string
-	container string
-}
-
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
 	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
 		"labelSelector": "istio,istio!=ingressgateway,istio!=egressgateway,istio!=ilbgateway",
