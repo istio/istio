@@ -16,7 +16,6 @@
 .PHONY: docker.all
 .PHONY: docker.save
 .PHONY: docker.push
-.PHONY: docker.base
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
@@ -235,9 +234,7 @@ dockerx:
 dockerx.%:
 	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
 
-docker.base: docker.ubuntu docker.distroless
-
-docker.ubuntu: docker/Dockerfile.ubuntu
+docker.base: docker/Dockerfile.base
 	$(DOCKER_RULE)
 
 docker.distroless: docker/Dockerfile.distroless
