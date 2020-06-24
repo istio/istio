@@ -18,13 +18,14 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"reflect"
 	"sync"
 	"testing"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
+	"gotest.tools/assert/cmp"
 )
 
 type testAdscRunServer struct{}
@@ -127,7 +128,7 @@ func TestADSC_Run(t *testing.T) {
 			tt.inAdsc.RecvWg.Add(1)
 			err = tt.inAdsc.Run()
 			tt.inAdsc.RecvWg.Wait()
-			if !reflect.DeepEqual(tt.inAdsc.Received, tt.expectedADSResources.Received) {
+			if !cmp.Equal(tt.inAdsc.Received, tt.expectedADSResources.Received, protocmp.Transform()) {
 				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedADSResources.Received, tt.inAdsc.Received)
 			}
 		})

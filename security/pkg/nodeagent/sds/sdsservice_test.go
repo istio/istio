@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,7 +29,9 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -841,7 +842,7 @@ func verifySDSSResponse(resp *discovery.DiscoveryResponse, expectedPrivateKey []
 			},
 		},
 	}
-	if !reflect.DeepEqual(pb, expectedResponseSecret) {
+	if !cmp.Equal(pb, expectedResponseSecret, protocmp.Transform()) {
 		return fmt.Errorf("verification of SDS response failed: secret key: got %+v, want %+v",
 			pb, expectedResponseSecret)
 	}
@@ -866,7 +867,7 @@ func verifySDSSResponseForRootCert(t *testing.T, resp *discovery.DiscoveryRespon
 			},
 		},
 	}
-	if !reflect.DeepEqual(pb, expectedResponseSecret) {
+	if !cmp.Equal(pb, expectedResponseSecret, protocmp.Transform()) {
 		t.Errorf("secret key: got %+v, want %+v", pb, expectedResponseSecret)
 	}
 }

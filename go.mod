@@ -160,6 +160,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
+	gotest.tools v2.2.0+incompatible
 	helm.sh/helm/v3 v3.2.0
 	istio.io/api v0.0.0-20200625150749-add85bd6bfe8
 	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
@@ -175,3 +176,5 @@ require (
 	sigs.k8s.io/service-apis v0.0.0-20200610082005-c8dc1033d310
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace istio.io => github.com/howardjohn/api v0.0.0-20200624222919-f9819c89244f

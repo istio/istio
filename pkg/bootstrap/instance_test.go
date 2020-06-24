@@ -29,6 +29,8 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
@@ -204,9 +206,8 @@ func TestGolden(t *testing.T) {
 						trace.OpenCensusConfig_B3},
 				}
 
-				p, equal := diff.PrettyDiff(sdMsg, want)
-				if !equal {
-					t.Fatalf("t diff: %v\ngot: %v\nwant: %v\n", p, sdMsg, want)
+				if diff := cmp.Diff(sdMsg, want, protocmp.Transform()); diff != "" {
+					t.Fatalf("got unexpected diff: %v", diff)
 				}
 			},
 		},
