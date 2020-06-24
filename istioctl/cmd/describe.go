@@ -787,7 +787,7 @@ func getIstioConfig(metadata *envoy_api_core.Metadata) (string, error) {
 // getIstioConfigNameForSvc returns name, namespace
 func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, string, error) {
 	path, err := getIstioDestinationRulePathForSvc(cd, svc, port)
-	if err != nil {
+	if err != nil || path == "" {
 		return "", "", err
 	}
 
