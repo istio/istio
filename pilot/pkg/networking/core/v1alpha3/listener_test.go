@@ -85,7 +85,6 @@ func getProxy() *model.Proxy {
 
 var (
 	tnow        = time.Now()
-	tzero       = time.Time{}
 	proxyHTTP10 = model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
