@@ -15,16 +15,20 @@
 package ingress
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
+	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/test/util"
@@ -46,15 +50,18 @@ func TestGoldenConversion(t *testing.T) {
 	cases := []string{"simple", "tls", "overlay"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
 			input, err := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
 			if err != nil {
 				t.Fatal(err)
 			}
-
+			serviceLister, podLister := createFakeLister(ctx)
 			cfgs := map[string]*model.Config{}
 			for _, obj := range input {
 				ingress := obj.(*v1beta1.Ingress)
-				ConvertIngressVirtualService(*ingress, "mydomain", cfgs, fake.NewSimpleClientset())
+				ConvertIngressVirtualService(*ingress, "mydomain", cfgs, serviceLister, podLister)
 			}
 			ordered := []model.Config{}
 			for _, v := range cfgs {
@@ -132,6 +139,8 @@ func readConfig(t *testing.T, filename string) ([]runtime.Object, error) {
 }
 
 func TestConversion(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	ingress := v1beta1.Ingress{
 		ObjectMeta: metaV1.ObjectMeta{
 			Namespace: "mock", // goes into backend full name
@@ -214,9 +223,10 @@ func TestConversion(t *testing.T) {
 			},
 		},
 	}
+	serviceLister, podLister := createFakeLister(ctx)
 	cfgs := map[string]*model.Config{}
-	ConvertIngressVirtualService(ingress, "mydomain", cfgs, fake.NewSimpleClientset())
-	ConvertIngressVirtualService(ingress2, "mydomain", cfgs, fake.NewSimpleClientset())
+	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister, podLister)
+	ConvertIngressVirtualService(ingress2, "mydomain", cfgs, serviceLister, podLister)
 
 	if len(cfgs) != 3 {
 		t.Error("VirtualServices, expected 3 got ", len(cfgs))
@@ -366,6 +376,9 @@ func TestIngressClass(t *testing.T) {
 }
 
 func TestNamedPortIngressConversion(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	ingress := v1beta1.Ingress{
 		ObjectMeta: metaV1.ObjectMeta{
 			Namespace: "mock",
@@ -434,9 +447,9 @@ func TestNamedPortIngressConversion(t *testing.T) {
 			},
 		},
 	}
-	client := fake.NewSimpleClientset(service, pod)
+	serviceLister, podLister := createFakeLister(ctx, service, pod)
 	cfgs := map[string]*model.Config{}
-	ConvertIngressVirtualService(ingress, "mydomain", cfgs, client)
+	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister, podLister)
 	if len(cfgs) != 1 {
 		t.Error("VirtualServices, expected 1 got ", len(cfgs))
 	}
@@ -455,4 +468,14 @@ func TestNamedPortIngressConversion(t *testing.T) {
 	if route.Destination.Port.Number != 1234 {
 		t.Error("PortNumer, expected 1234 got ", route.Destination.Port.Number)
 	}
+}
+
+func createFakeLister(ctx context.Context, objects ...runtime.Object) (listerv1.ServiceLister, listerv1.PodLister) {
+	client := fake.NewSimpleClientset(objects...)
+	podInformer, podLister := createPodCache([]string{""}, client, time.Second)
+	serviceInformer, serviceLister := createServiceCache([]string{""}, client, time.Hour)
+	go podInformer.Run(ctx.Done())
+	go serviceInformer.Run(ctx.Done())
+	cache.WaitForCacheSync(ctx.Done(), podInformer.HasSynced, serviceInformer.HasSynced)
+	return serviceLister, podLister
 }

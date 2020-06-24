@@ -34,10 +34,9 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string, client ku
 	if len(domainSuffix) == 0 {
 		domainSuffix = constants.DefaultKubernetesDomain
 	}
-
 	ingressByHost := map[string]*model.Config{}
 	for _, ingrezz := range ingresses {
-		ingress.ConvertIngressVirtualService(*ingrezz, domainSuffix, ingressByHost, client)
+		ingress.ConvertIngressVirtualService(*ingrezz, domainSuffix, ingressByHost, &serviceListerWrapper{client: client}, &podListerWrapper{client: client})
 	}
 
 	out := make([]model.Config, 0, len(ingressByHost))

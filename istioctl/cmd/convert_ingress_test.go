@@ -21,6 +21,9 @@ import (
 
 	"istio.io/istio/pilot/test/util"
 
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -65,4 +68,73 @@ func TestConvertIngress(t *testing.T) {
 			util.CompareYAML(outFilename, t)
 		})
 	}
+}
+
+func TestConvertIngressWithNamedPort(t *testing.T) {
+	service := &coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "my-service",
+			Namespace: "mock-ns",
+		},
+		Spec: coreV1.ServiceSpec{
+			Ports: []coreV1.ServicePort{
+				{
+					Name:     "test-svc-port",
+					Protocol: "TCP",
+					Port:     8888,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.String,
+						StrVal: "my-port",
+					},
+				},
+			},
+			Selector: map[string]string{
+				"app": "test-app",
+			},
+		},
+	}
+	pod := &coreV1.Pod{
+		TypeMeta: metaV1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "test-app-pod",
+			Namespace: "mock-ns",
+			Labels:    map[string]string{"app": "test-app"},
+		},
+		Spec: coreV1.PodSpec{
+			Containers: []coreV1.Container{
+				{
+					Name: "app-container",
+					Ports: []coreV1.ContainerPort{
+						{Name: "my-port", ContainerPort: 1234},
+					},
+				},
+			},
+		},
+	}
+
+	client := fake.NewSimpleClientset(service, pod)
+
+	var readers []io.Reader
+	file, err := os.Open("testdata/ingress/named-port-ingress.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close() // nolint: errcheck
+	readers = append(readers, file)
+
+	outFilename := "testdata/v1alpha3/named-port-gateway.yaml"
+	out, err := os.Create(outFilename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close() // nolint: errcheck
+
+	if err := convertConfigs(readers, out, client); err != nil {
+		t.Fatalf("Unexpected error converting configs: %v", err)
+	}
+
+	util.CompareYAML(outFilename, t)
 }
