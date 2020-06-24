@@ -94,8 +94,8 @@ export TEST_ENV=kind
 export PULL_POLICY=IfNotPresent
 
 export KIND_REGISTRY_NAME="kind-registry"
-export KIND_REGISTRY_PORT="5050"
-export KIND_REGISTRY_HUB="localhost:5050/istio-testing"
+export KIND_REGISTRY_PORT="5000"
+export KIND_REGISTRY_HUB="localhost:${KIND_REGISTRY_PORT}/istio-testing"
 
 # TODO we can probably just truncate the registry and replace it with localhost:${KIND_REGISTRY_PORT}
 export HUB=${HUB:-"${KIND_REGISTRY_HUB}"}
