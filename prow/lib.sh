@@ -243,7 +243,7 @@ function setup_kind_clusters() {
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
     cat <<EOF > "${CLUSTER_YAML}"
 kind: Cluster
-apiVersion: kind.sigs.k8s.io/v1alpha3
+apiVersion: kind.x-k8s.io/v1alpha4
 networking:
   podSubnet: ${CLUSTER_POD_SUBNET}
   serviceSubnet: ${CLUSTER_SVC_SUBNET}
