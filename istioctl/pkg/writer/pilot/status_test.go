@@ -23,7 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/pkg/xds"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/tests/util"
 )
 

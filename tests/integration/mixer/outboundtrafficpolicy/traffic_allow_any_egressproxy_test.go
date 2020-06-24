@@ -32,12 +32,12 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/model"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
-	v2 "istio.io/istio/pkg/xds/v2"
 )
 
 const (

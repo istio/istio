@@ -26,8 +26,8 @@ import (
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
-	v3 "istio.io/istio/pkg/xds/v3"
 )
 
 // ClusterFilter is used to pass filter information into cluster based config writer print functions

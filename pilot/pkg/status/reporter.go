@@ -30,7 +30,7 @@ import (
 	"k8s.io/utils/clock"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/xds"
+	"istio.io/istio/pilot/pkg/xds"
 )
 
 func NewIstioContext(stop <-chan struct{}) context.Context {

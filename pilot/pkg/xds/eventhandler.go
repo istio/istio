@@ -15,8 +15,8 @@
 package xds
 
 import (
-	v2 "istio.io/istio/pkg/xds/v2"
-	v3 "istio.io/istio/pkg/xds/v3"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // EventType represents the type of object we are tracking. This is distinct from Envoy's TypeUrl

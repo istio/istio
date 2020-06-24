@@ -22,8 +22,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/xds"
 
 	. "github.com/onsi/gomega"
 	"k8s.io/utils/clock"

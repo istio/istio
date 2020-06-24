@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/xds"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/tests/util"
 )
 

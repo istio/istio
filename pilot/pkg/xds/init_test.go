@@ -38,7 +38,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 
-	v3 "istio.io/istio/pkg/xds/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 
 	"istio.io/istio/tests/util"
 )

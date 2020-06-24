@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/pkg/xds"
+	"istio.io/istio/pilot/pkg/xds"
 )
 
 // sdsServiceAdapter is a sdsservice that converts v3 Discovery messages to v2 messages.

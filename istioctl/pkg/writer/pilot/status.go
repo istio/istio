@@ -22,7 +22,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"istio.io/istio/pkg/xds"
+	"istio.io/istio/pilot/pkg/xds"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Pilot responses
