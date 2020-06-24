@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy/filters"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 )
 
@@ -38,18 +37,15 @@ var knownSuffixes = []*stringmatcher.StringMatcher{
 		},
 	},
 }
-// This is a UDP listener is on port 15013 (TODO customize me via mesh config).
-// It has a DNS listener filter containing the cluster IPs of all services visible to the proxy (those that have one anyway).
-// The list of service cluster IPs will aid VMs, and multi-cluster setups to resolve services that may not exist in the local
-// cluster.
-//
-// TODO: Expand the logic to include necessary IPs for service entries that have NONE resolution with wildcard hosts
-// like *.example.com, or those that have service entries for TCP services with DNS resolution, without cluster IP.
-// In these cases, just allocate some dummy IP from
-// 127.255.0.0/16 subnet. But make sure that we are also building a TCP listener on this port to process this
-// traffic appropriately. These IPs need not be consistent across all proxies in the mesh because DNS resolution is local to the pod/VM.
-// They need to be consistent between the IP configured in the DNS resolver here and the IP configured in the listeners
-// sent to this proxy. Once this system works properly, we should get rid of all k8s dns hacks
+
+// This is a UDP listener is on port 15013.  It has a DNS listener filter containing the
+// cluster IPs of all services visible to the proxy (those that have one anyway).  The
+// list of service cluster IPs will aid VMs, and multi-cluster setups to resolve services
+// that may not exist in the local cluster. In addition, we also add the 'address' field
+// from all the service entries (user provided or auto allocated).  Since all callers use
+// GetServiceAddressForProxy(), we can be sure that when sending DNS filter to a proxy
+// with dns capture enabled, the auto allocated IPs we send for DNS will be the same as
+// the ones used for building the listeners for those (TCP) services.
 func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy, push *model.PushContext) *listener.Listener {
 	// We will ship the DNS filter to all 1.7+ proxies if dns capture is enabled in the proxy.
 	if node.Metadata.DnsCapture == "" {
@@ -90,11 +86,34 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 	virtualDomains := make([]*dnstable.DnsTable_DnsVirtualDomain, 0)
 
 	for _, svc := range push.Services(node) {
-		// we cannot take services with wildcards in the address field as DNS resolution wont work (for now)
+		// we cannot take services with wildcards in the address field. The reason
+		// is that even if we provide some dummy IP (subject to enabling this
+		// feature in Envoy), after capturing the traffic from the app, the
+		// sidecar would need to forward to the real IP. But to determine the real
+		// IP, the sidecar would have to know the non-wildcard FQDN that the
+		// application was trying to resolve. This information is not available
+		// for TCP services. The wildcard hostname is not a problem for HTTP
+		// services though, as we usually setup a listener on 0.0.0.0, process
+		// based on http virtual host and forward to the orig destination IP.
+		//
+		// Long story short, if the user has a TCP service of the form
+		//
+		// host: *.mysql.aws.com, port 3306,
+		//
+		// our only recourse is to allocate a 0.0.0.0:3306 listener and forward to
+		// original dest IP. It is now the user's responsibility to not allocate
+		// another wildcard service on the same port. i.e.
+		//
+		// 1. host: *.mysql.aws.com, port 3306
+		// 2. host: *.mongo.aws.com, port 3306 will result in conflict. Traffic may still
+		// flow but metrics wont be correct.
 		if svc.Hostname.IsWildCarded() {
 			continue
 		}
 		address := svc.GetServiceAddressForProxy(node)
+
+		// The IP will be unspecified here if its headless service or if the auto
+		// IP allocation logic for service entry was unable to allocate an IP.
 		if address == constants.UnspecifiedIP {
 			continue
 		}

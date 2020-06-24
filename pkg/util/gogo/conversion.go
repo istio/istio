@@ -49,7 +49,10 @@ func AnyToProtoAny(gogo *types.Any) *any.Any {
 	if gogo == nil {
 		return nil
 	}
-	x := any.Any(*gogo)
+	x := any.Any{
+		TypeUrl: gogo.TypeUrl,
+		Value: gogo.Value,
+	}
 	return &x
 }
 
@@ -67,6 +70,9 @@ func DurationToProtoDuration(gogo *types.Duration) *duration.Duration {
 	if gogo == nil {
 		return nil
 	}
-	x := duration.Duration(*gogo)
+	x := duration.Duration{
+		Seconds: gogo.Seconds,
+		Nanos: gogo.Nanos,
+	}
 	return &x
 }
