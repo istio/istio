@@ -84,7 +84,7 @@ func TestRulesWithIpRange(t *testing.T) {
 	cfg.OutboundIPRangesExclude = "1.1.0.0/16"
 	cfg.OutboundIPRangesInclude = "9.9.0.0/16"
 	cfg.DryRun = true
-	dnsVar.DefaultValue = "ALL"
+	dnsCaptureByEnvoy.DefaultValue = "ALL"
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -568,7 +568,7 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 	cfg := constructConfig()
 	cfg.DryRun = true
-	dnsVar.DefaultValue = "ALL"
+	dnsCaptureByAgent.DefaultValue = "ALL"
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -632,7 +632,7 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 	cfg := constructTestConfig()
 	cfg.OutboundIPRangesInclude = "127.1.2.3/32"
 	cfg.DryRun = true
-	dnsVar.DefaultValue = "ALL"
+	dnsCaptureByEnvoy.DefaultValue = "ALL"
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
