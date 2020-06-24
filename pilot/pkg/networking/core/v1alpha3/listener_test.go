@@ -1910,7 +1910,7 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *listener.Listener) {
 			t.Fatalf("expected %d http filters, found %d", 3, len(hf.Values))
 		}
 		envoyCors := hf.Values[0].GetStructValue().Fields["name"].GetStringValue()
-		if envoyCors != "envoy.cors" {
+		if envoyCors != wellknown.CORS {
 			t.Fatalf("expected %q http filter, found %q", "envoy.cors", envoyCors)
 		}
 	}

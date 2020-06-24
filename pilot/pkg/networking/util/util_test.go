@@ -24,6 +24,8 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -407,7 +409,7 @@ func TestAddSubsetToMetadata(t *testing.T) {
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
 			got := AddSubsetToMetadata(v.in, v.subset)
-			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
 				tt.Errorf("AddSubsetToMetadata(%v, %s) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, v.subset, got, v.want, diff)
 			}
 		})
@@ -492,8 +494,8 @@ func TestMergeAnyWithStruct(t *testing.T) {
 		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
 	}
 
-	if !reflect.DeepEqual(expectedHCM, &outHCM) {
-		t.Errorf("Merged HCM does not match the expected output")
+	if diff := cmp.Diff(expectedHCM, &outHCM, protocmp.Transform()); diff != "" {
+		t.Errorf("Merged HCM does not match the expected output: %v", diff)
 	}
 }
 

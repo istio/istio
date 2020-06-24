@@ -34,6 +34,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1678,7 +1679,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			env := c.newEnv(serviceDiscovery, configStore)
 			actual := buildLocalityLbEndpoints(proxy, env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
 			sortEndpoints(actual)
-			if v := cmp.Diff(c.expected, actual); v != "" {
+			if v := cmp.Diff(c.expected, actual, protocmp.Transform()); v != "" {
 				t.Fatalf("Expected (-) != actual (+):\n%s", v)
 			}
 		})
