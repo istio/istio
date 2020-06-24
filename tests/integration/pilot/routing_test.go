@@ -27,62 +27,94 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+type routingTestCase struct {
+	name      string
+	vs        string
+	validator func(*echoclient.ParsedResponse) error
+}
+
 func TestTrafficRouting(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresSingleCluster().
+		Features("traffic.routing").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "traffic-routing",
 				Inject: true,
 			})
 
-			var client, server echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&client, echoConfig(ns, "client", ctx.Environment().Clusters()[0])).
-				With(&server, echoConfig(ns, "server", ctx.Environment().Clusters()[0])).
-				BuildOrFail(t)
+			clusterServices := make([][2]echo.Instance, len(ctx.Environment().Clusters()))
+			builder := echoboot.NewBuilderOrFail(t, ctx)
+			for _, c := range ctx.Environment().Clusters() {
+				builder = builder.
+					With(&clusterServices[c.Index()][0], echoConfig(ns, fmt.Sprintf("client-%d", c.Index()), c)).
+					With(&clusterServices[c.Index()][1], echoConfig(ns, fmt.Sprintf("server-%d", c.Index()), c))
+			}
+			builder.BuildOrFail(t)
 
-			cases := []struct {
-				name      string
-				vs        string
-				validator func(*echoclient.ParsedResponse) error
-			}{
-				{
-					"added header",
-					`
+			for _, src := range ctx.Environment().Clusters() {
+				for _, dst := range ctx.Environment().Clusters() {
+					ctx.NewSubTest(fmt.Sprintf("cluster-%d->cluster-%d", src.Index(), dst.Index())).
+						Run(func(ctx framework.TestContext) {
+							client, server := clusterServices[src.Index()][0], clusterServices[dst.Index()][1]
+							cases := buildCases(server.Config().Service)
+							for _, tt := range cases {
+								ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
+									ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tt.vs)
+									defer ctx.Config().DeleteYAMLOrFail(ctx, ns.Name(), tt.vs)
+									retry.UntilSuccessOrFail(ctx, func() error {
+										resp, err := client.Call(echo.CallOptions{
+											Target:   server,
+											PortName: "http",
+										})
+										if err != nil {
+											return err
+										}
+										if len(resp) != 1 {
+											ctx.Fatalf("unexpected response count: %v", resp)
+										}
+										return tt.validator(resp[0])
+									}, retry.Delay(time.Millisecond*100))
+								})
+							}
+						})
+				}
+			}
+		})
+}
+
+func buildCases(svcName string) []routingTestCase {
+	return []routingTestCase{
+		{
+			name: "added header",
+			vs: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-  - server
+  - %s
   http:
   - route:
     - destination:
-        host: server
+        host: %s
     headers:
       request:
         add:
-          istio-custom-header: user-defined-value`,
-					func(response *echoclient.ParsedResponse) error {
-						if response.RawResponse["Istio-Custom-Header"] != "user-defined-value" {
-							return fmt.Errorf("missing request header, have %+v", response.RawResponse)
-						}
-						return nil
-					},
-				},
-				{
-					"redirect",
-					`
+          istio-custom-header: user-defined-value`, svcName, svcName),
+			validator: validateCustomHeader,
+		},
+		{
+			name: "redirect",
+			vs: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - server
+    - %s
   http:
   - match:
     - uri:
@@ -94,33 +126,22 @@ spec:
         exact: /new/path
     route:
     - destination:
-        host: server`,
-					func(response *echoclient.ParsedResponse) error {
-						if response.URL != "/new/path" {
-							return fmt.Errorf("incorrect URL, have %+v %+v", response.RawResponse["URL"], response.URL)
-						}
-						return nil
-					},
-				},
-			}
-			for _, tt := range cases {
-				ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
-					ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tt.vs)
-					defer ctx.Config().DeleteYAMLOrFail(ctx, ns.Name(), tt.vs)
-					retry.UntilSuccessOrFail(ctx, func() error {
-						resp, err := client.Call(echo.CallOptions{
-							Target:   server,
-							PortName: "http",
-						})
-						if err != nil {
-							return err
-						}
-						if len(resp) != 1 {
-							ctx.Fatalf("unexpected response count: %v", resp)
-						}
-						return tt.validator(resp[0])
-					}, retry.Delay(time.Millisecond*100))
-				})
-			}
-		})
+        host: %s`, svcName, svcName),
+			validator: validateRedirect,
+		},
+	}
+}
+
+func validateCustomHeader(response *echoclient.ParsedResponse) error {
+	if response.RawResponse["Istio-Custom-Header"] != "user-defined-value" {
+		return fmt.Errorf("missing request header, have %+v", response.RawResponse)
+	}
+	return nil
+}
+
+func validateRedirect(response *echoclient.ParsedResponse) error {
+	if response.URL != "/new/path" {
+		return fmt.Errorf("incorrect URL, have %+v %+v", response.RawResponse["URL"], response.URL)
+	}
+	return nil
 }
