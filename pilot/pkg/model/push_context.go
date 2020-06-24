@@ -1688,10 +1688,11 @@ func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNam
 		return []*Gateway{{gw.GetAddress(), gw.Port}}
 	}
 
-	// Second, try to find the gateway addresses by the provided service name
+	// Second, try to find the gateway addresses by the provided service name in the kubernetes registry
+	// Non k8s registries do not populate the cluster external addresses
 	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
 		svc, _ := discovery.GetService(host.Name(gwSvcName))
-		if svc == nil {
+		if svc == nil || svc.Attributes.ServiceRegistry != kubernetesRegistry {
 			return nil
 		}
 		// No need lock here as the service returned is a new one

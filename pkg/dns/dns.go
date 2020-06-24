@@ -87,12 +87,6 @@ type IstioDNS struct {
 }
 
 var (
-	// DNSAddr is the env controlling the DNS-over-TLS server in istiod.
-	// By default will be active, set to empty string to disable DNS functionality.
-	// Do not change in prod - it must match the Service. Used for testing or running
-	// on VMs.
-	DNSAddr = env.RegisterStringVar("DNS_ADDR", ":15053", "DNS listen address")
-
 	// DNSAgentAddr is the listener address on the agent.
 	// This is in the range of hardcoded address used by agent - not customizable
 	// except for tests.
