@@ -63,3 +63,7 @@ features:
       central-istiod:
       multimaster:
       remote:
+  # describes internal build and testing infrastrcuture
+  infrastructure:
+    # the testing framework
+    framework:
