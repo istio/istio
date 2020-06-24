@@ -204,9 +204,9 @@ EOF
   if [[ -n "${KIND_REGISTRY_NAME}" && -n "${KIND_REGISTRY_PORT}" ]]; then
       cat <<EOF >> "${CONFIG}"
 containerdConfigPatches:
-- |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
-    endpoint = ["http://${KIND_REGISTRY_NAME}:${KIND_REGISTRY_PORT}"]
+  - |-
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
+        endpoint = ["http://${KIND_REGISTRY_NAME}:${KIND_REGISTRY_PORT}"]
 EOF
   fi
 
