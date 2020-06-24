@@ -121,6 +121,8 @@ function setup_kind_registry() {
 
   # https://docs.tilt.dev/choosing_clusters.html#discovering-the-registry
   for cluster in $(kind get clusters); do
+    # TODO get context/config from existing variables
+    kind export kubeconfig --name="${cluster}"
     for node in $(kind get nodes --name="${cluster}"); do
       kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}";
     done
@@ -190,16 +192,6 @@ function setup_kind_cluster() {
       # Kubernetes 1.15+
       CONFIG=./prow/config/trustworthy-jwt.yaml
     fi
-
-    if [[ -n "${KIND_REGISTRY_NAME}" && -n "${KIND_REGISTRY_PORT}" ]]; then
-      cat <<EOF >> "${CONFIG}"
-containerdConfigPatches:
-- |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
-    endpoint = ["http://${KIND_REGISTRY_NAME}:${KIND_REGISTRY_PORT}"]
-EOF
-    fi
-
       # Configure the cluster IP Family only for default configs
     if [ "${IP_FAMILY}" = "ipv6" ]; then
       cat <<EOF >> "${CONFIG}"
@@ -207,6 +199,15 @@ networking:
   ipFamily: ipv6
 EOF
     fi
+  fi
+
+  if [[ -n "${KIND_REGISTRY_NAME}" && -n "${KIND_REGISTRY_PORT}" ]]; then
+      cat <<EOF >> "${CONFIG}"
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
+    endpoint = ["http://${KIND_REGISTRY_NAME}:${KIND_REGISTRY_PORT}"]
+EOF
   fi
 
   # Create KinD cluster
