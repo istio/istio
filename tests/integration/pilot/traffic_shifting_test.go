@@ -77,15 +77,12 @@ func TestTrafficShifting(t *testing.T) {
 // VM image version is default to ubuntu:bionic
 // All other images will be tested in post-submit to reduce runtime
 func TestVMTrafficShifting(t *testing.T) {
-	testcases := []string{"app_sidecar_ubuntu_bionic"}
-	trafficShifting(t, testcases)
+	trafficShifting(t, []string{DefaultVMImage})
 }
 
 // Test case for post-submit to test all OS types/versions
 func TestVMTrafficShiftingPost(t *testing.T) {
-	testcases := []string{"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal", "app_sidecar_ubuntu_bionic",
-		"app_sidecar_debian_9", "app_sidecar_debian_10"}
-	trafficShifting(t, testcases, label.Postsubmit) // mark it to be post-submit
+	trafficShifting(t, GetSupportedOSVersion(), label.Postsubmit) // mark it to be post-submit
 }
 
 func trafficShifting(t *testing.T, vmImages []string, label ...label.Instance) {
