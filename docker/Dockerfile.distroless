@@ -2,7 +2,7 @@
 FROM gcr.io/distroless/static-debian10@sha256:4433370ec2b3b97b338674b4de5ffaef8ce5a38d1c9c0cb82403304b8718cde9 as distroless_source
 
 # prepare a base dev to modify file contents
-FROM docker.io/istio/base:1.7-dev.1 as ubuntu_source
+FROM ubuntu:bionic as ubuntu_source
 
 # Modify contents of container
 COPY --from=distroless_source /etc/ /home/etc
