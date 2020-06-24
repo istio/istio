@@ -105,7 +105,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	}
 	// TODO(jasonwzm) remove this when multi-version is supported. v1beta1 shares the same
 	// schema as v1lalpha3. Fake conversion and validate against v1alpha3.
-	if gvk.Group == "networking.istio.io" && gvk.Version == "v1beta1" {
+	if gvk.Group == name.NetworkingAPIGroupName && gvk.Version == "v1beta1" {
 		gvk.Version = "v1alpha3"
 	}
 	schema, exists := collections.Pilot.FindByGroupVersionKind(gvk)
