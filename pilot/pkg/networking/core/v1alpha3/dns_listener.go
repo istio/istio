@@ -23,8 +23,19 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/proxy/envoy/filters"
 )
 
+var knownSuffixes = []*stringmatcher.StringMatcher{
+	{
+		MatchPattern: &stringmatcher.StringMatcher_SafeRegex{
+			SafeRegex: &stringmatcher.RegexMatcher{
+				EngineType: &stringmatcher.RegexMatcher_GoogleRe2{GoogleRe2: &stringmatcher.RegexMatcher_GoogleRE2{}},
+				Regex:      ".*", // Match everything.. All DNS queries go through Envoy. Unknown ones will be forwarded
+			},
+		},
+	},
+}
 // This is a UDP listener is on port 15013 (TODO customize me via mesh config).
 // It has a DNS listener filter containing the cluster IPs of all services visible to the proxy (those that have one anyway).
 // The list of service cluster IPs will aid VMs, and multi-cluster setups to resolve services that may not exist in the local
@@ -38,8 +49,13 @@ import (
 // They need to be consistent between the IP configured in the DNS resolver here and the IP configured in the listeners
 // sent to this proxy. Once this system works properly, we should get rid of all k8s dns hacks
 func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy, push *model.PushContext) *listener.Listener {
-	_, localhost := getActualWildcardAndLocalHost(node)
+	// We will ship the DNS filter to all 1.7+ proxies. As such the dns listener is useless unless the user turns on DNS capture
+	// flag in meshConfig.defaultConfig.proxyMetadata.DNS_CAPTURE: ALL
+	if !util.IsIstioVersionGE17(node) {
+		return nil
+	}
 
+	_, localhost := getActualWildcardAndLocalHost(node)
 	address := util.BuildAddress(localhost, model.SidecarDNSListenerPort)
 	// Convert the address to a UDP address
 	address.GetSocketAddress().Protocol = core.SocketAddress_UDP
@@ -53,7 +69,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		},
 	}
 	dnsFilter := &listener.ListenerFilter{
-		Name: util.EnvoyDNSListenerFilterName,
+		Name: filters.DNSListenerFilterName,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(dnsFilterConfig),
 		},
@@ -72,16 +88,6 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 	// build a virtual domain for each service visible to this sidecar
 	virtualDomains := make([]*dnstable.DnsTable_DnsVirtualDomain, 0)
 
-	knownSuffixes := []*stringmatcher.StringMatcher{
-		{
-			MatchPattern: &stringmatcher.StringMatcher_SafeRegex{
-				SafeRegex: &stringmatcher.RegexMatcher{
-					EngineType: &stringmatcher.RegexMatcher_GoogleRe2{GoogleRe2: &stringmatcher.RegexMatcher_GoogleRE2{}},
-					Regex:      ".*", // Match everything.. All DNS queries go through Envoy. Unknown ones will be forwarded
-				},
-			},
-		},
-	}
 	for _, svc := range push.Services(node) {
 		// we cannot take services with wildcards in the address field as DNS resolution wont work (for now)
 		if svc.Hostname.IsWildCarded() {

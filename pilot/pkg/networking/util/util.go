@@ -88,9 +88,6 @@ const (
 	// level tls transport socket configuration
 	EnvoyTLSSocketName = wellknown.TransportSocketTls
 
-	// EnvoyDNSListenerFilterName is the name of UDP listener filter for resolving DNS queries
-	EnvoyDNSListenerFilterName = "envoy.filters.udp.dns_filter"
-
 	// StatName patterns
 	serviceStatPattern         = "%SERVICE%"
 	serviceFQDNStatPattern     = "%SERVICE_FQDN%"
@@ -286,6 +283,12 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 func IsIstioVersionGE15(node *model.Proxy) bool {
 	return node.IstioVersion == nil ||
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
+}
+
+// IsIstioVersionGE17 checks whether the given Istio version is greater than or equals 1.7.
+func IsIstioVersionGE17(node *model.Proxy) bool {
+	return node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 7, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {

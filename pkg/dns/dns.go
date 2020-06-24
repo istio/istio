@@ -98,7 +98,7 @@ var (
 	// except for tests.
 	// By default will be active, set to empty string to disable DNS functionality.
 	// Iptables interception matches this.
-	DNSAgentAddr = ":15013"
+	DNSAgentAddr = ":15053"
 
 	// DNSTLSEnableAgent activates the DNS-over-TLS in istio-agent.
 	// This will just attempt to connect to Istiod and start the DNS server on the default port -

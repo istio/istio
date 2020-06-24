@@ -950,5 +950,5 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 }
 
 // SidecarDNSListenerPort specifes the port at which the sidecar hosts a DNS resolver listener.
-// TODO: customize me
+// TODO: customize me. tools/istio-iptables package also has this hardcoded.
 const SidecarDNSListenerPort = 15013
