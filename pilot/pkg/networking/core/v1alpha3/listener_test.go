@@ -85,7 +85,6 @@ func getProxy() *model.Proxy {
 
 var (
 	tnow        = time.Now()
-	tzero       = time.Time{}
 	proxyHTTP10 = model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
@@ -327,14 +326,6 @@ func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.TCP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.HTTP, tnow),
 		buildService("test3.com", wildcardIP, protocol.TCP, tnow.Add(2*time.Second)))
-}
-
-func TestOutboundListenerConflict_Unordered(t *testing.T) {
-	// Ensure that the order is preserved when all the times match. The first service in the list wins.
-	testOutboundListenerConflictWithSniffingDisabled(t,
-		buildService("test1.com", wildcardIP, protocol.HTTP, tzero),
-		buildService("test2.com", wildcardIP, protocol.TCP, tzero),
-		buildService("test3.com", wildcardIP, protocol.TCP, tzero))
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
