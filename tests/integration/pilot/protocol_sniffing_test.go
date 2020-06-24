@@ -34,7 +34,6 @@ import (
 
 func TestSniffing(t *testing.T) {
 	framework.NewTest(t).
-		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			runTest(t, ctx)
 		})
@@ -77,114 +76,125 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 		},
 	}
 
-	p := pilots[0]
-	var fromWithSidecar, fromWithoutSidecar, to echo.Instance
-	echoboot.NewBuilderOrFail(t, ctx).
-		With(&fromWithSidecar, echo.Config{
-			Service:   "from-with-sidecar",
-			Namespace: ns,
-			Ports:     ports,
-			Subsets:   []echo.SubsetConfig{{}},
-			Pilot:     p,
-		}).
-		With(&fromWithoutSidecar, echo.Config{
-			Service:   "from-without-sidecar",
-			Namespace: ns,
-			Ports:     ports,
-			Pilot:     p,
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.SidecarInject: {
-							Value: strconv.FormatBool(false)},
+	clusterServices := make([][3]echo.Instance, len(ctx.Environment().Clusters()))
+	builder := echoboot.NewBuilderOrFail(t, ctx)
+	for _, c := range ctx.Environment().Clusters() {
+		clusterServices[c.Index()] = [3]echo.Instance{}
+		p := pilots[c.Index()]
+		builder = builder.
+			With(&clusterServices[c.Index()][0], echo.Config{
+				Service:   fmt.Sprintf("from-with-sidecar-%d", c.Index()),
+				Namespace: ns,
+				Ports:     ports,
+				Subsets:   []echo.SubsetConfig{{}},
+				Pilot:     p,
+			}).
+			With(&clusterServices[c.Index()][1], echo.Config{
+				Service:   fmt.Sprintf("from-without-sidecar-%d", c.Index()),
+				Namespace: ns,
+				Ports:     ports,
+				Pilot:     p,
+				Subsets: []echo.SubsetConfig{
+					{
+						Annotations: map[echo.Annotation]*echo.AnnotationValue{
+							echo.SidecarInject: {
+								Value: strconv.FormatBool(false)},
+						},
 					},
 				},
-			},
-		}).
-		With(&to, echo.Config{
-			Service:   "to",
-			Namespace: ns,
-			Subsets:   []echo.SubsetConfig{{}},
-			Ports:     ports,
-			Pilot:     p,
-		}).
-		BuildOrFail(ctx)
-
-	fromWithSidecar.WaitUntilCallableOrFail(t, to)
-	fromWithoutSidecar.WaitUntilCallableOrFail(t, to)
-	log.Infof("%s app ready: %s %s",
-		ctx.Name(),
-		fromWithSidecar.Config().Service,
-		fromWithoutSidecar.Config().Service)
-
-	testCases := []struct {
-		portName string
-		from     echo.Instance
-		scheme   scheme.Instance
-	}{
-		{
-			portName: "foo",
-			from:     fromWithSidecar,
-			scheme:   scheme.HTTP,
-		},
-		{
-			portName: "http",
-			from:     fromWithSidecar,
-			scheme:   scheme.HTTP,
-		},
-		{
-			portName: "baz",
-			from:     fromWithSidecar,
-			scheme:   scheme.GRPC,
-		},
-		{
-			portName: "grpc",
-			from:     fromWithSidecar,
-			scheme:   scheme.GRPC,
-		},
-		{
-			portName: "foo",
-			from:     fromWithoutSidecar,
-			scheme:   scheme.HTTP,
-		},
-		{
-			portName: "http",
-			from:     fromWithoutSidecar,
-			scheme:   scheme.HTTP,
-		},
-		{
-			portName: "baz",
-			from:     fromWithoutSidecar,
-			scheme:   scheme.GRPC,
-		},
-		{
-			portName: "grpc",
-			from:     fromWithoutSidecar,
-			scheme:   scheme.GRPC,
-		},
-	}
-
-	for _, tc := range testCases {
-		connChecker := connection.Checker{
-			From: tc.from,
-			Options: echo.CallOptions{
-				Target:   to,
-				PortName: tc.portName,
-				Scheme:   tc.scheme,
-			},
-			ExpectSuccess: true,
-		}
-		subTestName := fmt.Sprintf(
-			"%s->%s:%s",
-			tc.from.Config().Service,
-			to.Config().Service,
-			connChecker.Options.PortName)
-
-		t.Run(subTestName,
-			func(t *testing.T) {
-				retry.UntilSuccessOrFail(t, connChecker.Check,
-					retry.Delay(time.Second),
-					retry.Timeout(10*time.Second))
+			}).
+			With(&clusterServices[c.Index()][2], echo.Config{
+				Service:   fmt.Sprintf("to-%d", c.Index()),
+				Namespace: ns,
+				Subsets:   []echo.SubsetConfig{{}},
+				Ports:     ports,
+				Pilot:     p,
 			})
+	}
+	builder.BuildOrFail(ctx)
+
+	for _, srcCluster := range ctx.Environment().Clusters() {
+		for _, dstCluster := range ctx.Environment().Clusters() {
+			fromWithSidecar, fromWithoutSidecar := clusterServices[srcCluster.Index()][0], clusterServices[srcCluster.Index()][1]
+			to := clusterServices[dstCluster.Index()][2]
+
+			fromWithSidecar.WaitUntilCallableOrFail(t, to)
+			fromWithoutSidecar.WaitUntilCallableOrFail(t, to)
+			log.Infof("%s app ready: %s %s",
+				ctx.Name(),
+				fromWithSidecar.Config().Service,
+				fromWithoutSidecar.Config().Service)
+
+			testCases := []struct {
+				portName string
+				from     echo.Instance
+				scheme   scheme.Instance
+			}{
+				{
+					portName: "foo",
+					from:     fromWithSidecar,
+					scheme:   scheme.HTTP,
+				},
+				{
+					portName: "http",
+					from:     fromWithSidecar,
+					scheme:   scheme.HTTP,
+				},
+				{
+					portName: "baz",
+					from:     fromWithSidecar,
+					scheme:   scheme.GRPC,
+				},
+				{
+					portName: "grpc",
+					from:     fromWithSidecar,
+					scheme:   scheme.GRPC,
+				},
+				{
+					portName: "foo",
+					from:     fromWithoutSidecar,
+					scheme:   scheme.HTTP,
+				},
+				{
+					portName: "http",
+					from:     fromWithoutSidecar,
+					scheme:   scheme.HTTP,
+				},
+				{
+					portName: "baz",
+					from:     fromWithoutSidecar,
+					scheme:   scheme.GRPC,
+				},
+				{
+					portName: "grpc",
+					from:     fromWithoutSidecar,
+					scheme:   scheme.GRPC,
+				},
+			}
+
+			for _, tc := range testCases {
+				connChecker := connection.Checker{
+					From: tc.from,
+					Options: echo.CallOptions{
+						Target:   to,
+						PortName: tc.portName,
+						Scheme:   tc.scheme,
+					},
+					ExpectSuccess: true,
+				}
+				subTestName := fmt.Sprintf(
+					"%s->%s:%s",
+					tc.from.Config().Service,
+					to.Config().Service,
+					connChecker.Options.PortName)
+
+				t.Run(subTestName,
+					func(t *testing.T) {
+						retry.UntilSuccessOrFail(t, connChecker.Check,
+							retry.Delay(time.Second),
+							retry.Timeout(10*time.Second))
+					})
+			}
+		}
 	}
 }
