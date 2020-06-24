@@ -994,7 +994,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		gateways             []pilot_model.Config
 		routeName            string
 		expectedVirtualHosts map[string][]string
-		expectedHttpRoutes   map[string]int
+		expectedHTTPRoutes   map[string]int
 	}{
 		{
 			"404 when no services",
@@ -1091,8 +1091,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
 				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
 			}
-			if !reflect.DeepEqual(tt.expectedHttpRoutes, hr) {
-				t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHttpRoutes, hr)
+			if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
+				t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
 			}
 		})
 	}
