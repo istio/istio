@@ -253,9 +253,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:    domainName(string(hostname), port),
-						Domains: buildGatewayVirtualHostDomains(string(hostname)),
-						Routes:  routes,
+						Name:                       domainName(string(hostname), port),
+						Domains:                    buildGatewayVirtualHostDomains(string(hostname)),
+						Routes:                     routes,
+						IncludeRequestAttemptCount: true,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
 						newVHost.RequireTls = route.VirtualHost_ALL
