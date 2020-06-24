@@ -212,11 +212,17 @@ func convertServices(cfg model.Config) []*model.Service {
 				}
 			}
 		} else {
+			// The service has no IP specified. If this is a wildcard hostname, we can't do anything.
+			// But if this is not a wildcard hostname, then we can automatically allocate an IP address
+			// out of a reserved pool (from loopback 127.244.0.0/16) to this service, irrespective of its
+			// resolution or the service types (http/tcp). LDS code will send a DNS resolver listener
+			// to automatically resolve these IPs locally within Envoy.
 			out = append(out, &model.Service{
 				CreationTime: creationTime,
 				MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 				Hostname:     host.Name(hostname),
 				Address:      constants.UnspecifiedIP,
+				AutoAllocatedAddress: "127.244.0.1", // temp - todo
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{

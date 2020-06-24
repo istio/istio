@@ -35,6 +35,7 @@ import (
 	"istio.io/api/label"
 
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -70,7 +71,12 @@ type Service struct {
 	Hostname host.Name `json:"hostname"`
 
 	// Address specifies the service IPv4 address of the load balancer
+	// Do not access directly. Use GetServiceAddressForProxy
 	Address string `json:"address,omitempty"`
+
+	// AutoAllocatedAddress specifies the automatically allocated IPv4 address
+	// out of 127.243.0.0/16 subnet for service entries with non-wildcard hostnames,
+	AutoAllocatedAddress string `json:"autoAllocatedAddress,omitempty"`
 
 	// Protect concurrent ClusterVIPs read/write
 	Mutex sync.RWMutex
@@ -523,12 +529,21 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
+// to avoid circular deps
+const kubernetesRegistry = "Kubernetes"
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
-	s.Mutex.RLock()
-	defer s.Mutex.RUnlock()
-	if node.Metadata != nil && node.Metadata.ClusterID != "" && s.ClusterVIPs[node.Metadata.ClusterID] != "" {
-		return s.ClusterVIPs[node.Metadata.ClusterID]
+	if s.Attributes.ServiceRegistry == kubernetesRegistry &&
+		node.Metadata != nil && node.Metadata.ClusterID != "" {
+		// restrict lock to only k8s services to reduce unnecessary locking
+		s.Mutex.RLock()
+		if s.ClusterVIPs[node.Metadata.ClusterID] != "" {
+			return s.ClusterVIPs[node.Metadata.ClusterID]
+		}
+		s.Mutex.RUnlock()
+	}
+	if node.Metadata.DnsCapture != "" && s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
+		return s.AutoAllocatedAddress
 	}
 	return s.Address
 }

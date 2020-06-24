@@ -24,6 +24,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy/filters"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/constants"
 )
 
 var knownSuffixes = []*stringmatcher.StringMatcher{
@@ -45,13 +47,12 @@ var knownSuffixes = []*stringmatcher.StringMatcher{
 // like *.example.com, or those that have service entries for TCP services with DNS resolution, without cluster IP.
 // In these cases, just allocate some dummy IP from
 // 127.255.0.0/16 subnet. But make sure that we are also building a TCP listener on this port to process this
-// traffic appropriately. These IPs need not be consistent across all proxies because DNS resolution is local to the pod/VM.
+// traffic appropriately. These IPs need not be consistent across all proxies in the mesh because DNS resolution is local to the pod/VM.
 // They need to be consistent between the IP configured in the DNS resolver here and the IP configured in the listeners
 // sent to this proxy. Once this system works properly, we should get rid of all k8s dns hacks
 func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy, push *model.PushContext) *listener.Listener {
-	// We will ship the DNS filter to all 1.7+ proxies. As such the dns listener is useless unless the user turns on DNS capture
-	// flag in meshConfig.defaultConfig.proxyMetadata.DNS_CAPTURE: ALL
-	if !util.IsIstioVersionGE17(node) {
+	// We will ship the DNS filter to all 1.7+ proxies if dns capture is enabled in the proxy.
+	if node.Metadata.DnsCapture == "" {
 		return nil
 	}
 
@@ -93,13 +94,11 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 		if svc.Hostname.IsWildCarded() {
 			continue
 		}
-		// for k8s services, use the service fqdn and the cluster local vip
-		// for non k8s services
 		address := svc.GetServiceAddressForProxy(node)
-		if len(address) == 0 {
-			// most probably a wildcard service. HTTP/TCP non-wildcard services would have a DNS allocated already (TODO)
+		if address == constants.UnspecifiedIP {
 			continue
 		}
+
 		virtualDomains = append(virtualDomains, &dnstable.DnsTable_DnsVirtualDomain{
 			Name: string(svc.Hostname),
 			Endpoint: &dnstable.DnsTable_DnsEndpoint{

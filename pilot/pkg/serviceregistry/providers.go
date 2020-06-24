@@ -21,6 +21,7 @@ const (
 	// Mock is a service registry that contains 2 hard-coded test services
 	Mock ProviderID = "Mock"
 	// Kubernetes is a service registry backed by k8s API server
+	// NOTE: there is another variable for the same in model/service.go
 	Kubernetes ProviderID = "Kubernetes"
 	// Consul is a service registry backed by Consul
 	Consul ProviderID = "Consul"
