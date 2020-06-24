@@ -97,7 +97,7 @@ func TestParallel(t *testing.T) {
 // Validate that cleanup is done synchronously for asynchronous tests
 func TestParallelWhenDone(t *testing.T) {
 	errors := make(chan error, 10)
-	framework.NewTest(t).
+	framework.NewTest(t).Features("infrastructure.framework").
 		Run(func(ctx framework.TestContext) {
 			runCheck(ctx, errors, "root")
 			ctx.NewSubTest("nested-serial").Run(func(ctx framework.TestContext) {
