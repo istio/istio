@@ -229,7 +229,27 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
+		if server.Tls != nil && server.Tls.HttpsRedirect {
+			// this is a plaintext server with TLS redirect enabled. There is no point in processing the
+			// virtual services for this server because all traffic is anyway going to get redirected
+			// to https. short circuit the route computation by generating a virtual host with no routes
+			// but with tls redirect enabled
+			for _, hostname := range server.Hosts {
+				newVHost := &route.VirtualHost{
+					Name:                       domainName(hostname, port),
+					Domains:                    buildGatewayVirtualHostDomains(hostname),
+					IncludeRequestAttemptCount: true,
+				}
+				newVHost.RequireTls = route.VirtualHost_ALL
+				vHostDedupMap[host.Name(hostname)] = newVHost
+			}
+			continue
+		}
 		virtualServices := push.VirtualServices(node, map[string]bool{gatewayName: true})
+
+		// TODO: if there are no virtual services for this server, setup a 404
+		// But get rid of the 404 when we encounter another virtual service for another Gateway server with same hostname
+
 		for _, virtualService := range virtualServices {
 			virtualServiceHosts := host.NewNames(virtualService.Spec.(*networking.VirtualService).Hosts)
 			serverHosts := host.NamesForNamespace(server.Hosts, virtualService.Namespace)
@@ -250,16 +270,16 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 			for _, hostname := range intersectingHosts {
 				if vHost, exists := vHostDedupMap[hostname]; exists {
-					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
+					// before merging this virtual service's routes, make sure that the existing one is not a tls redirect host
+					if vHost.RequireTls == route.VirtualHost_NONE {
+						vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
+					}
 				} else {
 					newVHost := &route.VirtualHost{
 						Name:                       domainName(string(hostname), port),
 						Domains:                    buildGatewayVirtualHostDomains(string(hostname)),
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
-					}
-					if server.Tls != nil && server.Tls.HttpsRedirect {
-						newVHost.RequireTls = route.VirtualHost_ALL
 					}
 					vHostDedupMap[hostname] = newVHost
 				}

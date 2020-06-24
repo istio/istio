@@ -898,6 +898,22 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 }
 
 func TestGatewayHTTPRouteConfig(t *testing.T) {
+	httpsRedirectGateway := pilot_model.Config{
+		ConfigMeta: pilot_model.ConfigMeta{
+			Name:      "gateway-redirect",
+			Namespace: "default",
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
+				},
+			},
+		},
+	}
 	httpGateway := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
 			Name:      "gateway",
@@ -915,7 +931,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceSpec := &networking.VirtualService{
 		Hosts:    []string{"example.org"},
-		Gateways: []string{"gateway"},
+		Gateways: []string{"gateway", "gateway-redirect"},
 		Http: []*networking.HTTPRoute{
 			{
 				Route: []*networking.HTTPRouteDestination{
@@ -955,7 +971,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
-			Gateways: []string{"gateway"},
+			Gateways: []string{"gateway", "gateway-redirect"},
 			Http: []*networking.HTTPRoute{
 				{
 					Route: []*networking.HTTPRouteDestination{
@@ -978,6 +994,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		gateways             []pilot_model.Config
 		routeName            string
 		expectedVirtualHosts map[string][]string
+		expectedHttpRoutes   map[string]int
 	}{
 		{
 			"404 when no services",
@@ -989,6 +1006,31 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"*",
 				},
 			},
+			map[string]int{"blackhole:80": 1},
+		},
+		{
+			"virtual services do not matter when tls redirect is set",
+			[]pilot_model.Config{virtualService},
+			[]pilot_model.Config{httpsRedirectGateway},
+			"http.80",
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
+			map[string]int{"example.org:80": 0},
+		},
+		{
+			"no merging of virtual services when tls redirect is set",
+			[]pilot_model.Config{virtualService, virtualServiceCopy},
+			[]pilot_model.Config{httpsRedirectGateway, httpGateway},
+			"http.80",
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
+			map[string]int{"example.org:80": 0},
 		},
 		{
 			"add a route for a virtual service",
@@ -1000,6 +1042,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
+			map[string]int{"example.org:80": 1},
 		},
 		{
 			"duplicate virtual service should merge",
@@ -1011,6 +1054,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
+			map[string]int{"example.org:80": 2},
 		},
 		{
 			"duplicate by wildcard should merge",
@@ -1022,6 +1066,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
+			map[string]int{"example.org:80": 2},
 		},
 	}
 	for _, tt := range cases {
@@ -1035,14 +1080,19 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				t.Fatal("got an empty route configuration")
 			}
 			vh := make(map[string][]string)
+			hr := make(map[string]int)
 			for _, h := range route.VirtualHosts {
 				vh[h.Name] = h.Domains
+				hr[h.Name] = len(h.Routes)
 				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
 					t.Errorf("expected attempt count to be set in virtual host, but not found")
 				}
 			}
 			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
 				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
+			}
+			if !reflect.DeepEqual(tt.expectedHttpRoutes, hr) {
+				t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHttpRoutes, hr)
 			}
 		})
 	}
