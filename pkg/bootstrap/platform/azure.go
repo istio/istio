@@ -16,9 +16,11 @@ package platform
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
@@ -34,93 +36,13 @@ const (
 )
 
 var (
-	// Attempts to update the API version
-	updateAPIVersion = func(e *azureEnv) {
-		for _, version := range getAPIVersions() {
-			if strings.Compare(version, e.APIVersion) > 0 {
-				e.APIVersion = version
-			}
-		}
-	}
-	getAPIVersions = func() []string {
-		versions := []string{}
-		client := http.Client{Timeout: defaultTimeout}
-		req, err := http.NewRequest("GET", InstanceUrl, nil)
-		if err != nil {
-			log.Warnf("Failed to create HTTP request: %v", err)
-			return versions
-		}
-		req.Header.Add("Metadata", "True")
-
-		response, err := client.Do(req)
-		if err != nil {
-			log.Warnf("HTTP request failed: %v", err)
-			return versions
-		}
-		if response.StatusCode != http.StatusOK {
-			log.Warnf("HTTP request unsuccessful with status: %v", response.Status)
-		}
-		defer response.Body.Close()
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			log.Warnf("Could not read response body: %v", err)
-			return versions
-		}
-		bodyJson := &map[string]interface{}{}
-		if err = json.Unmarshal(body, bodyJson); err != nil {
-			log.Warnf("Could not unmarshal response: %v:", err)
-			return versions
-		}
-		if newestVersions, ok := (*bodyJson)["newest-versions"]; ok {
-			versions = newestVersions.([]string)
-		}
-		return versions
-	}
-
-	// Retrieves Azure instance metadata and stores it in the Azure environment
-	// Uses the default timeout for the HTTP get request
-	azureMetadataFn = func(e *azureEnv) {
-		metadata := &map[string]interface{}{}
-		body := []byte(getAzureMetadata())
-		if err := json.Unmarshal(body, metadata); err != nil {
-			log.Warnf("Could not unmarshal response: %v:", err)
-			return
-		}
-		if computeMetadata, ok := (*metadata)["compute"]; ok {
-			e.computeMetadata = computeMetadata.(map[string]interface{})
-		}
-		if networkMetadata, ok := (*metadata)["network"]; ok {
-			e.networkMetadata = networkMetadata.(map[string]interface{})
-		}
+	APIVersion        = DefaultAPIVersion
+	updateVersionOnce = sync.Once{}
+	getAPIVersions    = func() string {
+		return metadataRequest("")
 	}
 	getAzureMetadata = func() string {
-		client := &http.Client{Timeout: defaultTimeout}
-		req, err := http.NewRequest("GET", InstanceUrl, nil)
-		if err != nil {
-			log.Warnf("Failed to create HTTP request: %v", err)
-			return ""
-		}
-		req.Header.Add("Metadata", "True")
-		query := req.URL.Query()
-		query.Add("api-version", DefaultAPIVersion)
-		query.Add("format", "json")
-		req.URL.RawQuery = query.Encode()
-
-		response, err := client.Do(req)
-		if err != nil {
-			log.Warnf("HTTP request failed: %v", err)
-			return ""
-		}
-		if response.StatusCode != http.StatusOK {
-			log.Warnf("HTTP request unsuccessful with status: %v", response.Status)
-		}
-		defer response.Body.Close()
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			log.Warnf("Could not read response body: %v", err)
-			return ""
-		}
-		return string(body)
+		return metadataRequest(fmt.Sprintf("api-version=%s", APIVersion))
 	}
 
 	azureTagsFn = func(e *azureEnv) map[string]string {
@@ -148,7 +70,6 @@ var (
 )
 
 type azureEnv struct {
-	APIVersion      string
 	computeMetadata map[string]interface{}
 	networkMetadata map[string]interface{}
 }
@@ -162,16 +83,76 @@ func IsAzure() bool {
 	return strings.Contains(string(sysVendor), MicrosoftIdentifier)
 }
 
+// Attempts to update the API version
+func updateAPIVersion() {
+	updateVersionOnce.Do(func() {
+		bodyJson := stringToJson(getAPIVersions())
+		if newestVersions, ok := bodyJson["newest-versions"]; ok {
+			for _, version := range newestVersions.([]interface{}) {
+				if strings.Compare(version.(string), APIVersion) > 0 {
+					APIVersion = version.(string)
+				}
+			}
+		}
+	})
+}
+
 // NewAzure returns a platform environment for Azure
 func NewAzure() Environment {
-	e := &azureEnv{APIVersion: DefaultAPIVersion}
-	updateAPIVersion(e)
-	azureMetadataFn(e)
+	updateAPIVersion()
+	e := &azureEnv{}
+	e.getMetadata()
 	return e
 }
 
-// Metadata returns Azure instance metadata
-// Must be run from within an Azure VM
+// Retrieves Azure instance metadata response body stores it in the Azure environment
+func (e *azureEnv) getMetadata() {
+	bodyJson := stringToJson(getAzureMetadata())
+	if computeMetadata, ok := bodyJson["compute"]; ok {
+		e.computeMetadata = computeMetadata.(map[string]interface{})
+	}
+	if networkMetadata, ok := bodyJson["network"]; ok {
+		e.networkMetadata = networkMetadata.(map[string]interface{})
+	}
+}
+
+// Generic Azure metadata GET request helper for the response body
+// Uses the default timeout for the HTTP get request
+func metadataRequest(query string) string {
+	client := http.Client{Timeout: defaultTimeout}
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", InstanceUrl, query), nil)
+	if err != nil {
+		log.Warnf("Failed to create HTTP request: %v", err)
+		return ""
+	}
+	req.Header.Add("Metadata", "True")
+
+	response, err := client.Do(req)
+	if err != nil {
+		log.Warnf("HTTP request failed: %v", err)
+		return ""
+	}
+	if response.StatusCode != http.StatusOK {
+		log.Warnf("HTTP request unsuccessful with status: %v", response.Status)
+	}
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Warnf("Could not read response body: %v", err)
+		return ""
+	}
+	return string(body)
+}
+
+func stringToJson(s string) map[string]interface{} {
+	var sJson map[string]interface{}
+	if err := json.Unmarshal([]byte(s), &sJson); err != nil {
+		log.Warnf("Could not unmarshal response: %v:", err)
+	}
+	return sJson
+}
+
+// Returns Azure instance metadata. Must be run on an Azure VM
 func (e *azureEnv) Metadata() map[string]string {
 	md := map[string]string{}
 	for k, v := range azureTagsFn(e) {
