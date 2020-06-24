@@ -204,6 +204,21 @@ my_metric{} 0
 `,
 			expectParseError: true,
 		},
+		{
+			name: "conflict metric labeled",
+			envoy: `# TYPE my_metric counter
+my_metric{app="foo"} 0
+`,
+			app: `# TYPE my_metric counter
+my_metric{app="bar"} 0
+`,
+			output: `# TYPE my_metric counter
+my_metric{app="foo"} 0
+# TYPE my_metric counter
+my_metric{app="bar"} 0
+`,
+			expectParseError: true,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
