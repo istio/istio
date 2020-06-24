@@ -90,11 +90,15 @@ done
 # KinD will not have a LoadBalancer, so we need to disable it
 export TEST_ENV=kind
 
-# KinD will have the images loaded into it; it should not attempt to pull them
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 export PULL_POLICY=IfNotPresent
 
-export HUB=${HUB:-"istio-testing"}
+export KIND_REGISTRY_NAME="kind-registry"
+export KIND_REGISTRY_PORT="5050"
+export KIND_REGISTRY_HUB="localhost:5050/istio-testing"
+
+# TODO we can probably just truncate the registry and replace it with localhost:${KIND_REGISTRY_PORT}
+export HUB=${HUB:-"${KIND_REGISTRY_HUB}"}
 export TAG="${TAG:-"istio-testing"}"
 
 # Default IP family of the cluster is IPv4
@@ -122,10 +126,18 @@ fi
 if [[ -z "${SKIP_BUILD:-}" ]]; then
   time build_images "${PARAMS[*]}"
 
-  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    time kind_load_images ""
+  if [[ "${HUB}" == "${KIND_REGISTRY_HUB}" ]]; then
+    # If possible, favor a local registry
+    time setup_kind_registry
+    docker network connect "kind" "${KIND_REGISTRY_NAME}"
+    time kind_push_images
   else
-    time kind_load_images_on_clusters
+    # KinD will have the images loaded into it; it should not attempt to pull them
+    if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
+      time kind_load_images ""
+    else
+      time kind_load_images_on_clusters
+    fi
   fi
 fi
 

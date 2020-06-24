@@ -112,6 +112,26 @@ function kind_load_images() {
   fi
 }
 
+# Creates a local registry for kind nodes to pull images from
+function setup_kind_registry() {
+  # create a registry container
+  docker run \
+    -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
+    registry:2
+
+  # https://docs.tilt.dev/choosing_clusters.html#discovering-the-registry
+  for cluster in $(kind get clusters); do
+    for node in $(kind get nodes --name="${cluster}"); do
+      kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}";
+    done
+  done
+}
+
+# Pushes images to local kind registry
+function kind_push_images() {
+  docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 docker push
+}
+
 # Loads images into all clusters.
 function kind_load_images_on_clusters() {
   declare -a LOAD_IMAGE_JOBS
@@ -170,6 +190,16 @@ function setup_kind_cluster() {
       # Kubernetes 1.15+
       CONFIG=./prow/config/trustworthy-jwt.yaml
     fi
+
+    if [[ -n "${KIND_REGISTRY_NAME}" && -n "${KIND_REGISTRY_PORT}" ]]; then
+      cat <<EOF >> "${CONFIG}"
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
+    endpoint = ["http://${KIND_REGISTRY_NAME}:${KIND_REGISTRY_PORT}"]
+EOF
+    fi
+
       # Configure the cluster IP Family only for default configs
     if [ "${IP_FAMILY}" = "ipv6" ]; then
       cat <<EOF >> "${CONFIG}"
