@@ -125,6 +125,7 @@
       {{ if .sts_port }}
       "stackdriver_grpc_service": {
         "google_grpc": {
+          "target_uri": "cloudtrace.googleapis.com",
           "stat_prefix": "oc_stackdriver_tracer",
           "channel_credentials": {
             "ssl_credentials": {
