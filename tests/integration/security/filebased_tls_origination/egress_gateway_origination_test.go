@@ -248,7 +248,8 @@ func createDestinationRule(t *testing.T, appsNamespace namespace.Instance,
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name(), "Mode": destinationRuleMode, "RootCertPath": rootCertPathToUse}); err != nil {
+	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name(),
+		"Mode": destinationRuleMode, "RootCertPath": rootCertPathToUse}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 	return buf
