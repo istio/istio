@@ -50,6 +50,7 @@ version: ${VERSION}
 docker: ${DOCKER_HUB}
 directory: ${WORK_DIR}
 dependencies:
+ignoreVulnerability: true
 ${DEPENDENCIES:-$(cat <<EOD
   istio:
     localpath: ${ROOT}
