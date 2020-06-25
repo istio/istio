@@ -19,15 +19,14 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 // Mock responses for Azure Metadata (based on Microsoft API documentation samples)
 // https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service
 const (
 	MockVersionsTemplate = "{\"error\": \"Bad request. api-version was not specified in the request\",\"newest-versions\": [\"%s\"]}"
-	MockMetadata         = "{\"compute\": {\"location\": \"centralus\", \"name\": \"negasonic\", \"tags\": \"Department:IT;Environment:Prod;Role:WorkerRole\", \"vmId\": \"13f56399-bd52-4150-9748-7190aae1ff21\", \"zone\": \"1\"}}"
+	MockMetadata         = "{\"compute\": {\"location\": \"centralus\", \"name\": \"negasonic\", \"tags\": \"Department:IT;Environment:Prod;Role:WorkerRole\", " +
+		"\"vmId\": \"13f56399-bd52-4150-9748-7190aae1ff21\", \"zone\": \"1\"}}"
 )
 
 func TestVersionUpdate(t *testing.T) {
@@ -64,12 +63,9 @@ func TestAzureMetadata(t *testing.T) {
 		name     string
 		response string
 		metadata map[string]string
-		locality core.Locality
 	}{
-		{"ignore empty response", "", map[string]string{}, core.Locality{}},
-		{"parse fields", MockMetadata,
-			map[string]string{"Department": "IT", "Environment": "Prod", "Role": "WorkerRole"},
-			core.Locality{Region: "centralus", Zone: "1"}},
+		{"ignore empty response", "", map[string]string{}},
+		{"parse fields", MockMetadata, map[string]string{"Department": "IT", "Environment": "Prod", "Role": "WorkerRole"}},
 	}
 
 	// Prevent actual requests to metadata server for updating the API version
@@ -80,9 +76,6 @@ func TestAzureMetadata(t *testing.T) {
 			e := NewAzure()
 			if metadata := e.Metadata(); !reflect.DeepEqual(metadata, tt.metadata) {
 				t.Errorf("Metadata() => '%v'; want '%v'", metadata, tt.metadata)
-			}
-			if locality := *e.Locality(); !reflect.DeepEqual(locality, tt.locality) {
-				t.Errorf("Locality() => '%v'; want '%v'", locality, tt.locality)
 			}
 		})
 	}

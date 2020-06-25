@@ -29,7 +29,7 @@ import (
 
 const (
 	AzureMetadataEndpoint = "http://169.254.169.254"
-	InstanceUrl           = AzureMetadataEndpoint + "/metadata/instance"
+	InstanceURL           = AzureMetadataEndpoint + "/metadata/instance"
 	DefaultAPIVersion     = "2019-08-15"
 	SysVendorPath         = "/sys/class/dmi/id/sys_vendor"
 	MicrosoftIdentifier   = "Microsoft Corporation"
@@ -86,8 +86,8 @@ func IsAzure() bool {
 // Attempts to update the API version
 func updateAPIVersion() {
 	updateVersionOnce.Do(func() {
-		bodyJson := stringToJson(getAPIVersions())
-		if newestVersions, ok := bodyJson["newest-versions"]; ok {
+		bodyJSON := stringToJSON(getAPIVersions())
+		if newestVersions, ok := bodyJSON["newest-versions"]; ok {
 			for _, version := range newestVersions.([]interface{}) {
 				if strings.Compare(version.(string), APIVersion) > 0 {
 					APIVersion = version.(string)
@@ -107,11 +107,11 @@ func NewAzure() Environment {
 
 // Retrieves Azure instance metadata response body stores it in the Azure environment
 func (e *azureEnv) getMetadata() {
-	bodyJson := stringToJson(getAzureMetadata())
-	if computeMetadata, ok := bodyJson["compute"]; ok {
+	bodyJSON := stringToJSON(getAzureMetadata())
+	if computeMetadata, ok := bodyJSON["compute"]; ok {
 		e.computeMetadata = computeMetadata.(map[string]interface{})
 	}
-	if networkMetadata, ok := bodyJson["network"]; ok {
+	if networkMetadata, ok := bodyJSON["network"]; ok {
 		e.networkMetadata = networkMetadata.(map[string]interface{})
 	}
 }
@@ -120,7 +120,7 @@ func (e *azureEnv) getMetadata() {
 // Uses the default timeout for the HTTP get request
 func metadataRequest(query string) string {
 	client := http.Client{Timeout: defaultTimeout}
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", InstanceUrl, query), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", InstanceURL, query), nil)
 	if err != nil {
 		log.Warnf("Failed to create HTTP request: %v", err)
 		return ""
@@ -144,12 +144,12 @@ func metadataRequest(query string) string {
 	return string(body)
 }
 
-func stringToJson(s string) map[string]interface{} {
-	var sJson map[string]interface{}
-	if err := json.Unmarshal([]byte(s), &sJson); err != nil {
+func stringToJSON(s string) map[string]interface{} {
+	var stringJSON map[string]interface{}
+	if err := json.Unmarshal([]byte(s), &stringJSON); err != nil {
 		log.Warnf("Could not unmarshal response: %v:", err)
 	}
-	return sJson
+	return stringJSON
 }
 
 // Returns Azure instance metadata. Must be run on an Azure VM
