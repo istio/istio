@@ -71,7 +71,7 @@ func (w *Wrapper) GetListenerConfigDump() (*adminapi.ListenersConfigDump, error)
 		return nil, err
 	}
 	listenerDump := &adminapi.ListenersConfigDump{}
-	err = ptypes.UnmarshalAny(&listenerDumpAny, listenerDump)
+	err = ptypes.UnmarshalAny(listenerDumpAny, listenerDump)
 	if err != nil {
 		return nil, err
 	}
