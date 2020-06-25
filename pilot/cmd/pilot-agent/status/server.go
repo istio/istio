@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
 	"io"
 	"io/ioutil"
 	"net"
@@ -32,9 +31,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"go.opencensus.io/stats/view"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/env"
 
@@ -62,7 +64,7 @@ const (
 var PrometheusScrapingConfig = env.RegisterStringVar("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
 
 var (
-	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz)$`)
+	appProberPattern  = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz)$`)
 	promStatsExporter *ocprom.Exporter
 )
 
