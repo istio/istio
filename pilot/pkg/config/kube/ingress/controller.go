@@ -218,7 +218,7 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingres
 }
 
 func (c *controller) onEvent(obj interface{}, event model.Event) error {
-	if !c.ingressInformer.HasSynced() || !c.podInformer.HasSynced() || !c.serviceInformer.HasSynced() {
+	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
 
@@ -279,7 +279,7 @@ func (c *controller) SetLedger(ledger.Ledger) error {
 }
 
 func (c *controller) HasSynced() bool {
-	return c.ingressInformer.HasSynced()
+	return c.ingressInformer.HasSynced() && c.podInformer.HasSynced() && c.serviceInformer.HasSynced()
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
