@@ -27,6 +27,9 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
+            runAsGroup: 1337
+            runAsUser: 1337
+            runAsNonRoot: true
           imagePullPolicy: IfNotPresent
           resources:
 {{ toYaml .Values.operator.resources | trim | indent 12 }}
