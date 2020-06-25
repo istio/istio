@@ -84,18 +84,6 @@ func TestCloneClusterLoadAssignment(t *testing.T) {
 	}
 }
 
-//
-//func TestCloneLbEndpoint(t *testing.T) {
-//	ep := &endpoint.LbEndpoint{
-//		LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
-//	}
-//	cloned := CloneLbEndpoint(ep)
-//	cloned.LoadBalancingWeight.Value = 200
-//	if ep.LoadBalancingWeight.GetValue() != 100 {
-//		t.Errorf("original LbEndpoint is mutated")
-//	}
-//}
-
 func TestConvertAddressToCidr(t *testing.T) {
 	tests := []struct {
 		name string
