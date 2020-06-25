@@ -104,7 +104,8 @@ type Server struct {
 func init() {
 	registry := prometheus.NewRegistry()
 	wrapped := prometheus.WrapRegistererWith(map[string]string{"agent": "istio"}, prometheus.Registerer(registry))
-
+	wrapped.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	wrapped.MustRegister(prometheus.NewGoCollector())
 	// go collector metrics collide with other metrics.
 	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry, Registerer: wrapped, ConstLabels: map[string]string{"agent": "istio"}})
 	if err != nil {
