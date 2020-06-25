@@ -31,9 +31,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
-	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	"istio.io/istio/pkg/config/schema/resource"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -45,6 +43,10 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"istio.io/istio/pilot/pkg/networking/util"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
@@ -143,9 +145,6 @@ type ADSC struct {
 
 	// Retrieved configurations can be stored using the common istio model interface.
 	Store model.IstioConfigStore
-
-	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
-	Registry *v2.MemServiceDiscovery
 
 	// LocalCacheDir is set to a base name used to save fetched resources.
 	// If set, each update will be saved.
@@ -409,13 +408,11 @@ func (a *ADSC) handleRecv() {
 					if err != nil {
 						continue
 					}
-					val.Group = gvk[0]
-					val.Version = gvk[1]
-					val.Type = gvk[2]
+					val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
 					if err != nil {
 						adscLog.Warna("Invalid data ", err, " ", string(valBytes))
 					} else {
-						cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
+						cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
 						if cfg == nil {
 							_, err = a.Store.Create(*val)
 							if err != nil {
@@ -434,7 +431,7 @@ func (a *ADSC) handleRecv() {
 							continue
 						}
 						err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-							val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+							val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
 						if err != nil {
 							continue
 						}

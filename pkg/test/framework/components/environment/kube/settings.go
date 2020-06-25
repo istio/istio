@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"errors"
 	"fmt"
 
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -86,7 +87,14 @@ func (s *Settings) NewAccessors(workDir string) ([]kube.Accessor, error) {
 		newAccessorsFn = newAccessors
 	}
 
-	return newAccessorsFn(s.KubeConfig, workDir)
+	accessors, err := newAccessorsFn(s.KubeConfig, workDir)
+	if err != nil {
+		return nil, err
+	}
+	if len(accessors) == 0 {
+		return nil, errors.New("failed creating Kubernetes environment: no clusters")
+	}
+	return accessors, nil
 }
 
 // String implements fmt.Stringer
@@ -104,11 +112,13 @@ func (s *Settings) String() string {
 func newAccessors(kubeConfigs []string, workDir string) ([]kube.Accessor, error) {
 	out := make([]kube.Accessor, 0, len(kubeConfigs))
 	for _, cfg := range kubeConfigs {
-		a, err := kube.NewAccessor(cfg, workDir)
-		if err != nil {
-			return nil, fmt.Errorf("accessor setup: %v", err)
+		if len(cfg) > 0 {
+			a, err := kube.NewAccessor(cfg, workDir)
+			if err != nil {
+				return nil, fmt.Errorf("accessor setup: %v", err)
+			}
+			out = append(out, a)
 		}
-		out = append(out, a)
 	}
 	return out, nil
 }

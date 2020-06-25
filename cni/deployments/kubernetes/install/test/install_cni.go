@@ -250,7 +250,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 	time.Sleep(10 * time.Second)
 
 	compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedOutputFile, t)
-	checkBinDir(t, tempCNIBinDir, "add", "istio-cni", "istio-iptables.sh")
+	checkBinDir(t, tempCNIBinDir, "add", "istio-cni", "istio-iptables")
 
 	docker("stop", containerID, t)
 	time.Sleep(10 * time.Second)
@@ -261,7 +261,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 	} else {
 		compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedPostCleanFile, t)
 	}
-	checkBinDir(t, tempCNIBinDir, "del", "istio-cni", "istio-iptables.sh")
+	checkBinDir(t, tempCNIBinDir, "del", "istio-cni", "istio-iptables")
 }
 
 // RunInstallCNITest sets up temporary directories and runs the test.

@@ -16,8 +16,8 @@ package framework
 
 import (
 	"fmt"
-	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,6 +53,9 @@ type Test struct {
 	hasParallelChildren bool
 }
 
+// globalCleanupLock defines a global wait group to synchronize cleanup of test suites
+var globalParentLock = new(sync.Map)
+
 // NewTest returns a new test wrapper for running a single test.
 func NewTest(t *testing.T) *Test {
 	rtMu.Lock()
@@ -79,8 +82,6 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 
 // Label applies the given labels to this test.
 func (t *Test) Features(feats ...features.Feature) *Test {
-	pwd, _ := os.Getwd()
-	log.Error(pwd)
 	c, err := features.BuildChecker(env.IstioSrc + "/pkg/test/framework/features/features.yaml")
 	if err != nil {
 		log.Errorf("Unable to build feature checker: %s", err)
@@ -207,7 +208,6 @@ func (t *Test) runInternal(fn func(ctx TestContext), parallel bool) {
 	}
 	suiteName := t.s.settings.TestID
 	if len(t.featureLabels) < 1 && !features.GlobalWhitelist.Contains(suiteName, myGoTest.Name()) {
-
 		myGoTest.Fatalf("Detected new test %s in suite %s with no feature labels.  "+
 			"See istio/istio/pkg/test/framework/features/README.md", myGoTest.Name(), suiteName)
 	}
@@ -231,18 +231,6 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 		panic("attempting to run test with nil function")
 	}
 
-	// Initial setup if we're running in Parallel.
-	if parallel {
-		// Inform the parent, who will need to call ctx.Done asynchronously.
-		if t.parent != nil {
-			t.parent.hasParallelChildren = true
-		}
-
-		// Run the underlying Go test in parallel. This will not return until the parent
-		// test (if there is one) exits.
-		t.goTest.Parallel()
-	}
-
 	t.ctx = ctx
 
 	if t.requiredMinClusters > 0 && len(t.s.Environment().Clusters()) < t.requiredMinClusters {
@@ -262,6 +250,19 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 	start := time.Now()
 
 	scopes.Framework.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
+
+	// Initial setup if we're running in Parallel.
+	if parallel {
+		// Inform the parent, who will need to call ctx.Done asynchronously.
+		if t.parent != nil {
+			t.parent.hasParallelChildren = true
+		}
+
+		// Run the underlying Go test in parallel. This will not return until the parent
+		// test (if there is one) exits.
+		t.goTest.Parallel()
+	}
+
 	defer func() {
 		doneFn := func() {
 			message := "passed"
@@ -276,11 +277,15 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 				end.Sub(start))
 			rt.suiteContext().registerOutcome(t)
 			ctx.Done()
+			if t.hasParallelChildren {
+				globalParentLock.Delete(t)
+			}
 		}
 		if t.hasParallelChildren {
 			// If a child is running in parallel, it won't continue until this test returns.
 			// Since ctx.Done() will block until the child test is complete, we run ctx.Done()
 			// asynchronously.
+			globalParentLock.Store(t, struct{}{})
 			go doneFn()
 		} else {
 			doneFn()

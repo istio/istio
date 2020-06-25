@@ -27,7 +27,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("qualification", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(&ist, nil)).
 		Run()

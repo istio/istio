@@ -25,6 +25,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -73,7 +74,7 @@ type DiscoveryServer struct {
 	Env *model.Environment
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
-	MemRegistry *MemServiceDiscovery
+	MemRegistry *memory.ServiceDiscovery
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemConfigController model.ConfigStoreCache
@@ -173,7 +174,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
-	model.JwtKeyResolver.PushFunc = func() {
+	model.GetJwtKeyResolver().PushFunc = func() {
 		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
 	}
 

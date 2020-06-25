@@ -1,6 +1,3 @@
-# AddonComponents grafana component is disabled.
-
----
 # Resources for AddonComponents istiocoredns component
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -205,9 +202,6 @@ metadata:
 ---
 
 ---
-# AddonComponents kiali component is disabled.
-
----
 # Resources for AddonComponents prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -266,6 +260,19 @@ data:
     global:
       scrape_interval: 15s
     scrape_configs:
+
+
+    # Mixer scrapping. Defaults to Prometheus and mixer on same namespace.
+    - job_name: 'istio-mesh'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - istio-system
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-telemetry;prometheus
 
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'
@@ -392,11 +399,11 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: prometheus
+  namespace: istio-system
   labels:
     app: prometheus
     release: istio
-  name: prometheus
-  namespace: istio-system
 spec:
   replicas: 1
   selector:
@@ -404,78 +411,79 @@ spec:
       app: prometheus
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       labels:
         app: prometheus
         release: istio
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
-      affinity:
+      serviceAccountName: prometheus
+      containers:
+        - name: prometheus
+          image: "docker.io/prom/prometheus:v2.18.1"
+          args:
+            - '--storage.tsdb.retention=6h'
+            - '--config.file=/etc/prometheus/prometheus.yml'
+          ports:
+            - containerPort: 9090
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+          resources:
+            requests:
+              cpu: 10m
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/prometheus
+
+      volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio
+          optional: true
+      - name: config-volume
+        configMap:
+          name: prometheus
+
+      affinity:      
         nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
               - key: kubernetes.io/arch
                 operator: In
                 values:
-                - amd64
-                - ppc64le
-                - s390x
-      containers:
-      - args:
-        - --storage.tsdb.retention=6h
-        - --config.file=/etc/prometheus/prometheus.yml
-        image: docker.io/prom/prometheus:v2.15.1
-        livenessProbe:
-          httpGet:
-            path: /-/healthy
-            port: 9090
-        name: prometheus
-        ports:
-        - containerPort: 9090
-          name: http
-        readinessProbe:
-          httpGet:
-            path: /-/ready
-            port: 9090
-        resources:
-          requests:
-            cpu: 10m
-        volumeMounts:
-        - mountPath: /etc/prometheus
-          name: config-volume
-      serviceAccountName: prometheus
-      volumes:
-      - configMap:
-          name: istio
-          optional: true
-        name: istio-config-volume
-      - configMap:
-          name: prometheus
-        name: config-volume
-
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"
 ---
 
 
@@ -508,9 +516,6 @@ metadata:
     app: prometheus
     release: istio
 ---
-
----
-# AddonComponents istio-tracing component is disabled.
 
 # Resources for Base component
 
@@ -1823,6 +1828,9 @@ spec:
                                   description: REQUIRED if mode is `MUTUAL`.
                                   format: string
                                   type: string
+                                credentialName:
+                                  format: string
+                                  type: string
                                 mode:
                                   enum:
                                   - DISABLE
@@ -1856,6 +1864,9 @@ spec:
                             type: string
                           clientCertificate:
                             description: REQUIRED if mode is `MUTUAL`.
+                            format: string
+                            type: string
+                          credentialName:
                             format: string
                             type: string
                           mode:
@@ -2348,6 +2359,9 @@ spec:
                             description: REQUIRED if mode is `MUTUAL`.
                             format: string
                             type: string
+                          credentialName:
+                            format: string
+                            type: string
                           mode:
                             enum:
                             - DISABLE
@@ -2381,6 +2395,9 @@ spec:
                       type: string
                     clientCertificate:
                       description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    credentialName:
                       format: string
                       type: string
                     mode:
@@ -2714,6 +2731,11 @@ spec:
                       format: string
                       type: string
                     type: array
+                  name:
+                    description: An optional name of the server, when set must be
+                      unique across all servers.
+                    format: string
+                    type: string
                   port:
                     properties:
                       name:
@@ -3139,6 +3161,9 @@ spec:
                         description: REQUIRED if mode is `MUTUAL`.
                         format: string
                         type: string
+                      credentialName:
+                        format: string
+                        type: string
                       mode:
                         enum:
                         - DISABLE
@@ -3187,6 +3212,9 @@ spec:
                       type: string
                     clientCertificate:
                       description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    credentialName:
                       format: string
                       type: string
                     mode:
@@ -4761,510 +4789,6 @@ metadata:
     app: istio-pilot
     chart: istio
     heritage: Tiller
-    istio: rbac
-    release: istio
-  name: clusterrbacconfigs.rbac.istio.io
-spec:
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: ClusterRbacConfig
-    listKind: ClusterRbacConfigList
-    plural: clusterrbacconfigs
-    singular: clusterrbacconfig
-  preserveUnknownFields: false
-  scope: Cluster
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            enforcementMode:
-              enum:
-              - ENFORCED
-              - PERMISSIVE
-              type: string
-            exclusion:
-              description: A list of services or namespaces that should not be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            inclusion:
-              description: A list of services or namespaces that should be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            mode:
-              description: Istio RBAC mode.
-              enum:
-              - "OFF"
-              - "ON"
-              - ON_WITH_INCLUSION
-              - ON_WITH_EXCLUSION
-              type: string
-          type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
----
-
-
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: mixer
-    chart: istio
-    heritage: Tiller
-    istio: rbac
-    package: istio.io.mixer
-    release: istio
-  name: rbacconfigs.rbac.istio.io
-spec:
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: RbacConfig
-    listKind: RbacConfigList
-    plural: rbacconfigs
-    singular: rbacconfig
-  preserveUnknownFields: false
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            enforcementMode:
-              enum:
-              - ENFORCED
-              - PERMISSIVE
-              type: string
-            exclusion:
-              description: A list of services or namespaces that should not be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            inclusion:
-              description: A list of services or namespaces that should be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            mode:
-              description: Istio RBAC mode.
-              enum:
-              - "OFF"
-              - "ON"
-              - ON_WITH_INCLUSION
-              - ON_WITH_EXCLUSION
-              type: string
-          type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
----
-
-
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: mixer
-    chart: istio
-    heritage: Tiller
-    istio: rbac
-    package: istio.io.mixer
-    release: istio
-  name: serviceroles.rbac.istio.io
-spec:
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: ServiceRole
-    listKind: ServiceRoleList
-    plural: serviceroles
-    singular: servicerole
-  preserveUnknownFields: false
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            rules:
-              description: The set of access rules (permissions) that the role has.
-              items:
-                properties:
-                  constraints:
-                    description: Optional.
-                    items:
-                      properties:
-                        key:
-                          description: Key of the constraint.
-                          format: string
-                          type: string
-                        values:
-                          description: List of valid values for the constraint.
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                      type: object
-                    type: array
-                  hosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  methods:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notHosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notMethods:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPaths:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPorts:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  paths:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  ports:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  services:
-                    description: A list of service names.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                type: object
-              type: array
-          type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
----
-
-
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: mixer
-    chart: istio
-    heritage: Tiller
-    istio: rbac
-    package: istio.io.mixer
-    release: istio
-  name: servicerolebindings.rbac.istio.io
-spec:
-  additionalPrinterColumns:
-  - JSONPath: .spec.roleRef.name
-    description: The name of the ServiceRole object being referenced
-    name: Reference
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    description: 'CreationTimestamp is a timestamp representing the server time when
-      this object was created. It is not guaranteed to be set in happens-before order
-      across separate operations. Clients may not set this value. It is represented
-      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
-      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
-    name: Age
-    type: date
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: ServiceRoleBinding
-    listKind: ServiceRoleBindingList
-    plural: servicerolebindings
-    singular: servicerolebinding
-  preserveUnknownFields: false
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            actions:
-              items:
-                properties:
-                  constraints:
-                    description: Optional.
-                    items:
-                      properties:
-                        key:
-                          description: Key of the constraint.
-                          format: string
-                          type: string
-                        values:
-                          description: List of valid values for the constraint.
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                      type: object
-                    type: array
-                  hosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  methods:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notHosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notMethods:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPaths:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPorts:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  paths:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  ports:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  services:
-                    description: A list of service names.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                type: object
-              type: array
-            mode:
-              enum:
-              - ENFORCED
-              - PERMISSIVE
-              type: string
-            role:
-              format: string
-              type: string
-            roleRef:
-              description: Reference to the ServiceRole object.
-              properties:
-                kind:
-                  description: The type of the role being referenced.
-                  format: string
-                  type: string
-                name:
-                  description: The name of the ServiceRole object being referenced.
-                  format: string
-                  type: string
-              type: object
-            subjects:
-              description: List of subjects that are assigned the ServiceRole object.
-              items:
-                properties:
-                  group:
-                    format: string
-                    type: string
-                  groups:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  ips:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  names:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  namespaces:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notGroups:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notIps:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notNames:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notNamespaces:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  properties:
-                    additionalProperties:
-                      format: string
-                      type: string
-                    description: Optional.
-                    type: object
-                  user:
-                    description: Optional.
-                    format: string
-                    type: string
-                type: object
-              type: array
-          type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
----
-
-
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
     istio: security
     release: istio
   name: authorizationpolicies.security.istio.io
@@ -5731,6 +5255,10 @@ spec:
     description: Istio control plane revision
     name: Revision
     type: string
+  - JSONPath: .status.status
+    description: IOP current state
+    type: string
+    name: Status
   - JSONPath: .metadata.creationTimestamp
     description: 'CreationTimestamp is a timestamp representing the server time when
       this object was created. It is not guaranteed to be set in happens-before order
@@ -5847,12 +5375,6 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
-        privileged: false
-        readOnlyRootFilesystem: true
       serviceAccountName: istio-egressgateway-service-account
       containers:
         - name: istio-proxy
@@ -5875,6 +5397,13 @@ spec:
           - --serviceCluster
           - istio-egressgateway
           - --trust-domain=cluster.local
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
           readinessProbe:
             failureThreshold: 30
             httpGet:
@@ -6159,12 +5688,6 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
-        privileged: false
-        readOnlyRootFilesystem: true
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
@@ -6192,6 +5715,13 @@ spec:
           - --serviceCluster
           - istio-ingressgateway
           - --trust-domain=cluster.local
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
           readinessProbe:
             failureThreshold: 30
             httpGet:
@@ -6746,8 +6276,8 @@ data:
           "image": "proxyv2",
           "resources": {
             "limits": {
-              "cpu": "100m",
-              "memory": "50Mi"
+              "cpu": "2000m",
+              "memory": "1024Mi"
             },
             "requests": {
               "cpu": "10m",
@@ -6974,12 +6504,9 @@ data:
           value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
-        # Temp, pending PR to make it default or based on the istiodAddr env
-        - name: CA_ADDR
         {{- if .Values.global.caAddress }}
+        - name: CA_ADDR
           value: {{ .Values.global.caAddress }}
-        {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -7283,6 +6810,7 @@ webhooks:
         namespace: istio-system
         path: "/inject"
       caBundle: ""
+    sideEffects: None
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]

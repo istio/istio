@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -63,11 +64,13 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 )
@@ -166,6 +169,9 @@ type Server struct {
 
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
+
+	// The SPIFFE based cert verifier
+	peerCertVerifier *spiffe.PeerCertVerifier
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -234,6 +240,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// Create Istiod certs and setup watches.
 	if err := s.initIstiodCerts(args, string(istiodHost)); err != nil {
+		return nil, err
+	}
+
+	// Initialize the SPIFFE peer cert verifier.
+	if err := s.setPeerCertVerifier(args.ServerOptions.TLSOptions); err != nil {
 		return nil, err
 	}
 
@@ -468,7 +479,7 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		s.fileWatcher.Close()
-		model.JwtKeyResolver.Close()
+		model.GetJwtKeyResolver().Close()
 
 		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
 		// force stop them. This does not happen normally.
@@ -547,17 +558,11 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 		return nil
 	}
 
-	root, err := s.getRootCertificate(tlsOptions)
-	if err != nil {
-		return err
-	}
-
 	// TODO: check if client certs can be used with coredns or others.
 	// If yes - we may require or optionally use them
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.NoClientCert,
-		ClientCAs:      root,
 	}
 
 	// create secure grpc listener
@@ -574,22 +579,18 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error {
-	if args.ServerOptions.TLSOptions.CaCertFile == "" && s.ca == nil {
+	if s.peerCertVerifier == nil {
 		// Running locally without configured certs - no TLS mode
+		log.Warnf("The secure discovery service is disabled")
 		return nil
 	}
 	log.Info("initializing secure discovery service")
 
-	// TODO(ramaraochavali): Restart Server if root certificate changes.
-	root, err := s.getRootCertificate(args.ServerOptions.TLSOptions)
-	if err != nil {
-		return err
-	}
-
 	cfg := &tls.Config{
-		GetCertificate: s.getIstiodCertificate,
-		ClientAuth:     tls.VerifyClientCertIfGiven,
-		ClientCAs:      root,
+		GetCertificate:        s.getIstiodCertificate,
+		ClientAuth:            tls.VerifyClientCertIfGiven,
+		ClientCAs:             s.peerCertVerifier.GetGeneralCertPool(),
+		VerifyPeerCertificate: s.peerCertVerifier.VerifyPeerCert,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
@@ -705,7 +706,7 @@ func (s *Server) initRegistryEventHandlers() error {
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      model.ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
@@ -724,7 +725,7 @@ func (s *Server) initRegistryEventHandlers() error {
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      model.ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(si.Service.Hostname),
 				Namespace: si.Service.Attributes.Namespace,
 			}: {}},
@@ -747,7 +748,7 @@ func (s *Server) initRegistryEventHandlers() error {
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
-					Kind:      curr.GroupVersionKind(),
+					Kind:      curr.GroupVersionKind,
 					Name:      curr.Name,
 					Namespace: curr.Namespace,
 				}: {}},
@@ -902,20 +903,45 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 	return key, cert
 }
 
-// getRootCertificate returns the root certificate from TLSOptions if available or from ca.
-func (s *Server) getRootCertificate(tlsOptions TLSOptions) (*x509.CertPool, error) {
+// setPeerCertVerifier sets up a SPIFFE certificate verifier with the current istiod configuration.
+func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
+	if tlsOptions.CaCertFile == "" && s.ca == nil && features.SpiffeBundleEndpoints == "" {
+		// Running locally without configured certs - no TLS mode
+		return nil
+	}
+	s.peerCertVerifier = spiffe.NewPeerCertVerifier()
 	var rootCertBytes []byte
 	var err error
 	if tlsOptions.CaCertFile != "" {
 		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
-			return nil, err
+			return err
 		}
-	} else {
+	} else if s.ca != nil {
 		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	}
-	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(rootCertBytes)
-	return cp, nil
+
+	if len(rootCertBytes) != 0 {
+		block, _ := pem.Decode(rootCertBytes)
+		if block == nil {
+			return fmt.Errorf("failed to decode root cert PEM")
+		}
+		rootCert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return fmt.Errorf("failed to parse certificate: %v", err)
+		}
+		s.peerCertVerifier.AddMapping(spiffe.GetTrustDomain(), []*x509.Certificate{rootCert})
+	}
+
+	if features.SpiffeBundleEndpoints != "" {
+		certMap, err := spiffe.RetrieveSpiffeBundleRootCertsFromStringInput(
+			features.SpiffeBundleEndpoints, []*x509.Certificate{})
+		if err != nil {
+			return err
+		}
+		s.peerCertVerifier.AddMappings(certMap)
+	}
+
+	return nil
 }
 
 // hasCustomTLSCerts returns true if custom TLS certificates are configured via args.

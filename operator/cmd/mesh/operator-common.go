@@ -33,7 +33,9 @@ type operatorCommonArgs struct {
 	tag string
 	// operatorNamespace is the namespace the operator controller is installed into.
 	operatorNamespace string
-	// istioNamespace is the namespace Istio is installed into.
+	// watchedNamespaces is the namespaces the operator controller watches, could be namespace list separated by comma.
+	watchedNamespaces string
+	// istioNamespace is deprecated, use watchedNamespaces instead.
 	istioNamespace string
 	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	charts string
@@ -65,6 +67,7 @@ func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs) (string, st
 	tmpl := `
 operatorNamespace: {{.OperatorNamespace}}
 istioNamespace: {{.IstioNamespace}}
+watchedNamespaces: {{.WatchedNamespaces}}
 hub: {{.Hub}}
 tag: {{.Tag}}
 `
@@ -72,11 +75,13 @@ tag: {{.Tag}}
 	tv := struct {
 		OperatorNamespace string
 		IstioNamespace    string
+		WatchedNamespaces string
 		Hub               string
 		Tag               string
 	}{
 		OperatorNamespace: ocArgs.operatorNamespace,
 		IstioNamespace:    ocArgs.istioNamespace,
+		WatchedNamespaces: ocArgs.watchedNamespaces,
 		Hub:               ocArgs.hub,
 		Tag:               ocArgs.tag,
 	}

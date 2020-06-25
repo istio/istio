@@ -179,7 +179,7 @@ func TestTcpMetric(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mixer_telemetry_metrics", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {

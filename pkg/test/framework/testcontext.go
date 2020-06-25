@@ -22,6 +22,7 @@ import (
 	"path"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/errors"
@@ -100,7 +101,48 @@ type testContext struct {
 	workDir string
 }
 
+// Before executing a new context, we should wait for existing contexts to terminate if they are NOT parents of this context.
+// This is to workaround termination of functions run with RunParallel. When this is used, child tests will not run until the parent
+// has terminated. This means that the parent cannot synchronously cleanup, or it would block its children. However, if we do async cleanup,
+// then new tests can unexpectedly start during the cleanup of another. This may lead to odd results, like a test cleanup undoing the setup of a future test.
+// To workaround this, we maintain a set of all contexts currently terminating. Before starting the context, we will search this set;
+// if any non-parent contexts are found, we will wait.
+func waitForParents(test *Test) {
+	iterations := 0
+	for {
+		iterations++
+		done := true
+		globalParentLock.Range(func(key, value interface{}) bool {
+			k := key.(*Test)
+			current := test
+			for current != nil {
+				if current == k {
+					return true
+				}
+				current = current.parent
+
+			}
+			// We found an item in the list, and we are *not* a child of it. This means another test hierarchy has exclusive access right now
+			// Wait until they are finished before proceeding
+			done = false
+			return true
+		})
+		if done {
+			return
+		}
+		time.Sleep(time.Millisecond * 50)
+		// Add some logging in case something locks up so we can debug
+		if iterations%10 == 0 {
+			globalParentLock.Range(func(key, value interface{}) bool {
+				scopes.Framework.Warnf("Stuck waiting for parent test suites to terminate... %v is blocking", key.(*Test).goTest.Name())
+				return true
+			})
+		}
+	}
+}
+
 func newTestContext(test *Test, goTest *testing.T, s *suiteContext, parentScope *scope, labels label.Set) *testContext {
+	waitForParents(test)
 	id := s.allocateContextID(goTest.Name())
 
 	allLabels := s.suiteLabels.Merge(labels)
@@ -265,9 +307,10 @@ func (c *testContext) NewSubTest(name string) *Test {
 	}
 
 	return &Test{
-		name:   name,
-		parent: c.test,
-		s:      c.test.s,
+		name:          name,
+		parent:        c.test,
+		s:             c.test.s,
+		featureLabels: c.test.featureLabels,
 	}
 }
 

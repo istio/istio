@@ -25,6 +25,8 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/test"
@@ -101,9 +103,7 @@ func createEndpoints(numEndpoints int, numServices int) []model.Config {
 		}
 		result = append(result, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
-				Group:             collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Group(),
-				Version:           collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
+				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 				Name:              fmt.Sprintf("foo-%d", s),
 				Namespace:         "default",
 				CreationTimestamp: time.Now(),
@@ -164,7 +164,7 @@ func buildTestEnv(t test.Failer, cfg []model.Config, input ConfigInput) model.En
 	}
 	serviceDiscovery := mock.NewDiscovery(svcs, 1)
 
-	configStore := model.NewFakeStore()
+	configStore := memory.Make(collections.Pilot)
 	for _, cfg := range cfg {
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
@@ -237,7 +237,7 @@ func routesFromListeners(ll []*listener.Listener) []string {
 	for _, l := range ll {
 		for _, fc := range l.FilterChains {
 			for _, filter := range fc.Filters {
-				if filter.Name == "envoy.hcmection_manager" {
+				if filter.Name == wellknown.HTTPConnectionManager {
 					filter.GetTypedConfig()
 					hcon := &hcm.HttpConnectionManager{}
 					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcon); err != nil {
@@ -267,8 +267,11 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
 			l := configgen.BuildListeners(&proxy, env.PushContext)
 			routeNames := routesFromListeners(l)
+			if len(routeNames) == 0 {
+				b.Fatal("Got no route names! ")
+			}
 			b.ResetTimer()
-			var response interface{}
+			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
 				r := configgen.BuildHTTPRoutes(&proxy, env.PushContext, routeNames)
 				response = routeDiscoveryResponse(r, "", "", RouteType)
@@ -286,6 +289,9 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				c := configgen.BuildClusters(&proxy, env.PushContext)
+				if len(c) == 0 {
+					b.Fatal("Got no clusters! ")
+				}
 				response = cdsDiscoveryResponse(c, "", ClusterType)
 			}
 			_ = response
@@ -301,6 +307,9 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				l := configgen.BuildListeners(&proxy, env.PushContext)
+				if len(l) == 0 {
+					b.Fatal("Got no clusters! ")
+				}
 				response = ldsDiscoveryResponse(l, "", "", ListenerType)
 			}
 			_ = response

@@ -21,8 +21,8 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -523,12 +523,12 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 	}
 }
 
-func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *v2.MemServiceDiscovery {
+func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *memory.ServiceDiscovery {
 	index, found := server.ServiceController().GetRegistryIndex("v2-debug")
 	if !found {
 		t.Fatal("Could not find Mock ServiceRegistry")
 	}
-	registry, ok := server.ServiceController().GetRegistries()[index].(serviceregistry.Simple).ServiceDiscovery.(*v2.MemServiceDiscovery)
+	registry, ok := server.ServiceController().GetRegistries()[index].(serviceregistry.Simple).ServiceDiscovery.(*memory.ServiceDiscovery)
 	if !ok {
 		t.Fatal("Unexpected type of Mock ServiceRegistry")
 	}

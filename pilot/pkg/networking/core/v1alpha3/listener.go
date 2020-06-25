@@ -1830,9 +1830,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		filters = append(filters, xdsfilters.GrpcWeb)
 	}
 
-	if pluginParams.ServiceInstance != nil &&
-		pluginParams.ServiceInstance.ServicePort != nil &&
-		pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPC {
+	if pluginParams.Port != nil && pluginParams.Port.Protocol.IsGRPC() {
 		filters = append(filters, &hcm.HttpFilter{
 			Name: wellknown.HTTPGRPCStats,
 			ConfigType: &hcm.HttpFilter_TypedConfig{
