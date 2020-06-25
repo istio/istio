@@ -42,29 +42,48 @@ import (
 	proto2 "istio.io/istio/pkg/proto"
 )
 
+var testCla = &endpoint.ClusterLoadAssignment{
+	ClusterName: "cluster",
+	Endpoints: []*endpoint.LocalityLbEndpoints{{
+		Locality: &core.Locality{Region: "foo", Zone: "bar"},
+		LbEndpoints: []*endpoint.LbEndpoint{
+			{
+				HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
+				LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+			},
+			{
+				HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
+				LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		LoadBalancingWeight: &wrappers.UInt32Value{Value: 50},
+		Priority:            2,
+	}},
+}
+
 func BenchmarkCloneClusterLoadAssignment(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		cpy := CloneClusterLoadAssignment(&endpoint.ClusterLoadAssignment{
-			ClusterName: "cluster",
-			Endpoints: []*endpoint.LocalityLbEndpoints{{
-				Locality: &core.Locality{Region: "foo", Zone: "bar"},
-				LbEndpoints: []*endpoint.LbEndpoint{
-					{
-						HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
-						LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
-					},
-					{
-						HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
-						LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
-					},
-				},
-				LoadBalancingWeight: &wrappers.UInt32Value{Value: 50},
-				Priority:            2,
-			}},
-		})
+		cpy := CloneClusterLoadAssignment(testCla)
 		_ = cpy
 	}
 }
+
+func TestCloneClusterLoadAssignment(t *testing.T) {
+	cloned := CloneClusterLoadAssignment(testCla)
+	cloned2 := CloneClusterLoadAssignment(testCla)
+	if !cmp.Equal(testCla, cloned, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the same as %v", testCla, cloned)
+	}
+	cloned.ClusterName = "foo"
+	cloned.Endpoints[0].LbEndpoints[0].LoadBalancingWeight.Value = 5
+	if cmp.Equal(testCla, cloned, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the different from %v", testCla, cloned)
+	}
+	if !cmp.Equal(testCla, cloned2, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the same as %v", testCla, cloned)
+	}
+}
+
 //
 //func TestCloneLbEndpoint(t *testing.T) {
 //	ep := &endpoint.LbEndpoint{

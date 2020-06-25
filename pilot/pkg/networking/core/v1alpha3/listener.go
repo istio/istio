@@ -43,6 +43,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
+	"istio.io/istio/pkg/util/protomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -786,7 +787,7 @@ allChainsLabel:
 			// Build filter chain options for listener configured with protocol sniffing
 			fcm := &listener.FilterChainMatch{}
 			if chain.FilterChainMatch != nil {
-				fcm = chain.FilterChainMatch
+				fcm = protomarshal.ShallowCopy(chain.FilterChainMatch).(*listener.FilterChainMatch)
 			}
 			fcm.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
 			fcm.TransportProtocol = filterChainMatchOption[id].TransportProtocol
