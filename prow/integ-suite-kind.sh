@@ -97,7 +97,7 @@ export KIND_REGISTRY_NAME="kind-registry"
 export KIND_REGISTRY_PORT="5000"
 export KIND_REGISTRY="localhost:${KIND_REGISTRY_PORT}"
 
-export HUB=${HUB:-"${istio-testing}"}
+export HUB=${HUB:-"istio-testing"}
 export TAG="${TAG:-"istio-testing"}"
 
 # If we're not intending to pull from an actual remote registry, use the local kind registry
