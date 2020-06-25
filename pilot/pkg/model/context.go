@@ -491,8 +491,8 @@ type NodeMetadata struct {
 	// Generator indicates the client wants to use a custom Generator plugin.
 	Generator string `json:"GENERATOR,omitempty"`
 
-	// DnsCapture indicates whether the workload has enabled dns capture
-	DnsCapture string `json:"DNS_CAPTURE,omitempty"`
+	// DNSCapture indicates whether the workload has enabled dns capture
+	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,

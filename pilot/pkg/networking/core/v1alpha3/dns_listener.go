@@ -48,7 +48,7 @@ var knownSuffixes = []*stringmatcher.StringMatcher{
 // the ones used for building the listeners for those (TCP) services.
 func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy, push *model.PushContext) *listener.Listener {
 	// We will ship the DNS filter to all 1.7+ proxies if dns capture is enabled in the proxy.
-	if node.Metadata.DnsCapture == "" {
+	if node.Metadata.DNSCapture == "" {
 		return nil
 	}
 
