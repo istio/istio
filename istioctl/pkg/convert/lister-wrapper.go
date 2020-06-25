@@ -43,11 +43,9 @@ func (p *podListerWrapper) Pods(namespace string) listerv1.PodNamespaceLister {
 }
 
 func (p *podListerWrapperWithNamespace) List(selector k8sLabels.Selector) (ret []*v1.Pod, err error) {
-	set, err := k8sLabels.ConvertSelectorToLabelsMap(selector.String())
-	if err != nil {
-		return nil, err
-	}
-	pods, err := p.client.CoreV1().Pods(p.namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: set.String()})
+	pods, err := p.client.CoreV1().Pods(p.namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
 	if err != nil {
 		return nil, err
 	}
