@@ -28,20 +28,19 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/util/retry"
-	util "istio.io/istio/tests/integration/pilot"
 )
 
 // Test wrapper for the VM OS version test. This test will run in pre-submit
 // to avoid building and testing all OS images
 func TestVmOS(t *testing.T) {
-	vmImages := []string{util.DefaultVMImage}
+	vmImages := []string{DefaultVMImage}
 	VMTestBody(t, vmImages)
 }
 
 // Post-submit test wrapper to test against all OS images. These images will be build
 // in post-submit to reduce the runtime of prow/lib.sh
 func TestVmOSPost(t *testing.T) {
-	vmImages := util.GetSupportedOSVersion()
+	vmImages := GetSupportedOSVersion()
 	VMTestBody(t, vmImages, label.Postsubmit)
 }
 

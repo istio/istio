@@ -14,7 +14,7 @@
  * // limitations under the License.
  */
 
-package pilot
+package vm
 
 const (
 	DefaultVMImage = "app_sidecar_ubuntu_bionic"
