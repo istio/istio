@@ -422,7 +422,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 		serviceByHostnameAndNamespace map[host.Name]map[string]*model.Service
 		push                          *model.PushContext
 		node                          *model.Proxy
-		httpRoute                     route.Route
+		httpRoute                     *route.Route
 		quotaSpec                     []*mccpb.QuotaSpec
 	}{
 		{
@@ -435,7 +435,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 					PolicyCheck: "enable",
 				},
 			},
-			httpRoute: route.Route{
+			httpRoute: &route.Route{
 				Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||svc.ns3.svc.cluster.local"},
@@ -459,7 +459,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 					PolicyCheck: "enable",
 				},
 			},
-			httpRoute: route.Route{
+			httpRoute: &route.Route{
 				Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||a.ns3.svc.cluster.local"},
@@ -479,7 +479,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 			Push: c.push,
 			Node: c.node,
 		}
-		tc := modifyOutboundRouteConfig(push, &in, "", &c.httpRoute)
+		tc := modifyOutboundRouteConfig(push, &in, "", c.httpRoute)
 
 		mixerSvcConfigAny := tc.TypedPerFilterConfig["mixer"]
 		mixerSvcConfig := &mccpb.ServiceConfig{}

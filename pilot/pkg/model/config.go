@@ -234,7 +234,6 @@ type ConfigStoreCache interface {
 // IstioConfigStore is a specialized interface to access config store using
 // Istio configuration types
 // nolint
-//go:generate counterfeiter -o ../networking/core/v1alpha3/fakes/fake_istio_config_store.gen.go --fake-name IstioConfigStore . IstioConfigStore
 type IstioConfigStore interface {
 	ConfigStore
 
