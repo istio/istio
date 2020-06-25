@@ -43,22 +43,20 @@ import (
 	mixerClient "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 const (
@@ -437,7 +435,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 
 			env := buildListenerEnv(services)
-			serviceDiscovery := memory.NewServiceDiscovery(services)
+			serviceDiscovery := memregistry.NewServiceDiscovery(services)
 			for _, i := range tt.instances {
 				serviceDiscovery.AddInstance(i.Service.Hostname, i)
 			}
@@ -2281,7 +2279,7 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 }
 
 func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
-	serviceDiscovery := memory.NewServiceDiscovery(services)
+	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
 	instances := make([]*model.ServiceInstance, 0, len(services))
 	for _, s := range services {
@@ -2301,8 +2299,9 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 
 	envoyFilter := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Name:      "test-envoyfilter",
-			Namespace: "not-default",
+			Name:             "test-envoyfilter",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.EnvoyFilter,
 		},
 		Spec: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
@@ -2316,21 +2315,11 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 			},
 		},
 	}
-	configStore := &fakes.IstioConfigStore{
-		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-			switch kind {
-			case gvk.VirtualService:
-				result := make([]model.Config, len(virtualServices))
-				for i := range virtualServices {
-					result[i] = *virtualServices[i]
-				}
-				return result, nil
-			case gvk.EnvoyFilter:
-				return []model.Config{envoyFilter}, nil
-			default:
-				return nil, nil
-			}
-		},
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+	for _, c := range append(virtualServices, &envoyFilter) {
+		if _, err := configStore.Create(*c); err != nil {
+			panic(err.Error())
+		}
 	}
 
 	m := mesh.DefaultMeshConfig()
@@ -2576,55 +2565,42 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	serviceDiscovery := memory.NewServiceDiscovery(services)
+	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
-	quotaSpec := &client.Quota{
-		Quota:  "test",
-		Charge: 1,
-	}
-
-	configStore := &fakes.IstioConfigStore{
-		ListStub: func(kind resource.GroupVersionKind, s string) (configs []model.Config, err error) {
-			if kind.String() == gvk.QuotaSpec.String() {
-				return []model.Config{
-					{
-						ConfigMeta: model.ConfigMeta{
-							GroupVersionKind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
-							Name:             limitedSvcName,
-							Namespace:        "default",
-						},
-						Spec: quotaSpec,
-					},
-				}, nil
-			} else if kind.String() == gvk.QuotaSpecBinding.String() {
-				return []model.Config{
-					{
-						ConfigMeta: model.ConfigMeta{
-							GroupVersionKind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
-							Name:             limitedSvcName,
-							Namespace:        "default",
-						},
-						Spec: &mixerClient.QuotaSpecBinding{
-							Services: []*mixerClient.IstioService{
-								{
-									Name:      "thrift-service",
-									Namespace: "default",
-									Domain:    "cluster.local",
-									Service:   "thrift-service.default.svc.cluster.local",
-								},
-							},
-							QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
-								{
-									Name:      "thrift-service",
-									Namespace: "default",
-								},
-							},
-						},
-					},
-				}, nil
-			}
-			return []model.Config{}, nil
+	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
+	for _, config := range []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.QuotaSpec,
+				Name:             limitedSvcName,
+				Namespace:        "default",
+			},
+			Spec: &mixerClient.QuotaSpec{},
 		},
+		{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.QuotaSpecBinding,
+				Name:             limitedSvcName,
+				Namespace:        "default",
+			},
+			Spec: &mixerClient.QuotaSpecBinding{
+				Services: []*mixerClient.IstioService{
+					{
+						Service: "thrift-service.default.svc.cluster.local",
+					},
+				},
+				QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
+					{
+						Name:      "thrift-service",
+						Namespace: "default",
+					},
+				},
+			},
+		},
+	} {
+		if _, err := configStore.Create(config); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	m := mesh.DefaultMeshConfig()

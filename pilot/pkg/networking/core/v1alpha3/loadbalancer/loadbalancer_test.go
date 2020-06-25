@@ -27,9 +27,9 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -232,7 +232,7 @@ func TestGetLocalityLbSetting(t *testing.T) {
 }
 
 func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
-	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
 		{
 			Hostname:    "test.example.org",
 			Address:     "1.1.1.1",
@@ -257,7 +257,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 		},
 	}
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
@@ -284,7 +284,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 }
 
 func buildEnvForClustersWithFailover() *model.Environment {
-	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
 		{
 			Hostname:    "test.example.org",
 			Address:     "1.1.1.1",
@@ -314,7 +314,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 		},
 	}
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
