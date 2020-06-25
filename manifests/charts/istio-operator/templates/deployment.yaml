@@ -20,6 +20,13 @@ spec:
           command:
           - operator
           - server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
           imagePullPolicy: IfNotPresent
           resources:
 {{ toYaml .Values.operator.resources | trim | indent 12 }}
