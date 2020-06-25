@@ -16,6 +16,7 @@ package v2
 
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
@@ -56,11 +57,11 @@ func (sg *InternalGen) OnConnect(con *XdsConnection) {
 			},
 		}
 	}
-	sg.startPush(TypeURLConnections, []*any.Any{util.MessageToAny(con.xdsNode)})
+	sg.startPush(TypeURLConnections, []proto.Message{con.xdsNode})
 }
 
 func (sg *InternalGen) OnDisconnect(con *XdsConnection) {
-	sg.startPush(TypeURLDisconnect, []*any.Any{util.MessageToAny(con.xdsNode)})
+	sg.startPush(TypeURLDisconnect, []proto.Message{con.xdsNode})
 
 	if con.xdsNode.Metadata != nil && con.xdsNode.Metadata.Fields != nil {
 		con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value{
@@ -76,14 +77,13 @@ func (sg *InternalGen) OnDisconnect(con *XdsConnection) {
 func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {
 	// Make sure we include the ID - the DR may not include metadata
 	dr.Node.Id = node.ID
-	sg.startPush(TypeURLNACK, []*any.Any{util.MessageToAny(dr)})
+	sg.startPush(TypeURLNACK, []proto.Message{dr})
 }
 
 // PushAll will immediately send a response to all connections that
 // are watching for the specific type.
 // TODO: additional filters can be added, for example namespace.
 func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
-
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
 	s.adsClientsMutex.RLock()
@@ -95,6 +95,11 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 		}
 	}
 	s.adsClientsMutex.RUnlock()
+
+	// only marshal resources if there are connected clients
+	if len(pending) == 0 {
+		return
+	}
 
 	for _, p := range pending {
 		// p.send() waits for an ACK - which is reasonable for normal push,
