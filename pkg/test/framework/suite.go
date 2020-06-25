@@ -393,6 +393,7 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 	// Run all the require functions first, then the setup functions.
 	setupFns := append(append([]resource.SetupFn{}, s.requireFns...), s.setupFns...)
 
+	start := time.Now()
 	for _, fn := range setupFns {
 		err := s.runSetupFn(fn, ctx)
 		if err != nil {
@@ -405,7 +406,8 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 			return nil
 		}
 	}
-	scopes.Framework.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
+	elapsed := time.Since(start)
+	scopes.Framework.Infof("=== DONE: Setup: '%s' (%v) ===", ctx.Settings().TestID, elapsed)
 	return nil
 }
 
