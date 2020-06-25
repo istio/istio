@@ -1109,6 +1109,9 @@ func TestBuildGatewayListeners(t *testing.T) {
 		builder := configgen.buildGatewayListeners(&proxyGateway, env.PushContext, &ListenerBuilder{})
 		var listeners []string
 		for _, l := range builder.gatewayListeners {
+			if err := l.Validate(); err != nil {
+				t.Fatalf("Validation failed for listener %s with error %v", l.Name, err)
+			}
 			listeners = append(listeners, l.Name)
 		}
 		sort.Strings(listeners)
