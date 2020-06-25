@@ -16,12 +16,12 @@ package model
 
 import (
 	"fmt"
-	"github.com/google/go-cmp/cmp"
 	"reflect"
 	"regexp"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
