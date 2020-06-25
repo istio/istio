@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"path"
 	"reflect"
 	"testing"
@@ -94,7 +95,7 @@ func TestEgressGatewayTls(t *testing.T) {
 				},
 				// Egress Gateway can't "originate" ISTIO_MUTUAL to server as the server is outside the mesh and has no
 				// sidecar proxy
-				"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint with strict mTLS": {
+				"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "ISTIO_MUTUAL",
 					response:            []string{response.StatusCodeBadRequest},
 					gateway:             false, // 400 response will not contain header
@@ -318,14 +319,14 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		}).
 		BuildOrFail(t)
 
+	if err := mountCACerts(t,ctx); err != nil {
+		t.Fatalf("failed to apply gateway patch, %v", err)
+	}
+
 	// Create a sidecarScope to only allow traffic to service namespace so that the traffic only goes
 	// through the egress gateway set up in service namespace. This way client cannot directly call our server
 	// in the same namespace("app") and is forced to route traffic to egress gateway
 	createSidecarScope(t, ctx, appsNamespace, serviceNamespace)
-
-	if err := mountCACerts(ctx); err != nil {
-		t.Fatalf("failed to apply gateway patch, %v", err)
-	}
 
 	// Apply Egress Gateway for service namespace to originate external traffic
 	createGateway(t, ctx, appsNamespace, serviceNamespace)
@@ -482,7 +483,7 @@ func WaitUntilNotCallable(c echo.Instance, dest echo.Instance) error {
 	return nil
 }
 
-func mountCACerts(ctx resource.Context) error {
+func mountCACerts(t *testing.T, ctx resource.Context) error {
 	systemNs, err := namespace.ClaimSystemNamespace(ctx)
 	if err != nil {
 		return err
@@ -505,7 +506,7 @@ func mountCACerts(ctx resource.Context) error {
   "value": {
   "name": "client-custom-certs",
     "secret": {
-      "secretName": "cacerts",
+      "secretName": "egress-gw-cacerts",
       "optional": true
     }
   }
@@ -515,8 +516,11 @@ func mountCACerts(ctx resource.Context) error {
 		return err
 	}
 
-	// TODO: Figure out if theres a way to poll for readiness instead of sleeping to avoid flakes
-	time.Sleep(time.Second * 40)
+	// Wait until egress gw has been successfully patched
+	retry.UntilSuccessOrFail(t, func() error {
+		_, err = kubeAccessor.CheckPodsAreReady(kube2.NewPodFetch(kubeAccessor,systemNs.Name(), "app=istio-egressgateway"))
+		return err
+	}, retry.Delay(time.Millisecond*500), retry.Timeout(time.Second*40))
 
 	return nil
 }
