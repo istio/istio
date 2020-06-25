@@ -69,4 +69,3 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&ist, nil)).
 		Run()
 }
-

@@ -57,7 +57,6 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-
 func validateDefaultOutput(t *testing.T, ctx framework.TestContext, workload string) error { // nolint:interfacer
 	istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 	args := []string{"experimental", "metrics", workload}
