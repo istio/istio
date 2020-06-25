@@ -227,10 +227,14 @@ type AgentConfig struct {
 	OutputKeyCertToDir string
 
 	// Location of JWTPath to connect to CA. If empty, SDS is not possible.
-	// If set SDS will be used - either local or via hostPath.
+	// If set SDS will be used.
 	JWTPath string
 
-	// ClusterID is the cluster where the agent resides
+	// ClusterID is the cluster where the agent resides.
+	// Normally initialized from ISTIO_META_CLUSTER_ID - after a tortuous journey it
+	// makes its way into the ClusterID metadata of Citadel gRPC request to create the cert.
+	// Didn't find much doc - but I suspect used for 'central cluster' use cases - so should
+	// match the cluster name set in the MC setup.
 	ClusterID string
 
 	// LocalXDSAddr is the address of the XDS proxy. If not set, the env variable XDS_LOCAL will be used.
