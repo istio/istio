@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -445,6 +446,78 @@ func TestSetDestinationRule(t *testing.T) {
 
 	if len(subsetsExport) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsExport))
+	}
+}
+
+func TestSubsetToLabels(t *testing.T) {
+	ps := NewPushContext()
+	ps.defaultDestinationRuleExportTo = map[visibility.Instance]bool{visibility.Public: true}
+	ps.Mesh = &meshconfig.MeshConfig{
+		RootNamespace: "istio-system",
+	}
+	testhost := "httpbin.org"
+	destinationRuleNamespace1 := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "rule1",
+			Namespace: "test",
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset1",
+				},
+				{
+					Name:   "subset2",
+					Labels: map[string]string{},
+				},
+				{
+					Name: "subset3",
+					Labels: map[string]string{
+						"a": "b",
+					},
+				},
+			},
+		},
+	}
+	proxy := &Proxy{
+		Metadata:        &NodeMetadata{IstioVersion: "1.6.0"},
+		ConfigNamespace: "test",
+	}
+
+	ps.SetDestinationRules([]Config{destinationRuleNamespace1})
+
+	for _, test := range []struct {
+		name     string
+		subset   string
+		expected labels.Collection
+	}{
+		{
+			name:     "No labels",
+			subset:   "subset1",
+			expected: nil,
+		},
+		{
+			name:     "Empty labels",
+			subset:   "subset2",
+			expected: nil,
+		},
+		{
+			name:   "With labels",
+			subset: "subset3",
+			expected: labels.Collection{
+				{
+					"a": "b",
+				},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			labelsCollection := ps.SubsetToLabels(proxy, test.subset, host.Name(testhost))
+			if cmp.Diff(labelsCollection, test.expected) != "" {
+				t.Errorf("want %v, but got %v", test.expected, labelsCollection)
+			}
+		})
 	}
 }
 

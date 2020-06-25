@@ -789,6 +789,9 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 	rule := cfg.Spec.(*networking.DestinationRule)
 	for _, subset := range rule.Subsets {
 		if subset.Name == subsetName {
+			if len(subset.Labels) == 0 {
+				return nil
+			}
 			return []labels.Instance{subset.Labels}
 		}
 	}
