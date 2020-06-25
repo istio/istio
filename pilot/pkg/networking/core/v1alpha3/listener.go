@@ -287,7 +287,7 @@ var (
 	// State logged by the metadata exchange filter about the upstream and downstream service instances
 	// We need to propagate these as part of access log service stream
 	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
-	// But end users can certainly configure it on their own via the meshConfig using the %FILTERSTATE% macro.	
+	// But end users can certainly configure it on their own via the meshConfig using the %FILTERSTATE% macro.
 	envoyWasmStateToLog = []string{"wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"}
 
 	// EnvoyJSONLogFormat13 map of values for envoy json based access logs for Istio 1.3 onwards
