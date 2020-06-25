@@ -395,6 +395,9 @@ func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttribute
 }
 
 func errToStatus(err error) *spb.Status {
+	if err == nil {
+		return nil
+	}
 	var statusResp *spb.Status
 	if s, ok := status.FromError(err); ok {
 		if s == nil {
