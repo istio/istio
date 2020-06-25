@@ -63,6 +63,8 @@ const DefaultRouteName = "default"
 const maxRegExProgramSize = 1024
 
 var (
+	// TODO remove max program size once all envoys have unlimited default
+	// nolint: staticcheck
 	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(maxRegExProgramSize),
@@ -620,6 +622,7 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 		case *networking.StringMatch_Regex:
 			out.PathSpecifier = &route.RouteMatch_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
+					// nolint: staticcheck
 					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 						MaxProgramSize: &wrappers.UInt32Value{
 							Value: uint32(maxRegExProgramSize),
@@ -671,6 +674,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
 			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
+					// nolint: staticcheck
 					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 						MaxProgramSize: &wrappers.UInt32Value{
 							Value: uint32(maxRegExProgramSize),
