@@ -39,6 +39,12 @@ features:
     short-circuiting:
     mirroring:
   usability:
+    troubleshooting:
+      istioctl:
+        proxy-status:
+        experimental-proxy-status:
+      envoy:
+        csds:
     observability:
       status:
   # features that allow users to secure their services and service mesh.
