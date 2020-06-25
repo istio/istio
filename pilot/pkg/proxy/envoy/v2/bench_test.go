@@ -358,8 +358,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 						continue
 					}
 
-					clonedCLA := util.CloneClusterLoadAssignment(l)
-					l = &clonedCLA
+					l = util.CloneClusterLoadAssignment(l)
 
 					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh().LocalityLbSetting, true)
 					loadAssignments = append(loadAssignments, l)

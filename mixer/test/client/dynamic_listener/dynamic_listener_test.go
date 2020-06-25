@@ -134,7 +134,6 @@ func makeListener(s *env.TestSetup, key string) *listener.Listener {
 	if err != nil {
 		panic(err.Error())
 	}
-	mxServiceConfig.TypeUrl += "istio.mixer.v1.config.client.ServiceConfig"
 	mxConf := pilotutil.MessageToAny(env.GetDefaultHTTPServerConf())
 
 	manager := &hcm.HttpConnectionManager{

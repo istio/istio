@@ -26,7 +26,7 @@ func (w *Wrapper) GetBootstrapConfigDump() (*adminapi.BootstrapConfigDump, error
 		return nil, err
 	}
 	bootstrapDump := &adminapi.BootstrapConfigDump{}
-	err = ptypes.UnmarshalAny(&bootstrapDumpAny, bootstrapDump)
+	err = ptypes.UnmarshalAny(bootstrapDumpAny, bootstrapDump)
 	if err != nil {
 		return nil, err
 	}
