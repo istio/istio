@@ -184,7 +184,6 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(`/stats/prometheus`, s.handleStats)
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
-	mux.Handle("/agent-health", promStatsExporter)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
