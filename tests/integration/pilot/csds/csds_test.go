@@ -15,8 +15,9 @@
 package csds
 
 import (
-	"istio.io/istio/pkg/test/framework"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework"
 )
 
 func TestMain(m *testing.M) {
@@ -29,6 +30,6 @@ func TestCSDS(t *testing.T) {
 	// This test is not yet implemented
 	framework.NewTest(t).
 		NotImplementedYet("usability.troubleshooting.istioctl.experimental-proxy-status",
-		"usability.troubleshooting.envoy.csds.point-in-time",
-		"usability.troubleshooting.envoy.csds.streaming")
+			"usability.troubleshooting.envoy.csds.point-in-time",
+			"usability.troubleshooting.envoy.csds.streaming")
 }
