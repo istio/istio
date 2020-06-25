@@ -197,7 +197,9 @@ function setup_kind_clusters() {
   KUBECONFIG_DIR="$(mktemp -d)"
 
   # The kind tool will error when trying to create clusters in paralell unless we create the network first
-  docker network inspect kind > /dev/null 2>&1 || docker network create kind
+  # TODO remove this when kind support creating multiple clusters in parallel - this will break ipv6
+  docker network inspect kind > /dev/null 2>&1 || docker network create -d=bridge -o com.docker.network.bridge.enable_ip_masquerade=true kind
+
 
   # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
   trap cleanup_kind_clusters EXIT

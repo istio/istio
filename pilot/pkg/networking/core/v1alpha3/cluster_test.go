@@ -2415,7 +2415,6 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	}
 
 	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{service})
-	proxy.ServiceInstances = []*model.ServiceInstance{}
 
 	configStore := &fakes.IstioConfigStore{}
 	proxy := &model.Proxy{

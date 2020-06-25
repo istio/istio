@@ -5637,6 +5637,7 @@ kind: ConfigMap
 metadata:
   creationTimestamp: null
   name: istio-grafana-dashboards
+  namespace: istio-system
 
 ---
 
@@ -9015,3 +9016,4 @@ kind: ConfigMap
 metadata:
   creationTimestamp: null
   name: istio-services-grafana-dashboards
+  namespace: istio-system

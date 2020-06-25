@@ -1037,6 +1037,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			vh := make(map[string][]string)
 			for _, h := range route.VirtualHosts {
 				vh[h.Name] = h.Domains
+				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
+					t.Errorf("expected attempt count to be set in virtual host, but not found")
+				}
 			}
 			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
 				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)

@@ -16,6 +16,7 @@ package xds
 
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
@@ -56,11 +57,11 @@ func (sg *InternalGen) OnConnect(con *XdsConnection) {
 			},
 		}
 	}
-	sg.startPush(TypeURLConnections, []*any.Any{util.MessageToAny(con.xdsNode)})
+	sg.startPush(TypeURLConnections, []proto.Message{con.xdsNode})
 }
 
 func (sg *InternalGen) OnDisconnect(con *XdsConnection) {
-	sg.startPush(TypeURLDisconnect, []*any.Any{util.MessageToAny(con.xdsNode)})
+	sg.startPush(TypeURLDisconnect, []proto.Message{con.xdsNode})
 
 	if con.xdsNode.Metadata != nil && con.xdsNode.Metadata.Fields != nil {
 		con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value{
@@ -76,14 +77,14 @@ func (sg *InternalGen) OnDisconnect(con *XdsConnection) {
 func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {
 	// Make sure we include the ID - the DR may not include metadata
 	dr.Node.Id = node.ID
-	sg.startPush(TypeURLNACK, []*any.Any{util.MessageToAny(dr)})
+	sg.startPush(TypeURLNACK, []proto.Message{dr})
 }
 
 // startPush is similar with DiscoveryServer.startPush() - but called directly,
 // since status discovery is not driven by config change events.
 // We also want connection events to be dispatched as soon as possible,
 // they may be consumed by other instances of Istiod to update internal state.
-func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
+func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
 	sg.Server.adsClientsMutex.RLock()
@@ -96,9 +97,18 @@ func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
 	}
 	sg.Server.adsClientsMutex.RUnlock()
 
+	// only marshal resources if there are connected clients
+	if len(pending) == 0 {
+		return
+	}
+
+	resources := make([]*any.Any, 0, len(data))
+	for _, v := range data {
+		resources = append(resources, util.MessageToAny(v))
+	}
 	dr := &discovery.DiscoveryResponse{
 		TypeUrl:   typeURL,
-		Resources: data,
+		Resources: resources,
 	}
 
 	for _, p := range pending {

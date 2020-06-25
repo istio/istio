@@ -227,6 +227,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
+			proxy := getProxy()
 			proxy.SetSidecarScope(env.PushContext)
 
 			cb := NewClusterBuilder(tt.proxy, env.PushContext)
@@ -417,6 +418,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			configStore := &fakes.IstioConfigStore{}
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
+			proxy := getProxy()
 			proxy.SetSidecarScope(env.PushContext)
 
 			cb := NewClusterBuilder(&model.Proxy{}, env.PushContext)

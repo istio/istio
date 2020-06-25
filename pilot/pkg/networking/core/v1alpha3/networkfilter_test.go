@@ -209,10 +209,11 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 			env.PushContext.InitContext(&env, nil, nil)
 			env.PushContext.Mesh.OutboundClusterStatName = tt.statPattern
 
+			proxy := getProxy()
 			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 
-			listeners := buildOutboundNetworkFilters(&proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, model.ConfigMeta{Name: "test.com", Namespace: "ns"})
+			listeners := buildOutboundNetworkFilters(proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, model.ConfigMeta{Name: "test.com", Namespace: "ns"})
 			tcp := &tcp.TcpProxy{}
 			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
