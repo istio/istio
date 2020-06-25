@@ -308,7 +308,7 @@ func TestCommandLineArgs(t *testing.T) {
 	g.Expect(opts.RestartEpoch).To(Equal(uint32(1)))
 	g.Expect(opts.ServiceCluster).To(Equal("mycluster"))
 	g.Expect(opts.ServiceNode).To(Equal("mynode"))
-	g.Expect(opts.DrainTime.AsDuration().String()).To(Equal(drainDuration))
+	g.Expect(opts.DrainTime.AsDuration()).To(Equal(drainDuration))
 	g.Expect(opts.ParentShutdownTime.AsDuration()).To(Equal(parentShutdownDuration))
 }
 

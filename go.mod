@@ -160,7 +160,6 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
-	gotest.tools v2.2.0+incompatible
 	helm.sh/helm/v3 v3.2.0
 	istio.io/api v0.0.0-20200625150749-add85bd6bfe8
 	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
