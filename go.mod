@@ -176,4 +176,4 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
-replace istio.io => github.com/howardjohn/api v0.0.0-20200624222919-f9819c89244f
+replace istio.io/api => github.com/howardjohn/api v0.0.0-20200625013732-96a47ec35157

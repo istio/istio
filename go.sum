@@ -475,6 +475,8 @@ github.com/hashicorp/vault/sdk v0.1.12 h1:+YFZo5j3//cbVIkXQs315MFrzqh0ZdPratYIP9
 github.com/hashicorp/vault/sdk v0.1.12/go.mod h1:B+hVj7TpuQY1Y/GPbCpffmgd+tSEwvhkWnjtSYCaS2M=
 github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb/go.mod h1:+NfK9FKeTrX5uv1uIXGdwYDTeHna2qgaIlx54MXqjAM=
 github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d/go.mod h1:+NfK9FKeTrX5uv1uIXGdwYDTeHna2qgaIlx54MXqjAM=
+github.com/howardjohn/api v0.0.0-20200625013732-96a47ec35157 h1:51FGeehCmeeL0QzDB+XCj3tqO2JY51BHhtKa4eEjkdg=
+github.com/howardjohn/api v0.0.0-20200625013732-96a47ec35157/go.mod h1:uXD10AwGZkxIrVKTntYm2uyFWQQfNzhAGkIxLfRNocs=
 github.com/howeyc/fsnotify v0.9.0 h1:0gtV5JmOKH4A8SsFxG2BczSeXWWPvcMT0euZt5gDAxY=
 github.com/howeyc/fsnotify v0.9.0/go.mod h1:41HzSPxBGeFRQKEEwgh49TRw/nKBsYZ2cF1OzPjSJsA=
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
