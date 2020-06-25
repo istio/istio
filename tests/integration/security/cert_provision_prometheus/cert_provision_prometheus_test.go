@@ -66,19 +66,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		Setup(istio.Setup(&ist, setupConfig)).
+		Setup(istio.Setup(&ist, nil)).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	// Disable mixer telemetry, enable telemetry v2,
-	// and turn on telemetry v2 for both HTTP and TCP.
-	cfg.Values["telemetry.enabled"] = "true"
-	cfg.Values["telemetry.v1.enabled"] = "false"
-	cfg.Values["telemetry.v2.enabled"] = "true"
-	cfg.Values["meshConfig.enablePrometheusMerge"] = "false"
-	cfg.Values["prometheus.enabled"] = "true"
-}
