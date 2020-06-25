@@ -66,6 +66,14 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		Setup(istio.Setup(&ist, nil)).
+		Setup(istio.Setup(&ist, setupConfig)).
 		Run()
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.Values["meshConfig.enablePrometheusMerge"] = "false"
+	cfg.Values["prometheus.enabled"] = "true"
 }
