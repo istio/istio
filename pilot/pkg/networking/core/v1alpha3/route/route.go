@@ -597,13 +597,13 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 
 	for name, stringMatch := range in.Headers {
 		matcher := translateHeaderMatch(name, stringMatch)
-		out.Headers = append(out.Headers, &matcher)
+		out.Headers = append(out.Headers, matcher)
 	}
 
 	for name, stringMatch := range in.WithoutHeaders {
 		matcher := translateHeaderMatch(name, stringMatch)
 		matcher.InvertMatch = true
-		out.Headers = append(out.Headers, &matcher)
+		out.Headers = append(out.Headers, matcher)
 	}
 
 	// guarantee ordering of headers
@@ -635,30 +635,30 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 
 	if in.Method != nil {
 		matcher := translateHeaderMatch(HeaderMethod, in.Method)
-		out.Headers = append(out.Headers, &matcher)
+		out.Headers = append(out.Headers, matcher)
 	}
 
 	if in.Authority != nil {
 		matcher := translateHeaderMatch(HeaderAuthority, in.Authority)
-		out.Headers = append(out.Headers, &matcher)
+		out.Headers = append(out.Headers, matcher)
 	}
 
 	if in.Scheme != nil {
 		matcher := translateHeaderMatch(HeaderScheme, in.Scheme)
-		out.Headers = append(out.Headers, &matcher)
+		out.Headers = append(out.Headers, matcher)
 	}
 
 	for name, stringMatch := range in.QueryParams {
 		matcher := translateQueryParamMatch(name, stringMatch)
-		out.QueryParameters = append(out.QueryParameters, &matcher)
+		out.QueryParameters = append(out.QueryParameters, matcher)
 	}
 
 	return out
 }
 
 // translateQueryParamMatch translates a StringMatch to a QueryParameterMatcher.
-func translateQueryParamMatch(name string, in *networking.StringMatch) route.QueryParameterMatcher {
-	out := route.QueryParameterMatcher{
+func translateQueryParamMatch(name string, in *networking.StringMatch) *route.QueryParameterMatcher {
+	out := &route.QueryParameterMatcher{
 		Name: name,
 	}
 
@@ -703,8 +703,8 @@ func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
 }
 
 // translateHeaderMatch translates to HeaderMatcher
-func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderMatcher {
-	out := route.HeaderMatcher{
+func translateHeaderMatch(name string, in *networking.StringMatch) *route.HeaderMatcher {
+	out := &route.HeaderMatcher{
 		Name: name,
 	}
 

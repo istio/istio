@@ -174,12 +174,12 @@ func TestGolden(t *testing.T) {
 			check: func(got *v2.Bootstrap, t *testing.T) {
 				// nolint: staticcheck
 				cfg := got.Tracing.Http.GetTypedConfig()
-				sdMsg := trace.OpenCensusConfig{}
-				if err := ptypes.UnmarshalAny(cfg, &sdMsg); err != nil {
+				sdMsg := &trace.OpenCensusConfig{}
+				if err := ptypes.UnmarshalAny(cfg, sdMsg); err != nil {
 					t.Fatalf("unable to parse: %v %v", cfg, err)
 				}
 
-				want := trace.OpenCensusConfig{
+				want := &trace.OpenCensusConfig{
 					TraceConfig: &v1.TraceConfig{
 						Sampler: &v1.TraceConfig_ConstantSampler{
 							ConstantSampler: &v1.ConstantSampler{
@@ -319,8 +319,8 @@ func TestGolden(t *testing.T) {
 				golden = []byte{}
 			}
 
-			realM := v2.Bootstrap{}
-			goldenM := v2.Bootstrap{}
+			realM := &v2.Bootstrap{}
+			goldenM := &v2.Bootstrap{}
 
 			jgolden, err := yaml.YAMLToJSON(golden)
 
@@ -328,7 +328,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("unable to convert: %s %v", c.base, err)
 			}
 
-			if err = jsonpb.UnmarshalString(string(jgolden), &goldenM); err != nil {
+			if err = jsonpb.UnmarshalString(string(jgolden), goldenM); err != nil {
 				t.Fatalf("invalid json %s %s\n%v", c.base, err, string(jgolden))
 			}
 
@@ -342,7 +342,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("unable to convert: %s (%s) %v", c.base, fn, err)
 			}
 
-			if err = jsonpb.UnmarshalString(string(jreal), &realM); err != nil {
+			if err = jsonpb.UnmarshalString(string(jreal), realM); err != nil {
 				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 
@@ -350,13 +350,13 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid generated file %s: %v", c.base, err)
 			}
 
-			checkStatsMatcher(t, &realM, &goldenM, c.stats)
+			checkStatsMatcher(t, realM, goldenM, c.stats)
 
 			if c.check != nil {
-				c.check(&realM, t)
+				c.check(realM, t)
 			}
 
-			checkOpencensusConfig(t, &realM, &goldenM)
+			checkOpencensusConfig(t, realM, goldenM)
 
 			if !reflect.DeepEqual(realM, goldenM) {
 				s, _ := diff.PrettyDiff(goldenM, realM)

@@ -1886,7 +1886,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 		name     string
 		newEnv   func(model.ServiceDiscovery, model.IstioConfigStore) *model.Environment
 		destRule *networking.DestinationRule
-		expected cluster.CircuitBreakers_Thresholds
+		expected *cluster.CircuitBreakers_Thresholds
 	}{
 		{
 			name: "port-level policy matched",
@@ -1915,7 +1915,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					},
 				},
 			},
-			expected: cluster.CircuitBreakers_Thresholds{
+			expected: &cluster.CircuitBreakers_Thresholds{
 				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 100},
@@ -1949,7 +1949,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					},
 				},
 			},
-			expected: cluster.CircuitBreakers_Thresholds{
+			expected: &cluster.CircuitBreakers_Thresholds{
 				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
@@ -1980,7 +1980,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			for _, cluster := range clusters {
 				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 				if cluster.Name == "inbound|80|default|backend.default.svc.cluster.local" {
-					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(&c.expected))
+					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
 				}
 			}
 		})

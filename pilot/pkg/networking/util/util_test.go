@@ -42,16 +42,40 @@ import (
 	proto2 "istio.io/istio/pkg/proto"
 )
 
-func TestCloneLbEndpoint(t *testing.T) {
-	ep := &endpoint.LbEndpoint{
-		LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
-	}
-	cloned := CloneLbEndpoint(ep)
-	cloned.LoadBalancingWeight.Value = 200
-	if ep.LoadBalancingWeight.GetValue() != 100 {
-		t.Errorf("original LbEndpoint is mutated")
+func BenchmarkCloneClusterLoadAssignment(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		cpy := CloneClusterLoadAssignment(&endpoint.ClusterLoadAssignment{
+			ClusterName: "cluster",
+			Endpoints: []*endpoint.LocalityLbEndpoints{{
+				Locality: &core.Locality{Region: "foo", Zone: "bar"},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
+						LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+					},
+					{
+						HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
+						LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{Value: 50},
+				Priority:            2,
+			}},
+		})
+		_ = cpy
 	}
 }
+//
+//func TestCloneLbEndpoint(t *testing.T) {
+//	ep := &endpoint.LbEndpoint{
+//		LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+//	}
+//	cloned := CloneLbEndpoint(ep)
+//	cloned.LoadBalancingWeight.Value = 200
+//	if ep.LoadBalancingWeight.GetValue() != 100 {
+//		t.Errorf("original LbEndpoint is mutated")
+//	}
+//}
 
 func TestConvertAddressToCidr(t *testing.T) {
 	tests := []struct {

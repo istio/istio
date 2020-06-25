@@ -121,7 +121,7 @@ type (
 		// Quota is the response from a check call to Mixer
 		Quota map[string]adapter.QuotaResult `json:"Quota"`
 		// Error is the error from call to Mixer
-		Error spb.Status `json:"Error"`
+		Error *spb.Status `json:"Error"`
 	}
 )
 
@@ -394,13 +394,13 @@ func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttribute
 	return attrProto
 }
 
-func errToStatus(err error) spb.Status {
-	var statusResp spb.Status
+func errToStatus(err error) *spb.Status {
+	var statusResp *spb.Status
 	if s, ok := status.FromError(err); ok {
 		if s == nil {
-			statusResp = spb.Status{Code: int32(codes.OK)}
+			statusResp = &spb.Status{Code: int32(codes.OK)}
 		} else {
-			statusResp = *s.Proto()
+			statusResp = s.Proto()
 		}
 	}
 	return statusResp
