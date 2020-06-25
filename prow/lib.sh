@@ -131,7 +131,7 @@ function setup_kind_registry() {
 
 # Pushes images to local kind registry
 function kind_push_images() {
-  docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 docker push
+  docker images "${HUB}/*:${TAG}*" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 docker push
 }
 
 # Loads images into all clusters.
@@ -180,18 +180,8 @@ function setup_kind_cluster() {
 
   # If config not explicitly set, then use defaults
   if [[ -z "${CONFIG}" ]]; then
-    # Different Kubernetes versions need different patches
-    K8S_VERSION=$(cut -d ":" -f 2 <<< "${IMAGE}")
-    if [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.13" ]]; then
-      # Kubernetes 1.12
-      CONFIG=./prow/config/trustworthy-jwt-12.yaml
-    elif [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.15" ]]; then
-      # Kubernetes 1.13, 1.14
-      CONFIG=./prow/config/trustworthy-jwt-13-14.yaml
-    else
       # Kubernetes 1.15+
       CONFIG=./prow/config/trustworthy-jwt.yaml
-    fi
       # Configure the cluster IP Family only for default configs
     if [ "${IP_FAMILY}" = "ipv6" ]; then
       cat <<EOF >> "${CONFIG}"
