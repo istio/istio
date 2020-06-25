@@ -34,6 +34,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1678,7 +1679,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			env := c.newEnv(serviceDiscovery, configStore)
 			actual := buildLocalityLbEndpoints(proxy, env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
 			sortEndpoints(actual)
-			if v := cmp.Diff(c.expected, actual); v != "" {
+			if v := cmp.Diff(c.expected, actual, protocmp.Transform()); v != "" {
 				t.Fatalf("Expected (-) != actual (+):\n%s", v)
 			}
 		})
@@ -1885,7 +1886,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 		name     string
 		newEnv   func(model.ServiceDiscovery, model.IstioConfigStore) *model.Environment
 		destRule *networking.DestinationRule
-		expected cluster.CircuitBreakers_Thresholds
+		expected *cluster.CircuitBreakers_Thresholds
 	}{
 		{
 			name: "port-level policy matched",
@@ -1914,7 +1915,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					},
 				},
 			},
-			expected: cluster.CircuitBreakers_Thresholds{
+			expected: &cluster.CircuitBreakers_Thresholds{
 				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 100},
@@ -1948,7 +1949,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					},
 				},
 			},
-			expected: cluster.CircuitBreakers_Thresholds{
+			expected: &cluster.CircuitBreakers_Thresholds{
 				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
@@ -1979,7 +1980,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			for _, cluster := range clusters {
 				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 				if cluster.Name == "inbound|80|default|backend.default.svc.cluster.local" {
-					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(&c.expected))
+					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
 				}
 			}
 		})

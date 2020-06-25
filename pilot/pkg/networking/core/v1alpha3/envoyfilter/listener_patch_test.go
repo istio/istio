@@ -22,15 +22,16 @@ import (
 	"testing"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
@@ -638,8 +639,9 @@ func TestApplyListenerPatches(t *testing.T) {
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									XffNumTrustedHops: 4,
-									MergeSlashes:      true,
+									XffNumTrustedHops:            4,
+									MergeSlashes:                 true,
+									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
@@ -836,8 +838,9 @@ func TestApplyListenerPatches(t *testing.T) {
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									XffNumTrustedHops: 4,
-									MergeSlashes:      true,
+									XffNumTrustedHops:            4,
+									MergeSlashes:                 true,
+									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
@@ -955,7 +958,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ApplyListenerPatches(tt.args.patchContext, tt.args.proxy, tt.args.push,
 				tt.args.listeners, tt.args.skipAdds)
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})
@@ -984,8 +987,9 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 						Name: wellknown.HTTPConnectionManager,
 						ConfigType: &listener.Filter_TypedConfig{
 							TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-								XffNumTrustedHops: 4,
-								MergeSlashes:      true,
+								XffNumTrustedHops:            4,
+								MergeSlashes:                 true,
+								AlwaysSetRequestIdInResponse: true,
 								HttpFilters: []*http_conn.HttpFilter{
 									{Name: "http-filter3"},
 									{Name: wellknown.Router},

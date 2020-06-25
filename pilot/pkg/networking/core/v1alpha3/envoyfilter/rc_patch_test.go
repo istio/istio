@@ -19,6 +19,7 @@ import (
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -465,7 +466,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
 				tt.args.push, tt.args.routeConfiguration)
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})

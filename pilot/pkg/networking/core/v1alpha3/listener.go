@@ -43,6 +43,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
+	"istio.io/istio/pkg/util/protomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -783,13 +784,13 @@ allChainsLabel:
 
 			// TODO(yxue) avoid bypassing authN using TCP
 			// Build filter chain options for listener configured with protocol sniffing
-			fcm := listener.FilterChainMatch{}
+			fcm := &listener.FilterChainMatch{}
 			if chain.FilterChainMatch != nil {
-				fcm = *chain.FilterChainMatch
+				fcm = protomarshal.ShallowCopy(chain.FilterChainMatch).(*listener.FilterChainMatch)
 			}
 			fcm.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
 			fcm.TransportProtocol = filterChainMatchOption[id].TransportProtocol
-			filterChainMatch = &fcm
+			filterChainMatch = fcm
 			if filterChainMatchOption[id].Protocol == istionetworking.ListenerProtocolHTTP {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 				if chain.TLSContext != nil && chain.TLSContext.CommonTlsContext != nil {
