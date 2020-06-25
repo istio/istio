@@ -48,56 +48,64 @@ var (
 )
 
 var (
-	clusterNameFn = func() (string, error) {
-		cn, err := metadata.InstanceAttributeValue("cluster-name")
-		if err != nil {
-			return "", err
-		}
-		return cn, nil
+	clusterNameFn = func(e *gcpEnv) (string, error) {
+		f := func() (string, error) { return metadata.InstanceAttributeValue("cluster-name") }
+		return getCacheMetadata(&e.clusterName, f)
 	}
-	clusterLocationFn = func() (string, error) {
-		cl, err := metadata.InstanceAttributeValue("cluster-location")
-		if err == nil {
-			return cl, nil
+	clusterLocationFn = func(e *gcpEnv) (string, error) {
+		f := func() (string, error) { return metadata.InstanceAttributeValue("cluster-location") }
+		if location, err := getCacheMetadata(&e.location, f); err == nil {
+			return location, nil
 		}
-		return metadata.Zone()
+		return getCacheMetadata(&e.location, metadata.Zone)
 	}
-	instanceNameFn = func() (string, error) {
-		in, err := metadata.InstanceName()
-		if err != nil {
-			return "", err
-		}
-		return in, nil
+	instanceNameFn = func(e *gcpEnv) (string, error) {
+		return getCacheMetadata(&e.instanceName, metadata.InstanceName)
 	}
-	instanceTemplateFn = func() (string, error) {
-		it, err := metadata.InstanceAttributeValue("instance-template")
-		if err != nil {
-			return "", err
-		}
-		return it, nil
+	instanceTemplateFn = func(e *gcpEnv) (string, error) {
+		f := func() (string, error) { return metadata.InstanceAttributeValue("instance-template") }
+		return getCacheMetadata(&e.instanceTemplate, f)
 	}
-	createdByFn = func() (string, error) {
-		cb, err := metadata.InstanceAttributeValue("created-by")
-		if err != nil {
-			return "", err
-		}
-		return cb, nil
+	createdByFn = func(e *gcpEnv) (string, error) {
+		f := func() (string, error) { return metadata.InstanceAttributeValue("created-by") }
+		return getCacheMetadata(&e.instanceTemplate, f)
+	}
+	shouldFillMetadata = metadata.OnGCE
+	projectIDFn        = func(e *gcpEnv) (string, error) {
+		return getCacheMetadata(&e.projectID, metadata.ProjectID)
+	}
+	numericProjectIDFn = func(e *gcpEnv) (string, error) {
+		return getCacheMetadata(&e.numericProjectID, metadata.NumericProjectID)
+	}
+	instanceIDFn = func(e *gcpEnv) (string, error) {
+		return getCacheMetadata(&e.instanceID, metadata.InstanceID)
 	}
 )
 
 type shouldFillFn func() bool
-type metadataFn func() (string, error)
+type metadataFn func(e *gcpEnv) (string, error)
 
 type gcpEnv struct {
-	shouldFillMetadata shouldFillFn
-	projectIDFn        metadataFn
-	numericProjectIDFn metadataFn
-	locationFn         metadataFn
-	clusterNameFn      metadataFn
-	instanceNameFn     metadataFn
-	instanceIDFn       metadataFn
-	instanceTemplateFn metadataFn
-	createdByFn        metadataFn
+	projectID        string
+	numericProjectID string
+	location         string
+	clusterName      string
+	instanceName     string
+	instanceID       string
+	instanceTemplate string
+	createdBy        string
+}
+
+// Helper for compute metadata getters. Caches and returns f() if valid.
+func getCacheMetadata(s *string, f func() (string, error)) (string, error) {
+	if *s == "" {
+		attr, err := f()
+		if err != nil {
+			return "", err
+		}
+		*s = attr
+	}
+	return *s, nil
 }
 
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
@@ -113,17 +121,7 @@ func IsGCP() bool {
 // Metadata returned by the GCP Environment is taken from the GCE metadata
 // service.
 func NewGCP() Environment {
-	return &gcpEnv{
-		shouldFillMetadata: metadata.OnGCE,
-		projectIDFn:        metadata.ProjectID,
-		numericProjectIDFn: metadata.NumericProjectID,
-		locationFn:         clusterLocationFn,
-		clusterNameFn:      clusterNameFn,
-		instanceNameFn:     instanceNameFn,
-		instanceIDFn:       metadata.InstanceID,
-		instanceTemplateFn: instanceTemplateFn,
-		createdByFn:        createdByFn,
-	}
+	return &gcpEnv{}
 }
 
 // Metadata returns GCP environmental data, including project, cluster name, and
@@ -133,40 +131,45 @@ func (e *gcpEnv) Metadata() map[string]string {
 	if e == nil {
 		return md
 	}
-	if gcpMetadataVar.Get() == "" && !e.shouldFillMetadata() {
+	if gcpMetadataVar.Get() == "" && !shouldFillMetadata() {
 		return md
 	}
 	envPid, envNPid, envCN, envLoc := parseGCPMetadata()
+	// Cache environment variables into GCPEnv over metadata
 	if envPid != "" {
 		md[GCPProject] = envPid
-	} else if pid, err := e.projectIDFn(); err == nil {
+		e.projectID = envPid
+	} else if pid, err := projectIDFn(e); err == nil {
 		md[GCPProject] = pid
 	}
 	if envNPid != "" {
 		md[GCPProjectNumber] = envNPid
-	} else if npid, err := e.numericProjectIDFn(); err == nil {
+		e.numericProjectID = envNPid
+	} else if npid, err := numericProjectIDFn(e); err == nil {
 		md[GCPProjectNumber] = npid
 	}
 	if envLoc != "" {
 		md[GCPLocation] = envLoc
-	} else if l, err := e.locationFn(); err == nil {
+		e.location = envLocation
+	} else if l, err := clusterLocationFn(e); err == nil {
 		md[GCPLocation] = l
 	}
 	if envCN != "" {
 		md[GCPCluster] = envCN
-	} else if cn, err := e.clusterNameFn(); err == nil {
+		e.clusterName = envCN
+	} else if cn, err := clusterNameFn(e); err == nil {
 		md[GCPCluster] = cn
 	}
-	if in, err := e.instanceNameFn(); err == nil {
+	if in, err := instanceNameFn(e); err == nil {
 		md[GCEInstance] = in
 	}
-	if id, err := e.instanceIDFn(); err == nil {
+	if id, err := instanceIDFn(e); err == nil {
 		md[GCEInstanceID] = id
 	}
-	if it, err := e.instanceTemplateFn(); err == nil {
+	if it, err := instanceTemplateFn(e); err == nil {
 		md[GCEInstanceTemplate] = it
 	}
-	if cb, err := e.createdByFn(); err == nil {
+	if cb, err := createdByFn(e); err == nil {
 		md[GCEInstanceCreatedBy] = cb
 	}
 	return md
@@ -229,28 +232,9 @@ func (e *gcpEnv) Locality() *core.Locality {
 	return &l
 }
 
-var (
-	mdOnce   sync.Once
-	project  string
-	zone     string
-	instance string
-	cluster  string
-)
-
-// Retrieves needed metadata strictly from the Google Compute API
-func getMetadataAttributes(e *gcpEnv) {
-	mdOnce.Do(func() {
-		project, _ = e.projectIDFn()
-		zone, _ = e.locationFn()
-		instance, _ = e.instanceNameFn()
-		cluster, _ = e.clusterNameFn()
-	})
-}
-
 // Labels attempts to retrieve the GCE instance labels within the timeout
 // Requires read access to the Compute API (compute.instances.get)
 func (e *gcpEnv) Labels() map[string]string {
-	getMetadataAttributes(e)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
@@ -272,7 +256,10 @@ func (e *gcpEnv) Labels() map[string]string {
 			return
 		}
 		// instance.Labels is nil if no labels are present
-		instanceObj, err := computeService.Instances.Get(project, zone, instance).Do()
+		projectID, _ := projectIDFn(e)
+		location, _ := clusterLocationFn(e)
+		instanceName, _ := instanceNameFn(e)
+		instanceObj, err := computeService.Instances.Get(projectID, location, instanceName).Do()
 		if err != nil {
 			log.Warnf("unable to retrieve instance: %v", err)
 			success <- false
@@ -296,7 +283,7 @@ const KubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
 
 // Checks metadata to see if GKE metadata or Kubernetes env vars exist
 func (e *gcpEnv) IsKubernetes() bool {
-	getMetadataAttributes(e)
+	clusterName, _ := clusterNameFn(e)
 	_, onKubernetes := os.LookupEnv(KubernetesServiceHost)
-	return cluster != "" || onKubernetes
+	return clusterName != "" || onKubernetes
 }
