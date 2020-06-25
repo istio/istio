@@ -202,7 +202,7 @@ func TestHandleInboundIpv6RulesWithWildcardRanges(t *testing.T) {
 func TestHandleInboundIpv6RulesWithIpNets(t *testing.T) {
 	cfg := constructTestConfig()
 	cfg.InboundPortsInclude = "4000,5000"
-	cfg.InboundPortsExclude = "6000,7000"
+	cfg.InboundPortsExclude = "6000,7000,"
 	cfg.KubevirtInterfaces = "eth0,eth1"
 	cfg.EnableInboundIPv6 = true
 
