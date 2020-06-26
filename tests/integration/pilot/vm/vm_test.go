@@ -33,15 +33,14 @@ import (
 // Test wrapper for the VM OS version test. This test will run in pre-submit
 // to avoid building and testing all OS images
 func TestVmOS(t *testing.T) {
-	vmImages := []string{"app_sidecar_ubuntu_bionic"}
+	vmImages := []string{DefaultVMImage}
 	VMTestBody(t, vmImages)
 }
 
 // Post-submit test wrapper to test against all OS images. These images will be build
 // in post-submit to reduce the runtime of prow/lib.sh
 func TestVmOSPost(t *testing.T) {
-	vmImages := []string{"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal", "app_sidecar_ubuntu_bionic",
-		"app_sidecar_debian_9", "app_sidecar_debian_10"}
+	vmImages := GetSupportedOSVersion()
 	VMTestBody(t, vmImages, label.Postsubmit)
 }
 
