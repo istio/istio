@@ -202,6 +202,8 @@ func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mode
 
 	// TODO: track requests to connections, so resonses from server are dispatched to the right con
 	//
+	// TODO: Envoy (or client) may send multiple requests without waiting for the ack.
+	// Need to change the signature of Generator to take Request as parameter.
 	_ = p.adsc.Send(w.LastRequest)
 
 	return nil

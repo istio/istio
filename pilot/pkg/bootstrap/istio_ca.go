@@ -129,17 +129,16 @@ func (s *Server) EnableCA() bool {
 	if !features.EnableCAServer {
 		return false
 	}
+	// Log if we're using self-signed certs without K8S, in debug mode
 	if s.kubeClient == nil {
-		// No k8s - no self-signed certs.
+		// Without K8S the user needs to have the private key in a local file.
+		// If that is missing - we'll generate an in-memory root for testing, and warn.
 		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		if _, err := os.Stat(signingKeyFile); err != nil {
-			log.Warnf("kubeclient is nil and %v not found; disable the K8S CA functionality", signingKeyFile)
-			// TODO: use an in-memory root CA, for non-k8s env and tests (possibly saved to local dir).
-			return true
+			log.Warnf("Will use in-memory root CA, no K8S access and no ca key file ", signingKeyFile)
 		}
-		log.Info("Using local CA, no K8S Secrets")
-		return true
 	}
+
 	return true
 }
 

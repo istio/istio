@@ -341,7 +341,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 				// It would be an error/warn for normal XDS - so nothing to lose.
 				err = s.handleCustomGenerator(con, discReq)
 				if err != nil {
-					adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
+					return err
 				}
 			}
 
