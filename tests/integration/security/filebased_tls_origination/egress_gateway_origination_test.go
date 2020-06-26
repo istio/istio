@@ -56,6 +56,7 @@ func mustReadCert(t *testing.T, f string) string {
 // are routed securely through the egress gateway and that the TLS origination happens at the gateway.
 func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
+		RequiresSingleCluster(1).
 		Features("security.egress.tls.filebased").
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)

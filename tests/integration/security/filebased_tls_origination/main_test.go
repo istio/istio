@@ -15,15 +15,14 @@
 package filebasedtlsorigination
 
 import (
-	"testing"
-
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/util/cert"
+	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -38,7 +37,6 @@ func TestMain(m *testing.M) {
 
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
-		RequireSingleCluster().
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Setup(func(ctx resource.Context) (err error) {
@@ -59,8 +57,6 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
-  ingressGateways:
-  - enabled: false
 values:
    gateways:
       istio-egressgateway:
@@ -68,5 +64,10 @@ values:
          - name: client-custom-certs
            secretName: egress-gw-cacerts
            mountPath: /etc/certs/custom
+`
+	cfg.RemoteClusterValues = `
+components:
+  egressGateways:
+  - enabled: false
 `
 }

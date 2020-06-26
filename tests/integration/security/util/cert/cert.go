@@ -154,7 +154,6 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 		return err
 	}
 
-	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -168,9 +167,11 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 		},
 	}
 
-	_, err = kubeAccessor.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		return err
+	for _, kubeAccessor := range ctx.Environment().(*kube.Environment).KubeClusters {
+		_, err = kubeAccessor.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

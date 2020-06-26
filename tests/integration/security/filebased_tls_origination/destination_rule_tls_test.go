@@ -15,7 +15,9 @@
 package filebasedtlsorigination
 
 import (
+	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"path"
 	"testing"
 	"time"
@@ -41,9 +43,9 @@ func mustReadFile(t *testing.T, f string) string {
 	return string(b)
 }
 
-// TestDestinationRuleTls tests that MUTUAL tls mode is respected in DestinationRule.
+// TestDestinationRuleTLS tests that MUTUAL tls mode is respected in DestinationRule.
 // This sets up a client and server with appropriate cert config and ensures we can successfully send a message.
-func TestDestinationRuleTls(t *testing.T) {
+func TestDestinationRuleTLS(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("security.egress.mtls").
@@ -53,97 +55,115 @@ func TestDestinationRuleTls(t *testing.T) {
 				Inject: true,
 			})
 
-			// Setup our destination rule, enforcing TLS to "server". These certs will be created/mounted below.
-			ctx.ApplyConfigOrFail(t, ns.Name(), `
+			env := ctx.Environment().(*kube.Environment)
+			serverTLSSettings := &common.TLSSettings{
+				RootCert:   mustReadFile(t, "root-cert.pem"),
+				ClientCert: mustReadFile(t, "cert-chain.pem"),
+				Key:        mustReadFile(t, "key.pem"),
+				// Override hostname to match the SAN in the cert we are using
+				Hostname: "server.default.svc",
+			}
+
+			svcs := make([][2]echo.Instance, len(env.Clusters()))
+			builder := echoboot.NewBuilderOrFail(t, ctx)
+			for _, c := range env.Clusters() {
+				serverSvcName := fmt.Sprintf("server-%d", c.Index())
+
+				// Setup our destination rule, enforcing TLS to "server". These certs will be created/mounted below.
+				for _, cp := range env.ControlPlaneClusters() {
+					cp.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: db-mtls
+  name: db-mtls-%d
 spec:
   exportTo: ["."]
-  host: server
+  host: %s
   trafficPolicy:
     tls:
       mode: MUTUAL
       clientCertificate: /etc/certs/custom/cert-chain.pem
       privateKey: /etc/certs/custom/key.pem
       caCertificates: /etc/certs/custom/root-cert.pem
-`)
+`, c.Index(), serverSvcName))
+				}
 
-			var client, server echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&client, echo.Config{
-					Service:   "client",
-					Namespace: ns,
-					Ports:     []echo.Port{},
-					Pilot:     p,
-					Subsets: []echo.SubsetConfig{{
-						Version: "v1",
-						// Set up custom annotations to mount the certs. We will re-use the configmap created by "server"
-						// so that we don't need to manage it ourselves.
-						// The paths here match the destination rule above
-						Annotations: echo.NewAnnotations().
-							Set(echo.SidecarVolume, `{"custom-certs":{"configMap":{"name":"server-certs"}}}`).
-							Set(echo.SidecarVolumeMount, `{"custom-certs":{"mountPath":"/etc/certs/custom"}}`),
-					}},
-				}).
-				With(&server, echo.Config{
-					Service:   "server",
-					Namespace: ns,
-					Ports: []echo.Port{
-						{
-							Name:         "grpc",
-							Protocol:     protocol.GRPC,
-							InstancePort: 8090,
-							TLS:          true,
+				svcs[c.Index()] = [2]echo.Instance{}
+				builder = builder.
+					With(&svcs[c.Index()][0], echo.Config{
+						Service:   fmt.Sprintf("client-%d", c.Index()),
+						Namespace: ns,
+						Ports:     []echo.Port{},
+						// Pilot:     pilots[c.Index()],
+						Subsets: []echo.SubsetConfig{{
+							Version: "v1",
+							// Set up custom annotations to mount the certs. We will re-use the configmap created by "server"
+							// so that we don't need to manage it ourselves.
+							// The paths here match the destination rule above
+							Annotations: echo.NewAnnotations().
+								Set(echo.SidecarVolume, fmt.Sprintf(`{"custom-certs":{"configMap":{"name":"%s-certs"}}}`, serverSvcName)).
+								Set(echo.SidecarVolumeMount, `{"custom-certs":{"mountPath":"/etc/certs/custom"}}`),
+						}},
+					}).
+					With(&svcs[c.Index()][1], echo.Config{
+						Service:   serverSvcName,
+						Namespace: ns,
+						Ports: []echo.Port{
+							{
+								Name:         "grpc",
+								Protocol:     protocol.GRPC,
+								InstancePort: 8090,
+								TLS:          true,
+							},
+							{
+								Name:         "http",
+								Protocol:     protocol.HTTP,
+								InstancePort: 8091,
+								TLS:          true,
+							},
+							{
+								Name:         "tcp",
+								Protocol:     protocol.TCP,
+								InstancePort: 8092,
+								TLS:          true,
+							},
 						},
-						{
-							Name:         "http",
-							Protocol:     protocol.HTTP,
-							InstancePort: 8091,
-							TLS:          true,
-						},
-						{
-							Name:         "tcp",
-							Protocol:     protocol.TCP,
-							InstancePort: 8092,
-							TLS:          true,
-						},
-					},
-					Pilot: p,
-					// Set up TLS certs on the server. This will make the server listen with these credentials.
-					TLSSettings: &common.TLSSettings{
-						RootCert:   mustReadFile(t, "root-cert.pem"),
-						ClientCert: mustReadFile(t, "cert-chain.pem"),
-						Key:        mustReadFile(t, "key.pem"),
-						// Override hostname to match the SAN in the cert we are using
-						Hostname: "server.default.svc",
-					},
-					// Do not inject, as we are testing non-Istio TLS here
-					Subsets: []echo.SubsetConfig{{
-						Version:     "v1",
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-					}},
-				}).
-				BuildOrFail(t)
+						// Pilot: pilots[c.Index()],
+						// Set up TLS certs on the server. This will make the server listen with these credentials.
+						TLSSettings: serverTLSSettings,
+						// Do not inject, as we are testing non-Istio TLS here
+						Subsets: []echo.SubsetConfig{{
+							Version:     "v1",
+							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+						}},
+					})
+			}
+			builder.BuildOrFail(t)
 
-			for _, tt := range []string{"grpc", "http", "tcp"} {
-				t.Run(tt, func(t *testing.T) {
-					retry.UntilSuccessOrFail(ctx, func() error {
-						opts := echo.CallOptions{
-							Target:   server,
-							PortName: tt,
+			for _, src := range env.Clusters() {
+				for _, dst := range env.Clusters() {
+					client, server := svcs[src.Index()][0], svcs[dst.Index()][1]
+					ctx.NewSubTest(fmt.Sprintf("%d->%d", src.Index(), dst.Index())).Run(func(ctx framework.TestContext) {
+						for _, tt := range []string{"grpc", "http", "tcp"} {
+							ctx.NewSubTest(tt).RunParallel(func(ctx framework.TestContext) {
+								retry.UntilSuccessOrFail(ctx, func() error {
+									opts := echo.CallOptions{
+										Target:   server,
+										PortName: tt,
+									}
+									if tt == "tcp" {
+										opts.Scheme = scheme.TCP
+									}
+									resp, err := client.Call(opts)
+									if err != nil {
+										return err
+									}
+									return resp.CheckOK()
+								}, retry.Delay(time.Millisecond*100))
+							})
 						}
-						if tt == "tcp" {
-							opts.Scheme = scheme.TCP
-						}
-						resp, err := client.Call(opts)
-						if err != nil {
-							return err
-						}
-						return resp.CheckOK()
-					}, retry.Delay(time.Millisecond*100))
-				})
+					})
+				}
 			}
 		})
 }
