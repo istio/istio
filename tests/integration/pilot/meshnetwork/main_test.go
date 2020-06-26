@@ -25,7 +25,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"

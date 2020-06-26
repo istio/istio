@@ -22,7 +22,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
