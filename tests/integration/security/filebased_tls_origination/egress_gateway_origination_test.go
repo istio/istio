@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package egressgatewayorigination
+package filebasedtlsorigination
 
 import (
 	"bytes"
@@ -108,23 +108,24 @@ func TestEgressGatewayTls(t *testing.T) {
 				//      VS Routing (add Egress Header) --> Egress Gateway(originates istio mutual TLS)
 				//      --> externalServer(443 with TLS enforced)
 				//     request fails as server has no sidecar proxy and istio_mutual case shouldn't be used
-				"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint": {
-					destinationRuleMode: "ISTIO_MUTUAL",
-					response:            []string{response.StatusCodeBadRequest},
-					gateway:             false, // 400 response will not contain header
-					fakeRootCert:        false,
-				},
+				// TODO: nschhina figure out why the following tests are flaky
+				//"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint": {
+				//	destinationRuleMode: "ISTIO_MUTUAL",
+				//	response:            []string{response.StatusCodeBadRequest},
+				//	gateway:             false, // 400 response will not contain header
+				//	fakeRootCert:        false,
+				//},
 				// 5. SIMPLE TLS origination with "fake" root cert::
 				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
 				//      VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
 				//      --> externalServer(443 with TLS enforced)
 				//     request fails as the server cert can't be validated using the fake root cert used during origination
-				"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
-					destinationRuleMode: "SIMPLE",
-					response:            []string{response.StatusCodeBadRequest},
-					gateway:             false, // 400 response will not contain header
-					fakeRootCert:        true,
-				},
+				//"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
+				//	destinationRuleMode: "SIMPLE",
+				//	response:            []string{response.StatusCodeBadRequest},
+				//	gateway:             false, // 400 response will not contain header
+				//	fakeRootCert:        true,
+				//},
 			}
 
 			for name, tc := range testCases {
