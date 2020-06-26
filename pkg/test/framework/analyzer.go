@@ -113,7 +113,7 @@ func (s *suiteAnalyzer) run() int {
 	defer finishAnalysis()
 	scopes.Framework.Infof("=== Begin: Analysis of %s ===", analysis.SuiteID)
 
-	// during mRun tests will add their analyses to the suiteAnalysis
+	// tests will add their results to the suiteAnalysis during mRun
 	return s.mRun(nil)
 }
 
@@ -121,10 +121,11 @@ func (s *suiteAnalyzer) run() int {
 // modification will happen to this suiteAnalyzer.
 func (s *suiteAnalyzer) track() *suiteAnalysis {
 	return &suiteAnalysis{
-		SuiteID:       s.testID,
-		Labels:        s.labels.All(),
-		SingleCluster: s.minCusters < 2,
-		MultiCluster:  s.maxClusters != 1,
+		SuiteID:          s.testID,
+		Labels:           s.labels.All(),
+		MultiCluster:     s.maxClusters != 1,
+		MultiClusterOnly: s.minCusters > 1,
+		Tests:            map[string]*testAnalysis{},
 	}
 }
 
@@ -174,7 +175,6 @@ func (t *testAnalyzer) Features(feats ...features.Feature) Test {
 func (t *testAnalyzer) NotImplementedYet(features ...features.Feature) Test {
 	t.notImplemented = true
 	t.Features(features...)
-	//t.Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Implemented") })
 	return t
 }
 
@@ -213,13 +213,13 @@ func (t *testAnalyzer) RunParallel(fn func(ctx TestContext)) {
 }
 
 func (t *testAnalyzer) track() {
-	analysis.addTest(&testAnalysis{
-		TestID:         t.goTest.Name(),
-		Labels:         t.labels.All(), // TODO should this be merged with suite labels?
-		Features:       t.featureLabels,
-		Valid:          !t.goTest.Failed(),
-		SingleCluster:  t.minCusters < 2 && analysis.SingleCluster,
-		MultiCluster:   t.maxClusters != 1 && analysis.MultiCluster,
-		NotImplemented: t.notImplemented,
+	analysis.addTest(t.goTest.Name(), &testAnalysis{
+		SkipReason:       t.skip,
+		Labels:           t.labels.All(), // TODO should this be merged with suite labels?
+		Features:         t.featureLabels,
+		Invalid:          t.goTest.Failed(),
+		MultiCluster:     t.maxClusters != 1 && analysis.MultiCluster,
+		MultiClusterOnly: t.minCusters > 1 || analysis.MultiClusterOnly,
+		NotImplemented:   t.notImplemented,
 	})
 }

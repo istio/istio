@@ -60,19 +60,19 @@ func dumpAnalysis() {
 		scopes.Framework.Errorf("failed to get settings for %s: %v", analysis.SuiteID, err)
 	}
 	if err := os.MkdirAll(s.RunDir(), os.ModePerm); err != nil {
-		scopes.Framework.Errorf("failed to marshal analysis for %s: %v", analysis.SuiteID, err)
+		scopes.Framework.Errorf("failed to create analysis directory for %s: %v", analysis.SuiteID, err)
 		return
 	}
 
-	marshalled, err := yaml.Marshal(analysis)
+	marshaled, err := yaml.Marshal(analysis)
 	if err != nil {
-		scopes.Framework.Errorf("failed to marshal analysis for %s: %v", analysis.SuiteID, err)
+		scopes.Framework.Errorf("failed to marshaled analysis for %s: %v", analysis.SuiteID, err)
 		return
 	}
-	scopes.Framework.Info("\n" + string(marshalled))
+	scopes.Framework.Info("\n" + string(marshaled))
 
 	outPath := path.Join(s.RunDir(), fmt.Sprintf("%s_analysis.yaml", analysis.SuiteID))
-	if err := ioutil.WriteFile(outPath, marshalled, 0666); err != nil {
+	if err := ioutil.WriteFile(outPath, marshaled, 0666); err != nil {
 		scopes.Framework.Errorf("failed writing analysis to file for %s: %v", analysis.SuiteID, err)
 		return
 	}
@@ -81,24 +81,25 @@ func dumpAnalysis() {
 
 // suiteAnalysis captures the results of analyzing a Suite
 type suiteAnalysis struct {
-	SuiteID       string
-	Labels        []label.Instance
-	SingleCluster bool
-	MultiCluster  bool
-	Tests         []*testAnalysis
+	SuiteID          string                   `yaml:"suiteID"`
+	SkipReason       string                   `yaml:"skipReason,omitempty"`
+	Labels           []label.Instance         `yaml:"labels,omitempty"`
+	MultiCluster     bool                     `yaml:"multicluster,omitempty"`
+	MultiClusterOnly bool                     `yaml:"multiclusterOnly,omitempty"`
+	Tests            map[string]*testAnalysis `yaml:"tests"`
 }
 
-func (s *suiteAnalysis) addTest(test *testAnalysis) {
-	s.Tests = append(s.Tests, test)
+func (s *suiteAnalysis) addTest(id string, test *testAnalysis) {
+	s.Tests[id] = test
 }
 
 // suiteAnalysis captures the results of analyzing a Test
 type testAnalysis struct {
-	TestID         string
-	Labels         []label.Instance
-	Features       map[features.Feature][]string
-	Valid          bool
-	SingleCluster  bool
-	MultiCluster   bool
-	NotImplemented bool
+	SkipReason       string                        `yaml:"skipReason,omitempty"`
+	Labels           []label.Instance              `yaml:"labels,omitempty"`
+	Features         map[features.Feature][]string `yaml:"features,omitempty"`
+	Invalid          bool                          `yaml:"invalid,omitempty"`
+	MultiCluster     bool                          `yaml:"multicluster,omitempty"`
+	MultiClusterOnly bool                          `yaml:"multiclusterOnly,omitempty"`
+	NotImplemented   bool                          `yaml:"notImplemented,omitempty"`
 }
