@@ -38,6 +38,9 @@ type PortForwarder interface {
 
 	// Close this forwarder and release an resources.
 	Close()
+
+	// Block until connection closed (e.g. control-C interrupt)
+	WaitForStop()
 }
 
 var _ PortForwarder = &forwarder{}
@@ -71,7 +74,12 @@ func (f *forwarder) Address() string {
 
 func (f *forwarder) Close() {
 	close(f.stopCh)
-	f.forwarder.Close()
+	// Closing the stop channel should close anything
+	// opened by f.forwarder.ForwardPorts()
+}
+
+func (f *forwarder) WaitForStop() {
+	<-f.stopCh
 }
 
 func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string, localPort, podPort int) (PortForwarder, error) {
