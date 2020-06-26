@@ -56,12 +56,13 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pilot/pkg/xds"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -115,7 +116,7 @@ type Server struct {
 	MonitorListeningAddr net.Addr
 
 	// TODO(nmittler): Consider alternatives to exposing these directly
-	EnvoyXdsServer *envoyv2.DiscoveryServer
+	EnvoyXdsServer *xds.DiscoveryServer
 
 	clusterID   string
 	environment *model.Environment
@@ -185,7 +186,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s := &Server{
 		clusterID:       getClusterID(args),
 		environment:     e,
-		EnvoyXdsServer:  envoyv2.NewDiscoveryServer(e, args.Plugins),
+		EnvoyXdsServer:  xds.NewDiscoveryServer(e, args.Plugins),
 		fileWatcher:     filewatcher.NewWatcher(),
 		httpMux:         http.NewServeMux(),
 		readinessProbes: make(map[string]readinessProbe),
@@ -993,14 +994,14 @@ func (s *Server) initNamespaceController(args *PilotArgs) {
 // initGenerators initializes generators to be used by XdsServer.
 func (s *Server) initGenerators() {
 	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &envoyv2.EdsGenerator{Server: s.EnvoyXdsServer}
-	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
+	epGen := &xds.EdsGenerator{Server: s.EnvoyXdsServer}
+	s.EnvoyXdsServer.Generators["grpc/"+v2.EndpointType] = epGen
 	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
-	s.EnvoyXdsServer.Generators["api/"+envoyv2.EndpointType] = epGen
-	s.EnvoyXdsServer.InternalGen = &envoyv2.InternalGen{
+	s.EnvoyXdsServer.Generators["api/"+v2.EndpointType] = epGen
+	s.EnvoyXdsServer.InternalGen = &xds.InternalGen{
 		Server: s.EnvoyXdsServer,
 	}
-	s.EnvoyXdsServer.Generators["api/"+envoyv2.TypeURLConnections] = s.EnvoyXdsServer.InternalGen
+	s.EnvoyXdsServer.Generators["api/"+xds.TypeURLConnections] = s.EnvoyXdsServer.InternalGen
 	s.EnvoyXdsServer.Generators["event"] = s.EnvoyXdsServer.InternalGen
 }
 

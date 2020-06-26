@@ -146,6 +146,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			}
 		}
 	}
+	log.Warnf("ADS: Unknown watched resources %s", w.TypeUrl)
 
 	return resp
 }

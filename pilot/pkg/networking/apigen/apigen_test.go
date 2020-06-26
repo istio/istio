@@ -23,8 +23,8 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	"istio.io/istio/pilot/pkg/xds"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -39,7 +39,7 @@ var (
 
 // Creates an in-process discovery server, using the same code as Istiod, but
 // backed by an in-memory config and endpoint store.
-func initDS() *xds.Server {
+func initDS() *xds.SimpleServer {
 	ds := xds.NewXDS()
 
 	sd := ds.DiscoveryServer.MemRegistry
@@ -59,8 +59,8 @@ func initDS() *xds.Server {
 func TestAPIGen(t *testing.T) {
 	ds := initDS()
 	ds.DiscoveryServer.Generators["api"] = &apigen.APIGenerator{}
-	epGen := &envoyv2.EdsGenerator{Server: ds.DiscoveryServer}
-	ds.DiscoveryServer.Generators["api/"+envoyv2.EndpointType] = epGen
+	epGen := &xds.EdsGenerator{Server: ds.DiscoveryServer}
+	ds.DiscoveryServer.Generators["api/"+v2.EndpointType] = epGen
 
 	err := ds.StartGRPC(grpcAddr)
 	if err != nil {
