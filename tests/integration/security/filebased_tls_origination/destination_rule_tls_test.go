@@ -94,6 +94,7 @@ spec:
 						Service:   fmt.Sprintf("client-%d", c.Index()),
 						Namespace: ns,
 						Ports:     []echo.Port{},
+						// TODO rebase on main multicluster testing branch, these are unused anyway
 						// Pilot:     pilots[c.Index()],
 						Subsets: []echo.SubsetConfig{{
 							Version: "v1",
@@ -128,6 +129,7 @@ spec:
 								TLS:          true,
 							},
 						},
+						// TODO rebase on main multicluster testing branch, these are unused anyway
 						// Pilot: pilots[c.Index()],
 						// Set up TLS certs on the server. This will make the server listen with these credentials.
 						TLSSettings: serverTLSSettings,
