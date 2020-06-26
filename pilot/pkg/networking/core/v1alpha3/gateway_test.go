@@ -545,7 +545,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{SdsEnabled: true})
+		ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{})
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting:\n %v but got:\n %v", tc.name, tc.result, ret)
 		}

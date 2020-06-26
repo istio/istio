@@ -176,9 +176,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			name:       "MTLSStrict using SDS",
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{
-					SdsEnabled: true,
-				},
+				Metadata: &model.NodeMetadata{},
 			},
 			result: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
@@ -231,7 +229,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
-					SdsEnabled:         true,
 					TLSServerCertChain: "serverCertChain",
 					TLSServerKey:       "serverKey",
 					TLSServerRootCert:  "servrRootCert",

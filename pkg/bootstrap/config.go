@@ -498,9 +498,6 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = nodeIPs
 
-	// sds is enabled by default
-	meta.SdsEnabled = true
-
 	// Add STS port into node metadata if it is not 0. This is read by envoy telemetry filters
 	if stsPort != 0 {
 		meta.StsPort = strconv.Itoa(stsPort)

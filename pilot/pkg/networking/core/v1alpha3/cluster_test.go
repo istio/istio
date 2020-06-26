@@ -2378,7 +2378,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 	proxy := &model.Proxy{
 		Type:         model.SidecarProxy,
-		Metadata:     &model.NodeMetadata{SdsEnabled: true},
+		Metadata:     &model.NodeMetadata{},
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
 	}
 	push := model.NewPushContext()
