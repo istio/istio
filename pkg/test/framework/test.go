@@ -42,7 +42,7 @@ type Test interface {
 	// Otherwise it stops test execution and skips the test.
 	RequiresMaxClusters(maxClusters int) Test
 	// RequiresSingleCluster this a utility that requires the min/max clusters to both = 1.
-	RequiresSingleCluster(maxClusters int) Test
+	RequiresSingleCluster() Test
 	// Run the test, supplied as a lambda.
 	Run(fn func(ctx TestContext))
 	// RunParallel runs this test in parallel with other children of the same parent test/suite. Under the hood,
@@ -94,7 +94,6 @@ type Test interface {
 	RunParallel(fn func(ctx TestContext))
 }
 
-
 // Test allows the test author to specify test-related metadata in a fluent-style, before commencing execution.
 type testImpl struct {
 	// name to be used when creating a Golang test. Only used for subtests.
@@ -124,6 +123,7 @@ var globalParentLock = new(sync.Map)
 
 // NewTest returns a new test wrapper for running a single test.
 func NewTest(t *testing.T) Test {
+	// TODO check for analyze mode
 	rtMu.Lock()
 	defer rtMu.Unlock()
 
@@ -184,7 +184,7 @@ func (t *testImpl) RequiresMaxClusters(maxClusters int) Test {
 	return t
 }
 
-func (t *testImpl) RequiresSingleCluster(maxClusters int) Test {
+func (t *testImpl) RequiresSingleCluster() Test {
 	return t.RequiresMaxClusters(1).RequiresMinClusters(1)
 }
 
