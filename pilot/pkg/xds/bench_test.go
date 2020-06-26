@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -293,7 +294,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 				if len(c) == 0 {
 					b.Fatal("Got no clusters! ")
 				}
-				response = cdsDiscoveryResponse(c, "", ClusterType)
+				response = cdsDiscoveryResponse(c, "", v3.ClusterType)
 			}
 			_ = response
 		})
@@ -311,7 +312,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 				if len(l) == 0 {
 					b.Fatal("Got no clusters! ")
 				}
-				response = ldsDiscoveryResponse(l, "", "", ListenerType)
+				response = ldsDiscoveryResponse(l, "", "", v3.ListenerType)
 			}
 			_ = response
 		})
