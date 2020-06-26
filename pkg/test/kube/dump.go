@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
 	"istio.io/istio/pkg/test/scopes"
 
@@ -129,7 +130,9 @@ func DumpPodEvents(a Accessor, workDir, namespace string, pods ...kubeApiCore.Po
 func DumpPodLogs(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod) {
 	pods = podsOrFetch(a, pods, namespace)
 
+	var sb strings.Builder
 	for _, pod := range pods {
+		isVM := checkIfVM(pod)
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
 			l, err := a.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
@@ -137,9 +140,25 @@ func DumpPodLogs(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod)
 				scopes.Framework.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue
 			}
+			sb.WriteString(l)
+
+			// Get proxy logs if the pod is a VM, since kubectl logs only shows the logs from iptables
+			if isVM && container.Name == "istio-proxy" {
+				if cfgDump, err := a.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET config_dump"); err == nil {
+					sb.WriteString(cfgDump)
+				} else {
+					scopes.Framework.Errorf("Unable to get istio-proxy config dump for pod: %s/%s", pod.Namespace, pod.Name)
+				}
+
+				if clustersDump, err := a.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET clusters"); err == nil {
+					sb.WriteString(clustersDump)
+				} else {
+					scopes.Framework.Errorf("Unable to get istio-proxy clusters for pod: %s/%s", pod.Namespace, pod.Name)
+				}
+			}
 
 			fname := path.Join(workDir, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
-			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+			if err = ioutil.WriteFile(fname, []byte(sb.String()), os.ModePerm); err != nil {
 				scopes.Framework.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 			}
 		}
@@ -177,4 +196,13 @@ func DumpPodProxies(a Accessor, workDir, namespace string, pods ...kubeApiCore.P
 			}
 		}
 	}
+}
+
+func checkIfVM(pod kubeApiCore.Pod) bool {
+	for k := range pod.ObjectMeta.Labels {
+		if strings.Contains(k, "test-vm") {
+			return true
+		}
+	}
+	return false
 }
