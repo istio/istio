@@ -129,6 +129,9 @@ func echoVMConfig(ns namespace.Instance, name string, vmImage ...string) echo.Co
 	config := echoConfig(ns, name)
 	config.DeployAsVM = image != ""
 	config.VMImage = image
+	
+	// This is necessary because there exists a bug in WorkloadEntry
+	// The ServicePort has to be the same with the InstancePort
 	config.Ports[0].ServicePort = config.Ports[0].InstancePort
 	return config
 }
