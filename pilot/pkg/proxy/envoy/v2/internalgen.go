@@ -117,11 +117,15 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 // since status discovery is not driven by config change events.
 // We also want connection events to be dispatched as soon as possible,
 // they may be consumed by other instances of Istiod to update internal state.
-func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
+func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 
+	resources := make([]*any.Any, 0, len(data))
+  for _, v := range data {
+  	resources = append(resources, util.MessageToAny(v))
+  }
 	dr := &discovery.DiscoveryResponse{
 		TypeUrl:   typeURL,
-		Resources: data,
+		Resources: resources,
 	}
 
 	sg.Server.PushAll(dr)
