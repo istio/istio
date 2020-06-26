@@ -77,18 +77,31 @@ func TestEgressGatewayTls(t *testing.T) {
 				// Mutual Connection is originated by our DR but server side drops the connection to
 				// only use Simple TLS as it doesn't verify client side cert
 				// TODO: mechanism to enforce mutual TLS(client cert) validation by the server
+				// 1. Mutual TLS origination from egress gateway to https endpoint:
+				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//      VS Routing (add Egress Header) --> Egress Gateway(originates mTLS with client certs)
+				//      --> externalServer(443 with only Simple TLS used and client cert is not verified)
 				"Mutual TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "MUTUAL",
 					response:            []string{response.StatusCodeOK},
 					gateway:             true,
 					fakeRootCert:        false,
 				},
+				// 2. Simple TLS case:
+				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//      VS Routing (add Egress Header) --> Egress Gateway(originates TLS)
+				//      --> externalServer(443 with TLS enforced)
+
 				"SIMPLE TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "SIMPLE",
 					response:            []string{response.StatusCodeOK},
 					gateway:             true,
 					fakeRootCert:        false,
 				},
+				// 3. No TLS case:
+				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//      VS Routing (add Egress Header) --> Egress Gateway(does not originate TLS)
+				//      --> externalServer(443 with TLS enforced) request fails as gateway tries plain text only
 				"No TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "DISABLE",
 					response:            []string{response.StatusCodeBadRequest},
@@ -96,12 +109,22 @@ func TestEgressGatewayTls(t *testing.T) {
 				},
 				// Egress Gateway can't "originate" ISTIO_MUTUAL to server as the server is outside the mesh and has no
 				// sidecar proxy
+				// 4. ISTIO_MUTUAL TLS origination case::
+				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//      VS Routing (add Egress Header) --> Egress Gateway(originates istio mutual TLS)
+				//      --> externalServer(443 with TLS enforced)
+				//     request fails as server has no sidecar proxy and istio_mutual case shouldn't be used
 				"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "ISTIO_MUTUAL",
 					response:            []string{response.StatusCodeBadRequest},
 					gateway:             false, // 400 response will not contain header
 					fakeRootCert:        false,
 				},
+				// 5. SIMPLE TLS origination with "fake" root cert::
+				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//      VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
+				//      --> externalServer(443 with TLS enforced)
+				//     request fails as the server cert can't be validated using the fake root cert used during origination
 				"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
 					destinationRuleMode: "SIMPLE",
 					response:            []string{response.StatusCodeBadRequest},
@@ -111,34 +134,6 @@ func TestEgressGatewayTls(t *testing.T) {
 			}
 
 			for name, tc := range testCases {
-				// Test cases:
-				// 1. Mutual TLS origination from egress gateway to https endpoint:
-				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
-				//      VS Routing (add Egress Header) --> Egress Gateway(originates mTLS with client certs)
-				//      --> externalServer(443 with only Simple TLS used and client cert is not verified)
-
-				// 2. Simple TLS case:
-				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
-				//      VS Routing (add Egress Header) --> Egress Gateway(originates TLS)
-				//      --> externalServer(443 with TLS enforced)
-
-				// 3. No TLS case:
-				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
-				//      VS Routing (add Egress Header) --> Egress Gateway(does not originate TLS)
-				//      --> externalServer(443 with TLS enforced) request fails as gateway tries plain text only
-
-				// 4. ISTIO_MUTUAL TLS origination case::
-				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
-				//      VS Routing (add Egress Header) --> Egress Gateway(originates istio mutual TLS)
-				//      --> externalServer(443 with TLS enforced)
-				//     request fails as server has no sidecar proxy and istio_mutual case shouldn't be used
-
-				// 5. SIMPLE TLS origination with "fake" root cert::
-				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
-				//      VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
-				//      --> externalServer(443 with TLS enforced)
-				//     request fails as the server cert can't be validated using the fake root cert used during origination
-
 				t.Run(name, func(t *testing.T) {
 					bufDestinationRule := createDestinationRule(t, appNamespace, tc.destinationRuleMode, tc.fakeRootCert)
 
