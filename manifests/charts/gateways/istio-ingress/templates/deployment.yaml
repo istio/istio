@@ -93,8 +93,10 @@ spec:
             {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
+            {{- if $.Values.global.meshExpansion.enabled }}
             {{- range $key, $val := $gateway.meshExpansionPorts }}
             - containerPort: {{ $val.targetPort | default $val.port }}
+            {{- end }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
