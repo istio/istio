@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.13
+go 1.14
 
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 
