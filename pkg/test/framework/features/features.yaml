@@ -52,6 +52,7 @@ features:
     egress:
       mtls:
       tls:
+        filebased:
     control-plane:
       k8s-certs:
       plugin-cert:
@@ -63,3 +64,7 @@ features:
       central-istiod:
       multimaster:
       remote:
+  # describes internal build and testing infrastrcuture
+  infrastructure:
+    # the testing framework
+    framework:

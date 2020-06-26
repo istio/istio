@@ -17,11 +17,16 @@ syntax = 'proto3';
 
 import "google/protobuf/duration.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
+import "gogoproto/gogo.proto";
 
 package v1alpha1;
 
 // Package-wide variables from generator "generated".
 option go_package = "v1alpha1";
+
+option (gogoproto.marshaler_all) = false;
+option (gogoproto.unmarshaler_all) = false;
+option (gogoproto.sizer_all) = false;
 
 // ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.
 message ArchConfig {

@@ -51,13 +51,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	pilot_v1alpha3 "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 )
@@ -787,7 +787,7 @@ func getIstioConfig(metadata *envoy_api_core.Metadata) (string, error) {
 // getIstioConfigNameForSvc returns name, namespace
 func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, string, error) {
 	path, err := getIstioDestinationRulePathForSvc(cd, svc, port)
-	if err != nil {
+	if err != nil || path == "" {
 		return "", "", err
 	}
 
@@ -968,7 +968,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			var dr *model.Config
 			if err == nil && drName != "" && drNamespace != "" {
-				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), drName, drNamespace)
+				dr = configClient.Get(gvk.DestinationRule, drName, drNamespace)
 				if dr != nil {
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
 				} else {
@@ -980,7 +980,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs := configClient.Get(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(), vsName, vsNamespace)
+				vs := configClient.Get(gvk.VirtualService, vsName, vsNamespace)
 				if vs != nil {
 					if row == 0 {
 						fmt.Fprintf(writer, "\n")
@@ -1201,7 +1201,7 @@ func describePodServices(writer io.Writer, kubeClient kube.Client, configClient 
 			}
 			var dr *model.Config
 			if err == nil && drName != "" && drNamespace != "" {
-				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), drName, drNamespace)
+				dr = configClient.Get(gvk.DestinationRule, drName, drNamespace)
 				if dr != nil {
 					if len(svc.Spec.Ports) > 1 {
 						// If there is more than one port, prefix each DR by the port it applies to
@@ -1218,7 +1218,7 @@ func describePodServices(writer io.Writer, kubeClient kube.Client, configClient 
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs := configClient.Get(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(), vsName, vsNamespace)
+				vs := configClient.Get(gvk.VirtualService, vsName, vsNamespace)
 				if vs != nil {
 					if len(svc.Spec.Ports) > 1 {
 						// If there is more than one port, prefix each DR by the port it applies to

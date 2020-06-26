@@ -27,14 +27,15 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/hashicorp/go-multierror"
+	"gopkg.in/yaml.v2"
 
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
+
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
@@ -47,7 +48,6 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
-	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests
@@ -311,7 +311,7 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 	operatorYaml := cfg.IstioOperatorConfigYAML(valuesYaml)
 
 	operatorCfg := &pkgAPI.IstioOperator{}
-	if err := protomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
+	if err := gogoprotomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
 		return fmt.Errorf("failed to unmsarshal base iop: %v", err)
 	}
 	var values = &pkgAPI.Values{}
@@ -320,7 +320,7 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 		if err != nil {
 			return fmt.Errorf("failed to marshal base values: %v", err)
 		}
-		if err := protomarshal.ApplyYAML(string(valuesYml), values); err != nil {
+		if err := gogoprotomarshal.ApplyYAML(string(valuesYml), values); err != nil {
 			return fmt.Errorf("failed to unmsarshal base values: %v", err)
 		}
 	}
@@ -330,7 +330,7 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 			values.Global = &pkgAPI.GlobalConfig{}
 		}
 		if values.Global.MeshNetworks == nil {
-			meshNetworks, err := protomarshal.ToJSONMap(meshNetworkSettings(cfg, env))
+			meshNetworks, err := gogoprotomarshal.ToJSONMap(meshNetworkSettings(cfg, env))
 			if err != nil {
 				return fmt.Errorf("failed to convert meshNetworks: %v", err)
 			}
@@ -338,14 +338,14 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 		}
 	}
 
-	valuesMap, err := protomarshal.ToJSONMap(values)
+	valuesMap, err := gogoprotomarshal.ToJSONMap(values)
 	if err != nil {
 		return fmt.Errorf("failed to convert values to json map: %v", err)
 	}
 	operatorCfg.Spec.Values = valuesMap
 
 	// marshaling entire operatorCfg causes panic because of *time.Time in ObjectMeta
-	out, err := protomarshal.ToYAML(operatorCfg.Spec)
+	out, err := gogoprotomarshal.ToYAML(operatorCfg.Spec)
 	if err != nil {
 		return fmt.Errorf("failed marshaling iop spec: %v", err)
 	}

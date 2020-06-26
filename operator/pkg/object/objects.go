@@ -32,6 +32,7 @@ import (
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
+	names "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
@@ -76,8 +77,7 @@ func NewK8sObject(u *unstructured.Unstructured, json, yaml []byte) *K8sObject {
 // Hash returns a unique, insecure hash based on kind, namespace and name.
 func Hash(kind, namespace, name string) string {
 	switch kind {
-	// TODO: replace strings with k8s const (istio/istio#17237).
-	case "ClusterRole", "ClusterRoleBinding", "MeshPolicy":
+	case names.ClusterRoleStr, names.ClusterRoleBindingStr, names.MeshPolicyStr:
 		namespace = ""
 	}
 	return strings.Join([]string{kind, namespace, name}, ":")
@@ -131,7 +131,7 @@ func (o *K8sObject) UnstructuredObject() *unstructured.Unstructured {
 	return o.object
 }
 
-// UnstructuredObject exposes the raw object content, primarily for testing
+// Unstructured exposes the raw object content, primarily for testing
 func (o *K8sObject) Unstructured() map[string]interface{} {
 	return o.UnstructuredObject().UnstructuredContent()
 }
@@ -232,7 +232,7 @@ func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 	return ParseK8sObjectsFromYAMLManifestFailOption(manifest, true)
 }
 
-// ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest. Continues parsing when a bad object
+// ParseK8sObjectsFromYAMLManifestFailOption returns a K8sObjects representation of manifest. Continues parsing when a bad object
 // is found if failOnError is set to false.
 func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool) (K8sObjects, error) {
 	var b bytes.Buffer
@@ -390,10 +390,10 @@ func (o *K8sObject) Equal(other *K8sObject) bool {
 
 func istioCustomResources(group string) bool {
 	switch group {
-	case "config.istio.io",
-		"security.istio.io",
-		"authentication.istio.io",
-		"networking.istio.io":
+	case names.ConfigAPIGroupName,
+		names.SecurityAPIGroupName,
+		names.AuthenticationAPIGroupName,
+		names.NetworkingAPIGroupName:
 		return true
 	}
 	return false

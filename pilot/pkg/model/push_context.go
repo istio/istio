@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -242,12 +243,6 @@ const (
 	UnknownTrigger TriggerReason = "unknown"
 	// Describes a push triggered for debugging
 	DebugTrigger TriggerReason = "debug"
-)
-
-var (
-	ServiceEntryKind    = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
-	VirtualServiceKind  = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()
-	DestinationRuleKind = collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind()
 )
 
 // Merge two update requests together
@@ -797,6 +792,9 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 	rule := cfg.Spec.(*networking.DestinationRule)
 	for _, subset := range rule.Subsets {
 		if subset.Name == subsetName {
+			if len(subset.Labels) == 0 {
+				return nil
+			}
 			return []labels.Instance{subset.Labels}
 		}
 	}
@@ -900,25 +898,25 @@ func (ps *PushContext) updateContext(
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
-		case ServiceEntryKind:
+		case gvk.ServiceEntry:
 			servicesChanged = true
-		case DestinationRuleKind:
+		case gvk.DestinationRule:
 			destinationRulesChanged = true
-		case VirtualServiceKind:
+		case gvk.VirtualService:
 			virtualServicesChanged = true
-		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
+		case gvk.Gateway:
 			gatewayChanged = true
-		case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
+		case gvk.Sidecar:
 			sidecarsChanged = true
-		case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
+		case gvk.EnvoyFilter:
 			envoyFiltersChanged = true
-		case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
+		case gvk.AuthorizationPolicy:
 			authzChanged = true
-		case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
-			collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+		case gvk.RequestAuthentication,
+			gvk.PeerAuthentication:
 			authnChanged = true
-		case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(),
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
+		case gvk.QuotaSpecBinding,
+			gvk.QuotaSpec:
 			quotasChanged = true
 		case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(),
 			collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
@@ -1110,7 +1108,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.privateVirtualServicesByNamespace = map[string][]Config{}
 	ps.virtualServicesExportedToNamespace = map[string][]Config{}
 	ps.publicVirtualServices = []Config{}
-	virtualServices, err := env.List(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(), NamespaceAll)
+	virtualServices, err := env.List(gvk.VirtualService, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1286,7 +1284,7 @@ func (ps *PushContext) initDefaultExportMaps() {
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
 func (ps *PushContext) initSidecarScopes(env *Environment) error {
-	sidecarConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(), NamespaceAll)
+	sidecarConfigs, err := env.List(gvk.Sidecar, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1348,7 +1346,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 // Split out of DestinationRule expensive conversions - once per push.
 func (ps *PushContext) initDestinationRules(env *Environment) error {
-	configs, err := env.List(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), NamespaceAll)
+	configs, err := env.List(gvk.DestinationRule, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1448,7 +1446,7 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment) error {
-	envoyFilterConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(), NamespaceAll)
+	envoyFilterConfigs, err := env.List(gvk.EnvoyFilter, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1531,7 +1529,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 
 // pre computes gateways per namespace
 func (ps *PushContext) initGateways(env *Environment) error {
-	gatewayConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(), NamespaceAll)
+	gatewayConfigs, err := env.List(gvk.Gateway, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1665,13 +1663,13 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 
 func (ps *PushContext) initQuotaSpecs(env *Environment) error {
 	var err error
-	ps.QuotaSpec, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
+	ps.QuotaSpec, err = env.List(gvk.QuotaSpec, NamespaceAll)
 	return err
 }
 
 func (ps *PushContext) initQuotaSpecBindings(env *Environment) error {
 	var err error
-	ps.QuotaSpecBinding, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
+	ps.QuotaSpecBinding, err = env.List(gvk.QuotaSpecBinding, NamespaceAll)
 	return err
 }
 

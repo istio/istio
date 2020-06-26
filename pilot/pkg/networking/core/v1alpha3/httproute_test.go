@@ -902,6 +902,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	if registryOnly {
 		env.Mesh().OutboundTrafficPolicy = &meshapi.MeshConfig_OutboundTrafficPolicy{Mode: meshapi.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
 	}
+	proxy := getProxy()
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -909,7 +910,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 
 	vHostCache := make(map[int][]*route.VirtualHost)
-	routeCfg := configgen.buildSidecarOutboundHTTPRouteConfig(&proxy, env.PushContext, routeName, vHostCache)
+	routeCfg := configgen.buildSidecarOutboundHTTPRouteConfig(proxy, env.PushContext, routeName, vHostCache)
 	if routeCfg == nil {
 		t.Fatalf("got nil route for %s", routeName)
 	}

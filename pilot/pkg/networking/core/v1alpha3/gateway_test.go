@@ -27,16 +27,17 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -898,8 +899,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 func TestGatewayHTTPRouteConfig(t *testing.T) {
 	httpGateway := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Name:      "gateway",
-			Namespace: "default",
+			Name:             "gateway",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
 		},
 		Spec: &networking.Gateway{
 			Selector: map[string]string{"istio": "ingressgateway"},
@@ -931,7 +933,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service",
 			Namespace:        "default",
 		},
@@ -939,7 +941,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceCopy := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service-copy",
 			Namespace:        "default",
 		},
@@ -947,7 +949,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceWildcard := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service-wildcard",
 			Namespace:        "default",
 		},
@@ -1035,6 +1037,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			vh := make(map[string][]string)
 			for _, h := range route.VirtualHosts {
 				vh[h.Name] = h.Domains
+				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
+					t.Errorf("expected attempt count to be set in virtual host, but not found")
+				}
 			}
 			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
 				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
@@ -1097,13 +1102,16 @@ func TestBuildGatewayListeners(t *testing.T) {
 	for _, tt := range cases {
 		p := &fakePlugin{}
 		configgen := NewConfigGenerator([]plugin.Plugin{p})
-		env := buildEnv(t, []pilot_model.Config{{Spec: tt.gateway}}, []pilot_model.Config{})
+		env := buildEnv(t, []pilot_model.Config{{ConfigMeta: pilot_model.ConfigMeta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}}, []pilot_model.Config{})
 		proxyGateway.SetGatewaysForProxy(env.PushContext)
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
 		proxyGateway.DiscoverIPVersions()
 		builder := configgen.buildGatewayListeners(&proxyGateway, env.PushContext, &ListenerBuilder{})
 		var listeners []string
 		for _, l := range builder.gatewayListeners {
+			if err := l.Validate(); err != nil {
+				t.Fatalf("Validation failed for listener %s with error %v", l.Name, err)
+			}
 			listeners = append(listeners, l.Name)
 		}
 		sort.Strings(listeners)
@@ -1115,18 +1123,17 @@ func TestBuildGatewayListeners(t *testing.T) {
 }
 
 func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pilot_model.Config) pilot_model.Environment {
-	serviceDiscovery := new(fakes.ServiceDiscovery)
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 
-	configStore := &fakes.IstioConfigStore{}
-	configStore.GatewaysReturns(gateways)
-	configStore.ListStub = func(kind resource.GroupVersionKind, namespace string) (configs []pilot_model.Config, e error) {
-		switch kind {
-		case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
-			return virtualServices, nil
-		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
-			return gateways, nil
-		default:
-			return nil, nil
+	configStore := pilot_model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
+	for _, cfg := range gateways {
+		if _, err := configStore.Create(cfg); err != nil {
+			panic(err.Error())
+		}
+	}
+	for _, cfg := range virtualServices {
+		if _, err := configStore.Create(cfg); err != nil {
+			panic(err.Error())
 		}
 	}
 	m := mesh.DefaultMeshConfig()

@@ -1318,7 +1318,7 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 func ValidateMixerAttributes(msg proto.Message) error {
 	in, ok := msg.(*mpb.Attributes)
 	if !ok {
-		return errors.New("cannot case to attributes")
+		return errors.New("cannot cast to attributes")
 	}
 	if in == nil || len(in.Attributes) == 0 {
 		return errors.New("list of attributes is nil/empty")
@@ -1371,7 +1371,7 @@ var ValidateHTTPAPISpec = registerValidateFunc("ValidateHTTPAPISpec",
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.HTTPAPISpec)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpec")
+			return errors.New("cannot cast to HTTPAPISpec")
 		}
 		var errs error
 		// top-level list of attributes is optional
@@ -1425,7 +1425,7 @@ var ValidateHTTPAPISpecBinding = registerValidateFunc("ValidateHTTPAPISpecBindin
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.HTTPAPISpecBinding)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
+			return errors.New("cannot cast to HTTPAPISpecBinding")
 		}
 		var errs error
 		if len(in.Services) == 0 {
@@ -1455,7 +1455,7 @@ var ValidateQuotaSpec = registerValidateFunc("ValidateQuotaSpec",
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.QuotaSpec)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
+			return errors.New("cannot cast to QuotaSpec")
 		}
 		var errs error
 		if len(in.Rules) == 0 {
@@ -1507,7 +1507,7 @@ var ValidateQuotaSpecBinding = registerValidateFunc("ValidateQuotaSpecBinding",
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.QuotaSpecBinding)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
+			return errors.New("cannot cast to QuotaSpecBinding")
 		}
 		var errs error
 		if len(in.Services) == 0 {

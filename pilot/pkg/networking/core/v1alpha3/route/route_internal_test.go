@@ -148,6 +148,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
+							// nolint: staticcheck
 							EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 								MaxProgramSize: &wrappers.UInt32Value{
 									Value: uint32(maxRegExProgramSize),
@@ -167,6 +168,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
+							// nolint: staticcheck
 							EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 								MaxProgramSize: &wrappers.UInt32Value{
 									Value: uint32(maxRegExProgramSize),
@@ -180,6 +182,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 							Name: "Authentication",
 							HeaderMatchSpecifier: &route.HeaderMatcher_SafeRegexMatch{
 								SafeRegexMatch: &matcher.RegexMatcher{
+									// nolint: staticcheck
 									EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 										MaxProgramSize: &wrappers.UInt32Value{
 											Value: uint32(maxRegExProgramSize),
@@ -201,6 +204,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
+							// nolint: staticcheck
 							EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 								MaxProgramSize: &wrappers.UInt32Value{
 									Value: uint32(maxRegExProgramSize),

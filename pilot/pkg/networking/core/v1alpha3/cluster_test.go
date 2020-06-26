@@ -34,23 +34,25 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	authn_beta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type ConfigType int
@@ -280,8 +282,6 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*cluster.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-
 	servicePort := model.PortList{
 		&model.Port{
 			Name:     "default",
@@ -367,38 +367,39 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		},
 	}
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
-	serviceDiscovery.InstancesByPortReturns(instances, nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
+	for _, instance := range instances {
+		serviceDiscovery.AddInstance(instance.Service.Hostname, instance)
+	}
+	serviceDiscovery.WantGetProxyServiceInstances = instances
 
-	configStore := &fakes.IstioConfigStore{
-		ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-			if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
-				return []model.Config{
-					{ConfigMeta: model.ConfigMeta{
-						GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
-						Name:             "acme",
-					},
-						Spec: destRule,
-					}}, nil
-			}
-			if typ == collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() && peerAuthn != nil {
-				policyName := "default"
-				if peerAuthn.Selector != nil {
-					policyName = "acme"
-				}
-				return []model.Config{
-					{ConfigMeta: model.ConfigMeta{
-						GroupVersionKind: collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(),
-						Name:             policyName,
-						Namespace:        TestServiceNamespace,
-					},
-						Spec: peerAuthn,
-					}}, nil
-
-			}
-			return nil, nil
+	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
+	_, err := configStore.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			GroupVersionKind: gvk.DestinationRule,
+			Name:             "acme",
 		},
+		Spec: destRule,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if peerAuthn != nil {
+		policyName := "default"
+		if peerAuthn.Selector != nil {
+			policyName = "acme"
+		}
+		_, err := configStore.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             policyName,
+				Namespace:        TestServiceNamespace,
+			},
+			Spec: peerAuthn,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	env := newTestEnvironment(serviceDiscovery, mesh, configStore)
 
@@ -1348,14 +1349,13 @@ func TestGatewayLocalityLB(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	for _, cluster := range clusters {
-		if cluster.Name == util.BlackHoleCluster {
+		if !strings.Contains(cluster.Name, "8080") {
 			continue
 		}
 		if cluster.CommonLbConfig == nil {
 			t.Errorf("CommonLbConfig should be set for cluster %+v", cluster)
 		}
 		g.Expect(cluster.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
-
 		g.Expect(len(cluster.LoadAssignment.Endpoints)).To(Equal(3))
 		for _, localityLbEndpoint := range cluster.LoadAssignment.Endpoints {
 			locality := localityLbEndpoint.Locality
@@ -1397,7 +1397,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	for _, cluster := range clusters {
-		if cluster.Name == util.BlackHoleCluster {
+		if !strings.Contains(cluster.Name, "8080") {
 			continue
 		}
 		if cluster.CommonLbConfig == nil {
@@ -1669,15 +1669,17 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configStore := &fakes.IstioConfigStore{}
-			serviceDiscovery := &fakes.ServiceDiscovery{}
-			serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-			serviceDiscovery.InstancesByPortReturns(c.instances, nil)
+			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+			serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
+			serviceDiscovery.WantGetProxyServiceInstances = c.instances
+			for _, i := range c.instances {
+				serviceDiscovery.AddInstance(i.Service.Hostname, i)
+			}
 
 			env := c.newEnv(serviceDiscovery, configStore)
 			actual := buildLocalityLbEndpoints(proxy, env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
 			sortEndpoints(actual)
-			if v := cmp.Diff(c.expected, actual); v != "" {
+			if v := cmp.Diff(c.expected, actual, protocmp.Transform()); v != "" {
 				t.Fatalf("Expected (-) != actual (+):\n%s", v)
 			}
 		})
@@ -1781,8 +1783,8 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-	configStore := &fakes.IstioConfigStore{}
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
 
@@ -1804,8 +1806,8 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-	configStore := &fakes.IstioConfigStore{}
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	proxy := &model.Proxy{
@@ -1884,7 +1886,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 		name     string
 		newEnv   func(model.ServiceDiscovery, model.IstioConfigStore) *model.Environment
 		destRule *networking.DestinationRule
-		expected cluster.CircuitBreakers_Thresholds
+		expected *cluster.CircuitBreakers_Thresholds
 	}{
 		{
 			name: "port-level policy matched",
@@ -1913,7 +1915,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					},
 				},
 			},
-			expected: cluster.CircuitBreakers_Thresholds{
+			expected: &cluster.CircuitBreakers_Thresholds{
 				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 100},
@@ -1947,7 +1949,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					},
 				},
 			},
-			expected: cluster.CircuitBreakers_Thresholds{
+			expected: &cluster.CircuitBreakers_Thresholds{
 				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
@@ -1960,22 +1962,16 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 
 			configgen := NewConfigGenerator([]plugin.Plugin{})
-			serviceDiscovery := &fakes.ServiceDiscovery{}
+			serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 
-			configStore := &fakes.IstioConfigStore{
-				ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-					if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
-						return []model.Config{
-							{ConfigMeta: model.ConfigMeta{
-								GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
-								Name:             "acme",
-							},
-								Spec: c.destRule,
-							}}, nil
-					}
-					return nil, nil
+			configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
+			configStore.Create(model.Config{
+				ConfigMeta: model.ConfigMeta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "acme",
 				},
-			}
+				Spec: c.destRule,
+			})
 
 			env := c.newEnv(serviceDiscovery, configStore)
 			clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances)
@@ -1984,7 +1980,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			for _, cluster := range clusters {
 				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 				if cluster.Name == "inbound|80|default|backend.default.svc.cluster.local" {
-					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(&c.expected))
+					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
 				}
 			}
 		})
@@ -1996,11 +1992,9 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	proxy := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
-
-	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	servicePort := &model.Port{
 		Name:     "redis-port",
@@ -2015,7 +2009,7 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 		Resolution:  model.Passthrough,
 	}
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
@@ -2033,11 +2027,9 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	proxy := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
-
-	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	servicePort := &model.Port{
 		Name:     "redis-port",
@@ -2057,7 +2049,7 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	features.EnableRedisFilter = true
 	defer func() { features.EnableRedisFilter = defaultValue }()
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
@@ -2397,7 +2389,6 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	cfg := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := &fakes.ServiceDiscovery{}
 	service := &model.Service{
 		Hostname:    host.Name("static.test"),
 		Address:     "1.1.1.1",
@@ -2416,12 +2407,9 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-	serviceDiscovery.GetProxyServiceInstancesReturns([]*model.ServiceInstance{}, nil)
-	serviceDiscovery.InstancesByPortReturns([]*model.ServiceInstance{}, nil)
-	proxy.ServiceInstances = []*model.ServiceInstance{}
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 	proxy := &model.Proxy{
 		Type:      model.SidecarProxy,
 		DNSDomain: "com",
