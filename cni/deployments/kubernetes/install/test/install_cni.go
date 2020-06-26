@@ -224,9 +224,24 @@ func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) {
 	}
 }
 
+// checkTempFilesCleaned verifies that all temporary files have been cleaned up
+func checkTempFilesCleaned(tempCNIConfDir string, t *testing.T) {
+	files, err := ioutil.ReadDir(tempCNIConfDir)
+	if err != nil {
+		t.Fatalf("Failed to list files, err: %v", err)
+	}
+	for _, f := range files {
+		if strings.Contains(f.Name(), ".tmp") {
+			t.Fatalf("FAIL: Temporary file not cleaned in %v: %v", tempCNIConfDir, f.Name())
+		}
+		t.Logf("File remains in %v: %v", tempCNIConfDir, f.Name())
+	}
+	t.Logf("PASS: All temporary files removed from %v", tempCNIConfDir)
+}
+
 // doTest sets up necessary environment variables, runs the Docker installation
 // container and verifies output file correctness.
-func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
+func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
 	expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir,
 	testWorkRootDir string, t *testing.T) {
 
@@ -249,6 +264,17 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 	}()
 	time.Sleep(10 * time.Second)
 
+	if delayedConfFile != "NONE" {
+		var destFilenm string
+		if preConfFile != "NONE" {
+			destFilenm = preConfFile
+		} else {
+			destFilenm = delayedConfFile
+		}
+		cp(delayedConfFile, tempCNIConfDir+"/"+destFilenm, t)
+		time.Sleep(10 * time.Second)
+	}
+
 	compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedOutputFile, t)
 	checkBinDir(t, tempCNIBinDir, "add", "istio-cni", "istio-iptables")
 
@@ -262,6 +288,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 		compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedPostCleanFile, t)
 	}
 	checkBinDir(t, tempCNIBinDir, "del", "istio-cni", "istio-iptables")
+	checkTempFilesCleaned(tempCNIConfDir, t)
 }
 
 // RunInstallCNITest sets up temporary directories and runs the test.
@@ -270,7 +297,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 // file doesn't have a _test.go suffix, and this func doesn't start with a Test
 // prefix. This func is only meant to be invoked programmatically. A separate
 // install_cni_test.go file exists for executing this test.
-func RunInstallCNITest(testNum int, preConfFile, resultFileName, expectedOutputFile,
+func RunInstallCNITest(testNum int, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
 	expectedPostCleanFile string, cniConfDirOrderedFiles []string, t *testing.T) {
 
 	wd := pwd(t)
@@ -287,7 +314,7 @@ func RunInstallCNITest(testNum int, preConfFile, resultFileName, expectedOutputF
 		tempCNIBinDir, tempK8sSvcAcctDir)
 
 	populateTempDirs(wd, cniConfDirOrderedFiles, tempCNIConfDir, tempK8sSvcAcctDir, t)
-	doTest(testNum, wd, preConfFile, resultFileName, expectedOutputFile,
+	doTest(testNum, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
 		expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir,
 		testWorkRootDir, t)
 }
