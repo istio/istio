@@ -25,6 +25,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -451,8 +452,9 @@ func TestNamedPortIngressConversion(t *testing.T) {
 
 func createFakeLister(ctx context.Context, objects ...runtime.Object) listerv1.ServiceLister {
 	client := fake.NewSimpleClientset(objects...)
-	serviceInformer, serviceLister := createServiceCache([]string{""}, client, time.Hour)
-	go serviceInformer.Run(ctx.Done())
-	cache.WaitForCacheSync(ctx.Done(), serviceInformer.HasSynced)
-	return serviceLister
+	informerFactory := informers.NewSharedInformerFactory(client, time.Hour)
+	svcInformer := informerFactory.Core().V1().Services().Informer()
+	go svcInformer.Run(ctx.Done())
+	cache.WaitForCacheSync(ctx.Done(), svcInformer.HasSynced)
+	return informerFactory.Core().V1().Services().Lister()
 }

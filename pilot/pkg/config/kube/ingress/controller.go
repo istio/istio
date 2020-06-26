@@ -17,7 +17,6 @@
 package ingress
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -25,15 +24,11 @@ import (
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/informers/networking/v1beta1"
 
 	"istio.io/pkg/ledger"
 
-	v1 "k8s.io/api/core/v1"
 	ingress "k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -51,7 +46,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -136,22 +130,13 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
-	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
+	sharedInformerFactory := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod,
+		informers.WithNamespace(options.WatchedNamespaces))
 
-	mlw := listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return client.NetworkingV1beta1().Ingresses(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return client.NetworkingV1beta1().Ingresses(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	ingressInformer := cache.NewSharedIndexInformer(mlw, &ingress.Ingress{}, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	ingressInformer := sharedInformerFactory.Networking().V1beta1().Ingresses().Informer()
 	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespaces)
+
+	serviceInformer := sharedInformerFactory.Core().V1().Services()
 
 	var classes *v1beta1.IngressClassInformer
 	if ingressClassSupported(client) {
@@ -162,8 +147,6 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 		log.Infof("Skipping IngressClass, resource not supported")
 	}
 
-	serviceInformer, serviceLister := createServiceCache(watchedNamespaceList, client, options.ResyncPeriod)
-
 	c := &controller{
 		meshWatcher:     meshWatcher,
 		domainSuffix:    options.DomainSuffix,
@@ -171,8 +154,8 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 		queue:           q,
 		ingressInformer: ingressInformer,
 		classes:         classes,
-		serviceInformer: serviceInformer,
-		serviceLister:   serviceLister,
+		serviceInformer: serviceInformer.Informer(),
+		serviceLister:   serviceInformer.Lister(),
 	}
 
 	ingressInformer.AddEventHandler(
@@ -349,22 +332,4 @@ func (c *controller) Update(_ model.Config) (string, error) {
 
 func (c *controller) Delete(_ resource.GroupVersionKind, _, _ string) error {
 	return errUnsupportedOp
-}
-
-func createServiceCache(namespaces []string, client kubernetes.Interface, resyncPeriod time.Duration) (cache.SharedIndexInformer, listerv1.ServiceLister) {
-	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return client.CoreV1().Services(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return client.CoreV1().Services(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	informer := cache.NewSharedIndexInformer(mlw, &v1.Service{}, resyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	serviceLister := listerv1.NewServiceLister(informer.GetIndexer())
-	return informer, serviceLister
 }
