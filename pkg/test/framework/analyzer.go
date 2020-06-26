@@ -122,6 +122,7 @@ func (s *suiteAnalyzer) run() int {
 func (s *suiteAnalyzer) track() *suiteAnalysis {
 	return &suiteAnalysis{
 		SuiteID:          s.testID,
+		SkipReason:       s.skip,
 		Labels:           s.labels.All(),
 		MultiCluster:     s.maxClusters != 1,
 		MultiClusterOnly: s.minCusters > 1,
