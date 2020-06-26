@@ -23,13 +23,7 @@ import (
 	"testing"
 	"time"
 
-	kube2 "istio.io/istio/pkg/test/kube"
-
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-
 	"istio.io/istio/pkg/test/framework/resource"
 
 	"io/ioutil"
@@ -315,10 +309,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		}).
 		BuildOrFail(t)
 
-	if err := mountCACerts(t, ctx); err != nil {
-		t.Fatalf("failed to apply gateway patch, %v", err)
-	}
-
 	// Create a sidecarScope to only allow traffic to service namespace so that the traffic only goes
 	// through the egress gateway set up in service namespace. This way client cannot directly call our server
 	// in the same namespace("app") and is forced to route traffic to egress gateway
@@ -475,48 +465,6 @@ func WaitUntilNotCallable(c echo.Instance, dest echo.Instance) error {
 			}
 		}
 	}
-
-	return nil
-}
-
-func mountCACerts(t *testing.T, ctx resource.Context) error {
-	systemNs, err := namespace.ClaimSystemNamespace(ctx)
-	if err != nil {
-		return err
-	}
-
-	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
-	err = kubeAccessor.PatchDeployment(systemNs.Name(), "istio-egressgateway", `
-[{
-  "op": "add",
-  "path": "/spec/template/spec/containers/0/volumeMounts/0",
-  "value": {
-    "mountPath": "/etc/certs/custom",
-    "name": "client-custom-certs",
-    "readOnly": true
-  }
-},
-{
-  "op": "add",
-  "path": "/spec/template/spec/volumes/0",
-  "value": {
-  "name": "client-custom-certs",
-    "secret": {
-      "secretName": "egress-gw-cacerts",
-      "optional": true
-    }
-  }
-}]
-`, types.JSONPatchType)
-	if err != nil {
-		return err
-	}
-
-	// Wait until egress gw has been successfully patched
-	retry.UntilSuccessOrFail(t, func() error {
-		_, err = kubeAccessor.CheckPodsAreReady(kube2.NewPodFetch(kubeAccessor, systemNs.Name(), "app=istio-egressgateway"))
-		return err
-	}, retry.Delay(time.Millisecond*500), retry.Timeout(time.Second*40))
 
 	return nil
 }

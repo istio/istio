@@ -61,5 +61,12 @@ components:
   - enabled: true
   ingressGateways:
   - enabled: false
+values:
+   gateways:
+      istio-egressgateway:
+         secretVolumes:
+         - name: client-custom-certs
+           secretName: egress-gw-cacerts
+           mountPath: /etc/certs/custom
 `
 }
