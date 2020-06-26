@@ -62,18 +62,26 @@ func UpgradeV2Request(v2Req *xdsapi.DiscoveryRequest) *discovery.DiscoveryReques
 	}
 }
 
-// Convert from v3 to v2
+// DowngradeV3Response converts from v3 to v2
 func DowngradeV3Response(v3Resp *discovery.DiscoveryResponse) *xdsapi.DiscoveryResponse {
 	if v3Resp == nil {
 		return nil
 	}
 	return &xdsapi.DiscoveryResponse{
-		VersionInfo: v3Resp.VersionInfo,
-		Resources:   v3Resp.Resources,
-		Canary:      v3Resp.Canary,
-		TypeUrl:     v3Resp.TypeUrl,
-		Nonce:       v3Resp.Nonce,
+		ControlPlane: convertToV2ControlPlane(v3Resp.ControlPlane),
+		VersionInfo:  v3Resp.VersionInfo,
+		Resources:    v3Resp.Resources,
+		Canary:       v3Resp.Canary,
+		TypeUrl:      v3Resp.TypeUrl,
+		Nonce:        v3Resp.Nonce,
 	}
+}
+
+func convertToV2ControlPlane(cp *corev3.ControlPlane) *corev2.ControlPlane {
+	if cp == nil {
+		return nil
+	}
+	return &corev2.ControlPlane{Identifier: cp.Identifier}
 }
 
 func convertToV3Node(node *corev2.Node) *corev3.Node {

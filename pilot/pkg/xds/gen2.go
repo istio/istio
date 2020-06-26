@@ -15,15 +15,23 @@
 package xds
 
 import (
+	"fmt"
 	"time"
 
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/env"
+	istioversion "istio.io/pkg/version"
 )
 
 // gen2 provides experimental support for extended generation mechanism.
+
+var (
+	podName = env.RegisterStringVar("POD_NAME", "", "").Get()
+)
 
 // handleReqAck checks if the message is an ack/nack and handles it, returning true.
 // If false, the request should be processed by calling the generator.
@@ -95,11 +103,15 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discove
 		return nil
 	}
 
+	// The control plane will identify itself with it's name and Istio version
+	cpIdent := fmt.Sprintf("%s~%s", podName, istioversion.Info.String())
+
 	push := s.globalPushContext()
 	resp := &discovery.DiscoveryResponse{
-		TypeUrl:     w.TypeUrl,
-		VersionInfo: push.Version, // TODO: we can now generate per-type version !
-		Nonce:       nonce(push.Version),
+		ControlPlane: &corev3.ControlPlane{Identifier: cpIdent},
+		TypeUrl:      w.TypeUrl,
+		VersionInfo:  push.Version, // TODO: we can now generate per-type version !
+		Nonce:        nonce(push.Version),
 	}
 	if push.Version == "" { // Usually in tests.
 		resp.VersionInfo = resp.Nonce
