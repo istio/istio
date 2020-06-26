@@ -136,9 +136,19 @@ func deriveSuiteName(caller string) string {
 
 // NewSuite returns a new suite instance.
 func NewSuite(m *testing.M) Suite {
-	// TODO check for analyze mode
 	_, f, _, _ := goruntime.Caller(1)
-	return newSuite(deriveSuiteName(f),
+	suiteName := deriveSuiteName(f)
+
+	if analyzeMode {
+		return newSuiteAnalyzer(
+			suiteName,
+			func(_ *suiteContext) int {
+				return m.Run()
+			},
+			os.Exit)
+	}
+
+	return newSuite(suiteName,
 		func(_ *suiteContext) int {
 			return m.Run()
 		},

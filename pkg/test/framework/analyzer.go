@@ -8,6 +8,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/pkg/log"
 	"strings"
+	"testing"
 )
 
 type commonAnalyzer struct {
@@ -16,10 +17,31 @@ type commonAnalyzer struct {
 	skip                    string
 }
 
+func newCommonAnalyzer() commonAnalyzer {
+	return commonAnalyzer{
+		labels:      label.NewSet(),
+		minCusters:  -1,
+		maxClusters: -1,
+	}
+}
+
 type suiteAnalyzer struct {
+	testID string
+	mRun   mRunFn
+	osExit func(int)
+
 	commonAnalyzer
 	envFactoryCalls    int
 	requiredEnvVersion string
+}
+
+func newSuiteAnalyzer(testID string, fn mRunFn, osExit func(int)) Suite {
+	return &suiteAnalyzer{
+		testID:         testID,
+		mRun:           fn,
+		osExit:         osExit,
+		commonAnalyzer: newCommonAnalyzer(),
+	}
 }
 
 func (s *suiteAnalyzer) EnvironmentFactory(fn resource.EnvironmentFactory) Suite {
@@ -67,13 +89,37 @@ func (s *suiteAnalyzer) Setup(fn resource.SetupFn) Suite {
 }
 
 func (s *suiteAnalyzer) Run() {
-	panic("implement me")
+	s.osExit(s.run())
+}
+
+func (s *suiteAnalyzer) run() int {
+	initAnalysis(&suiteAnalysis{
+		ID: s.testID,
+		// TODO track other info
+	})
+	defer finishAnalysis()
+
+	// during mRun tests will add their analyses to the suiteAnalysis
+	return s.mRun(nil)
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+func newTestAnalyzer(t *testing.T) Test {
+	return &testAnalyzer{
+		commonAnalyzer: newCommonAnalyzer(),
+		goTest:         t,
+		featureLabels:  map[features.Feature][]string{},
+	}
 }
 
 type testAnalyzer struct {
+	goTest *testing.T
+
 	commonAnalyzer
 	notImplemented bool
 	featureLabels  map[features.Feature][]string
+	hasRun         bool
 }
 
 func (t *testAnalyzer) Label(labels ...label.Instance) Test {
@@ -85,14 +131,14 @@ func (t *testAnalyzer) Features(feats ...features.Feature) Test {
 	c, err := features.BuildChecker(env.IstioSrc + "/pkg/test/framework/features/features.yaml")
 	if err != nil {
 		log.Errorf("Unable to build feature checker: %s", err)
-		//t.goTest.FailNow()
+		t.goTest.FailNow()
 		return nil
 	}
 	for _, f := range feats {
 		check, scenario := c.Check(f)
 		if !check {
 			log.Errorf("feature %s is not present in /pkg/test/framework/features/features.yaml", f)
-			//t.goTest.FailNow()
+			t.goTest.FailNow()
 			return nil
 		}
 		// feats actually contains feature and scenario.  split them here.
@@ -125,10 +171,17 @@ func (t *testAnalyzer) RequiresSingleCluster() Test {
 	return t
 }
 
-func (t *testAnalyzer) Run(fn func(ctx TestContext)) {
-	panic("implement me")
+func (t *testAnalyzer) Run(_ func(ctx TestContext)) {
+	if t.hasRun {
+		t.goTest.Fatalf("multiple Run calls for %s", t.goTest.Name())
+	}
+	t.hasRun = true
+	analysis.addTest(&testAnalysis{
+		ID: t.goTest.Name(),
+		// TODO track other info
+	})
 }
 
 func (t *testAnalyzer) RunParallel(fn func(ctx TestContext)) {
-	panic("implement me")
+	t.Run(fn)
 }
