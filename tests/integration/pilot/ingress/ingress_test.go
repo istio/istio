@@ -129,7 +129,7 @@ metadata:
   name: http
 spec:
   hosts:
-  - hostname: "my.domain.example"
+  - hostnames: ["my.domain.example"]
     rules:
     - match:
         pathType: Prefix
