@@ -1,3 +1,7 @@
+# Default ASM Profile for GCP multiproject installations.
+#   * Security: citedal
+#   * Telemetry: Stackdriver
+#   * Networking: istiod
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
