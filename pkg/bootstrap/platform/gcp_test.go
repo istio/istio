@@ -41,28 +41,28 @@ func TestGCPMetadata(t *testing.T) {
 		{
 			"should not fill",
 			func() bool { return false },
-			func(e *gcpEnv) (string, error) { return "pid", nil },
-			func(e *gcpEnv) (string, error) { return "npid", nil },
-			func(e *gcpEnv) (string, error) { return "location", nil },
-			func(e *gcpEnv) (string, error) { return "cluster", nil },
-			func(e *gcpEnv) (string, error) { return "instanceName", nil },
-			func(e *gcpEnv) (string, error) { return "instance", nil },
-			func(e *gcpEnv) (string, error) { return "instanceTemplate", nil },
-			func(e *gcpEnv) (string, error) { return "createdBy", nil },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
 			map[string]string{},
 		},
 		{
 			"should fill",
 			func() bool { return true },
-			func(e *gcpEnv) (string, error) { return "pid", nil },
-			func(e *gcpEnv) (string, error) { return "npid", nil },
-			func(e *gcpEnv) (string, error) { return "location", nil },
-			func(e *gcpEnv) (string, error) { return "cluster", nil },
-			func(e *gcpEnv) (string, error) { return "instanceName", nil },
-			func(e *gcpEnv) (string, error) { return "instance", nil },
-			func(e *gcpEnv) (string, error) { return "instanceTemplate", nil },
-			func(e *gcpEnv) (string, error) { return "createdBy", nil },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
 			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
 				GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
@@ -70,14 +70,14 @@ func TestGCPMetadata(t *testing.T) {
 		{
 			"project id error",
 			func() bool { return true },
-			func(e *gcpEnv) (string, error) { return "", errors.New("error") },
-			func(e *gcpEnv) (string, error) { return "npid", nil },
-			func(e *gcpEnv) (string, error) { return "location", nil },
-			func(e *gcpEnv) (string, error) { return "cluster", nil },
-			func(e *gcpEnv) (string, error) { return "instanceName", nil },
-			func(e *gcpEnv) (string, error) { return "instance", nil },
-			func(e *gcpEnv) (string, error) { return "instanceTemplate", nil },
-			func(e *gcpEnv) (string, error) { return "createdBy", nil },
+			func() (string, error) { return "", errors.New("error") },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
 			map[string]string{GCPLocation: "location", GCPProjectNumber: "npid", GCPCluster: "cluster", GCEInstance: "instanceName", GCEInstanceID: "instance",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
@@ -85,14 +85,14 @@ func TestGCPMetadata(t *testing.T) {
 		{
 			"numeric project id error",
 			func() bool { return true },
-			func(e *gcpEnv) (string, error) { return "pid", nil },
-			func(e *gcpEnv) (string, error) { return "", errors.New("error") },
-			func(e *gcpEnv) (string, error) { return "location", nil },
-			func(e *gcpEnv) (string, error) { return "cluster", nil },
-			func(e *gcpEnv) (string, error) { return "instanceName", nil },
-			func(e *gcpEnv) (string, error) { return "instance", nil },
-			func(e *gcpEnv) (string, error) { return "instanceTemplate", nil },
-			func(e *gcpEnv) (string, error) { return "createdBy", nil },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "", errors.New("error") },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
 			map[string]string{GCPLocation: "location", GCPProject: "pid", GCPCluster: "cluster", GCEInstance: "instanceName", GCEInstanceID: "instance",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
@@ -100,14 +100,14 @@ func TestGCPMetadata(t *testing.T) {
 		{
 			"location error",
 			func() bool { return true },
-			func(e *gcpEnv) (string, error) { return "pid", nil },
-			func(e *gcpEnv) (string, error) { return "npid", nil },
-			func(e *gcpEnv) (string, error) { return "location", errors.New("error") },
-			func(e *gcpEnv) (string, error) { return "cluster", nil },
-			func(e *gcpEnv) (string, error) { return "instanceName", nil },
-			func(e *gcpEnv) (string, error) { return "instance", nil },
-			func(e *gcpEnv) (string, error) { return "instanceTemplate", nil },
-			func(e *gcpEnv) (string, error) { return "createdBy", nil },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", errors.New("error") },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
 			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPCluster: "cluster", GCEInstance: "instanceName", GCEInstanceID: "instance",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
@@ -115,14 +115,14 @@ func TestGCPMetadata(t *testing.T) {
 		{
 			"cluster name error",
 			func() bool { return true },
-			func(e *gcpEnv) (string, error) { return "pid", nil },
-			func(e *gcpEnv) (string, error) { return "npid", nil },
-			func(e *gcpEnv) (string, error) { return "location", nil },
-			func(e *gcpEnv) (string, error) { return "cluster", errors.New("error") },
-			func(e *gcpEnv) (string, error) { return "instanceName", nil },
-			func(e *gcpEnv) (string, error) { return "instance", nil },
-			func(e *gcpEnv) (string, error) { return "instanceTemplate", nil },
-			func(e *gcpEnv) (string, error) { return "createdBy", nil },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", errors.New("error") },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
 			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCEInstance: "instanceName", GCEInstanceID: "instance",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
@@ -130,14 +130,14 @@ func TestGCPMetadata(t *testing.T) {
 		{
 			"instance name error",
 			func() bool { return true },
-			func(e *gcpEnv) (string, error) { return "pid", nil },
-			func(e *gcpEnv) (string, error) { return "npid", nil },
-			func(e *gcpEnv) (string, error) { return "location", nil },
-			func(e *gcpEnv) (string, error) { return "cluster", nil },
-			func(e *gcpEnv) (string, error) { return "instanceName", errors.New("error") },
-			func(e *gcpEnv) (string, error) { return "instance", nil },
-			func(e *gcpEnv) (string, error) { return "instanceTemplate", nil },
-			func(e *gcpEnv) (string, error) { return "createdBy", nil },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", errors.New("error") },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
 			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstanceID: "instance",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
@@ -145,14 +145,14 @@ func TestGCPMetadata(t *testing.T) {
 		{
 			"instance id error",
 			func() bool { return true },
-			func(e *gcpEnv) (string, error) { return "pid", nil },
-			func(e *gcpEnv) (string, error) { return "npid", nil },
-			func(e *gcpEnv) (string, error) { return "location", nil },
-			func(e *gcpEnv) (string, error) { return "cluster", nil },
-			func(e *gcpEnv) (string, error) { return "instanceName", nil },
-			func(e *gcpEnv) (string, error) { return "", errors.New("error") },
-			func(e *gcpEnv) (string, error) { return "instanceTemplate", nil },
-			func(e *gcpEnv) (string, error) { return "createdBy", nil },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "", errors.New("error") },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
 			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
 				GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
@@ -160,14 +160,14 @@ func TestGCPMetadata(t *testing.T) {
 		{
 			"instance template error",
 			func() bool { return true },
-			func(e *gcpEnv) (string, error) { return "pid", nil },
-			func(e *gcpEnv) (string, error) { return "npid", nil },
-			func(e *gcpEnv) (string, error) { return "location", nil },
-			func(e *gcpEnv) (string, error) { return "cluster", nil },
-			func(e *gcpEnv) (string, error) { return "instanceName", nil },
-			func(e *gcpEnv) (string, error) { return "instance", nil },
-			func(e *gcpEnv) (string, error) { return "", errors.New("error") },
-			func(e *gcpEnv) (string, error) { return "createdBy", nil },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "", errors.New("error") },
+			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
 			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
 				GCEInstanceID: "instance", GCEInstanceCreatedBy: "createdBy"},
@@ -175,14 +175,14 @@ func TestGCPMetadata(t *testing.T) {
 		{
 			"instance created by error",
 			func() bool { return true },
-			func(e *gcpEnv) (string, error) { return "pid", nil },
-			func(e *gcpEnv) (string, error) { return "npid", nil },
-			func(e *gcpEnv) (string, error) { return "location", nil },
-			func(e *gcpEnv) (string, error) { return "cluster", nil },
-			func(e *gcpEnv) (string, error) { return "instanceName", nil },
-			func(e *gcpEnv) (string, error) { return "instance", nil },
-			func(e *gcpEnv) (string, error) { return "instanceTemplate", nil },
-			func(e *gcpEnv) (string, error) { return "", errors.New("error") },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "", errors.New("error") },
 			map[string]string{},
 			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
 				GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate"},
@@ -190,14 +190,14 @@ func TestGCPMetadata(t *testing.T) {
 		{
 			"use env variable",
 			func() bool { return true },
-			func(e *gcpEnv) (string, error) { return "pid", nil },
-			func(e *gcpEnv) (string, error) { return "npid", nil },
-			func(e *gcpEnv) (string, error) { return "location", nil },
-			func(e *gcpEnv) (string, error) { return "cluster", nil },
-			func(e *gcpEnv) (string, error) { return "instanceName", nil },
-			func(e *gcpEnv) (string, error) { return "instance", nil },
-			func(e *gcpEnv) (string, error) { return "instanceTemplate", nil },
-			func(e *gcpEnv) (string, error) { return "createdBy", nil },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
 			map[string]string{"GCP_METADATA": "env_pid|env_pn|env_cluster|env_location"},
 			map[string]string{GCPProject: "env_pid", GCPProjectNumber: "env_pn", GCPLocation: "env_location", GCPCluster: "env_cluster",
 				GCEInstance: "instanceName", GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
@@ -210,38 +210,11 @@ func TestGCPMetadata(t *testing.T) {
 				os.Setenv(e, v)
 			}
 			envOnce = sync.Once{}
-			e := gcpEnv{}
-			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn, instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn =
-				tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn,
-				tt.instanceCreatedByFn
-			got := e.Metadata()
+			mg := gcpEnv{tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn,
+				tt.instanceTemplateFn, tt.instanceCreatedByFn}
+			got := mg.Metadata()
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestCacheMetadata(t *testing.T) {
-	tests := []struct {
-		name string
-		fVal string
-		fErr error
-		want string
-	}{
-		{"ignore bad response", "err", errors.New("err"), ""},
-		{"properly update field", "test1", nil, "test1"},
-		{"return cached val", "ignore", nil, "test1"},
-	}
-
-	// Use same gcpEnv for sequential tests
-	e := gcpEnv{}
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			f := func() (string, error) { return tt.fVal, tt.fErr }
-			cb, _ := getCacheMetadata(&e.createdBy, f)
-			if cb != tt.want || e.createdBy != tt.want {
-				t.Errorf("getCacheMetadata() => returned: '%v', attribute: '%v'; want '%v'", cb, e.createdBy, tt.want)
 			}
 		})
 	}
