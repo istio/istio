@@ -26,10 +26,100 @@ spec:
     ingressGateways:
     - name: istio-ingressgateway
       enabled: true
+      k8s:
+        env:
+          - name: ISTIO_META_ROUTER_MODE
+            value: "standard"
+        service:
+          ports:
+            - port: 15021
+              targetPort: 15021
+              name: status-port
+              protocol: TCP
+            - port: 80
+              targetPort: 8080
+              name: http2
+              protocol: TCP
+            - port: 443
+              targetPort: 8443
+              name: https
+              protocol: TCP
+            - port: 15012
+              targetPort: 15012
+              name: tcp-istiod
+              protocol: TCP
+            - port: 15443
+              targetPort: 15443
+              name: tls
+              protocol: TCP
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 2
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-ingressgateway
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                targetAverageUtilization: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
+
     egressGateways:
     - name: istio-egressgateway
       enabled: false
-
+      k8s:
+        env:
+          - name: ISTIO_META_ROUTER_MODE
+            value: "standard"
+        service:
+          ports:
+            - port: 80
+              name: http2
+              targetPort: 8080
+              protocol: TCP
+            - port: 443
+              name: https
+              targetPort: 8443
+              protocol: TCP
+            - port: 15443
+              targetPort: 15443
+              name: tls
+              protocol: TCP
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 2
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-egressgateway
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                targetAverageUtilization: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
     # Istio CNI feature
     cni:
       enabled: false
