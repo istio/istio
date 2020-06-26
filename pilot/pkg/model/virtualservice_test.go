@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -1580,5 +1581,55 @@ func TestFuzzMergeHttpMatchRequest(t *testing.T) {
 
 	if !reflect.DeepEqual(merged, root) {
 		t.Errorf("%s", cmp.Diff(merged, root))
+	}
+}
+
+var gatewayNameTests = []struct {
+	gateway   string
+	namespace string
+	resolved  string
+}{
+	{
+		"./gateway",
+		"default",
+		"default/gateway",
+	},
+	{
+		"gateway",
+		"default",
+		"default/gateway",
+	},
+	{
+		"default/gateway",
+		"foo",
+		"default/gateway",
+	},
+	{
+		"gateway.default",
+		"default",
+		"default/gateway",
+	},
+	{
+		"gateway.default",
+		"foo",
+		"default/gateway",
+	},
+}
+
+func TestResolveGatewayName(t *testing.T) {
+	for _, tt := range gatewayNameTests {
+		t.Run(fmt.Sprintf("%s-%s", tt.gateway, tt.namespace), func(t *testing.T) {
+			if got := resolveGatewayName(tt.gateway, ConfigMeta{Namespace: tt.namespace}); got != tt.resolved {
+				t.Fatalf("expected %q got %q", tt.resolved, got)
+			}
+		})
+	}
+}
+
+func BenchmarkResolveGatewayName(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		for _, tt := range gatewayNameTests {
+			_ = resolveGatewayName(tt.gateway, ConfigMeta{Namespace: tt.namespace})
+		}
 	}
 }
