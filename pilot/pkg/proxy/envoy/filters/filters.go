@@ -35,9 +35,6 @@ const (
 	OriginalSrcFilterName = "envoy.listener.original_src"
 	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
 	AlpnFilterName = "istio.alpn"
-
-	// DNSListenerFilterName is the name of UDP listener filter for resolving DNS queries
-	DNSListenerFilterName = "envoy.filters.udp.dns_filter"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
