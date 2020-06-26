@@ -34,9 +34,48 @@ exit_graceful(){
   exit 0
 }
 
+# Adds the given file to FILE_CLEANUP_ARR for cleanup on exit
+function add_file_to_cleanup() {
+  FILE_CLEANUP_ARR+=( "$1" )
+}
+
 function rm_bin_files() {
   echo "Removing existing binaries"
   rm -f /host/opt/cni/bin/istio-cni /host/opt/cni/bin/istio-iptables
+}
+
+# Initializes required variables
+function init() {
+  echo "Initializing variables"
+}
+
+# Creates a temp file with the given filepath prefix
+# Usage:
+# TMP_FILE=$(create_temp_file "filepath/prefix")
+function create_temp_file() {
+  local filepath=$1
+  local temp_file=$(mktemp ${filepath}.tmp.XXXXXX)
+  if [ $? -ne 0 ]; then
+    echo "Failed to create temp file. Exiting (1)..."
+    exit 1
+  fi
+  # mktemp creates files with read and write permissions only for owner
+  # go tests require additional read permissions so default to 644
+  chmod 644 "${temp_file}"
+  echo "${temp_file}"
+}
+
+# Renames the given file to the new file name (renames to same dir for atomicity)
+# Usage:
+# NEW_FILE=$(atomically_rename_file "old_filepath" "new_filename")
+function atomically_rename_file() {
+  local old_filepath=$1
+  local new_filename=$2
+  local dirpath=$(dirname "${old_filepath}")
+  local new_filepath="${dirpath}/${new_filename}"
+  mv "${old_filepath}" "${new_filepath}" || \
+  exit_with_error "Failed to mv file. This may be caused by selinux configuration on the host, or something else."
+  echo "${new_filepath}"
 }
 
 # find_cni_conf_file
@@ -100,27 +139,36 @@ function check_install() {
 }
 
 function cleanup() {
-  echo "Cleaning up and exiting."
+  echo "Cleaning up."
 
   if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
     if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
       echo "Removing istio-cni config from CNI chain config in ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
-      CNI_CONF_DATA=$(jq 'del( .plugins[]? | select(.type == "istio-cni"))' < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
+      local cni_conf_data=$(jq 'del( .plugins[]? | select(.type == "istio-cni"))' < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
       # Rewrite the config file atomically: write into a temp file in the same directory then rename.
-      echo "${CNI_CONF_DATA}" > "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}.tmp"
-      mv "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}.tmp" "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
+      local tmp_cni_conf_file=$(create_temp_file "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}") && add_file_to_cleanup "${tmp_cni_conf_file}"
+      cat > "${tmp_cni_conf_file}" <<EOF
+${cni_conf_data}
+EOF
+      local cni_conf_file=$(atomically_rename_file "${tmp_cni_conf_file}" "${CNI_CONF_NAME}")
+      echo "Removed Istio CNI config from ${cni_conf_file}"
     else
       echo "Removing istio-cni net.d conf file: ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
       rm "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
     fi
   fi
-  if [ -e "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}" ]; then
-    echo "Removing istio-cni kubeconfig file: ${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
-    rm "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
-  fi
+
+  for file in "${FILE_CLEANUP_ARR[@]}"; do
+    echo "Removing file if exists:  ${file}"
+    rm -f ${file}
+  done
+
   rm_bin_files
+
   echo "Exiting."
 }
+
+declare -a FILE_CLEANUP_ARR
 
 # The directory on the host where CNI networks are installed. Defaults to
 # /etc/cni/net.d, but can be overridden by setting CNI_NET_DIR.  This is used
@@ -175,7 +223,7 @@ SKIP_CNI_BINARIES=${SKIP_CNI_BINARIES:-""}
 SKIP_CNI_BINARIES=",${SKIP_CNI_BINARIES},"
 UPDATE_CNI_BINARIES=${UPDATE_CNI_BINARIES:-"true"}
 
-# Place the new binaries if the directory is writable.
+# Place the new binaries to the host's cni bin directory if the directory is writable.
 for dir in /host/opt/cni/bin /host/secondary-bin-dir
 do
   if [ ! -w "${dir}" ];
@@ -206,8 +254,7 @@ do
 done
 
 # Create a temp file in the same directory as the target, in order for the final rename to be atomic.
-TMP_CNI_CONF_FILE="${MOUNTED_CNI_NET_DIR}/istio-cni.conf.tmp"
-true > "${TMP_CNI_CONF_FILE}"
+TMP_CNI_CONF_FILE="$(create_temp_file "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")" && add_file_to_cleanup "${TMP_CNI_CONF_FILE}"
 # If specified, overwrite the network configuration file.
 : "${CNI_NETWORK_CONFIG_FILE:=}"
 : "${CNI_NETWORK_CONFIG:=}"
@@ -249,8 +296,8 @@ if [ -f "${SERVICE_ACCOUNT_PATH}/token" ]; then
   # writing more complete kubeconfig files. This is only used
   # if the provided CNI network config references it.
   # Create / overwrite this file atomically.
-  TMP_KUBECFG_FILE="${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}.tmp"
-  touch "${TMP_KUBECFG_FILE}"
+  KUBECFG_FILE="${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
+  TMP_KUBECFG_FILE="$(create_temp_file "${KUBECFG_FILE}")" && add_file_to_cleanup ${TMP_KUBECFG_FILE}
   chmod "${KUBECONFIG_MODE:-600}" "${TMP_KUBECFG_FILE}"
   cat > "${TMP_KUBECFG_FILE}" <<EOF
 # Kubeconfig file for Istio CNI plugin.
@@ -272,7 +319,7 @@ contexts:
     user: istio-cni
 current-context: istio-cni-context
 EOF
-  mv "${TMP_KUBECFG_FILE}" "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
+  KUBECFG_FILE=$(atomically_rename_file "${TMP_KUBECFG_FILE}" "${KUBECFG_FILE_NAME}") && add_file_to_cleanup "${KUBECFG_FILE}"
 fi
 
 
@@ -315,10 +362,8 @@ if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
 fi
 
 # Move the temporary CNI config into place.
-mv "${TMP_CNI_CONF_FILE}" "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" || \
-  exit_with_error "Failed to mv files. This may be caused by selinux configuration on the host, or something else."
-
-echo "Created CNI config ${CNI_CONF_NAME}"
+CNI_CONF_FILE=$(atomically_rename_file "${TMP_CNI_CONF_FILE}" "${CNI_CONF_NAME}")
+echo "Wrote Istio CNI config in ${CNI_CONF_FILE}"
 
 # Unless told otherwise, sleep forever.
 # This prevents Kubernetes from restarting the pod repeatedly.
