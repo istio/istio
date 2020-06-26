@@ -51,9 +51,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	pilot_v1alpha3 "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -787,7 +787,7 @@ func getIstioConfig(metadata *envoy_api_core.Metadata) (string, error) {
 // getIstioConfigNameForSvc returns name, namespace
 func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, string, error) {
 	path, err := getIstioDestinationRulePathForSvc(cd, svc, port)
-	if err != nil {
+	if err != nil || path == "" {
 		return "", "", err
 	}
 

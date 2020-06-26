@@ -132,6 +132,8 @@ sidecarInjectorWebhook:
     enabled: false
     autoInject: true
 
+  rewriteAppHTTPProbe: true
+
 telemetry:
   enabled: true
   v1:

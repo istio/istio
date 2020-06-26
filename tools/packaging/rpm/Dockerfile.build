@@ -9,7 +9,7 @@ RUN yum install -y centos-release-scl epel-release && \
     yum clean all
 
 # Install go (go package in yum repositories is too old)
-RUN curl -o /root/go.tar.gz https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz && \
+RUN curl -o /root/go.tar.gz https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz && \
     tar zxf /root/go.tar.gz -C /usr/local
 ENV GOROOT=/usr/local/go \
     PATH=/usr/local/go/bin:/opt/rh/rh-git218/root/usr/bin:/opt/rh/devtoolset-7/root/usr/bin:/opt/llvm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}
