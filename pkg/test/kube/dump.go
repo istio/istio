@@ -130,7 +130,6 @@ func DumpPodEvents(a Accessor, workDir, namespace string, pods ...kubeApiCore.Po
 func DumpPodLogs(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod) {
 	pods = podsOrFetch(a, pods, namespace)
 
-	var sb strings.Builder
 	for _, pod := range pods {
 		isVM := checkIfVM(pod)
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
@@ -140,26 +139,31 @@ func DumpPodLogs(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod)
 				scopes.Framework.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue
 			}
-			sb.WriteString(l)
-
-			// Get proxy logs if the pod is a VM, since kubectl logs only shows the logs from iptables
-			if isVM && container.Name == "istio-proxy" {
-				if cfgDump, err := a.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET config_dump"); err == nil {
-					sb.WriteString(cfgDump)
-				} else {
-					scopes.Framework.Errorf("Unable to get istio-proxy config dump for pod: %s/%s", pod.Namespace, pod.Name)
-				}
-
-				if clustersDump, err := a.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET clusters"); err == nil {
-					sb.WriteString(clustersDump)
-				} else {
-					scopes.Framework.Errorf("Unable to get istio-proxy clusters for pod: %s/%s", pod.Namespace, pod.Name)
-				}
-			}
 
 			fname := path.Join(workDir, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
-			if err = ioutil.WriteFile(fname, []byte(sb.String()), os.ModePerm); err != nil {
+			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 				scopes.Framework.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+			}
+
+			// Get envoy logs if the pod is a VM, since kubectl logs only shows the logs from iptables for VMs
+			if isVM && container.Name == "istio-proxy" {
+				if envoyErr, err := a.Exec(pod.Namespace, pod.Name, container.Name, "cat /var/log/istio/istio.err.log"); err == nil {
+					fname := path.Join(workDir, fmt.Sprintf("%s-%s.envoy.err.log", pod.Name, container.Name))
+					if err = ioutil.WriteFile(fname, []byte(envoyErr), os.ModePerm); err != nil {
+						scopes.Framework.Errorf("Unable to write envoy err log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+					}
+				} else {
+					scopes.Framework.Errorf("Unable to get envoy err log for pod: %s/%s", pod.Namespace, pod.Name)
+				}
+
+				if envoyLog, err := a.Exec(pod.Namespace, pod.Name, container.Name, "cat /var/log/istio/istio.log"); err == nil {
+					fname := path.Join(workDir, fmt.Sprintf("%s-%s.envoy.log", pod.Name, container.Name))
+					if err = ioutil.WriteFile(fname, []byte(envoyLog), os.ModePerm); err != nil {
+						scopes.Framework.Errorf("Unable to write envoy log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+					}
+				} else {
+					scopes.Framework.Errorf("Unable to get envoy log for pod: %s/%s", pod.Namespace, pod.Name)
+				}
 			}
 		}
 	}
