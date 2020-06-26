@@ -55,8 +55,8 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -1095,7 +1095,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 						// Standard logic for headless and non headless services
 						if features.EnableThriftFilter &&
 							servicePort.Protocol.IsThrift() {
-							listenerOpts.bind = service.Address
+							listenerOpts.bind = service.GetServiceAddressForProxy(node)
 						}
 						configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 							virtualServices, actualWildcard)

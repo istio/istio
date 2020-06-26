@@ -52,6 +52,7 @@ features:
     egress:
       mtls:
       tls:
+        filebased:
     control-plane:
       k8s-certs:
       plugin-cert:

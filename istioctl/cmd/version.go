@@ -25,15 +25,14 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/operator/cmd/mesh"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-
+	"istio.io/istio/pilot/pkg/xds"
 	istioVersion "istio.io/pkg/version"
 )
 
 type sidecarSyncStatus struct {
 	// nolint: structcheck, unused
 	pilot string
-	v2.SyncStatus
+	xds.SyncStatus
 }
 
 func newVersionCommand() *cobra.Command {
