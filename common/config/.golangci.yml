@@ -188,6 +188,11 @@ issues:
         - errcheck
         - maligned
 
+    # TODO(https://github.com/dominikh/go-tools/issues/732) remove this once we update
+    - linters:
+        - staticcheck
+      text: "SA1019: package github.com/golang/protobuf"
+
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all
   # excluded by default patterns execute `golangci-lint run --help`.

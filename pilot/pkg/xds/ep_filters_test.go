@@ -26,11 +26,12 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 type LbEpInfo struct {
@@ -231,7 +232,7 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{{
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
 			ClusterExternalAddresses: map[string][]string{
@@ -409,7 +410,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery := memory.NewServiceDiscovery([]*model.Service{{
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
 			ClusterExternalAddresses: map[string][]string{
@@ -575,8 +576,8 @@ func xdsConnection(network string) *XdsConnection {
 //  - 0 gateways for network4
 func environment() *model.Environment {
 	return &model.Environment{
-		ServiceDiscovery: memory.NewServiceDiscovery(nil),
-		IstioConfigStore: &fakes.IstioConfigStore{},
+		ServiceDiscovery: memregistry.NewServiceDiscovery(nil),
+		IstioConfigStore: model.MakeIstioStore(memory.Make(collections.Pilot)),
 		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{

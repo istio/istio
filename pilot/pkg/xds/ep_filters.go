@@ -18,6 +18,7 @@ import (
 	"net"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -60,7 +61,7 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 				len(push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
 				// Clone the endpoint so subsequent updates to the shared cache of
 				// service endpoints doesn't overwrite endpoints already in-flight.
-				clonedLbEp := util.CloneLbEndpoint(lbEp)
+				clonedLbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
 				clonedLbEp.LoadBalancingWeight = &wrappers.UInt32Value{
 					Value: uint32(multiples),
 				}

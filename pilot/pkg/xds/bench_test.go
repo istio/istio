@@ -25,6 +25,8 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
@@ -236,7 +238,7 @@ func routesFromListeners(ll []*listener.Listener) []string {
 	for _, l := range ll {
 		for _, fc := range l.FilterChains {
 			for _, filter := range fc.Filters {
-				if filter.Name == "envoy.hcmection_manager" {
+				if filter.Name == wellknown.HTTPConnectionManager {
 					filter.GetTypedConfig()
 					hcon := &hcm.HttpConnectionManager{}
 					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcon); err != nil {
@@ -266,8 +268,11 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
 			l := configgen.BuildListeners(&proxy, env.PushContext)
 			routeNames := routesFromListeners(l)
+			if len(routeNames) == 0 {
+				b.Fatal("Got no route names! ")
+			}
 			b.ResetTimer()
-			var response interface{}
+			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
 				r := configgen.BuildHTTPRoutes(&proxy, env.PushContext, routeNames)
 				response = routeDiscoveryResponse(r, "", "", v2.RouteType)
@@ -285,7 +290,10 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				c := configgen.BuildClusters(&proxy, env.PushContext)
-				response = cdsDiscoveryResponse(c, "", v2.ClusterType)
+				if len(c) == 0 {
+					b.Fatal("Got no clusters! ")
+				}
+				response = cdsDiscoveryResponse(c, "", ClusterType)
 			}
 			_ = response
 		})
@@ -300,7 +308,10 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				l := configgen.BuildListeners(&proxy, env.PushContext)
-				response = ldsDiscoveryResponse(l, "", "", v2.ListenerType)
+				if len(l) == 0 {
+					b.Fatal("Got no clusters! ")
+				}
+				response = ldsDiscoveryResponse(l, "", "", ListenerType)
 			}
 			_ = response
 		})
@@ -348,8 +359,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 						continue
 					}
 
-					clonedCLA := util.CloneClusterLoadAssignment(l)
-					l = &clonedCLA
+					l = util.CloneClusterLoadAssignment(l)
 
 					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh().LocalityLbSetting, true)
 					loadAssignments = append(loadAssignments, l)

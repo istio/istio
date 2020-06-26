@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,7 +29,9 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -816,15 +817,15 @@ func (s *Setup) generatePushSecret(conID, token string) *model.SecretItem {
 }
 
 func verifySDSSResponse(resp *discovery.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) error {
-	var pb authapi.Secret
+	pb := &authapi.Secret{}
 	if resp == nil {
 		return fmt.Errorf("response is nil")
 	}
-	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
+	if err := ptypes.UnmarshalAny(resp.Resources[0], pb); err != nil {
 		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
 	}
 
-	expectedResponseSecret := authapi.Secret{
+	expectedResponseSecret := &authapi.Secret{
 		Name: testResourceName,
 		Type: &authapi.Secret_TlsCertificate{
 			TlsCertificate: &authapi.TlsCertificate{
@@ -841,7 +842,7 @@ func verifySDSSResponse(resp *discovery.DiscoveryResponse, expectedPrivateKey []
 			},
 		},
 	}
-	if !reflect.DeepEqual(pb, expectedResponseSecret) {
+	if !cmp.Equal(pb, expectedResponseSecret, protocmp.Transform()) {
 		return fmt.Errorf("verification of SDS response failed: secret key: got %+v, want %+v",
 			pb, expectedResponseSecret)
 	}
@@ -849,12 +850,12 @@ func verifySDSSResponse(resp *discovery.DiscoveryResponse, expectedPrivateKey []
 }
 
 func verifySDSSResponseForRootCert(t *testing.T, resp *discovery.DiscoveryResponse, expectedRootCert []byte) {
-	var pb authapi.Secret
-	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
+	pb := &authapi.Secret{}
+	if err := ptypes.UnmarshalAny(resp.Resources[0], pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
 	}
 
-	expectedResponseSecret := authapi.Secret{
+	expectedResponseSecret := &authapi.Secret{
 		Name: "ROOTCA",
 		Type: &authapi.Secret_ValidationContext{
 			ValidationContext: &authapi.CertificateValidationContext{
@@ -866,7 +867,7 @@ func verifySDSSResponseForRootCert(t *testing.T, resp *discovery.DiscoveryRespon
 			},
 		},
 	}
-	if !reflect.DeepEqual(pb, expectedResponseSecret) {
+	if !cmp.Equal(pb, expectedResponseSecret, protocmp.Transform()) {
 		t.Errorf("secret key: got %+v, want %+v", pb, expectedResponseSecret)
 	}
 }

@@ -153,17 +153,17 @@ spec:
               memory: 128Mi
           env:
             - name: WATCH_NAMESPACE
-              value: istio-test-namespace
+              value: "istio-test-namespace1,istio-test-namespace2"
             - name: LEADER_ELECTION_NAMESPACE
-              value: operator-test-namespace
+              value: "operator-test-namespace"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: operator-test-namespace
+              value: "operator-test-namespace"
             - name: WAIT_FOR_RESOURCES_TIMEOUT
-              value: 300s
+              value: "300s"
 ---
 apiVersion: v1
 kind: Namespace

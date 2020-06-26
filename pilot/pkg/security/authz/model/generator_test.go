@@ -15,11 +15,12 @@
 package model
 
 import (
-	"reflect"
 	"testing"
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -270,7 +271,7 @@ func TestGenerator(t *testing.T) {
 					t.Errorf("both permission and principal returned error")
 				}
 			}
-			if !reflect.DeepEqual(got, tc.want) {
+			if diff := cmp.Diff(got, tc.want, protocmp.Transform()); diff != "" {
 				var gotYaml string
 				gotProto, ok := got.(proto.Message)
 				if !ok {

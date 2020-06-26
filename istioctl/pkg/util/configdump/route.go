@@ -107,7 +107,7 @@ func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
 		return nil, err
 	}
 	routeDump := &adminapi.RoutesConfigDump{}
-	err = ptypes.UnmarshalAny(&routeDumpAny, routeDump)
+	err = ptypes.UnmarshalAny(routeDumpAny, routeDump)
 	if err != nil {
 		return nil, err
 	}
