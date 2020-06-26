@@ -182,7 +182,7 @@ func TestIngress(t *testing.T) {
 					Pilot:     p,
 					Ports: []echo.Port{
 						{
-							Name:     "http",
+							Name:     "http-test-port",
 							Protocol: protocol.HTTP,
 							// We use a port > 1024 to not require root
 							InstancePort: 8090,
@@ -222,7 +222,11 @@ spec:
   rules:
     - http:
         paths:
-          - path: /
+          - path: /test/namedport
+            backend:
+              serviceName: server
+              servicePort: http-test-port
+          - path: /test
             backend:
               serviceName: server
               servicePort: 80`,
@@ -239,7 +243,7 @@ spec:
 					name: "http",
 					call: ingress.CallOptions{
 						Host:     "server",
-						Path:     "/",
+						Path:     "/test",
 						CallType: ingress.PlainText,
 						Address:  ingr.HTTPAddress(),
 					},
@@ -249,7 +253,7 @@ spec:
 					name: "https-foo",
 					call: ingress.CallOptions{
 						Host:     "foo.example.com",
-						Path:     "/",
+						Path:     "/test",
 						CallType: ingress.TLS,
 						Address:  ingr.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialA.CaCert,
@@ -260,111 +264,21 @@ spec:
 					name: "https-bar",
 					call: ingress.CallOptions{
 						Host:     "bar.example.com",
-						Path:     "/",
+						Path:     "/test",
 						CallType: ingress.TLS,
 						Address:  ingr.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialB.CaCert,
 					},
 				},
-			}
-			for _, tt := range cases {
-				ctx.NewSubTest(tt.name).Run(func(t framework.TestContext) {
-					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := ingr.Call(tt.call)
-						if err != nil {
-							return err
-						}
-						if resp.Code != 200 {
-							return fmt.Errorf("got invalid response code %v: %v", resp.Code, resp.Body)
-						}
-						return nil
-					}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Minute*2))
-				})
-			}
-		})
-}
-
-// TestIngress tests named-port is converted to the service port value
-func TestIngressWithNamedPort(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "ingress",
-				Inject: true,
-			})
-			var instance echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&instance, echo.Config{
-					Service:   "server",
-					Namespace: ns,
-					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
-					Ports: []echo.Port{
-						{
-							Name:         "http-svc-port",
-							Protocol:     protocol.HTTP,
-							InstancePort: 8090,
-						},
-					},
-				}).
-				BuildOrFail(t)
-			instance.Address()
-
-			credName := "k8s-ingress-secret-foo"
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA, false)
-			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName})
-
-			if err := ctx.ApplyConfig(ns.Name(), `
-apiVersion: networking.k8s.io/v1beta1
-kind: IngressClass
-metadata:
-  name: istio-test
-spec:
-  controller: istio.io/ingress-controller`, `
-apiVersion: networking.k8s.io/v1beta1
-kind: Ingress
-metadata:
-  name: ingress
-spec:
-  ingressClassName: istio-test
-  tls:
-  - hosts: ["foo.example.com"]
-    secretName: k8s-ingress-secret-foo
-  rules:
-    - http:
-        paths:
-          - path: /
-            backend:
-              serviceName: server
-              servicePort: http-svc-port`,
-			); err != nil {
-				t.Fatal(err)
-			}
-
-			cases := []struct {
-				name string
-				call ingress.CallOptions
-			}{
 				{
-					// Basic HTTP call
-					name: "http",
+					// HTTPS call for bar with namedport route. CaCert matches the secret
+					name: "https-namedport",
 					call: ingress.CallOptions{
-						Host:     "server",
-						Path:     "/",
-						CallType: ingress.PlainText,
-						Address:  ingr.HTTPAddress(),
-					},
-				},
-				{
-					// Basic HTTPS call for foo. CaCert matches the secret
-					name: "https-foo",
-					call: ingress.CallOptions{
-						Host:     "foo.example.com",
-						Path:     "/",
+						Host:     "bar.example.com",
+						Path:     "/test/namedport",
 						CallType: ingress.TLS,
 						Address:  ingr.HTTPSAddress(),
-						CaCert:   ingressutil.IngressCredentialA.CaCert,
+						CaCert:   ingressutil.IngressCredentialB.CaCert,
 					},
 				},
 			}

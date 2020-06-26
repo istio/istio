@@ -629,9 +629,7 @@ pilot_ingress,TestIngress
 pilot_ingress,TestIngress/http
 pilot_ingress,TestIngress/https-bar
 pilot_ingress,TestIngress/https-foo
-pilot_ingress,TestIngressWithNamedPort
-pilot_ingress,TestIngressWithNamedPort/http
-pilot_ingress,TestIngressWithNamedPort/https-foo
+pilot_ingress,TestIngress/https-namedport
 pilot_locality,TestDistribute
 pilot_locality,TestFailover
 pilot_locality,TestFailover/CDS
