@@ -156,7 +156,7 @@ func NewSuite(m *testing.M) Suite {
 		getSettings)
 }
 
-func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) Suite {
+func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *suiteImpl {
 	s := &suiteImpl{
 		testID:      testID,
 		mRun:        fn,
