@@ -535,7 +535,7 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
 	if node.Metadata != nil && node.Metadata.ClusterID != "" && s.ClusterVIPs[node.Metadata.ClusterID] != "" {
-			return s.ClusterVIPs[node.Metadata.ClusterID]
+		return s.ClusterVIPs[node.Metadata.ClusterID]
 	}
 	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
 		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
