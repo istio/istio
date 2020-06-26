@@ -142,7 +142,7 @@ type Accessor interface {
 	Delete(namespace string, filename string) error
 
 	// Patch a given deployment using kubectl
-	PatchDeployment(namespace string, deployment string, contents string, pt types.PatchType) error
+	PatchDeployment(namespace string, deployment string, contents string) error
 
 	// Logs calls the logs command for the specified pod, with -c, if container is specified.
 	Logs(namespace string, pod string, container string, previousLog bool) (string, error)
@@ -447,7 +447,7 @@ func (a *accessorImpl) DeleteUnstructured(gvr schema.GroupVersionResource, names
 }
 
 // PatchDeployment patches a deployment with the specificed yaml
-func (a *accessorImpl) PatchDeployment(namespace string, deployment string, contents string, pt types.PatchType) error {
+func (a *accessorImpl) PatchDeployment(namespace string, deployment string, contents string) error {
 	patchOptions := kubeApiMeta.PatchOptions{
 		FieldManager: "istio-ci",
 		TypeMeta: kubeApiMeta.TypeMeta{
@@ -455,7 +455,7 @@ func (a *accessorImpl) PatchDeployment(namespace string, deployment string, cont
 			APIVersion: "apps/v1",
 		},
 	}
-	if _, err := a.AppsV1().Deployments(namespace).Patch(context.TODO(), deployment, pt, []byte(contents), patchOptions); err != nil {
+	if _, err := a.AppsV1().Deployments(namespace).Patch(context.TODO(), deployment, types.ApplyPatchType, []byte(contents), patchOptions); err != nil {
 		return fmt.Errorf("failed patch deployment %s: %v", deployment, err)
 	}
 

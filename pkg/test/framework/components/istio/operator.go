@@ -37,8 +37,6 @@ import (
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/env"
@@ -303,7 +301,7 @@ spec:
         env:
         - name: ISTIOD_CUSTOM_HOST
           value: %s
-`, remoteIstiodAddress.IP.String()), types.ApplyPatchType); err != nil {
+`, remoteIstiodAddress.IP.String())); err != nil {
 		return fmt.Errorf("failed to patch istiod with ISTIOD_CUSTOM_HOST: %v", err)
 	}
 	return nil
