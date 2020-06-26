@@ -122,9 +122,3 @@ const (
 const (
 	ValidationErrorCode = 126
 )
-
-// DNS ports
-const (
-	EnvoyDNSListenerPort      = "15013"
-	IstioAgentDNSListenerPort = "15053"
-)

@@ -491,9 +491,6 @@ type NodeMetadata struct {
 	// Generator indicates the client wants to use a custom Generator plugin.
 	Generator string `json:"GENERATOR,omitempty"`
 
-	// DNSCapture indicates whether the workload has enabled dns capture
-	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
-
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`
@@ -951,7 +948,3 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 
 	return InterceptionRedirect
 }
-
-// SidecarDNSListenerPort specifes the port at which the sidecar hosts a DNS resolver listener.
-// TODO: customize me. tools/istio-iptables package also has this hardcoded.
-const SidecarDNSListenerPort = 15013

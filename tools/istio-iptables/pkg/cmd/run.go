@@ -441,7 +441,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
 	}
 
-	if dnsCaptureByAgent.Get() != "" || dnsCaptureByEnvoy.Get() != "" {
+	if dnsVar.Get() != "" {
 		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
 			// TODO: add ip6 as well
 			if gid != "0" { // not clear why gid 0 would be excluded - istio-proxy is not running as 0
@@ -449,14 +449,10 @@ func (iptConfigurator *IptablesConfigurator) run() {
 					"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 			}
 		}
-		targetPort := constants.EnvoyDNSListenerPort
-		if dnsCaptureByAgent.Get() != "" {
-			targetPort = constants.IstioAgentDNSListenerPort
-		}
 		// TODO: also capture TCP 53
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
 			"-p", "udp", "--dport", "53",
-			"-j", "REDIRECT", "--to-ports", targetPort)
+			"-j", "REDIRECT", "--to-ports", "15013")
 	}
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 		// mark outgoing packets from 127.0.0.1/32 with 1337, match it to policy routing entry setup for TPROXY mode
