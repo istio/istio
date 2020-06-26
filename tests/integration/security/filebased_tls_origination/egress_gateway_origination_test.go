@@ -18,11 +18,12 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	kube2 "istio.io/istio/pkg/test/kube"
 	"path"
 	"reflect"
 	"testing"
 	"time"
+
+	kube2 "istio.io/istio/pkg/test/kube"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -319,7 +320,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		}).
 		BuildOrFail(t)
 
-	if err := mountCACerts(t,ctx); err != nil {
+	if err := mountCACerts(t, ctx); err != nil {
 		t.Fatalf("failed to apply gateway patch, %v", err)
 	}
 
@@ -518,7 +519,7 @@ func mountCACerts(t *testing.T, ctx resource.Context) error {
 
 	// Wait until egress gw has been successfully patched
 	retry.UntilSuccessOrFail(t, func() error {
-		_, err = kubeAccessor.CheckPodsAreReady(kube2.NewPodFetch(kubeAccessor,systemNs.Name(), "app=istio-egressgateway"))
+		_, err = kubeAccessor.CheckPodsAreReady(kube2.NewPodFetch(kubeAccessor, systemNs.Name(), "app=istio-egressgateway"))
 		return err
 	}, retry.Delay(time.Millisecond*500), retry.Timeout(time.Second*40))
 
