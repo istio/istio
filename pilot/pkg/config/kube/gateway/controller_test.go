@@ -49,7 +49,7 @@ var (
 	httpRouteSpec = &svc.HTTPRouteSpec{
 		Hosts: []svc.HTTPRouteHost{
 			{
-				Hostname: "test.cluster.local",
+				Hostnames: []string{"test.cluster.local"},
 			},
 		},
 	}
@@ -183,7 +183,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 	g.Expect(cfg).To(HaveLen(1))
 	for _, c := range cfg {
 		g.Expect(c.GroupVersionKind).To(Equal(gvk.VirtualService))
-		g.Expect(c.Name).To(Equal("test-cluster-local-http-route-" + constants.KubernetesGatewayName))
+		g.Expect(c.Name).To(Equal("http-route-0-" + constants.KubernetesGatewayName))
 		g.Expect(c.Namespace).To(Equal("ns1"))
 		g.Expect(c.Spec).To(Equal(expectedvs))
 	}
