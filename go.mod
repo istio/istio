@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.13
+go 1.14
 
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 
@@ -161,7 +161,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
 	helm.sh/helm/v3 v3.2.0
-	istio.io/api v0.0.0-20200625200314-bac02847c81b
+	istio.io/api v0.0.0-20200626013408-6e8e32f7acc2
 	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
 	istio.io/pkg v0.0.0-20200504224939-261164cc57da
 	k8s.io/api v0.18.3

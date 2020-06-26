@@ -30,7 +30,7 @@ import (
 	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/security/pkg/nodeagent/util"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -88,7 +88,7 @@ type sdsConnection struct {
 	pushChannel chan *sdsEvent
 
 	// SDS streams implement this interface.
-	stream v2.DiscoveryStream
+	stream xds.DiscoveryStream
 
 	// The secret associated with the proxy.
 	secret *model.SecretItem
@@ -674,7 +674,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, resourceName, typeURL string) (*d
 	return resp, nil
 }
 
-func newSDSConnection(stream v2.DiscoveryStream) *sdsConnection {
+func newSDSConnection(stream xds.DiscoveryStream) *sdsConnection {
 	return &sdsConnection{
 		pushChannel: make(chan *sdsEvent, 1),
 		Connect:     time.Now(),

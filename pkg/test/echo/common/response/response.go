@@ -24,6 +24,7 @@ var (
 	StatusUnauthorized    = strconv.Itoa(http.StatusUnauthorized)
 	StatusCodeForbidden   = strconv.Itoa(http.StatusForbidden)
 	StatusCodeUnavailable = strconv.Itoa(http.StatusServiceUnavailable)
+	StatusCodeBadRequest  = strconv.Itoa(http.StatusBadRequest)
 )
 
 // Field is a list of fields returned in responses from the Echo server.
