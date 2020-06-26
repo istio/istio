@@ -16,9 +16,11 @@ package istioagent
 
 import (
 	"net"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
@@ -96,6 +98,7 @@ func (sa *Agent) initXDS() {
 	}
 	sa.localGrpcServer = grpc.NewServer()
 	s.DiscoveryServer.Register(sa.localGrpcServer)
+	reflection.Register(sa.localGrpcServer)
 	sa.LocalXDSListener = sa.localListener
 
 }
@@ -109,12 +112,19 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.Sec
 	if sa.cfg.LocalXDSAddr == "" {
 		return nil
 	}
+	// Same as getPilotSan
+	discHost := strings.Split(proxyConfig.DiscoveryAddress, ":")[0]
+	if discHost == "localhost" {
+		discHost = "istiod.istio-system.svc"
+	}
+
 	cfg := &adsc.Config{
-		XDSSAN:          sa.XDSSAN,
+		XDSSAN:          discHost,
 		ResponseHandler: sa.proxyGen,
 	}
 	if sa.RequireCerts {
 		cfg.Secrets = secrets
+		cfg.JWTPath = sa.cfg.JWTPath
 	}
 	ads, err := adsc.New(proxyConfig, cfg)
 	if err != nil {
