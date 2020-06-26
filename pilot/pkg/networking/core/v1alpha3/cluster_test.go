@@ -617,12 +617,15 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 			tlsContext := getTLSContext(t, c)
 			g.Expect(tlsContext).NotTo(BeNil())
 
-			tlsCerts := tlsContext.CommonTlsContext.TlsCertificates
-			g.Expect(tlsCerts).To(HaveLen(1))
+			rootSdsConfig := tlsContext.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig()
 
-			g.Expect(tlsCerts[0].PrivateKey.GetFilename()).To(Equal(expectedClientKeyPath))
-			g.Expect(tlsCerts[0].CertificateChain.GetFilename()).To(Equal(expectedClientCertPath))
-			g.Expect(tlsContext.CommonTlsContext.GetValidationContext().TrustedCa.GetFilename()).To(Equal(expectedRootCertPath))
+			g.Expect(rootSdsConfig.GetName()).To(Equal(""))
+
+			certSdsConfig := tlsContext.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()
+
+			g.Expect(certSdsConfig).To(HaveLen(1))
+
+			g.Expect(certSdsConfig[0].GetName()).To(Equal(""))
 		}
 	}
 	g.Expect(actualOutboundClusterCount).To(Equal(expectedOutboundClusterCount))
@@ -2202,11 +2205,16 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		AllowMetadata: true,
 	}
 
+	expectedNodeMetadataClientKeyPath := "/clientKeyFromNodeMetadata.pem"
+	expectedNodeMetadataClientCertPath := "/clientCertFromNodeMetadata.pem"
+	expectedNodeMetadataRootCertPath := "/clientRootCertFromNodeMetadata.pem"
+
 	tests := []struct {
-		name          string
-		mtlsCtx       mtlsContextType
-		discoveryType cluster.Cluster_DiscoveryType
-		tls           *networking.ClientTLSSettings
+		name           string
+		mtlsCtx        mtlsContextType
+		discoveryType  cluster.Cluster_DiscoveryType
+		tls            *networking.ClientTLSSettings
+		customMetadata *model.NodeMetadata
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
@@ -2294,12 +2302,39 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			name:                       "user specified mutual tls",
 			mtlsCtx:                    userSupplied,
 			discoveryType:              cluster.Cluster_EDS,
+			customMetadata:             nil,
 			tls:                        mutualTLSSettingsWithCerts,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
 				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
 				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettingsWithCerts.ClientCertificate, mutualTLSSettingsWithCerts.PrivateKey)
+				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
+					t.Fatalf("expected root name %v got %v", rootName, got)
+				}
+				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
+					t.Fatalf("expected cert name %v got %v", certName, got)
+				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); got != nil {
+					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
+				}
+			},
+		},
+		{
+			name:          "user specified mutual tls with overridden certs from node metadata",
+			mtlsCtx:       userSupplied,
+			discoveryType: cluster.Cluster_EDS,
+			tls:           mutualTLSSettingsWithCerts,
+			customMetadata: &model.NodeMetadata{
+				TLSClientCertChain: expectedNodeMetadataClientCertPath,
+				TLSClientKey:       expectedNodeMetadataClientKeyPath,
+				TLSClientRootCert:  expectedNodeMetadataRootCertPath,
+			},
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				rootName := "file-root:" + expectedNodeMetadataRootCertPath
+				certName := fmt.Sprintf("file-cert:%s~%s", expectedNodeMetadataClientCertPath, expectedNodeMetadataClientKeyPath)
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
 					t.Fatalf("expected root name %v got %v", rootName, got)
 				}
@@ -2319,6 +2354,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			mtlsCtx:                    userSupplied,
 			discoveryType:              cluster.Cluster_EDS,
 			tls:                        mutualTLSSettingsWithCerts,
+			customMetadata:             nil,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			http2ProtocolOptions:       http2ProtocolOptions,
@@ -2344,6 +2380,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_EDS,
 			tls:                        tlsSettings,
+			customMetadata:             nil,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
@@ -2357,6 +2394,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_EDS,
 			tls:                        tlsSettings,
+			customMetadata:             nil,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
 			http2ProtocolOptions:       http2ProtocolOptions,
@@ -2371,6 +2409,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_ORIGINAL_DST,
 			tls:                        tlsSettings,
+			customMetadata:             nil,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 		},
@@ -2385,6 +2424,11 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 	push.Mesh = &meshconfig.MeshConfig{SdsUdsPath: "foo"}
 
 	for _, test := range tests {
+		if test.customMetadata != nil {
+			proxy.Metadata = test.customMetadata
+		} else {
+			proxy.Metadata = &model.NodeMetadata{}
+		}
 		t.Run(test.name, func(t *testing.T) {
 			opts := &buildClusterOpts{
 				cluster: &cluster.Cluster{

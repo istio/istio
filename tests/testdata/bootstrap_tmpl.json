@@ -304,6 +304,27 @@
     ],
     "clusters": [
       {
+        "name": "sds-grpc",
+        "type": "STATIC",
+        "http2_protocol_options": {},
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "load_assignment": {
+          "cluster_name": "sds-grpc",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "pipe": {
+                    "path": "./etc/istio/proxy/SDS"
+                  }
+                }
+              }
+            }]
+          }]
+        }
+      },
+      {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
         "connect_timeout": {
@@ -311,6 +332,45 @@
           "nanos": 0
         },
         "lb_policy": "ROUND_ROBIN",
+        "transport_socket": {
+          "name": "envoy.transport_sockets.tls",
+          "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
+            "common_tls_context": {
+              "alpn_protocols": [
+                "h2"
+              ],
+              "tls_certificate_sds_secret_configs": [
+                {
+                  "name": "default",
+                  "sds_config": {
+                    "api_config_source": {
+                      "api_type": "GRPC",
+                      "transport_api_version": "V3",
+                      "grpc_services": [
+                        {
+                          "envoy_grpc": { "cluster_name": "sds-grpc" }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "validation_context": {
+                "trusted_ca": {
+                  {{- if .provisioned_cert }}
+                  "filename": "{{(printf "%s%s" .provisioned_cert "/root-cert.pem") }}"
+                  {{- else if eq .pilot_cert_provider "kubernetes" }}
+                  "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+                  {{- else if eq .pilot_cert_provider "istiod" }}
+                  "filename": "./var/run/secrets/istio/root-cert.pem"
+                  {{- end }}
+                },
+                "match_subject_alt_names": {{ .pilot_SAN }}
+              }
+            }
+          }
+        },
         "hosts": [
           {
             "socket_address": {

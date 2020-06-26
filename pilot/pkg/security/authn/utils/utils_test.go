@@ -43,25 +43,45 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	tlsContext := func(alpnProtocols []string) *auth.DownstreamTlsContext {
 		return &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/cert-chain.pem",
+						Name: "default",
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType: core.ApiConfigSource_GRPC,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+											},
+										},
+									},
+								},
 							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/key.pem",
-							},
+							InitialFetchTimeout: features.InitialFetchTimeout,
 						},
 					},
 				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/root-cert.pem",
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "ROOTCA",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+												},
+											},
+										},
+									},
+								},
+								InitialFetchTimeout: features.InitialFetchTimeout,
 							},
 						},
 					},
@@ -86,7 +106,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		{
 			name: "MTLSUnknown",
 			args: args{
-				mTLSMode: model.MTLSUnknown,
+				mTLSMode:   model.MTLSUnknown,
+				sdsUdsPath: "/tmp/sdsuds.sock",
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -98,7 +119,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		{
 			name: "MTLSDisable",
 			args: args{
-				mTLSMode: model.MTLSDisable,
+				mTLSMode:   model.MTLSDisable,
+				sdsUdsPath: "/tmp/sdsuds.sock",
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -109,7 +131,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		{
 			name: "MTLSStrict",
 			args: args{
-				mTLSMode: model.MTLSStrict,
+				mTLSMode:   model.MTLSStrict,
+				sdsUdsPath: "/tmp/sdsuds.sock",
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -124,7 +147,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		{
 			name: "MTLSPermissive",
 			args: args{
-				mTLSMode: model.MTLSPermissive,
+				mTLSMode:   model.MTLSPermissive,
+				sdsUdsPath: "/tmp/sdsuds.sock",
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
@@ -211,25 +235,10 @@ func TestBuildInboundFilterChain(t *testing.T) {
 			},
 		},
 		{
-			name: "MTLSStrict using SDS without node meta",
+			name: "MTLSStrict with custom cert paths from proxy node metadata",
 			args: args{
 				mTLSMode:   model.MTLSStrict,
 				sdsUdsPath: "/tmp/sdsuds.sock",
-				node: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-				},
-				listenerProtocol: networking.ListenerProtocolHTTP,
-			},
-			want: []networking.FilterChain{
-				{
-					TLSContext: tlsContext([]string{"h2", "http/1.1"}),
-				},
-			},
-		},
-		{
-			name: "MTLSStrict with custom cert paths from proxy node metadata",
-			args: args{
-				mTLSMode: model.MTLSStrict,
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{
 						TLSServerCertChain: "/custom/path/to/cert-chain.pem",
@@ -244,25 +253,45 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
-							TlsCertificates: []*auth.TlsCertificate{
+							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 								{
-									CertificateChain: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/custom/path/to/cert-chain.pem",
+									Name: "file-cert:/custom/path/to/cert-chain.pem~/custom-key.pem",
+									SdsConfig: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType: core.ApiConfigSource_GRPC,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+														},
+													},
+												},
+											},
 										},
-									},
-									PrivateKey: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/custom-key.pem",
-										},
+										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
 							},
-							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-								ValidationContext: &auth.CertificateValidationContext{
-									TrustedCa: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/custom/path/to/root.pem",
+							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+									DefaultValidationContext: &auth.CertificateValidationContext{},
+									ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+										Name: "file-root:/custom/path/to/root.pem",
+										SdsConfig: &core.ConfigSource{
+											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+												ApiConfigSource: &core.ApiConfigSource{
+													ApiType: core.ApiConfigSource_GRPC,
+													GrpcServices: []*core.GrpcService{
+														{
+															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+																EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+															},
+														},
+													},
+												},
+											},
+											InitialFetchTimeout: features.InitialFetchTimeout,
 										},
 									},
 								},
