@@ -529,13 +529,9 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
-// to avoid circular deps
-const kubernetesRegistry = "Kubernetes"
-
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
-	if s.Attributes.ServiceRegistry == kubernetesRegistry &&
-		node.Metadata != nil && node.Metadata.ClusterID != "" {
+	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		// restrict lock to only k8s services to reduce unnecessary locking
 		s.Mutex.RLock()
 		if s.ClusterVIPs[node.Metadata.ClusterID] != "" {

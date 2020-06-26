@@ -1108,7 +1108,7 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:             "foo.com",
 					Resolution:           model.ClientSideLB,
 					Address:              "0.0.0.0",
-					AutoAllocatedAddress: "127.244.0.1",
+					AutoAllocatedAddress: "240.240.0.1",
 				},
 			},
 		},
@@ -1126,7 +1126,7 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:             "foo.com",
 					Resolution:           model.DNSLB,
 					Address:              "0.0.0.0",
-					AutoAllocatedAddress: "127.244.0.1",
+					AutoAllocatedAddress: "240.240.0.1",
 				},
 			},
 		},
@@ -1153,22 +1153,22 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	gotServices := autoAllocateIPs(inServices)
 
 	// out of the 512 IPs, we dont expect the following IPs
-	// 127.244.0.0
-	// 127.244.0.255
-	// 127.244.1.0
-	// 127.244.1.255
-	// 127.244.2.0
-	// 127.244.2.255
-	// The last IP should be 127.244.2.4
+	// 240.240.0.0
+	// 240.240.0.255
+	// 240.240.1.0
+	// 240.240.1.255
+	// 240.240.2.0
+	// 240.240.2.255
+	// The last IP should be 240.240.2.4
 	doNotWant := map[string]bool{
-		"127.244.0.0":   true,
-		"127.244.0.255": true,
-		"127.244.1.0":   true,
-		"127.244.1.255": true,
-		"127.244.2.0":   true,
-		"127.244.2.255": true,
+		"240.240.0.0":   true,
+		"240.240.0.255": true,
+		"240.240.1.0":   true,
+		"240.240.1.255": true,
+		"240.240.2.0":   true,
+		"240.240.2.255": true,
 	}
-	expectedLastIP := "127.244.2.4"
+	expectedLastIP := "240.240.2.4"
 	if gotServices[len(gotServices)-1].AutoAllocatedAddress != expectedLastIP {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedAddress)
 	}

@@ -684,17 +684,17 @@ func selectorChanged(old, curr model.Config) bool {
 
 // automatically allocates IPs for service entry services without an address field
 // if the hostname is not a wildcard, or when resolution is not NONE. The IPs are allocated
-// from the 127.244.0.0 subnet that is not reachable outside the pod. When DNS capture is
+// from the 240.240.0.0 subnet that is not reachable outside the pod. When DNS capture is
 // enabled, Envoy will resolve the DNS to these IPs. The listeners for TCP services will also
 // be set up on these IPs.
 func autoAllocateIPs(services []*model.Service) []*model.Service {
-	// i is everything from 127.244.0.(j) to 127.244.255.(j)
-	// j is everything from 127.244.(i).1 to 127.244.(i).254
+	// i is everything from 240.240.0.(j) to 240.240.255.(j)
+	// j is everything from 240.240.(i).1 to 240.240.(i).254
 	// we can capture this in one integer variable.
 	// given X, we can compute i by X/255, and j is X%255
-	// To avoid allocating 127.244.(i).255, if X % 255 is 0, increment X.
-	// For example, when X=510, the resulting IP would be 127.244.2.0 (invalid)
-	// So we bump X to 511, so that the resulting IP is 127.244.2.1
+	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
+	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
+	// So we bump X to 511, so that the resulting IP is 240.240.2.1
 	maxIPs := 255 * 255 // are we going to exceeed this limit by processing 64K services?
 	x := 0
 	for _, svc := range services {
@@ -715,7 +715,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			}
 			thirdOctet := x / 255
 			fourthOctet := x % 255
-			svc.AutoAllocatedAddress = fmt.Sprintf("127.244.%d.%d", thirdOctet, fourthOctet)
+			svc.AutoAllocatedAddress = fmt.Sprintf("240.240.%d.%d", thirdOctet, fourthOctet)
 		}
 	}
 	return services

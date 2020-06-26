@@ -106,7 +106,8 @@ var (
 	// Not using a bool - it's error prone in template, annotations, helm.
 	// For now any non-empty value will enable TLS in the agent - we may further customize
 	// the mode, for example specify DNS-HTTPS vs DNS-TLS
-	DNSTLSEnableAgent = env.RegisterStringVar("DNS_AGENT", "", "If set, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
+	DNSTLSEnableAgent = env.RegisterStringVar("DNS_AGENT", "", "If set, enable the " +
+		"capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 
 	// DNSUpstream allows overriding the upstream server. By default we use [discovery-address]:853
 	// If a secure DNS server is available - set this to point to the server.

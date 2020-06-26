@@ -85,6 +85,7 @@ func TestRulesWithIpRange(t *testing.T) {
 	cfg.OutboundIPRangesInclude = "9.9.0.0/16"
 	cfg.DryRun = true
 	dnsCaptureByEnvoy.DefaultValue = "ALL"
+	dnsCaptureByAgent.DefaultValue = ""
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -568,6 +569,7 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 	cfg := constructConfig()
 	cfg.DryRun = true
+	dnsCaptureByEnvoy.DefaultValue = ""
 	dnsCaptureByAgent.DefaultValue = "ALL"
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
@@ -598,7 +600,7 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 15013",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 15053",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -633,6 +635,7 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 	cfg.OutboundIPRangesInclude = "127.1.2.3/32"
 	cfg.DryRun = true
 	dnsCaptureByEnvoy.DefaultValue = "ALL"
+	dnsCaptureByAgent.DefaultValue = ""
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
