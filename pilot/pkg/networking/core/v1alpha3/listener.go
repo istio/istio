@@ -102,9 +102,6 @@ const (
 	// virtualInboundCatchAllHTTPFilterChainName is the name of the catch all http filter chain
 	virtualInboundCatchAllHTTPFilterChainName = "virtualInbound-catchall-http"
 
-	// dnsListenerName is the name for the DNS resolver listener
-	dnsListenerName = "dns"
-
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
 
@@ -457,8 +454,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushCont
 			buildSidecarOutboundListeners(configgen).
 			buildHTTPProxyListener(configgen).
 			buildVirtualOutboundListener(configgen).
-			buildVirtualInboundListener(configgen).
-			buildSidecarDNSListener(configgen)
+			buildVirtualInboundListener(configgen)
 	}
 
 	return builder
@@ -1099,7 +1095,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 						// Standard logic for headless and non headless services
 						if features.EnableThriftFilter &&
 							servicePort.Protocol.IsThrift() {
-							listenerOpts.bind = service.GetServiceAddressForProxy(node)
+							listenerOpts.bind = service.Address
 						}
 						configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 							virtualServices, actualWildcard)
