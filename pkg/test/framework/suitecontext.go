@@ -236,7 +236,7 @@ type TestOutcome struct {
 	FeatureLabels map[features.Feature][]string
 }
 
-func (s *suiteContext) registerOutcome(test *Test) {
+func (s *suiteContext) registerOutcome(test *testImpl) {
 	s.outcomeMu.Lock()
 	defer s.outcomeMu.Unlock()
 	o := Passed

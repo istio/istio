@@ -77,7 +77,31 @@ type getSettingsFunc func(string) (*resource.Settings, error)
 type mRunFn func(ctx *suiteContext) int
 
 // Suite allows the test author to specify suite-related metadata and do setup in a fluent-style, before commencing execution.
-type Suite struct {
+type Suite interface {
+	// EnvironmentFactory sets a custom function used for creating the resource.Environment for this Suite.
+	EnvironmentFactory(fn resource.EnvironmentFactory) Suite
+	// Label all the tests in suite with the given labels
+	Label(labels ...label.Instance) Suite
+	// Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
+	Skip(reason string) Suite
+	// RequireMinClusters ensures that the current environment contains at least the given number of clusters.
+	// Otherwise it stops test execution.
+	RequireMinClusters(minClusters int) Suite
+	// RequireMaxClusters ensures that the current environment contains at least the given number of clusters.
+	// Otherwise it stops test execution.
+	RequireMaxClusters(maxClusters int) Suite
+	// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
+	RequireSingleCluster() Suite
+	// RequireEnvironmentVersion validates the environment meets a minimum version
+	RequireEnvironmentVersion(version string) Suite
+	// Setup runs enqueues the given setup function to run before test execution.
+	Setup(fn resource.SetupFn) Suite
+	// Run the suite. This method calls os.Exit and does not return.
+	Run()
+}
+
+// suiteImpl will actually run the test suite
+type suiteImpl struct {
 	testID      string
 	skipMessage string
 	mRun        mRunFn
@@ -111,7 +135,7 @@ func deriveSuiteName(caller string) string {
 }
 
 // NewSuite returns a new suite instance.
-func NewSuite(m *testing.M) *Suite {
+func NewSuite(m *testing.M) Suite {
 	_, f, _, _ := goruntime.Caller(1)
 	return newSuite(deriveSuiteName(f),
 		func(_ *suiteContext) int {
@@ -121,8 +145,8 @@ func NewSuite(m *testing.M) *Suite {
 		getSettings)
 }
 
-func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *Suite {
-	s := &Suite{
+func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) Suite {
+	s := &suiteImpl{
 		testID:      testID,
 		mRun:        fn,
 		osExit:      osExit,
@@ -133,8 +157,7 @@ func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSetti
 	return s
 }
 
-// EnvironmentFactory sets a custom function used for creating the resource.Environment for this Suite.
-func (s *Suite) EnvironmentFactory(fn resource.EnvironmentFactory) *Suite {
+func (s *suiteImpl) EnvironmentFactory(fn resource.EnvironmentFactory) Suite {
 	if fn != nil && s.envFactory != nil {
 		scopes.Framework.Warn("EnvironmentFactory overridden multiple times for Suite")
 	}
@@ -142,21 +165,17 @@ func (s *Suite) EnvironmentFactory(fn resource.EnvironmentFactory) *Suite {
 	return s
 }
 
-// Label all the tests in suite with the given labels
-func (s *Suite) Label(labels ...label.Instance) *Suite {
+func (s *suiteImpl) Label(labels ...label.Instance) Suite {
 	s.labels = s.labels.Add(labels...)
 	return s
 }
 
-// Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
-func (s *Suite) Skip(reason string) *Suite {
+func (s *suiteImpl) Skip(reason string) Suite {
 	s.skipMessage = reason
 	return s
 }
 
-// RequireMinClusters ensures that the current environment contains at least the given number of clusters.
-// Otherwise it stops test execution.
-func (s *Suite) RequireMinClusters(minClusters int) *Suite {
+func (s *suiteImpl) RequireMinClusters(minClusters int) Suite {
 	if minClusters <= 0 {
 		minClusters = 1
 	}
@@ -173,9 +192,7 @@ func (s *Suite) RequireMinClusters(minClusters int) *Suite {
 	return s
 }
 
-// RequireMaxClusters ensures that the current environment contains at least the given number of clusters.
-// Otherwise it stops test execution.
-func (s *Suite) RequireMaxClusters(maxClusters int) *Suite {
+func (s *suiteImpl) RequireMaxClusters(maxClusters int) Suite {
 	if maxClusters <= 0 {
 		maxClusters = 1
 	}
@@ -192,13 +209,11 @@ func (s *Suite) RequireMaxClusters(maxClusters int) *Suite {
 	return s
 }
 
-// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
-func (s *Suite) RequireSingleCluster() *Suite {
+func (s *suiteImpl) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
-// RequireEnvironmentVersion validates the environment meets a minimum version
-func (s *Suite) RequireEnvironmentVersion(version string) *Suite {
+func (s *suiteImpl) RequireEnvironmentVersion(version string) Suite {
 	fn := func(ctx resource.Context) error {
 		if environmentName(ctx) == environment.Kube {
 			kenv := ctx.Environment().(*kube.Environment)
@@ -219,13 +234,12 @@ func (s *Suite) RequireEnvironmentVersion(version string) *Suite {
 	return s
 }
 
-// Setup runs enqueues the given setup function to run before test execution.
-func (s *Suite) Setup(fn resource.SetupFn) *Suite {
+func (s *suiteImpl) Setup(fn resource.SetupFn) Suite {
 	s.setupFns = append(s.setupFns, fn)
 	return s
 }
 
-func (s *Suite) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error) {
+func (s *suiteImpl) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error) {
 	defer func() {
 		// Dump if the setup function fails
 		if err != nil && ctx.Settings().CIMode {
@@ -236,16 +250,15 @@ func (s *Suite) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error) {
 	return
 }
 
-// Run the suite. This method calls os.Exit and does not return.
-func (s *Suite) Run() {
+func (s *suiteImpl) Run() {
 	s.osExit(s.run())
 }
 
-func (s *Suite) isSkipped() bool {
+func (s *suiteImpl) isSkipped() bool {
 	return s.skipMessage != ""
 }
 
-func (s *Suite) doSkip(ctx *suiteContext) int {
+func (s *suiteImpl) doSkip(ctx *suiteContext) int {
 	scopes.Framework.Infof("Skipping suite %q: %s", ctx.Settings().TestID, s.skipMessage)
 
 	// Mark this suite as skipped in the context.
@@ -259,7 +272,7 @@ func (s *Suite) doSkip(ctx *suiteContext) int {
 	return 0
 }
 
-func (s *Suite) run() (errLevel int) {
+func (s *suiteImpl) run() (errLevel int) {
 	if err := initRuntime(s); err != nil {
 		scopes.Framework.Errorf("Error during test framework init: %v", err)
 		return exitCodeInitError
@@ -363,7 +376,7 @@ func clusters(ctx resource.Context) []resource.Cluster {
 	return nil
 }
 
-func (s *Suite) writeOutput() {
+func (s *suiteImpl) writeOutput() {
 	// the ARTIFACTS env var is set by prow, and uploaded to GCS as part of the job artifact
 	artifactsPath := os.Getenv("ARTIFACTS")
 	if artifactsPath != "" {
@@ -387,7 +400,7 @@ func (s *Suite) writeOutput() {
 	}
 }
 
-func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
+func (s *suiteImpl) runSetupFns(ctx SuiteContext) (err error) {
 	scopes.Framework.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
 
 	// Run all the require functions first, then the setup functions.
@@ -411,7 +424,7 @@ func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 	return nil
 }
 
-func initRuntime(s *Suite) error {
+func initRuntime(s *suiteImpl) error {
 	rtMu.Lock()
 	defer rtMu.Unlock()
 
