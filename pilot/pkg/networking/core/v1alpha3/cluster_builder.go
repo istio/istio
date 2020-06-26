@@ -138,7 +138,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 			applyTrafficPolicy(opts)
 		}
 
-		maybeApplyEdsConfig(subsetCluster, cb.proxy.Active[v3.ClusterShortType].TypeUrl)
+		maybeApplyEdsConfig(subsetCluster, clusterType)
 
 		subsetCluster.Metadata = util.AddSubsetToMetadata(clusterMetadata, subset.Name)
 		subsetClusters = append(subsetClusters, subsetCluster)
