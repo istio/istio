@@ -17,7 +17,6 @@
 package ingress
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -25,9 +24,6 @@ import (
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/informers/networking/v1beta1"
 
@@ -35,6 +31,7 @@ import (
 
 	ingress "k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -49,7 +46,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -91,11 +87,14 @@ type controller struct {
 
 	client                 kubernetes.Interface
 	queue                  queue.Instance
-	informer               cache.SharedIndexInformer
+	ingressInformer        cache.SharedIndexInformer
 	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
 	gatewayHandlers        []func(model.Config, model.Config, model.Event)
 	// May be nil if ingress class is not supported in the cluster
 	classes *v1beta1.IngressClassInformer
+
+	serviceInformer cache.SharedIndexInformer
+	serviceLister   listerv1.ServiceLister
 }
 
 var (
@@ -131,22 +130,13 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
-	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
+	sharedInformerFactory := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod,
+		informers.WithNamespace(options.WatchedNamespaces))
 
-	mlw := listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return client.NetworkingV1beta1().Ingresses(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return client.NetworkingV1beta1().Ingresses(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	informer := cache.NewSharedIndexInformer(mlw, &ingress.Ingress{}, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	ingressInformer := sharedInformerFactory.Networking().V1beta1().Ingresses().Informer()
 	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespaces)
+
+	serviceInformer := sharedInformerFactory.Core().V1().Services()
 
 	var classes *v1beta1.IngressClassInformer
 	if ingressClassSupported(client) {
@@ -156,16 +146,19 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 	} else {
 		log.Infof("Skipping IngressClass, resource not supported")
 	}
+
 	c := &controller{
-		meshWatcher:  meshWatcher,
-		domainSuffix: options.DomainSuffix,
-		client:       client,
-		queue:        q,
-		informer:     informer,
-		classes:      classes,
+		meshWatcher:     meshWatcher,
+		domainSuffix:    options.DomainSuffix,
+		client:          client,
+		queue:           q,
+		ingressInformer: ingressInformer,
+		classes:         classes,
+		serviceInformer: serviceInformer.Informer(),
+		serviceLister:   serviceInformer.Lister(),
 	}
 
-	informer.AddEventHandler(
+	ingressInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				q.Push(func() error {
@@ -202,7 +195,7 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingres
 }
 
 func (c *controller) onEvent(obj interface{}, event model.Event) error {
-	if !c.informer.HasSynced() {
+	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
 
@@ -263,7 +256,7 @@ func (c *controller) SetLedger(ledger.Ledger) error {
 }
 
 func (c *controller) HasSynced() bool {
-	return c.informer.HasSynced()
+	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced()
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
@@ -271,7 +264,8 @@ func (c *controller) Run(stop <-chan struct{}) {
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
-	go c.informer.Run(stop)
+	go c.ingressInformer.Run(stop)
+	go c.serviceInformer.Run(stop)
 	if c.classes != nil {
 		go (*c.classes).Informer().Run(stop)
 	}
@@ -297,7 +291,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 
 	ingressByHost := map[string]*model.Config{}
 
-	for _, obj := range c.informer.GetStore().List() {
+	for _, obj := range c.ingressInformer.GetStore().List() {
 		ingress := obj.(*ingress.Ingress)
 		if namespace != "" && namespace != ingress.Namespace {
 			continue
@@ -312,7 +306,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 
 		switch typ {
 		case gvk.VirtualService:
-			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
+			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost, c.serviceLister)
 		case gvk.Gateway:
 			gateways := ConvertIngressV1alpha3(*ingress, c.meshWatcher.Mesh(), c.domainSuffix)
 			out = append(out, gateways)

@@ -182,7 +182,7 @@ func TestIngress(t *testing.T) {
 					Pilot:     p,
 					Ports: []echo.Port{
 						{
-							Name:     "http",
+							Name:     "http-test-port",
 							Protocol: protocol.HTTP,
 							// We use a port > 1024 to not require root
 							InstancePort: 8090,
@@ -222,7 +222,11 @@ spec:
   rules:
     - http:
         paths:
-          - path: /
+          - path: /test/namedport
+            backend:
+              serviceName: server
+              servicePort: http-test-port
+          - path: /test
             backend:
               serviceName: server
               servicePort: 80`,
@@ -239,7 +243,7 @@ spec:
 					name: "http",
 					call: ingress.CallOptions{
 						Host:     "server",
-						Path:     "/",
+						Path:     "/test",
 						CallType: ingress.PlainText,
 						Address:  ingr.HTTPAddress(),
 					},
@@ -249,7 +253,7 @@ spec:
 					name: "https-foo",
 					call: ingress.CallOptions{
 						Host:     "foo.example.com",
-						Path:     "/",
+						Path:     "/test",
 						CallType: ingress.TLS,
 						Address:  ingr.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialA.CaCert,
@@ -260,7 +264,18 @@ spec:
 					name: "https-bar",
 					call: ingress.CallOptions{
 						Host:     "bar.example.com",
-						Path:     "/",
+						Path:     "/test",
+						CallType: ingress.TLS,
+						Address:  ingr.HTTPSAddress(),
+						CaCert:   ingressutil.IngressCredentialB.CaCert,
+					},
+				},
+				{
+					// HTTPS call for bar with namedport route. CaCert matches the secret
+					name: "https-namedport",
+					call: ingress.CallOptions{
+						Host:     "bar.example.com",
+						Path:     "/test/namedport",
 						CallType: ingress.TLS,
 						Address:  ingr.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialB.CaCert,
