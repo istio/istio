@@ -343,8 +343,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 func (s *DiscoveryServer) handleTypeURL(typeURL string, node *model.Proxy) error {
 	short := v3.GetShortType(typeURL)
 	current, f := node.Active[short]
+	if !f {
+		node.Active[short] = &model.WatchedResource{TypeUrl: typeURL}
+		return nil
+	}
 	if f && typeURL != current.TypeUrl {
-		return fmt.Errorf("invalid type %v, expected %v", typeURL, current)
+		return fmt.Errorf("invalid type %v, expected %v", typeURL, current.TypeUrl)
 	}
 	if !f {
 		node.Active[short] = &model.CoreWatchedResource{}

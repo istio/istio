@@ -82,7 +82,11 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
 	// discovery type.
-	maybeApplyEdsConfig(c, cb.proxy.Active[v3.ClusterShortType].TypeUrl)
+	clusterType := ""
+	if active, f := cb.proxy.Active[v3.ClusterShortType]; f {
+		clusterType = active.TypeUrl
+	}
+	maybeApplyEdsConfig(c, clusterType)
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
