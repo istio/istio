@@ -85,6 +85,10 @@ type Config struct {
 	// Secrets is the interface used for getting keys and rootCA.
 	Secrets cache.SecretManager
 
+	// For getting the certificate, using same code as SDS server.
+	// Either the JWTPath or the certs must be present.
+	JWTPath string
+
 	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
 	XDSSAN string
 
@@ -287,8 +291,14 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var err error
 
 	if a.cfg.Secrets != nil {
+		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
+		if err != nil {
+			log.Infof("Failed to get credential token: %v", err)
+			tok = []byte("")
+		}
+
 		key, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
-			cache.WorkloadKeyCertResourceName, "")
+			cache.WorkloadKeyCertResourceName, string(tok))
 		if err != nil {
 			return nil, err
 		}
@@ -298,7 +308,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		}
 		// This is a bit crazy - we could just use the file
 		rootCA, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
-			cache.RootCertReqResourceName, "")
+			cache.RootCertReqResourceName, string(tok))
 		if err != nil {
 			return nil, err
 		}

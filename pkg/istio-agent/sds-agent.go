@@ -573,6 +573,8 @@ func applyEnvVars() {
 
 	serverOptions.EnableIngressGatewaySDS = enableIngressGatewaySDSEnv
 	serverOptions.CAProviderName = caProviderEnv
+
+	// TODO: extract from ProxyConfig
 	serverOptions.TrustDomain = trustDomainEnv
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
 	serverOptions.ECCSigAlg = eccSigAlgEnv

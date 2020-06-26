@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	sendCount = 100
+	sendCount = 50
 
 	deploymentYAML = `
 apiVersion: networking.istio.io/v1alpha3
@@ -308,7 +308,7 @@ func sendTraffic(from echo.Instance, host string, expected map[string]int) error
 	}
 	for svc, reqs := range got {
 		expect := expected[svc]
-		if !almostEquals(reqs, expect, 5) {
+		if !almostEquals(reqs, expect, 3) {
 			return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
 		}
 	}
