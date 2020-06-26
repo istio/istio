@@ -22,7 +22,10 @@ spec:
       k8s:
         resources:
           requests:
-            cpu: 2000m
+            cpu: 1000m
+        hpaSpec:
+          minReplicas: 2
+        replicaCount: 2
   addonComponents:
     grafana:
       enabled: true
