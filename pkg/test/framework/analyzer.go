@@ -20,7 +20,7 @@ type commonAnalyzer struct {
 func newCommonAnalyzer() commonAnalyzer {
 	return commonAnalyzer{
 		labels:      label.NewSet(),
-		minCusters:  -1,
+		minCusters:  1,
 		maxClusters: -1,
 	}
 }
@@ -63,6 +63,9 @@ func (s *suiteAnalyzer) Skip(reason string) Suite {
 }
 
 func (s *suiteAnalyzer) RequireMinClusters(minClusters int) Suite {
+	if minClusters <= 0 {
+		minClusters = 1
+	}
 	s.minCusters = minClusters
 	return s
 }
@@ -73,9 +76,7 @@ func (s *suiteAnalyzer) RequireMaxClusters(maxClusters int) Suite {
 }
 
 func (s *suiteAnalyzer) RequireSingleCluster() Suite {
-	s.RequireMinClusters(1)
-	s.RequireMaxClusters(1)
-	return s
+	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
 func (s *suiteAnalyzer) RequireEnvironmentVersion(version string) Suite {
@@ -93,17 +94,24 @@ func (s *suiteAnalyzer) Run() {
 }
 
 func (s *suiteAnalyzer) run() int {
-	initAnalysis(&suiteAnalysis{
-		ID: s.testID,
-		// TODO track other info
-	})
+	initAnalysis(s.track())
 	defer finishAnalysis()
+	scopes.Framework.Infof("=== Begin: Analysis of %s ===", analysis.SuiteID)
 
 	// during mRun tests will add their analyses to the suiteAnalysis
 	return s.mRun(nil)
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
+// track generates the final analysis for this suite. track should not be called if more
+// modification will happen to this suiteAnalyzer.
+func (s *suiteAnalyzer) track() *suiteAnalysis {
+	return &suiteAnalysis{
+		SuiteID:       s.testID,
+		Labels:        s.labels.All(),
+		SingleCluster: s.minCusters < 2,
+		MultiCluster:  s.maxClusters != 1,
+	}
+}
 
 func newTestAnalyzer(t *testing.T) Test {
 	return &testAnalyzer{
@@ -172,16 +180,31 @@ func (t *testAnalyzer) RequiresSingleCluster() Test {
 }
 
 func (t *testAnalyzer) Run(_ func(ctx TestContext)) {
+	defer t.track()
 	if t.hasRun {
 		t.goTest.Fatalf("multiple Run calls for %s", t.goTest.Name())
 	}
 	t.hasRun = true
-	analysis.addTest(&testAnalysis{
-		ID: t.goTest.Name(),
-		// TODO track other info
-	})
+
+	// TODO: should we also block new cases?
+	if len(t.featureLabels) < 1 && !features.GlobalWhitelist.Contains(analysis.SuiteID, t.goTest.Name()) {
+		t.goTest.Fatalf("Detected new test %s in suite %s with no feature labels.  "+
+			"See istio/istio/pkg/test/framework/features/README.md", t.goTest.Name(), analysis.SuiteID)
+	}
 }
 
 func (t *testAnalyzer) RunParallel(fn func(ctx TestContext)) {
 	t.Run(fn)
+}
+
+func (t *testAnalyzer) track() {
+	analysis.addTest(&testAnalysis{
+		TestID:         t.goTest.Name(),
+		Labels:         t.labels.All(), // TODO should this be merged with suite labels?
+		Features:       t.featureLabels,
+		Valid:          !t.goTest.Failed(),
+		SingleCluster:  t.minCusters < 2 && analysis.SingleCluster,
+		MultiCluster:   t.maxClusters != 1 && analysis.MultiCluster,
+		NotImplemented: t.notImplemented,
+	})
 }
