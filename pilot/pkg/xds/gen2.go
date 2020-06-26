@@ -15,7 +15,7 @@
 package xds
 
 import (
-	"fmt"
+	"encoding/json"
 	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -103,12 +103,21 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discove
 		return nil
 	}
 
-	// The control plane will identify itself with it's name and Istio version
-	cpIdent := fmt.Sprintf("%s~%s", podName, istioversion.Info.String())
+	// The control plane will identify itself with its name and Istio version
+	var controlPlane *corev3.ControlPlane
+	byVersion, err := json.Marshal(map[string]interface{}{
+		"component": "pilot",
+		// The Pod Name or Pilot identity is in PilotArgs, but not reachable from DiscoveryServer
+		"id":   podName,
+		"info": istioversion.Info,
+	})
+	if err == nil {
+		controlPlane = &corev3.ControlPlane{Identifier: string(byVersion)}
+	}
 
 	push := s.globalPushContext()
 	resp := &discovery.DiscoveryResponse{
-		ControlPlane: &corev3.ControlPlane{Identifier: cpIdent},
+		ControlPlane: controlPlane,
 		TypeUrl:      w.TypeUrl,
 		VersionInfo:  push.Version, // TODO: we can now generate per-type version !
 		Nonce:        nonce(push.Version),
@@ -131,7 +140,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discove
 		sz += len(rc.Value)
 	}
 
-	err := con.send(resp)
+	err = con.send(resp)
 	if err != nil {
 		recordSendError("ADS", con.ConID, apiSendErrPushes, err)
 		return err
