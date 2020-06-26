@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
 	"istio.io/istio/pkg/test/scopes"
 
@@ -130,6 +131,7 @@ func DumpPodLogs(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod)
 	pods = podsOrFetch(a, pods, namespace)
 
 	for _, pod := range pods {
+		isVM := checkIfVM(pod)
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
 			l, err := a.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
@@ -141,6 +143,27 @@ func DumpPodLogs(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod)
 			fname := path.Join(workDir, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
 			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 				scopes.Framework.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+			}
+
+			// Get envoy logs if the pod is a VM, since kubectl logs only shows the logs from iptables for VMs
+			if isVM && container.Name == "istio-proxy" {
+				if envoyErr, err := a.Exec(pod.Namespace, pod.Name, container.Name, "cat /var/log/istio/istio.err.log"); err == nil {
+					fname := path.Join(workDir, fmt.Sprintf("%s-%s.envoy.err.log", pod.Name, container.Name))
+					if err = ioutil.WriteFile(fname, []byte(envoyErr), os.ModePerm); err != nil {
+						scopes.Framework.Errorf("Unable to write envoy err log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+					}
+				} else {
+					scopes.Framework.Errorf("Unable to get envoy err log for pod: %s/%s", pod.Namespace, pod.Name)
+				}
+
+				if envoyLog, err := a.Exec(pod.Namespace, pod.Name, container.Name, "cat /var/log/istio/istio.log"); err == nil {
+					fname := path.Join(workDir, fmt.Sprintf("%s-%s.envoy.log", pod.Name, container.Name))
+					if err = ioutil.WriteFile(fname, []byte(envoyLog), os.ModePerm); err != nil {
+						scopes.Framework.Errorf("Unable to write envoy log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+					}
+				} else {
+					scopes.Framework.Errorf("Unable to get envoy log for pod: %s/%s", pod.Namespace, pod.Name)
+				}
 			}
 		}
 	}
@@ -177,4 +200,13 @@ func DumpPodProxies(a Accessor, workDir, namespace string, pods ...kubeApiCore.P
 			}
 		}
 	}
+}
+
+func checkIfVM(pod kubeApiCore.Pod) bool {
+	for k := range pod.ObjectMeta.Labels {
+		if strings.Contains(k, "test-vm") {
+			return true
+		}
+	}
+	return false
 }
