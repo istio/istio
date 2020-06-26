@@ -42,7 +42,7 @@ type TestContext interface {
 	// create their own Golang *testing.T with the name provided.
 	//
 	// If this TestContext was not created by a Test or if that Test is not running, this method will panic.
-	NewSubTest(name string) *testImpl
+	NewSubTest(name string) Test
 
 	// WorkDir allocated for this test.
 	WorkDir() string
@@ -297,7 +297,7 @@ func (c *testContext) newChildContext(test *testImpl) *testContext {
 	return newTestContext(test, test.goTest, c.suite, c.scope, label.NewSet(test.labels...))
 }
 
-func (c *testContext) NewSubTest(name string) *testImpl {
+func (c *testContext) NewSubTest(name string) Test {
 	if c.test == nil {
 		panic(fmt.Sprintf("Attempting to create subtest %s from a TestContext with no associated Test", name))
 	}
