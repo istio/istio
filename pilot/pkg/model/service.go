@@ -75,7 +75,7 @@ type Service struct {
 	Address string `json:"address,omitempty"`
 
 	// AutoAllocatedAddress specifies the automatically allocated IPv4 address
-	// out of 127.243.0.0/16 subnet for service entries with non-wildcard hostnames,
+	// out of 240.240.0.0/16 subnet for service entries with non-wildcard hostnames,
 	AutoAllocatedAddress string `json:"autoAllocatedAddress,omitempty"`
 
 	// Protect concurrent ClusterVIPs read/write
