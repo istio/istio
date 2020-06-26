@@ -531,13 +531,11 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
-	if node.Metadata != nil && node.Metadata.ClusterID != "" {
-		// restrict lock to only k8s services to reduce unnecessary locking
-		s.Mutex.RLock()
-		if s.ClusterVIPs[node.Metadata.ClusterID] != "" {
+	// todo reduce unnecessary locking
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+	if node.Metadata != nil && node.Metadata.ClusterID != "" && s.ClusterVIPs[node.Metadata.ClusterID] != "" {
 			return s.ClusterVIPs[node.Metadata.ClusterID]
-		}
-		s.Mutex.RUnlock()
 	}
 	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
 		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
