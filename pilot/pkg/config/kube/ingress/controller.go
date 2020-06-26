@@ -101,8 +101,6 @@ type controller struct {
 
 	serviceInformer cache.SharedIndexInformer
 	serviceLister   listerv1.ServiceLister
-	podInformer     cache.SharedIndexInformer
-	podLister       listerv1.PodLister
 }
 
 var (
@@ -164,7 +162,6 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 		log.Infof("Skipping IngressClass, resource not supported")
 	}
 
-	podInformer, podLister := createPodCache(watchedNamespaceList, client, options.ResyncPeriod)
 	serviceInformer, serviceLister := createServiceCache(watchedNamespaceList, client, options.ResyncPeriod)
 
 	c := &controller{
@@ -174,9 +171,6 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 		queue:           q,
 		ingressInformer: ingressInformer,
 		classes:         classes,
-
-		podInformer:     podInformer,
-		podLister:       podLister,
 		serviceInformer: serviceInformer,
 		serviceLister:   serviceLister,
 	}
@@ -279,7 +273,7 @@ func (c *controller) SetLedger(ledger.Ledger) error {
 }
 
 func (c *controller) HasSynced() bool {
-	return c.ingressInformer.HasSynced() && c.podInformer.HasSynced() && c.serviceInformer.HasSynced()
+	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced()
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
@@ -288,7 +282,6 @@ func (c *controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 	go c.ingressInformer.Run(stop)
-	go c.podInformer.Run(stop)
 	go c.serviceInformer.Run(stop)
 	if c.classes != nil {
 		go (*c.classes).Informer().Run(stop)
@@ -330,7 +323,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 
 		switch typ {
 		case gvk.VirtualService:
-			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost, c.serviceLister, c.podLister)
+			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost, c.serviceLister)
 		case gvk.Gateway:
 			gateways := ConvertIngressV1alpha3(*ingress, c.meshWatcher.Mesh(), c.domainSuffix)
 			out = append(out, gateways)
@@ -356,24 +349,6 @@ func (c *controller) Update(_ model.Config) (string, error) {
 
 func (c *controller) Delete(_ resource.GroupVersionKind, _, _ string) error {
 	return errUnsupportedOp
-}
-
-func createPodCache(namespaces []string, client kubernetes.Interface, resyncPeriod time.Duration) (cache.SharedIndexInformer, listerv1.PodLister) {
-	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return client.CoreV1().Pods(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return client.CoreV1().Pods(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	informer := cache.NewSharedIndexInformer(mlw, &v1.Pod{}, resyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	podLister := listerv1.NewPodLister(informer.GetIndexer())
-	return informer, podLister
 }
 
 func createServiceCache(namespaces []string, client kubernetes.Interface, resyncPeriod time.Duration) (cache.SharedIndexInformer, listerv1.ServiceLister) {

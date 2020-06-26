@@ -25,41 +25,6 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 )
 
-type podListerWrapper struct {
-	client kubernetes.Interface
-}
-
-type podListerWrapperWithNamespace struct {
-	client    kubernetes.Interface
-	namespace string
-}
-
-func (p *podListerWrapper) List(selector k8sLabels.Selector) (ret []*v1.Pod, err error) {
-	return nil, errors.New("unimplemented")
-}
-
-func (p *podListerWrapper) Pods(namespace string) listerv1.PodNamespaceLister {
-	return &podListerWrapperWithNamespace{client: p.client, namespace: namespace}
-}
-
-func (p *podListerWrapperWithNamespace) List(selector k8sLabels.Selector) (ret []*v1.Pod, err error) {
-	pods, err := p.client.CoreV1().Pods(p.namespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: selector.String(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	var list []*v1.Pod
-	for _, item := range pods.Items {
-		list = append(list, &item)
-	}
-	return list, nil
-}
-
-func (p *podListerWrapperWithNamespace) Get(name string) (*v1.Pod, error) {
-	return nil, errors.New("unimplemented")
-}
-
 type serviceListerWrapper struct {
 	client kubernetes.Interface
 }

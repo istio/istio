@@ -57,11 +57,11 @@ func TestGoldenConversion(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			serviceLister, podLister := createFakeLister(ctx)
+			serviceLister := createFakeLister(ctx)
 			cfgs := map[string]*model.Config{}
 			for _, obj := range input {
 				ingress := obj.(*v1beta1.Ingress)
-				ConvertIngressVirtualService(*ingress, "mydomain", cfgs, serviceLister, podLister)
+				ConvertIngressVirtualService(*ingress, "mydomain", cfgs, serviceLister)
 			}
 			ordered := []model.Config{}
 			for _, v := range cfgs {
@@ -223,10 +223,10 @@ func TestConversion(t *testing.T) {
 			},
 		},
 	}
-	serviceLister, podLister := createFakeLister(ctx)
+	serviceLister := createFakeLister(ctx)
 	cfgs := map[string]*model.Config{}
-	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister, podLister)
-	ConvertIngressVirtualService(ingress2, "mydomain", cfgs, serviceLister, podLister)
+	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
+	ConvertIngressVirtualService(ingress2, "mydomain", cfgs, serviceLister)
 
 	if len(cfgs) != 3 {
 		t.Error("VirtualServices, expected 3 got ", len(cfgs))
@@ -394,7 +394,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 									Path: "/test/*",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "test-port"},
+										ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "test-svc-port"},
 									},
 								},
 							},
@@ -426,30 +426,9 @@ func TestNamedPortIngressConversion(t *testing.T) {
 			},
 		},
 	}
-	pod := &coreV1.Pod{
-		TypeMeta: metaV1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metaV1.ObjectMeta{
-			Name:      "test-app-pod",
-			Namespace: "mock",
-			Labels:    map[string]string{"app": "test-app"},
-		},
-		Spec: coreV1.PodSpec{
-			Containers: []coreV1.Container{
-				{
-					Name: "app-container",
-					Ports: []coreV1.ContainerPort{
-						{Name: "test-port", ContainerPort: 1234},
-					},
-				},
-			},
-		},
-	}
-	serviceLister, podLister := createFakeLister(ctx, service, pod)
+	serviceLister := createFakeLister(ctx, service)
 	cfgs := map[string]*model.Config{}
-	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister, podLister)
+	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
 	if len(cfgs) != 1 {
 		t.Error("VirtualServices, expected 1 got ", len(cfgs))
 	}
@@ -465,17 +444,15 @@ func TestNamedPortIngressConversion(t *testing.T) {
 		t.Error("Route, expected 1 got ", len(http.Route))
 	}
 	route := http.Route[0]
-	if route.Destination.Port.Number != 1234 {
-		t.Error("PortNumer, expected 1234 got ", route.Destination.Port.Number)
+	if route.Destination.Port.Number != 8888 {
+		t.Error("PortNumer, expected 8888 got ", route.Destination.Port.Number)
 	}
 }
 
-func createFakeLister(ctx context.Context, objects ...runtime.Object) (listerv1.ServiceLister, listerv1.PodLister) {
+func createFakeLister(ctx context.Context, objects ...runtime.Object) listerv1.ServiceLister {
 	client := fake.NewSimpleClientset(objects...)
-	podInformer, podLister := createPodCache([]string{""}, client, time.Second)
 	serviceInformer, serviceLister := createServiceCache([]string{""}, client, time.Hour)
-	go podInformer.Run(ctx.Done())
 	go serviceInformer.Run(ctx.Done())
-	cache.WaitForCacheSync(ctx.Done(), podInformer.HasSynced, serviceInformer.HasSynced)
-	return serviceLister, podLister
+	cache.WaitForCacheSync(ctx.Done(), serviceInformer.HasSynced)
+	return serviceLister
 }

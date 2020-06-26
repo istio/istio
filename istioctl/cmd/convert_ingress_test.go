@@ -79,12 +79,12 @@ func TestConvertIngressWithNamedPort(t *testing.T) {
 		Spec: coreV1.ServiceSpec{
 			Ports: []coreV1.ServicePort{
 				{
-					Name:     "test-svc-port",
+					Name:     "my-svc-port",
 					Protocol: "TCP",
-					Port:     8888,
+					Port:     1234,
 					TargetPort: intstr.IntOrString{
-						Type:   intstr.String,
-						StrVal: "my-port",
+						Type:   intstr.Int,
+						IntVal: 8080,
 					},
 				},
 			},
@@ -93,29 +93,8 @@ func TestConvertIngressWithNamedPort(t *testing.T) {
 			},
 		},
 	}
-	pod := &coreV1.Pod{
-		TypeMeta: metaV1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metaV1.ObjectMeta{
-			Name:      "test-app-pod",
-			Namespace: "mock-ns",
-			Labels:    map[string]string{"app": "test-app"},
-		},
-		Spec: coreV1.PodSpec{
-			Containers: []coreV1.Container{
-				{
-					Name: "app-container",
-					Ports: []coreV1.ContainerPort{
-						{Name: "my-port", ContainerPort: 1234},
-					},
-				},
-			},
-		},
-	}
 
-	client := fake.NewSimpleClientset(service, pod)
+	client := fake.NewSimpleClientset(service)
 
 	var readers []io.Reader
 	file, err := os.Open("testdata/ingress/named-port-ingress.yaml")

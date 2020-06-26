@@ -36,7 +36,7 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string, client ku
 	}
 	ingressByHost := map[string]*model.Config{}
 	for _, ingrezz := range ingresses {
-		ingress.ConvertIngressVirtualService(*ingrezz, domainSuffix, ingressByHost, &serviceListerWrapper{client: client}, &podListerWrapper{client: client})
+		ingress.ConvertIngressVirtualService(*ingrezz, domainSuffix, ingressByHost, &serviceListerWrapper{client: client})
 	}
 
 	out := make([]model.Config, 0, len(ingressByHost))
