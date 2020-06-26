@@ -43,6 +43,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
+	"istio.io/istio/pkg/util/protomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -288,8 +289,7 @@ var (
 	// We need to propagate these as part of access log service stream
 	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
 	// But end users can certainly configure it on their own via the meshConfig using the %FILTERSTATE% macro.
-	envoyWasmStateToLog = []string{"envoy.wasm.metadata_exchange.upstream", "envoy.wasm.metadata_exchange.upstream_id",
-		"envoy.wasm.metadata_exchange.downstream", "envoy.wasm.metadata_exchange.downstream_id"}
+	envoyWasmStateToLog = []string{"wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"}
 
 	// EnvoyJSONLogFormat13 map of values for envoy json based access logs for Istio 1.3 onwards
 	EnvoyJSONLogFormat = &structpb.Struct{
@@ -784,13 +784,13 @@ allChainsLabel:
 
 			// TODO(yxue) avoid bypassing authN using TCP
 			// Build filter chain options for listener configured with protocol sniffing
-			fcm := listener.FilterChainMatch{}
+			fcm := &listener.FilterChainMatch{}
 			if chain.FilterChainMatch != nil {
-				fcm = *chain.FilterChainMatch
+				fcm = protomarshal.ShallowCopy(chain.FilterChainMatch).(*listener.FilterChainMatch)
 			}
 			fcm.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
 			fcm.TransportProtocol = filterChainMatchOption[id].TransportProtocol
-			filterChainMatch = &fcm
+			filterChainMatch = fcm
 			if filterChainMatchOption[id].Protocol == istionetworking.ListenerProtocolHTTP {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 				if chain.TLSContext != nil && chain.TLSContext.CommonTlsContext != nil {

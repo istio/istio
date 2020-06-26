@@ -17,6 +17,7 @@ package memory
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -37,14 +38,20 @@ const ledgerLogf = "error tracking pilot config memory versions for distribution
 
 // Make creates an in-memory config store from a config schemas
 func Make(schemas collection.Schemas) model.ConfigStore {
-	return MakeWithLedger(schemas, ledger.Make(time.Minute))
+	return MakeWithLedger(schemas, ledger.Make(time.Minute), false)
 }
 
-func MakeWithLedger(schemas collection.Schemas, configLedger ledger.Ledger) model.ConfigStore {
+// Make creates an in-memory config store from a config schemas, with validation disabled
+func MakeWithoutValidation(schemas collection.Schemas) model.ConfigStore {
+	return MakeWithLedger(schemas, ledger.Make(time.Minute), true)
+}
+
+func MakeWithLedger(schemas collection.Schemas, configLedger ledger.Ledger, skipValidation bool) model.ConfigStore {
 	out := store{
-		schemas: schemas,
-		data:    make(map[resource.GroupVersionKind]map[string]*sync.Map),
-		ledger:  configLedger,
+		schemas:        schemas,
+		data:           make(map[resource.GroupVersionKind]map[string]*sync.Map),
+		ledger:         configLedger,
+		skipValidation: skipValidation,
 	}
 	for _, s := range schemas.All() {
 		out.data[s.Resource().GroupVersionKind()] = make(map[string]*sync.Map)
@@ -53,9 +60,10 @@ func MakeWithLedger(schemas collection.Schemas, configLedger ledger.Ledger) mode
 }
 
 type store struct {
-	schemas collection.Schemas
-	data    map[resource.GroupVersionKind]map[string]*sync.Map
-	ledger  ledger.Ledger
+	schemas        collection.Schemas
+	data           map[resource.GroupVersionKind]map[string]*sync.Map
+	ledger         ledger.Ledger
+	skipValidation bool
 }
 
 func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
@@ -152,10 +160,12 @@ func (cr *store) Create(config model.Config) (string, error) {
 	kind := config.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
-		return "", errors.New("unknown type")
+		return "", fmt.Errorf("unknown type %v", kind)
 	}
-	if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
-		return "", err
+	if !cr.skipValidation {
+		if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
+			return "", err
+		}
 	}
 	ns, exists := cr.data[kind][config.Namespace]
 	if !exists {

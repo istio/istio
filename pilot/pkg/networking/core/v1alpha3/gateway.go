@@ -160,11 +160,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			continue
 		}
 
-		if err := mutable.Listener.Validate(); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
-			continue
-		}
-
 		if log.DebugEnabled() {
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
 				len(mutable.Listener.FilterChains), mutable.Listener)
@@ -183,16 +178,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		return builder
 	}
 
-	validatedListeners := make([]*listener.Listener, 0, len(mergedGateway.Servers))
-	for _, l := range listeners {
-		if err := l.Validate(); err != nil {
-			log.Warnf("buildGatewayListeners: error validating listener %s: %v.. Skipping.", l.Name, err)
-			continue
-		}
-		validatedListeners = append(validatedListeners, l)
-	}
-
-	builder.gatewayListeners = validatedListeners
+	builder.gatewayListeners = listeners
 	return builder
 }
 
@@ -253,9 +239,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:    domainName(string(hostname), port),
-						Domains: buildGatewayVirtualHostDomains(string(hostname)),
-						Routes:  routes,
+						Name:                       domainName(string(hostname), port),
+						Domains:                    buildGatewayVirtualHostDomains(string(hostname)),
+						Routes:                     routes,
+						IncludeRequestAttemptCount: true,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
 						newVHost.RequireTls = route.VirtualHost_ALL

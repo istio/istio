@@ -237,6 +237,9 @@ dockerx.%:
 docker.base: docker/Dockerfile.base
 	$(DOCKER_RULE)
 
+docker.distroless: docker/Dockerfile.distroless
+	$(DOCKER_RULE)
+
 # $@ is the name of the target
 # $^ the name of the dependencies for the target
 # Rule Steps #
