@@ -299,8 +299,7 @@ var (
 	// We need to propagate these as part of access log service stream
 	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
 	// But end users can certainly configure it on their own via the meshConfig using the %FILTERSTATE% macro.
-	envoyWasmStateToLog = []string{"envoy.wasm.metadata_exchange.upstream", "envoy.wasm.metadata_exchange.upstream_id",
-		"envoy.wasm.metadata_exchange.downstream", "envoy.wasm.metadata_exchange.downstream_id"}
+	envoyWasmStateToLog = []string{"wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"}
 
 	// EnvoyJSONLogFormat13 map of values for envoy json based access logs for Istio 1.3 onwards
 	EnvoyJSONLogFormat = &structpb.Struct{
