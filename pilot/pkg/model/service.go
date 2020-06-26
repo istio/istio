@@ -543,7 +543,8 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 		}
 		s.Mutex.RUnlock()
 	}
-	if node.Metadata.DNSCapture != "" && s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
+	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
+		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
 		return s.AutoAllocatedAddress
 	}
 	return s.Address
