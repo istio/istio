@@ -23,6 +23,7 @@ import (
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 
 	"istio.io/pkg/version"
@@ -30,7 +31,7 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var _ kube.Client = MockClient{}
+var _ kube.ExtendedClient = MockClient{}
 
 // MockClient for tests that rely on kube.Client.
 type MockClient struct {
@@ -42,6 +43,18 @@ type MockClient struct {
 	RevisionValue    string
 	ConfigValue      *rest.Config
 	IstioVersions    *version.MeshInfo
+}
+
+func (c MockClient) Kube() kubernetes.Interface {
+	return c.Clientset
+}
+
+func (c MockClient) DynamicClient() dynamic.Interface {
+	panic("not used in mock")
+}
+
+func (c MockClient) MetadataClient() metadata.Interface {
+	panic("not used in mock")
 }
 
 func (c MockClient) AllDiscoveryDo(_ context.Context, _, _ string) (map[string][]byte, error) {

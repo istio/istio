@@ -26,17 +26,15 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
 // This test is skipped by the build tag !race due to https://github.com/istio/istio/issues/15610
 func Test_KubeSecretController(t *testing.T) {
-	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
-	secretcontroller.ValidateClientConfig = mockValidateClientConfig
-	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
-	secretcontroller.CreateMetadataInterfaceFromClusterConfig = mockCreateMetaInterfaceFromClusterConfig
-	secretcontroller.CreateDynamicInterfaceFromClusterConfig = mockCreateDynamicInterfaceFromClusterConfig
-
+	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+		return kube.NewFakeClient(), nil
+	}
 	clientset := fake.NewSimpleClientset()
 	b := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {
 		return clientset, nil

@@ -117,10 +117,10 @@ func TestDashboard(t *testing.T) {
 	}
 }
 
-func mockExecClientDashboard(_, _, _ string) (kube.Client, error) {
+func mockExecClientDashboard(_, _, _ string) (kube.ExtendedClient, error) {
 	return testKube.MockClient{}, nil
 }
 
-func mockEnvoyClientDashboard(_, _ string) (kube.Client, error) {
+func mockEnvoyClientDashboard(_, _ string) (kube.ExtendedClient, error) {
 	return testKube.MockClient{}, nil
 }

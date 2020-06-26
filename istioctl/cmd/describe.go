@@ -923,7 +923,7 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 	}
 }
 
-func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, client kube.Client) error { // nolint: lll
+func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, client kube.ExtendedClient) error { // nolint: lll
 
 	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
@@ -1168,7 +1168,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.Client, configClient model.ConfigStore, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
+func describePodServices(writer io.Writer, kubeClient kube.ExtendedClient, configClient model.ConfigStore, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
 	var err error
 
 	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump", nil)
