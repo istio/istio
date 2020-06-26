@@ -255,7 +255,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 			nameToServiceMap[svc.Hostname] = &model.Service{
 				Hostname:     svc.Hostname,
-				Address:      svc.Address,
+				Address:      svc.GetServiceAddressForProxy(node),
 				MeshExternal: svc.MeshExternal,
 				Resolution:   svc.Resolution,
 				Ports:        []*model.Port{svcPort},
@@ -396,8 +396,8 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 		}
 	}
 
-	if len(service.Address) > 0 && service.Address != constants.UnspecifiedIP {
-		svcAddr := service.GetServiceAddressForProxy(node)
+	svcAddr := service.GetServiceAddressForProxy(node)
+	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)
 		if cidr.PrefixLen.Value == 32 {

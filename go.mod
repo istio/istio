@@ -67,7 +67,7 @@ require (
 	github.com/fatih/color v1.7.0
 	github.com/fluent/fluent-logger-golang v1.3.0
 	github.com/frankban/quicktest v1.4.1 // indirect
-	github.com/fsnotify/fsnotify v1.4.7
+	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/go-openapi/spec v0.19.5 // indirect
@@ -76,7 +76,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/golang/protobuf v1.4.1
+	github.com/golang/protobuf v1.4.2
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/gomodule/redigo v1.8.0 // indirect
 	github.com/google/cel-go v0.4.1
@@ -111,7 +111,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/nwaples/rardecode v1.0.0 // indirect
-	github.com/onsi/gomega v1.9.0
+	github.com/onsi/gomega v1.10.1
 	github.com/open-policy-agent/opa v0.8.2
 	github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible
 	github.com/opentracing/opentracing-go v1.0.2
@@ -148,7 +148,7 @@ require (
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
-	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582
+	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
@@ -159,9 +159,9 @@ require (
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.3.0
 	helm.sh/helm/v3 v3.2.0
-	istio.io/api v0.0.0-20200626013408-6e8e32f7acc2
+	istio.io/api v0.0.0-20200626162525-4b9355d6dae6
 	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
 	istio.io/pkg v0.0.0-20200504224939-261164cc57da
 	k8s.io/api v0.18.3
@@ -171,7 +171,7 @@ require (
 	k8s.io/client-go v0.18.3
 	k8s.io/kubectl v0.18.3
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
-	sigs.k8s.io/controller-runtime v0.5.1-0.20200327213554-2d4c4877f906
-	sigs.k8s.io/service-apis v0.0.0-20200610082005-c8dc1033d310
+	sigs.k8s.io/controller-runtime v0.6.0
+	sigs.k8s.io/service-apis v0.0.0-20200625154238-3290dca43e1e
 	sigs.k8s.io/yaml v1.2.0
 )

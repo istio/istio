@@ -17,6 +17,10 @@ package pilot
 import (
 	"testing"
 
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -35,7 +39,13 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
-		Setup(istio.Setup(&i, nil)).
+		Setup(istio.Setup(&i, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  global:
+    meshExpansion:
+      enabled: true`
+		})).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
@@ -43,4 +53,21 @@ func TestMain(m *testing.M) {
 			return nil
 		}).
 		Run()
+}
+
+func echoConfig(ns namespace.Instance, name string) echo.Config {
+	return echo.Config{
+		Service:   name,
+		Namespace: ns,
+		Ports: []echo.Port{
+			{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+				// We use a port > 1024 to not require root
+				InstancePort: 8090,
+			},
+		},
+		Subsets: []echo.SubsetConfig{{}},
+		Pilot:   p,
+	}
 }
