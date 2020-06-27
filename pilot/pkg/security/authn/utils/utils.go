@@ -23,9 +23,17 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/spiffe"
+)
+
+const (
+	// Service accounts for Mixer and Pilot, these are hardcoded values at setup time
+	PilotSvcAccName string = "istio-pilot-service-account"
+
+	MixerSvcAccName string = "istio-mixer-service-account"
 )
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
@@ -88,7 +96,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 				FilterChainMatch: alpnIstioMatch,
 				TLSContext:       ctx,
 				ListenerFilters: []*listener.ListenerFilter{
-					filters.TLSInspector,
+					xdsfilters.TLSInspector,
 				},
 			},
 			{
@@ -97,4 +105,13 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 		}
 	}
 	return nil
+}
+
+// GetSAN returns the SAN used for passed in identity for mTLS.
+func GetSAN(ns string, identity string) string {
+
+	if ns != "" {
+		return spiffe.MustGenSpiffeURI(ns, identity)
+	}
+	return spiffe.GenCustomSpiffe(identity)
 }
