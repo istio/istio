@@ -76,7 +76,7 @@ var (
 type shouldFillFn func() bool
 type metadataFn func() (string, error)
 
-type gcpEnv struct {
+type GcpEnv struct {
 	shouldFillMetadata shouldFillFn
 	projectIDFn        metadataFn
 	numericProjectIDFn metadataFn
@@ -100,7 +100,7 @@ func IsGCP() bool {
 // Metadata returned by the GCP Environment is taken from the GCE metadata
 // service.
 func NewGCP() Environment {
-	return &gcpEnv{
+	return &GcpEnv{
 		shouldFillMetadata: metadata.OnGCE,
 		projectIDFn:        metadata.ProjectID,
 		numericProjectIDFn: metadata.NumericProjectID,
@@ -114,7 +114,7 @@ func NewGCP() Environment {
 
 // Metadata returns GCP environmental data, including project, cluster name, and
 // location information.
-func (e *gcpEnv) Metadata() map[string]string {
+func (e *GcpEnv) Metadata() map[string]string {
 	md := map[string]string{}
 	if e == nil {
 		return md
@@ -192,7 +192,7 @@ func zoneToRegion(z string) (string, error) {
 }
 
 // Locality returns the GCP-specific region and zone.
-func (e *gcpEnv) Locality() *core.Locality {
+func (e *GcpEnv) Locality() *core.Locality {
 	var l core.Locality
 	if metadata.OnGCE() {
 		z, zerr := metadata.Zone()
