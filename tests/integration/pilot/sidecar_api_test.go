@@ -15,8 +15,12 @@
 package pilot
 
 import (
+	"io/ioutil"
+	"path"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/env"
 
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -29,6 +33,14 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/structpath"
 )
+
+func mustReadFile(t *testing.T, f string) string {
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
+	if err != nil {
+		t.Fatalf("failed to read %v: %v", f, err)
+	}
+	return string(b)
+}
 
 func TestSidecarListeners(t *testing.T) {
 	framework.

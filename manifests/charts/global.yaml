@@ -27,8 +27,6 @@ global:
 
   policyNamespace: istio-system
 
-  configRootNamespace: istio-system
-
   ## End new settings
   ## After this line we have the old Istio settings.
 
@@ -123,8 +121,8 @@ global:
     image: proxyv2
     resources:
       limits:
-        cpu: 100m
-        memory: 50Mi
+        cpu: 2000m
+        memory: 1024Mi
       requests:
         cpu: 10m
         memory: 10Mi
@@ -400,11 +398,11 @@ meshConfig:
   defaultConfig:
     proxyMetadata: {}
     tracing:
-      tlsSettings:
-        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
-        clientCertificate: # example: /etc/istio/tracer/cert-chain.pem
-        privateKey:        # example: /etc/istio/tracer/key.pem
-        caCertificates:    # example: /etc/istio/tracer/root-cert.pem
-        sni:               # example: tracer.somedomain
-        subjectAltNames: []
+#      tlsSettings:
+#        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
+#        clientCertificate: # example: /etc/istio/tracer/cert-chain.pem
+#        privateKey:        # example: /etc/istio/tracer/key.pem
+#        caCertificates:    # example: /etc/istio/tracer/root-cert.pem
+#        sni:               # example: tracer.somedomain
+#        subjectAltNames: []
         # - tracer.somedomain

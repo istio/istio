@@ -38,13 +38,6 @@ data:
       proxyMetadata:
         DNS_AGENT: ""
       tracing:
-        tlsSettings:
-          caCertificates: null
-          clientCertificate: null
-          mode: DISABLE
-          privateKey: null
-          sni: null
-          subjectAltNames: []
         zipkin:
           address: zipkin.istio-system:9411
     disableMixerHttpReports: true
@@ -73,7 +66,6 @@ data:
         },
         "caAddress": "",
         "centralIstiod": false,
-        "configRootNamespace": "istio-system",
         "configValidation": true,
         "controlPlaneSecurityEnabled": true,
         "createRemoteSvcEndpoints": false,
@@ -152,8 +144,8 @@ data:
           "image": "proxyv2",
           "resources": {
             "limits": {
-              "cpu": "100m",
-              "memory": "50Mi"
+              "cpu": "2000m",
+              "memory": "1024Mi"
             },
             "requests": {
               "cpu": "10m",
@@ -205,7 +197,8 @@ data:
         "objectSelector": {
           "autoInject": true,
           "enabled": false
-        }
+        },
+        "rewriteAppHTTPProbe": true
       }
     }
 
@@ -756,8 +749,8 @@ spec:
             httpGet:
               path: /ready
               port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 1
+            periodSeconds: 3
             timeoutSeconds: 5
           env:
           - name: REVISION

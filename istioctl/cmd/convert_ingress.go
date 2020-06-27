@@ -25,9 +25,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"k8s.io/api/networking/v1beta1"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -45,7 +47,7 @@ var (
 		collections.IstioNetworkingV1Alpha3Gateways)
 )
 
-func convertConfigs(readers []io.Reader, writer io.Writer) error {
+func convertConfigs(readers []io.Reader, writer io.Writer, client kubernetes.Interface) error {
 	configs, ingresses, err := readConfigs(readers)
 	if err != nil {
 		return err
@@ -63,7 +65,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 	}
 
 	out := make([]model.Config, 0)
-	convertedIngresses, err := convert.IstioIngresses(ingresses, "")
+	convertedIngresses, err := convert.IstioIngresses(ingresses, "", client)
 	if err == nil {
 		out = append(out, convertedIngresses...)
 	} else {
@@ -196,6 +198,12 @@ func convertIngress() *cobra.Command {
 			"The conversion of v1alpha1 Istio rules has been removed from istioctl.",
 		Example: "istioctl convert-ingress -f samples/bookinfo/platform/kube/bookinfo-ingress.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
+			var opts clioptions.ControlPlaneOptions
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %v", err)
+			}
+
 			if len(inFilenames) == 0 {
 				return fmt.Errorf("no input files provided")
 			}
@@ -234,7 +242,7 @@ func convertIngress() *cobra.Command {
 				writer = file
 			}
 
-			return convertConfigs(readers, writer)
+			return convertConfigs(readers, writer, client)
 		},
 	}
 
