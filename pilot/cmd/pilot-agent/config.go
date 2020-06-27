@@ -29,8 +29,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -97,7 +97,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	proxyConfig.ServiceCluster = serviceCluster
 	// resolve statsd address
 	if proxyConfig.StatsdUdpAddress != "" {
-		addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
+		addr, err := network.ResolveAddr(proxyConfig.StatsdUdpAddress)
 		if err != nil {
 			// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
 			// (instead of crashing). Mixer is optional.

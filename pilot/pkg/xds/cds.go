@@ -47,7 +47,7 @@ func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix, typeURL stri
 	return out
 }
 
-func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
+func (s *DiscoveryServer) pushCds(con *Connection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
 	rawClusters := s.ConfigGenerator.BuildClusters(con.node, push)

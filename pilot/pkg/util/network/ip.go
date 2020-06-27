@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy
+package network
 
 import (
 	"context"
-	stderrors "errors"
 	"fmt"
 	"net"
 	"time"
@@ -26,11 +25,76 @@ import (
 	"istio.io/pkg/log"
 )
 
+// Network-related utility functions
+const (
+	waitInterval = 100 * time.Millisecond
+	waitTimeout  = 2 * time.Minute
+)
+
 type lookupIPAddrType = func(ctx context.Context, addr string) ([]net.IPAddr, error)
 
 // ErrResolveNoAddress error occurs when IP address resolution is attempted,
 // but no address was provided.
-var ErrResolveNoAddress = stderrors.New("no address specified")
+var ErrResolveNoAddress = errors.New("no address specified")
+
+// GetPrivateIPs blocks until private IP addresses are available, or a timeout is reached.
+func GetPrivateIPs(ctx context.Context) ([]string, bool) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, waitTimeout)
+		defer cancel()
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return getPrivateIPsIfAvailable()
+		default:
+			addr, ok := getPrivateIPsIfAvailable()
+			if ok {
+				return addr, true
+			}
+			time.Sleep(waitInterval)
+		}
+	}
+}
+
+// Returns all the private IP addresses
+func getPrivateIPsIfAvailable() ([]string, bool) {
+	ok := true
+	ipAddresses := make([]string, 0)
+
+	ifaces, _ := net.Interfaces()
+
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, _ := iface.Addrs()
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			if ip.IsUnspecified() {
+				ok = false
+				continue
+			}
+			ipAddresses = append(ipAddresses, ip.String())
+		}
+	}
+	return ipAddresses, ok
+}
 
 // ResolveAddr resolves an authority address to an IP address. Incoming
 // addr can be an IP address or hostname. If addr is an IPv6 address, the IP

@@ -472,7 +472,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
-func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
+func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
 	clusters := s.ConfigGenerator.BuildClusters(conn.node, s.globalPushContext())
 
@@ -606,7 +606,7 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
 	}
-	var con *XdsConnection
+	var con *Connection
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		con = s.getProxyConnection(proxyID)
 		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
@@ -665,7 +665,7 @@ func (s *DiscoveryServer) cdsz(w http.ResponseWriter, req *http.Request) {
 	s.adsClientsMutex.RUnlock()
 }
 
-func printListeners(w io.Writer, c *XdsConnection) {
+func printListeners(w io.Writer, c *Connection) {
 	comma := false
 	for _, ls := range c.LDSListeners {
 		if ls == nil {
@@ -685,7 +685,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 	}
 }
 
-func printClusters(w io.Writer, c *XdsConnection) {
+func printClusters(w io.Writer, c *Connection) {
 	comma := false
 	for _, cl := range c.CDSClusters {
 		if cl == nil {
@@ -705,7 +705,7 @@ func printClusters(w io.Writer, c *XdsConnection) {
 	}
 }
 
-func printRoutes(w io.Writer, c *XdsConnection) {
+func printRoutes(w io.Writer, c *Connection) {
 	comma := false
 	for _, rt := range c.RouteConfigs {
 		if rt == nil {
@@ -725,7 +725,7 @@ func printRoutes(w io.Writer, c *XdsConnection) {
 	}
 }
 
-func (s *DiscoveryServer) getProxyConnection(proxyID string) *XdsConnection {
+func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
 

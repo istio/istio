@@ -91,7 +91,7 @@ type controller struct {
 	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
 	gatewayHandlers        []func(model.Config, model.Config, model.Event)
 	// May be nil if ingress class is not supported in the cluster
-	classes *v1beta1.IngressClassInformer
+	classes v1beta1.IngressClassInformer
 
 	serviceInformer cache.SharedIndexInformer
 	serviceLister   listerv1.ServiceLister
@@ -138,11 +138,9 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 
 	serviceInformer := sharedInformerFactory.Core().V1().Services()
 
-	var classes *v1beta1.IngressClassInformer
+	var classes v1beta1.IngressClassInformer
 	if ingressClassSupported(client) {
-		sharedInformers := informers.NewSharedInformerFactory(client, options.ResyncPeriod)
-		i := sharedInformers.Networking().V1beta1().IngressClasses()
-		classes = &i
+		classes = sharedInformerFactory.Networking().V1beta1().IngressClasses()
 	} else {
 		log.Infof("Skipping IngressClass, resource not supported")
 	}
@@ -185,7 +183,7 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingress.Ingress) (bool, error) {
 	var class *ingress.IngressClass
 	if c.classes != nil && i.Spec.IngressClassName != nil {
-		c, err := (*c.classes).Lister().Get(*i.Spec.IngressClassName)
+		c, err := c.classes.Lister().Get(*i.Spec.IngressClassName)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return false, fmt.Errorf("failed to get ingress class %v: %v", i.Spec.IngressClassName, err)
 		}
@@ -256,7 +254,8 @@ func (c *controller) SetLedger(ledger.Ledger) error {
 }
 
 func (c *controller) HasSynced() bool {
-	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced()
+	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
+		(c.classes == nil || c.classes.Informer().HasSynced())
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
@@ -267,7 +266,7 @@ func (c *controller) Run(stop <-chan struct{}) {
 	go c.ingressInformer.Run(stop)
 	go c.serviceInformer.Run(stop)
 	if c.classes != nil {
-		go (*c.classes).Informer().Run(stop)
+		go c.classes.Informer().Run(stop)
 	}
 	<-stop
 }

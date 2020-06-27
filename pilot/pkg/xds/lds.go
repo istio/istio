@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
-func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
+func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
 	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
