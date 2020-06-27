@@ -42,8 +42,7 @@ func (cl *Client) SetLedger(l ledger.Ledger) error {
 func (cl *Client) tryLedgerPut(obj interface{}, kind string) {
 	iobj := obj.(metav1.Object)
 	key := model.Key(kind, iobj.GetName(), iobj.GetNamespace())
-	_, err := cl.configLedger.Put(key, iobj.GetResourceVersion())
-	if err != nil {
+	if _, err := cl.configLedger.Put(key, iobj.GetResourceVersion()); err != nil {
 		scope.Errorf("Failed to update %s in ledger, status will be out of date.", key)
 	}
 }
@@ -51,8 +50,7 @@ func (cl *Client) tryLedgerPut(obj interface{}, kind string) {
 func (cl *Client) tryLedgerDelete(obj interface{}, kind string) {
 	iobj := obj.(metav1.Object)
 	key := model.Key(kind, iobj.GetName(), iobj.GetNamespace())
-	err := cl.configLedger.Delete(key)
-	if err != nil {
+	if err := cl.configLedger.Delete(key); err != nil {
 		scope.Errorf("Failed to delete %s in ledger, status will be out of date.", key)
 	}
 }

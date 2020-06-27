@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	crdclient2 "istio.io/istio/pilot/pkg/config/kube/crdclient"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/status"
 	kubecfg "istio.io/istio/pkg/kube"
 
@@ -393,7 +393,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	if err != nil {
 		return nil, err
 	}
-	c, err := crdclient2.NewForConfig(cfg, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
+	c, err := crdclient.NewForConfig(cfg, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
 	if err != nil {
 		return nil, err
 	}
