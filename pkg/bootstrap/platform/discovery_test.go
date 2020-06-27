@@ -21,6 +21,14 @@ import (
 	"time"
 )
 
+func UnsetAllEnv(t *testing.T) {
+	err := os.Unsetenv("GCP_METADATA")
+	if err != nil {
+		t.Errorf("Unable to unset GCP_METADATA: %v", err)
+	}
+	// in diff func because other plats might use env vars.
+}
+
 func TestDiscoverWithTimeout(t *testing.T) {
 	tests := []struct {
 		desc       string
@@ -50,6 +58,7 @@ func TestDiscoverWithTimeout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
+			UnsetAllEnv(t)
 			err := os.Setenv(tt.platKey, tt.platVal)
 			defer func() {
 				err = os.Unsetenv(tt.platKey)
