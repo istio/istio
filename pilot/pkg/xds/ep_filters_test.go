@@ -73,7 +73,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	tests := []struct {
 		name      string
 		endpoints []*endpoint.LocalityLbEndpoints
-		conn      *XdsConnection
+		conn      *Connection
 		env       *model.Environment
 		want      []LocLbEpInfo
 	}{
@@ -255,7 +255,7 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 	tests := []struct {
 		name      string
 		endpoints []*endpoint.LocalityLbEndpoints
-		conn      *XdsConnection
+		conn      *Connection
 		env       *model.Environment
 		want      []LocLbEpInfo
 	}{
@@ -433,7 +433,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	tests := []struct {
 		name      string
 		endpoints []*endpoint.LocalityLbEndpoints
-		conn      *XdsConnection
+		conn      *Connection
 		env       *model.Environment
 		want      []LocLbEpInfo
 	}{
@@ -561,8 +561,8 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	}
 }
 
-func xdsConnection(network string) *XdsConnection {
-	return &XdsConnection{
+func xdsConnection(network string) *Connection {
+	return &Connection{
 		node: &model.Proxy{
 			Metadata: &model.NodeMetadata{Network: network},
 		},

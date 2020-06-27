@@ -116,7 +116,7 @@ type DiscoveryServer struct {
 	debugHandlers map[string]string
 
 	// adsClients reflect active gRPC channels, for both ADS and EDS.
-	adsClients      map[string]*XdsConnection
+	adsClients      map[string]*Connection
 	adsClientsMutex sync.RWMutex
 
 	StatusReporter DistributionStatusCache
@@ -159,7 +159,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		pushQueue:               NewPushQueue(),
 		DebugConfigs:            features.DebugConfigs,
 		debugHandlers:           map[string]string{},
-		adsClients:              map[string]*XdsConnection{},
+		adsClients:              map[string]*Connection{},
 	}
 
 	if features.XDSAuth {
@@ -418,7 +418,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			proxiesQueueTime.Record(time.Since(info.Start).Seconds())
 
 			go func() {
-				pushEv := &XdsEvent{
+				pushEv := &Event{
 					full:           info.Full,
 					push:           info.Push,
 					done:           doneFunc,
