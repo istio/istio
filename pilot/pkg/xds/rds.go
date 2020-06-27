@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
-func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
+func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
 	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes)
 	if s.DebugConfigs {
