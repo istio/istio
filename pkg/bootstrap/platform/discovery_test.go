@@ -22,28 +22,28 @@ import (
 )
 
 func TestDiscoverWithTimeout(t *testing.T) {
-	tests := []struct{
-		desc string
-		timeout time.Duration
-		platKey string
-		platVal string
+	tests := []struct {
+		desc       string
+		timeout    time.Duration
+		platKey    string
+		platVal    string
 		platExpect Environment
 	}{
 		{
-			desc: "no-plat",
-			timeout: 1*time.Second,
-			platKey: "",
-			platVal: "",
+			desc:       "no-plat",
+			timeout:    1 * time.Second,
+			platKey:    "",
+			platVal:    "",
 			platExpect: &Unknown{},
 		},
 		// todo add test to verify aws - currently not possible
 		// 	because verifier reads from /sys/hypervisor/uuid which
 		// 	isn't writable in a test env.
 		{
-			desc: "gcp",
-			timeout: 1*time.Second,
-			platKey: "GCP_METADATA",
-			platVal: "FOO|BAR|BAZ|MAR",
+			desc:       "gcp",
+			timeout:    1 * time.Second,
+			platKey:    "GCP_METADATA",
+			platVal:    "FOO|BAR|BAZ|MAR",
 			platExpect: &GcpEnv{},
 		},
 	}
@@ -51,7 +51,7 @@ func TestDiscoverWithTimeout(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			err := os.Setenv(tt.platKey, tt.platVal)
-			if err != nil && tt.platKey != ""{
+			if err != nil && tt.platKey != "" {
 				t.Errorf("unable to setup: %v", err)
 			}
 			if got := DiscoverWithTimeout(tt.timeout); reflect.TypeOf(tt.platExpect) != reflect.TypeOf(got) {
