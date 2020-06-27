@@ -228,9 +228,9 @@ spec:
         - bash
         - -c
         - |-
-          sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
+          # TODO: remove when DNS capture is enabled
           sudo sh -c 'echo "1.1.1.1 pod.{{$.Namespace}}.svc.cluster.local" >> /etc/hosts'
 
           # TODO: run with systemctl?
@@ -256,6 +256,9 @@ spec:
         # Block standard inbound ports
         - name: ISTIO_LOCAL_EXCLUDE_PORTS
           value: "15090,15021,15020"
+        # Capture all DNS traffic in the VM and forward to Envoy
+        #- name: ISTIO_META_DNS_CAPTURE
+        #  value: "ALL"
         readinessProbe:
           httpGet:
             path: /healthz/ready
