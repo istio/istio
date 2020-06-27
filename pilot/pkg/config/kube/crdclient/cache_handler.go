@@ -45,22 +45,21 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 		return err
 	}
 
-	var currConfig model.Config
-	if currItem, ok := curr.(runtime.Object); !ok {
+	currItem, ok := curr.(runtime.Object)
+	if !ok {
 		log.Warnf("New Object can not be converted to runtime Object %v, is type %T", curr, curr)
 		return nil
-	} else {
-		currConfig = *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 	}
+	currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 
 	var oldConfig model.Config
 	if old != nil {
-		if oldItem, ok := old.(runtime.Object); !ok {
+		oldItem, ok := old.(runtime.Object)
+		if !ok {
 			log.Warnf("Old Object can not be converted to runtime Object %v, is type %T", old, old)
 			return nil
-		} else {
-			oldConfig = *TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 		}
+		oldConfig = *TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 	}
 
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
