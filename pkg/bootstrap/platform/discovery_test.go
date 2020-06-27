@@ -51,6 +51,13 @@ func TestDiscoverWithTimeout(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			err := os.Setenv(tt.platKey, tt.platVal)
+			defer func() {
+				err = os.Unsetenv(tt.platKey)
+				if tt.platKey != "" && err != nil {
+					err = os.Unsetenv(tt.platKey)
+					t.Errorf("unable to tear down: %v", err)
+				}
+			}()
 			if err != nil && tt.platKey != "" {
 				t.Errorf("unable to setup: %v", err)
 			}
