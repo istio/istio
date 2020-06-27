@@ -112,7 +112,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 		monitoring:     newMonitoringMetrics(),
 	}
 	mockCertChain := []string{"cert", "cert_chain", "root_cert"}
-	mockIpAddr := &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}
+	mockIPAddr := &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}
 	testCerts := map[string]struct {
 		certChain          [][]*x509.Certificate
 		caller             *authenticate.Caller
@@ -125,7 +125,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			certChain:          nil,
 			caller:             nil,
 			authenticateErrMsg: "no client certificate is presented",
-			ipAddr:             mockIpAddr,
+			ipAddr:             mockIPAddr,
 			code:               codes.Unauthenticated,
 		},
 		"Unsupported auth type": {
@@ -133,14 +133,14 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			caller:             nil,
 			authenticateErrMsg: "unsupported auth type: \"not-tls\"",
 			fakeAuthInfo:       &mockAuthInfo{"not-tls"},
-			ipAddr:             mockIpAddr,
+			ipAddr:             mockIPAddr,
 			code:               codes.Unauthenticated,
 		},
 		"Empty cert chain": {
 			certChain:          [][]*x509.Certificate{},
 			caller:             nil,
 			authenticateErrMsg: "no verified chain is found",
-			ipAddr:             mockIpAddr,
+			ipAddr:             mockIPAddr,
 			code:               codes.Unauthenticated,
 		},
 		"Certificate has no SAN": {
@@ -152,7 +152,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 				},
 			},
 			authenticateErrMsg: "the SAN extension does not exist",
-			ipAddr:             mockIpAddr,
+			ipAddr:             mockIPAddr,
 			code:               codes.Unauthenticated,
 		},
 		"With client certificate": {
@@ -164,7 +164,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 				},
 			},
 			caller: &authenticate.Caller{Identities: []string{callerID}},
-			ipAddr: mockIpAddr,
+			ipAddr: mockIPAddr,
 			code:   codes.OK,
 		},
 	}

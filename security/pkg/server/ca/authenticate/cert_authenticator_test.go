@@ -38,7 +38,6 @@ func (ai mockAuthInfo) AuthType() string {
 }
 
 func TestAuthenticate_clientCertAuthenticator(t *testing.T) {
-	t.Logf("TestAuthenticate_clientCertAuthenticator")
 	callerID := "test.identity"
 	ids := []util.Identity{
 		{Type: util.TypeURI, Value: []byte(callerID)},
