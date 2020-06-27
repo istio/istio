@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/proxy/envoy/filters"
+	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/constants"
 )
 
