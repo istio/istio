@@ -31,12 +31,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func createProxies(n int) []*XdsConnection {
-	proxies := make([]*XdsConnection, 0, n)
+func createProxies(n int) []*Connection {
+	proxies := make([]*Connection, 0, n)
 	for p := 0; p < n; p++ {
-		proxies = append(proxies, &XdsConnection{
+		proxies = append(proxies, &Connection{
 			ConID:       fmt.Sprintf("proxy-%v", p),
-			pushChannel: make(chan *XdsEvent),
+			pushChannel: make(chan *Event),
 			stream:      &fakeStream{},
 		})
 	}

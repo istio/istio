@@ -26,8 +26,8 @@ import (
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
-func getWithTimeout(p *PushQueue) *XdsConnection {
-	done := make(chan *XdsConnection)
+func getWithTimeout(p *PushQueue) *Connection {
+	done := make(chan *Connection)
 	go func() {
 		con, _ := p.Dequeue()
 		done <- con
@@ -54,9 +54,9 @@ func ExpectTimeout(t *testing.T, p *PushQueue) {
 	}
 }
 
-func ExpectDequeue(t *testing.T, p *PushQueue, expected *XdsConnection) {
+func ExpectDequeue(t *testing.T, p *PushQueue, expected *Connection) {
 	t.Helper()
-	result := make(chan *XdsConnection)
+	result := make(chan *Connection)
 	go func() {
 		con, _ := p.Dequeue()
 		result <- con
@@ -72,9 +72,9 @@ func ExpectDequeue(t *testing.T, p *PushQueue, expected *XdsConnection) {
 }
 
 func TestProxyQueue(t *testing.T) {
-	proxies := make([]*XdsConnection, 0, 100)
+	proxies := make([]*Connection, 0, 100)
 	for p := 0; p < 100; p++ {
-		proxies = append(proxies, &XdsConnection{ConID: fmt.Sprintf("proxy-%d", p)})
+		proxies = append(proxies, &Connection{ConID: fmt.Sprintf("proxy-%d", p)})
 	}
 
 	t.Run("simple add and remove", func(t *testing.T) {
@@ -186,7 +186,7 @@ func TestProxyQueue(t *testing.T) {
 		p := NewPushQueue()
 		wg := &sync.WaitGroup{}
 		wg.Add(2)
-		respChannel := make(chan *XdsConnection, 2)
+		respChannel := make(chan *Connection, 2)
 		go func() {
 			respChannel <- getWithTimeout(p)
 			wg.Done()
@@ -213,7 +213,7 @@ func TestProxyQueue(t *testing.T) {
 
 	t.Run("concurrent", func(t *testing.T) {
 		p := NewPushQueue()
-		key := func(p *XdsConnection, eds string) string { return fmt.Sprintf("%s~%s", p.ConID, eds) }
+		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.ConID, eds) }
 
 		// We will trigger many pushes for eds services to each proxy. In the end we will expect
 		// all of these to be dequeue, but order is not deterministic.

@@ -27,7 +27,7 @@ import (
 
 // handleReqAck checks if the message is an ack/nack and handles it, returning true.
 // If false, the request should be processed by calling the generator.
-func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *discovery.DiscoveryRequest) (*model.WatchedResource, bool) {
+func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.DiscoveryRequest) (*model.WatchedResource, bool) {
 
 	// All NACKs should have ErrorDetail set !
 	// Relying on versionCode != sentVersionCode as nack is less reliable.
@@ -89,7 +89,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *discovery.Di
 }
 
 // handleCustomGenerator uses model.Generator to generate the response.
-func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discovery.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.DiscoveryRequest) error {
 	w, isAck := s.handleReqAck(con, req)
 	if isAck {
 		return nil
@@ -138,7 +138,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discove
 
 // Called for config updates.
 // Will not be called if ProxyNeedsPush returns false - ie. if the update
-func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushContext,
+func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushContext,
 	currentVersion string, w *model.WatchedResource, updates model.XdsUpdates) error {
 	// TODO: generators may send incremental changes if both sides agree on the protocol.
 	// This is specific to each generator type.
