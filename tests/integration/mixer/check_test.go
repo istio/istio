@@ -38,7 +38,7 @@ func TestCheck_Allow(t *testing.T) {
 				Inject: true,
 			})
 
-			ctx.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
 				ns.Name(),
 				testCheckConfig,
@@ -80,7 +80,7 @@ func TestCheck_Deny(t *testing.T) {
 				Prefix: "testcheck-deny",
 			})
 
-			ctx.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
 				ns.Name(),
 				testCheckConfig,

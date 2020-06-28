@@ -15,13 +15,13 @@
 package kube
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -35,7 +35,7 @@ var _ kube.Client = MockClient{}
 // MockClient for tests that rely on kube.Client.
 type MockClient struct {
 	*kubernetes.Clientset
-	*rest.RESTClient
+	RestClient *rest.RESTClient
 	// Results is a map of podName to the results of the expected test on the pod
 	Results          map[string][]byte
 	DiscoverablePods map[string]map[string]*v1.PodList
@@ -56,7 +56,7 @@ func (c MockClient) EnvoyDo(_ context.Context, podName, _, _, _ string, _ []byte
 	return results, nil
 }
 
-func (c MockClient) Config() *rest.Config {
+func (c MockClient) RESTConfig() *rest.Config {
 	return c.ConfigValue
 }
 
@@ -64,23 +64,53 @@ func (c MockClient) GetIstioVersions(_ context.Context, _ string) (*version.Mesh
 	return c.IstioVersions, nil
 }
 
-func (c MockClient) PodsForSelector(_ context.Context, namespace, labelSelector string) (*v1.PodList, error) {
+func (c MockClient) PodsForSelector(_ context.Context, namespace string, labelSelectors ...string) (*v1.PodList, error) {
 	podsForNamespace, ok := c.DiscoverablePods[namespace]
 	if !ok {
 		return &v1.PodList{}, nil
 	}
-	podsForLabel, ok := podsForNamespace[labelSelector]
-	if !ok {
-		return &v1.PodList{}, nil
+	var allPods v1.PodList
+	for _, selector := range labelSelectors {
+		pods, ok := podsForNamespace[selector]
+		if !ok {
+			return &v1.PodList{}, nil
+		}
+		allPods.TypeMeta = pods.TypeMeta
+		allPods.ListMeta = pods.ListMeta
+		allPods.Items = append(allPods.Items, pods.Items...)
 	}
-	return podsForLabel, nil
+	return &allPods, nil
 }
 
 func (c MockClient) Revision() string {
 	return c.RevisionValue
 }
 
+func (c MockClient) REST() rest.Interface {
+	panic("not implemented by mock")
+}
+
+func (c MockClient) ApplyYAMLFiles(string, ...string) error {
+	panic("not implemented by mock")
+}
+
+func (c MockClient) ApplyYAMLFilesDryRun(string, ...string) error {
+	panic("not implemented by mock")
+}
+
+func (c MockClient) DeleteYAMLFiles(string, ...string) error {
+	panic("not implemented by mock")
+}
+
+func (c MockClient) DeleteYAMLFilesDryRun(string, ...string) error {
+	panic("not implemented by mock")
+}
+
 func (c MockClient) Ext() clientset.Interface {
+	panic("not implemented by mock")
+}
+
+func (c MockClient) Dynamic() dynamic.Interface {
 	panic("not implemented by mock")
 }
 
@@ -92,8 +122,8 @@ func (c MockClient) GetIstioPods(_ context.Context, _ string, _ map[string]strin
 	return nil, fmt.Errorf("TODO MockClient doesn't implement IstioPods")
 }
 
-func (c MockClient) PodExec(_, _, _ string, _ []string) (*bytes.Buffer, *bytes.Buffer, error) {
-	return nil, nil, fmt.Errorf("TODO MockClient doesn't implement exec")
+func (c MockClient) PodExec(_, _, _ string, _ string) (string, string, error) {
+	return "", "", fmt.Errorf("TODO MockClient doesn't implement exec")
 }
 
 func (c MockClient) PodLogs(_ context.Context, _ string, _ string, _ string, _ bool) (string, error) {

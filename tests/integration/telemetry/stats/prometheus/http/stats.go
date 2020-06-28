@@ -147,7 +147,7 @@ func SendTraffic() error {
 }
 
 func SetupStrictMTLS(ctx resource.Context) error {
-	return ctx.ApplyConfig(appNsInst.Name(), fmt.Sprintf(`
+	return ctx.Config().ApplyYAML(appNsInst.Name(), fmt.Sprintf(`
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
