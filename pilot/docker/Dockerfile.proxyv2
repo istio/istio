@@ -16,10 +16,13 @@ RUN chown -R istio-proxy /var/lib/istio
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 FROM gcr.io/distroless/cc@sha256:f81e5db8287d66b012d874a6f7fea8da5b96d9cc509aa5a9b5d095a604d4bca1 as distroless
 
+# The default value of arch is x86_64
+ARG LOCAL_ARCH=x86_64
+
 # TODO(https://github.com/istio/istio/issues/17656) clean up this hack
 COPY --from=default /sbin/xtables-multi /sbin/iptables* /sbin/ip6tables* /sbin/ip /sbin/
-COPY --from=default /usr/lib/x86_64-linux-gnu/xtables/ /usr/lib/x86_64-linux-gnu/xtables
-COPY --from=default /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu
+COPY --from=default /usr/lib/${LOCAL_ARCH}-linux-gnu/xtables/ /usr/lib/${LOCAL_ARCH}-linux-gnu/xtables
+COPY --from=default /usr/lib/${LOCAL_ARCH}-linux-gnu/ /usr/lib/${LOCAL_ARCH}-linux-gnu
 COPY --from=default /etc/iproute2 /etc/iproute2
 
 # Copy Envoy bootstrap templates used by pilot-agent

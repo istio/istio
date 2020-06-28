@@ -78,7 +78,9 @@ target "$image-$variant" {
       istio_version = "${VERSION}"
       VM_IMAGE_NAME = "${VM_IMAGE_NAME}"
       VM_IMAGE_VERSION = "${VM_IMAGE_VERSION}"
+      LOCAL_ARCH = "${LOCAL_ARCH}"
     }
+    platforms = ["linux/${TARGET_ARCH}"]
     ${output}
 }
 EOF
