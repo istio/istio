@@ -17,14 +17,8 @@ package envoy
 import (
 	"context"
 	"crypto/sha256"
-	"time"
 
 	"istio.io/pkg/log"
-)
-
-const (
-	// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
-	defaultMinDelay = 10 * time.Second
 )
 
 // Watcher triggers reloads on changes to the proxy config
