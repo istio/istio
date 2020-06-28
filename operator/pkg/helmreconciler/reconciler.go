@@ -140,7 +140,10 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 	status := h.processRecursive(manifestMap)
 
 	h.opts.ProgressLog.SetState(progress.StatePruning)
-	pruneErr := h.Prune(manifestMap, false)
+	pruneStatus, pruneErr := h.Prune(manifestMap, false)
+	if pruneStatus != nil {
+		status = pruneStatus
+	}
 	return status, pruneErr
 }
 
@@ -211,7 +214,8 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 
 // Delete resources associated with the custom resource instance
 func (h *HelmReconciler) Delete() error {
-	return h.Prune(nil, true)
+	_, err := h.Prune(nil, true)
+	return err
 }
 
 // DeleteAll deletes all Istio resources in the cluster.
@@ -332,8 +336,8 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 	for k, v := range coreLabels {
 		labels[k] = v
 	}
-	revision := ""
-	if h.iop != nil {
+	revision := coreLabels[label.IstioRev]
+	if revision == "" && h.iop != nil {
 		revision = h.iop.Spec.Revision
 	}
 

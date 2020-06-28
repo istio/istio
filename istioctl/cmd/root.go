@@ -149,6 +149,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(softGraduatedCmd(Analyze()))
 	experimentalCmd.AddCommand(vmBootstrapCommand())
 	experimentalCmd.AddCommand(waitCmd())
+	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 
 	experimentalCmd.AddCommand(xdsVersionCommand())
 
