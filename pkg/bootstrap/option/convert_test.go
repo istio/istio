@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
+// nolint: lll
 func TestTlsContextConvert(t *testing.T) {
 	tests := []struct {
 		desc         string
