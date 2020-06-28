@@ -518,7 +518,7 @@ func TestOptions(t *testing.T) {
 			option: option.EnvoyMetricsServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.BootstrapNodeMetadata{}),
-			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\",\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}}", // nolint: lll
+			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext\",\"common_tls_context\":{\"alpn_protocols\":[\"istio\",\"h2\"],\"combined_validation_context\":{\"default_validation_context\":{},\"validation_context_sds_secret_config\":{\"name\":\"ROOTCA\",\"sds_config\":{\"api_config_source\":{\"api_type\":\"GRPC\",\"grpc_services\":[{\"envoy_grpc\":{\"cluster_name\":\"sds-grpc\"}}]}}}},\"tls_certificate_sds_secret_configs\":[{\"name\":\"default\",\"sds_config\":{\"api_config_source\":{\"api_type\":\"GRPC\",\"grpc_services\":[{\"envoy_grpc\":{\"cluster_name\":\"sds-grpc\"}}]}}}]},\"sni\":\"envoy_metrics_service\"}}", // nolint: lll
 		},
 		{
 			testName: "envoy metrics keepalive nil",
@@ -588,7 +588,7 @@ func TestOptions(t *testing.T) {
 			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.BootstrapNodeMetadata{}),
-			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\",\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_accesslog_service\"}}", // nolint: lll
+			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext\",\"common_tls_context\":{\"alpn_protocols\":[\"istio\",\"h2\"],\"combined_validation_context\":{\"default_validation_context\":{},\"validation_context_sds_secret_config\":{\"name\":\"ROOTCA\",\"sds_config\":{\"api_config_source\":{\"api_type\":\"GRPC\",\"grpc_services\":[{\"envoy_grpc\":{\"cluster_name\":\"sds-grpc\"}}]}}}},\"tls_certificate_sds_secret_configs\":[{\"name\":\"default\",\"sds_config\":{\"api_config_source\":{\"api_type\":\"GRPC\",\"grpc_services\":[{\"envoy_grpc\":{\"cluster_name\":\"sds-grpc\"}}]}}}]},\"sni\":\"envoy_accesslog_service\"}}", // nolint: lll
 		},
 		{
 			testName: "envoy access log keepalive nil",
@@ -701,8 +701,7 @@ func TestOptions(t *testing.T) {
 				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
 				CaCertificates: "/etc/tracing/ca.pem",
 			}, &model.BootstrapNodeMetadata{}, false),
-			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\"," +
-				"\"common_tls_context\":{\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/tracing/ca.pem\"}}}}}",
+			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext\",\"common_tls_context\":{\"combined_validation_context\":{\"default_validation_context\":{},\"validation_context_sds_secret_config\":{\"name\":\"file-root:/etc/tracing/ca.pem\",\"sds_config\":{\"api_config_source\":{\"api_type\":\"GRPC\",\"grpc_services\":[{\"envoy_grpc\":{\"cluster_name\":\"sds-grpc\"}}]}}}}},\"sni\":\"tracer\"}}",
 		},
 	}
 
