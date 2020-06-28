@@ -330,6 +330,9 @@ var (
 
 			agent := envoy.NewAgent(envoyProxy, drainDuration)
 
+			watcher := envoy.NewWatcher([]string{}, agent.Restart)
+			go watcher.Run(ctx)
+
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
 			go cmd.WaitSignalFunc(cancel)
 
