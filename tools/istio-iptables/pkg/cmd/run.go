@@ -48,11 +48,22 @@ type NetworkRange struct {
 	IPNets     []*net.IPNet
 }
 
+func filterEmpty(strs []string) []string {
+	filtered := make([]string, 0, len(strs))
+	for _, s := range strs {
+		if s == "" {
+			continue
+		}
+		filtered = append(filtered, s)
+	}
+	return filtered
+}
+
 func split(s string) []string {
 	if s == "" {
 		return nil
 	}
-	return strings.Split(s, ",")
+	return filterEmpty(strings.Split(s, ","))
 }
 
 func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {

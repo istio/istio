@@ -239,6 +239,11 @@ func TestIntoResourceFile(t *testing.T) {
 			want: "status_annotations.yaml.injected",
 		},
 		{
+			// Verifies that the status annotations override the params.
+			in:   "status_annotations_zeroport.yaml",
+			want: "status_annotations_zeroport.yaml.injected",
+		},
+		{
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
 			in:   "kubevirtInterfaces.yaml",
 			want: "kubevirtInterfaces.yaml.injected",
