@@ -30,7 +30,7 @@ import (
 // gen2 provides experimental support for extended generation mechanism.
 
 var (
-	podName = env.RegisterStringVar("POD_NAME", "", "").Get()
+	controlPlane *corev3.ControlPlane
 )
 
 // handleReqAck checks if the message is an ack/nack and handles it, returning true.
@@ -96,6 +96,25 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *discovery.Di
 	return w, isAck
 }
 
+// ControlPlane identifies the instance and Istio version.
+func ControlPlane() *corev3.ControlPlane {
+	return controlPlane
+}
+
+func init() {
+	// The Pod Name (Pilot identity) is in PilotArgs, but not reachable globally nor from DiscoveryServer
+	podName := env.RegisterStringVar("POD_NAME", "", "").Get()
+	byVersion, err := json.Marshal(map[string]interface{}{
+		"component": "pilot",
+		"id":        podName,
+		"info":      istioversion.Info,
+	})
+	if err != nil {
+		adsLog.Warnf("XDS: Could not serialize control plane id: %v", err)
+	}
+	controlPlane = &corev3.ControlPlane{Identifier: string(byVersion)}
+}
+
 // handleCustomGenerator uses model.Generator to generate the response.
 func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discovery.DiscoveryRequest) error {
 	w, isAck := s.handleReqAck(con, req)
@@ -103,21 +122,9 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discove
 		return nil
 	}
 
-	// The control plane will identify itself with its name and Istio version
-	var controlPlane *corev3.ControlPlane
-	byVersion, err := json.Marshal(map[string]interface{}{
-		"component": "pilot",
-		// The Pod Name or Pilot identity is in PilotArgs, but not reachable from DiscoveryServer
-		"id":   podName,
-		"info": istioversion.Info,
-	})
-	if err == nil {
-		controlPlane = &corev3.ControlPlane{Identifier: string(byVersion)}
-	}
-
 	push := s.globalPushContext()
 	resp := &discovery.DiscoveryResponse{
-		ControlPlane: controlPlane,
+		ControlPlane: ControlPlane(),
 		TypeUrl:      w.TypeUrl,
 		VersionInfo:  push.Version, // TODO: we can now generate per-type version !
 		Nonce:        nonce(push.Version),
@@ -140,7 +147,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *discove
 		sz += len(rc.Value)
 	}
 
-	err = con.send(resp)
+	err := con.send(resp)
 	if err != nil {
 		recordSendError("ADS", con.ConID, apiSendErrPushes, err)
 		return err
