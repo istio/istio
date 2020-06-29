@@ -19,10 +19,9 @@ import (
 	"fmt"
 
 	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
-
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // ClientFactoryFunc is a transformation function that creates k8s clients
@@ -40,10 +39,7 @@ type Settings struct {
 
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.
-	Minikube bool
-
-	// Indicates that issues caused by minikube/kind have been worked around and should not fall back to node-port.
-	Metallb bool
+	NoLoadBalancer bool
 
 	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
@@ -83,12 +79,6 @@ func (s *Settings) GetControlPlaneClusters() map[resource.ClusterIndex]bool {
 	return out
 }
 
-// SupportsExternalIP returns whether or not Services will acquire a public ip. If not, NodePort and host IP must be
-// used to workaround this.
-func (s *Settings) SupportsExternalIP() bool {
-	return !s.Minikube || s.Metallb
-}
-
 // NewClients creates the kubernetes clients for interacting with the configured clusters.
 func (s *Settings) NewClients() ([]istioKube.ExtendedClient, error) {
 	newClientsFn := s.ClientFactoryFunc
@@ -111,7 +101,7 @@ func (s *Settings) String() string {
 	result := ""
 
 	result += fmt.Sprintf("KubeConfig:           %s\n", s.KubeConfig)
-	result += fmt.Sprintf("MiniKubeIngress:      %v\n", s.Minikube)
+	result += fmt.Sprintf("NoExternalLoadBalancer:      %v\n", s.NoLoadBalancer)
 	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.ControlPlaneTopology)
 	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
 

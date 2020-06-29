@@ -78,7 +78,7 @@ func GetRemoteDiscoveryAddress(ctx resource.Context, namespace string, cluster r
 	}
 	cpCluster := cpResCluster.(kubeenv.Cluster)
 
-	// TODO(landow) deal with ingress circular endpoint; only unique code here is getting the control-plane cluster
+	// TODO(landow) deal with ingress circular dependency; only unique code here is getting the control-plane cluster
 
 	svc, err := cpCluster.CoreV1().Services(namespace).Get(context.TODO(), igwServiceName, kubeApiMeta.GetOptions{})
 	if err != nil {
@@ -87,7 +87,7 @@ func GetRemoteDiscoveryAddress(ctx resource.Context, namespace string, cluster r
 
 	// environments that don't support assigning external IPs (e.g. kind without metallb) can workaround
 	// by using host ip + NodePort
-	if !env.Settings().SupportsExternalIP() {
+	if env.Settings().NoLoadBalancer {
 		pods, err := cpCluster.PodsForSelector(context.TODO(), namespace, "istio=ingressgateway")
 		if err != nil {
 			return net.TCPAddr{}, err

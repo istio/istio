@@ -200,11 +200,10 @@ func defaultKubeConfig() string {
 func init() {
 	flag.StringVar(&kubeConfigs, "istio.test.kube.config", strings.Join(settingsFromCommandLine.KubeConfig, ":"),
 		"A comma-separated list of paths to kube config files for cluster environments (default is current kube context)")
-	flag.BoolVar(&settingsFromCommandLine.Minikube, "istio.test.kube.minikube", settingsFromCommandLine.Minikube,
-		"Indicates that the target environment is Minikube. Used by to obtain the right IP address for ingress gateway.")
-	flag.BoolVar(&settingsFromCommandLine.Metallb, "istio.test.kube.metallb", settingsFromCommandLine.Minikube,
-		"Indicates that the target environment is running MetalLB to add External IP support. Used by to obtain the "+
-			"right IP address for ingress gateway.")
+	flag.BoolVar(&settingsFromCommandLine.NoLoadBalancer, "istio.test.kube.minikube", settingsFromCommandLine.NoLoadBalancer,
+		"(legacy) Indicates that the target environment does not support External Loadbalancers. Used by to obtain the right IP address for ingress gateway.")
+	flag.BoolVar(&settingsFromCommandLine.NoLoadBalancer, "istio.test.kube.noloadbalancer", settingsFromCommandLine.NoLoadBalancer,
+		"Indicates that the target environment does not support External Loadbalancers. Used by to obtain the right IP address for ingress gateway.")
 	flag.StringVar(&controlPlaneTopology, "istio.test.kube.controlPlaneTopology",
 		"", "Specifies the mapping for each cluster to the cluster hosting its control plane. The value is a "+
 			"comma-separated list of the form <clusterIndex>:<controlPlaneClusterIndex>, where the indexes refer to the order in which "+

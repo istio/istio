@@ -63,7 +63,7 @@ type kubeComponent struct {
 func (c *kubeComponent) getAddressInner(ns string, port int) (interface{}, bool, error) {
 	// environments that don't support assigning external IPs (e.g. kind without metallb) can workaround
 	// by using host ip + NodePort
-	if !c.env.Settings().SupportsExternalIP() {
+	if c.env.Settings().NoLoadBalancer {
 		pods, err := c.cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", istioLabel))
 		if err != nil {
 			return nil, false, err

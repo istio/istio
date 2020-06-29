@@ -85,13 +85,13 @@ type Instance interface {
 	resource.Resource
 
 	// HTTPAddress returns the external HTTP address of the ingress gateway (or the NodePort address,
-	// when running under Minikube).
+	// when running with NoLoadBalancer).
 	HTTPAddress() net.TCPAddr
 	// HTTPSAddress returns the external HTTPS address of the ingress gateway (or the
-	// NodePort address, when running under Minikube).
+	// NodePort address, when running with NoLoadBalancer).
 	HTTPSAddress() net.TCPAddr
 	// TCPAddress returns the external TCP address of the ingress gateway (or the NodePort address,
-	// when running under Minikube).
+	// when running with NoLoadBalancer).
 	TCPAddress() net.TCPAddr
 
 	//  Call makes a call through ingress.

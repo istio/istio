@@ -13,11 +13,11 @@ ifneq ($(CI),)
 endif
 
 ifeq ($(TEST_ENV),minikube)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.minikube
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.noloadbalancer
 else ifeq ($(TEST_ENV),minikube-none)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.minikube
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.noloadbalancer
 else ifeq ($(TEST_ENV),kind)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.minikube
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.noloadbalancer
 endif
 
 ifneq ($(ARTIFACTS),)

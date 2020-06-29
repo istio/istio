@@ -87,7 +87,7 @@ while (( "$#" )); do
   esac
 done
 
-# KinD will not have a LoadBalancer, so we need to disable it
+# KinD setup by lib.sh will install metallb to support LoadBalancer with external IPss
 export TEST_ENV=kind
 
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
@@ -119,11 +119,11 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
     time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
   else
+    export TEST_ENV=kind_metallb
     # TODO: Support IPv6 multicluster
     time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
 
     # Set the kube configs to point to the clusters.
-    export INTEGRATION_TEST_FLAGS="--istio.test.kube.metallb"
     export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG}"
     export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-1"
     export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY="0:0,1:0,2:2"
