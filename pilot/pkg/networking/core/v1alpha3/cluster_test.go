@@ -2191,10 +2191,10 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 	simpleTLSSettingsWithCerts := &networking.ClientTLSSettings{
-		Mode:              networking.ClientTLSSettings_SIMPLE,
-		CaCertificates:    constants.DefaultRootCert,
-		SubjectAltNames:   []string{"custom.foo.com"},
-		Sni:               "custom.foo.com",
+		Mode:            networking.ClientTLSSettings_SIMPLE,
+		CaCertificates:  constants.DefaultRootCert,
+		SubjectAltNames: []string{"custom.foo.com"},
+		Sni:             "custom.foo.com",
 	}
 
 	http2ProtocolOptions := &core.Http2ProtocolOptions{
@@ -2265,7 +2265,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
 				}
 				if got := ctx.GetSni(); got != simpleTLSSettingsWithCerts.Sni {
-					t.Fatalf("expected TLSContext SNI %v; got %v",simpleTLSSettingsWithCerts.Sni, got)
+					t.Fatalf("expected TLSContext SNI %v; got %v", simpleTLSSettingsWithCerts.Sni, got)
 				}
 			},
 		},
@@ -2286,7 +2286,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
 				}
 				if got := ctx.GetSni(); got != simpleTLSSettingsWithCerts.Sni {
-					t.Fatalf("expected TLSContext SNI %v; got %v",simpleTLSSettingsWithCerts.Sni, got)
+					t.Fatalf("expected TLSContext SNI %v; got %v", simpleTLSSettingsWithCerts.Sni, got)
 				}
 			},
 		},
@@ -2310,7 +2310,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
 				}
 				if got := ctx.GetSni(); got != mutualTLSSettingsWithCerts.Sni {
-					t.Fatalf("expected TLSContext SNI %v; got %v",mutualTLSSettingsWithCerts.Sni, got)
+					t.Fatalf("expected TLSContext SNI %v; got %v", mutualTLSSettingsWithCerts.Sni, got)
 				}
 			},
 		},
@@ -2335,7 +2335,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
 				}
 				if got := ctx.GetSni(); got != mutualTLSSettingsWithCerts.Sni {
-					t.Fatalf("expected TLSContext SNI %v; got %v",mutualTLSSettingsWithCerts.Sni, got)
+					t.Fatalf("expected TLSContext SNI %v; got %v", mutualTLSSettingsWithCerts.Sni, got)
 				}
 			},
 		},
