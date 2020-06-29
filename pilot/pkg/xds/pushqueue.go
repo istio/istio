@@ -26,30 +26,30 @@ type PushQueue struct {
 
 	// eventsMap stores all connections in the queue. If the same connection is enqueued again, the
 	// PushEvents will be merged.
-	eventsMap map[*XdsConnection]*model.PushRequest
+	eventsMap map[*Connection]*model.PushRequest
 
 	// connections maintains ordering of the queue
-	connections []*XdsConnection
+	connections []*Connection
 
 	// inProgress stores all connections that have been Dequeue(), but not MarkDone().
 	// The value stored will be initially be nil, but may be populated if the connection is Enqueue().
 	// If model.PushRequest is not nil, it will be Enqueued again once MarkDone has been called.
-	inProgress map[*XdsConnection]*model.PushRequest
+	inProgress map[*Connection]*model.PushRequest
 }
 
 func NewPushQueue() *PushQueue {
 	mu := &sync.RWMutex{}
 	return &PushQueue{
 		mu:         mu,
-		eventsMap:  make(map[*XdsConnection]*model.PushRequest),
-		inProgress: make(map[*XdsConnection]*model.PushRequest),
+		eventsMap:  make(map[*Connection]*model.PushRequest),
+		inProgress: make(map[*Connection]*model.PushRequest),
 		cond:       sync.NewCond(mu),
 	}
 }
 
 // Enqueue will mark a proxy as pending a push. If it is already pending, pushInfo will be merged.
 // ServiceEntry updates will be added together, and full will be set if either were full
-func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *model.PushRequest) {
+func (p *PushQueue) Enqueue(proxy *Connection, pushInfo *model.PushRequest) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -71,7 +71,7 @@ func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *model.PushRequest) {
 }
 
 // Remove a proxy from the queue. If there are no proxies ready to be removed, this will block
-func (p *PushQueue) Dequeue() (*XdsConnection, *model.PushRequest) {
+func (p *PushQueue) Dequeue() (*Connection, *model.PushRequest) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -92,7 +92,7 @@ func (p *PushQueue) Dequeue() (*XdsConnection, *model.PushRequest) {
 	return head, info
 }
 
-func (p *PushQueue) MarkDone(con *XdsConnection) {
+func (p *PushQueue) MarkDone(con *Connection) {
 	p.mu.Lock()
 
 	info := p.inProgress[con]

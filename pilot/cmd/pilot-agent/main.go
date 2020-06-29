@@ -38,10 +38,10 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy"
-	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
+	securityutil "istio.io/istio/pilot/pkg/security/authn/utils"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
@@ -153,7 +153,7 @@ var (
 			}
 
 			// Obtain all the IPs from the node
-			if ipAddrs, ok := proxy.GetPrivateIPs(context.Background()); ok {
+			if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {
 				log.Infof("Obtained private IP %v", ipAddrs)
 				if len(role.IPAddresses) == 1 {
 					for _, ip := range ipAddrs {
@@ -229,7 +229,7 @@ var (
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
 				// Obtain the Mixer SAN, which uses SPIFFE certs. Used below to create a Envoy proxy.
-				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
+				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), securityutil.MixerSvcAccName, mixerIdentity)
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
@@ -387,9 +387,9 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 	var san []string
 	if overrideIdentity == "" {
-		san = append(san, envoyDiscovery.GetSAN(ns, defaultSA))
+		san = append(san, securityutil.GetSAN(ns, defaultSA))
 	} else {
-		san = append(san, envoyDiscovery.GetSAN("", overrideIdentity))
+		san = append(san, securityutil.GetSAN("", overrideIdentity))
 
 	}
 	return san

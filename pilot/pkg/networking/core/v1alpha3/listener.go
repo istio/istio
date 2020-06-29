@@ -42,7 +42,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/util/protomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -932,15 +932,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 		if noneMode {
 			// do not care what the listener's capture mode setting is. The proxy does not use iptables
 			bindToPort = true
-		} else if egressListener.IstioListener != nil &&
-			// proxy uses iptables redirect or tproxy. IF mode is not set
-			// for older proxies, it defaults to iptables redirect.  If the
-			// listener's capture mode specifies NONE, then the proxy wants
-			// this listener alone to be on a physical port. If the
-			// listener's capture mode is default, then its same as
-			// iptables i.e. bindToPort is false.
-			egressListener.IstioListener.CaptureMode == networking.CaptureMode_NONE {
-			bindToPort = true
+		} else if egressListener.IstioListener != nil {
+			if egressListener.IstioListener.CaptureMode == networking.CaptureMode_NONE {
+				// proxy uses iptables redirect or tproxy. IF mode is not set
+				// for older proxies, it defaults to iptables redirect.  If the
+				// listener's capture mode specifies NONE, then the proxy wants
+				// this listener alone to be on a physical port. If the
+				// listener's capture mode is default, then its same as
+				// iptables i.e. bindToPort is false.
+				bindToPort = true
+			} else if strings.HasPrefix(egressListener.IstioListener.Bind, model.UnixAddressPrefix) {
+				// If the bind is a Unix domain socket, set bindtoPort to true as it makes no
+				// sense to have ORIG_DST listener for unix domain socket listeners.
+				bindToPort = true
+			}
 		}
 
 		if egressListener.IstioListener != nil &&
@@ -2150,7 +2155,7 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like
 		Name:            opts.bind + "_" + strconv.Itoa(opts.port),
-		Address:         util.BuildAddressV2(opts.bind, uint32(opts.port)),
+		Address:         util.BuildAddress(opts.bind, uint32(opts.port)),
 		ListenerFilters: listenerFilters,
 		FilterChains:    filterChains,
 		DeprecatedV1:    deprecatedV1,

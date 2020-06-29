@@ -44,7 +44,7 @@ type InternalGen struct {
 	// On new connect, use version to send recent events since last update.
 }
 
-func (sg *InternalGen) OnConnect(con *XdsConnection) {
+func (sg *InternalGen) OnConnect(con *Connection) {
 	if con.xdsNode.Metadata != nil && con.xdsNode.Metadata.Fields != nil {
 		con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value{
 			Kind: &structpb.Value_StringValue{
@@ -60,7 +60,7 @@ func (sg *InternalGen) OnConnect(con *XdsConnection) {
 	sg.startPush(TypeURLConnections, []proto.Message{con.xdsNode})
 }
 
-func (sg *InternalGen) OnDisconnect(con *XdsConnection) {
+func (sg *InternalGen) OnDisconnect(con *Connection) {
 	sg.startPush(TypeURLDisconnect, []proto.Message{con.xdsNode})
 
 	if con.xdsNode.Metadata != nil && con.xdsNode.Metadata.Fields != nil {
@@ -88,9 +88,9 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 	// the same connection table
 	s.adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	pending := []*XdsConnection{}
-	for _, v := range s.adsClients {
-		if v.node.Active[res.TypeUrl] != nil {
+	pending := []*Connection{}
+	for _, v := range sg.Server.adsClients {
+		if v.node.Active[typeURL] != nil {
 			pending = append(pending, v)
 		}
 	}

@@ -55,6 +55,7 @@ func mustReadCert(t *testing.T, f string) string {
 // This test brings up an egress gateway to originate TLS connection. The test will ensure that requests
 // are routed securely through the egress gateway and that the TLS origination happens at the gateway.
 func TestEgressGatewayTls(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/25069")
 	framework.NewTest(t).
 		Features("security.egress.tls.filebased").
 		Run(func(ctx framework.TestContext) {
@@ -109,23 +110,23 @@ func TestEgressGatewayTls(t *testing.T) {
 				//      --> externalServer(443 with TLS enforced)
 				//     request fails as server has no sidecar proxy and istio_mutual case shouldn't be used
 				// TODO: nschhina figure out why the following tests are flaky
-				//"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint": {
-				//	destinationRuleMode: "ISTIO_MUTUAL",
-				//	response:            []string{response.StatusCodeBadRequest},
-				//	gateway:             false, // 400 response will not contain header
-				//	fakeRootCert:        false,
-				//},
-				// 5. SIMPLE TLS origination with "fake" root cert::
-				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
-				//      VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
-				//      --> externalServer(443 with TLS enforced)
-				//     request fails as the server cert can't be validated using the fake root cert used during origination
-				//"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
-				//	destinationRuleMode: "SIMPLE",
-				//	response:            []string{response.StatusCodeBadRequest},
-				//	gateway:             false, // 400 response will not contain header
-				//	fakeRootCert:        true,
-				//},
+				"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint": {
+					destinationRuleMode: "ISTIO_MUTUAL",
+					response:            []string{response.StatusCodeBadRequest},
+					gateway:             false, // 400 response will not contain header
+					fakeRootCert:        false,
+				},
+				//5. SIMPLE TLS origination with "fake" root cert::
+				//   internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//     VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
+				//     --> externalServer(443 with TLS enforced)
+				//    request fails as the server cert can't be validated using the fake root cert used during origination
+				"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
+					destinationRuleMode: "SIMPLE",
+					response:            []string{response.StatusCodeBadRequest},
+					gateway:             false, // 400 response will not contain header
+					fakeRootCert:        true,
+				},
 			}
 
 			for name, tc := range testCases {
