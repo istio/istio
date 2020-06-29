@@ -53,7 +53,7 @@ func cleanupRT() {
 }
 
 // Create a bogus environment for testing. This can be removed when "environments" are removed
-func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *Suite {
+func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *suiteImpl {
 	s := newSuite(testID, fn, osExit, getSettingsFn)
 	s.envFactory = func(ctx resource.Context) (resource.Environment, error) {
 		return fakeEnvironment{}, nil

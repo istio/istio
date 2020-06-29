@@ -58,6 +58,11 @@ ifneq ($(_INTEGRATION_TEST_NETWORKS),)
     _INTEGRATION_TEST_FLAGS += --istio.test.kube.networkTopology=$(_INTEGRATION_TEST_NETWORKS)
 endif
 
+test.integration.analyze: | $(JUNIT_REPORT)
+	$(GO) test -p 1 ${T} ./tests/integration/... -timeout 30m \
+	--istio.test.analyze \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \

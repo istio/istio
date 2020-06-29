@@ -51,7 +51,7 @@ func TestNamespace(t *testing.T) {
 			}
 		})
 
-	if !noCleanup {
+	if !noCleanup && cluster.Accessor != nil {
 		// Check after run to see that the namespace is gone.
 		if err := cluster.WaitForNamespaceDeletion(namespaceName); err != nil {
 			t.Fatalf("WaitiForNamespaceDeletion failed: %v", err)
