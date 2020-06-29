@@ -23,14 +23,10 @@ import (
 
 	"github.com/Masterminds/sprig"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -338,7 +334,11 @@ func generateYAMLWithSettings(ctx resource.Context, cfg echo.Config,
 	if cfg.DeployAsVM {
 		var addr net.TCPAddr
 		err = retry.UntilSuccess(func() error {
-			addr, err = istio.GetRemoteDiscoveryAddress(ctx, "istio-system", cluster)
+			var i istio.Instance
+			if err := ctx.GetResource(&i); err != nil {
+				return err
+			}
+			addr, err = istio.GetRemoteDiscoveryAddress(ctx, i.Settings().SystemNamespace, cluster)
 			return err
 		}, retry.Timeout(time.Minute))
 		if err != nil {
