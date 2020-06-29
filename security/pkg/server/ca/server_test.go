@@ -438,16 +438,16 @@ func TestGetServerCertificate(t *testing.T) {
 		signingKeyFile  string
 	}{
 		"RSA server cert": {
-			rootCertFile:    "istio.io/istio/security/pkg/pki/testdata/multilevelpki/root-cert.pem",
-			certChainFile:   "istio.io/istio/security/pkg/pki/testdata/multilevelpki/int2-cert-chain.pem",
-			signingCertFile: "istio.io/istio/security/pkg/pki/testdata/multilevelpki/int2-cert.pem",
-			signingKeyFile:  "istio.io/istio/security/pkg/pki/testdata/multilevelpki/int2-key.pem",
+			rootCertFile:    "istio/security/pkg/pki/testdata/multilevelpki/root-cert.pem",
+			certChainFile:   "istio/security/pkg/pki/testdata/multilevelpki/int2-cert-chain.pem",
+			signingCertFile: "istio/security/pkg/pki/testdata/multilevelpki/int2-cert.pem",
+			signingKeyFile:  "istio/security/pkg/pki/testdata/multilevelpki/int2-key.pem",
 		},
 		"ECC server cert": {
-			rootCertFile:    "istio.io/istio/security/pkg/pki/testdata/multilevelpki/ecc-root-cert.pem",
-			certChainFile:   "istio.io/istio/security/pkg/pki/testdata/multilevelpki/ecc-int2-cert-chain.pem",
-			signingCertFile: "istio.io/istio/security/pkg/pki/testdata/multilevelpki/ecc-int2-cert.pem",
-			signingKeyFile:  "istio.io/istio/security/pkg/pki/testdata/multilevelpki/ecc-int2-key.pem",
+			rootCertFile:    "istio/security/pkg/pki/testdata/multilevelpki/ecc-root-cert.pem",
+			certChainFile:   "istio/security/pkg/pki/testdata/multilevelpki/ecc-int2-cert-chain.pem",
+			signingCertFile: "istio/security/pkg/pki/testdata/multilevelpki/ecc-int2-cert.pem",
+			signingKeyFile:  "istio/security/pkg/pki/testdata/multilevelpki/ecc-int2-key.pem",
 		},
 	}
 	caNamespace := "default"
