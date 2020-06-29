@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/util/file"
@@ -90,12 +89,11 @@ func TestTrafficShifting(t *testing.T) {
 			})
 
 			var instances [4]echo.Instance
-			cluster := ctx.Environment().Clusters()[0]
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&instances[0], echoVMConfig(ns, "a", cluster)).
-				With(&instances[1], echoVMConfig(ns, "b", cluster)).
-				With(&instances[2], echoVMConfig(ns, "c", cluster, vm.DefaultVMImage)).
-				With(&instances[3], echoVMConfig(ns, "d", cluster)).
+				With(&instances[0], echoVMConfig(ns, "a")).
+				With(&instances[1], echoVMConfig(ns, "b")).
+				With(&instances[2], echoVMConfig(ns, "c", vm.DefaultVMImage)).
+				With(&instances[3], echoVMConfig(ns, "d")).
 				BuildOrFail(t)
 
 			hosts := []string{"b", "c", "d"}
@@ -113,7 +111,7 @@ func TestTrafficShifting(t *testing.T) {
 					}
 
 					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
-					ctx.Config(cluster).ApplyYAMLOrFail(t, ns.Name(), deployment)
+					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
 
 					sendTraffic(t, 100, instances[0], instances[1], hosts, v, errorThreshold)
 				})
@@ -141,8 +139,8 @@ func TestCrossClusterTrafficShifting(t *testing.T) {
 				hosts = append(hosts, serverHost)
 				svcs[c.Index()] = [2]echo.Instance{}
 				builder.
-					With(&svcs[c.Index()][0], echoConfig(ns, fmt.Sprintf("client-%d", c.Index()), c)).
-					With(&svcs[c.Index()][1], echoConfig(ns, serverHost, c))
+					With(&svcs[c.Index()][0], echoConfigForCluster(ns, fmt.Sprintf("client-%d", c.Index()), c)).
+					With(&svcs[c.Index()][1], echoConfigForCluster(ns, serverHost, c))
 			}
 			builder.BuildOrFail(ctx)
 
@@ -181,13 +179,13 @@ func TestCrossClusterTrafficShifting(t *testing.T) {
 }
 
 // Wrapper to initialize instance with ServicePort without affecting other tests
-// If ServicePort is set to InstancePort, tests such as TestDescribe would fail
-func echoVMConfig(ns namespace.Instance, name string, cluster resource.Cluster, vmImage ...string) echo.Config {
+// If ServicePort is set to InstancePort, tests such as TestDescribe would fail.
+func echoVMConfig(ns namespace.Instance, name string, vmImage ...string) echo.Config {
 	image := ""
 	if len(vmImage) > 0 {
 		image = vmImage[0]
 	}
-	config := echoConfig(ns, name, cluster)
+	config := echoConfig(ns, name)
 	config.DeployAsVM = image != ""
 	config.VMImage = image
 

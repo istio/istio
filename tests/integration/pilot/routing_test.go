@@ -47,8 +47,8 @@ func TestTrafficRouting(t *testing.T) {
 			builder := echoboot.NewBuilderOrFail(t, ctx)
 			for _, c := range ctx.Environment().Clusters() {
 				builder = builder.
-					With(&clusterServices[c.Index()][0], echoConfig(ns, fmt.Sprintf("client-%d", c.Index()), c)).
-					With(&clusterServices[c.Index()][1], echoConfig(ns, fmt.Sprintf("server-%d", c.Index()), c))
+					With(&clusterServices[c.Index()][0], echoConfigForCluster(ns, fmt.Sprintf("client-%d", c.Index()), c)).
+					With(&clusterServices[c.Index()][1], echoConfigForCluster(ns, fmt.Sprintf("server-%d", c.Index()), c))
 			}
 			builder.BuildOrFail(t)
 

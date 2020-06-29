@@ -180,9 +180,9 @@ func runMirrorTest(options mirrorTestOptions) {
 			for _, c := range ctx.Environment().Clusters() {
 				clusterInstances[c.Index()] = [3]echo.Instance{}
 				builder = builder.
-					With(&clusterInstances[c.Index()][0], echoConfig(ns, fmt.Sprintf("a-%d", c.Index()), c)). // client
-					With(&clusterInstances[c.Index()][1], echoConfig(ns, fmt.Sprintf("b-%d", c.Index()), c)). // target
-					With(&clusterInstances[c.Index()][2], echoConfig(ns, fmt.Sprintf("c-%d", c.Index()), c))  // receives mirrored requests
+					With(&clusterInstances[c.Index()][0], echoConfigForCluster(ns, fmt.Sprintf("a-%d", c.Index()), c)). // client
+					With(&clusterInstances[c.Index()][1], echoConfigForCluster(ns, fmt.Sprintf("b-%d", c.Index()), c)). // target
+					With(&clusterInstances[c.Index()][2], echoConfigForCluster(ns, fmt.Sprintf("c-%d", c.Index()), c))  // receives mirrored requests
 			}
 			builder.BuildOrFail(options.t)
 

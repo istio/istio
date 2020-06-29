@@ -50,7 +50,15 @@ values:
 		Run()
 }
 
-func echoConfig(ns namespace.Instance, name string, cluster resource.Cluster) echo.Config {
+func echoConfig(ns namespace.Instance, name string) echo.Config {
+	return echoConfigForCluster(ns, name, nil)
+}
+
+func echoConfigForCluster(ns namespace.Instance, name string, cluster resource.Cluster) echo.Config {
+	p := pilots[0]
+	if cluster != nil {
+		p = pilots[cluster.Index()]
+	}
 	return echo.Config{
 		Service:   name,
 		Namespace: ns,
@@ -64,6 +72,6 @@ func echoConfig(ns namespace.Instance, name string, cluster resource.Cluster) ec
 			},
 		},
 		Subsets: []echo.SubsetConfig{{}},
-		Pilot:   pilots[cluster.Index()],
+		Pilot:   p,
 	}
 }

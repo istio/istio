@@ -95,7 +95,7 @@ spec:
     - destination: 
         host: reviews
 `)
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 			istioCtl.InvokeOrFail(t, []string{"x", "wait", "VirtualService", "reviews." + ns.Name()})
 		})
 }
@@ -109,7 +109,7 @@ func TestVersion(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
 			output, _ := istioCtl.InvokeOrFail(t, args)
@@ -154,17 +154,16 @@ func TestDescribe(t *testing.T) {
 
 			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
-			cluster := ctx.Environment().Clusters()[0]
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a", cluster)).
+				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
 			if err := a.WaitUntilCallable(a); err != nil {
 				t.Fatal(err)
 			}
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {
@@ -216,10 +215,10 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
+				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			var output string
 			var args []string
@@ -255,10 +254,10 @@ func TestProxyConfig(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
+				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {
@@ -329,10 +328,10 @@ func TestProxyStatus(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
+				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {
@@ -372,10 +371,10 @@ func TestAuthZCheck(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a", ctx.Environment().Clusters()[0])).
+				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {
