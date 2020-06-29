@@ -52,6 +52,7 @@ func env(key, fallback string) string {
 }
 
 func setEnv(key, value string, t *testing.T) {
+	t.Helper()
 	err := os.Setenv(key, value)
 	if err != nil {
 		t.Fatalf("Couldn't set environment variable, err: %v", err)
@@ -59,6 +60,7 @@ func setEnv(key, value string, t *testing.T) {
 }
 
 func mktemp(dir, prefix string, t *testing.T) string {
+	t.Helper()
 	tempDir, err := ioutil.TempDir(dir, prefix)
 	if err != nil {
 		t.Fatalf("Couldn't get current working directory, err: %v", err)
@@ -68,6 +70,7 @@ func mktemp(dir, prefix string, t *testing.T) string {
 }
 
 func pwd(t *testing.T) string {
+	t.Helper()
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Couldn't get current working directory, err: %v", err)
@@ -78,6 +81,7 @@ func pwd(t *testing.T) string {
 
 func ls(dir string, t *testing.T) []string {
 	files, err := ioutil.ReadDir(dir)
+	t.Helper()
 	if err != nil {
 		t.Fatalf("Failed to list files, err: %v", err)
 	}
@@ -89,6 +93,7 @@ func ls(dir string, t *testing.T) []string {
 }
 
 func cp(src, dest string, t *testing.T) {
+	t.Helper()
 	data, err := ioutil.ReadFile(src)
 	if err != nil {
 		t.Fatalf("Failed to read file %v, err: %v", src, err)
@@ -99,6 +104,7 @@ func cp(src, dest string, t *testing.T) {
 }
 
 func rm(dir string, t *testing.T) {
+	t.Helper()
 	err := os.RemoveAll(dir)
 	if err != nil {
 		t.Fatalf("Failed to remove dir %v, err: %v", dir, err)
@@ -108,6 +114,7 @@ func rm(dir string, t *testing.T) {
 // populateTempDirs populates temporary test directories with golden files and
 // other related configuration.
 func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, tempK8sSvcAcctDir string, t *testing.T) {
+	t.Helper()
 	t.Logf("Pre-populating working dirs")
 	for i, f := range cniDirOrderedFiles {
 		destFilenm := fmt.Sprintf("0%d-%s", i, f)
@@ -124,6 +131,7 @@ func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, te
 // startDocker starts a test Docker container and runs the install-cni.sh script.
 func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 	tempK8sSvcAcctDir, cniConfFileName string, t *testing.T) string {
+	t.Helper()
 
 	dockerImage := env("HUB", "") + "/install-cni:" + env("TAG", "")
 	errFileName := path.Dir(tempCNIConfDir) + "/docker_run_stderr"
@@ -170,6 +178,7 @@ func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 
 // docker runs the given docker command on the given container ID.
 func docker(cmd, containerID string, t *testing.T) {
+	t.Helper()
 	out, err := exec.Command("docker", cmd, containerID).CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to execute 'docker %s %s', err: %v", cmd, containerID, err)
@@ -179,6 +188,7 @@ func docker(cmd, containerID string, t *testing.T) {
 
 // compareConfResult does a string compare of 2 test files.
 func compareConfResult(testWorkRootDir, tempCNIConfDir, result, expected string, t *testing.T) {
+	t.Helper()
 	tempResult := tempCNIConfDir + "/" + result
 	resultFile, err := ioutil.ReadFile(tempResult)
 	if err != nil {
@@ -207,6 +217,7 @@ func compareConfResult(testWorkRootDir, tempCNIConfDir, result, expected string,
 
 // checkBinDir verifies the presence/absence of test files.
 func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) {
+	t.Helper()
 	for _, f := range files {
 		if _, err := os.Stat(tempCNIBinDir + "/" + f); !os.IsNotExist(err) {
 			if op == "add" {
@@ -226,6 +237,7 @@ func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) {
 
 // checkTempFilesCleaned verifies that all temporary files have been cleaned up
 func checkTempFilesCleaned(tempCNIConfDir string, t *testing.T) {
+	t.Helper()
 	files, err := ioutil.ReadDir(tempCNIConfDir)
 	if err != nil {
 		t.Fatalf("Failed to list files, err: %v", err)
