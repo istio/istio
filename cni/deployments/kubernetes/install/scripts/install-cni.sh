@@ -136,6 +136,9 @@ function init() {
         if [ "${cni_conf_name: -5}" = ".conf" ] && [ -e "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}list" ]; then
             echo "${cni_conf_name} doesn't exist, but ${cni_conf_name}list does; Using it instead."
             cni_conf_name="${cni_conf_name}list"
+        elif [ "${cni_conf_name: -9}" = ".conflist" ] && [ -e "${MOUNTED_CNI_NET_DIR}/${cni_conf_name:0:-4}" ]; then
+            echo "${cni_conf_name} doesn't exist, but ${cni_conf_name:0:-4} does; Using it instead."
+            cni_conf_name="${cni_conf_name:0:-4}"
         else
           echo "CNI config file ${MOUNTED_CNI_NET_DIR}/${cni_conf_name} does not exist. Waiting for file to be written..."
         fi

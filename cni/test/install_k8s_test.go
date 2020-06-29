@@ -165,6 +165,15 @@ func TestInstall(t *testing.T) {
 			cniConfDirOrderedFiles: []string{"calico.conflist"},
 		},
 		{
+			name:                   "confFile env var point to missing .conflist with valid .conf file",
+			preConfFile:            "00-minikube_cni.conflist",
+			resultFileName:         "00-minikube_cni.conflist",
+			delayedConfFile:        "NONE",
+			expectedOutputFile:     testDataDir + "/expected/minikube_cni.conflist.expected",
+			expectedPostCleanFile:  testDataDir + "/expected/minikube_cni.conflist.clean",
+			cniConfDirOrderedFiles: []string{"minikube_cni.conf"},
+		},
+		{
 			name:                   "confFile env var point to missing file initially and ignore different conf",
 			preConfFile:            "missing_initially.conf",
 			resultFileName:         "missing_initially.conflist",
