@@ -23,6 +23,11 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"istio.io/istio/pkg/jwt"
+	citadelca "istio.io/istio/security/pkg/server/ca"
+	"istio.io/istio/security/pkg/pki/ca"
+	"k8s.io/client-go/kubernetes/fake"
+	"istio.io/istio/security/pkg/pki/testdata"
 
 	pb "istio.io/istio/security/proto"
 )
@@ -46,7 +51,63 @@ func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCerti
 	return nil, ca.Err
 }
 
+func TestE2EClient(t *testing.T) {
+	cases := map[string]struct {
+		rootCertFile    string
+		certChainFile   string
+		signingCertFile string
+		signingKeyFile  string
+	}{
+		"RSA server cert": {
+			rootCertFile:    "../../../../pki/testdata/multilevelpki/root-cert.pem",
+			certChainFile:   "../../../../pki/testdata/multilevelpki/int2-cert-chain.pem",
+			signingCertFile: "../../../../pki/testdata/multilevelpki/int2-cert.pem",
+			signingKeyFile:  "../../../../pki/testdata/multilevelpki/int2-key.pem",
+		},
+		"ECC server cert": {
+			rootCertFile:    "../../../../pki/testdata/multilevelpki/ecc-root-cert.pem",
+			certChainFile:   "../../../../pki/testdata/multilevelpki/ecc-int2-cert-chain.pem",
+			signingCertFile: "../../../../pki/testdata/multilevelpki/ecc-int2-cert.pem",
+			signingKeyFile:  "../../../../pki/testdata/multilevelpki/ecc-int2-key.pem",
+		},
+	}
+	for id, tc := range cases {
+		client := fake.NewSimpleClientset()
+		caNamespace := "default"
+		defaultWorkloadCertTTL := 30 * time.Minute
+		maxWorkloadCertTTL := time.Hour
+
+		caopts, err := ca.NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+		if err != nil {
+			t.Fatalf("%s: Failed to create a plugged-cert CA Options: %v", id, err)
+		}
+
+		ca, err := ca.NewIstioCA(caopts)
+		if err != nil {
+			t.Errorf("%s: Got error while creating plugged-cert CA: %v", id, err)
+		}
+		if ca == nil {
+			t.Fatalf("Failed to create a plugged-cert CA.")
+		}
+
+		_, createServerErr := citadelca.New(ca, time.Hour, false, []string{"localhost"}, 0,
+			"testdomain.com", true, jwt.PolicyThirdParty, "kubernetes")
+		if err != nil {
+			t.Errorf("%s: Cannot create server: %v", id, createServerErr)
+		}
+		//request := &pb.IstioCertificateRequest{Csr: "dumb CSR"}
+		//_, createErr := server.CreateCertificate(context.Background(), request)
+		//if createErr != nil {
+		//	t.Errorf("%s: getServerCertificate error: %v", id, createErr)
+		//}
+	}
+
+}
+
 func TestCitadelClient(t *testing.T) {
+
+
 	testCases := map[string]struct {
 		server       mockCAServer
 		expectedCert []string
