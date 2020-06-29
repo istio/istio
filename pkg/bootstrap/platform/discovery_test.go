@@ -18,8 +18,6 @@ import (
 	"os"
 	"testing"
 	"time"
-
-	"istio.io/pkg/env"
 )
 
 type platMetaFn func(map[string]string) bool
@@ -51,8 +49,7 @@ func TestDiscoverWithTimeout(t *testing.T) {
 			envSetup: func(*testing.T) {
 				// dont want to mess with GCP_METADATA on the host
 				// it may be write-protected, and runs on GKE
-				gcpMetadataVar = env.RegisterStringVar("TEST_GCP_METADATA", "",
-					"Pipe separted GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE")
+				gcpMetadataVar.Name = "TEST_GCP_METADATA"
 				err := os.Setenv("TEST_GCP_METADATA", "FOO|BAR|BAZ|MAR")
 				if err != nil {
 					t.Fatalf("Unable to setup environment: %v", err)
@@ -64,8 +61,7 @@ func TestDiscoverWithTimeout(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Unable to tear down: %v", err)
 				}
-				gcpMetadataVar = env.RegisterStringVar("GCP_METADATA", "",
-					"Pipe separted GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE")
+				gcpMetadataVar.Name = "TEST_GCP_METADATA"
 			},
 			platExpectFn: func(m map[string]string) bool {
 				// PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE -> FOO|BAR|BAZ|MAR
