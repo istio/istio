@@ -42,8 +42,10 @@ type TestContext interface {
 	// parent. Calls to Done() will block until all children are also Done(). When Run, sub-Tests will automatically
 	// create their own Golang *testing.T with the name provided.
 	//
+	// If additional arguments are supplied, name will be treated as a format string.
+	//
 	// If this TestContext was not created by a Test or if that Test is not running, this method will panic.
-	NewSubTest(name string) Test
+	NewSubTest(name string, args ...interface{}) Test
 
 	// WorkDir allocated for this test.
 	WorkDir() string
@@ -262,13 +264,17 @@ func (c *testContext) newChildContext(test *testImpl) *testContext {
 	return newTestContext(test, test.goTest, c.suite, c.scope, label.NewSet(test.labels...))
 }
 
-func (c *testContext) NewSubTest(name string) Test {
+func (c *testContext) NewSubTest(name string, args ...interface{}) Test {
 	if c.test == nil {
 		panic(fmt.Sprintf("Attempting to create subtest %s from a TestContext with no associated Test", name))
 	}
 
 	if c.test.goTest == nil || c.test.ctx == nil {
 		panic(fmt.Sprintf("Attempting to create subtest %s before running parent", name))
+	}
+
+	if len(args) > 0 {
+		name = fmt.Sprintf(name, args...)
 	}
 
 	return &testImpl{

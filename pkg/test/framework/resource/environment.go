@@ -39,8 +39,13 @@ type Environment interface {
 	// IsMulticluster is a utility method that indicates whether there are multiple Clusters available.
 	IsMulticluster() bool
 
+	// IsMultinetwork returns true if there are multiple networks in the cluster topology
+	IsMultinetwork() bool
+
 	// Clusters in this Environment. There will always be at least one.
 	Clusters() []Cluster
+
+	ControlPlaneClusters(excludedClusters ...Cluster) []Cluster
 
 	// GetControlPlaneCluster returns the cluster running the control plane for the given cluster based on the ControlPlaneTopology.
 	GetControlPlaneCluster(Cluster) (Cluster, error)
@@ -67,6 +72,10 @@ func (f FakeEnvironment) IsMulticluster() bool {
 	return f.NumClusters > 1
 }
 
+func (f FakeEnvironment) IsMultinetwork() bool {
+	return false
+}
+
 func (f FakeEnvironment) ID() ID {
 	return FakeID(f.IDValue)
 }
@@ -86,6 +95,10 @@ func (f FakeEnvironment) Clusters() []Cluster {
 		}
 	}
 	return out
+}
+
+func (f FakeEnvironment) ControlPlaneClusters(excludedClusters ...Cluster) []Cluster {
+	return f.Clusters()
 }
 
 func (f FakeEnvironment) GetControlPlaneCluster(cluster Cluster) (Cluster, error) {

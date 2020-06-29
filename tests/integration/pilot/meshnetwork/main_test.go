@@ -16,8 +16,12 @@ package meshnetwork
 
 import (
 	"fmt"
+	"net"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/ingress"
+	"istio.io/istio/tests/integration/multicluster"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -63,27 +67,31 @@ spec:
 )
 
 var (
-	i istio.Instance
-	p pilot.Instance
+	multinetwork bool
+	i            istio.Instance
+	pilots       []pilot.Instance
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
-		Setup(istio.Setup(&i, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
+		Setup(func(ctx resource.Context) error {
+			multinetwork = ctx.Environment().IsMultinetwork()
 			return nil
 		}).
+		Setup(istio.Setup(&i, setupConfig)).
+		Setup(multicluster.SetupPilots(&pilots)).
 		Run()
 }
 
 func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
+		return
+	}
+
+	if multinetwork {
+		// mesh networks will already be setup
 		return
 	}
 
@@ -108,57 +116,115 @@ values:
 `
 }
 
+const (
+	servicePort = 8080
+	serviceName = "server"
+)
+
 func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("traffic.expansion").
 		Label(label.CustomSetup).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "meshnetwork",
 				Inject: true,
 			})
+
 			// First setup the VM service and its endpoints
-			if err := ctx.Config().ApplyYAML(ns.Name(), VMService); err != nil {
-				t.Fatal(err)
-			}
-			// Now setup a K8S service
-			var instance echo.Instance
-			echoConfig := echo.Config{
-				Service:   "server",
-				Namespace: ns,
-				Subsets:   []echo.SubsetConfig{{}},
-				Pilot:     p,
-				Ports: []echo.Port{
-					{
-						Name:        "http",
-						Protocol:    protocol.HTTP,
-						ServicePort: 8080,
-						// We use a port > 1024 to not require root
-						InstancePort: 8080,
-					},
-				},
-			}
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&instance, echoConfig).
-				BuildOrFail(t)
-			if err := instance.WaitUntilCallable(instance); err != nil {
-				t.Fatal(err)
+			for _, cp := range ctx.Environment().ControlPlaneClusters() {
+				if err := ctx.Config(cp).ApplyYAML(ns.Name(), VMService); err != nil {
+					t.Fatal(err)
+				}
 			}
 
+			// Now setup a K8S service in each cluster
+			instances := make([]echo.Instance, len(ctx.Environment().Clusters()))
+			builder := echoboot.NewBuilderOrFail(t, ctx)
+			for _, c := range ctx.Environment().Clusters() {
+				builder.With(&instances[c.Index()], echo.Config{
+					Service:   serviceName,
+					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
+					Pilot:     pilots[c.Index()],
+					Cluster:   c,
+					Ports: []echo.Port{
+						{
+							Name:        "http",
+							Protocol:    protocol.HTTP,
+							ServicePort: servicePort,
+							// We use a port > 1024 to not require root
+							InstancePort: servicePort,
+						},
+					},
+				})
+			}
+			builder.BuildOrFail(t)
+
+			for _, instance := range instances {
+				if err := instance.WaitUntilCallable(instance); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// all clusters' pods should discover the VM
 			vmSvcClusterName := "outbound|7070||httpbin.com"
-			k8sSvcClusterName := fmt.Sprintf("outbound|%d||%s.%s.svc.cluster.local",
-				echoConfig.Ports[0].ServicePort,
-				echoConfig.Service, echoConfig.Namespace.Name())
-			// Now get the EDS from the k8s pod to see if the VM IP is there.
-			if err := checkEDSInPod(t, instance, vmSvcClusterName, "1.1.1.1"); err != nil {
-				t.Fatal(err)
+			ctx.NewSubTest("pod-eds").Run(func(ctx framework.TestContext) {
+				for _, c := range ctx.Environment().ControlPlaneClusters() {
+					c := c
+					ctx.NewSubTest("cluster-%d", c.Index()).Run(func(ctx framework.TestContext) {
+						ctx.NewSubTest("pod").Run(func(ctx framework.TestContext) {
+							// Now get the EDS from the k8s pod to see if the VM IP is there.
+							if err := checkEDSInPod(t, instances[c.Index()], vmSvcClusterName, "1.1.1.1"); err != nil {
+								t.Fatal(err)
+							}
+						})
+
+					})
+				}
+			})
+
+			// There will be an ingress gateway for multinetwork traffic in each cluster
+			gwAddrs := []net.TCPAddr{{IP: net.ParseIP("2.2.2.2"), Port: 15443}}
+			if multinetwork {
+				gwAddrs = []net.TCPAddr{}
+				for _, c := range ctx.Environment().Clusters() {
+					// TODO do I need the "minikube" check
+					ing, err := ingress.New(ctx, ingress.Config{
+						Istio:   i,
+						Cluster: c,
+					})
+					if err != nil {
+						ctx.Fatalf("failed initializing ingress for cluster %d: %v", c.Index(), err)
+					}
+
+					addr := ing.HTTPSAddress()
+					if addr.Port == 0 {
+						ctx.Fatalf("failed getting ingress address for cluster %d", c.Index())
+					}
+					gwAddrs = append(gwAddrs, addr)
+				}
 			}
-			// Now get the EDS from the fake VM sidecar to see if the gateway IP is there for the echo service.
-			// the Gateway IP:Port is set in the test-values/values-istio-mesh-networks.yaml
-			if err := checkEDSInVM(t, ns.Name(), k8sSvcClusterName,
-				"1.1.1.1", "2.2.2.2", 15443); err != nil {
-				t.Fatal(err)
-			}
+
+			// For vms, we only test per-control-plane rather than every cluster. No matter which
+			// control plane we query for discovery, all gateways should be discovered
+			ctx.NewSubTest("vm-eds").Run(func(ctx framework.TestContext) {
+				for _, cp := range ctx.Environment().ControlPlaneClusters() {
+					p := pilots[cp.Index()]
+					ctx.NewSubTest("cluster-%d", cp.Index()).Run(func(ctx framework.TestContext) {
+						// Now get the EDS from the fake VM sidecar to see if the gateway IP is there for the echo service.
+						// the Gateway IP:Port is set in the test-values/values-istio-mesh-networks.yaml from Pilots in all
+						// control plane clusters
+						k8sSvcClusterName := fmt.Sprintf("outbound|%d||%s.%s.svc.cluster.local",
+							servicePort, serviceName, ns.Name())
+						if err := checkEDSInVM(t, p, ns.Name(), k8sSvcClusterName,
+							"1.1.1.1", gwAddrs); err != nil {
+							ctx.Error(err)
+						}
+					})
+				}
+			})
 		})
 }
 
@@ -204,7 +270,7 @@ func checkEDSInPod(t *testing.T, c echo.Instance, vmSvcClusterName string, endpo
 		c.ID(), vmSvcClusterName, endpointIP)
 }
 
-func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP string, gatewayPort uint32) error {
+func checkEDSInVM(t *testing.T, p pilot.Instance, ns, k8sSvcClusterName, endpointIP string, gatewayAddrs []net.TCPAddr) error {
 	node := &model.Proxy{
 		Type:            model.SidecarProxy,
 		IPAddresses:     []string{endpointIP},
@@ -232,15 +298,28 @@ func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP str
 				return false, err
 			}
 			if c.ClusterName == k8sSvcClusterName {
-				if len(c.Endpoints) != 1 || len(c.Endpoints[0].LbEndpoints) != 1 {
+				if len(c.Endpoints) != 1 || len(c.Endpoints[0].LbEndpoints) != len(gatewayAddrs) {
 					return false, fmt.Errorf("unexpected EDS response: %s", c.String())
 				}
-				sockAddress := c.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress()
-				if sockAddress.Address != gatewayIP && sockAddress.GetPortValue() != gatewayPort {
-					return false, fmt.Errorf("eds for VM does not have the expected IP:port (want %s:%d, got %s:%d)",
-						gatewayIP, gatewayPort, sockAddress.Address, sockAddress.GetPortValue())
+
+				found := 0
+				foundMap := map[string]bool{}
+				for _, addr := range gatewayAddrs {
+					foundMap[addr.String()] = false
 				}
-				t.Logf("found gateway IP %s in envoy cluster %s", gatewayIP, k8sSvcClusterName)
+				for _, lbEp := range c.Endpoints[0].LbEndpoints {
+					sockAddress := lbEp.GetEndpoint().Address.GetSocketAddress()
+					addr := net.JoinHostPort(sockAddress.Address, fmt.Sprint(sockAddress.GetPortValue()))
+					if _, ok := foundMap[addr]; ok {
+						foundMap[addr] = true
+						found++
+						t.Logf("found gateway address %s in envoy cluster %s", addr, k8sSvcClusterName)
+					}
+				}
+				if found < len(foundMap) {
+					return false, fmt.Errorf("all expected addresses not in eds response: %v", foundMap)
+				}
+
 				return true, nil
 			}
 		}

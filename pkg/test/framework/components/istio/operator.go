@@ -447,7 +447,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 			var remoteIstiodAddress net.TCPAddr
 			if err := retry.UntilSuccess(func() error {
 				var err error
-				remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, controlPlaneCluster)
+				remoteIstiodAddress, err = GetRemoteDiscoveryAddress(c.ctx, cfg.SystemNamespace, controlPlaneCluster)
 				return err
 			}, retry.Timeout(1*time.Minute)); err != nil {
 				return fmt.Errorf("failed getting the istiod address for cluster %s: %v", controlPlaneCluster.Name(), err)
@@ -568,8 +568,14 @@ func configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.E
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 	}
-	if err := ctx.Config(env.ControlPlaneClusters(cluster)...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
-		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
+	// Copy this secret to all control plane clusters.
+	for _, remote := range env.ControlPlaneClusters() {
+		remote := remote.(kube.Cluster)
+		if cluster.Index() != remote.Index() {
+			if err := ctx.Config(remote).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
+				return fmt.Errorf("failed applying remote secret to cluster %s: %v", remote.Name(), err)
+			}
+		}
 	}
 	return nil
 }

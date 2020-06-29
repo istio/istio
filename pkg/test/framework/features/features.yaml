@@ -39,6 +39,7 @@ features:
     short-circuiting:
     mirroring:
     shifting:
+    expansion:
   usability:
     observability:
       status:
