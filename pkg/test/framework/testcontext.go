@@ -42,7 +42,7 @@ type TestContext interface {
 	// create their own Golang *testing.T with the name provided.
 	//
 	// If this TestContext was not created by a Test or if that Test is not running, this method will panic.
-	NewSubTest(name string) *Test
+	NewSubTest(name string) Test
 
 	// WorkDir allocated for this test.
 	WorkDir() string
@@ -86,7 +86,7 @@ type testContext struct {
 	id string
 
 	// The currently running Test. Non-nil if this context was created by a Test
-	test *Test
+	test *testImpl
 
 	// The underlying Go testing.T for this context.
 	*testing.T
@@ -107,13 +107,13 @@ type testContext struct {
 // then new tests can unexpectedly start during the cleanup of another. This may lead to odd results, like a test cleanup undoing the setup of a future test.
 // To workaround this, we maintain a set of all contexts currently terminating. Before starting the context, we will search this set;
 // if any non-parent contexts are found, we will wait.
-func waitForParents(test *Test) {
+func waitForParents(test *testImpl) {
 	iterations := 0
 	for {
 		iterations++
 		done := true
 		globalParentLock.Range(func(key, value interface{}) bool {
-			k := key.(*Test)
+			k := key.(*testImpl)
 			current := test
 			for current != nil {
 				if current == k {
@@ -134,14 +134,14 @@ func waitForParents(test *Test) {
 		// Add some logging in case something locks up so we can debug
 		if iterations%10 == 0 {
 			globalParentLock.Range(func(key, value interface{}) bool {
-				scopes.Framework.Warnf("Stuck waiting for parent test suites to terminate... %v is blocking", key.(*Test).goTest.Name())
+				scopes.Framework.Warnf("Stuck waiting for parent test suites to terminate... %v is blocking", key.(*testImpl).goTest.Name())
 				return true
 			})
 		}
 	}
 }
 
-func newTestContext(test *Test, goTest *testing.T, s *suiteContext, parentScope *scope, labels label.Set) *testContext {
+func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentScope *scope, labels label.Set) *testContext {
 	waitForParents(test)
 	id := s.allocateContextID(goTest.Name())
 
@@ -293,11 +293,11 @@ func (c *testContext) RequireOrSkip(envName environment.Name) {
 	}
 }
 
-func (c *testContext) newChildContext(test *Test) *testContext {
+func (c *testContext) newChildContext(test *testImpl) *testContext {
 	return newTestContext(test, test.goTest, c.suite, c.scope, label.NewSet(test.labels...))
 }
 
-func (c *testContext) NewSubTest(name string) *Test {
+func (c *testContext) NewSubTest(name string) Test {
 	if c.test == nil {
 		panic(fmt.Sprintf("Attempting to create subtest %s from a TestContext with no associated Test", name))
 	}
@@ -306,7 +306,7 @@ func (c *testContext) NewSubTest(name string) *Test {
 		panic(fmt.Sprintf("Attempting to create subtest %s before running parent", name))
 	}
 
-	return &Test{
+	return &testImpl{
 		name:          name,
 		parent:        c.test,
 		s:             c.test.s,
