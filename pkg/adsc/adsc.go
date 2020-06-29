@@ -41,9 +41,6 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/resource"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -535,7 +532,10 @@ func (a *ADSC) handleRecv() {
 				}
 
 			default:
-				_ = a.handleMCP(gvk, rsc, valBytes)
+				err = a.handleMCP(gvk, rsc, valBytes)
+				if err != nil {
+					log.Warnf("Error handling received MCP config ", err)
+				}
 			}
 		}
 
