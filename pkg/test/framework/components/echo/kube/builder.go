@@ -35,46 +35,77 @@ type builder struct {
 	ctx        resource.Context
 	references []*echo.Instance
 	configs    []echo.Config
+	clusters   []resource.Cluster
 }
 
 func NewBuilder(ctx resource.Context) echo.Builder {
 	return &builder{
-		ctx: ctx,
+		ctx:      ctx,
+		clusters: ctx.Clusters()[:1],
 	}
 }
 
-func (b *builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
-	b.references = append(b.references, i)
-	b.configs = append(b.configs, cfg)
+func (b *builder) WithClusters(clusters []resource.Cluster) echo.Builder {
+	b.clusters = clusters
 	return b
 }
 
-func (b *builder) Build() error {
+func (b *builder) With(inst *echo.Instance, cfg echo.Config) echo.Builder {
+	clusters := b.clusters
+	if cfg.Cluster != nil {
+		clusters = []resource.Cluster{cfg.Cluster}
+	}
+	for i, c := range clusters {
+		// create a cluster-specific copy of the config
+		cfg := cfg
+		cfg.Cluster = c
+		if cfg.SetupFn != nil {
+			cfg.SetupFn(&cfg)
+		}
+		b.configs = append(b.configs, cfg)
+
+		// only track the reference for the first cluster
+		ref := inst
+		if i != 0 {
+			ref = nil
+		}
+		b.references = append(b.references, ref)
+	}
+	return b
+}
+
+func (b *builder) Build() (echo.Result, error) {
 	instances, err := b.newInstances()
 	if err != nil {
-		return fmt.Errorf("build instance: %v", err)
+		return nil, fmt.Errorf("build instance: %v", err)
 	}
 
 	if err := b.initializeInstances(instances); err != nil {
-		return fmt.Errorf("initialize instances: %v", err)
+		return nil, fmt.Errorf("initialize instances: %v", err)
 	}
 
 	if err := b.waitUntilAllCallable(instances); err != nil {
-		return fmt.Errorf("wait until callable: %v", err)
+		return nil, fmt.Errorf("wait until callable: %v", err)
 	}
 
 	// Success... update the caller's references.
 	for i, inst := range instances {
+		if b.references[i] == nil {
+			continue
+		}
 		*b.references[i] = inst
 	}
-	return nil
+	return instances, nil
 }
 
-func (b *builder) BuildOrFail(t test.Failer) {
+func (b *builder) BuildOrFail(t test.Failer) echo.Result {
 	t.Helper()
-	if err := b.Build(); err != nil {
+	res, err := b.Build()
+	if err != nil {
 		t.Fatal(err)
+		return nil
 	}
+	return res
 }
 
 func (b *builder) newInstances() ([]echo.Instance, error) {

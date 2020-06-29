@@ -88,7 +88,7 @@ spec:
 	if !rewrite {
 		cfg.ReadinessTimeout = time.Second * 15
 	}
-	err := echoboot.NewBuilderOrFail(t, ctx).
+	_, err := echoboot.NewBuilderOrFail(t, ctx).
 		With(&healthcheck, cfg).
 		Build()
 	gotSuccess := err == nil

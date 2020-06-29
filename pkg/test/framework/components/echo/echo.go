@@ -43,14 +43,20 @@ import (
 //     2. Build the source and destination Instances in separate groups and then
 //        call `source.WaitUntilCallable(destination)`.
 type Builder interface {
+	// WithClusters makes subsequent calls to With configure an instance with the same
+	// config to each of the passed clusters. Use methods on the Result returned
+	// by Build to get instances from all clusters.
+	WithClusters([]resource.Cluster) Builder
+
 	// With adds a new Echo configuration to the Builder. Once built, the instance
-	// pointer will be updated to point at the new Instance.
+	// pointer will be updated to point at the new Instance. If cfg has Cluster set
+	// it will be used instead of any clusters set using WithClusters.
 	With(i *Instance, cfg Config) Builder
 
 	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
 	// are assigned and all Instances are ready to communicate with each other.
-	Build() error
-	BuildOrFail(t test.Failer)
+	Build() (Result, error)
+	BuildOrFail(t test.Failer) Result
 }
 
 // Instance is a component that provides access to a deployed echo service.
@@ -164,4 +170,29 @@ type Sidecar interface {
 
 	Stats() (map[string]*dto.MetricFamily, error)
 	StatsOrFail(t test.Failer) map[string]*dto.MetricFamily
+}
+
+// Result contains the instances created by the builder with methods to filter in a fluent style
+type Result []Instance
+
+func (r Result) Get(filter func(Instance) bool) Result {
+	out := make(Result, 0)
+	for _, i := range r {
+		if filter(i) {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
+func (r Result) GetByServiceName(service string) Result {
+	return r.Get(func(i Instance) bool {
+		return i.Config().Service == service
+	})
+}
+
+func (r Result) GetByCluster(cluster resource.Cluster) Result {
+	return r.Get(func(i Instance) bool {
+		return i.Config().Cluster.Index() == cluster.Index()
+	})
 }

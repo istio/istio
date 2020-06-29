@@ -87,6 +87,10 @@ type Config struct {
 
 	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
 	VMImage string
+
+	// SetupFn will run after any internal modification to the config to give the user a chance
+	// to apply final setup before deploying.
+	SetupFn func(*Config)
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).

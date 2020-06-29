@@ -105,7 +105,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	err = b.
+	_, err = b.
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: appNsInst,
