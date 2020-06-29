@@ -283,13 +283,14 @@ func NewIstioCertificateServiceClient(cc *grpc.ClientConn) IstioCertificateServi
 
 func (c *istioCertificateServiceClient) CreateCertificate(ctx context.Context, in *IstioCertificateRequest, opts ...grpc.CallOption) (*IstioCertificateResponse, error) {
 	out := new(IstioCertificateResponse)
-	fmt.Printf("CreateCertificate===istioCertificateServiceClient")
+	fmt.Printf("CreateCertificate===istioCertificateServiceClient\n")
 	err := c.cc.Invoke(ctx, "/istio.v1.auth.IstioCertificateService/CreateCertificate", in, out, opts...)
-	fmt.Printf("0000000")
+	fmt.Printf("0000000\n")
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("1111111")
+	fmt.Printf("1111111\n")
+	fmt.Printf("%+v", out)
 	return out, nil
 }
 
