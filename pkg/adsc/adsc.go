@@ -534,7 +534,7 @@ func (a *ADSC) handleRecv() {
 			default:
 				err = a.handleMCP(gvk, rsc, valBytes)
 				if err != nil {
-					log.Warnf("Error handling received MCP config ", err)
+					log.Warnf("Error handling received MCP config %v", err)
 				}
 			}
 		}
