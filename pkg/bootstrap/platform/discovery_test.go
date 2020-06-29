@@ -15,20 +15,12 @@
 package platform
 
 import (
-	"log"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 )
 
-func UnsetAllEnv(t *testing.T) {
-	err := os.Unsetenv("GCP_METADATA")
-	if err != nil {
-		t.Errorf("Unable to unset GCP_METADATA: %v", err)
-	}
-	// in diff func because other plats might use env vars.
-}
+type platMetaFn func(map[string]string) bool
 
 func TestDiscoverWithTimeout(t *testing.T) {
 	tests := []struct {
@@ -36,14 +28,17 @@ func TestDiscoverWithTimeout(t *testing.T) {
 		timeout    time.Duration
 		platKey    string
 		platVal    string
-		platExpect Environment
+		platExpectFn platMetaFn
 	}{
 		{
 			desc:       "no-plat",
 			timeout:    1 * time.Second,
 			platKey:    "",
 			platVal:    "",
-			platExpect: &Unknown{},
+			platExpectFn: func(m map[string]string) bool {
+				// unknown has no metadata
+				return len(m) == 0
+			},
 		},
 		// todo add test to verify aws - currently not possible
 		// 	because verifier reads from /sys/hypervisor/uuid which
@@ -53,13 +48,27 @@ func TestDiscoverWithTimeout(t *testing.T) {
 			timeout:    1 * time.Second,
 			platKey:    "GCP_METADATA",
 			platVal:    "FOO|BAR|BAZ|MAR",
-			platExpect: &GcpEnv{},
+			platExpectFn: func(m map[string]string) bool {
+				// PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE -> FOO|BAR|BAZ|MAR
+				if proj, ok := m[GCPProject]; !ok || proj != "FOO" {
+					return false
+				}
+				if projNum, ok := m[GCPProjectNumber]; !ok || projNum != "BAR" {
+					return false
+				}
+				if clustName, ok := m[GCPCluster]; !ok || clustName != "BAZ" {
+					return false
+				}
+				if clustZone, ok := m[GCPLocation]; !ok || clustZone != "MAR" {
+					return false
+				}
+				return true
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			log.Println(os.Getenv("GCP_METADATA"))
 			err := os.Setenv(tt.platKey, tt.platVal)
 			defer func() {
 				err = os.Unsetenv(tt.platKey)
@@ -70,8 +79,8 @@ func TestDiscoverWithTimeout(t *testing.T) {
 			if err != nil && tt.platKey != "" {
 				t.Errorf("unable to setup: %v", err)
 			}
-			if got := DiscoverWithTimeout(tt.timeout); reflect.TypeOf(tt.platExpect) != reflect.TypeOf(got) {
-				t.Errorf("%s: want %v got %v", tt.desc, tt.platExpect, got)
+			if got := DiscoverWithTimeout(tt.timeout); !tt.platExpectFn(got.Metadata()) {
+				t.Errorf("TestDiscoveryWithTimeout(%s) %s: %v metadata not expected", tt.timeout.String(), tt.desc, got.Metadata())
 			}
 		})
 	}

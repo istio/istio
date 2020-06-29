@@ -184,11 +184,11 @@ func TestGCPMetadata(t *testing.T) {
 				os.Setenv(e, v)
 			}
 			once = sync.Once{}
-			mg := GcpEnv{tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceIDFn,
+			mg := gcpEnv{tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceIDFn,
 				tt.instanceTemplateFn, tt.instanceCreatedByFn}
 			got := mg.Metadata()
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
+				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
 			}
 		})
 	}
