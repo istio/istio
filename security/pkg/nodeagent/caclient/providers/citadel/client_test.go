@@ -27,7 +27,6 @@ import (
 	citadelca "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/pki/ca"
 	"k8s.io/client-go/kubernetes/fake"
-	"istio.io/istio/security/pkg/pki/testdata"
 
 	pb "istio.io/istio/security/proto"
 )
