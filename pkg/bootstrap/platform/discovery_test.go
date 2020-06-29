@@ -22,6 +22,13 @@ import (
 
 type platMetaFn func(map[string]string) bool
 
+func UnsetEnvs(t *testing.T) {
+	err := os.Unsetenv("GCP_METADATA")
+	if err != nil {
+		t.Errorf("unable to tear down: %v", err)
+	}
+}
+
 func TestDiscoverWithTimeout(t *testing.T) {
 	tests := []struct {
 		desc         string
@@ -69,13 +76,9 @@ func TestDiscoverWithTimeout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
+			UnsetEnvs(t)
 			err := os.Setenv(tt.platKey, tt.platVal)
-			defer func() {
-				err = os.Unsetenv(tt.platKey)
-				if tt.platKey != "" && err != nil {
-					t.Errorf("unable to tear down: %v", err)
-				}
-			}()
+			defer UnsetEnvs(t)
 			if err != nil && tt.platKey != "" {
 				t.Errorf("unable to setup: %v", err)
 			}
