@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/tests/integration/pilot/vm"
+
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -64,6 +66,7 @@ type Context struct {
 	Multiversion echo.Instance
 	Headless     echo.Instance
 	Naked        echo.Instance
+	VM           echo.Instance
 }
 
 // CreateContext creates and initializes reachability context.
@@ -73,7 +76,9 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 		Inject: true,
 	})
 
-	var a, b, multiVersion, headless, naked echo.Instance
+	var a, b, multiVersion, headless, naked, vmInstance echo.Instance
+
+	// multi-version specific setup
 	cfg := util.EchoConfig("multiversion", ns, false, nil, p)
 	cfg.Subsets = []echo.SubsetConfig{
 		// Istio deployment, with sidecar.
@@ -86,6 +91,13 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 			Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 		},
 	}
+
+	// VM specific setup
+	vmCfg := util.EchoConfig("vm", ns, false, nil, p)
+	vmCfg.DeployAsVM = true
+	vmCfg.VMImage = vm.DefaultVMImage
+	vmCfg.Ports[0].ServicePort = vmCfg.Ports[0].InstancePort
+
 	echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil, p)).
 		With(&b, util.EchoConfig("b", ns, false, nil, p)).
@@ -93,6 +105,7 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 		With(&headless, util.EchoConfig("headless", ns, true, nil, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), p)).
+		With(&vmInstance, vmCfg).
 		BuildOrFail(ctx)
 
 	return Context{
@@ -104,6 +117,7 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 		Multiversion: multiVersion,
 		Headless:     headless,
 		Naked:        naked,
+		VM:           vmInstance,
 	}
 }
 
@@ -153,7 +167,7 @@ func (rc *Context) Run(testCases []TestCase) {
 			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
 
 			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
-				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked} {
+				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked, rc.VM} {
 					copts := &callOptions
 					// If test case specified service call options, use that instead.
 					if c.CallOpts != nil {
