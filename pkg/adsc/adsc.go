@@ -33,9 +33,17 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
+	
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 
+	"istio.io/istio/pilot/pkg/networking/util"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/resource"
+
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -47,16 +55,12 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // Config for the ADS connection.
@@ -533,22 +537,6 @@ func (a *ADSC) handleRecv() {
 			default:
 				_ = a.handleMCP(gvk, rsc, valBytes)
 			}
-		}
-		// last resource of this type. IstioStore doesn't yet have a way to indicate this
-		// or to support large sets - memory store has a special handling by calling Create
-		// with an empty resource. This is used to avoid sleep loop on HasSynced
-		if a.Store != nil && len(gvk) == 3 {
-			key := resource.GroupVersionKind{
-				Group:   gvk[0],
-				Version: gvk[1],
-				Kind:    gvk[2],
-			}.String()
-			a.m.Lock()
-			a.sync[key] = time.Now()
-			a.m.Unlock()
-			a.syncCh <- key
-
-			log.Infoa("Sync for ", gvk, len(msg.Resources))
 		}
 
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
