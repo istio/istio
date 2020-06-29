@@ -34,7 +34,7 @@ func TestDiscoverWithTimeout(t *testing.T) {
 			desc:    "unknown-plat",
 			timeout: 1 * time.Second,
 			envSetup: func(*testing.T) {
-				gcpMetadataVar.Name = "TEST_GCP_METADATA"
+				gcpMetadataVar.Name = "UNITTEST_GCP_METADATA"
 			},
 			envTeardown: func(*testing.T) {
 				gcpMetadataVar.Name = "GCP_METADATA"
@@ -53,15 +53,15 @@ func TestDiscoverWithTimeout(t *testing.T) {
 			envSetup: func(*testing.T) {
 				// dont want to mess with GCP_METADATA on the host
 				// it may be write-protected, and runs on GKE
-				gcpMetadataVar.Name = "TEST_GCP_METADATA"
-				err := os.Setenv("TEST_GCP_METADATA", "FOO|BAR|BAZ|MAR")
+				gcpMetadataVar.Name = "UNITTEST_GCP_METADATA"
+				err := os.Setenv("UNITTEST_GCP_METADATA", "FOO|BAR|BAZ|MAR")
 				if err != nil {
 					t.Fatalf("Unable to setup environment: %v", err)
 				}
 			},
 			envTeardown: func(t *testing.T) {
 				// remove env var value
-				err := os.Unsetenv("TEST_GCP_METADATA")
+				err := os.Unsetenv("UNITTEST_GCP_METADATA")
 				if err != nil {
 					t.Fatalf("Unable to tear down: %v", err)
 				}
