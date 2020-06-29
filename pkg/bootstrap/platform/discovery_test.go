@@ -24,17 +24,17 @@ type platMetaFn func(map[string]string) bool
 
 func TestDiscoverWithTimeout(t *testing.T) {
 	tests := []struct {
-		desc       string
-		timeout    time.Duration
-		platKey    string
-		platVal    string
+		desc         string
+		timeout      time.Duration
+		platKey      string
+		platVal      string
 		platExpectFn platMetaFn
 	}{
 		{
-			desc:       "no-plat",
-			timeout:    1 * time.Second,
-			platKey:    "",
-			platVal:    "",
+			desc:    "no-plat",
+			timeout: 1 * time.Second,
+			platKey: "",
+			platVal: "",
 			platExpectFn: func(m map[string]string) bool {
 				// unknown has no metadata
 				return len(m) == 0
@@ -44,10 +44,10 @@ func TestDiscoverWithTimeout(t *testing.T) {
 		// 	because verifier reads from /sys/hypervisor/uuid which
 		// 	isn't writable in a test env.
 		{
-			desc:       "gcp",
-			timeout:    1 * time.Second,
-			platKey:    "GCP_METADATA",
-			platVal:    "FOO|BAR|BAZ|MAR",
+			desc:    "gcp",
+			timeout: 1 * time.Second,
+			platKey: "GCP_METADATA",
+			platVal: "FOO|BAR|BAZ|MAR",
 			platExpectFn: func(m map[string]string) bool {
 				// PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE -> FOO|BAR|BAZ|MAR
 				if proj, ok := m[GCPProject]; !ok || proj != "FOO" {
