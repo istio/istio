@@ -19,7 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/fake"
-	svc "sigs.k8s.io/service-apis/api/v1alpha1"
+	svc "sigs.k8s.io/service-apis/apis/v1alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
 
