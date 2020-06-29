@@ -51,11 +51,8 @@ function rm_bin_files() {
 # TMP_FILE=$(create_temp_file "filepath/prefix") && add_file_to_cleanup "${TMP_FILE}"
 function create_temp_file() {
   local filepath=$1
-  local temp_file=$(mktemp ${filepath}.tmp.XXXXXX)
-  if [ $? -ne 0 ]; then
-    echo "Failed to create temp file. Exiting (1)..."
-    exit 1
-  fi
+  local temp_file
+  temp_file=$(mktemp "${filepath}.tmp.XXXXXX") || exit_with_error "Failed to create temp file. Exiting (1)..."
   # mktemp creates files with read and write permissions only for owner
   # go tests require additional read permissions so default to 644
   chmod 644 "${temp_file}"
@@ -68,7 +65,8 @@ function create_temp_file() {
 function atomically_rename_file() {
   local old_filepath=$1
   local new_filename=$2
-  local dirpath=$(dirname "${old_filepath}")
+  local dirpath
+  dirpath=$(dirname "${old_filepath}")
   local new_filepath="${dirpath}/${new_filename}"
   mv "${old_filepath}" "${new_filepath}" || \
   exit_with_error "Failed to mv file. This may be caused by selinux configuration on the host, or something else."
@@ -80,27 +78,30 @@ function atomically_rename_file() {
 #   - Follows the same semantics as kubelet
 #     https://github.com/kubernetes/kubernetes/blob/954996e231074dc7429f7be1256a579bedd8344c/pkg/kubelet/dockershim/network/cni/cni.go#L144-L184
 function find_cni_conf_file() {
-    local cni_cfg=
-    for cfgf in "${MOUNTED_CNI_NET_DIR}"/*; do
-        if [ "${cfgf: -5}" = ".conf" ]; then
-            # check if it's a valid CNI .conf file
-            local type=$(jq 'has("type")' < "${cfgf}" 2>/dev/null)
-            if [ "${type}" = "true" ]; then
-                cni_cfg=$(basename "${cfgf}")
-                break
-            fi
-        elif [ "${cfgf: -9}" = ".conflist" ]; then
-            # Check that the file is json and has top level "name" and "plugins" keys
-            # NOTE: "cniVersion" key is not required by libcni (kubelet) to be present
-            local name=$(jq 'has("name")' < "${cfgf}" 2>/dev/null)
-            local plugins=$(jq 'has("plugins")' < "${cfgf}" 2>/dev/null)
-            if [ "${name}" = "true" ] && [ "${plugins}" = "true" ]; then
-                cni_cfg=$(basename "${cfgf}")
-                break
-            fi
-        fi
-    done
-    echo "${cni_cfg}"
+  local cni_cfg=
+  for cfgf in "${MOUNTED_CNI_NET_DIR}"/*; do
+    if [ "${cfgf: -5}" = ".conf" ]; then
+      # check if it's a valid CNI .conf file
+      local type
+      type=$(jq 'has("type")' < "${cfgf}" 2>/dev/null)
+      if [ "${type}" = "true" ]; then
+          cni_cfg=$(basename "${cfgf}")
+          break
+      fi
+    elif [ "${cfgf: -9}" = ".conflist" ]; then
+      # Check that the file is json and has top level "name" and "plugins" keys
+      # NOTE: "cniVersion" key is not required by libcni (kubelet) to be present
+      local name
+      local plugins
+      name=$(jq 'has("name")' < "${cfgf}" 2>/dev/null)
+      plugins=$(jq 'has("plugins")' < "${cfgf}" 2>/dev/null)
+      if [ "${name}" = "true" ] && [ "${plugins}" = "true" ]; then
+          cni_cfg=$(basename "${cfgf}")
+          break
+      fi
+    fi
+  done
+  echo "${cni_cfg}"
 }
 
 # Initializes required variables
@@ -177,7 +178,8 @@ function install_binaries() {
     fi
     for path in /opt/cni/bin/*;
     do
-      local filename=$(basename "${path}")
+      local filename
+      filename=$(basename "${path}")
       local tmp=",${filename},"
       if [ "${skip_cni_binaries#*$tmp}" != "${skip_cni_binaries}" ];
       then
@@ -201,7 +203,8 @@ function install_binaries() {
 function sleep_check_install() {
   while [ "${should_sleep}" = "true" ]; do
     sleep "${CFGCHECK_INTERVAL}"
-    local cfgfile_nm=$(find_cni_conf_file)
+    local cfgfile_nm
+    cfgfile_nm=$(find_cni_conf_file)
     if [ "${cfgfile_nm}" != "${cni_conf_name}" ]; then
       if [ -n "${CNI_CONF_NAME}" ]; then
          # Install was run with overridden cni config file so don't error out on the preempt check.
@@ -213,14 +216,15 @@ function sleep_check_install() {
       fi
     fi
     if [ -e "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}" ]; then
+      local istiocni_conf
       if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
-        local istiocni_conf=$(jq '.plugins[]? | select(.type == "istio-cni")' < "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}")
+        istiocni_conf=$(jq '.plugins[]? | select(.type == "istio-cni")' < "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}")
         if [ -z "${istiocni_conf}" ]; then
           echo "ERROR: istio-cni CNI config removed from file: \"${MOUNTED_CNI_NET_DIR}/${cni_conf_name}\""
           break
         fi
       else
-        local istiocni_conf=$(jq -r '.type' < "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}")
+        istiocni_conf=$(jq -r '.type' < "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}")
         if [ "${istiocni_conf}" != "istio-cni" ]; then
           echo "ERROR: istio-cni CNI config file modified: \"${MOUNTED_CNI_NET_DIR}/${cni_conf_name}\""
           break
@@ -238,14 +242,17 @@ function cleanup() {
 
   if [ -e "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}" ]; then
     if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
+      local cni_conf_data
+      local tmp_cni_conf_file
+      local cni_conf_file
       echo "Removing istio-cni config from CNI chain config in ${MOUNTED_CNI_NET_DIR}/${cni_conf_name}"
-      local cni_conf_data=$(jq 'del( .plugins[]? | select(.type == "istio-cni"))' < "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}")
+      cni_conf_data=$(jq 'del( .plugins[]? | select(.type == "istio-cni"))' < "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}")
       # Rewrite the config file atomically: write into a temp file in the same directory then rename.
-      local tmp_cni_conf_file=$(create_temp_file "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}") && add_file_to_cleanup "${tmp_cni_conf_file}"
+      tmp_cni_conf_file=$(create_temp_file "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}") && add_file_to_cleanup "${tmp_cni_conf_file}"
       cat > "${tmp_cni_conf_file}" <<EOF
 ${cni_conf_data}
 EOF
-      local cni_conf_file=$(atomically_rename_file "${tmp_cni_conf_file}" "${cni_conf_name}")
+      cni_conf_file=$(atomically_rename_file "${tmp_cni_conf_file}" "${cni_conf_name}")
       echo "Removed Istio CNI config from ${cni_conf_file}"
     else
       echo "Removing istio-cni net.d conf file: ${MOUNTED_CNI_NET_DIR}/${cni_conf_name}"
@@ -255,7 +262,7 @@ EOF
 
   for file in "${FILE_CLEANUP_ARR[@]}"; do
     echo "Removing file if exists:  ${file}"
-    rm -f ${file}
+    rm -f "${file}"
   done
 
   rm_bin_files
@@ -313,7 +320,7 @@ EOF
     # if the provided CNI network config references it.
     # Create / overwrite this file atomically.
     KUBECFG_FILE="${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
-    TMP_KUBECFG_FILE="$(create_temp_file "${KUBECFG_FILE}")" && add_file_to_cleanup ${TMP_KUBECFG_FILE}
+    TMP_KUBECFG_FILE="$(create_temp_file "${KUBECFG_FILE}")" && add_file_to_cleanup "${TMP_KUBECFG_FILE}"
     chmod "${KUBECONFIG_MODE:-600}" "${TMP_KUBECFG_FILE}"
     cat > "${TMP_KUBECFG_FILE}" <<EOF
 # Kubeconfig file for Istio CNI plugin.
