@@ -25,12 +25,12 @@ set -u -e
 # Helper function for raising errors
 # Usage:
 # some_command || exit_with_error "some_command_failed: maybe try..."
-exit_with_error(){
+function exit_with_error() {
   echo "$1"
   exit 1
 }
 
-exit_graceful(){
+function exit_graceful() {
   exit 0
 }
 
@@ -47,6 +47,8 @@ function rm_bin_files() {
 # Creates a temp file with the given filepath prefix
 # Usage:
 # TMP_FILE=$(create_temp_file "filepath/prefix")
+# Recommended usage:
+# TMP_FILE=$(create_temp_file "filepath/prefix") && add_file_to_cleanup "${TMP_FILE}"
 function create_temp_file() {
   local filepath=$1
   local temp_file=$(mktemp ${filepath}.tmp.XXXXXX)
@@ -78,11 +80,11 @@ function atomically_rename_file() {
 #   - Follows the same semantics as kubelet
 #     https://github.com/kubernetes/kubernetes/blob/954996e231074dc7429f7be1256a579bedd8344c/pkg/kubelet/dockershim/network/cni/cni.go#L144-L184
 function find_cni_conf_file() {
-    cni_cfg=
+    local cni_cfg=
     for cfgf in "${MOUNTED_CNI_NET_DIR}"/*; do
         if [ "${cfgf: -5}" = ".conf" ]; then
             # check if it's a valid CNI .conf file
-            type=$(jq 'has("type")' < "${cfgf}" 2>/dev/null)
+            local type=$(jq 'has("type")' < "${cfgf}" 2>/dev/null)
             if [ "${type}" = "true" ]; then
                 cni_cfg=$(basename "${cfgf}")
                 break
@@ -90,15 +92,15 @@ function find_cni_conf_file() {
         elif [ "${cfgf: -9}" = ".conflist" ]; then
             # Check that the file is json and has top level "name" and "plugins" keys
             # NOTE: "cniVersion" key is not required by libcni (kubelet) to be present
-            name=$(jq 'has("name")' < "${cfgf}" 2>/dev/null)
-            plugins=$(jq 'has("plugins")' < "${cfgf}" 2>/dev/null)
+            local name=$(jq 'has("name")' < "${cfgf}" 2>/dev/null)
+            local plugins=$(jq 'has("plugins")' < "${cfgf}" 2>/dev/null)
             if [ "${name}" = "true" ] && [ "${plugins}" = "true" ]; then
                 cni_cfg=$(basename "${cfgf}")
                 break
             fi
         fi
     done
-    echo "$cni_cfg"
+    echo "${cni_cfg}"
 }
 
 # Initializes required variables
