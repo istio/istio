@@ -123,6 +123,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
 
     # Set the kube configs to point to the clusters.
+    export INTEGRATION_TEST_FLAGS="--istio.test.kube.metallb"
     export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG}"
     export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-1"
     export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY="0:0,1:0,2:2"

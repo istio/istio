@@ -22,8 +22,8 @@ import (
 
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	kubeenv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -69,16 +69,26 @@ func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cf
 	}, retry.Timeout(time.Minute))
 }
 
-func GetRemoteDiscoveryAddress(namespace string, cluster resource.Cluster, useNodePort bool) (net.TCPAddr, error) {
-	svc, err := cluster.CoreV1().Services(namespace).Get(context.TODO(), igwServiceName, kubeApiMeta.GetOptions{})
+func GetRemoteDiscoveryAddress(ctx resource.Context, namespace string, cluster resource.Cluster) (net.TCPAddr, error) {
+	env := ctx.Environment().(*kubeenv.Environment)
+	cpResCluster, err := env.GetControlPlaneCluster(cluster)
+	if err != nil {
+		scopes.Framework.Errorf("failed getting control-plane for cluster %d; trying to use it as a control-plane cluster", cluster.Index())
+		cpResCluster = cluster
+	}
+	cpCluster := cpResCluster.(kubeenv.Cluster)
+
+	// TODO(landow) deal with ingress circular endpoint; only unique code here is getting the control-plane cluster
+
+	svc, err := cpCluster.CoreV1().Services(namespace).Get(context.TODO(), igwServiceName, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return net.TCPAddr{}, err
 	}
 
-	// if useNodePort is set, we look for the node port service. This is generally used on kind or k8s without a LB
-	// and that do not have metallb installed
-	if useNodePort {
-		pods, err := cluster.PodsForSelector(context.TODO(), namespace, "istio=ingressgateway")
+	// environments that don't support assigning external IPs (e.g. kind without metallb) can workaround
+	// by using host ip + NodePort
+	if !env.Settings().SupportsExternalIP() {
+		pods, err := cpCluster.PodsForSelector(context.TODO(), namespace, "istio=ingressgateway")
 		if err != nil {
 			return net.TCPAddr{}, err
 		}

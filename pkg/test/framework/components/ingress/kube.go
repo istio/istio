@@ -61,9 +61,9 @@ type kubeComponent struct {
 
 // getHTTPAddressInner returns the ingress gateway address for plain text http requests.
 func (c *kubeComponent) getAddressInner(ns string, port int) (interface{}, bool, error) {
-	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
-	// port.
-	if c.env.Settings().Minikube {
+	// environments that don't support assigning external IPs (e.g. kind without metallb) can workaround
+	// by using host ip + NodePort
+	if !c.env.Settings().SupportsExternalIP() {
 		pods, err := c.cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", istioLabel))
 		if err != nil {
 			return nil, false, err

@@ -23,6 +23,8 @@ import (
 
 	"github.com/Masterminds/sprig"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -334,19 +336,9 @@ func generateYAMLWithSettings(ctx resource.Context, cfg echo.Config,
 
 	var vmImage, istiodIP, istiodPort string
 	if cfg.DeployAsVM {
-		s, err := kube.NewSettingsFromCommandLine()
-		if err != nil {
-			return "", "", err
-		}
-		cpCluster, err := ctx.Environment().(*kube.Environment).GetControlPlaneCluster(cluster)
-		if err != nil {
-			scopes.Framework.Errorf("failed getting control-plane for cluster %d; trying to use it as a control-plane cluster", cluster.Index())
-			cpCluster = cluster
-		}
-
 		var addr net.TCPAddr
 		err = retry.UntilSuccess(func() error {
-			addr, err = istio.GetRemoteDiscoveryAddress("istio-system", cpCluster.(kube.Cluster), s.Minikube)
+			addr, err = istio.GetRemoteDiscoveryAddress(ctx, "istio-system", cluster)
 			return err
 		}, retry.Timeout(time.Minute))
 		if err != nil {

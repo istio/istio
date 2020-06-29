@@ -42,6 +42,9 @@ type Settings struct {
 	// component will fall back to node-port in this case.
 	Minikube bool
 
+	// Indicates that issues caused by minikube/kind have been worked around and should not fall back to node-port.
+	Metallb bool
+
 	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
 	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex
@@ -78,6 +81,12 @@ func (s *Settings) GetControlPlaneClusters() map[resource.ClusterIndex]bool {
 		out[controlPlaneClusterIndex] = true
 	}
 	return out
+}
+
+// SupportsExternalIP returns whether or not Services will acquire a public ip. If not, NodePort and host IP must be
+// used to workaround this.
+func (s *Settings) SupportsExternalIP() bool {
+	return !s.Minikube || s.Metallb
 }
 
 // NewClients creates the kubernetes clients for interacting with the configured clusters.

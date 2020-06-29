@@ -212,7 +212,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	if isCentralIstio(env, cfg) {
 		for _, cluster := range env.KubeClusters {
 			if env.IsControlPlaneCluster(cluster) {
-				if err := patchIstiodCustomHost(cfg, cluster); err != nil {
+				if err := patchIstiodCustomHost(ctx, cfg, cluster); err != nil {
 					return nil, err
 				}
 			}
@@ -280,11 +280,11 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func patchIstiodCustomHost(cfg Config, cluster resource.Cluster) error {
+func patchIstiodCustomHost(ctx resource.Context, cfg Config, cluster resource.Cluster) error {
 	var remoteIstiodAddress net.TCPAddr
 	if err := retry.UntilSuccess(func() error {
 		var err error
-		remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, cluster, false)
+		remoteIstiodAddress, err = GetRemoteDiscoveryAddress(ctx, cfg.SystemNamespace, cluster)
 		return err
 	}, retry.Timeout(1*time.Minute)); err != nil {
 		return fmt.Errorf("failed getting the istiod address for cluster %s: %v", cluster.Name(), err)
@@ -447,7 +447,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 			var remoteIstiodAddress net.TCPAddr
 			if err := retry.UntilSuccess(func() error {
 				var err error
-				remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, controlPlaneCluster, false)
+				remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, controlPlaneCluster)
 				return err
 			}, retry.Timeout(1*time.Minute)); err != nil {
 				return fmt.Errorf("failed getting the istiod address for cluster %s: %v", controlPlaneCluster.Name(), err)
