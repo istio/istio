@@ -68,8 +68,9 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 	if warning != "" {
 		l.LogAndError(warning)
 	}
+
 	if errs.ToError() != nil {
-		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
+		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", errs)
 	}
 	return iopsString, iops, nil
 }
