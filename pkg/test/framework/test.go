@@ -123,7 +123,7 @@ var globalParentLock = new(sync.Map)
 
 // NewTest returns a new test wrapper for running a single test.
 func NewTest(t *testing.T) Test {
-	if analyzeMode {
+	if analyze() {
 		return newTestAnalyzer(t)
 	}
 	rtMu.Lock()

@@ -139,7 +139,7 @@ func NewSuite(m *testing.M) Suite {
 	_, f, _, _ := goruntime.Caller(1)
 	suiteName := deriveSuiteName(f)
 
-	if analyzeMode {
+	if analyze() {
 		return newSuiteAnalyzer(
 			suiteName,
 			func(_ *suiteContext) int {

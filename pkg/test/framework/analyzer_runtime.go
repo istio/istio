@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -35,7 +36,14 @@ var (
 )
 
 func init() {
-	analyzeMode = os.Getenv("ANALYZE_TESTS") != ""
+	flag.BoolVar(&analyzeMode, "istio.test.analyze", os.Getenv("ANALYZE_TESTS") != "", "Analyzes tests without actually running them")
+}
+
+func analyze() bool {
+	if !flag.Parsed() {
+		flag.Parse()
+	}
+	return analyzeMode
 }
 
 // initAnalysis sets up analysis for a single suite. If an analysis is already running,
