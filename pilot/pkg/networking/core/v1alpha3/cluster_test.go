@@ -2265,7 +2265,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
+				rootName := "file-root:" + simpleTLSSettingsWithCerts.CaCertificates
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
 					t.Fatalf("expected root name %v got %v", rootName, got)
 				}
@@ -2286,7 +2286,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			expectTransportSocketMatch: false,
 			http2ProtocolOptions:       http2ProtocolOptions,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
+				rootName := "file-root:" + simpleTLSSettingsWithCerts.CaCertificates
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
 					t.Fatalf("expected root name %v got %v", rootName, got)
 				}
