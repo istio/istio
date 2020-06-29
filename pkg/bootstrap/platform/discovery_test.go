@@ -33,8 +33,12 @@ func TestDiscoverWithTimeout(t *testing.T) {
 		{
 			desc:        "no-plat",
 			timeout:     1 * time.Second,
-			envSetup:    func(*testing.T) {},
-			envTeardown: func(*testing.T) {},
+			envSetup:    func(*testing.T) {
+				gcpMetadataVar.Name = "TEST_GCP_METADATA"
+			},
+			envTeardown: func(*testing.T) {
+				gcpMetadataVar.Name = "GCP_METADATA"
+			},
 			platExpectFn: func(m map[string]string) bool {
 				// unknown has no metadata
 				return len(m) == 0
