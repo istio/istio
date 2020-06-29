@@ -20,11 +20,18 @@ import (
 	"fmt"
 	"os"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	envoy_corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	istioVersion "istio.io/pkg/version"
 )
@@ -120,4 +127,132 @@ func getProxyInfo(opts *clioptions.ControlPlaneOptions) (*[]istioVersion.ProxyIn
 	}
 
 	return &pi, nil
+}
+
+// xdsVersionCommand gets the Control Plane and Sidecar versions via XDS
+func xdsVersionCommand() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+	var centralOpts clioptions.CentralControlPlaneOptions
+	var xdsResponses *xdsapi.DiscoveryResponse
+	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
+		GetRemoteVersion: xdsRemoteVersionWrapper(&opts, &centralOpts, &xdsResponses),
+		GetProxyVersions: xdsProxyVersionWrapper(&xdsResponses),
+	})
+	opts.AttachControlPlaneFlags(versionCmd)
+	centralOpts.AttachControlPlaneFlags(versionCmd)
+
+	versionCmd.Flags().VisitAll(func(flag *pflag.Flag) {
+		if flag.Name == "short" {
+			err := flag.Value.Set("true")
+			if err != nil {
+				fmt.Fprintf(os.Stdout, "set flag %q as true failed due to error %v", flag.Name, err)
+			}
+		}
+		if flag.Name == "remote" {
+			err := flag.Value.Set("true")
+			if err != nil {
+				fmt.Fprintf(os.Stdout, "set flag %q as true failed due to error %v", flag.Name, err)
+			}
+		}
+	})
+	return versionCmd
+}
+
+// xdsRemoteVersionWrapper uses outXDS to share the XDS response with xdsProxyVersionWrapper.
+// (Screwy API on istioVersion.CobraCommandWithOptions)
+// nolint: lll
+func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **xdsapi.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
+	return func() (*istioVersion.MeshInfo, error) {
+		xdsRequest := xdsapi.DiscoveryRequest{
+			Node: &envoy_corev2.Node{
+				Id: "sidecar~0.0.0.0~debug~cluster.local",
+			},
+			TypeUrl: "istio.io/connections",
+		}
+		kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+		if err != nil {
+			return nil, err
+		}
+		xds, err := multixds.RequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, kubeClient)
+		if err != nil {
+			return nil, err
+		}
+		*outXDS = xds
+		if xds.ControlPlane == nil {
+			return &istioVersion.MeshInfo{
+				istioVersion.ServerInfo{
+					Component: "MISSING CP ID",
+					Info: istioVersion.BuildInfo{
+						Version: "MISSING CP ID",
+					},
+				},
+			}, nil
+		}
+		cpID := map[string]interface{}{}
+		err = json.Unmarshal([]byte(xds.ControlPlane.Identifier), &cpID)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse CP Identifier: %w", err)
+		}
+		component, ok := cpID["component"].(string)
+		if !ok {
+			return nil, fmt.Errorf("could not parse CP ID component: %w", err)
+		}
+		cpInfo, ok := cpID["info"].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("could not parse CP ID build info: %w", err)
+		}
+		strVersion, _ := cpInfo["version"].(string)
+		buildStatus, _ := cpInfo["status"].(string)
+		revision, _ := cpInfo["revision"].(string)
+		tag, _ := cpInfo["tag"].(string)
+		golangVersion, _ := cpInfo["golang_version"].(string)
+		return &istioVersion.MeshInfo{
+			istioVersion.ServerInfo{
+				Component: component,
+				Info: istioVersion.BuildInfo{
+					Version:       strVersion,
+					BuildStatus:   buildStatus,
+					GitRevision:   revision,
+					GitTag:        tag,
+					GolangVersion: golangVersion,
+				},
+			},
+		}, nil
+	}
+}
+
+func xdsProxyVersionWrapper(xdsResponse **xdsapi.DiscoveryResponse) func() (*[]istioVersion.ProxyInfo, error) {
+	return func() (*[]istioVersion.ProxyInfo, error) {
+		pi := []istioVersion.ProxyInfo{}
+		for _, resource := range (*xdsResponse).Resources {
+			switch resource.TypeUrl {
+			case "type.googleapis.com/envoy.config.core.v3.Node":
+				node := envoy_corev3.Node{}
+				err := ptypes.UnmarshalAny(resource, &node)
+				if err != nil {
+					return nil, fmt.Errorf("could not unmarshal Node: %w", err)
+				}
+				meta, err := model.ParseMetadata(node.Metadata)
+				if err != nil || meta.ProxyConfig == nil {
+					// Skip non-sidecars (e.g. istioctl queries)
+					continue
+				}
+				pi = append(pi, istioVersion.ProxyInfo{
+					ID:           node.Id,
+					IstioVersion: getIstioVersionFromXdsMetadata(node.Metadata),
+				})
+			default:
+				return nil, fmt.Errorf("unexpected resource type %q", resource.TypeUrl)
+			}
+		}
+		return &pi, nil
+	}
+}
+
+func getIstioVersionFromXdsMetadata(metadata *structpb.Struct) string {
+	meta, err := model.ParseMetadata(metadata)
+	if err != nil {
+		return "unknown sidecar version"
+	}
+	return meta.IstioVersion
 }
