@@ -35,6 +35,7 @@ type commonAnalyzer struct {
 func newCommonAnalyzer() commonAnalyzer {
 	return commonAnalyzer{
 		labels:      label.NewSet(),
+		skip:        "",
 		minCusters:  1,
 		maxClusters: -1,
 	}
