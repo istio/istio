@@ -21,13 +21,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/tests/integration/pilot/vm"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -58,21 +62,18 @@ const (
 )
 
 type VirtualServiceConfig struct {
-	Name      string
-	Host0     string
-	Host1     string
-	Host2     string
-	Namespace string
-	Weight0   int32
-	Weight1   int32
-	Weight2   int32
+	Name       string
+	Namespace  string
+	TargetHost string
+	Hosts      []string
+	Weights    []int
 }
 
 // Traffic shifting test body. This test will call from client to 3 instances
 // to see if the traffic distribution follows the weights set by the VirtualService
 func TestTrafficShifting(t *testing.T) {
 	// Traffic distribution
-	weights := map[string][]int32{
+	weights := map[string][]int{
 		"20-80":    {20, 80},
 		"50-50":    {50, 50},
 		"33-33-34": {33, 33, 34},
@@ -81,6 +82,7 @@ func TestTrafficShifting(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
+		Features("traffic.shifting").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "traffic-shifting",
@@ -88,37 +90,94 @@ func TestTrafficShifting(t *testing.T) {
 			})
 
 			var instances [4]echo.Instance
+			cluster := ctx.Environment().Clusters()[0]
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&instances[0], echoVMConfig(ns, "a", ctx.Environment().Clusters()[0])).
-				With(&instances[1], echoVMConfig(ns, "b", ctx.Environment().Clusters()[0])).
-				With(&instances[2], echoVMConfig(ns, "c", ctx.Environment().Clusters()[0], vm.DefaultVMImage)).
-				With(&instances[3], echoVMConfig(ns, "d", ctx.Environment().Clusters()[0])).
+				With(&instances[0], echoVMConfig(ns, "a", cluster)).
+				With(&instances[1], echoVMConfig(ns, "b", cluster)).
+				With(&instances[2], echoVMConfig(ns, "c", cluster, vm.DefaultVMImage)).
+				With(&instances[3], echoVMConfig(ns, "d", cluster)).
 				BuildOrFail(t)
 
 			hosts := []string{"b", "c", "d"}
 
 			for k, v := range weights {
 				t.Run(k, func(t *testing.T) {
-					v = append(v, make([]int32, 3-len(v))...)
+					v = append(v, make([]int, 3-len(v))...)
 
 					vsc := VirtualServiceConfig{
-						"traffic-shifting-rule",
-						hosts[0],
-						hosts[1],
-						hosts[2],
-						ns.Name(),
-						v[0],
-						v[1],
-						v[2],
+						Name:       "traffic-shifting-rule",
+						Namespace:  ns.Name(),
+						TargetHost: hosts[0],
+						Hosts:      hosts,
+						Weights:    v,
 					}
 
 					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
-					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
+					ctx.Config(cluster).ApplyYAMLOrFail(t, ns.Name(), deployment)
 
 					sendTraffic(t, 100, instances[0], instances[1], hosts, v, errorThreshold)
 				})
 			}
 		})
+}
+
+func TestCrossClusterTrafficShifting(t *testing.T) {
+	framework.NewTest(t).
+		RequiresMinClusters(2).
+		Features("traffic.shifting").
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "x-cluster-traffic-shifting",
+				Inject: true,
+			})
+
+			var hosts []string
+			var weights []int
+			builder := echoboot.NewBuilderOrFail(ctx, ctx)
+			svcs := make([][2]echo.Instance, len(ctx.Environment().Clusters()))
+			for _, c := range ctx.Environment().Clusters() {
+				serverHost := fmt.Sprintf("server-%d", c.Index())
+				weights = append(weights, 100/len(ctx.Environment().Clusters()))
+				hosts = append(hosts, serverHost)
+				svcs[c.Index()] = [2]echo.Instance{}
+				builder.
+					With(&svcs[c.Index()][0], echoConfig(ns, fmt.Sprintf("client-%d", c.Index()), c)).
+					With(&svcs[c.Index()][1], echoConfig(ns, serverHost, c))
+			}
+			builder.BuildOrFail(ctx)
+
+			// ensure weights total to 100
+			total := 0
+			for _, w := range weights {
+				total += w
+			}
+			weights[0] += 100 - total
+
+			vsTmpl := file.AsStringOrFail(ctx, "testdata/traffic-shifting.yaml")
+			for _, c := range ctx.Environment().Clusters() {
+				cp, err := ctx.Environment().GetControlPlaneCluster(c)
+				if err != nil {
+					scopes.Framework.Warnf("failed to get control-plane for cluster %d; assuming it is the control-plane", c.Index())
+					cp = c
+				}
+				ctx.NewSubTest(fmt.Sprintf("from-%d", c.Index())).
+					Run(func(ctx framework.TestContext) {
+						deployment := tmpl.EvaluateOrFail(ctx, vsTmpl, VirtualServiceConfig{
+							Name:       fmt.Sprintf("x-cluster-shifting-rule-%d", cp.Index()),
+							Namespace:  ns.Name(),
+							TargetHost: svcs[c.Index()][1].Config().Service,
+							Hosts:      hosts,
+							Weights:    weights,
+						})
+
+						ctx.Config(cp).ApplyYAMLOrFail(ctx, ns.Name(), deployment)
+
+						src, dst := svcs[c.Index()][0], svcs[c.Index()][1]
+						sendTraffic(ctx, 100, src, dst, hosts, weights, float64(weights[0])*.25)
+					})
+			}
+		})
+
 }
 
 // Wrapper to initialize instance with ServicePort without affecting other tests
@@ -138,7 +197,7 @@ func echoVMConfig(ns namespace.Instance, name string, cluster resource.Cluster, 
 	return config
 }
 
-func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorThreshold float64) {
+func sendTraffic(t test.Failer, batchSize int, from, to echo.Instance, hosts []string, weight []int, errorThreshold float64) {
 	t.Helper()
 	// Send `batchSize` requests and ensure they are distributed as expected.
 	retry.UntilSuccessOrFail(t, func() error {
@@ -162,16 +221,18 @@ func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []st
 			}
 		}
 
+		err = nil
 		for i, v := range hosts {
 			percentOfTrafficToHost := float64(hitCount[v]) * 100.0 / float64(totalRequests)
 			deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToHost)
 			if errorThreshold-deltaFromExpected < 0 {
-				return fmt.Errorf("unexpected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
+				err = multierror.Append(err, fmt.Errorf("unexpected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
+					v, weight[i], percentOfTrafficToHost, errorThreshold))
+			} else {
+				scopes.Framework.Debugf("Got expected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
 					v, weight[i], percentOfTrafficToHost, errorThreshold)
 			}
-			t.Logf("Got expected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
-				v, weight[i], percentOfTrafficToHost, errorThreshold)
 		}
-		return nil
+		return err
 	}, retry.Delay(time.Second))
 }

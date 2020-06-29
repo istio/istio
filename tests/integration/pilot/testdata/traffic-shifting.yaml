@@ -5,15 +5,9 @@ metadata:
   namespace: {{.Namespace}}
 spec:
   hosts:
-    - {{.Host0}}
+    - {{.TargetHost}}
   http:
-    - route:
+    - route:{{ range $i,$h := .Hosts }}
         - destination:
-            host: {{.Host0}}
-          weight: {{.Weight0}}
-        - destination:
-            host: {{.Host1}}
-          weight: {{.Weight1}}
-        - destination:
-            host: {{.Host2}}
-          weight: {{.Weight2}}
+            host: {{$h}}
+          weight: {{ index $.Weights $i }}{{ end }}

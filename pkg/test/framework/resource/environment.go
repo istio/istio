@@ -42,6 +42,9 @@ type Environment interface {
 	// Clusters in this Environment. There will always be at least one.
 	Clusters() []Cluster
 
+	// GetControlPlaneCluster returns the cluster running the control plane for the given cluster based on the ControlPlaneTopology.
+	GetControlPlaneCluster(Cluster) (Cluster, error)
+
 	// Case calls the given function if this environment has the given name.
 	Case(e environment.Name, fn func())
 }
@@ -83,6 +86,10 @@ func (f FakeEnvironment) Clusters() []Cluster {
 		}
 	}
 	return out
+}
+
+func (f FakeEnvironment) GetControlPlaneCluster(cluster Cluster) (Cluster, error) {
+	return cluster, nil
 }
 
 func (f FakeEnvironment) Case(environment.Name, func()) {

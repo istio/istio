@@ -87,7 +87,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	// Generate the service and deployment YAML.
-	serviceYAML, deploymentYAML, err := generateYAML(cfg, c.cluster)
+	serviceYAML, deploymentYAML, err := generateYAML(ctx, cfg, c.cluster)
 	if err != nil {
 		return nil, fmt.Errorf("generate yaml: %v", err)
 	}

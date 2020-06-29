@@ -38,6 +38,7 @@ features:
     routing:
     short-circuiting:
     mirroring:
+    shifting:
   usability:
     observability:
       status:
