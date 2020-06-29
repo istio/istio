@@ -24,7 +24,9 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/status"
+	kubecfg "istio.io/istio/pkg/kube"
 
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
@@ -36,7 +38,6 @@ import (
 
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
@@ -45,7 +46,6 @@ import (
 	"istio.io/pkg/log"
 
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
-	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
@@ -388,13 +388,16 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 			return nil, err
 		}
 	}
-	configClient, err := controller.NewClient(args.RegistryOptions.KubeConfig, "", schemas.Build(),
-		args.RegistryOptions.KubeOptions.DomainSuffix, buildLedger(args.RegistryOptions), args.Revision)
+	// TODO use schemas
+	cfg, err := kubecfg.BuildClientConfig(args.RegistryOptions.KubeConfig, "")
 	if err != nil {
-		return nil, multierror.Prefix(err, "failed to open a config client.")
+		return nil, err
 	}
-
-	return controller.NewController(configClient, args.RegistryOptions.KubeOptions), nil
+	c, err := crdclient.NewForConfig(cfg, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {

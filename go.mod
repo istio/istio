@@ -162,6 +162,7 @@ require (
 	gopkg.in/yaml.v2 v2.3.0
 	helm.sh/helm/v3 v3.2.0
 	istio.io/api v0.0.0-20200626203124-c07d1d63dab7
+	istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26
 	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
 	istio.io/pkg v0.0.0-20200504224939-261164cc57da
 	k8s.io/api v0.18.3
@@ -175,3 +176,5 @@ require (
 	sigs.k8s.io/service-apis v0.0.0-20200625154238-3290dca43e1e
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace sigs.k8s.io/service-apis => github.com/howardjohn/service-apis v0.0.0-20200625215450-120bc372d5a7
