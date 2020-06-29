@@ -31,9 +31,9 @@ func TestDiscoverWithTimeout(t *testing.T) {
 		platExpectFn platMetaFn
 	}{
 		{
-			desc:        "unknown-plat",
-			timeout:     1 * time.Second,
-			envSetup:    func(*testing.T) {
+			desc:    "unknown-plat",
+			timeout: 1 * time.Second,
+			envSetup: func(*testing.T) {
 				gcpMetadataVar.Name = "TEST_GCP_METADATA"
 			},
 			envTeardown: func(*testing.T) {
