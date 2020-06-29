@@ -260,7 +260,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 
 	// Don't set the CNI conf file env var if preConfFile is not set
 	var envPreconf string
-	if preConfFile != "NONE" {
+	if preConfFile != "" {
 		envPreconf = preConfFile
 	} else {
 		preConfFile = resultFileName
@@ -275,9 +275,9 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 	}()
 	time.Sleep(10 * time.Second)
 
-	if delayedConfFile != "NONE" {
+	if delayedConfFile != "" {
 		var destFilenm string
-		if preConfFile != "NONE" {
+		if preConfFile != "" {
 			destFilenm = preConfFile
 		} else {
 			destFilenm = delayedConfFile
