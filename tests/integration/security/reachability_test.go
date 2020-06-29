@@ -60,8 +60,8 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "beta-mtls-permissive.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the naked app.
-						return opts.Target != rctx.Naked
+						// Exclude calls to the naked app and from naked->VM.
+						return opts.Target != rctx.Naked && !(src == rctx.Naked && opts.Target == rctx.VM)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -71,7 +71,8 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "beta-mtls-off.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						// Exclude calls from naked->VM.
+						return !(src == rctx.Naked && opts.Target == rctx.VM)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -127,6 +128,11 @@ func TestReachability(t *testing.T) {
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
+							return false
+						}
+
+						// Exclude calls from naked->VM.
+						if src == rctx.Naked && opts.Target == rctx.VM {
 							return false
 						}
 
