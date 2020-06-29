@@ -17,14 +17,20 @@ package ca
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
+	"net"
 	"os"
 	"testing"
 	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"istio.io/istio/security/pkg/pki/util"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/pkg/jwt"
@@ -68,6 +74,134 @@ func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*authenticate
 		AuthSource: authn.authSource,
 		Identities: authn.identities,
 	}, nil
+}
+
+type mockAuthInfo struct {
+	authType string
+}
+
+func (ai mockAuthInfo) AuthType() string {
+	return ai.authType
+}
+
+/*This is a testing to send a request to the server using
+the client cert authenticator instead of mock authenticator
+*/
+func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
+	callerID := "test.identity"
+	ids := []util.Identity{
+		{Type: util.TypeURI, Value: []byte(callerID)},
+	}
+	sanExt, err := util.BuildSANExtension(ids)
+	if err != nil {
+		t.Error(err)
+	}
+	auth := &authenticate.ClientCertAuthenticator{}
+
+	server := &Server{
+		ca: &mockca.FakeCA{
+			SignedCert: []byte("cert"),
+			KeyCertBundle: &mockutil.FakeKeyCertBundle{
+				CertChainBytes: []byte("cert_chain"),
+				RootCertBytes:  []byte("root_cert"),
+			},
+		},
+		hostnames:      []string{"hostname"},
+		port:           8080,
+		Authenticators: []authenticate.Authenticator{auth},
+		monitoring:     newMonitoringMetrics(),
+	}
+	mockCertChain := []string{"cert", "cert_chain", "root_cert"}
+	mockIPAddr := &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}
+	testCerts := map[string]struct {
+		certChain          [][]*x509.Certificate
+		caller             *authenticate.Caller
+		authenticateErrMsg string
+		fakeAuthInfo       *mockAuthInfo
+		code               codes.Code
+		ipAddr             *net.IPAddr
+	}{
+		"No client certificate": {
+			certChain:          nil,
+			caller:             nil,
+			authenticateErrMsg: "no client certificate is presented",
+			ipAddr:             mockIPAddr,
+			code:               codes.Unauthenticated,
+		},
+		"Unsupported auth type": {
+			certChain:          nil,
+			caller:             nil,
+			authenticateErrMsg: "unsupported auth type: \"not-tls\"",
+			fakeAuthInfo:       &mockAuthInfo{"not-tls"},
+			ipAddr:             mockIPAddr,
+			code:               codes.Unauthenticated,
+		},
+		"Empty cert chain": {
+			certChain:          [][]*x509.Certificate{},
+			caller:             nil,
+			authenticateErrMsg: "no verified chain is found",
+			ipAddr:             mockIPAddr,
+			code:               codes.Unauthenticated,
+		},
+		"Certificate has no SAN": {
+			certChain: [][]*x509.Certificate{
+				{
+					{
+						Version: 1,
+					},
+				},
+			},
+			authenticateErrMsg: "the SAN extension does not exist",
+			ipAddr:             mockIPAddr,
+			code:               codes.Unauthenticated,
+		},
+		"With client certificate": {
+			certChain: [][]*x509.Certificate{
+				{
+					{
+						Extensions: []pkix.Extension{*sanExt},
+					},
+				},
+			},
+			caller: &authenticate.Caller{Identities: []string{callerID}},
+			ipAddr: mockIPAddr,
+			code:   codes.OK,
+		},
+	}
+
+	for id, c := range testCerts {
+		request := &pb.IstioCertificateRequest{Csr: "dumb CSR"}
+		ctx := context.Background()
+		if c.certChain != nil {
+			tlsInfo := credentials.TLSInfo{
+				State: tls.ConnectionState{VerifiedChains: c.certChain},
+			}
+			p := &peer.Peer{Addr: c.ipAddr, AuthInfo: tlsInfo}
+			ctx = peer.NewContext(ctx, p)
+			ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", "SSSS", "ClusterID", "SDFASFDSAFD"))
+		}
+		if c.fakeAuthInfo != nil {
+			ctx = peer.NewContext(ctx, &peer.Peer{Addr: c.ipAddr, AuthInfo: c.fakeAuthInfo})
+		}
+		response, err := server.CreateCertificate(ctx, request)
+
+		s, _ := status.FromError(err)
+		code := s.Code()
+		if code != c.code {
+			t.Errorf("Case %s: expecting code to be (%d) but got (%d): %s", id, c.code, code, s.Message())
+		} else if c.code == codes.OK {
+			if len(response.CertChain) != len(mockCertChain) {
+				t.Errorf("Case %s: expecting cert chain length to be (%d) but got (%d)",
+					id, len(mockCertChain), len(response.CertChain))
+			}
+			for i, v := range response.CertChain {
+				if v != mockCertChain[i] {
+					t.Errorf("Case %s: expecting cert to be (%s) but got (%s) at position [%d] of cert chain.",
+						id, mockCertChain, v, i)
+				}
+			}
+		}
+	}
 }
 
 func TestCreateCertificate(t *testing.T) {
