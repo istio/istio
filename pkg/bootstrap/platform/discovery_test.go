@@ -60,12 +60,13 @@ func TestDiscoverWithTimeout(t *testing.T) {
 				}
 			},
 			envTeardown: func(t *testing.T) {
-				// re-register GCP_METADATA gcpMetadataVar
+				// remove env var value
 				err := os.Unsetenv("TEST_GCP_METADATA")
 				if err != nil {
 					t.Fatalf("Unable to tear down: %v", err)
 				}
-				gcpMetadataVar.Name = "TEST_GCP_METADATA"
+				// re-set gcpMetadataVar to point to GCP_METADATA
+				gcpMetadataVar.Name = "GCP_METADATA"
 			},
 			platExpectFn: func(m map[string]string) bool {
 				// PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE -> FOO|BAR|BAZ|MAR
