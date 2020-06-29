@@ -45,6 +45,7 @@ function rm_bin_files() {
 }
 
 # Creates a temp file with the given filepath prefix
+# Output: filepath of the temp file
 # Usage:
 # TMP_FILE=$(create_temp_file "filepath/prefix")
 # Recommended usage:
@@ -60,6 +61,7 @@ function create_temp_file() {
 }
 
 # Renames the given file to the new file name (renames to same dir for atomicity)
+# Output: filepath of the renamed file
 # Usage:
 # NEW_FILE=$(atomically_rename_file "old_filepath" "new_filename")
 function atomically_rename_file() {
@@ -69,7 +71,7 @@ function atomically_rename_file() {
   dirpath=$(dirname "${old_filepath}")
   local new_filepath="${dirpath}/${new_filename}"
   mv "${old_filepath}" "${new_filepath}" || \
-  exit_with_error "Failed to mv file. This may be caused by selinux configuration on the host, or something else."
+  exit_with_error "Failed to rename file. This may be caused by the node's selinux configuration."
   echo "${new_filepath}"
 }
 
@@ -106,7 +108,6 @@ function find_cni_conf_file() {
 
 # Initializes required variables
 function init() {
-  echo "Initializing variables"
   declare -a FILE_CLEANUP_ARR
 
   # The directory on the host where CNI networks are installed. Defaults to
@@ -193,7 +194,7 @@ function install_binaries() {
       fi
       # Copy files atomically by first copying into the same directory then renaming.
       # shellcheck disable=SC2015
-      cp "${path}" "${dir}/${filename}.tmp" && mv "${dir}/${filename}.tmp" "${dir}/${filename}" || exit_with_error "Failed to copy ${path} into ${dir}. This may be caused by selinux configuration on the host."
+      cp "${path}" "${dir}/${filename}.tmp" && mv "${dir}/${filename}.tmp" "${dir}/${filename}" || exit_with_error "Failed to copy ${path} into ${dir}. This may be caused by the node's selinux configuration."
     done
 
     echo "Wrote Istio CNI binaries to ${dir}."

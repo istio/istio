@@ -234,7 +234,6 @@ func checkTempFilesCleaned(tempCNIConfDir string, t *testing.T) {
 		if strings.Contains(f.Name(), ".tmp") {
 			t.Fatalf("FAIL: Temporary file not cleaned in %v: %v", tempCNIConfDir, f.Name())
 		}
-		t.Logf("File remains in %v: %v", tempCNIConfDir, f.Name())
 	}
 	t.Logf("PASS: All temporary files removed from %v", tempCNIConfDir)
 }
