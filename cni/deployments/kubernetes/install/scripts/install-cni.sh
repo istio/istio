@@ -132,9 +132,9 @@ function init() {
   if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
     # chained CNI plugin
     # waits until a main CNI plugin writes a CNI config file
+    echo "cni_conf_name is null. Finding config file..."
     while : ; do
       if [ -z "${cni_conf_name}" ]; then
-        echo "cni_conf_name is null. Finding config file..."
         cni_conf_name=$(find_cni_conf_file)
       elif [ ! -e "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}" ]; then
         if [ "${cni_conf_name: -5}" = ".conf" ] && [ -e "${MOUNTED_CNI_NET_DIR}/${cni_conf_name}list" ]; then
