@@ -79,11 +79,24 @@ func TestStringMatcherRegex(t *testing.T) {
 	}{
 		{
 			name: "wildcardAsRequired",
-			v:    "a",
+			v:    "*",
 			want: &matcherpb.StringMatcher{
 				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
 					SafeRegex: &matcherpb.RegexMatcher{
-						Regex: "a",
+						Regex: "*",
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+					},
+				},
+			},
+		},{
+			name: "regexExpression",
+			v:    "+?",
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+					SafeRegex: &matcherpb.RegexMatcher{
+						Regex: "+?",
 						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
 							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
 						},
@@ -91,16 +104,6 @@ func TestStringMatcherRegex(t *testing.T) {
 				},
 			},
 		},
-		//{
-		//	name: "regexExpression",
-		//	v:    "foo",
-		//	want: &matcherpb.StringMatcher{
-		//		MatchPattern: &matcherpb.StringMatcher_SafeRegex{
-		//			SafeRegex: "*",
-		//		},
-		//	},
-		//},
-
 	}
 
 	for _, tc := range testCases {
