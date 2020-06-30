@@ -154,7 +154,6 @@ func TestE2EClient(t *testing.T) {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-
 		ctx, err := buildContext()
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create to create context: %v", id, err)
