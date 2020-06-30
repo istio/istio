@@ -242,11 +242,6 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		return nil, fmt.Errorf("certificate is not authorized to sign other certificates")
 	}
 
-	crt := caOpts.KeyCertBundle.GetCertChainPem()
-	if len(crt) == 0 {
-		crt = caOpts.KeyCertBundle.GetRootCertPem()
-	}
-
 	return caOpts, nil
 }
 
