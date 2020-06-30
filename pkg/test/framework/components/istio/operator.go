@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
-
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
@@ -419,7 +418,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		"-f", defaultsIOPFile,
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
-		"--charts", filepath.Join(env.IstioSrc, "manifests"),
+		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
 	}
 	// Include all user-specified values.
 	for k, v := range cfg.Values {
