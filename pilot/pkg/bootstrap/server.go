@@ -216,7 +216,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.initMeshHandlers()
 
 	// Parse and validate Istiod Address.
-	istiodHost, istiodPort, err := e.GetDiscoveryAddress()
+	istiodHost, _, err := e.GetDiscoveryAddress()
 	if err != nil {
 		return nil, err
 	}
