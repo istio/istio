@@ -193,13 +193,73 @@ func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discov
 				}
 			}()
 		}
+
+		err = s.processRequest(req, con)
+		if err != nil {
+			*errP = err
+			return
+		}
+
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
-			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, cid)
+			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
 		}
 	}
+}
+
+func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, con *Connection) error {
+	if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, TypeURLToEventType(discReq.TypeUrl), discReq.ResponseNonce)
+	}
+
+	var err error
+
+	// Based on node metadata a different generator was selected, use it instead of the default
+	// behavior.
+	if con.node.XdsResourceGenerator != nil {
+		// Endpoints are special - will use the optimized code path.
+		err = s.handleCustomGenerator(con, discReq)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	switch discReq.TypeUrl {
+	case v2.ClusterType, v3.ClusterType:
+		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
+			return err
+		}
+		if err := s.handleCds(con, discReq); err != nil {
+			return err
+		}
+	case v2.ListenerType, v3.ListenerType:
+		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.LDS); err != nil {
+			return err
+		}
+		if err := s.handleLds(con, discReq); err != nil {
+			return err
+		}
+	case v2.RouteType, v3.RouteType:
+		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.RDS); err != nil {
+			return err
+		}
+		if err := s.handleRds(con, discReq); err != nil {
+			return err
+		}
+	case v2.EndpointType, v3.EndpointType:
+		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.EDS); err != nil {
+			return err
+		}
+		if err := s.handleEds(con, discReq); err != nil {
+			return err
+		}
+	default:
+		adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
+	}
+	return nil
 }
 
 // authenticate authenticates the ADS request using the configured authenticators.
@@ -287,59 +347,17 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 
 	for {
 		// Block until either a request is received or a push is triggered.
+		// We need 2 go routines because 'read' blocks in Recv().
+		//
+		// To avoid 2 routines, we tried to have Recv() in StreamAggregateResource - and the push
+		// on different short-lived go routines started when the push is happening. This would cut in 1/2
+		// the number of long-running go routines, since push is throttled. The main problem is with
+		// closing - the current gRPC library didn't allow closing the stream.
 		select {
-		case discReq, ok := <-reqChannel:
+		case _, ok := <-reqChannel:
 			if !ok {
-				// Remote side closed connection.
+				// Remote side closed connection or error processing the request.
 				return receiveError
-			}
-
-			if s.StatusReporter != nil {
-				s.StatusReporter.RegisterEvent(con.ConID, TypeURLToEventType(discReq.TypeUrl), discReq.ResponseNonce)
-			}
-
-			// Based on node metadata a different generator was selected, use it instead of the default
-			// behavior.
-			if con.node.XdsResourceGenerator != nil {
-				// Endpoints are special - will use the optimized code path.
-				err = s.handleCustomGenerator(con, discReq)
-				if err != nil {
-					return err
-				}
-				continue
-			}
-
-			switch discReq.TypeUrl {
-			case v2.ClusterType, v3.ClusterType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
-					return err
-				}
-				if err := s.handleCds(con, discReq); err != nil {
-					return err
-				}
-			case v2.ListenerType, v3.ListenerType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.LDS); err != nil {
-					return err
-				}
-				if err := s.handleLds(con, discReq); err != nil {
-					return err
-				}
-			case v2.RouteType, v3.RouteType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.RDS); err != nil {
-					return err
-				}
-				if err := s.handleRds(con, discReq); err != nil {
-					return err
-				}
-			case v2.EndpointType, v3.EndpointType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.EDS); err != nil {
-					return err
-				}
-				if err := s.handleEds(con, discReq); err != nil {
-					return err
-				}
-			default:
-				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
 			}
 
 		case pushEv := <-con.pushChannel:
