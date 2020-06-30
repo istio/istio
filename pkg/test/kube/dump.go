@@ -34,11 +34,11 @@ import (
 
 // podDumper will dump information from all the pods into the given workDir.
 // If no pods are provided, client will be used to fetch all the pods in a namespace.
-type podDumper func(a kube.Client, workDir string, namespace string, pods ...kubeApiCore.Pod)
+type podDumper func(a kube.ExtendedClient, workDir string, namespace string, pods ...kubeApiCore.Pod)
 
 // DumpPods runs each dumper with all the pods in the given namespace.
 // If no dumpers are provided, their resource state, events, container logs and Envoy information will be dumped.
-func DumpPods(a kube.Client, workDir, namespace string, dumpers ...podDumper) {
+func DumpPods(a kube.ExtendedClient, workDir, namespace string, dumpers ...podDumper) {
 	if len(dumpers) == 0 {
 		dumpers = []podDumper{
 			DumpPodState,
@@ -72,7 +72,7 @@ func podsOrFetch(a kube.Client, pods []kubeApiCore.Pod, namespace string) []kube
 }
 
 // DumpPodState dumps the pod state for either the provided pods or all pods in the namespace if none are provided.
-func DumpPodState(a kube.Client, workDir string, namespace string, pods ...kubeApiCore.Pod) {
+func DumpPodState(a kube.ExtendedClient, workDir string, namespace string, pods ...kubeApiCore.Pod) {
 	pods = podsOrFetch(a, pods, namespace)
 
 	marshaler := jsonpb.Marshaler{
@@ -95,7 +95,7 @@ func DumpPodState(a kube.Client, workDir string, namespace string, pods ...kubeA
 }
 
 // DumpPodEvents dumps the pod events for either the provided pods or all pods in the namespace if none are provided.
-func DumpPodEvents(a kube.Client, workDir, namespace string, pods ...kubeApiCore.Pod) {
+func DumpPodEvents(a kube.ExtendedClient, workDir, namespace string, pods ...kubeApiCore.Pod) {
 	pods = podsOrFetch(a, pods, namespace)
 
 	marshaler := jsonpb.Marshaler{
@@ -134,7 +134,7 @@ func DumpPodEvents(a kube.Client, workDir, namespace string, pods ...kubeApiCore
 
 // DumpPodLogs will dump logs from each container in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodLogs(a kube.Client, workDir, namespace string, pods ...kubeApiCore.Pod) {
+func DumpPodLogs(a kube.ExtendedClient, workDir, namespace string, pods ...kubeApiCore.Pod) {
 	pods = podsOrFetch(a, pods, namespace)
 
 	for _, pod := range pods {
@@ -178,7 +178,7 @@ func DumpPodLogs(a kube.Client, workDir, namespace string, pods ...kubeApiCore.P
 
 // DumpPodProxies will dump Envoy proxy config and clusters in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodProxies(a kube.Client, workDir, namespace string, pods ...kubeApiCore.Pod) {
+func DumpPodProxies(a kube.ExtendedClient, workDir, namespace string, pods ...kubeApiCore.Pod) {
 	pods = podsOrFetch(a, pods, namespace)
 
 	for _, pod := range pods {

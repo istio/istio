@@ -188,9 +188,6 @@ func testPodCache(t *testing.T) {
 		generatePod("128.0.0.1", "cpod1", "nsa", "", "", map[string]string{"app": "test-app"}, map[string]string{}),
 		generatePod("128.0.0.2", "cpod2", "nsa", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
 		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
-
-		// Pods in namespaces not watched by the controller.
-		generatePod("128.0.0.4", "cpod4", "nsc", "", "", map[string]string{"app": "prod-app-3"}, map[string]string{}),
 	}
 	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
 		c.serviceInformer.HasSynced, c.endpoints.HasSynced)
@@ -240,7 +237,7 @@ func TestPodCacheEvents(t *testing.T) {
 	defer c.Stop()
 
 	ns := "default"
-	podCache := newPodCache(c, Options{WatchedNamespaces: ns})
+	podCache := c.pods
 
 	f := podCache.onEvent
 

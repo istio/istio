@@ -339,7 +339,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 					controller := &status.DistributionController{
 						QPS:   float32(features.StatusQPS),
 						Burst: features.StatusBurst}
-					controller.Start(s.kubeConfig, args.Namespace, stop)
+					controller.Start(s.kubeRestConfig, args.Namespace, stop)
 				}).Run(stop)
 			return nil
 		})

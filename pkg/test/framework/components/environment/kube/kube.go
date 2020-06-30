@@ -54,10 +54,10 @@ func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 		client := clients[i]
 		clusterIndex := resource.ClusterIndex(i)
 		e.KubeClusters = append(e.KubeClusters, Cluster{
-			networkName: s.networkTopology[clusterIndex],
-			filename:    s.KubeConfig[i],
-			index:       clusterIndex,
-			Client:      client,
+			networkName:    s.networkTopology[clusterIndex],
+			filename:       s.KubeConfig[i],
+			index:          clusterIndex,
+			ExtendedClient: client,
 		})
 	}
 

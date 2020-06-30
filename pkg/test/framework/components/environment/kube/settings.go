@@ -27,7 +27,7 @@ import (
 
 // ClientFactoryFunc is a transformation function that creates k8s clients
 // from the provided k8s config files.
-type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.Client, error)
+type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.ExtendedClient, error)
 
 // Settings provide kube-specific Settings from flags.
 type Settings struct {
@@ -81,7 +81,7 @@ func (s *Settings) GetControlPlaneClusters() map[resource.ClusterIndex]bool {
 }
 
 // NewClients creates the kubernetes clients for interacting with the configured clusters.
-func (s *Settings) NewClients() ([]istioKube.Client, error) {
+func (s *Settings) NewClients() ([]istioKube.ExtendedClient, error) {
 	newClientsFn := s.ClientFactoryFunc
 	if newClientsFn == nil {
 		newClientsFn = newClients
@@ -109,11 +109,11 @@ func (s *Settings) String() string {
 	return result
 }
 
-func newClients(kubeConfigs []string) ([]istioKube.Client, error) {
-	out := make([]istioKube.Client, 0, len(kubeConfigs))
+func newClients(kubeConfigs []string) ([]istioKube.ExtendedClient, error) {
+	out := make([]istioKube.ExtendedClient, 0, len(kubeConfigs))
 	for _, cfg := range kubeConfigs {
 		if len(cfg) > 0 {
-			a, err := istioKube.NewClientForConfig(istioKube.BuildClientCmd(cfg, ""), "")
+			a, err := istioKube.NewExtendedClient(istioKube.BuildClientCmd(cfg, ""), "")
 			if err != nil {
 				return nil, fmt.Errorf("client setup: %v", err)
 			}

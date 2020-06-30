@@ -26,7 +26,7 @@ var _ resource.Cluster = Cluster{}
 
 // Cluster for a Kubernetes cluster. Provides access via a kube.Client.
 type Cluster struct {
-	kube.Client
+	kube.ExtendedClient
 	filename    string
 	networkName string
 	index       resource.ClusterIndex
