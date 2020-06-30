@@ -35,6 +35,7 @@ func TestDiscoverWithTimeout(t *testing.T) {
 			timeout: 1 * time.Second,
 			envSetup: func(*testing.T) {
 				gcpMetadataVar.Name = "UNITTEST_GCP_METADATA"
+				os.Unsetenv(gcpMetadataVar.Name)
 			},
 			envTeardown: func(*testing.T) {
 				gcpMetadataVar.Name = "GCP_METADATA"

@@ -15,12 +15,11 @@
 package platform
 
 import (
+	"cloud.google.com/go/compute/metadata"
 	"fmt"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"regexp"
 	"strings"
-
-	"cloud.google.com/go/compute/metadata"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"istio.io/pkg/env"
 
@@ -154,15 +153,11 @@ func (e *gcpEnv) Metadata() map[string]string {
 	return md
 }
 
-var (
-	envPid      string
-	envNpid     string
-	envCluster  string
-	envLocation string
-)
-
 func parseGCPMetadata() (pid, npid, cluster, location string) {
+	var envPid, envNpid, envCluster, envLocation string
 	gcpmd := gcpMetadataVar.Get()
+	log.Info(gcpMetadataVar.Name)
+	log.Info(gcpMetadataVar.Get())
 	if len(gcpmd) > 0 {
 		log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
 		parts := strings.Split(gcpmd, "|")
