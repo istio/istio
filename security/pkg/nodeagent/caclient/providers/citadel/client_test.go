@@ -90,16 +90,16 @@ func TestE2EClient(t *testing.T) {
 			t.Fatalf("Failed to create a plugged-cert CA.")
 		}
 
-		_, createServerErr := citadelca.New(ca, time.Hour, false, []string{"localhost"}, 0,
+		server, createServerErr := citadelca.New(ca, time.Hour, false, []string{"localhost"}, 0,
 			"testdomain.com", true, jwt.PolicyThirdParty, "kubernetes")
 		if err != nil {
 			t.Errorf("%s: Cannot create server: %v", id, createServerErr)
 		}
-		//request := &pb.IstioCertificateRequest{Csr: "dumb CSR"}
-		//_, createErr := server.CreateCertificate(context.Background(), request)
-		//if createErr != nil {
-		//	t.Errorf("%s: getServerCertificate error: %v", id, createErr)
-		//}
+		request := &pb.IstioCertificateRequest{Csr: "dumb CSR"}
+		_, createErr := server.CreateCertificate(context.Background(), request)
+		if createErr != nil {
+			t.Errorf("%s: getServerCertificate error: %v", id, createErr)
+		}
 	}
 
 }
