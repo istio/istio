@@ -213,8 +213,9 @@ func checkResult(result, expected string, timeout, tick <-chan time.Time, t *tes
 func compareConfResult(testWorkRootDir, result, expected string, t *testing.T) {
 	t.Helper()
 	timeout := time.After(10 * time.Second)
-	tick := time.Tick(500 * time.Millisecond)
-	if checkResult(result, expected, timeout, tick, t) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	if checkResult(result, expected, timeout, ticker.C, t) {
 		t.Logf("PASS: result matches expected: %v v. %v", result, expected)
 	} else {
 		// Log errors
@@ -300,9 +301,10 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 	resultFile := tempCNIConfDir + "/" + resultFileName
 	if delayedConfFile != "" {
 		timeout := time.After(5 * time.Second)
-		tick := time.Tick(500 * time.Millisecond)
-		if checkResult(resultFile, expectedOutputFile, timeout, tick, t) {
-			t.Fatalf("FAIL: Isito CNI did not wait for valid config file")
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		if checkResult(resultFile, expectedOutputFile, timeout, ticker.C, t) {
+			t.Fatalf("FAIL: Istio CNI did not wait for valid config file")
 		}
 		var destFilenm string
 		if preConfFile != "" {
