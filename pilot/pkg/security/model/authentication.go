@@ -152,7 +152,7 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
 	// configure TLS with SDS
-	if metadata.SdsEnabled {
+	if metadata.SdsEnabled && sdsPath != ""  {
 		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 		// which does not support rotation, we will serve them over SDS by reading the files.
 		// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
