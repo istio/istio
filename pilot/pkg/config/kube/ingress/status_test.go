@@ -18,7 +18,6 @@ import (
 	"context"
 	"os"
 	"testing"
-	"time"
 
 	coreV1 "k8s.io/api/core/v1"
 	ingress "k8s.io/api/networking/v1beta1"
