@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authn/utils"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/config/constants"
 )
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {
@@ -80,19 +79,6 @@ func TestCustomMixerSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
 	mixerSAN := utils.GetSAN("", mixerIdentity)
 
 	g.Expect(mixerSAN).To(gomega.Equal("spiffe://mesh.com/mixer-identity"))
-}
-
-func TestDedupeStrings(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	in := []string{
-		constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert,
-		constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert,
-	}
-	expected := []string{constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert}
-
-	actual := dedupeStrings(in)
-
-	g.Expect(actual).To(gomega.ConsistOf(expected))
 }
 
 func TestIsIPv6Proxy(t *testing.T) {

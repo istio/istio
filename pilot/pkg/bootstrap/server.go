@@ -33,7 +33,6 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -121,13 +120,14 @@ type Server struct {
 	clusterID   string
 	environment *model.Environment
 
-	kubeConfig   *rest.Config
+	kubeRestConfig *rest.Config
+	kubeClients    kubelib.Client
+	// DEPRECATED. Use kubeClients
 	kubeClient   kubernetes.Interface
 	kubeRegistry *kubecontroller.Controller
 	multicluster *kubecontroller.Multicluster
 
 	configController  model.ConfigStoreCache
-	metadataClient    metadata.Interface
 	ConfigStores      []model.ConfigStoreCache
 	serviceEntryStore *serviceentry.ServiceEntryStore
 
@@ -301,6 +301,14 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
 	}
 
+	// This must be last, otherwise we will not know which informers to register
+	if s.kubeClients != nil {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			s.kubeClients.RunAndWait(stop)
+			return nil
+		})
+	}
+
 	return s, nil
 }
 
@@ -390,22 +398,20 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.RegistryOptions.Registries) {
 		var err error
 		// Used by validation
-		s.kubeConfig, err = kubelib.BuildClientConfig(args.RegistryOptions.KubeConfig, "")
-		if err != nil {
-			return fmt.Errorf("failed creating kube config: %v", err)
-		}
-		s.kubeClient, err = kubelib.CreateClientset(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
+		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
 			config.QPS = 20
 			config.Burst = 40
 		})
 		if err != nil {
-			return fmt.Errorf("failed creating kube client: %v", err)
+			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.metadataClient, err = kubelib.CreateMetadataClient(args.RegistryOptions.KubeConfig, "")
+		s.kubeClients, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
+		// TODO deprecate kubeClient, replace with kubeClients
 		if err != nil {
-			return fmt.Errorf("failed creating kube metadata client: %v", err)
+			return fmt.Errorf("failed creating kube client: %v", err)
 		}
+		s.kubeClient = s.kubeClients.Kube()
 	}
 
 	return nil

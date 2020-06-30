@@ -42,7 +42,6 @@ import (
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/network"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
@@ -242,18 +241,6 @@ var (
 				log.Fatala("Failed to start in-process SDS", err)
 			}
 
-			// dedupe cert paths so we don't set up 2 watchers for the same file
-			tlsCerts := dedupeStrings(getTLSCerts(proxyConfig))
-
-			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
-			// before starting it.
-			if len(tlsCerts) > 0 {
-				log.Infof("Monitored certs: %#v", tlsCerts)
-				for _, cert := range tlsCerts {
-					waitForFile(cert, 2*time.Minute)
-				}
-			}
-
 			// If we are using a custom template file (for control plane proxy, for example), configure this.
 			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 				proxyConfig.ProxyBootstrapTemplatePath = templateFile
@@ -349,7 +336,7 @@ var (
 			agent := envoy.NewAgent(envoyProxy, drainDuration)
 
 			// Watcher is also kicking envoy start.
-			watcher := envoy.NewWatcher(tlsCerts, agent.Restart)
+			watcher := envoy.NewWatcher(agent.Restart)
 			go watcher.Run(ctx)
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
@@ -359,12 +346,6 @@ var (
 		},
 	}
 )
-
-// dedupes the string array and also ignores the empty string.
-func dedupeStrings(in []string) []string {
-	set := sets.NewSet(in...)
-	return set.UnsortedList()
-}
 
 // explicitly set the trustdomain so the pilot and mixer SAN will have same trustdomain
 // and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
@@ -463,37 +444,6 @@ func init() {
 		Section: "pilot-agent CLI",
 		Manual:  "Istio Pilot Agent",
 	}))
-}
-
-func waitForFile(fname string, maxWait time.Duration) bool {
-	log.Infof("waiting %v for %s", maxWait, fname)
-
-	logDelay := 1 * time.Second
-	nextLog := time.Now().Add(logDelay)
-	endWait := time.Now().Add(maxWait)
-
-	for {
-		_, err := os.Stat(fname)
-		if err == nil {
-			return true
-		}
-		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
-			log.Errora("error while waiting for file", err.Error())
-			return false
-		}
-
-		now := time.Now()
-		if now.After(endWait) {
-			log.Warna("file still not available after", maxWait)
-			return false
-		}
-		if now.After(nextLog) {
-			log.Infof("waiting for file")
-			logDelay *= 2
-			nextLog.Add(logDelay)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
 }
 
 // TODO: get the config and bootstrap from istiod, by passing the env

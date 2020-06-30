@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	secretmodel "istio.io/istio/security/pkg/nodeagent/model"
-
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"

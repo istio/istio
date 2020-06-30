@@ -163,6 +163,9 @@ func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discov
 	firstReq := true
 	for {
 		req, err := con.stream.Recv()
+		con.mu.RLock()
+		cid := con.ConID
+		con.mu.RUnlock()
 		if err != nil {
 			cid := con.ConID
 			if isExpectedGRPCError(err) {
@@ -197,7 +200,7 @@ func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discov
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
-			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, cid)
 			return
 		}
 	}

@@ -52,6 +52,7 @@ func env(key, fallback string) string {
 }
 
 func setEnv(key, value string, t *testing.T) {
+	t.Helper()
 	err := os.Setenv(key, value)
 	if err != nil {
 		t.Fatalf("Couldn't set environment variable, err: %v", err)
@@ -59,6 +60,7 @@ func setEnv(key, value string, t *testing.T) {
 }
 
 func mktemp(dir, prefix string, t *testing.T) string {
+	t.Helper()
 	tempDir, err := ioutil.TempDir(dir, prefix)
 	if err != nil {
 		t.Fatalf("Couldn't get current working directory, err: %v", err)
@@ -68,6 +70,7 @@ func mktemp(dir, prefix string, t *testing.T) string {
 }
 
 func pwd(t *testing.T) string {
+	t.Helper()
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Couldn't get current working directory, err: %v", err)
@@ -78,6 +81,7 @@ func pwd(t *testing.T) string {
 
 func ls(dir string, t *testing.T) []string {
 	files, err := ioutil.ReadDir(dir)
+	t.Helper()
 	if err != nil {
 		t.Fatalf("Failed to list files, err: %v", err)
 	}
@@ -89,6 +93,7 @@ func ls(dir string, t *testing.T) []string {
 }
 
 func cp(src, dest string, t *testing.T) {
+	t.Helper()
 	data, err := ioutil.ReadFile(src)
 	if err != nil {
 		t.Fatalf("Failed to read file %v, err: %v", src, err)
@@ -99,6 +104,7 @@ func cp(src, dest string, t *testing.T) {
 }
 
 func rm(dir string, t *testing.T) {
+	t.Helper()
 	err := os.RemoveAll(dir)
 	if err != nil {
 		t.Fatalf("Failed to remove dir %v, err: %v", dir, err)
@@ -108,6 +114,7 @@ func rm(dir string, t *testing.T) {
 // populateTempDirs populates temporary test directories with golden files and
 // other related configuration.
 func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, tempK8sSvcAcctDir string, t *testing.T) {
+	t.Helper()
 	t.Logf("Pre-populating working dirs")
 	for i, f := range cniDirOrderedFiles {
 		destFilenm := fmt.Sprintf("0%d-%s", i, f)
@@ -124,6 +131,7 @@ func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, te
 // startDocker starts a test Docker container and runs the install-cni.sh script.
 func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 	tempK8sSvcAcctDir, cniConfFileName string, t *testing.T) string {
+	t.Helper()
 
 	dockerImage := env("HUB", "") + "/install-cni:" + env("TAG", "")
 	errFileName := path.Dir(tempCNIConfDir) + "/docker_run_stderr"
@@ -170,6 +178,7 @@ func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 
 // docker runs the given docker command on the given container ID.
 func docker(cmd, containerID string, t *testing.T) {
+	t.Helper()
 	out, err := exec.Command("docker", cmd, containerID).CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to execute 'docker %s %s', err: %v", cmd, containerID, err)
@@ -177,26 +186,51 @@ func docker(cmd, containerID string, t *testing.T) {
 	t.Logf("docker %s %s - out:\n%s", cmd, containerID, out)
 }
 
+// checkResult checks if resultFile is equal to expectedFile at each tick until timeout
+func checkResult(result, expected string, timeout, tick <-chan time.Time, t *testing.T) bool {
+	t.Helper()
+	for {
+		select {
+		case <-timeout:
+			return false
+		case <-tick:
+			resultFile, err := ioutil.ReadFile(result)
+			if err != nil {
+				break
+			}
+			expectedFile, err := ioutil.ReadFile(expected)
+			if err != nil {
+				break
+			}
+			if bytes.Equal(resultFile, expectedFile) {
+				return true
+			}
+		}
+	}
+}
+
 // compareConfResult does a string compare of 2 test files.
-func compareConfResult(testWorkRootDir, tempCNIConfDir, result, expected string, t *testing.T) {
-	tempResult := tempCNIConfDir + "/" + result
-	resultFile, err := ioutil.ReadFile(tempResult)
-	if err != nil {
-		t.Fatalf("Failed to read file %v, err: %v", tempResult, err)
-	}
-
-	expectedFile, err := ioutil.ReadFile(expected)
-	if err != nil {
-		t.Fatalf("Failed to read file %v, err: %v", expected, err)
-	}
-
-	if bytes.Equal(resultFile, expectedFile) {
-		t.Logf("PASS: result matches expected: %v v. %v", tempResult, expected)
+func compareConfResult(testWorkRootDir, result, expected string, t *testing.T) {
+	t.Helper()
+	timeout := time.After(10 * time.Second)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	if checkResult(result, expected, timeout, ticker.C, t) {
+		t.Logf("PASS: result matches expected: %v v. %v", result, expected)
 	} else {
+		// Log errors
+		_, err := ioutil.ReadFile(result)
+		if err != nil {
+			t.Fatalf("Failed to read file %v, err: %v", result, err)
+		}
+		_, err = ioutil.ReadFile(expected)
+		if err != nil {
+			t.Fatalf("Failed to read file %v, err: %v", expected, err)
+		}
 		tempFail := mktemp(testWorkRootDir, result+".fail.XXXX", t)
-		t.Errorf("FAIL: result doesn't match expected: %v v. %v", tempResult, expected)
-		cp(tempResult, tempFail+"/"+"failResult", t)
-		cmd := exec.Command("diff", tempResult, expected)
+		t.Errorf("FAIL: result doesn't match expected: %v v. %v", result, expected)
+		cp(result, tempFail+"/"+"failResult", t)
+		cmd := exec.Command("diff", result, expected)
 		diffOutput, derr := cmd.Output()
 		if derr != nil {
 			t.Logf("Diff output:\n %s", diffOutput)
@@ -207,6 +241,7 @@ func compareConfResult(testWorkRootDir, tempCNIConfDir, result, expected string,
 
 // checkBinDir verifies the presence/absence of test files.
 func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) {
+	t.Helper()
 	for _, f := range files {
 		if _, err := os.Stat(tempCNIBinDir + "/" + f); !os.IsNotExist(err) {
 			if op == "add" {
@@ -224,9 +259,24 @@ func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) {
 	}
 }
 
+// checkTempFilesCleaned verifies that all temporary files have been cleaned up
+func checkTempFilesCleaned(tempCNIConfDir string, t *testing.T) {
+	t.Helper()
+	files, err := ioutil.ReadDir(tempCNIConfDir)
+	if err != nil {
+		t.Fatalf("Failed to list files, err: %v", err)
+	}
+	for _, f := range files {
+		if strings.Contains(f.Name(), ".tmp") {
+			t.Fatalf("FAIL: Temporary file not cleaned in %v: %v", tempCNIConfDir, f.Name())
+		}
+	}
+	t.Logf("PASS: All temporary files removed from %v", tempCNIConfDir)
+}
+
 // doTest sets up necessary environment variables, runs the Docker installation
 // container and verifies output file correctness.
-func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
+func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
 	expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir,
 	testWorkRootDir string, t *testing.T) {
 
@@ -234,7 +284,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 
 	// Don't set the CNI conf file env var if preConfFile is not set
 	var envPreconf string
-	if preConfFile != "NONE" {
+	if preConfFile != "" {
 		envPreconf = preConfFile
 	} else {
 		preConfFile = resultFileName
@@ -247,21 +297,37 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 		docker("logs", containerID, t)
 		docker("rm", containerID, t)
 	}()
-	time.Sleep(10 * time.Second)
 
-	compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedOutputFile, t)
+	resultFile := tempCNIConfDir + "/" + resultFileName
+	if delayedConfFile != "" {
+		timeout := time.After(5 * time.Second)
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		if checkResult(resultFile, expectedOutputFile, timeout, ticker.C, t) {
+			t.Fatalf("FAIL: Istio CNI did not wait for valid config file")
+		}
+		var destFilenm string
+		if preConfFile != "" {
+			destFilenm = preConfFile
+		} else {
+			destFilenm = delayedConfFile
+		}
+		cp(delayedConfFile, tempCNIConfDir+"/"+destFilenm, t)
+	}
+
+	compareConfResult(testWorkRootDir, resultFile, expectedOutputFile, t)
 	checkBinDir(t, tempCNIBinDir, "add", "istio-cni", "istio-iptables")
 
 	docker("stop", containerID, t)
-	time.Sleep(10 * time.Second)
 
 	t.Logf("Test %v: Check the cleanup worked", testNum)
 	if len(expectedPostCleanFile) == 0 {
-		compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, wd+cniConfSubDir+preConfFile, t)
+		compareConfResult(testWorkRootDir, resultFile, wd+cniConfSubDir+preConfFile, t)
 	} else {
-		compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedPostCleanFile, t)
+		compareConfResult(testWorkRootDir, resultFile, expectedPostCleanFile, t)
 	}
 	checkBinDir(t, tempCNIBinDir, "del", "istio-cni", "istio-iptables")
+	checkTempFilesCleaned(tempCNIConfDir, t)
 }
 
 // RunInstallCNITest sets up temporary directories and runs the test.
@@ -270,7 +336,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 // file doesn't have a _test.go suffix, and this func doesn't start with a Test
 // prefix. This func is only meant to be invoked programmatically. A separate
 // install_cni_test.go file exists for executing this test.
-func RunInstallCNITest(testNum int, preConfFile, resultFileName, expectedOutputFile,
+func RunInstallCNITest(testNum int, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
 	expectedPostCleanFile string, cniConfDirOrderedFiles []string, t *testing.T) {
 
 	wd := pwd(t)
@@ -287,7 +353,7 @@ func RunInstallCNITest(testNum int, preConfFile, resultFileName, expectedOutputF
 		tempCNIBinDir, tempK8sSvcAcctDir)
 
 	populateTempDirs(wd, cniConfDirOrderedFiles, tempCNIConfDir, tempK8sSvcAcctDir, t)
-	doTest(testNum, wd, preConfFile, resultFileName, expectedOutputFile,
+	doTest(testNum, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
 		expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir,
 		testWorkRootDir, t)
 }
