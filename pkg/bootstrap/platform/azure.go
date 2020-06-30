@@ -33,7 +33,9 @@ const (
 	SysVendorPath          = "/sys/class/dmi/id/sys_vendor"
 	MicrosoftIdentifier    = "Microsoft Corporation"
 
-	AzureName = "azure_name"
+	AzureName     = "azure_name"
+	AzureLocation = "azure_location"
+	AzureVMID     = "azure_vm_id"
 )
 
 var (
@@ -43,6 +45,7 @@ var (
 	azureMetadataFn = func(e *azureEnv) string {
 		return metadataRequest(fmt.Sprintf("api-version=%s", e.APIVersion))
 	}
+
 	azureNameFn = func(e *azureEnv) string {
 		if an, ok := e.computeMetadata["name"]; ok {
 			return an.(string)
@@ -68,6 +71,12 @@ var (
 	azureZoneFn = func(e *azureEnv) string {
 		if az, ok := e.computeMetadata["zone"]; ok {
 			return az.(string)
+		}
+		return ""
+	}
+	azureVMIDFn = func(e *azureEnv) string {
+		if aid, ok := e.computeMetadata["vmId"]; ok {
+			return aid.(string)
 		}
 		return ""
 	}
@@ -160,7 +169,15 @@ func stringToJSON(s string) map[string]interface{} {
 // Returns Azure instance metadata. Must be run on an Azure VM
 func (e *azureEnv) Metadata() map[string]string {
 	md := map[string]string{}
-	md[AzureName] = azureNameFn(e)
+	if an := azureNameFn(e); an != "" {
+		md[AzureName] = an
+	}
+	if al := azureLocationFn(e); al != "" {
+		md[AzureLocation] = al
+	}
+	if aid := azureVMIDFn(e); aid != "" {
+		md[AzureVMID] = aid
+	}
 	for k, v := range azureTagsFn(e) {
 		md[k] = v
 	}

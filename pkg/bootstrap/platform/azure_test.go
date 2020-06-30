@@ -64,7 +64,9 @@ func TestAzureMetadata(t *testing.T) {
 		metadata map[string]string
 	}{
 		{"ignore empty response", "", map[string]string{}},
-		{"parse fields", MockMetadata, map[string]string{"Department": "IT", "Environment": "Prod", "Role": "WorkerRole"}},
+		{"parse fields", MockMetadata,
+			map[string]string{"Department": "IT", "Environment": "Prod", "Role": "WorkerRole",
+				AzureName: "negasonic", AzureLocation: "centralus", AzureVMID: "13f56399-bd52-4150-9748-7190aae1ff21"}},
 	}
 
 	// Prevent actual requests to metadata server for updating the API version
