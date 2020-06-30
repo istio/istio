@@ -48,6 +48,7 @@ func newConfigStore() (model.ConfigStore, error) {
 	stop := make(chan struct{})
 	// TODO: replace with direct istio/client-go usage so we don't have to do this part
 	go client.Run(stop)
+	kclient.RunAndWait(stop)
 	cache.WaitForCacheSync(stop, client.HasSynced)
 
 	return client, nil
