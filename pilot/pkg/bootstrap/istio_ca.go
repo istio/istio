@@ -177,7 +177,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
-		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(), true, features.JwtPolicy.Get(), s.clusterID, s.kubeClient,
+		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(), features.JwtPolicy.Get(), s.clusterID, s.kubeClient,
 		s.multicluster.GetRemoteKubeClient)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)

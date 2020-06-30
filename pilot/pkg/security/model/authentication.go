@@ -15,7 +15,6 @@
 package model
 
 import (
-	"istio.io/istio/pkg/config/constants"
 	"sync"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -130,74 +129,28 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string) *tls.SdsSecretConfig {
 	}
 }
 
-// ConstructValidationContext constructs ValidationContext in CommonTLSContext.
-func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *tls.CommonTlsContext_ValidationContext {
-	ret := &tls.CommonTlsContext_ValidationContext{
-		ValidationContext: &tls.CertificateValidationContext{
-			TrustedCa: &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: rootCAFilePath,
-				},
-			},
-		},
-	}
-
-	if len(subjectAltNames) > 0 {
-		ret.ValidationContext.MatchSubjectAltNames = util.StringToExactMatch(subjectAltNames)
-	}
-
-	return ret
-}
-
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
 	// configure TLS with SDS
-	if metadata.SdsEnabled && sdsPath != ""  {
-		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
-		// which does not support rotation, we will serve them over SDS by reading the files.
-		// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
-		res := model.SdsCertificateConfig{
-			CertificatePath:   metadata.TLSServerCertChain,
-			PrivateKeyPath:    metadata.TLSServerKey,
-			CaCertificatePath: metadata.TLSServerRootCert,
-		}
+	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+	// which does not support rotation, we will serve them over SDS by reading the files.
+	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
+	res := model.SdsCertificateConfig{
+		CertificatePath:   metadata.TLSServerCertChain,
+		PrivateKeyPath:    metadata.TLSServerKey,
+		CaCertificatePath: metadata.TLSServerRootCert,
+	}
 
-		// configure server listeners with SDS.
-		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(
-					model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), sdsPath),
-			},
-		}
-		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), sdsPath),
-		}
-	} else {
-		// TODO(ramaraochavali): Clean this codepath later as we default to SDS.
-		// SDS disabled, fall back on using mounted certificates
-		base := metadata.CertBaseDir + constants.AuthCertsPath
-		tlsServerRootCert := model.GetOrDefault(metadata.TLSServerRootCert, base+constants.RootCertFilename)
-
-		tlsContext.ValidationContextType = ConstructValidationContext(tlsServerRootCert, subjectAltNames)
-
-		tlsServerCertChain := model.GetOrDefault(metadata.TLSServerCertChain, base+constants.CertChainFilename)
-		tlsServerKey := model.GetOrDefault(metadata.TLSServerKey, base+constants.KeyFilename)
-
-		tlsContext.TlsCertificates = []*tls.TlsCertificate{
-			{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerCertChain,
-					},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerKey,
-					},
-				},
-			},
-		}
+	// configure server listeners with SDS.
+	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+			DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
+			ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(
+				model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), sdsPath),
+		},
+	}
+	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
+		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), sdsPath),
 	}
 }
 
