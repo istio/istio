@@ -175,19 +175,18 @@ func runMirrorTest(options mirrorTestOptions) {
 				Inject: true,
 			})
 
-			builder := echoboot.NewBuilderOrFail(options.t, ctx)
-			clusterInstances := make([][3]echo.Instance, len(ctx.Environment().Clusters()))
-			for _, c := range ctx.Environment().Clusters() {
-				clusterInstances[c.Index()] = [3]echo.Instance{}
-				builder = builder.
-					With(&clusterInstances[c.Index()][0], echoConfigForCluster(ns, fmt.Sprintf("a-%d", c.Index()), c)). // client
-					With(&clusterInstances[c.Index()][1], echoConfigForCluster(ns, fmt.Sprintf("b-%d", c.Index()), c)). // target
-					With(&clusterInstances[c.Index()][2], echoConfigForCluster(ns, fmt.Sprintf("c-%d", c.Index()), c))  // receives mirrored requests
-			}
-			builder.BuildOrFail(options.t)
+			echos := echoboot.NewBuilderOrFail(options.t, ctx).
+				WithClusters(ctx.Clusters()).
+				With(nil, echoConfigForCluster(ns, "a-%d")). // client
+				With(nil, echoConfigForCluster(ns, "b-%d")). // target
+				With(nil, echoConfigForCluster(ns, "c-%d")). // receives mirrored requests
+				BuildOrFail(options.t)
+			clients := echos.GetByServiceNamePrefix("a-")
+			targets := echos.GetByServiceNamePrefix("b-")
+			mirrors := echos.GetByServiceNamePrefix("c-")
 
-			for _, srcCluster := range ctx.Environment().Clusters() {
-				for _, dstCluster := range ctx.Environment().Clusters() {
+			for _, srcCluster := range ctx.Clusters() {
+				for _, dstCluster := range ctx.Clusters() {
 					for _, c := range options.cases {
 						options.t.Run(c.name, func(t *testing.T) {
 							if options.skipCondition != nil {
@@ -196,9 +195,9 @@ func runMirrorTest(options mirrorTestOptions) {
 								}
 							}
 
-							client := clusterInstances[srcCluster.Index()][0]
-							target := clusterInstances[dstCluster.Index()][1]
-							mirrored := clusterInstances[dstCluster.Index()][2]
+							client := clients[srcCluster.Index()]
+							target := targets[dstCluster.Index()]
+							mirrored := mirrors[dstCluster.Index()]
 
 							mirrorHost := mirrored.Config().Service
 							if len(options.mirrorHostFmt) > 0 {
@@ -210,7 +209,7 @@ func runMirrorTest(options mirrorTestOptions) {
 								Absent:     c.absent,
 								Percent:    c.percentage,
 								MirrorHost: mirrorHost,
-								TargetHost: clusterInstances[dstCluster.Index()][1].Config().Service,
+								TargetHost: target.Config().Service,
 							}
 
 							if options.fnInjectConfig != nil {

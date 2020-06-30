@@ -43,20 +43,19 @@ func TestTrafficRouting(t *testing.T) {
 				Inject: true,
 			})
 
-			clusterServices := make([][2]echo.Instance, len(ctx.Environment().Clusters()))
-			builder := echoboot.NewBuilderOrFail(t, ctx)
-			for _, c := range ctx.Environment().Clusters() {
-				builder = builder.
-					With(&clusterServices[c.Index()][0], echoConfigForCluster(ns, fmt.Sprintf("client-%d", c.Index()), c)).
-					With(&clusterServices[c.Index()][1], echoConfigForCluster(ns, fmt.Sprintf("server-%d", c.Index()), c))
-			}
-			builder.BuildOrFail(t)
+			echos := echoboot.NewBuilderOrFail(t, ctx).
+				WithClusters(ctx.Clusters()).
+				With(nil, echoConfigForCluster(ns, "client-%d")).
+				With(nil, echoConfigForCluster(ns, "server-%d")).
+				BuildOrFail(t)
+			clients := echos.GetByServiceNamePrefix("client-")
+			servers := echos.GetByServiceNamePrefix("server-")
 
-			for _, src := range ctx.Environment().Clusters() {
-				for _, dst := range ctx.Environment().Clusters() {
+			for _, src := range ctx.Clusters() {
+				for _, dst := range ctx.Clusters() {
 					ctx.NewSubTest(fmt.Sprintf("cluster-%d->cluster-%d", src.Index(), dst.Index())).
 						Run(func(ctx framework.TestContext) {
-							client, server := clusterServices[src.Index()][0], clusterServices[dst.Index()][1]
+							client, server := clients[src.Index()], servers[dst.Index()]
 							cases := buildCases(server.Config().Service)
 							for _, tt := range cases {
 								ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {

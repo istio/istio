@@ -129,20 +129,22 @@ func TestCrossClusterTrafficShifting(t *testing.T) {
 				Inject: true,
 			})
 
-			var hosts []string
-			var weights []int
-			builder := echoboot.NewBuilderOrFail(ctx, ctx)
-			svcs := make([][2]echo.Instance, len(ctx.Environment().Clusters()))
-			for _, c := range ctx.Environment().Clusters() {
-				serverHost := fmt.Sprintf("server-%d", c.Index())
-				weights = append(weights, 100/len(ctx.Environment().Clusters()))
-				hosts = append(hosts, serverHost)
-				svcs[c.Index()] = [2]echo.Instance{}
-				builder.
-					With(&svcs[c.Index()][0], echoConfigForCluster(ns, fmt.Sprintf("client-%d", c.Index()), c)).
-					With(&svcs[c.Index()][1], echoConfigForCluster(ns, serverHost, c))
+			echos := echoboot.NewBuilderOrFail(ctx, ctx).
+				WithClusters(ctx.Clusters()).
+				With(nil, echoConfigForCluster(ns, "client-%d")).
+				With(nil, echoConfigForCluster(ns, "server-%d")).
+				BuildOrFail(ctx)
+			clients := echos.GetByServiceNamePrefix("client-")
+			servers := echos.GetByServiceNamePrefix("server-")
+
+			var (
+				weights []int
+				hosts   []string
+			)
+			for _, s := range servers {
+				weights = append(weights, 100/len(ctx.Clusters()))
+				hosts = append(hosts, s.Config().Service)
 			}
-			builder.BuildOrFail(ctx)
 
 			// ensure weights total to 100
 			total := 0
@@ -152,7 +154,7 @@ func TestCrossClusterTrafficShifting(t *testing.T) {
 			weights[0] += 100 - total
 
 			vsTmpl := file.AsStringOrFail(ctx, "testdata/traffic-shifting.yaml")
-			for _, c := range ctx.Environment().Clusters() {
+			for _, c := range ctx.Clusters() {
 				cp, err := ctx.Environment().GetControlPlaneCluster(c)
 				if err != nil {
 					scopes.Framework.Warnf("failed to get control-plane for cluster %d; assuming it is the control-plane", c.Index())
@@ -163,14 +165,14 @@ func TestCrossClusterTrafficShifting(t *testing.T) {
 						deployment := tmpl.EvaluateOrFail(ctx, vsTmpl, VirtualServiceConfig{
 							Name:       fmt.Sprintf("x-cluster-shifting-rule-%d", cp.Index()),
 							Namespace:  ns.Name(),
-							TargetHost: svcs[c.Index()][1].Config().Service,
+							TargetHost: servers[c.Index()].Config().Service,
 							Hosts:      hosts,
 							Weights:    weights,
 						})
 
 						ctx.Config(cp).ApplyYAMLOrFail(ctx, ns.Name(), deployment)
 
-						src, dst := svcs[c.Index()][0], svcs[c.Index()][1]
+						src, dst := clients[c.Index()], servers[c.Index()]
 						sendTraffic(ctx, 100, src, dst, hosts, weights, float64(weights[0])*.25)
 					})
 			}

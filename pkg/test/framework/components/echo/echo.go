@@ -16,6 +16,7 @@ package echo
 
 import (
 	"context"
+	"strings"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	dto "github.com/prometheus/client_model/go"
@@ -183,6 +184,12 @@ func (r Result) Get(filter func(Instance) bool) Result {
 		}
 	}
 	return out
+}
+
+func (r Result) GetByServiceNamePrefix(prefix string) Result {
+	return r.Get(func(i Instance) bool {
+		return strings.HasPrefix(i.Config().Service, prefix)
+	})
 }
 
 func (r Result) GetByServiceName(service string) Result {

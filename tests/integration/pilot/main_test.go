@@ -15,6 +15,8 @@
 package pilot
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -23,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/multicluster"
 )
 
@@ -51,18 +52,9 @@ values:
 }
 
 func echoConfig(ns namespace.Instance, name string) echo.Config {
-	return echoConfigForCluster(ns, name, nil)
-}
-
-func echoConfigForCluster(ns namespace.Instance, name string, cluster resource.Cluster) echo.Config {
-	p := pilots[0]
-	if cluster != nil {
-		p = pilots[cluster.Index()]
-	}
 	return echo.Config{
 		Service:   name,
 		Namespace: ns,
-		Cluster:   cluster,
 		Ports: []echo.Port{
 			{
 				Name:     "http",
@@ -72,6 +64,21 @@ func echoConfigForCluster(ns namespace.Instance, name string, cluster resource.C
 			},
 		},
 		Subsets: []echo.SubsetConfig{{}},
-		Pilot:   p,
+		Pilot:   pilots[0],
 	}
+}
+
+// echoConfigForCluster builds an echo config with a setupFn for cluster-specific settings
+// nameFmt should have one '%d' verb for the cluster index.
+func echoConfigForCluster(ns namespace.Instance, nameFmt string) echo.Config {
+	cfg := echoConfig(ns, nameFmt)
+	cfg.SetupFn = setupForCluster
+	return cfg
+}
+
+func setupForCluster(cfg *echo.Config) {
+	if strings.Contains(cfg.Service, "%d") {
+		cfg.Service = fmt.Sprintf(cfg.Service, cfg.Cluster.Index())
+	}
+	cfg.Pilot = pilots[cfg.Cluster.Index()]
 }

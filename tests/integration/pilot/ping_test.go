@@ -30,10 +30,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-type appSet struct {
-	inoutUnitedApp0, inoutUnitedApp1, inoutSplitApp0, inoutSplitApp1 echo.Instance
-}
-
 type appConnectionPair struct {
 	src, dst echo.Instance
 }
@@ -74,69 +70,67 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		},
 	}
 
-	builder := echoboot.NewBuilderOrFail(t, ctx)
-	apps := make([]appSet, len(ctx.Environment().Clusters()))
-	for _, c := range ctx.Environment().Clusters() {
-		builder = builder.
-			With(&apps[c.Index()].inoutSplitApp0, echo.Config{
-				Service:             "inoutsplitapp0",
-				Namespace:           ns,
-				Ports:               ports,
-				Subsets:             []echo.SubsetConfig{{}},
-				Pilot:               pilots[c.Index()],
-				Cluster:             c,
-				IncludeInboundPorts: "*",
-			}).
-			With(&apps[c.Index()].inoutSplitApp1, echo.Config{
-				Service:             "inoutsplitapp1",
-				Namespace:           ns,
-				Subsets:             []echo.SubsetConfig{{}},
-				Ports:               ports,
-				Pilot:               pilots[c.Index()],
-				Cluster:             c,
-				IncludeInboundPorts: "*",
-			}).
-			With(&apps[c.Index()].inoutUnitedApp0, echo.Config{
-				Service:   "inoutunitedapp0",
-				Namespace: ns,
-				Subsets:   []echo.SubsetConfig{{}},
-				Ports:     ports,
-				Pilot:     pilots[c.Index()],
-				Cluster:   c,
-			}).
-			With(&apps[c.Index()].inoutUnitedApp1, echo.Config{
-				Service:   "inoutunitedapp1",
-				Namespace: ns,
-				Subsets:   []echo.SubsetConfig{{}},
-				Ports:     ports,
-				Pilot:     pilots[c.Index()],
-				Cluster:   c,
-			})
-	}
-	builder.BuildOrFail(ctx)
+	echos := echoboot.NewBuilderOrFail(t, ctx).
+		With(nil, echo.Config{
+			Service:             "inoutsplitapp0",
+			Namespace:           ns,
+			Ports:               ports,
+			Subsets:             []echo.SubsetConfig{{}},
+			SetupFn:             setupForCluster,
+			IncludeInboundPorts: "*",
+		}).
+		With(nil, echo.Config{
+			Service:             "inoutsplitapp1",
+			Namespace:           ns,
+			Subsets:             []echo.SubsetConfig{{}},
+			Ports:               ports,
+			SetupFn:             setupForCluster,
+			IncludeInboundPorts: "*",
+		}).
+		With(nil, echo.Config{
+			Service:   "inoutunitedapp0",
+			Namespace: ns,
+			Subsets:   []echo.SubsetConfig{{}},
+			Ports:     ports,
+			SetupFn:   setupForCluster,
+		}).
+		With(nil, echo.Config{
+			Service:   "inoutunitedapp1",
+			Namespace: ns,
+			Subsets:   []echo.SubsetConfig{{}},
+			Ports:     ports,
+			SetupFn:   setupForCluster,
+		}).
+		BuildOrFail(ctx)
+
+	inoutSplitSources := echos.GetByServiceName("inoutsplitapp0")
+	inoutSplitTargets := echos.GetByServiceName("inoutsplitapp1")
+	inoutUnitedSources := echos.GetByServiceName("inoutunitedapp0")
+	inoutUnitedTargets := echos.GetByServiceName("inoutunitedapp1")
 
 	var connectivityPairs []appConnectionPair
-	for _, src := range ctx.Environment().Clusters() {
-		for _, dst := range ctx.Environment().Clusters() {
-			inoutUnitedApp0, inoutSplitApp0 := apps[src.Index()].inoutUnitedApp0, apps[src.Index()].inoutSplitApp0
-			inoutUnitedApp1 := apps[dst.Index()].inoutUnitedApp1
+	for _, src := range ctx.Clusters() {
+		for _, dst := range ctx.Clusters() {
+			inoutUnitedApp0, inoutSplitApp0 := inoutUnitedSources[src.Index()], inoutSplitSources[src.Index()]
+			inoutUnitedApp1 := inoutUnitedTargets[dst.Index()]
 			inoutUnitedApp0.WaitUntilCallableOrFail(t, inoutUnitedApp1)
 			log.Infof("%s app ready: %s", ctx.Name(), inoutSplitApp0.Config().Service)
 			inoutSplitApp0.WaitUntilCallableOrFail(t, inoutUnitedApp1)
 			log.Infof("%s app ready: %s", ctx.Name(), inoutSplitApp0.Config().Service)
+			inoutSplitApp1 := inoutSplitTargets[dst.Index()]
 
 			connectivityPairs = append(connectivityPairs,
 				// source is inout united
-				appConnectionPair{apps[src.Index()].inoutUnitedApp0, apps[dst.Index()].inoutUnitedApp1},
-				appConnectionPair{apps[src.Index()].inoutUnitedApp0, apps[dst.Index()].inoutSplitApp1},
+				appConnectionPair{inoutUnitedApp0, inoutUnitedApp1},
+				appConnectionPair{inoutUnitedApp0, inoutSplitApp1},
 
 				// source is inout split
-				appConnectionPair{apps[src.Index()].inoutSplitApp0, apps[dst.Index()].inoutUnitedApp1},
-				appConnectionPair{apps[src.Index()].inoutSplitApp0, apps[dst.Index()].inoutSplitApp1},
+				appConnectionPair{inoutSplitApp0, inoutUnitedApp1},
+				appConnectionPair{inoutSplitApp0, inoutSplitApp1},
 
 				// self connectivity (is it required?)
-				appConnectionPair{apps[src.Index()].inoutUnitedApp0, apps[dst.Index()].inoutUnitedApp0},
-				appConnectionPair{apps[src.Index()].inoutSplitApp0, apps[dst.Index()].inoutSplitApp0},
+				appConnectionPair{inoutUnitedApp0, inoutUnitedApp0},
+				appConnectionPair{inoutSplitApp0, inoutSplitApp0},
 			)
 		}
 	}

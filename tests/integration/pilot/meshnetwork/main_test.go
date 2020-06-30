@@ -140,15 +140,15 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 			}
 
 			// Now setup a K8S service in each cluster
-			instances := make([]echo.Instance, len(ctx.Environment().Clusters()))
-			builder := echoboot.NewBuilderOrFail(t, ctx)
-			for _, c := range ctx.Environment().Clusters() {
-				builder.With(&instances[c.Index()], echo.Config{
+			instances := echoboot.NewBuilderOrFail(t, ctx).
+				WithClusters(ctx.Clusters()).
+				With(nil, echo.Config{
 					Service:   serviceName,
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     pilots[c.Index()],
-					Cluster:   c,
+					SetupFn: func(cfg *echo.Config) {
+						cfg.Pilot = pilots[cfg.Cluster.Index()]
+					},
 					Ports: []echo.Port{
 						{
 							Name:        "http",
@@ -158,9 +158,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 							InstancePort: servicePort,
 						},
 					},
-				})
-			}
-			builder.BuildOrFail(t)
+				}).BuildOrFail(t)
 
 			for _, instance := range instances {
 				if err := instance.WaitUntilCallable(instance); err != nil {
@@ -189,7 +187,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 			gwAddrs := []net.TCPAddr{{IP: net.ParseIP("2.2.2.2"), Port: 15443}}
 			if multinetwork {
 				gwAddrs = []net.TCPAddr{}
-				for _, c := range ctx.Environment().Clusters() {
+				for _, c := range ctx.Clusters() {
 					// TODO do I need the "minikube" check
 					ing, err := ingress.New(ctx, ingress.Config{
 						Istio:   i,
