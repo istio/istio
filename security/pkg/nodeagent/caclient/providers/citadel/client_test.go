@@ -16,14 +16,21 @@ package caclient
 
 import (
 	"context"
-	//"fmt"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+
+	"fmt"
 	"net"
-	//"reflect"
+	"reflect"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/security/pkg/pki/util"
 	citadelca "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/pki/ca"
 	"k8s.io/client-go/kubernetes/fake"
@@ -92,7 +99,6 @@ func TestE2EClient(t *testing.T) {
 
 		server, createServerErr := citadelca.New(ca, time.Hour, false, []string{"localhost"}, 0,
 			"testdomain.com", true, jwt.PolicyThirdParty, "kubernetes")
-
 		if err != nil {
 			t.Errorf("%s: Cannot create server: %v", id, createServerErr)
 		}
@@ -124,7 +130,11 @@ func TestE2EClient(t *testing.T) {
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
-		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
+		ctx, err := buildContext()
+		if err != nil {
+			t.Errorf("Test case [%s]: failed to create to create context: %v", id, err)
+		}
+		resp, err := cli.CSRSign(ctx, "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
 		if err != nil {
 				t.Logf("%+v", resp)
 				t.Errorf("Test case [%s]: error (%s) happens ", id, err.Error())
@@ -137,65 +147,89 @@ func TestE2EClient(t *testing.T) {
 
 }
 
-//func TestCitadelClient(t *testing.T) {
-//	testCases := map[string]struct {
-//		server       mockCAServer
-//		expectedCert []string
-//		expectedErr  string
-//	}{
-//		"Valid certs": {
-//			server:       mockCAServer{Certs: fakeCert, Err: nil},
-//			expectedCert: fakeCert,
-//			expectedErr:  "",
-//		},
-//		"Error in response": {
-//			server:       mockCAServer{Certs: nil, Err: fmt.Errorf("test failure")},
-//			expectedCert: nil,
-//			expectedErr:  "rpc error: code = Unknown desc = test failure",
-//		},
-//		"Empty response": {
-//			server:       mockCAServer{Certs: []string{}, Err: nil},
-//			expectedCert: nil,
-//			expectedErr:  "invalid response cert chain",
-//		},
-//	}
-//
-//	for id, tc := range testCases {
-//		// create a local grpc server
-//		s := grpc.NewServer()
-//		defer s.Stop()
-//		lis, err := net.Listen("tcp", mockServerAddress)
-//		if err != nil {
-//			t.Fatalf("Test case [%s]: failed to listen: %v", id, err)
-//		}
-//
-//		go func() {
-//			pb.RegisterIstioCertificateServiceServer(s, &tc.server)
-//			if err := s.Serve(lis); err != nil {
-//				t.Logf("Test case [%s]: failed to serve: %v", id, err)
-//			}
-//		}()
-//
-//		// The goroutine starting the server may not be ready, results in flakiness.
-//		time.Sleep(1 * time.Second)
-//
-//		cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "")
-//		if err != nil {
-//			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
-//		}
-//		t.Log("TestCitadelClient")
-//		t.Log("ssssssssssss")
-//		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
-//		if err != nil {
-//			if err.Error() != tc.expectedErr {
-//				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
-//			}
-//		} else {
-//			if tc.expectedErr != "" {
-//				t.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
-//			} else if !reflect.DeepEqual(resp, tc.expectedCert) {
-//				t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
-//			}
-//		}
-//	}
-//}
+func buildContext() (context.Context, error){
+	ctx := context.Background()
+	callerID := "test.identity"
+	ids := []util.Identity{
+		{Type: util.TypeURI, Value: []byte(callerID)},
+	}
+	mockIPAddr := &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}
+	sanExt, err := util.BuildSANExtension(ids)
+	if err != nil {
+		return nil, err
+	}
+	certChain :=[][]*x509.Certificate{
+		{
+			{
+				Extensions: []pkix.Extension{*sanExt},
+			},
+		},
+	}
+	tlsInfo := credentials.TLSInfo{
+		State: tls.ConnectionState{VerifiedChains: certChain},
+	}
+	p := &peer.Peer{Addr: mockIPAddr, AuthInfo: tlsInfo}
+	ctx = peer.NewContext(ctx, p)
+	return ctx, nil
+}
+
+func TestCitadelClient(t *testing.T) {
+	testCases := map[string]struct {
+		server       mockCAServer
+		expectedCert []string
+		expectedErr  string
+	}{
+		"Valid certs": {
+			server:       mockCAServer{Certs: fakeCert, Err: nil},
+			expectedCert: fakeCert,
+			expectedErr:  "",
+		},
+		"Error in response": {
+			server:       mockCAServer{Certs: nil, Err: fmt.Errorf("test failure")},
+			expectedCert: nil,
+			expectedErr:  "rpc error: code = Unknown desc = test failure",
+		},
+		"Empty response": {
+			server:       mockCAServer{Certs: []string{}, Err: nil},
+			expectedCert: nil,
+			expectedErr:  "invalid response cert chain",
+		},
+	}
+
+	for id, tc := range testCases {
+		// create a local grpc server
+		s := grpc.NewServer()
+		defer s.Stop()
+		lis, err := net.Listen("tcp", mockServerAddress)
+		if err != nil {
+			t.Fatalf("Test case [%s]: failed to listen: %v", id, err)
+		}
+
+		go func() {
+			pb.RegisterIstioCertificateServiceServer(s, &tc.server)
+			if err := s.Serve(lis); err != nil {
+				t.Logf("Test case [%s]: failed to serve: %v", id, err)
+			}
+		}()
+
+		// The goroutine starting the server may not be ready, results in flakiness.
+		time.Sleep(1 * time.Second)
+
+		cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "")
+		if err != nil {
+			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
+		}
+		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
+		if err != nil {
+			if err.Error() != tc.expectedErr {
+				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+			}
+		} else {
+			if tc.expectedErr != "" {
+				t.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
+			} else if !reflect.DeepEqual(resp, tc.expectedCert) {
+				t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+			}
+		}
+	}
+}

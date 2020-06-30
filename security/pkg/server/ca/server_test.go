@@ -27,7 +27,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"istio.io/istio/security/pkg/pki/util"
@@ -178,7 +177,6 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			}
 			p := &peer.Peer{Addr: c.ipAddr, AuthInfo: tlsInfo}
 			ctx = peer.NewContext(ctx, p)
-			ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", "SSSS", "ClusterID", "SDFASFDSAFD"))
 		}
 		if c.fakeAuthInfo != nil {
 			ctx = peer.NewContext(ctx, &peer.Peer{Addr: c.ipAddr, AuthInfo: c.fakeAuthInfo})
