@@ -193,31 +193,22 @@ type client struct {
 	metadataInformer metadatainformer.SharedInformerFactory
 }
 
-// newExtendedClientInternal creates a Kubernetes client from the given factory. The "revision" parameter
-// controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
-func newExtendedClientInternal(clientFactory util.Factory, revision string) (*client, error) {
-	restClient, err := clientFactory.RESTClient()
-	if err != nil {
-		return nil, err
-	}
-
-	config, err := clientFactory.ToRESTConfig()
-	if err != nil {
-		return nil, err
-	}
-	return newClientInternal(&client{
-		clientFactory: clientFactory,
-		revision:      revision,
-		restClient:    restClient,
-	}, config)
-}
-
 // newClientInternal creates a Kubernetes client from the given factory.
-// Caller may pass in an existing client with some settings already configured, for example the ExtendedClient
-// specific options
-func newClientInternal(c *client, restConfig *rest.Config) (*client, error) {
+func newClientInternal(clientFactory util.Factory, revision string) (*client, error) {
+	var c client
 	var err error
-	c.config = restConfig
+
+	c.revision = revision
+
+	c.restClient, err = clientFactory.RESTClient()
+	if err != nil {
+		return nil, err
+	}
+
+	c.config, err = clientFactory.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
 
 	c.Interface, err = kubernetes.NewForConfig(c.config)
 	if err != nil {
@@ -242,18 +233,18 @@ func newClientInternal(c *client, restConfig *rest.Config) (*client, error) {
 		return nil, err
 	}
 
-	return c, nil
+	return &c, nil
 }
 
 // NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
 func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
-	return newExtendedClientInternal(newClientFactory(clientConfig), revision)
+	return newClientInternal(newClientFactory(clientConfig), revision)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
 func NewClient(config *rest.Config) (Client, error) {
-	return newClientInternal(&client{}, config)
+	return newClientInternal(newClientFactory(NewClientConfigForRestConfig(config)), "")
 }
 
 func (c *client) RESTConfig() *rest.Config {
