@@ -982,7 +982,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		}
 
 		// TODO: cleanup required check out istio/istio/pull/24822 as SDS is enabled by default
-		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" {
+		if opts.push.Mesh.SdsUdsPath == "" {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -1072,7 +1072,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		}
 
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or SDS is disabled
-		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" {
+		if opts.push.Mesh.SdsUdsPath == "" {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}

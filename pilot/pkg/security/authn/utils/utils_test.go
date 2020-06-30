@@ -152,9 +152,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				mTLSMode:   model.MTLSStrict,
 				sdsUdsPath: "/tmp/sdsuds.sock",
 				node: &model.Proxy{
-					Metadata: &model.NodeMetadata{
-						SdsEnabled: true,
-					},
+					Metadata: &model.NodeMetadata{},
 				},
 				listenerProtocol: networking.ListenerProtocolHTTP,
 			},
