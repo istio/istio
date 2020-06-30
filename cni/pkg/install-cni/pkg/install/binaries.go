@@ -28,7 +28,7 @@ import (
 
 func copyBinaries() error {
 	srcDir := "/opt/cni/bin"
-	targetDirs := []string{constants.HostCniBinDir, constants.SecondaryBinDir}
+	targetDirs := []string{constants.HostCNIBinDir, constants.SecondaryBinDir}
 
 	for _, targetDir := range targetDirs {
 		if fileutil.IsDirWriteable(targetDir) != nil {
@@ -41,7 +41,7 @@ func copyBinaries() error {
 			return err
 		}
 
-		skipBinaries := viper.GetStringSlice(constants.SkipCniBinaries)
+		skipBinaries := viper.GetStringSlice(constants.SkipCNIBinaries)
 		for _, file := range files {
 			filename := file.Name()
 			if contains(skipBinaries, filename) {
@@ -50,7 +50,7 @@ func copyBinaries() error {
 			}
 
 			targetFilename := filepath.Join(targetDir, filename)
-			if _, err := os.Stat(targetFilename); err == nil && !viper.GetBool(constants.UpdateCniBinaries) {
+			if _, err := os.Stat(targetFilename); err == nil && !viper.GetBool(constants.UpdateCNIBinaries) {
 				log.Infof("%s is already here and UPDATE_CNI_BINARIES isn't true, skipping", targetFilename)
 				continue
 			}

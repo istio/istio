@@ -85,7 +85,7 @@ func createKubeConfigFile() error {
 		protocol = "https"
 	}
 
-	caFile := viper.GetString(constants.KubeCaFile)
+	caFile := viper.GetString(constants.KubeCAFile)
 	if len(caFile) == 0 {
 		caFile = serviceAccountPath + "/ca.crt"
 	}
@@ -110,7 +110,7 @@ func createKubeConfigFile() error {
 		TLSConfig:                 tlsConfig,
 	}
 
-	tmpFile, err := ioutil.TempFile(viper.GetString(constants.MountedCniNetDir), "CNI_TEMP_")
+	tmpFile, err := ioutil.TempFile(viper.GetString(constants.MountedCNINetDir), "CNI_TEMP_")
 	if err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func createKubeConfigFile() error {
 
 	tmpFile.Close()
 
-	filename := filepath.Join(viper.GetString(constants.MountedCniNetDir), viper.GetString(constants.KubeCfgFilename))
+	filename := filepath.Join(viper.GetString(constants.MountedCNINetDir), viper.GetString(constants.KubeCfgFilename))
 	if err = os.Rename(tmpFile.Name(), filename); err != nil {
 		return err
 	}

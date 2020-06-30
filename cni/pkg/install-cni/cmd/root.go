@@ -43,19 +43,19 @@ func init() {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
-	registerStringParameter(constants.CniNetDir, "/etc/cni/net.d", "Directory on the host where CNI networks are installed")
-	registerStringParameter(constants.MountedCniNetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
-	registerStringParameter(constants.CniConfName, "", "Name of the CNI configuration file")
+	registerStringParameter(constants.CNINetDir, "/etc/cni/net.d", "Directory on the host where CNI networks are installed")
+	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
+	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerStringParameter(constants.KubeCfgFilename, "ZZZ-istio-cni-kubeconfig", "Name of the kubeconfig file")
-	registerStringParameter(constants.CniNetworkConfig, "", "CNI config template as a string")
-	registerStringParameter(constants.CniNetworkConfigFile, "", "CNI config template as a file")
-	registerStringParameter(constants.KubeCaFile, "", "CA file for kubeconfig. Defaults to the pod one")
+	registerStringParameter(constants.CNINetworkConfig, "", "CNI config template as a string")
+	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
+	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the pod one")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
-	registerStringArrayParameter(constants.SkipCniBinaries, []string{}, "Binaries that should not be installed")
+	registerStringArrayParameter(constants.SkipCNIBinaries, []string{}, "Binaries that should not be installed")
 
-	registerBooleanParameter(constants.ChainedCniPlugin, true, "Whether to install CNI plugin as a chained or standalone")
-	registerBooleanParameter(constants.UpdateCniBinaries, true, "Update binaries")
+	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
+	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Update binaries")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 }
 

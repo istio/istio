@@ -16,22 +16,22 @@ package constants
 
 // Command line arguments
 const (
-	CniNetDir            = "cni-net-dir"
-	MountedCniNetDir     = "mounted-cni-net-dir"
-	CniConfName          = "cni-conf-name"
+	CNINetDir            = "cni-net-dir"
+	MountedCNINetDir     = "mounted-cni-net-dir"
+	CNIConfName          = "cni-conf-name"
 	KubeCfgFilename      = "kubecfg-file-name"
-	ChainedCniPlugin     = "chained-cni-plugin"
-	SkipCniBinaries      = "skip-cni-binaries"
-	UpdateCniBinaries    = "update-cni-binaries"
-	CniNetworkConfig     = "cni-network-config"
-	CniNetworkConfigFile = "cni-network-config-file"
-	KubeCaFile           = "kube-ca-file"
+	ChainedCNIPlugin     = "chained-cni-plugin"
+	SkipCNIBinaries      = "skip-cni-binaries"
+	UpdateCNIBinaries    = "update-cni-binaries"
+	CNINetworkConfig     = "cni-network-config"
+	CNINetworkConfigFile = "cni-network-config-file"
+	KubeCAFile           = "kube-ca-file"
 	SkipTLSVerify        = "skip-tls-verify"
 	LogLevel             = "log-level"
 )
 
 // Internal constants
 const (
-	HostCniBinDir   = "/host/opt/cni/bin"
+	HostCNIBinDir   = "/host/opt/cni/bin"
 	SecondaryBinDir = "/host/secondary-bin-dir"
 )

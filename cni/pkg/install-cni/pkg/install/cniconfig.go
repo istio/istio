@@ -47,7 +47,7 @@ func createCNIConfigFile() error {
 }
 
 func readCNITemplate() ([]byte, error) {
-	if configFile := viper.GetString(constants.CniNetworkConfigFile); fileutil.Exist(configFile) {
+	if configFile := viper.GetString(constants.CNINetworkConfigFile); fileutil.Exist(configFile) {
 		contents, err := ioutil.ReadFile(configFile)
 		if err != nil {
 			return nil, err
@@ -56,7 +56,7 @@ func readCNITemplate() ([]byte, error) {
 		return contents, nil
 	}
 
-	if config := viper.GetString(constants.CniNetworkConfig); len(config) > 0 {
+	if config := viper.GetString(constants.CNINetworkConfig); len(config) > 0 {
 		log.Infof("Using CNI config template from CNI_NETWORK_CONFIG environment variable.")
 		return []byte(config), nil
 	}
@@ -81,7 +81,7 @@ func replaceVariables(input []byte) ([]byte, error) {
 	out = strings.ReplaceAll(out, "__KUBERNETES_NODE_NAME__", node)
 
 	out = strings.ReplaceAll(out, "__KUBECONFIG_FILENAME__", viper.GetString(constants.KubeCfgFilename))
-	out = strings.ReplaceAll(out, "__KUBECONFIG_FILEPATH__", filepath.Join(viper.GetString(constants.CniNetDir), viper.GetString(constants.KubeCfgFilename)))
+	out = strings.ReplaceAll(out, "__KUBECONFIG_FILEPATH__", filepath.Join(viper.GetString(constants.CNINetDir), viper.GetString(constants.KubeCfgFilename)))
 	out = strings.ReplaceAll(out, "__LOG_LEVEL__", viper.GetString(constants.LogLevel))
 
 	// Log the config file before inserting service account token.
@@ -100,7 +100,7 @@ func replaceVariables(input []byte) ([]byte, error) {
 func saveFile(contents []byte) error {
 	finalFilename := getCNIConfFilename()
 
-	if viper.GetBool(constants.ChainedCniPlugin) && fileutil.Exist(finalFilename) {
+	if viper.GetBool(constants.ChainedCNIPlugin) && fileutil.Exist(finalFilename) {
 		// This section overwrites an existing plugins list entry to for istio-cni
 		existingContent, err := ioutil.ReadFile(finalFilename)
 		if err != nil {
@@ -123,7 +123,7 @@ func saveFile(contents []byte) error {
 		}
 	}
 
-	tmpFilename := filepath.Join(viper.GetString(constants.MountedCniNetDir), "istio-cni.conf.tmp")
+	tmpFilename := filepath.Join(viper.GetString(constants.MountedCNINetDir), "istio-cni.conf.tmp")
 	err := ioutil.WriteFile(tmpFilename, contents, 0644)
 	if err != nil {
 		return err
@@ -139,21 +139,21 @@ func saveFile(contents []byte) error {
 }
 
 func getCNIConfFilename() string {
-	mountedCniNetDir := viper.GetString(constants.MountedCniNetDir)
+	mountedCNINetDir := viper.GetString(constants.MountedCNINetDir)
 
-	filename := viper.GetString(constants.CniConfName)
+	filename := viper.GetString(constants.CNIConfName)
 	if filename == "" {
 		var err error
-		filename, err = getDefaultCNINetwork(mountedCniNetDir)
+		filename, err = getDefaultCNINetwork(mountedCNINetDir)
 		if err != nil {
 			log.Infoa(err)
 			filename = "YYY-istio-cni.conf"
 		}
 	}
 
-	filename = filepath.Join(mountedCniNetDir, filename)
+	filename = filepath.Join(mountedCNINetDir, filename)
 
-	if !viper.GetBool(constants.ChainedCniPlugin) {
+	if !viper.GetBool(constants.ChainedCNIPlugin) {
 		return filename
 	}
 
