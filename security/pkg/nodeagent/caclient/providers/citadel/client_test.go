@@ -30,7 +30,10 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"istio.io/istio/pkg/jwt"
+
+	//mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
+	//mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	citadelca "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/pki/ca"
 	"k8s.io/client-go/kubernetes/fake"
@@ -89,6 +92,15 @@ func TestE2EClient(t *testing.T) {
 			t.Fatalf("%s: Failed to create a plugged-cert CA Options: %v", id, err)
 		}
 
+		//
+		//ca := mockca.FakeCA{
+		//		SignedCert: []byte("cert"),
+		//		KeyCertBundle: &mockutil.FakeKeyCertBundle{
+		//		CertChainBytes: []byte("cert_chain"),
+		//		RootCertBytes:  []byte("root_cert"),
+		//	},
+		//},
+
 		ca, err := ca.NewIstioCA(caopts)
 		if err != nil {
 			t.Errorf("%s: Got error while creating plugged-cert CA: %v", id, err)
@@ -130,7 +142,8 @@ func TestE2EClient(t *testing.T) {
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
-		ctx, err := buildContext()
+
+		ctx, err := buildContext(caopts.KeyCertBundle.GetCertChainPem(), caopts.KeyCertBundle.GetRootCertPem())
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create to create context: %v", id, err)
 		}
@@ -147,7 +160,7 @@ func TestE2EClient(t *testing.T) {
 
 }
 
-func buildContext() (context.Context, error){
+func buildContext(a,b bytes) (context.Context, error){
 	ctx := context.Background()
 	callerID := "test.identity"
 	ids := []util.Identity{
@@ -172,6 +185,21 @@ func buildContext() (context.Context, error){
 	ctx = peer.NewContext(ctx, p)
 	return ctx, nil
 }
+
+//// NewIstioCA returns a new IstioCA instance.
+//func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
+//	ca := &IstioCA{
+//		defaultCertTTL: opts.DefaultCertTTL,
+//		maxCertTTL:     opts.MaxCertTTL,
+//		keyCertBundle:  opts.KeyCertBundle,
+//		livenessProbe:  probe.NewProbe(),
+//	}
+//
+//	if opts.CAType == selfSignedCA && opts.RotatorConfig.CheckInterval > time.Duration(0) {
+//		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
+//	}
+//	return ca, nil
+//}
 
 func TestCitadelClient(t *testing.T) {
 	testCases := map[string]struct {
