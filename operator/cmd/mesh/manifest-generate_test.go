@@ -400,7 +400,7 @@ func TestManifestGenerateFlagAliases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --manifestsPath="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
+	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --manifests="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
