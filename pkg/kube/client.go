@@ -198,6 +198,7 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	var c client
 	var err error
 
+	c.clientFactory = clientFactory
 	c.revision = revision
 
 	c.restClient, err = clientFactory.RESTClient()
@@ -243,8 +244,8 @@ func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (Ex
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
-func NewClient(config *rest.Config) (Client, error) {
-	return newClientInternal(newClientFactory(NewClientConfigForRestConfig(config)), "")
+func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
+	return newClientInternal(newClientFactory(clientConfig), "")
 }
 
 func (c *client) RESTConfig() *rest.Config {

@@ -406,7 +406,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.kubeClients, err = kubelib.NewClient(s.kubeRestConfig)
+		s.kubeClients, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
 		// TODO deprecate kubeClient, replace with kubeClients
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
