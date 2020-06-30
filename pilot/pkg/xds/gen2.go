@@ -29,6 +29,16 @@ import (
 
 // gen2 provides experimental support for extended generation mechanism.
 
+// IstioControlPlaneInstance defines the format Istio uses for when creating Envoy config.core.v3.ControlPlane.identifier
+type IstioControlPlaneInstance struct {
+	// The Istio Pilot component type (e.g. "pilot")
+	Component string
+	// The ID of the component instance
+	ID string
+	// The Istio version
+	Info istioversion.BuildInfo
+}
+
 var (
 	controlPlane *corev3.ControlPlane
 )
@@ -104,10 +114,10 @@ func ControlPlane() *corev3.ControlPlane {
 func init() {
 	// The Pod Name (Pilot identity) is in PilotArgs, but not reachable globally nor from DiscoveryServer
 	podName := env.RegisterStringVar("POD_NAME", "", "").Get()
-	byVersion, err := json.Marshal(map[string]interface{}{
-		"component": "pilot",
-		"id":        podName,
-		"info":      istioversion.Info,
+	byVersion, err := json.Marshal(IstioControlPlaneInstance{
+		Component: "pilot",
+		ID:        podName,
+		Info:      istioversion.Info,
 	})
 	if err != nil {
 		adsLog.Warnf("XDS: Could not serialize control plane id: %v", err)
