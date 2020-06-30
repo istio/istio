@@ -203,7 +203,6 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 }
 
 func TestCreateCertificate(t *testing.T) {
-	test
 	testCases := map[string]struct {
 		authenticators []authenticate.Authenticator
 		ca             CertificateAuthority

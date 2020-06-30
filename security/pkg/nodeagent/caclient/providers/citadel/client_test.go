@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	//mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
@@ -120,7 +121,7 @@ func TestE2EClient(t *testing.T) {
 		//	t.Fatalf("Failed to create a plugged-cert CA.")
 		//}
 
-		server, err := citadelca.New(ca, time.Hour, false, []string{"localhost"}, 0,
+		server, err := citadelca.New(ca, time.Hour, false, []string{"hostname"}, 8080,
 			"testdomain.com", true, jwt.PolicyThirdParty, "kubernetes")
 		if err != nil {
 			t.Errorf("%s: Cannot create server: %v", id, err)
