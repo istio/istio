@@ -472,6 +472,8 @@ type NodeMetadata struct {
 	TLSClientRootCert string `json:"TLS_CLIENT_ROOT_CERT,omitempty"`
 
 	CertBaseDir string `json:"BASE,omitempty"`
+	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
+	SdsEnabled StringBool `json:"SDS,omitempty"`
 
 	// StsPort specifies the port of security token exchange server (STS).
 	// Used by envoy filters

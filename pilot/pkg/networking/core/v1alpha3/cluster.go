@@ -983,7 +983,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 
 		// TODO: cleanup the following if block, this is never executed as SDS is default
 		// Need to change Envoy Setup for xds/simple_test.go to push SDS by setting up SDS server and mock CA
-		if opts.push.Mesh.SdsUdsPath == "" {
+		if !node.Metadata.SdsEnabled == "" {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -1073,7 +1073,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 
 		// TODO: cleanup the following if block, this is never executed as SDS is default
 		// Need to change Envoy Setup for xds/simple_test.go to push SDS by setting up SDS server and mock CA
-		if opts.push.Mesh.SdsUdsPath == "" {
+		if !node.Metadata.SdsEnabled {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
