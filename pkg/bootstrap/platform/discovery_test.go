@@ -27,7 +27,7 @@ func TestDiscoverWithTimeout(t *testing.T) {
 		envSetup     func(t *testing.T)
 		envTeardown  func(t *testing.T)
 		platExpectFn func(map[string]string) bool
-		ignore bool
+		ignore       bool
 	}{
 		{
 			desc:    "unknown-plat",
