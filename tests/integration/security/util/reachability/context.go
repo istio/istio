@@ -70,7 +70,7 @@ type Context struct {
 }
 
 // CreateContext creates and initializes reachability context.
-func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
+func CreateContext(ctx framework.TestContext, p pilot.Instance, buildVM bool) Context {
 	ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 		Prefix: "reachability",
 		Inject: true,
@@ -78,7 +78,7 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 
 	var a, b, multiVersion, headless, naked, vmInstance echo.Instance
 
-	// multi-version specific setup
+	// Multi-version specific setup
 	cfg := util.EchoConfig("multiversion", ns, false, nil, p)
 	cfg.Subsets = []echo.SubsetConfig{
 		// Istio deployment, with sidecar.
@@ -98,15 +98,19 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 	vmCfg.VMImage = vm.DefaultVMImage
 	vmCfg.Ports[0].ServicePort = vmCfg.Ports[0].InstancePort
 
-	echoboot.NewBuilderOrFail(ctx, ctx).
+	echoBuilder := echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil, p)).
 		With(&b, util.EchoConfig("b", ns, false, nil, p)).
 		With(&multiVersion, cfg).
 		With(&headless, util.EchoConfig("headless", ns, true, nil, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false), p)).
-		With(&vmInstance, vmCfg).
-		BuildOrFail(ctx)
+			SetBool(echo.SidecarInject, false), p))
+
+	// Build VM only when specified to avoid failure
+	if buildVM {
+		echoBuilder = echoBuilder.With(&vmInstance, vmCfg)
+	}
+	echoBuilder.BuildOrFail(ctx)
 
 	return Context{
 		ctx:          ctx,
@@ -166,8 +170,20 @@ func (rc *Context) Run(testCases []TestCase) {
 			time.Sleep(10 * time.Second)
 			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
 
-			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
-				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked, rc.VM} {
+			srcs := []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked}
+			dests := []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked}
+
+			if rc.VM != nil {
+				dests = append(dests, rc.VM)
+			}
+
+			for _, src := range srcs {
+				for _, dest := range dests {
+					// VM is not built for all contexts
+					if dest == nil {
+						continue
+					}
+
 					copts := &callOptions
 					// If test case specified service call options, use that instead.
 					if c.CallOpts != nil {

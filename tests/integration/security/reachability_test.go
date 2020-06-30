@@ -36,7 +36,7 @@ func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 
-			rctx := reachability.CreateContext(ctx, p)
+			rctx := reachability.CreateContext(ctx, p, true)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{
