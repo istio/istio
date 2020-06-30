@@ -39,9 +39,9 @@ import (
 
 	"istio.io/istio/tests/util"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 )
 
 const (

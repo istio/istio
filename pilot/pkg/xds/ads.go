@@ -194,12 +194,6 @@ func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discov
 			}()
 		}
 
-		err = s.processRequest(req, con)
-		if err != nil {
-			*errP = err
-			return
-		}
-
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
@@ -209,6 +203,9 @@ func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discov
 	}
 }
 
+// processRequest is handling one request. This is currently called from the 'main' thread, which also
+// handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
+// protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, con *Connection) error {
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, TypeURLToEventType(discReq.TypeUrl), discReq.ResponseNonce)
@@ -354,10 +351,16 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 		// the number of long-running go routines, since push is throttled. The main problem is with
 		// closing - the current gRPC library didn't allow closing the stream.
 		select {
-		case _, ok := <-reqChannel:
+		case req, ok := <-reqChannel:
 			if !ok {
 				// Remote side closed connection or error processing the request.
 				return receiveError
+			}
+			// processRequest is calling pushXXX, accessing common structs with pushConnection.
+			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.git di
+			err = s.processRequest(req, con)
+			if err != nil {
+				return err
 			}
 
 		case pushEv := <-con.pushChannel:
