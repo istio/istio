@@ -37,7 +37,6 @@ var (
 	hostname      = "foo.bar.com"
 	nodeIP        = "10.0.0.2"
 	testNamespace = "test"
-	resync        = time.Second
 )
 
 func makeAnnotatedIngress(annotation string) *ingress.Ingress {

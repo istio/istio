@@ -126,7 +126,6 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
 						// basically lazy loading the informer, if we stop it when we lose the lock we will never
 						// recreate it again.
-						log.Errorf("howardjohn: prestart")
 						s.kubeClients.RunAndWait(stop)
 						log.Infof("Starting ingress controller")
 						ingressSyncer.Run(leaderStop)
