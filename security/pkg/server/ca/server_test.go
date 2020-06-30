@@ -116,33 +116,33 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 	testCerts := map[string]struct {
 		certChain          [][]*x509.Certificate
 		caller             *authenticate.Caller
-		authenticateErrMsg string
 		fakeAuthInfo       *mockAuthInfo
 		code               codes.Code
 		ipAddr             *net.IPAddr
 	}{
+		//no client certificate is presented
 		"No client certificate": {
 			certChain:          nil,
 			caller:             nil,
-			authenticateErrMsg: "no client certificate is presented",
 			ipAddr:             mockIPAddr,
 			code:               codes.Unauthenticated,
 		},
+		//"unsupported auth type: not-tls"
 		"Unsupported auth type": {
 			certChain:          nil,
 			caller:             nil,
-			authenticateErrMsg: "unsupported auth type: \"not-tls\"",
 			fakeAuthInfo:       &mockAuthInfo{"not-tls"},
 			ipAddr:             mockIPAddr,
 			code:               codes.Unauthenticated,
 		},
+		//no cert chain presented
 		"Empty cert chain": {
 			certChain:          [][]*x509.Certificate{},
 			caller:             nil,
-			authenticateErrMsg: "no verified chain is found",
 			ipAddr:             mockIPAddr,
 			code:               codes.Unauthenticated,
 		},
+		//certificate misses the the SAN field
 		"Certificate has no SAN": {
 			certChain: [][]*x509.Certificate{
 				{
@@ -151,10 +151,10 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 					},
 				},
 			},
-			authenticateErrMsg: "the SAN extension does not exist",
 			ipAddr:             mockIPAddr,
 			code:               codes.Unauthenticated,
 		},
+		//successful testcase with valid client certificate
 		"With client certificate": {
 			certChain: [][]*x509.Certificate{
 				{
