@@ -115,10 +115,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 		cl.queue.Run(stop)
 	}()
 
-	for _, ctl := range cl.kinds {
-		go ctl.informer.Run(stop)
-	}
-
 	<-stop
 	log.Info("controller terminated")
 }
