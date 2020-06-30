@@ -158,24 +158,40 @@ func isExpectedGRPCError(err error) bool {
 	return false
 }
 
-func receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
+func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
+	firstReq := true
 	for {
 		req, err := con.stream.Recv()
-		con.mu.RLock()
-		cid := con.ConID
-		con.mu.RUnlock()
 		if err != nil {
+			cid := con.ConID
 			if isExpectedGRPCError(err) {
-				con.mu.RLock()
 				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, cid, err)
-				con.mu.RUnlock()
 				return
 			}
 			*errP = err
 			adsLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, cid, err)
 			totalXDSInternalErrors.Increment()
 			return
+		}
+		// This should be only set for the first request. The node id may not be set - for example malicious clients.
+		if firstReq {
+			firstReq = false
+			if req.Node == nil {
+				*errP = errors.New("missing node ID")
+				return
+			}
+			// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
+			if err := s.initConnection(req.Node, con); err != nil {
+				*errP = err
+				return
+			}
+			defer func() {
+				s.removeCon(con.ConID)
+				if s.InternalGen != nil {
+					s.InternalGen.OnDisconnect(con)
+				}
+			}()
 		}
 		select {
 		case reqChannel <- req:
@@ -267,7 +283,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	// This also detects close.
 	var receiveError error
 	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
-	go receiveThread(con, reqChannel, &receiveError)
+	go s.receiveThread(con, reqChannel, &receiveError)
 
 	for {
 		// Block until either a request is received or a push is triggered.
@@ -277,22 +293,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 				// Remote side closed connection.
 				return receiveError
 			}
-			// This should be only set for the first request. The node id may not be set - for example malicious clients.
-			if con.node == nil {
-				if discReq.Node == nil {
-					return errors.New("missing node ID")
-				}
-				// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
-				if err := s.initConnection(discReq.Node, con); err != nil {
-					return err
-				}
-				defer func() {
-					s.removeCon(con.ConID)
-					if s.InternalGen != nil {
-						s.InternalGen.OnDisconnect(con)
-					}
-				}()
-			}
+
 			if s.StatusReporter != nil {
 				s.StatusReporter.RegisterEvent(con.ConID, TypeURLToEventType(discReq.TypeUrl), discReq.ResponseNonce)
 			}
