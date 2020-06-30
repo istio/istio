@@ -160,7 +160,7 @@ func TestE2EClient(t *testing.T) {
 
 }
 
-func buildContext(a,b bytes) (context.Context, error){
+func buildContext(a,b []byte) (context.Context, error){
 	ctx := context.Background()
 	callerID := "test.identity"
 	ids := []util.Identity{
