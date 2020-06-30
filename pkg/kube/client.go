@@ -28,7 +28,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
-	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -214,7 +213,7 @@ type client struct {
 
 	config *rest.Config
 
-	extSet        extclient.Interface
+	extSet        kubeExtClient.Interface
 	versionClient discovery.ServerVersionInterface
 
 	kubeInformer informers.SharedInformerFactory
