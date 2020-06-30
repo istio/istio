@@ -150,7 +150,7 @@ function init() {
         echo "${MOUNTED_CNI_NET_DIR}/${cni_conf_name} exists."
         break
       fi
-      sleep 2
+      sleep "${CFGCHECK_INTERVAL}"
     done
   else
     # standalone CNI plugin
