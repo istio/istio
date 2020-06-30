@@ -259,6 +259,13 @@ spec:
             mountPath: {{ .mountPath | quote }}
             readOnly: true
           {{- end }}
+          {{- range $gateway.configVolumes }}
+          {{- if .mountPath }}
+          - name: {{ .name }}
+            mountPath: {{ .mountPath | quote }}
+            readOnly: true
+          {{- end }}
+          {{- end }}
 {{- if $gateway.additionalContainers }}
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
