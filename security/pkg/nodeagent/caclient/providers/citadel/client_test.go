@@ -16,9 +16,9 @@ package caclient
 
 import (
 	"context"
-	"fmt"
+	//"fmt"
 	"net"
-	"reflect"
+	//"reflect"
 	"testing"
 	"time"
 
