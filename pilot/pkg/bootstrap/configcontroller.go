@@ -24,19 +24,16 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/config/kube/crdclient"
-	"istio.io/istio/pilot/pkg/status"
-	kubecfg "istio.io/istio/pkg/kube"
-
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/leaderelection"
+	"istio.io/istio/pilot/pkg/status"
+
+	"google.golang.org/grpc/keepalive"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/schema/collection"
-
-	"google.golang.org/grpc/keepalive"
 
 	"google.golang.org/grpc"
 
@@ -372,28 +369,7 @@ func (s *Server) mcpController(
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
-	// TODO(howardjohn) allow the collection here to be configurable to allow running with only
-	// Kubernetes APIs.
-	schemas := collection.NewSchemasBuilder()
-	if features.EnableServiceApis {
-		schemas = schemas.
-			MustAdd(collections.K8SServiceApisV1Alpha1Tcproutes).
-			MustAdd(collections.K8SServiceApisV1Alpha1Gatewayclasses).
-			MustAdd(collections.K8SServiceApisV1Alpha1Gateways).
-			MustAdd(collections.K8SServiceApisV1Alpha1Httproutes).
-			MustAdd(collections.K8SServiceApisV1Alpha1Trafficsplits)
-	}
-	for _, schema := range collections.Pilot.All() {
-		if err := schemas.Add(schema); err != nil {
-			return nil, err
-		}
-	}
-	// TODO use schemas
-	cfg, err := kubecfg.BuildClientConfig(args.RegistryOptions.KubeConfig, "")
-	if err != nil {
-		return nil, err
-	}
-	c, err := crdclient.NewForConfig(cfg, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
+	c, err := crdclient.New(s.kubeClients, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
 	if err != nil {
 		return nil, err
 	}

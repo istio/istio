@@ -28,13 +28,16 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
+	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
@@ -51,6 +54,13 @@ import (
 	"k8s.io/kubectl/pkg/cmd/apply"
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
+	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
+	serviceapisfake "sigs.k8s.io/service-apis/pkg/client/clientset/versioned/fake"
+	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
+
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
+	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 
 	"istio.io/api/label"
 
@@ -88,6 +98,12 @@ type Client interface {
 	// Metadata returns the Metadata kube client.
 	Metadata() metadata.Interface
 
+	// Istio returns the Istio kube client.
+	Istio() istioclient.Interface
+
+	// ServiceApis returns the service-apis kube client.
+	ServiceApis() serviceapisclient.Interface
+
 	// KubeInformer returns an informer for core kube client
 	KubeInformer() informers.SharedInformerFactory
 
@@ -96,6 +112,12 @@ type Client interface {
 
 	// MetadataInformer returns an informer for metadata client
 	MetadataInformer() metadatainformer.SharedInformerFactory
+
+	// IstioInformer returns an informer for the istio client
+	IstioInformer() istioinformer.SharedInformerFactory
+
+	// ServiceApisInformer returns an informer for the service-apis client
+	ServiceApisInformer() serviceapisinformer.SharedInformerFactory
 
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
@@ -163,11 +185,20 @@ func NewFakeClient() Client {
 	if err := metav1.AddMetaToScheme(s); err != nil {
 		panic(err.Error())
 	}
+
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
 
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
+
+	c.istio = istiofake.NewSimpleClientset()
+	c.istioInformer = istioinformer.NewSharedInformerFactoryWithOptions(c.istio, resyncInterval)
+
+	c.serviceapis = serviceapisfake.NewSimpleClientset()
+	c.serviceapisInformers = serviceapisinformer.NewSharedInformerFactory(c.serviceapis, resyncInterval)
+
+	c.extSet = extfake.NewSimpleClientset()
 
 	return &c
 }
@@ -183,7 +214,9 @@ type client struct {
 
 	config *rest.Config
 
-	extSet       *kubeExtClient.Clientset
+	extSet        extclient.Interface
+	versionClient discovery.ServerVersionInterface
+
 	kubeInformer informers.SharedInformerFactory
 
 	dynamic         dynamic.Interface
@@ -191,6 +224,12 @@ type client struct {
 
 	metadata         metadata.Interface
 	metadataInformer metadatainformer.SharedInformerFactory
+
+	istio         istioclient.Interface
+	istioInformer istioinformer.SharedInformerFactory
+
+	serviceapis          serviceapisclient.Interface
+	serviceapisInformers serviceapisinformer.SharedInformerFactory
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -229,10 +268,24 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
 
-	c.extSet, err = kubeExtClient.NewForConfig(c.config)
+	c.istio, err = istioclient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
+	c.istioInformer = istioinformer.NewSharedInformerFactory(c.istio, resyncInterval)
+
+	c.serviceapis, err = serviceapisclient.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
+	}
+	c.serviceapisInformers = serviceapisinformer.NewSharedInformerFactory(c.serviceapis, resyncInterval)
+
+	ext, err := kubeExtClient.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
+	}
+	c.extSet = ext
+	c.versionClient = ext
 
 	return &c, nil
 }
@@ -273,6 +326,14 @@ func (c *client) Metadata() metadata.Interface {
 	return c.metadata
 }
 
+func (c *client) Istio() istioclient.Interface {
+	return c.istio
+}
+
+func (c *client) ServiceApis() serviceapisclient.Interface {
+	return c.serviceapis
+}
+
 func (c *client) KubeInformer() informers.SharedInformerFactory {
 	return c.kubeInformer
 }
@@ -283,6 +344,14 @@ func (c *client) DynamicInformer() dynamicinformer.DynamicSharedInformerFactory 
 
 func (c *client) MetadataInformer() metadatainformer.SharedInformerFactory {
 	return c.metadataInformer
+}
+
+func (c *client) IstioInformer() istioinformer.SharedInformerFactory {
+	return c.istioInformer
+}
+
+func (c *client) ServiceApisInformer() serviceapisinformer.SharedInformerFactory {
+	return c.serviceapisInformers
 }
 
 // RunAndWait starts all informers and waits for their caches to sync.
@@ -301,7 +370,7 @@ func (c *client) Revision() string {
 }
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
-	return c.extSet.ServerVersion()
+	return c.versionClient.ServerVersion()
 }
 
 func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {

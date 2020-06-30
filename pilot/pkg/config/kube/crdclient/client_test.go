@@ -25,32 +25,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
-
-	servicefake "sigs.k8s.io/service-apis/pkg/client/clientset/versioned/fake"
-
-	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache {
-	fakeClient := istiofake.NewSimpleClientset()
-	extFake := extfake.NewSimpleClientset()
-	sFake := servicefake.NewSimpleClientset()
+	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
-		extFake.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), &v1beta1.CustomResourceDefinition{
+		fake.Ext().ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), &v1beta1.CustomResourceDefinition{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group()),
 			},
 		}, metav1.CreateOptions{})
 	}
 	stop := make(chan struct{})
-	config, err := New(fakeClient, sFake, extFake, &model.DisabledLedger{}, "", controller.Options{})
+	config, err := New(fake, &model.DisabledLedger{}, "", controller.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
