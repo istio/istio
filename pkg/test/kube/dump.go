@@ -15,12 +15,16 @@
 package kube
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/scopes"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -29,12 +33,12 @@ import (
 )
 
 // podDumper will dump information from all the pods into the given workDir.
-// If no pods are provided, accessor will be used to fetch all the pods in a namespace.
-type podDumper func(a Accessor, workDir string, namespace string, pods ...kubeApiCore.Pod)
+// If no pods are provided, client will be used to fetch all the pods in a namespace.
+type podDumper func(a kube.Client, workDir string, namespace string, pods ...kubeApiCore.Pod)
 
 // DumpPods runs each dumper with all the pods in the given namespace.
 // If no dumpers are provided, their resource state, events, container logs and Envoy information will be dumped.
-func DumpPods(a Accessor, workDir, namespace string, dumpers ...podDumper) {
+func DumpPods(a kube.Client, workDir, namespace string, dumpers ...podDumper) {
 	if len(dumpers) == 0 {
 		dumpers = []podDumper{
 			DumpPodState,
@@ -44,31 +48,31 @@ func DumpPods(a Accessor, workDir, namespace string, dumpers ...podDumper) {
 		}
 	}
 
-	pods, err := a.GetPods(namespace)
+	pods, err := a.PodsForSelector(context.TODO(), namespace)
 	if err != nil {
 		scopes.Framework.Errorf("Error getting pods list via kubectl: %v", err)
 		return
 	}
 
 	for _, dump := range dumpers {
-		dump(a, workDir, namespace, pods...)
+		dump(a, workDir, namespace, pods.Items...)
 	}
 }
 
-func podsOrFetch(a Accessor, pods []kubeApiCore.Pod, namespace string) []kubeApiCore.Pod {
+func podsOrFetch(a kube.Client, pods []kubeApiCore.Pod, namespace string) []kubeApiCore.Pod {
 	if len(pods) == 0 {
-		var err error
-		pods, err = a.GetPods(namespace)
+		podList, err := a.CoreV1().Pods(namespace).List(context.TODO(), kubeApiMeta.ListOptions{})
 		if err != nil {
 			scopes.Framework.Errorf("Error getting pods list via kubectl: %v", err)
 			return nil
 		}
+		pods = podList.Items
 	}
 	return pods
 }
 
 // DumpPodState dumps the pod state for either the provided pods or all pods in the namespace if none are provided.
-func DumpPodState(a Accessor, workDir string, namespace string, pods ...kubeApiCore.Pod) {
+func DumpPodState(a kube.Client, workDir string, namespace string, pods ...kubeApiCore.Pod) {
 	pods = podsOrFetch(a, pods, namespace)
 
 	marshaler := jsonpb.Marshaler{
@@ -91,7 +95,7 @@ func DumpPodState(a Accessor, workDir string, namespace string, pods ...kubeApiC
 }
 
 // DumpPodEvents dumps the pod events for either the provided pods or all pods in the namespace if none are provided.
-func DumpPodEvents(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod) {
+func DumpPodEvents(a kube.Client, workDir, namespace string, pods ...kubeApiCore.Pod) {
 	pods = podsOrFetch(a, pods, namespace)
 
 	marshaler := jsonpb.Marshaler{
@@ -99,7 +103,10 @@ func DumpPodEvents(a Accessor, workDir, namespace string, pods ...kubeApiCore.Po
 	}
 
 	for _, pod := range pods {
-		events, err := a.GetEvents(namespace, pod.Name)
+		list, err := a.CoreV1().Events(namespace).List(context.TODO(),
+			kubeApiMeta.ListOptions{
+				FieldSelector: "involvedObject.name=" + pod.Name,
+			})
 		if err != nil {
 			scopes.Framework.Errorf("Error getting events list for pod %s/%s via kubectl: %v", namespace, pod.Name, err)
 			return
@@ -108,7 +115,7 @@ func DumpPodEvents(a Accessor, workDir, namespace string, pods ...kubeApiCore.Po
 		outPath := path.Join(workDir, fmt.Sprintf("pod_events_%s_%s.yaml", namespace, pod.Name))
 
 		eventsStr := ""
-		for _, event := range events {
+		for _, event := range list.Items {
 			eventStr, err := marshaler.MarshalToString(&event)
 			if err != nil {
 				scopes.Framework.Errorf("Error marshaling pod event for output: %v", err)
@@ -127,14 +134,14 @@ func DumpPodEvents(a Accessor, workDir, namespace string, pods ...kubeApiCore.Po
 
 // DumpPodLogs will dump logs from each container in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodLogs(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod) {
+func DumpPodLogs(a kube.Client, workDir, namespace string, pods ...kubeApiCore.Pod) {
 	pods = podsOrFetch(a, pods, namespace)
 
 	for _, pod := range pods {
 		isVM := checkIfVM(pod)
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
-			l, err := a.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
+			l, err := a.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.Framework.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue
@@ -147,18 +154,18 @@ func DumpPodLogs(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod)
 
 			// Get envoy logs if the pod is a VM, since kubectl logs only shows the logs from iptables for VMs
 			if isVM && container.Name == "istio-proxy" {
-				if envoyErr, err := a.Exec(pod.Namespace, pod.Name, container.Name, "cat /var/log/istio/istio.err.log"); err == nil {
+				if stdout, stderr, err := a.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.err.log"); err == nil {
 					fname := path.Join(workDir, fmt.Sprintf("%s-%s.envoy.err.log", pod.Name, container.Name))
-					if err = ioutil.WriteFile(fname, []byte(envoyErr), os.ModePerm); err != nil {
+					if err = ioutil.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
 						scopes.Framework.Errorf("Unable to write envoy err log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 					}
 				} else {
 					scopes.Framework.Errorf("Unable to get envoy err log for pod: %s/%s", pod.Namespace, pod.Name)
 				}
 
-				if envoyLog, err := a.Exec(pod.Namespace, pod.Name, container.Name, "cat /var/log/istio/istio.log"); err == nil {
+				if stdout, stderr, err := a.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.log"); err == nil {
 					fname := path.Join(workDir, fmt.Sprintf("%s-%s.envoy.log", pod.Name, container.Name))
-					if err = ioutil.WriteFile(fname, []byte(envoyLog), os.ModePerm); err != nil {
+					if err = ioutil.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
 						scopes.Framework.Errorf("Unable to write envoy log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 					}
 				} else {
@@ -171,7 +178,7 @@ func DumpPodLogs(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod)
 
 // DumpPodProxies will dump Envoy proxy config and clusters in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodProxies(a Accessor, workDir, namespace string, pods ...kubeApiCore.Pod) {
+func DumpPodProxies(a kube.Client, workDir, namespace string, pods ...kubeApiCore.Pod) {
 	pods = podsOrFetch(a, pods, namespace)
 
 	for _, pod := range pods {
@@ -181,7 +188,7 @@ func DumpPodProxies(a Accessor, workDir, namespace string, pods ...kubeApiCore.P
 				continue
 			}
 
-			if cfgDump, err := a.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET config_dump"); err == nil {
+			if cfgDump, _, err := a.PodExec(pod.Name, pod.Namespace, container.Name, "pilot-agent request GET config_dump"); err == nil {
 				fname := path.Join(workDir, fmt.Sprintf("%s-%s.config.json", pod.Name, container.Name))
 				if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
 					scopes.Framework.Errorf("Unable to write config dump for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
@@ -190,7 +197,7 @@ func DumpPodProxies(a Accessor, workDir, namespace string, pods ...kubeApiCore.P
 				scopes.Framework.Errorf("Unable to get istio-proxy config dump for pod: %s/%s", pod.Namespace, pod.Name)
 			}
 
-			if cfgDump, err := a.Exec(pod.Namespace, pod.Name, container.Name, "pilot-agent request GET clusters"); err == nil {
+			if cfgDump, _, err := a.PodExec(pod.Name, pod.Namespace, container.Name, "pilot-agent request GET clusters"); err == nil {
 				fname := path.Join(workDir, fmt.Sprintf("%s-%s.clusters.txt", pod.Name, container.Name))
 				if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
 					scopes.Framework.Errorf("Unable to write clusters for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)

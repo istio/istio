@@ -133,8 +133,8 @@ func TestEgressGatewayTls(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					bufDestinationRule := createDestinationRule(t, appNamespace, tc.destinationRuleMode, tc.fakeRootCert)
 
-					ctx.ApplyConfigOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
-					defer ctx.DeleteConfigOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
+					ctx.Config().ApplyYAMLOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
+					defer ctx.Config().DeleteYAMLOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
@@ -356,7 +356,7 @@ func createSidecarScope(t *testing.T, ctx resource.Context, appsNamespace namesp
 	if err := tmpl.Execute(&buf, map[string]string{"ImportNamespace": serviceNamespace.Name()}); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := ctx.ApplyConfig(appsNamespace.Name(), buf.String()); err != nil {
+	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
 		t.Errorf("failed to apply sidecar scope: %v", err)
 	}
 }
@@ -431,7 +431,7 @@ func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.I
 	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.ApplyConfig(serviceNamespace.Name(), buf.String()); err != nil {
+	if err := ctx.Config().ApplyYAML(serviceNamespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
 	}
 }

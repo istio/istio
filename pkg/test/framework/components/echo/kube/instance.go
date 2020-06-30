@@ -33,7 +33,6 @@ import (
 	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -60,7 +59,7 @@ type instance struct {
 	grpcPort  uint16
 	ctx       resource.Context
 	tls       *echoCommon.TLSSettings
-	cluster   kubeEnv.Cluster
+	cluster   resource.Cluster
 }
 
 func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
@@ -73,7 +72,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	c := &instance{
 		cfg:     cfg,
 		ctx:     ctx,
-		cluster: kubeEnv.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: cfg.Cluster,
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -94,17 +93,15 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	// Apply the service definition to all clusters.
-	for _, cluster := range ctx.Environment().(*kubeEnv.Environment).KubeClusters {
-		if _, err = cluster.ApplyContents(cfg.Namespace.Name(), serviceYAML); err != nil {
-			return nil, fmt.Errorf("failed deploying echo service %s to cluster %d: %v",
-				cfg.FQDN(), cluster.Index(), err)
-		}
+	if err := ctx.Config().ApplyYAML(cfg.Namespace.Name(), serviceYAML); err != nil {
+		return nil, fmt.Errorf("failed deploying echo service %s to clusters: %v",
+			cfg.FQDN(), err)
 	}
 
 	// Deploy the YAML.
-	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), deploymentYAML); err != nil {
-		return nil, fmt.Errorf("failed deploying echo %s to cluster %d: %v",
-			cfg.FQDN(), c.cluster.Index(), err)
+	if err = ctx.Config(c.cluster).ApplyYAML(cfg.Namespace.Name(), deploymentYAML); err != nil {
+		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
+			cfg.FQDN(), c.cluster.Name(), err)
 	}
 
 	if cfg.DeployAsVM {
@@ -132,14 +129,15 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	if cfg.DeployAsVM {
 		var pod kubeCore.Pod
 		if err := retry.UntilSuccess(func() error {
-			pods, err := c.cluster.GetPods(cfg.Namespace.Name(), fmt.Sprintf("istio.io/test-vm=%s", cfg.Service))
+			pods, err := c.cluster.PodsForSelector(context.TODO(), cfg.Namespace.Name(),
+				fmt.Sprintf("istio.io/test-vm=%s", cfg.Service))
 			if err != nil {
 				return err
 			}
-			if len(pods) != 1 {
-				return fmt.Errorf("expected 1 pod, found %v", len(pods))
+			if len(pods.Items) != 1 {
+				return fmt.Errorf("expected 1 pod, found %v", len(pods.Items))
 			}
-			pod = pods[0]
+			pod = pods.Items[0]
 			if pod.Status.PodIP == "" {
 				return fmt.Errorf("empty pod ip")
 			}
@@ -165,7 +163,7 @@ spec:
     app: %s
 `, pod.Name, ip, serviceAccount, cfg.Service)
 		// Deploy the workload entry.
-		if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), wle); err != nil {
+		if err = ctx.Config(c.cluster).ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
 			return nil, fmt.Errorf("failed deploying workload entry: %v", err)
 		}
 	}

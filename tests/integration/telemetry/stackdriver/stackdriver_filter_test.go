@@ -214,7 +214,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.ApplyConfig(echoNsInst.Name(), sdBootstrap)
+	err = ctx.Config().ApplyYAML(echoNsInst.Name(), sdBootstrap)
 	if err != nil {
 		return
 	}

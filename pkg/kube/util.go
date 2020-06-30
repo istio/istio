@@ -167,3 +167,28 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 	}
 	return config
 }
+
+// CheckPodReady returns nil if the given pod and all of its containers are ready.
+func CheckPodReady(pod *kubeApiCore.Pod) error {
+	switch pod.Status.Phase {
+	case kubeApiCore.PodSucceeded:
+		return nil
+	case kubeApiCore.PodRunning:
+		// Wait until all containers are ready.
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if !containerStatus.Ready {
+				return fmt.Errorf("container not ready: '%s'", containerStatus.Name)
+			}
+		}
+		if len(pod.Status.Conditions) > 0 {
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == kubeApiCore.PodReady && condition.Status != kubeApiCore.ConditionTrue {
+					return fmt.Errorf("pod not ready, condition message: %v", condition.Message)
+				}
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("%s", pod.Status.Phase)
+	}
+}
