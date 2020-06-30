@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"sync"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
@@ -28,23 +27,28 @@ import (
 )
 
 const (
-	AzureMetadataEndpoint = "http://169.254.169.254"
-	InstanceURL           = AzureMetadataEndpoint + "/metadata/instance"
-	DefaultAPIVersion     = "2019-08-15"
-	SysVendorPath         = "/sys/class/dmi/id/sys_vendor"
-	MicrosoftIdentifier   = "Microsoft Corporation"
+	AzureMetadataEndpoint  = "http://169.254.169.254"
+	AzureInstanceURL       = AzureMetadataEndpoint + "/metadata/instance"
+	AzureDefaultAPIVersion = "2019-08-15"
+	SysVendorPath          = "/sys/class/dmi/id/sys_vendor"
+	MicrosoftIdentifier    = "Microsoft Corporation"
+
+	AzureName = "azure_name"
 )
 
 var (
-	APIVersion        = DefaultAPIVersion
-	updateVersionOnce = sync.Once{}
-	getAPIVersions    = func() string {
+	azureAPIVersionsFn = func() string {
 		return metadataRequest("")
 	}
-	getAzureMetadata = func() string {
-		return metadataRequest(fmt.Sprintf("api-version=%s", APIVersion))
+	azureMetadataFn = func(e *azureEnv) string {
+		return metadataRequest(fmt.Sprintf("api-version=%s", e.APIVersion))
 	}
-
+	azureNameFn = func(e *azureEnv) string {
+		if an, ok := e.computeMetadata["name"]; ok {
+			return an.(string)
+		}
+		return ""
+	}
 	azureTagsFn = func(e *azureEnv) map[string]string {
 		tags := map[string]string{}
 		if at, ok := e.computeMetadata["tags"]; ok && len(at.(string)) > 0 {
@@ -70,11 +74,13 @@ var (
 )
 
 type azureEnv struct {
+	APIVersion      string
 	computeMetadata map[string]interface{}
 	networkMetadata map[string]interface{}
 }
 
 // IsAzure returns whether or not the platform for bootstrapping is Azure
+// Checks the system vendor file (similar to https://github.com/banzaicloud/satellite/blob/master/providers/azure.go)
 func IsAzure() bool {
 	sysVendor, err := ioutil.ReadFile(SysVendorPath)
 	if err != nil {
@@ -83,31 +89,30 @@ func IsAzure() bool {
 	return strings.Contains(string(sysVendor), MicrosoftIdentifier)
 }
 
-// Attempts to update the API version
-func updateAPIVersion() {
-	updateVersionOnce.Do(func() {
-		bodyJSON := stringToJSON(getAPIVersions())
-		if newestVersions, ok := bodyJSON["newest-versions"]; ok {
-			for _, version := range newestVersions.([]interface{}) {
-				if strings.Compare(version.(string), APIVersion) > 0 {
-					APIVersion = version.(string)
-				}
+// Attempts to update the API version.
+// Newer API versions can contain additional metadata fields
+func (e *azureEnv) updateAPIVersion() {
+	bodyJSON := stringToJSON(azureAPIVersionsFn())
+	if newestVersions, ok := bodyJSON["newest-versions"]; ok {
+		for _, version := range newestVersions.([]interface{}) {
+			if strings.Compare(version.(string), e.APIVersion) > 0 {
+				e.APIVersion = version.(string)
 			}
 		}
-	})
+	}
 }
 
 // NewAzure returns a platform environment for Azure
 func NewAzure() Environment {
-	updateAPIVersion()
-	e := &azureEnv{}
-	e.getMetadata()
+	e := &azureEnv{APIVersion: AzureDefaultAPIVersion}
+	e.updateAPIVersion()
+	e.parseMetadata(azureMetadataFn(e))
 	return e
 }
 
 // Retrieves Azure instance metadata response body stores it in the Azure environment
-func (e *azureEnv) getMetadata() {
-	bodyJSON := stringToJSON(getAzureMetadata())
+func (e *azureEnv) parseMetadata(metadata string) {
+	bodyJSON := stringToJSON(metadata)
 	if computeMetadata, ok := bodyJSON["compute"]; ok {
 		e.computeMetadata = computeMetadata.(map[string]interface{})
 	}
@@ -120,7 +125,7 @@ func (e *azureEnv) getMetadata() {
 // Uses the default timeout for the HTTP get request
 func metadataRequest(query string) string {
 	client := http.Client{Timeout: defaultTimeout}
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", InstanceURL, query), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", AzureInstanceURL, query), nil)
 	if err != nil {
 		log.Warnf("Failed to create HTTP request: %v", err)
 		return ""
@@ -155,6 +160,7 @@ func stringToJSON(s string) map[string]interface{} {
 // Returns Azure instance metadata. Must be run on an Azure VM
 func (e *azureEnv) Metadata() map[string]string {
 	md := map[string]string{}
+	md[AzureName] = azureNameFn(e)
 	for k, v := range azureTagsFn(e) {
 		md[k] = v
 	}

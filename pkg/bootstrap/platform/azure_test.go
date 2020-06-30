@@ -17,7 +17,6 @@ package platform
 import (
 	"fmt"
 	"reflect"
-	"sync"
 	"testing"
 )
 
@@ -29,36 +28,36 @@ const (
 		"\"vmId\": \"13f56399-bd52-4150-9748-7190aae1ff21\", \"zone\": \"1\"}}"
 )
 
-func TestVersionUpdate(t *testing.T) {
-	oldGetAPIVersions, oldAPIVersion := getAPIVersions, APIVersion
-	defer func() { getAPIVersions, APIVersion = oldGetAPIVersions, oldAPIVersion }()
+func TestAzureVersionUpdate(t *testing.T) {
+	oldAzureAPIVersionsFn := azureAPIVersionsFn
+	defer func() { azureAPIVersionsFn = oldAzureAPIVersionsFn }()
 	MinDate, MaxDate := "0000-00-00", "9999-12-31"
 	tests := []struct {
 		name     string
 		response string
 		version  string
 	}{
-		{"ignore empty response", "", oldAPIVersion},
-		{"ignore smaller version", fmt.Sprintf(MockVersionsTemplate, MinDate), oldAPIVersion},
-		{"ignore no version", fmt.Sprintf(MockVersionsTemplate, ""), oldAPIVersion},
+		{"ignore empty response", "", AzureDefaultAPIVersion},
+		{"ignore smaller version", fmt.Sprintf(MockVersionsTemplate, MinDate), AzureDefaultAPIVersion},
+		{"ignore no version", fmt.Sprintf(MockVersionsTemplate, ""), AzureDefaultAPIVersion},
 		{"use larger version", fmt.Sprintf(MockVersionsTemplate, MaxDate), MaxDate},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			getAPIVersions = func() string { return tt.response }
-			updateVersionOnce = sync.Once{}
-			updateAPIVersion()
-			if APIVersion != tt.version {
-				t.Errorf("updateAPIVersion() => '%v'; want '%v'", APIVersion, tt.version)
+			azureAPIVersionsFn = func() string { return tt.response }
+			e := &azureEnv{APIVersion: AzureDefaultAPIVersion}
+			e.updateAPIVersion()
+			if e.APIVersion != tt.version {
+				t.Errorf("updateAPIVersion() => '%v'; want '%v'", e.APIVersion, tt.version)
 			}
 		})
 	}
 }
 
 func TestAzureMetadata(t *testing.T) {
-	oldGetAPIVersions, oldGetAzureMetadata := getAPIVersions, getAzureMetadata
-	defer func() { getAPIVersions, getAzureMetadata = oldGetAPIVersions, oldGetAzureMetadata }()
+	oldGetAPIVersions, oldGetAzureMetadata := azureAPIVersionsFn, azureMetadataFn
+	defer func() { azureAPIVersionsFn, azureMetadataFn = oldGetAPIVersions, oldGetAzureMetadata }()
 	tests := []struct {
 		name     string
 		response string
@@ -69,10 +68,10 @@ func TestAzureMetadata(t *testing.T) {
 	}
 
 	// Prevent actual requests to metadata server for updating the API version
-	getAPIVersions = func() string { return "" }
+	azureAPIVersionsFn = func() string { return "" }
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			getAzureMetadata = func() string { return tt.response }
+			azureMetadataFn = func(e *azureEnv) string { return tt.response }
 			e := NewAzure()
 			if metadata := e.Metadata(); !reflect.DeepEqual(metadata, tt.metadata) {
 				t.Errorf("Metadata() => '%v'; want '%v'", metadata, tt.metadata)
