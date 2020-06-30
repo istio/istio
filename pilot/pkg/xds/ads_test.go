@@ -14,6 +14,7 @@
 package xds_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -21,6 +22,10 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
+
+	"istio.io/istio/security/pkg/nodeagent/cache"
+
+	secretmodel "istio.io/istio/security/pkg/nodeagent/model"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -32,6 +37,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/tests/util"
 
@@ -42,6 +48,73 @@ const (
 	routeA = "http.80"
 	routeB = "https.443.https.my-gateway.testns"
 )
+
+type clientSecrets struct {
+	secretmodel.SecretItem
+}
+
+func (sc *clientSecrets) GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*secretmodel.SecretItem, error) {
+	return &sc.SecretItem, nil
+}
+
+// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
+func (sc *clientSecrets) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
+	return false
+}
+
+// TODO: must fix SDS, it uses existence to detect it's an ACK !!
+func (sc *clientSecrets) SecretExist(connectionID, resourceName, token, version string) bool {
+	return false
+}
+
+// DeleteSecret deletes a secret by its key from cache.
+func (sc *clientSecrets) DeleteSecret(connectionID, resourceName string) {
+}
+
+// TestAgent will start istiod with TLS enabled, use the istio-agent to connect, and then
+// use the ADSC to connect to the agent proxy.
+func TestAgent(t *testing.T) {
+	// Start Istiod
+	bs, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	// TODO: when authz is implemented, verify labels are checked.
+	cert, key, err := bs.CA.GenKeyCert([]string{"spiffe://cluster.local/fake.test"}, 1*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	creds := &clientSecrets{
+		secretmodel.SecretItem{
+			PrivateKey:       key,
+			CertificateChain: cert,
+			RootCert:         bs.CA.GetCAKeyCertBundle().GetRootCertPem(),
+		},
+	}
+
+	t.Run("adscTLSDirect", func(t *testing.T) {
+		testAdscTLS(t, creds)
+	})
+
+}
+
+// testAdscTLS tests that ADSC helper can connect using TLS to Istiod
+func testAdscTLS(t *testing.T, creds cache.SecretManager) {
+	// connect to the local XDS proxy - it's using a transient port.
+	ldsr, err := adsc.Dial(util.MockPilotSGrpcAddr, "",
+		&adsc.Config{
+			IP:        "10.11.10.1",
+			Namespace: "test",
+			Secrets:   creds,
+			Watch: []string{
+				v3.ClusterType,
+				collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
+		})
+	if err != nil {
+		t.Fatal("Failed to connect", err)
+	}
+	defer ldsr.Close()
+}
 
 func TestInternalEvents(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
