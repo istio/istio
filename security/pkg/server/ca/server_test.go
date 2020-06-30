@@ -250,7 +250,7 @@ func TestRun(t *testing.T) {
 			// K8s JWT authenticator is added in k8s env.
 			tc.expectedAuthenticatorsLen++
 		}
-		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com",
+		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true,
 			jwt.PolicyThirdParty, "kubernetes")
 		if err == nil {
 			err = server.Run()
@@ -339,7 +339,7 @@ func TestGetServerCertificate(t *testing.T) {
 		}
 
 		server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
-			"testdomain.com", jwt.PolicyThirdParty, "kubernetes")
+			"testdomain.com", true, jwt.PolicyThirdParty, "kubernetes")
 		if err != nil {
 			t.Errorf("%s: Cannot crete server: %v", id, err)
 		}
