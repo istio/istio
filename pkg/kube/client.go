@@ -27,16 +27,24 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	kubeApiCore "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/metadata"
+	metadatafake "k8s.io/client-go/metadata/fake"
+	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
@@ -55,10 +63,13 @@ const (
 	fieldManager        = "istio-kube-client"
 )
 
-// Client is a helper for common Kubernetes client operations
+// Client is a helper for common Kubernetes client operations. This contains various different kubernetes
+// clients using a shared config. It is expected that all of Istiod can share the same set of clients and
+// informers. Sharing informers is especially important for load on the API server/Istiod itself.
 type Client interface {
+	// TODO - stop embedding this, it will conflict with future additions. Use Kube() instead is preferred
+	// TODO - add istio/client-go and service-apis
 	kubernetes.Interface
-
 	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
 	RESTConfig() *rest.Config
 
@@ -68,9 +79,32 @@ type Client interface {
 	// Ext returns the API extensions client.
 	Ext() kubeExtClient.Interface
 
+	// Kube returns the core kube client
+	Kube() kubernetes.Interface
+
 	// Dynamic client.
 	Dynamic() dynamic.Interface
 
+	// Metadata returns the Metadata kube client.
+	Metadata() metadata.Interface
+
+	// KubeInformer returns an informer for core kube client
+	KubeInformer() informers.SharedInformerFactory
+
+	// DynamicInformer returns an informer for dynamic client
+	DynamicInformer() dynamicinformer.DynamicSharedInformerFactory
+
+	// MetadataInformer returns an informer for metadata client
+	MetadataInformer() metadatainformer.SharedInformerFactory
+
+	// RunAndWait starts all informers and waits for their caches to sync.
+	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
+	RunAndWait(stop <-chan struct{})
+}
+
+// ExtendedClient is an extended client with additional helpers/functionality for Istioctl and testing.
+type ExtendedClient interface {
+	Client
 	// Revision of the Istio control plane.
 	Revision() string
 
@@ -87,10 +121,10 @@ type Client interface {
 	GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error)
 
 	// PodsForSelector finds pods matching selector.
-	PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*kubeApiCore.PodList, error)
+	PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.PodList, error)
 
 	// GetIstioPods retrieves the pod objects for Istio deployments
-	GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]kubeApiCore.Pod, error)
+	GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error)
 
 	// PodExec takes a command and the pod data to run the command in the specified pod.
 	PodExec(podName, podNamespace, container string, command string) (stdout string, stderr string, err error)
@@ -116,50 +150,102 @@ type Client interface {
 }
 
 var _ Client = &client{}
+var _ ExtendedClient = &client{}
+
+const resyncInterval = 0
+
+func NewFakeClient() Client {
+	var c client
+	c.Interface = fake.NewSimpleClientset()
+	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
+
+	s := runtime.NewScheme()
+	if err := metav1.AddMetaToScheme(s); err != nil {
+		panic(err.Error())
+	}
+	c.metadata = metadatafake.NewSimpleMetadataClient(s)
+	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
+
+	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
+
+	return &c
+}
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type client struct {
-	*kubernetes.Clientset
+	kubernetes.Interface
+
+	// These may be set only when creating an extended client. TODO: remove this entirely
 	clientFactory util.Factory
 	restClient    *rest.RESTClient
-	config        *rest.Config
-	extSet        *kubeExtClient.Clientset
 	revision      string
+
+	config *rest.Config
+
+	extSet       *kubeExtClient.Clientset
+	kubeInformer informers.SharedInformerFactory
+
+	dynamic         dynamic.Interface
+	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
+
+	metadata         metadata.Interface
+	metadataInformer metadatainformer.SharedInformerFactory
 }
 
-// NewClient creates a Kubernetes client from the given factory. The "revision" parameter
-// controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
-func NewClient(clientFactory util.Factory, revision string) (Client, error) {
-	restConfig, err := clientFactory.ToRESTConfig()
+// newClientInternal creates a Kubernetes client from the given factory.
+func newClientInternal(clientFactory util.Factory, revision string) (*client, error) {
+	var c client
+	var err error
+
+	c.clientFactory = clientFactory
+	c.revision = revision
+
+	c.restClient, err = clientFactory.RESTClient()
 	if err != nil {
 		return nil, err
 	}
-	restClient, err := clientFactory.RESTClient()
+
+	c.config, err = clientFactory.ToRESTConfig()
 	if err != nil {
 		return nil, err
 	}
-	clientSet, err := kubernetes.NewForConfig(restConfig)
+
+	c.Interface, err = kubernetes.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	extSet, err := kubeExtClient.NewForConfig(restConfig)
+	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
+
+	c.metadata, err = metadata.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	return &client{
-		clientFactory: clientFactory,
-		Clientset:     clientSet,
-		restClient:    restClient,
-		config:        restConfig,
-		extSet:        extSet,
-		revision:      revision,
-	}, nil
+	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
+
+	c.dynamic, err = dynamic.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
+	}
+	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
+
+	c.extSet, err = kubeExtClient.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &c, nil
 }
 
-// NewClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
+// NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
-func NewClientForConfig(clientConfig clientcmd.ClientConfig, revision string) (Client, error) {
-	return NewClient(newClientFactory(clientConfig), revision)
+func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
+	return newClientInternal(newClientFactory(clientConfig), revision)
+}
+
+// NewClient creates a Kubernetes client from the given rest config.
+func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
+	return newClientInternal(newClientFactory(clientConfig), "")
 }
 
 func (c *client) RESTConfig() *rest.Config {
@@ -170,18 +256,44 @@ func (c *client) RESTConfig() *rest.Config {
 func (c *client) REST() rest.Interface {
 	return c.restClient
 }
+
 func (c *client) Ext() kubeExtClient.Interface {
 	return c.extSet
 }
 
 func (c *client) Dynamic() dynamic.Interface {
-	// Create the dynamic client as-needed, so that we don't pre-maturely cache the server-side schemas.
-	out, err := c.clientFactory.DynamicClient()
-	if err != nil {
-		// This should never happen.
-		panic(err)
-	}
-	return out
+	return c.dynamic
+}
+
+func (c *client) Kube() kubernetes.Interface {
+	return c
+}
+
+func (c *client) Metadata() metadata.Interface {
+	return c.metadata
+}
+
+func (c *client) KubeInformer() informers.SharedInformerFactory {
+	return c.kubeInformer
+}
+
+func (c *client) DynamicInformer() dynamicinformer.DynamicSharedInformerFactory {
+	return c.dynamicInformer
+}
+
+func (c *client) MetadataInformer() metadatainformer.SharedInformerFactory {
+	return c.metadataInformer
+}
+
+// RunAndWait starts all informers and waits for their caches to sync.
+// Warning: this must be called AFTER .Informer() is called, which will register the informer.
+func (c *client) RunAndWait(stop <-chan struct{}) {
+	c.kubeInformer.Start(stop)
+	c.dynamicInformer.Start(stop)
+	c.metadataInformer.Start(stop)
+	c.kubeInformer.WaitForCacheSync(stop)
+	c.dynamicInformer.WaitForCacheSync(stop)
+	c.metadataInformer.WaitForCacheSync(stop)
 }
 
 func (c *client) Revision() string {
@@ -211,7 +323,7 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 		Namespace(podNamespace).
 		SubResource("exec").
 		Param("container", container).
-		VersionedParams(&kubeApiCore.PodExecOptions{
+		VersionedParams(&v1.PodExecOptions{
 			Container: container,
 			Command:   commandFields,
 			Stdin:     false,
@@ -243,7 +355,7 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 }
 
 func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container string, previousLog bool) (string, error) {
-	opts := &kubeApiCore.PodLogOptions{
+	opts := &v1.PodLogOptions{
 		Container: container,
 		Previous:  previousLog,
 	}
@@ -337,7 +449,7 @@ func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, pat
 	return out, nil
 }
 
-func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]kubeApiCore.Pod, error) {
+func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error) {
 	if c.revision != "" {
 		labelSelector, ok := params["labelSelector"]
 		if ok {
@@ -358,7 +470,7 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 	if res.Error() != nil {
 		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
 	}
-	list := &kubeApiCore.PodList{}
+	list := &v1.PodList{}
 	if err := res.Into(list); err != nil {
 		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
 	}
@@ -413,8 +525,8 @@ func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort in
 	return newPortForwarder(c.config, podName, ns, localAddress, localPort, podPort)
 }
 
-func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*kubeApiCore.PodList, error) {
-	return c.CoreV1().Pods(namespace).List(ctx, kubeApiMeta.ListOptions{
+func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.PodList, error) {
+	return c.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: strings.Join(labelSelectors, ","),
 	})
 }

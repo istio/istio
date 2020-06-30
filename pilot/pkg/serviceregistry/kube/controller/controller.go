@@ -22,7 +22,6 @@ import (
 	"net"
 	"reflect"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -31,15 +30,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/watch"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/metadata"
-	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -53,7 +48,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/listwatch"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -213,17 +208,13 @@ type Controller struct {
 
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
-func NewController(client kubernetes.Interface, metadataClient metadata.Interface, options Options) *Controller {
-	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
-		options.WatchedNamespaces, options.ResyncPeriod)
-
-	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
+func NewController(kubeClient kubelib.Client, options Options) *Controller {
+	log.Infof("Starting Kubernetes service registry")
 
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
 		domainSuffix:                 options.DomainSuffix,
-		client:                       client,
-		metadataClient:               metadataClient,
+		client:                       kubeClient.Kube(),
 		queue:                        queue.NewQueue(1 * time.Second),
 		clusterID:                    options.ClusterID,
 		xdsUpdater:                   options.XDSUpdater,
@@ -236,40 +227,25 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		metrics:                      options.Metrics,
 	}
 
-	svcMlw := listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return client.CoreV1().Services(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return client.CoreV1().Services(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	c.serviceInformer = cache.NewSharedIndexInformer(svcMlw, &v1.Service{}, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
+	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
+	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
 	registerHandlers(c.serviceInformer, c.queue, "Services", reflect.DeepEqual, c.onServiceEvent)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
-		c.endpoints = newEndpointsController(c, options)
+		c.endpoints = newEndpointsController(c, kubeClient.KubeInformer().Core().V1().Endpoints())
 	case EndpointSliceOnly:
-		c.endpoints = newEndpointSliceController(c, options)
+		c.endpoints = newEndpointSliceController(c, kubeClient.KubeInformer().Discovery().V1alpha1().EndpointSlices())
 	}
 
 	// This is for getting the pod to node mapping, so that we can get the pod's locality.
-	metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
-	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-	c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
+	c.nodeMetadataInformer = kubeClient.MetadataInformer().ForResource(v1.SchemeGroupVersion.WithResource("nodes")).Informer()
 	// This is for getting the node IPs of a selected set of nodes
-	c.filteredNodeInformer = coreinformers.NewFilteredNodeInformer(client, options.ResyncPeriod,
-		cache.Indexers{},
-		func(options *metav1.ListOptions) {})
+	c.filteredNodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
+	c.metadataClient = kubeClient.Metadata()
 	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", reflect.DeepEqual, c.onNodeEvent)
 
-	c.pods = newPodCache(c, options)
+	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods())
 	registerHandlers(c.pods.informer, c.queue, "Pods", reflect.DeepEqual, c.pods.onEvent)
 
 	return c
@@ -517,17 +493,10 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 
-	go c.serviceInformer.Run(stop)
-	go c.pods.informer.Run(stop)
-	go c.nodeMetadataInformer.Run(stop)
-	go c.filteredNodeInformer.Run(stop)
-
 	// To avoid endpoints without labels or ports, wait for sync.
 	cache.WaitForCacheSync(stop, c.nodeMetadataInformer.HasSynced, c.filteredNodeInformer.HasSynced,
 		c.pods.informer.HasSynced,
 		c.serviceInformer.HasSynced)
-
-	go c.endpoints.Run(stop)
 
 	<-stop
 	log.Infof("Controller terminated")
