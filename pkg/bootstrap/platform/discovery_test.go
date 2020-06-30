@@ -20,24 +20,26 @@ import (
 	"time"
 )
 
-type platMetaFn func(map[string]string) bool
-
 func TestDiscoverWithTimeout(t *testing.T) {
 	tests := []struct {
 		desc         string
 		timeout      time.Duration
 		envSetup     func(t *testing.T)
 		envTeardown  func(t *testing.T)
-		platExpectFn platMetaFn
+		platExpectFn func(map[string]string) bool
 	}{
 		{
 			desc:    "unknown-plat",
 			timeout: 1 * time.Second,
 			envSetup: func(*testing.T) {
 				gcpMetadataVar.Name = "UNITTEST_GCP_METADATA"
-				os.Unsetenv(gcpMetadataVar.Name)
+				err := os.Unsetenv(gcpMetadataVar.Name)
+				if err != nil {
+					t.Errorf("Unable to set up test env: %v", err)
+				}
 			},
 			envTeardown: func(*testing.T) {
+				// re-set back to GCP_METADATA
 				gcpMetadataVar.Name = "GCP_METADATA"
 			},
 			platExpectFn: func(m map[string]string) bool {
@@ -52,8 +54,7 @@ func TestDiscoverWithTimeout(t *testing.T) {
 			desc:    "gcp",
 			timeout: 1 * time.Second,
 			envSetup: func(*testing.T) {
-				// dont want to mess with GCP_METADATA on the host
-				// it may be write-protected, and runs on GKE
+				// dont want to mess with GCP_METADATA on GKE
 				gcpMetadataVar.Name = "UNITTEST_GCP_METADATA"
 				err := os.Setenv("UNITTEST_GCP_METADATA", "FOO|BAR|BAZ|MAR")
 				if err != nil {

@@ -112,6 +112,7 @@ func NewGCP() Environment {
 
 // Metadata returns GCP environmental data, including project, cluster name, and
 // location information.
+// prefer environment data over go config data
 func (e *gcpEnv) Metadata() map[string]string {
 	md := map[string]string{}
 	if e == nil {
@@ -156,8 +157,6 @@ func (e *gcpEnv) Metadata() map[string]string {
 func parseGCPMetadata() (pid, npid, cluster, location string) {
 	var envPid, envNpid, envCluster, envLocation string
 	gcpmd := gcpMetadataVar.Get()
-	log.Info(gcpMetadataVar.Name)
-	log.Info(gcpMetadataVar.Get())
 	if len(gcpmd) > 0 {
 		log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
 		parts := strings.Split(gcpmd, "|")
