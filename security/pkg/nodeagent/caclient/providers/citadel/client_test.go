@@ -189,6 +189,7 @@ func buildContext(bindle util.KeyCertBundle) (context.Context, error){
 	ctx = peer.NewContext(ctx, p)
 	peer, _ := peer.FromContext(ctx)
 	fmt.Printf("ssssssppppoooooo")
+	fmt.Printf("%+v", certchainbytes)
 	fmt.Printf("%+v\n",peer.AuthInfo)
 	return ctx, nil
 }
