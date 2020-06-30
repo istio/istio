@@ -257,7 +257,16 @@ func routesFromListeners(ll []*listener.Listener) []string {
 
 var testCases = []ConfigInput{
 	{
+		// Gateways provides an example config for a large Ingress deployment. This will create N
+		// virtual services and gateways, where routing is determined by hostname, meaning we generate N routes for HTTPS.
 		Name:      "gateways",
+		Services:  1000,
+		ProxyType: model.Router,
+	},
+	{
+		// Gateways-shared provides an example config for a large Ingress deployment. This will create N
+		// virtual services and gateways, where routing is determined by path. This means there will be a single large route.
+		Name:      "gateways-shared",
 		Services:  1000,
 		ProxyType: model.Router,
 	},

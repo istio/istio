@@ -19,31 +19,10 @@ spec:
     labels:
       istio.io/benchmark: "true"
 ---
-{{- range $i := until .Services }}
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: vs-{{$i}}
-  namespace: gateway
-spec:
-  hosts:
-  - random-a-{{$i}}.host.example
-  - random-b-{{$i}}.host.example
-  - random-c-{{$i}}.host.example
-  gateways:
-  - gateway/gateway-{{$i}}
-  http:
-  - match:
-    - uri:
-        prefix: "/route-{{$i}}"
-    route:
-    - destination:
-        host: random-{{$i}}.host.example
----
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: gateway-{{$i}}
+  name: gateway
   namespace: gateway
 spec:
   selector:
@@ -54,19 +33,50 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - random-a-{{$i}}.host.example
-    - random-b-{{$i}}.host.example
-    - random-c-{{$i}}.host.example
+    - random-1.host.example
+    - random-2.host.example
+    - random-3.host.example
   - port:
       number: 443
       name: https
       protocol: HTTPS
     hosts:
-    - random-a-{{$i}}.host.example
-    - random-b-{{$i}}.host.example
-    - random-c-{{$i}}.host.example
+    - random-1.host.example
+    - random-2.host.example
+    - random-3.host.example
     tls:
       mode: ISTIO_MUTUAL
+---
+{{- range $i := until .Services }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs-{{$i}}
+  namespace: gateway
+spec:
+  hosts:
+  - random-1.host.example
+  - random-2.host.example
+  - random-3.host.example
+  gateways:
+  - gateway/gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/route-a-{{$i}}"
+    - uri:
+        prefix: "/route-b-{{$i}}"
+    - uri:
+        prefix: "/route-c-{{$i}}"
+    - uri:
+        prefix: "/route-d-{{$i}}"
+    - uri:
+        prefix: "/route-e-{{$i}}"
+    - uri:
+        prefix: "/route-f-{{$i}}"
+    route:
+    - destination:
+        host: random-{{$i}}.host.example
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
