@@ -23,16 +23,10 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/metadata"
-	metafake "k8s.io/client-go/metadata/fake"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	pkgtest "istio.io/istio/pkg/test"
 )
@@ -74,14 +68,6 @@ func deleteMultiClusterSecret(k8s *fake.Clientset) error {
 		testSecretName, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
-func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
-	return &clientcmdapi.Config{}, nil
-}
-
-func mockValidateClientConfig(_ clientcmdapi.Config) error {
-	return nil
-}
-
 func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
 	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
 		m.m.Lock()
@@ -90,30 +76,11 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 	})
 }
 
-func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
-	return fake.NewSimpleClientset(), nil
-}
-
-func mockCreateMetaInterfaceFromClusterConfig(_ *clientcmdapi.Config) (metadata.Interface, error) {
-	scheme := runtime.NewScheme()
-	metav1.AddMetaToScheme(scheme)
-	return metafake.NewSimpleMetadataClient(scheme), nil
-}
-
-func mockCreateDynamicInterfaceFromClusterConfig(_ *clientcmdapi.Config) (dynamic.Interface, error) {
-	scheme := runtime.NewScheme()
-	metav1.AddMetaToScheme(scheme)
-	return dynamicfake.NewSimpleDynamicClient(scheme), nil
-}
-
 // This test is skipped by the build tag !race due to https://github.com/istio/istio/issues/15610
 func Test_KubeSecretController(t *testing.T) {
-	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
-	secretcontroller.ValidateClientConfig = mockValidateClientConfig
-	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
-	secretcontroller.CreateMetadataInterfaceFromClusterConfig = mockCreateMetaInterfaceFromClusterConfig
-	secretcontroller.CreateDynamicInterfaceFromClusterConfig = mockCreateDynamicInterfaceFromClusterConfig
-
+	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+		return kube.NewFakeClient(), nil
+	}
 	clientset := fake.NewSimpleClientset()
 	mc, err := NewMulticluster(clientset,
 		testSecretNameSpace,

@@ -31,9 +31,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	api "istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/protocol"
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -46,7 +49,6 @@ import (
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -84,7 +86,8 @@ func TestController(t *testing.T) {
 				Version:  "v1alpha1",
 				Resource: "istiooperators",
 			}
-			if err := cs.DeleteUnstructured(gvr, IstioNamespace, "installed-state"); err != nil {
+			if err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Delete(context.TODO(),
+				"installed-state", kubeApiMeta.DeleteOptions{}); err != nil {
 				t.Logf(err.Error())
 			}
 			initCmd := []string{
@@ -115,10 +118,11 @@ func TestController(t *testing.T) {
 			// cleanup created resources
 			t.Cleanup(func() {
 				scopes.Framework.Infof("cleaning up resources")
-				if err := cs.Delete(IstioNamespace, iopCRFile); err != nil {
+				if err := cs.DeleteYAMLFiles(IstioNamespace, iopCRFile); err != nil {
 					t.Errorf("faild to delete test IstioOperator CR: %v", err)
 				}
-				if err := cs.DeleteNamespace(OperatorNamespace); err != nil {
+				if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
+					kube2.DeleteOptionsForeground()); err != nil {
 					t.Errorf("failed to delete operator namespace: %v", err)
 				}
 			})
@@ -126,7 +130,7 @@ func TestController(t *testing.T) {
 }
 
 // checkInstallStatus check the status of IstioOperator CR from the cluster
-func checkInstallStatus(cs kube.Cluster) error {
+func checkInstallStatus(cs istioKube.ExtendedClient) error {
 	scopes.Framework.Infof("checking IstioOperator CR status")
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
@@ -136,7 +140,7 @@ func checkInstallStatus(cs kube.Cluster) error {
 
 	var unhealthyCN []string
 	retryFunc := func() error {
-		us, err := cs.GetUnstructured(gvr, IstioNamespace, "test-istiocontrolplane")
+		us, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Get(context.TODO(), "test-istiocontrolplane", kubeApiMeta.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get istioOperator resource: %v", err)
 		}
@@ -146,7 +150,7 @@ func checkInstallStatus(cs kube.Cluster) error {
 				kubeApiMeta.GetOptions{}); err != nil {
 				return fmt.Errorf("istio operator svc is not ready: %v", err)
 			}
-			if _, err := cs.CheckPodsAreReady(kube2.NewPodFetch(cs.Accessor, OperatorNamespace)); err != nil {
+			if _, err := kube2.CheckPodsAreReady(kube2.NewPodFetch(cs, OperatorNamespace, "")); err != nil {
 				return fmt.Errorf("istio operator pod is not ready: %v", err)
 			}
 
@@ -183,7 +187,7 @@ func checkInstallStatus(cs kube.Cluster) error {
 	return nil
 }
 
-func installWithCRFile(t *testing.T, ctx resource.Context, cs kube.Cluster, s *image.Settings,
+func installWithCRFile(t *testing.T, ctx resource.Context, cs resource.Cluster, s *image.Settings,
 	istioCtl istioctl.Instance, profileName string) {
 	scopes.Framework.Infof(fmt.Sprintf("=== install istio with profile: %s===\n", profileName))
 	metadataYAML := `
@@ -206,7 +210,7 @@ spec:
 		t.Fatalf("failed to write iop cr file: %v", err)
 	}
 
-	if err := cs.Apply(IstioNamespace, iopCRFile); err != nil {
+	if err := cs.ApplyYAMLFiles(IstioNamespace, iopCRFile); err != nil {
 		t.Fatalf("failed to apply IstioOperator CR file: %s, %v", iopCRFile, err)
 	}
 
@@ -215,13 +219,13 @@ spec:
 
 // verifyInstallation verify IOP CR status and compare in-cluster resources with generated ones.
 func verifyInstallation(t *testing.T, ctx resource.Context,
-	istioCtl istioctl.Instance, profileName string, cs kube.Cluster) {
+	istioCtl istioctl.Instance, profileName string, cs resource.Cluster) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
 	if err := checkInstallStatus(cs); err != nil {
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
 
-	if _, err := cs.CheckPodsAreReady(kube2.NewSinglePodFetch(cs.Accessor, IstioNamespace, "app=istiod")); err != nil {
+	if _, err := kube2.CheckPodsAreReady(kube2.NewSinglePodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
 		t.Fatalf("istiod pod is not ready: %v", err)
 	}
 
@@ -269,7 +273,7 @@ func sanityCheck(t *testing.T, ctx resource.Context) {
 }
 
 func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Instance, profileName string,
-	cs kube.Cluster) error {
+	cs resource.Cluster) error {
 	// get manifests by running `manifest generate`
 	generateCmd := []string{
 		"manifest", "generate",
@@ -329,7 +333,8 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 					return fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name)
 				}
 			case "EnvoyFilter":
-				if _, err := cs.GetUnstructured(efgvr, ns, name); err != nil {
+				if _, err := cs.Dynamic().Resource(efgvr).Namespace(ns).Get(context.TODO(), name,
+					kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected Envoyfilter: %s from cluster", name)
 				}
 			case "PodDisruptionBudget":

@@ -390,35 +390,36 @@ resources:
     group: "networking.x-k8s.io"
     version: "v1alpha1"
     clusterScoped: true
-    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.GatewayClassSpec"
 
   - Kind: "Gateway"
     plural: "gateways"
     group: "networking.x-k8s.io"
     version: "v1alpha1"
-    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.GatewaySpec"
+    validate: "EmptyValidate"
 
   - Kind: "HTTPRoute"
     plural: "httproutes"
     group: "networking.x-k8s.io"
     version: "v1alpha1"
-    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec"
 
   - Kind: "TcpRoute"
     plural: "tcproutes"
     group: "networking.x-k8s.io"
     version: "v1alpha1"
-    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.TcpRouteSpec"
 
   - Kind: "TrafficSplit"
     plural: "trafficsplits"
     group: "networking.x-k8s.io"
     version: "v1alpha1"
-    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.TrafficSplitSpec"
 
   ## Istio resources

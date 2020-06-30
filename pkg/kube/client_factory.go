@@ -15,28 +15,18 @@
 package kube
 
 import (
-	"path/filepath"
-	"regexp"
-	"strings"
-	"time"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
-	diskcached "k8s.io/client-go/discovery/cached/disk"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/util/openapi"
 	"k8s.io/kubectl/pkg/validation"
-)
-
-var (
-	defaultCacheDir = filepath.Join(homedir.HomeDir(), ".kube", "http-cache")
 )
 
 var _ util.Factory = &clientFactory{}
@@ -44,15 +34,13 @@ var _ util.Factory = &clientFactory{}
 // clientFactory implements the kubectl util.Factory, which is provides access to various k8s clients.
 type clientFactory struct {
 	clientConfig clientcmd.ClientConfig
-	cacheDir     string
 	factory      util.Factory
 }
 
-// NewClientFactory creates a new util.Factory instance based on the config.
-func NewClientFactory(clientConfig clientcmd.ClientConfig, cacheDir string) util.Factory {
+// newClientFactory creates a new util.Factory from the given clientcmd.ClientConfig.
+func newClientFactory(clientConfig clientcmd.ClientConfig) util.Factory {
 	out := &clientFactory{
 		clientConfig: clientConfig,
-		cacheDir:     cacheDir,
 	}
 
 	out.factory = util.NewFactory(out)
@@ -72,7 +60,11 @@ func (c *clientFactory) ToDiscoveryClient() (discovery.CachedDiscoveryInterface,
 	if err != nil {
 		return nil, err
 	}
-	return toDiscoveryClient(restConfig, c.cacheDir)
+	d, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	return memory.NewMemCacheClient(d), nil
 }
 
 func (c *clientFactory) ToRESTMapper() (meta.RESTMapper, error) {
@@ -128,33 +120,4 @@ func (c *clientFactory) Validator(validate bool) (validation.Schema, error) {
 
 func (c *clientFactory) OpenAPISchema() (openapi.Resources, error) {
 	return c.factory.OpenAPISchema()
-}
-
-func toDiscoveryClient(config *rest.Config, cacheDir string) (discovery.CachedDiscoveryInterface, error) {
-	// The more groups you have, the more discovery requests you need to make.
-	// given 25 groups (our groups + a few custom resources) with one-ish version each, discovery needs to make 50 requests
-	// double it just so we don't end up here again for a while.  This config is only used for discovery.
-	config.Burst = 100
-
-	// retrieve a user-provided value for the "cache-dir"
-	// defaulting to ~/.kube/http-cache if no user-value is given.
-	httpCacheDir := defaultCacheDir
-	if len(cacheDir) > 0 {
-		httpCacheDir = cacheDir
-	}
-
-	discoveryCacheDir := computeDiscoverCacheDir(filepath.Join(homedir.HomeDir(), ".kube", "cache", "discovery"), config.Host)
-	return diskcached.NewCachedDiscoveryClientForConfig(config, discoveryCacheDir, httpCacheDir, 10*time.Minute)
-}
-
-// overlyCautiousIllegalFileCharacters matches characters that *might* not be supported.  Windows is really restrictive, so this is really restrictive
-var overlyCautiousIllegalFileCharacters = regexp.MustCompile(`[^(\w/.)]`)
-
-// computeDiscoverCacheDir takes the parentDir and the host and comes up with a "usually non-colliding" name.
-func computeDiscoverCacheDir(parentDir, host string) string {
-	// strip the optional scheme from host if its there:
-	schemelessHost := strings.Replace(strings.Replace(host, "https://", "", 1), "http://", "", 1)
-	// now do a simple collapse of non-AZ09 characters.  Collisions are possible but unlikely.  Even if we do collide the problem is short lived
-	safeHost := overlyCautiousIllegalFileCharacters.ReplaceAllString(schemelessHost, "_")
-	return filepath.Join(parentDir, safeHost)
 }

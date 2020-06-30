@@ -17,8 +17,8 @@ package status
 import (
 	"strings"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 
 	"gopkg.in/yaml.v2"
@@ -69,12 +69,12 @@ func (r Resource) String() string {
 
 func (r *Resource) ToModelKey() string {
 	// we have a resource here, but model keys use kind.  Use the schema to find the correct kind.
-	found, _ := crd.SupportedSchemas.FindByPlural(r.Resource)
+	found, _ := collections.All.FindByPlural(r.Group, r.Version, r.Resource)
 	return model.Key(found.Resource().Kind(), r.Name, r.Namespace)
 }
 
 func ResourceFromModelConfig(c model.Config) *Resource {
-	gvr := GVKtoGVR(c.GroupVersionKind())
+	gvr := GVKtoGVR(c.GroupVersionKind)
 	if gvr == nil {
 		return nil
 	}
@@ -87,7 +87,7 @@ func ResourceFromModelConfig(c model.Config) *Resource {
 }
 
 func GVKtoGVR(in resource.GroupVersionKind) *schema.GroupVersionResource {
-	found, ok := crd.SupportedSchemas.FindByGroupVersionKind(in)
+	found, ok := collections.All.FindByGroupVersionKind(in)
 	if !ok {
 		return nil
 	}

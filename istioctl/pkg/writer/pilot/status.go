@@ -22,7 +22,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/xds"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Pilot responses
@@ -32,7 +32,7 @@ type StatusWriter struct {
 
 type writerStatus struct {
 	pilot string
-	v2.SyncStatus
+	xds.SyncStatus
 }
 
 // PrintAll takes a slice of Pilot syncz responses and outputs them using a tabwriter

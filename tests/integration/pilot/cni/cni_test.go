@@ -29,15 +29,13 @@ import (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("cni", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 components:
   cni:
      enabled: true
-     hub: gcr.io/istio-testing
-     tag: latest
      namespace: kube-system
 `
 		})).
@@ -55,7 +53,7 @@ func TestCNIReachability(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			kenv := ctx.Environment().(*kube.Environment)
 			cluster := kenv.KubeClusters[0]
-			_, err := cluster.WaitUntilPodsAreReady(kube2.NewSinglePodFetch(cluster.Accessor, "kube-system", "k8s-app=istio-cni-node"))
+			_, err := kube2.WaitUntilPodsAreReady(kube2.NewSinglePodFetch(cluster, "kube-system", "k8s-app=istio-cni-node"))
 			if err != nil {
 				ctx.Fatal(err)
 			}

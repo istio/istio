@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -105,8 +106,6 @@ spec:
       - name: app
         image: {{ $.Hub }}/app:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
-        securityContext:
-          runAsUser: 1
         args:
           - --metrics=15014
           - --cluster
@@ -217,7 +216,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: istio-proxy
-        image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
+        image: {{ $.Hub }}/{{ $.VM.Image }}:{{ $.Tag }}
         #image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
         securityContext:
@@ -302,7 +301,7 @@ func init() {
 	}
 }
 
-func generateYAML(cfg echo.Config, cluster kube.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Create the parameters for the YAML template.
 	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -311,7 +310,8 @@ func generateYAML(cfg echo.Config, cluster kube.Cluster) (serviceYAML string, de
 	return generateYAMLWithSettings(cfg, settings, cluster)
 }
 
-func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster kube.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
+	cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -327,7 +327,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		}
 	}
 
-	var istiodIP, istiodPort string
+	var vmImage, istiodIP, istiodPort string
 	if cfg.DeployAsVM {
 		s, err := kube.NewSettingsFromCommandLine()
 		if err != nil {
@@ -339,6 +339,13 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		}
 		istiodIP = addr.IP.String()
 		istiodPort = strconv.Itoa(addr.Port)
+
+		// if image is not provided, default to app_sidecar
+		if cfg.VMImage == "" {
+			vmImage = "app_sidecar_ubuntu_bionic"
+		} else {
+			vmImage = cfg.VMImage
+		}
 	}
 	namespace := ""
 	if cfg.Namespace != nil {
@@ -360,9 +367,10 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
-		"Cluster":             cfg.ClusterIndex(),
+		"Cluster":             cfg.Cluster.Name(),
 		"Namespace":           namespace,
 		"VM": map[string]interface{}{
+			"Image":      vmImage,
 			"IstiodIP":   istiodIP,
 			"IstiodPort": istiodPort,
 		},

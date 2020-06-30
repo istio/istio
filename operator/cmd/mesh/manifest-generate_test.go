@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	istioTestVersion = "istio-1.5.0"
+	istioTestVersion = "istio-1.6.0"
 	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
 )
 
