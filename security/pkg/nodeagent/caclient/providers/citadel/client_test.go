@@ -92,13 +92,46 @@ func TestE2EClient(t *testing.T) {
 
 		server, createServerErr := citadelca.New(ca, time.Hour, false, []string{"localhost"}, 0,
 			"testdomain.com", true, jwt.PolicyThirdParty, "kubernetes")
+
 		if err != nil {
 			t.Errorf("%s: Cannot create server: %v", id, createServerErr)
 		}
+
+		s := grpc.NewServer()
+		defer s.Stop()
+		lis, err := net.Listen("tcp", mockServerAddress)
+		if err != nil {
+			t.Fatalf("Test case [%s]: failed to listen: %v", id, err)
+		}
+
+		go func() {
+			pb.RegisterIstioCertificateServiceServer(s, server)
+			if err := s.Serve(lis); err != nil {
+				t.Logf("Test case [%s]: failed to serve: %v", id, err)
+			}
+		}()
+
 		request := &pb.IstioCertificateRequest{Csr: "dumb CSR"}
 		_, createErr := server.CreateCertificate(context.Background(), request)
 		if createErr != nil {
 			t.Errorf("%s: getServerCertificate error: %v", id, createErr)
+		}
+
+		// The goroutine starting the server may not be ready, results in flakiness.
+		time.Sleep(1 * time.Second)
+
+		cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "")
+		if err != nil {
+			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
+		}
+		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
+		if err != nil {
+				t.Logf("%+v", resp)
+				t.Errorf("Test case [%s]: error (%s) happens ", id, err.Error())
+		} else {
+			//if !reflect.DeepEqual(resp, tc.expectedCert) {
+			//	t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+			//}
 		}
 	}
 
