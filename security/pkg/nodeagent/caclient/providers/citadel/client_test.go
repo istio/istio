@@ -58,16 +58,16 @@ func TestE2EClient(t *testing.T) {
 		signingKeyFile  string
 	}{
 		"RSA server cert": {
-			rootCertFile:    "/../../pki/testdata/multilevelpki/root-cert.pem",
-			certChainFile:   "/../../pki/testdata/multilevelpki/int2-cert-chain.pem",
-			signingCertFile: "../../pki/testdata/multilevelpki/int2-cert.pem",
-			signingKeyFile:  "/../../pki/testdata/multilevelpki/int2-key.pem",
+			rootCertFile:    "../../../../pki/testdata/multilevelpki/root-cert.pem",
+			certChainFile:   "../../../../pki/testdata/multilevelpki/int2-cert-chain.pem",
+			signingCertFile: "../../../../pki/testdata/multilevelpki/int2-cert.pem",
+			signingKeyFile:  "../../../../pki/testdata/multilevelpki/int2-key.pem",
 		},
 		"ECC server cert": {
-			rootCertFile:    "/../../pki/testdata/multilevelpki/ecc-root-cert.pem",
-			certChainFile:   "/../../pki/testdata/multilevelpki/ecc-int2-cert-chain.pem",
-			signingCertFile: "/../../pki/testdata/multilevelpki/ecc-int2-cert.pem",
-			signingKeyFile:  "/../../pki/testdata/multilevelpki/ecc-int2-key.pem",
+			rootCertFile:    "../../../../pki/testdata/multilevelpki/ecc-root-cert.pem",
+			certChainFile:   "../../../../pki/testdata/multilevelpki/ecc-int2-cert-chain.pem",
+			signingCertFile: "../../../../pki/testdata/multilevelpki/ecc-int2-cert.pem",
+			signingKeyFile:  "../../../../pki/testdata/multilevelpki/ecc-int2-key.pem",
 		},
 	}
 	for id, tc := range cases {
