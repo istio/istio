@@ -114,33 +114,33 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 	mockCertChain := []string{"cert", "cert_chain", "root_cert"}
 	mockIPAddr := &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}
 	testCerts := map[string]struct {
-		certChain          [][]*x509.Certificate
-		caller             *authenticate.Caller
-		fakeAuthInfo       *mockAuthInfo
-		code               codes.Code
-		ipAddr             *net.IPAddr
+		certChain    [][]*x509.Certificate
+		caller       *authenticate.Caller
+		fakeAuthInfo *mockAuthInfo
+		code         codes.Code
+		ipAddr       *net.IPAddr
 	}{
 		//no client certificate is presented
 		"No client certificate": {
-			certChain:          nil,
-			caller:             nil,
-			ipAddr:             mockIPAddr,
-			code:               codes.Unauthenticated,
+			certChain: nil,
+			caller:    nil,
+			ipAddr:    mockIPAddr,
+			code:      codes.Unauthenticated,
 		},
 		//"unsupported auth type: not-tls"
 		"Unsupported auth type": {
-			certChain:          nil,
-			caller:             nil,
-			fakeAuthInfo:       &mockAuthInfo{"not-tls"},
-			ipAddr:             mockIPAddr,
-			code:               codes.Unauthenticated,
+			certChain:    nil,
+			caller:       nil,
+			fakeAuthInfo: &mockAuthInfo{"not-tls"},
+			ipAddr:       mockIPAddr,
+			code:         codes.Unauthenticated,
 		},
 		//no cert chain presented
 		"Empty cert chain": {
-			certChain:          [][]*x509.Certificate{},
-			caller:             nil,
-			ipAddr:             mockIPAddr,
-			code:               codes.Unauthenticated,
+			certChain: [][]*x509.Certificate{},
+			caller:    nil,
+			ipAddr:    mockIPAddr,
+			code:      codes.Unauthenticated,
 		},
 		//certificate misses the the SAN field
 		"Certificate has no SAN": {
@@ -151,8 +151,8 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 					},
 				},
 			},
-			ipAddr:             mockIPAddr,
-			code:               codes.Unauthenticated,
+			ipAddr: mockIPAddr,
+			code:   codes.Unauthenticated,
 		},
 		//successful testcase with valid client certificate
 		"With client certificate": {
