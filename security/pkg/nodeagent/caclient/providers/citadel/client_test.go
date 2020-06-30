@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/jwt"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	//mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
