@@ -29,6 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+
 	"istio.io/pkg/env"
 
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -114,7 +115,7 @@ func createEndpoints(numEndpoints int, numServices int) []model.Config {
 	return result
 }
 
-func buildTestEnv(t testing.TB, cfgs []model.Config, input ConfigInput) *model.Environment {
+func buildTestEnv(t testing.TB, cfgs []model.Config) *model.Environment {
 	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
 	for _, cfg := range cfgs {
 		if _, err := configStore.Create(cfg); err != nil {
@@ -183,14 +184,14 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			Namespace: "not-default",
+			Namespace: "default",
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
 		},
 		// TODO: if you update this, make sure telemetry.yaml is also updated
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},
-		ConfigNamespace: "not-default",
+		ConfigNamespace: "default",
 	}
 
 	configName := config.ConfigName
@@ -213,7 +214,7 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 		}
 		configs[i] = c
 	}
-	env := buildTestEnv(t, configs, config)
+	env := buildTestEnv(t, configs)
 
 	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
 	return env, configgen, proxy
