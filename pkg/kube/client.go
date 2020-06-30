@@ -178,6 +178,7 @@ const resyncInterval = 0
 func NewFakeClient() Client {
 	var c client
 	c.Interface = fake.NewSimpleClientset()
+	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
 
 	s := runtime.NewScheme()
@@ -216,6 +217,7 @@ type client struct {
 	extSet        kubeExtClient.Interface
 	versionClient discovery.ServerVersionInterface
 
+	kube         kubernetes.Interface
 	kubeInformer informers.SharedInformerFactory
 
 	dynamic         dynamic.Interface
@@ -250,6 +252,7 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 
 	c.Interface, err = kubernetes.NewForConfig(c.config)
+	c.kube = c.Interface
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +321,7 @@ func (c *client) Dynamic() dynamic.Interface {
 }
 
 func (c *client) Kube() kubernetes.Interface {
-	return c
+	return c.kube
 }
 
 func (c *client) Metadata() metadata.Interface {

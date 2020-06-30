@@ -28,11 +28,11 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 
 	"istio.io/pkg/log"
@@ -166,7 +166,7 @@ func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caC
 	return false
 }
 
-func CreateValidationWebhookController(client kubernetes.Interface, dynamicInterface dynamic.Interface,
+func CreateValidationWebhookController(client kube.Client,
 	webhookConfigName, ns, caBundlePath string, remote bool) *controller.Controller {
 	o := controller.Options{
 		WatchedNamespace:    ns,
@@ -175,7 +175,7 @@ func CreateValidationWebhookController(client kubernetes.Interface, dynamicInter
 		ServiceName:         "istiod",
 		RemoteWebhookConfig: remote,
 	}
-	whController, err := controller.New(o, client, dynamicInterface)
+	whController, err := controller.New(o, client)
 	if err != nil {
 		log.Errorf("failed to create validationWebhookController controller: %v", err)
 	}

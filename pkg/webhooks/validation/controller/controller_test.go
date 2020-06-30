@@ -38,6 +38,7 @@ import (
 
 	"istio.io/pkg/filewatcher"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
 )
 
@@ -172,6 +173,7 @@ type fakeController struct {
 	*fake.Clientset
 	dFakeClient     *dfake.FakeDynamicClient
 	reconcileDoneCh chan struct{}
+	client          kube.Client
 }
 
 const (
@@ -181,7 +183,7 @@ const (
 )
 
 func createTestController(t *testing.T) *fakeController {
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := kube.NewFakeClient()
 	o := Options{
 		WatchedNamespace:  namespace,
 		ResyncPeriod:      time.Minute,
@@ -189,8 +191,6 @@ func createTestController(t *testing.T) *fakeController {
 		WebhookConfigName: istiod,
 		ServiceName:       istiod,
 	}
-
-	dfakeClient := dfake.NewSimpleDynamicClient(runtime.NewScheme())
 
 	caChanged := make(chan bool, 10)
 	changed := func(path string, added bool) {
@@ -206,8 +206,9 @@ func createTestController(t *testing.T) *fakeController {
 		caChangedCh:      caChanged,
 		injectedCABundle: caBundle0,
 		fakeWatcher:      fakeWatcher,
-		Clientset:        fakeClient,
-		dFakeClient:      dfakeClient,
+		client:           fakeClient,
+		Clientset:        fakeClient.Kube().(*fake.Clientset),
+		dFakeClient:      fakeClient.Dynamic().(*dfake.FakeDynamicClient),
 		reconcileDoneCh:  make(chan struct{}, 100),
 	}
 
@@ -231,14 +232,14 @@ func createTestController(t *testing.T) *fakeController {
 	}
 
 	var err error
-	fc.Controller, err = newController(o, fakeClient, dfakeClient, newFileWatcher, readFile, reconcileDone)
+	fc.Controller, err = newController(o, fakeClient, newFileWatcher, readFile, reconcileDone)
 	if err != nil {
 		t.Fatalf("failed to create test controller: %v", err)
 	}
+	fakeClient.RunAndWait(make(chan struct{}))
 
-	si := fc.Controller.sharedInformers
-	fc.endpointStore = si.Core().V1().Endpoints().Informer().GetStore()
-	fc.configStore = si.Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer().GetStore()
+	fc.endpointStore = fakeClient.KubeInformer().Core().V1().Endpoints().Informer().GetStore()
+	fc.configStore = fakeClient.KubeInformer().Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer().GetStore()
 
 	return fc
 }
