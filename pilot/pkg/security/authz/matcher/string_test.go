@@ -31,8 +31,7 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 			name: "wildcardAsRequired",
 			v:    "*",
 			want: StringMatcherRegex(".+"),
-		},
-		{
+		},{
 			name: "prefix",
 			v:    "-prefix-*",
 			want: &matcherpb.StringMatcher{
@@ -64,6 +63,48 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := StringMatcherWithPrefix(tc.v, "abc")
+			if !reflect.DeepEqual(*actual, *tc.want) {
+				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
+			}
+		})
+	}
+}
+
+func TestStringMatcherRegex(t *testing.T) {
+	testCases := []struct {
+		name string
+		v    string
+		want *matcherpb.StringMatcher
+	}{
+		{
+			name: "wildcardAsRequired",
+			v:    "a",
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+					SafeRegex: &matcherpb.RegexMatcher{
+						Regex: "a",
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+					},
+				},
+			},
+		},
+		//{
+		//	name: "regexExpression",
+		//	v:    "foo",
+		//	want: &matcherpb.StringMatcher{
+		//		MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+		//			SafeRegex: "*",
+		//		},
+		//	},
+		//},
+
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := StringMatcherRegex(tc.v)
 			if !reflect.DeepEqual(*actual, *tc.want) {
 				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
 			}
