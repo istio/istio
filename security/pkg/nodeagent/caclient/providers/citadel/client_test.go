@@ -200,6 +200,8 @@ func buildContext() (context.Context, error){
 	fmt.Printf("%+v\n",ctx)
 	fmt.Printf("pppppkkkkkkkkk\n")
 	fmt.Printf("%+v\n",peer.AuthInfo)
+	fmt.Printf("ssssssssmmmm\n")
+	fmt.Printf("%+v\n",peer.AuthInfo.AuthType())
 	return ctx, nil
 }
 
