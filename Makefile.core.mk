@@ -280,7 +280,9 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
   ./operator/cmd/operator \
-  ./cni/cmd/istio-cni ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/istio-cni \
+  ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/install-cni \
   ./tools/istio-iptables
 
 # List of binaries included in releases
@@ -433,8 +435,15 @@ test: racetest
 TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./mixer/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/...
 
 .PHONY: racetest
+
+RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest operator-racetest cni-racetest
+
 racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
 	go test ${GOBUILDFLAGS} ${T} -race $(TEST_TARGETS) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+
+.PHONY: cni-racetest
+cni-racetest:
+	go test ${GOBUILDFLAGS} ${T} -race ./cni/cmd/... ./cni/pkg/...
 
 #-----------------------------------------------------------------------------
 # Target: clean

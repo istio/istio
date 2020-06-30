@@ -8,7 +8,7 @@ jq='1.5*' \
 
 COPY istio-cni /opt/cni/bin/
 COPY istio-iptables /opt/cni/bin/
-COPY install-cni.sh /install-cni.sh
+COPY install-cni /usr/local/bin/install-cni
 COPY filter.jq /filter.jq
 COPY istio-cni.conf.default /istio-cni.conf.tmp
 
@@ -17,4 +17,4 @@ COPY istio-cni-repair /opt/cni/bin/
 
 ENV PATH=$PATH:/opt/cni/bin
 WORKDIR /opt/cni/bin
-CMD ["/install-cni.sh"]
+CMD ["/usr/local/bin/install-cni"]
