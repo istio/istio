@@ -162,7 +162,8 @@ func TestE2EClient(t *testing.T) {
 }
 
 func buildContext(bindle util.KeyCertBundle) (context.Context, error){
-	bindle.GetAll()
+	_,_, certchainbytes, _:= bindle.GetAll()
+	//cert *x509.Certificate, privKey *crypto.PrivateKey, certChainBytes, rootCertBytes []byte
 	ctx := context.Background()
 	callerID := "test.identity"
 	ids := []util.Identity{
@@ -177,6 +178,7 @@ func buildContext(bindle util.KeyCertBundle) (context.Context, error){
 		{
 			{
 				Extensions: []pkix.Extension{*sanExt},
+				Signature: certchainbytes,
 			},
 		},
 	}
