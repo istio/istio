@@ -1055,6 +1055,11 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
 			},
 		}
+
+		if c.Http2ProtocolOptions != nil {
+			// This is HTTP/2 cluster, advertise it with ALPN.
+			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		}
 	case networking.ClientTLSSettings_MUTUAL:
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
 			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",

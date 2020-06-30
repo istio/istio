@@ -458,6 +458,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
+				// TODO: use jsonpb
 				strResponse, err := json.MarshalIndent(m, "  ", "  ")
 				if err != nil {
 					continue
@@ -531,7 +532,10 @@ func (a *ADSC) handleRecv() {
 				}
 
 			default:
-				_ = a.handleMCP(gvk, rsc, valBytes)
+				err = a.handleMCP(gvk, rsc, valBytes)
+				if err != nil {
+					log.Warnf("Error handling received MCP config %v", err)
+				}
 			}
 		}
 		// last resource of this type. IstioStore doesn't yet have a way to indicate this

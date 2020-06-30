@@ -56,7 +56,7 @@ func VMTestBody(t *testing.T, vmImages []string, label ...label.Instance) {
 			})
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.
-			ctx.ApplyConfigOrFail(ctx, ns.Name(), `
+			ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), `
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:

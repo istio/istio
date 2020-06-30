@@ -33,6 +33,9 @@ type Schema interface {
 	// GroupVersionKind of the resource. This is the only way to uniquely identify a resource.
 	GroupVersionKind() GroupVersionKind
 
+	// GroupVersionResource of the resource.
+	GroupVersionResource() schema.GroupVersionResource
+
 	// IsClusterScoped indicates that this resource is scoped to a particular namespace within a cluster.
 	IsClusterScoped() bool
 
@@ -171,6 +174,14 @@ type schemaImpl struct {
 
 func (s *schemaImpl) GroupVersionKind() GroupVersionKind {
 	return s.gvk
+}
+
+func (s *schemaImpl) GroupVersionResource() schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    s.Group(),
+		Version:  s.Version(),
+		Resource: s.Plural(),
+	}
 }
 
 func (s *schemaImpl) IsClusterScoped() bool {

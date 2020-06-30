@@ -135,7 +135,7 @@ func (s *Server) EnableCA() bool {
 		// If that is missing - we'll generate an in-memory root for testing, and warn.
 		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		if _, err := os.Stat(signingKeyFile); err != nil {
-			log.Warnf("Will use in-memory root CA, no K8S access and no ca key file ", signingKeyFile)
+			log.Warnf("Will use in-memory root CA, no K8S access and no ca key file %s", signingKeyFile)
 		}
 	}
 

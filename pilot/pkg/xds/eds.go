@@ -310,15 +310,15 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return buildEmptyClusterLoadAssignment(clusterName)
 	}
 
-	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
+	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "Connection.Clusters".
 	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
 	// EDS to STRICT_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
-	// will update "XdsConnection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check gaurds
+	// will update "Connection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check gaurds
 	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
 	// automatically.
 	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
 	if svc.Resolution == model.DNSLB {
-		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %v, skipping it.", clusterName, svc.Resolution)
+		adsLog.Infof("%s has %s in its eds clusters but its resolution now is updated to %v, skipping it.", proxy.ID, clusterName, svc.Resolution)
 		return nil
 	}
 
@@ -418,7 +418,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
-func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
+func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, version string, edsUpdatedServices map[string]struct{}) error {
 	pushStart := time.Now()
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	endpoints := 0

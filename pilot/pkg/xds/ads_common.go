@@ -29,7 +29,7 @@ var configKindAffectedProxyTypes = map[resource.GroupVersionKind][]model.NodeTyp
 
 // ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
 // towards the proxy.
-func ConfigAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
+func ConfigAffectsProxy(pushEv *Event, proxy *model.Proxy) bool {
 	// Empty changes means "all" to get a backward compatibility.
 	if len(pushEv.configsUpdated) == 0 {
 		return true
@@ -64,7 +64,7 @@ func ConfigAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
 }
 
 // ProxyNeedsPush check if a proxy needs push for this push event.
-func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
+func ProxyNeedsPush(proxy *model.Proxy, pushEv *Event) bool {
 	if ConfigAffectsProxy(pushEv, proxy) {
 		return true
 	}
@@ -84,19 +84,18 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 	return false
 }
 
-// nolint
-type XdsType int
+type Type int
 
 const (
-	CDS XdsType = iota
+	CDS Type = iota
 	EDS
 	LDS
 	RDS
 )
 
 // TODO: merge with ProxyNeedsPush
-func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
-	out := map[XdsType]bool{}
+func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
+	out := map[Type]bool{}
 
 	// In case configTypes is not set, for example mesh configuration updated.
 	// If push scoping is not enabled, we push all xds

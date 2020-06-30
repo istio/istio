@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM websphere-liberty:19.0.0.6-javaee8
+FROM websphere-liberty:20.0.0.6-full-java8-ibmjava
 
 ENV SERVERDIRNAME reviews
 

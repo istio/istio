@@ -69,11 +69,11 @@ func TestIngressLoadBalancing(t *testing.T) {
 	undeploy := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
 	defer undeploy()
 
-	ctx.ApplyConfigOrFail(
+	ctx.Config().ApplyYAMLOrFail(
 		t,
 		bookinfoNs.Name(),
 		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-	ctx.ApplyConfigOrFail(
+	ctx.Config().ApplyYAMLOrFail(
 		t,
 		bookinfoNs.Name(),
 		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),

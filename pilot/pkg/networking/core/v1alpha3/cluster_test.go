@@ -2182,13 +2182,19 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
-	mutualTLSSettings := &networking.ClientTLSSettings{
+	mutualTLSSettingsWithCerts := &networking.ClientTLSSettings{
 		Mode:              networking.ClientTLSSettings_MUTUAL,
 		CaCertificates:    constants.DefaultRootCert,
 		ClientCertificate: constants.DefaultCertChain,
 		PrivateKey:        constants.DefaultKey,
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
+	}
+	simpleTLSSettingsWithCerts := &networking.ClientTLSSettings{
+		Mode:            networking.ClientTLSSettings_SIMPLE,
+		CaCertificates:  constants.DefaultRootCert,
+		SubjectAltNames: []string{"custom.foo.com"},
+		Sni:             "custom.foo.com",
 	}
 
 	http2ProtocolOptions := &core.Http2ProtocolOptions{
@@ -2244,15 +2250,56 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			},
 		},
 		{
-			name:                       "user specified mutual tls",
+			name:                       "user specified simple tls",
 			mtlsCtx:                    userSupplied,
 			discoveryType:              cluster.Cluster_EDS,
-			tls:                        mutualTLSSettings,
+			tls:                        simpleTLSSettingsWithCerts,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				rootName := "file-root:" + mutualTLSSettings.CaCertificates
-				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettings.ClientCertificate, mutualTLSSettings.PrivateKey)
+				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
+				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
+					t.Fatalf("expected root name %v got %v", rootName, got)
+				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); got != nil {
+					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
+				}
+				if got := ctx.GetSni(); got != simpleTLSSettingsWithCerts.Sni {
+					t.Fatalf("expected TLSContext SNI %v; got %v", simpleTLSSettingsWithCerts.Sni, got)
+				}
+			},
+		},
+		{
+			name:                       "user specified simple tls with h2",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        simpleTLSSettingsWithCerts,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
+				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
+					t.Fatalf("expected root name %v got %v", rootName, got)
+				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
+				}
+				if got := ctx.GetSni(); got != simpleTLSSettingsWithCerts.Sni {
+					t.Fatalf("expected TLSContext SNI %v; got %v", simpleTLSSettingsWithCerts.Sni, got)
+				}
+			},
+		},
+		{
+			name:                       "user specified mutual tls",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        mutualTLSSettingsWithCerts,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
+				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettingsWithCerts.ClientCertificate, mutualTLSSettingsWithCerts.PrivateKey)
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
 					t.Fatalf("expected root name %v got %v", rootName, got)
 				}
@@ -2262,19 +2309,22 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				if got := ctx.CommonTlsContext.GetAlpnProtocols(); got != nil {
 					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
 				}
+				if got := ctx.GetSni(); got != mutualTLSSettingsWithCerts.Sni {
+					t.Fatalf("expected TLSContext SNI %v; got %v", mutualTLSSettingsWithCerts.Sni, got)
+				}
 			},
 		},
 		{
 			name:                       "user specified mutual tls with h2",
 			mtlsCtx:                    userSupplied,
 			discoveryType:              cluster.Cluster_EDS,
-			tls:                        mutualTLSSettings,
+			tls:                        mutualTLSSettingsWithCerts,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			http2ProtocolOptions:       http2ProtocolOptions,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				rootName := "file-root:" + mutualTLSSettings.CaCertificates
-				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettings.ClientCertificate, mutualTLSSettings.PrivateKey)
+				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
+				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettingsWithCerts.ClientCertificate, mutualTLSSettingsWithCerts.PrivateKey)
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
 					t.Fatalf("expected root name %v got %v", rootName, got)
 				}
@@ -2283,6 +2333,9 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				}
 				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
+				}
+				if got := ctx.GetSni(); got != mutualTLSSettingsWithCerts.Sni {
+					t.Fatalf("expected TLSContext SNI %v; got %v", mutualTLSSettingsWithCerts.Sni, got)
 				}
 			},
 		},

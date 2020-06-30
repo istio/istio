@@ -59,9 +59,8 @@ type DiscoveryStream interface {
 	grpc.ServerStream
 }
 
-// nolint
-// XdsConnection is a listener connection type.
-type XdsConnection struct {
+// Connection is a listener connection type.
+type Connection struct {
 	// Mutex to protect changes to this XDS connection
 	mu sync.RWMutex
 
@@ -79,7 +78,7 @@ type XdsConnection struct {
 
 	// Sending on this channel results in a push. We may also make it a channel of objects so
 	// same info can be sent to all clients, without recomputing.
-	pushChannel chan *XdsEvent
+	pushChannel chan *Event
 
 	LDSListeners []*listener.Listener                 `json:"-"`
 	RouteConfigs map[string]*route.RouteConfiguration `json:"-"`
@@ -111,9 +110,8 @@ type XdsConnection struct {
 	xdsNode *core.Node
 }
 
-// nolint
-// XdsEvent represents a config or registry event that results in a push.
-type XdsEvent struct {
+// Event represents a config or registry event that results in a push.
+type Event struct {
 	// Indicate whether the push is Full Push
 	full bool
 
@@ -131,9 +129,9 @@ type XdsEvent struct {
 	noncePrefix string
 }
 
-func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
-	return &XdsConnection{
-		pushChannel:  make(chan *XdsEvent),
+func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
+	return &Connection{
+		pushChannel:  make(chan *Event),
 		PeerAddr:     peerAddr,
 		Clusters:     []string{},
 		Connect:      time.Now(),
@@ -160,13 +158,16 @@ func isExpectedGRPCError(err error) bool {
 	return false
 }
 
-func receiveThread(con *XdsConnection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
+func receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
 		con.mu.RLock()
 		cid := con.ConID
 		con.mu.RUnlock()
 		req, err := con.stream.Recv()
+		con.mu.RLock()
+		cid := con.ConID
+		con.mu.RUnlock()
 		if err != nil {
 			if isExpectedGRPCError(err) {
 				con.mu.RLock()
@@ -255,7 +256,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 		adsLog.Warnf("Error reading config %v", err)
 		return err
 	}
-	con := newXdsConnection(peerAddr, stream)
+	con := newConnection(peerAddr, stream)
 
 	// Do not call: defer close(con.pushChannel) !
 	// the push channel will be garbage collected when the connection is no longer used.
@@ -381,7 +382,7 @@ func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) e
 	return nil
 }
 
-func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.DiscoveryRequest) error {
 	if con.LDSWatch {
 		// Already received a cluster watch request, this is an ACK
 		if discReq.ErrorDetail != nil {
@@ -406,7 +407,7 @@ func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *discovery.Disco
 	return nil
 }
 
-func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.DiscoveryRequest) error {
 	if con.CDSWatch {
 		// Already received a cluster watch request, this is an ACK
 		if discReq.ErrorDetail != nil {
@@ -435,7 +436,7 @@ func (s *DiscoveryServer) handleCds(con *XdsConnection, discReq *discovery.Disco
 	return nil
 }
 
-func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.DiscoveryRequest) error {
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS:EDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
@@ -479,7 +480,7 @@ func (s *DiscoveryServer) handleEds(con *XdsConnection, discReq *discovery.Disco
 	return nil
 }
 
-func (s *DiscoveryServer) handleRds(con *XdsConnection, discReq *discovery.DiscoveryRequest) error {
+func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.DiscoveryRequest) error {
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS:RDS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
@@ -545,7 +546,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) error {
+func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error {
 	proxy, err := s.initProxy(node)
 	if err != nil {
 		return err
@@ -659,7 +660,7 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 
 // Compute and send the new configuration for a connection. This is blocking and may be slow
 // for large configs. The method will hold a lock on con.pushMutex.
-func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
+func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// TODO: update the service deps based on NetworkScope
 	if !pushEv.full {
 		if !ProxyNeedsPush(con.node, pushEv) {
@@ -765,7 +766,7 @@ func (s *DiscoveryServer) adsClientCount() int {
 }
 
 func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
-	var connection *XdsConnection
+	var connection *Connection
 
 	s.adsClientsMutex.RLock()
 	for _, v := range s.adsClients {
@@ -833,7 +834,7 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	// the same connection table
 	s.adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	pending := []*XdsConnection{}
+	pending := []*Connection{}
 	for _, v := range s.adsClients {
 		pending = append(pending, v)
 	}
@@ -851,7 +852,7 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	}
 }
 
-func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
+func (s *DiscoveryServer) addCon(conID string, con *Connection) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
 	s.adsClients[conID] = con
@@ -876,7 +877,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 }
 
 // Send with timeout
-func (conn *XdsConnection) send(res *discovery.DiscoveryResponse) error {
+func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(SendTimeout)
