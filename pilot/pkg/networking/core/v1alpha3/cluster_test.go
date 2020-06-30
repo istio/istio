@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,11 +23,10 @@ import (
 	"testing"
 	"time"
 
-	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	apiv2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	envoyEndpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
@@ -35,23 +34,25 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	authn_beta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type ConfigType int
@@ -216,14 +217,14 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 				})
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(len(clusters)).To(Equal(tc.clusters))
-			cluster := clusters[tc.clusterIndex]
-			g.Expect(cluster.CommonHttpProtocolOptions).To(Not(BeNil()))
-			commonHTTPProtocolOptions := cluster.CommonHttpProtocolOptions
+			c := clusters[tc.clusterIndex]
+			g.Expect(c.CommonHttpProtocolOptions).To(Not(BeNil()))
+			commonHTTPProtocolOptions := c.CommonHttpProtocolOptions
 
 			if tc.useDownStreamProtocol && tc.proxyType == model.SidecarProxy {
-				g.Expect(cluster.ProtocolSelection).To(Equal(apiv2.Cluster_USE_DOWNSTREAM_PROTOCOL))
+				g.Expect(c.ProtocolSelection).To(Equal(cluster.Cluster_USE_DOWNSTREAM_PROTOCOL))
 			} else {
-				g.Expect(cluster.ProtocolSelection).To(Equal(apiv2.Cluster_USE_CONFIGURED_PROTOCOL))
+				g.Expect(c.ProtocolSelection).To(Equal(cluster.Cluster_USE_CONFIGURED_PROTOCOL))
 			}
 
 			// Verify that the values were set correctly.
@@ -235,7 +236,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 
 func buildTestClusters(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message) ([]*apiv2.Cluster, error) {
+	destRule proto.Message) ([]*cluster.Cluster, error) {
 	return buildTestClustersWithAuthnPolicy(
 		serviceHostname,
 		serviceResolution,
@@ -250,7 +251,7 @@ func buildTestClusters(serviceHostname string, serviceResolution model.Resolutio
 
 func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication) ([]*cluster.Cluster, error) {
 	return buildTestClustersWithProxyMetadata(
 		serviceHostname,
 		serviceResolution,
@@ -267,7 +268,7 @@ func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution 
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication,
-	meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*cluster.Cluster, error) {
 	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution, externalService,
 		nodeType, locality, mesh,
 		destRule, peerAuthn, meta, istioVersion,
@@ -278,10 +279,8 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication,
-	meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
+	meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*cluster.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
-
-	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	servicePort := model.PortList{
 		&model.Port{
@@ -368,48 +367,50 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		},
 	}
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
-	serviceDiscovery.InstancesByPortReturns(instances, nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
+	for _, instance := range instances {
+		serviceDiscovery.AddInstance(instance.Service.Hostname, instance)
+	}
+	serviceDiscovery.WantGetProxyServiceInstances = instances
 
-	configStore := &fakes.IstioConfigStore{
-		ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-			if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
-				return []model.Config{
-					{ConfigMeta: model.ConfigMeta{
-						Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-						Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-						Name:    "acme",
-					},
-						Spec: destRule,
-					}}, nil
-			}
-			if typ == collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() && peerAuthn != nil {
-				policyName := "default"
-				if peerAuthn.Selector != nil {
-					policyName = "acme"
-				}
-				return []model.Config{
-					{ConfigMeta: model.ConfigMeta{
-						Type:      collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind(),
-						Version:   collections.IstioSecurityV1Beta1Peerauthentications.Resource().Version(),
-						Name:      policyName,
-						Namespace: TestServiceNamespace,
-					},
-						Spec: peerAuthn,
-					}}, nil
-
-			}
-			return nil, nil
+	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
+	_, err := configStore.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			GroupVersionKind: gvk.DestinationRule,
+			Name:             "acme",
 		},
+		Spec: destRule,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if peerAuthn != nil {
+		policyName := "default"
+		if peerAuthn.Selector != nil {
+			policyName = "acme"
+		}
+		_, err := configStore.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             policyName,
+				Namespace:        TestServiceNamespace,
+			},
+			Spec: peerAuthn,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	env := newTestEnvironment(serviceDiscovery, mesh, configStore)
+
+	if meta.ClusterID == "" {
+		meta.ClusterID = "some-cluster-id"
+	}
 
 	var proxy *model.Proxy
 	switch nodeType {
 	case model.SidecarProxy:
 		proxy = &model.Proxy{
-			ClusterID:    "some-cluster-id",
 			Type:         model.SidecarProxy,
 			IPAddresses:  proxyIps,
 			Locality:     locality,
@@ -419,7 +420,6 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		}
 	case model.Router:
 		proxy = &model.Proxy{
-			ClusterID:    "some-cluster-id",
 			Type:         model.Router,
 			IPAddresses:  []string{"6.6.6.6"},
 			Locality:     locality,
@@ -476,11 +476,11 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 
 	g.Expect(len(clusters)).To(Equal(3))
 
-	cluster := clusters[0]
-	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
-	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(2)))
-	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	g.Expect(cluster.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
+	c := clusters[0]
+	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_RING_HASH))
+	g.Expect(c.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(2)))
+	g.Expect(c.Name).To(Equal("outbound|8080||*.example.org"))
+	g.Expect(c.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
 }
 
 func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
@@ -509,11 +509,11 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 
 	g.Expect(len(clusters)).To(Equal(3))
 
-	cluster := clusters[0]
-	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
-	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(1024)))
-	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	g.Expect(cluster.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
+	c := clusters[0]
+	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_RING_HASH))
+	g.Expect(c.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(1024)))
+	g.Expect(c.Name).To(Equal("outbound|8080||*.example.org"))
+	g.Expect(c.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
 }
 
 func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig meshconfig.MeshConfig, configStore model.IstioConfigStore) *model.Environment {
@@ -628,15 +628,15 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	g.Expect(actualOutboundClusterCount).To(Equal(expectedOutboundClusterCount))
 }
 
-func buildSniTestClustersForSidecar(sniValue string) ([]*apiv2.Cluster, error) {
+func buildSniTestClustersForSidecar(sniValue string) ([]*cluster.Cluster, error) {
 	return buildSniTestClustersWithMetadata(sniValue, model.SidecarProxy, &model.NodeMetadata{})
 }
 
-func buildSniDnatTestClustersForGateway(sniValue string) ([]*apiv2.Cluster, error) {
+func buildSniDnatTestClustersForGateway(sniValue string) ([]*cluster.Cluster, error) {
 	return buildSniTestClustersWithMetadata(sniValue, model.Router, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)})
 }
 
-func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta *model.NodeMetadata) ([]*apiv2.Cluster, error) {
+func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta *model.NodeMetadata) ([]*cluster.Cluster, error) {
 	return buildTestClustersWithProxyMetadata("foo.example.org", 0, false, typ, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
@@ -714,7 +714,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(BeNil())
 }
 
-func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster, error) {
+func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*cluster.Cluster, error) {
 	// Set mesh wide defaults.
 	m := testMesh
 	if configType != None {
@@ -797,11 +797,11 @@ func TestClusterMetadata(t *testing.T) {
 			clustersWithMetadata++
 			g.Expect(cluster.Metadata).NotTo(BeNil())
 			md := cluster.Metadata
-			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
-			istio := md.FilterMetadata["istio"]
+			g.Expect(md.FilterMetadata[util.IstioMetadataKey]).NotTo(BeNil())
+			istio := md.FilterMetadata[util.IstioMetadataKey]
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
+			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
 			if strings.Contains(cluster.Name, "Subset") {
 				foundSubset = true
 				sub := istio.Fields["subset"]
@@ -826,11 +826,11 @@ func TestClusterMetadata(t *testing.T) {
 		if strings.HasPrefix(cluster.Name, "outbound") {
 			g.Expect(cluster.Metadata).NotTo(BeNil())
 			md := cluster.Metadata
-			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
-			istio := md.FilterMetadata["istio"]
+			g.Expect(md.FilterMetadata[util.IstioMetadataKey]).NotTo(BeNil())
+			istio := md.FilterMetadata[util.IstioMetadataKey]
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
+			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
 			if strings.Contains(cluster.Name, "foobar") {
 				foundSNISubset = true
 				sub := istio.Fields["subset"]
@@ -1045,23 +1045,12 @@ func TestApplyOutlierDetection(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  *networking.OutlierDetection
-		o    *apiv2_cluster.OutlierDetection
+		o    *cluster.OutlierDetection
 	}{
 		{
 			"No outlier detection is set",
 			&networking.OutlierDetection{},
-			&apiv2_cluster.OutlierDetection{},
-		},
-		{
-			"Deprecated consecutive errors is set",
-			&networking.OutlierDetection{
-				ConsecutiveErrors: 3,
-			},
-			&apiv2_cluster.OutlierDetection{
-				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 0},
-				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
-				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
-			},
+			&cluster.OutlierDetection{},
 		},
 		{
 			"Consecutive gateway and 5xx errors are set",
@@ -1069,7 +1058,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 				Consecutive_5XxErrors:    &types.UInt32Value{Value: 4},
 				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 3},
 			},
-			&apiv2_cluster.OutlierDetection{
+			&cluster.OutlierDetection{
 				Consecutive_5Xx:                    &wrappers.UInt32Value{Value: 4},
 				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 100},
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
@@ -1081,7 +1070,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&networking.OutlierDetection{
 				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 3},
 			},
-			&apiv2_cluster.OutlierDetection{
+			&cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
 			},
@@ -1091,7 +1080,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&networking.OutlierDetection{
 				Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
 			},
-			&apiv2_cluster.OutlierDetection{
+			&cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 100},
 			},
@@ -1101,7 +1090,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&networking.OutlierDetection{
 				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 0},
 			},
-			&apiv2_cluster.OutlierDetection{
+			&cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 0},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 0},
 			},
@@ -1111,7 +1100,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&networking.OutlierDetection{
 				Consecutive_5XxErrors: &types.UInt32Value{Value: 0},
 			},
-			&apiv2_cluster.OutlierDetection{
+			&cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 0},
 				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 0},
 			},
@@ -1196,8 +1185,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		})
@@ -1238,8 +1226,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		})
@@ -1287,8 +1274,7 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 				LoadBalancer: &networking.LoadBalancerSettings{LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
 					Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
@@ -1352,8 +1338,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		},
@@ -1364,14 +1349,13 @@ func TestGatewayLocalityLB(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	for _, cluster := range clusters {
-		if cluster.Name == util.BlackHoleCluster {
+		if !strings.Contains(cluster.Name, "8080") {
 			continue
 		}
 		if cluster.CommonLbConfig == nil {
 			t.Errorf("CommonLbConfig should be set for cluster %+v", cluster)
 		}
 		g.Expect(cluster.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
-
 		g.Expect(len(cluster.LoadAssignment.Endpoints)).To(Equal(3))
 		for _, localityLbEndpoint := range cluster.LoadAssignment.Endpoints {
 			locality := localityLbEndpoint.Locality
@@ -1402,8 +1386,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-					MinHealthPercent:  10,
+					MinHealthPercent: 10,
 				},
 			},
 		},
@@ -1414,7 +1397,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	for _, cluster := range clusters {
-		if cluster.Name == util.BlackHoleCluster {
+		if !strings.Contains(cluster.Name, "8080") {
 			continue
 		}
 		if cluster.CommonLbConfig == nil {
@@ -1438,7 +1421,9 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 func TestBuildLocalityLbEndpoints(t *testing.T) {
 	proxy := &model.Proxy{
-		ClusterID: "cluster-1",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster-1",
+		},
 	}
 	servicePort := &model.Port{
 		Name:     "default",
@@ -1465,7 +1450,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		name      string
 		newEnv    func(model.ServiceDiscovery, model.IstioConfigStore) *model.Environment
 		instances []*model.ServiceInstance
-		expected  []*envoyEndpoint.LocalityLbEndpoints
+		expected  []*endpoint.LocalityLbEndpoints
 	}{
 		{
 			name: "basics",
@@ -1513,7 +1498,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					},
 				},
 			},
-			expected: []*envoyEndpoint.LocalityLbEndpoints{
+			expected: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &core.Locality{
 						Region:  "region1",
@@ -1523,10 +1508,10 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					LoadBalancingWeight: &wrappers.UInt32Value{
 						Value: 60,
 					},
-					LbEndpoints: []*envoyEndpoint.LbEndpoint{
+					LbEndpoints: []*endpoint.LbEndpoint{
 						{
-							HostIdentifier: &envoyEndpoint.LbEndpoint_Endpoint{
-								Endpoint: &envoyEndpoint.Endpoint{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
 									Address: &core.Address{
 										Address: &core.Address_SocketAddress{
 											SocketAddress: &core.SocketAddress{
@@ -1545,8 +1530,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 							},
 						},
 						{
-							HostIdentifier: &envoyEndpoint.LbEndpoint_Endpoint{
-								Endpoint: &envoyEndpoint.Endpoint{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
 									Address: &core.Address{
 										Address: &core.Address_SocketAddress{
 											SocketAddress: &core.SocketAddress{
@@ -1575,10 +1560,10 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					LoadBalancingWeight: &wrappers.UInt32Value{
 						Value: 40,
 					},
-					LbEndpoints: []*envoyEndpoint.LbEndpoint{
+					LbEndpoints: []*endpoint.LbEndpoint{
 						{
-							HostIdentifier: &envoyEndpoint.LbEndpoint_Endpoint{
-								Endpoint: &envoyEndpoint.Endpoint{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
 									Address: &core.Address{
 										Address: &core.Address_SocketAddress{
 											SocketAddress: &core.SocketAddress{
@@ -1633,7 +1618,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					},
 				},
 			},
-			expected: []*envoyEndpoint.LocalityLbEndpoints{
+			expected: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &core.Locality{
 						Region:  "region1",
@@ -1643,10 +1628,10 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					LoadBalancingWeight: &wrappers.UInt32Value{
 						Value: 30,
 					},
-					LbEndpoints: []*envoyEndpoint.LbEndpoint{
+					LbEndpoints: []*endpoint.LbEndpoint{
 						{
-							HostIdentifier: &envoyEndpoint.LbEndpoint_Endpoint{
-								Endpoint: &envoyEndpoint.Endpoint{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
 									Address: &core.Address{
 										Address: &core.Address_SocketAddress{
 											SocketAddress: &core.SocketAddress{
@@ -1670,7 +1655,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		},
 	}
 
-	sortEndpoints := func(endpoints []*envoyEndpoint.LocalityLbEndpoints) {
+	sortEndpoints := func(endpoints []*endpoint.LocalityLbEndpoints) {
 		sort.SliceStable(endpoints, func(i, j int) bool {
 			if strings.Compare(endpoints[i].Locality.Region, endpoints[j].Locality.Region) < 0 {
 				return true
@@ -1684,15 +1669,17 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configStore := &fakes.IstioConfigStore{}
-			serviceDiscovery := &fakes.ServiceDiscovery{}
-			serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-			serviceDiscovery.InstancesByPortReturns(c.instances, nil)
+			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+			serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
+			serviceDiscovery.WantGetProxyServiceInstances = c.instances
+			for _, i := range c.instances {
+				serviceDiscovery.AddInstance(i.Service.Hostname, i)
+			}
 
 			env := c.newEnv(serviceDiscovery, configStore)
 			actual := buildLocalityLbEndpoints(proxy, env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
 			sortEndpoints(actual)
-			if v := cmp.Diff(c.expected, actual); v != "" {
+			if v := cmp.Diff(c.expected, actual, protocmp.Transform()); v != "" {
 				t.Fatalf("Expected (-) != actual (+):\n%s", v)
 			}
 		})
@@ -1763,15 +1750,12 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
 					},
 				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-				},
 			},
 		})
 
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_CLUSTER_PROVIDED))
-	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+	g.Expect(clusters[0].LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
+	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
 }
 
 func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
@@ -1786,15 +1770,12 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
 					},
 				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-				},
 			},
 		})
 
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_CLUSTER_PROVIDED))
-	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+	g.Expect(clusters[0].LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
+	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
 	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
 }
 
@@ -1802,8 +1783,8 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-	configStore := &fakes.IstioConfigStore{}
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
 
@@ -1825,8 +1806,8 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-	configStore := &fakes.IstioConfigStore{}
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	proxy := &model.Proxy{
@@ -1859,7 +1840,7 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 		},
 	}
 
-	clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances, []*model.Port{servicePort})
+	clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
@@ -1905,7 +1886,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 		name     string
 		newEnv   func(model.ServiceDiscovery, model.IstioConfigStore) *model.Environment
 		destRule *networking.DestinationRule
-		expected apiv2_cluster.CircuitBreakers_Thresholds
+		expected *cluster.CircuitBreakers_Thresholds
 	}{
 		{
 			name: "port-level policy matched",
@@ -1934,7 +1915,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					},
 				},
 			},
-			expected: apiv2_cluster.CircuitBreakers_Thresholds{
+			expected: &cluster.CircuitBreakers_Thresholds{
 				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 100},
@@ -1968,7 +1949,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					},
 				},
 			},
-			expected: apiv2_cluster.CircuitBreakers_Thresholds{
+			expected: &cluster.CircuitBreakers_Thresholds{
 				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
@@ -1981,32 +1962,25 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 
 			configgen := NewConfigGenerator([]plugin.Plugin{})
-			serviceDiscovery := &fakes.ServiceDiscovery{}
+			serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 
-			configStore := &fakes.IstioConfigStore{
-				ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-					if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
-						return []model.Config{
-							{ConfigMeta: model.ConfigMeta{
-								Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-								Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-								Name:    "acme",
-							},
-								Spec: c.destRule,
-							}}, nil
-					}
-					return nil, nil
+			configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
+			configStore.Create(model.Config{
+				ConfigMeta: model.ConfigMeta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "acme",
 				},
-			}
+				Spec: c.destRule,
+			})
 
 			env := c.newEnv(serviceDiscovery, configStore)
-			clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances, []*model.Port{servicePort})
+			clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances)
 			g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 			for _, cluster := range clusters {
 				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 				if cluster.Name == "inbound|80|default|backend.default.svc.cluster.local" {
-					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(&c.expected))
+					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
 				}
 			}
 		})
@@ -2018,11 +1992,9 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	proxy := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
-
-	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	servicePort := &model.Port{
 		Name:     "redis-port",
@@ -2037,15 +2009,15 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 		Resolution:  model.Passthrough,
 	}
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
-	for _, cluster := range clusters {
-		if cluster.Name == "outbound|6379||redis.com" {
-			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_ROUND_ROBIN))
+	for _, c := range clusters {
+		if c.Name == "outbound|6379||redis.com" {
+			g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_ROUND_ROBIN))
 		}
 	}
 }
@@ -2055,11 +2027,9 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	proxy := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
-
-	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	servicePort := &model.Port{
 		Name:     "redis-port",
@@ -2079,20 +2049,20 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	features.EnableRedisFilter = true
 	defer func() { features.EnableRedisFilter = defaultValue }()
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
-	for _, cluster := range clusters {
+	for _, c := range clusters {
 		// Validate Clusters so that generated clusters pass Envoy validation logic.
-		if err := cluster.Validate(); err != nil {
-			t.Fatalf("Cluster %s failed validation with error %s", cluster.Name, err.Error())
+		if err := c.Validate(); err != nil {
+			t.Fatalf("Cluster %s failed validation with error %s", c.Name, err.Error())
 		}
-		if cluster.Name == "outbound|6379||redis.com" {
-			g.Expect(cluster.GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}))
-			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_MAGLEV))
+		if c.Name == "outbound|6379||redis.com" {
+			g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_EDS}))
+			g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_MAGLEV))
 		}
 	}
 }
@@ -2158,20 +2128,20 @@ func TestApplyLoadBalancer(t *testing.T) {
 	testcases := []struct {
 		name             string
 		lbSettings       *networking.LoadBalancerSettings
-		discoveryType    apiv2.Cluster_DiscoveryType
+		discoveryType    cluster.Cluster_DiscoveryType
 		port             *model.Port
-		expectedLbPolicy apiv2.Cluster_LbPolicy
+		expectedLbPolicy cluster.Cluster_LbPolicy
 	}{
 		{
 			name:             "lb = nil ORIGINAL_DST discovery type",
-			discoveryType:    apiv2.Cluster_ORIGINAL_DST,
-			expectedLbPolicy: apiv2.Cluster_CLUSTER_PROVIDED,
+			discoveryType:    cluster.Cluster_ORIGINAL_DST,
+			expectedLbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
 		},
 		{
 			name:             "lb = nil redis protocol",
-			discoveryType:    apiv2.Cluster_EDS,
+			discoveryType:    cluster.Cluster_EDS,
 			port:             &model.Port{Protocol: protocol.Redis},
-			expectedLbPolicy: apiv2.Cluster_MAGLEV,
+			expectedLbPolicy: cluster.Cluster_MAGLEV,
 		},
 		// TODO: add more to cover all cases
 	}
@@ -2183,8 +2153,8 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			cluster := &apiv2.Cluster{
-				ClusterDiscoveryType: &apiv2.Cluster_Type{Type: test.discoveryType},
+			cluster := &cluster.Cluster{
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
 			}
 
 			if test.port != nil && test.port.Protocol == protocol.Redis {
@@ -2212,7 +2182,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
-	mutualTLSSettings := &networking.ClientTLSSettings{
+	mutualTLSSettingsWithCerts := &networking.ClientTLSSettings{
 		Mode:              networking.ClientTLSSettings_MUTUAL,
 		CaCertificates:    constants.DefaultRootCert,
 		ClientCertificate: constants.DefaultCertChain,
@@ -2220,64 +2190,186 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
+	simpleTLSSettingsWithCerts := &networking.ClientTLSSettings{
+		Mode:            networking.ClientTLSSettings_SIMPLE,
+		CaCertificates:  constants.DefaultRootCert,
+		SubjectAltNames: []string{"custom.foo.com"},
+		Sni:             "custom.foo.com",
+	}
+
+	http2ProtocolOptions := &core.Http2ProtocolOptions{
+		AllowConnect:  true,
+		AllowMetadata: true,
+	}
 
 	tests := []struct {
 		name          string
 		mtlsCtx       mtlsContextType
-		discoveryType apiv2.Cluster_DiscoveryType
+		discoveryType cluster.Cluster_DiscoveryType
 		tls           *networking.ClientTLSSettings
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
+		http2ProtocolOptions       *core.Http2ProtocolOptions
 
-		validateTLSContext func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext)
+		validateTLSContext func(t *testing.T, ctx *tls.UpstreamTlsContext)
 	}{
 		{
 			name:                       "user specified without tls",
 			mtlsCtx:                    userSupplied,
-			discoveryType:              apiv2.Cluster_EDS,
+			discoveryType:              cluster.Cluster_EDS,
 			tls:                        nil,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: false,
 		},
 		{
-			name:                       "user specified with tls",
+			name:                       "user specified with istio_mutual tls",
 			mtlsCtx:                    userSupplied,
-			discoveryType:              apiv2.Cluster_EDS,
+			discoveryType:              cluster.Cluster_EDS,
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
+				}
+			},
+		},
+		{
+			name:                       "user specified with istio_mutual tls with h2",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        tlsSettings,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
+				}
+			},
+		},
+		{
+			name:                       "user specified simple tls",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        simpleTLSSettingsWithCerts,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
+				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
+					t.Fatalf("expected root name %v got %v", rootName, got)
+				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); got != nil {
+					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
+				}
+				if got := ctx.GetSni(); got != simpleTLSSettingsWithCerts.Sni {
+					t.Fatalf("expected TLSContext SNI %v; got %v", simpleTLSSettingsWithCerts.Sni, got)
+				}
+			},
+		},
+		{
+			name:                       "user specified simple tls with h2",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        simpleTLSSettingsWithCerts,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
+				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
+					t.Fatalf("expected root name %v got %v", rootName, got)
+				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
+				}
+				if got := ctx.GetSni(); got != simpleTLSSettingsWithCerts.Sni {
+					t.Fatalf("expected TLSContext SNI %v; got %v", simpleTLSSettingsWithCerts.Sni, got)
+				}
+			},
 		},
 		{
 			name:                       "user specified mutual tls",
 			mtlsCtx:                    userSupplied,
-			discoveryType:              apiv2.Cluster_EDS,
-			tls:                        mutualTLSSettings,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        mutualTLSSettingsWithCerts,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
-			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
-				rootName := "file-root:" + mutualTLSSettings.CaCertificates
-				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettings.ClientCertificate, mutualTLSSettings.PrivateKey)
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
+				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettingsWithCerts.ClientCertificate, mutualTLSSettingsWithCerts.PrivateKey)
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
 					t.Fatalf("expected root name %v got %v", rootName, got)
 				}
 				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
 					t.Fatalf("expected cert name %v got %v", certName, got)
 				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); got != nil {
+					t.Fatalf("expected alpn list nil as not h2 or Istio_Mutual TLS Setting; got %v", got)
+				}
+				if got := ctx.GetSni(); got != mutualTLSSettingsWithCerts.Sni {
+					t.Fatalf("expected TLSContext SNI %v; got %v", mutualTLSSettingsWithCerts.Sni, got)
+				}
+			},
+		},
+		{
+			name:                       "user specified mutual tls with h2",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        mutualTLSSettingsWithCerts,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTLSSettingsWithCerts.CaCertificates
+				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettingsWithCerts.ClientCertificate, mutualTLSSettingsWithCerts.PrivateKey)
+				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
+					t.Fatalf("expected root name %v got %v", rootName, got)
+				}
+				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
+					t.Fatalf("expected cert name %v got %v", certName, got)
+				}
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
+				}
+				if got := ctx.GetSni(); got != mutualTLSSettingsWithCerts.Sni {
+					t.Fatalf("expected TLSContext SNI %v; got %v", mutualTLSSettingsWithCerts.Sni, got)
+				}
 			},
 		},
 		{
 			name:                       "auto detect with tls",
 			mtlsCtx:                    autoDetected,
-			discoveryType:              apiv2.Cluster_EDS,
+			discoveryType:              cluster.Cluster_EDS,
 			tls:                        tlsSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
+				}
+			},
+		},
+		{
+			name:                       "auto detect with tls and h2 options",
+			mtlsCtx:                    autoDetected,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        tlsSettings,
+			expectTransportSocket:      false,
+			expectTransportSocketMatch: true,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
+				}
+			},
 		},
 		{
 			name:                       "auto detect with tls",
 			mtlsCtx:                    autoDetected,
-			discoveryType:              apiv2.Cluster_ORIGINAL_DST,
+			discoveryType:              cluster.Cluster_ORIGINAL_DST,
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
@@ -2295,8 +2387,9 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			opts := &buildClusterOpts{
-				cluster: &apiv2.Cluster{
-					ClusterDiscoveryType: &apiv2.Cluster_Type{Type: test.discoveryType},
+				cluster: &cluster.Cluster{
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
+					Http2ProtocolOptions: test.http2ProtocolOptions,
 				},
 				proxy: proxy,
 				push:  push,
@@ -2313,9 +2406,15 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			}
 
 			if test.validateTLSContext != nil {
-				ctx := &envoy_api_v2_auth.UpstreamTlsContext{}
-				if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
-					t.Fatal(err)
+				ctx := &tls.UpstreamTlsContext{}
+				if test.expectTransportSocket {
+					if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
+						t.Fatal(err)
+					}
+				} else if test.expectTransportSocketMatch {
+					if err := ptypes.UnmarshalAny(opts.cluster.TransportSocketMatches[0].TransportSocket.GetTypedConfig(), ctx); err != nil {
+						t.Fatal(err)
+					}
 				}
 				test.validateTLSContext(t, ctx)
 			}
@@ -2325,12 +2424,12 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 }
 
 // Helper function to extract TLS context from a cluster
-func getTLSContext(t *testing.T, c *apiv2.Cluster) *envoy_api_v2_auth.UpstreamTlsContext {
+func getTLSContext(t *testing.T, c *cluster.Cluster) *tls.UpstreamTlsContext {
 	t.Helper()
 	if c.TransportSocket == nil {
 		return nil
 	}
-	tlsContext := &envoy_api_v2_auth.UpstreamTlsContext{}
+	tlsContext := &tls.UpstreamTlsContext{}
 	err := ptypes.UnmarshalAny(c.TransportSocket.GetTypedConfig(), tlsContext)
 
 	if err != nil {
@@ -2343,7 +2442,6 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	cfg := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := &fakes.ServiceDiscovery{}
 	service := &model.Service{
 		Hostname:    host.Name("static.test"),
 		Address:     "1.1.1.1",
@@ -2362,26 +2460,24 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-	serviceDiscovery.GetProxyServiceInstancesReturns([]*model.ServiceInstance{}, nil)
-	serviceDiscovery.InstancesByPortReturns([]*model.ServiceInstance{}, nil)
-	proxy.ServiceInstances = []*model.ServiceInstance{}
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 	proxy := &model.Proxy{
-		ClusterID: "some-cluster-id",
 		Type:      model.SidecarProxy,
 		DNSDomain: "com",
-		Metadata:  &model.NodeMetadata{},
+		Metadata: &model.NodeMetadata{
+			ClusterID: "some-cluster-id",
+		},
 	}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy.SetSidecarScope(env.PushContext)
 	clusters := cfg.BuildClusters(proxy, env.PushContext)
 
-	for _, cluster := range clusters {
+	for _, c := range clusters {
 		// Validate Clusters so that generated clusters pass Envoy validation logic.
-		if err := cluster.Validate(); err != nil {
-			t.Fatalf("Cluster %s failed validation with error %s", cluster.Name, err.Error())
+		if err := c.Validate(); err != nil {
+			t.Fatalf("Cluster %s failed validation with error %s", c.Name, err.Error())
 		}
 	}
 

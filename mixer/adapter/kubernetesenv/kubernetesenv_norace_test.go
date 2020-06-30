@@ -1,6 +1,6 @@
 // +build !race
 
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,15 +26,15 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
 // This test is skipped by the build tag !race due to https://github.com/istio/istio/issues/15610
 func Test_KubeSecretController(t *testing.T) {
-	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
-	secretcontroller.ValidateClientConfig = mockValidateClientConfig
-	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
-
+	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+		return kube.NewFakeClient(), nil
+	}
 	clientset := fake.NewSimpleClientset()
 	b := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {
 		return clientset, nil

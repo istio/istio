@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
-	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -38,7 +38,7 @@ func (s *Server) ServiceController() *aggregate.Controller {
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
 	registered := make(map[serviceregistry.ProviderID]bool)
-	for _, r := range args.Service.Registries {
+	for _, r := range args.RegistryOptions.Registries {
 		serviceRegistry := serviceregistry.ProviderID(r)
 		if _, exists := registered[serviceRegistry]; exists {
 			log.Warnf("%s registry specified multiple times.", r)
@@ -62,12 +62,17 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	s.serviceEntryStore = external.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.EnvoyXdsServer)
+	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.EnvoyXdsServer)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
-	if s.kubeRegistry != nil {
-		// Add an instance handler in the service entry store to handle pod events from kubernetes registry
-		_ = s.kubeRegistry.AppendInstanceHandler(s.serviceEntryStore.GetForeignServiceInstanceHandler())
+	if features.EnableServiceEntrySelectPods && s.kubeRegistry != nil {
+		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
+		_ = s.kubeRegistry.AppendInstanceHandler(s.serviceEntryStore.ForeignServiceInstanceHandler)
+	}
+
+	if features.EnableK8SServiceSelectWorkloadEntries && s.kubeRegistry != nil {
+		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
+		_ = s.serviceEntryStore.AppendInstanceHandler(s.kubeRegistry.ForeignServiceInstanceHandler)
 	}
 
 	// Defer running of the service controllers.
@@ -81,28 +86,29 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 // initKubeRegistry creates all the k8s service controllers under this pilot
 func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
-	args.Config.ControllerOptions.ClusterID = s.clusterID
-	args.Config.ControllerOptions.Metrics = s.environment
-	args.Config.ControllerOptions.XDSUpdater = s.EnvoyXdsServer
-	args.Config.ControllerOptions.NetworksWatcher = s.environment.NetworksWatcher
+	args.RegistryOptions.KubeOptions.ClusterID = s.clusterID
+	args.RegistryOptions.KubeOptions.Metrics = s.environment
+	args.RegistryOptions.KubeOptions.XDSUpdater = s.EnvoyXdsServer
+	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
 	if features.EnableEndpointSliceController {
-		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointSliceOnly
+		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
 	} else {
-		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointsOnly
+		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
 	}
-	kubeRegistry := kubecontroller.NewController(s.kubeClient, s.metadataClient, args.Config.ControllerOptions)
+
+	kubeRegistry := kubecontroller.NewController(s.kubeClients, args.RegistryOptions.KubeOptions)
 	s.kubeRegistry = kubeRegistry
 	serviceControllers.AddRegistry(kubeRegistry)
 	return
 }
 
 func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
-	log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
-	conctl, conerr := consul.NewController(args.Service.Consul.ServerURL, "")
-	if conerr != nil {
-		return fmt.Errorf("failed to create Consul controller: %v", conerr)
+	log.Infof("Consul url: %v", args.RegistryOptions.ConsulServerAddr)
+	controller, err := consul.NewController(args.RegistryOptions.ConsulServerAddr, "")
+	if err != nil {
+		return fmt.Errorf("failed to create Consul controller: %v", err)
 	}
-	serviceControllers.AddRegistry(conctl)
+	serviceControllers.AddRegistry(controller)
 
 	return nil
 }

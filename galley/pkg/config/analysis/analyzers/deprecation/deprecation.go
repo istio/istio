@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@ import (
 	"fmt"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/api/rbac/v1alpha1"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
@@ -41,7 +39,7 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks for deprecated Istio types and fields",
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
+			collections.IstioNetworkingV1Alpha3Sidecars.Name(),
 		},
 	}
 }
@@ -52,10 +50,45 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeVirtualService(r, ctx)
 		return true
 	})
-	ctx.ForEach(collections.IstioRbacV1Alpha1Servicerolebindings.Name(), func(r *resource.Instance) bool {
-		fa.analyzeServiceRoleBinding(r, ctx)
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(r *resource.Instance) bool {
+		fa.analyzeSidecar(r, ctx)
 		return true
 	})
+}
+
+func (*FieldAnalyzer) analyzeSidecar(r *resource.Instance, ctx analysis.Context) {
+
+	sc := r.Message.(*v1alpha3.Sidecar)
+
+	if sc.Localhost != nil {
+		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			msg.NewDeprecated(r, ignoredMessage("Localhost")))
+	}
+
+	for _, ingress := range sc.Ingress {
+		if ingress != nil {
+			if ingress.LocalhostClientTls != nil {
+				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+					msg.NewDeprecated(r, ignoredMessage("Ingress.LocalhostClientTLS")))
+			}
+		}
+	}
+
+	for _, egress := range sc.Egress {
+		if egress != nil {
+			if egress.LocalhostServerTls != nil {
+				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+					msg.NewDeprecated(r, ignoredMessage("Egress.LocalhostServerTLS")))
+			}
+		}
+	}
+
+	if sc.OutboundTrafficPolicy != nil {
+		if sc.OutboundTrafficPolicy.EgressProxy != nil {
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+				msg.NewDeprecated(r, ignoredMessage("OutboundTrafficPolicy.EgressProxy")))
+		}
+	}
 }
 
 func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context) {
@@ -74,24 +107,10 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.C
 	}
 }
 
-func (*FieldAnalyzer) analyzeServiceRoleBinding(r *resource.Instance, ctx analysis.Context) {
-
-	srb := r.Message.(*v1alpha1.ServiceRoleBinding)
-
-	for _, subject := range srb.Subjects {
-		if subject.Group != "" {
-			ctx.Report(collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
-				msg.NewDeprecated(r, uncertainFixMessage("ServiceRoleBinding.subjects.group")))
-		}
-	}
-}
-
 func replacedMessage(deprecated, replacement string) string {
 	return fmt.Sprintf("%s is deprecated; use %s", deprecated, replacement)
 }
 
-// uncertainFixMessage() should be used for fields we don't have a suggested replacement for.
-// It is preferable to avoid calling it and find out the replacement suggestion instead.
-func uncertainFixMessage(field string) string {
-	return fmt.Sprintf("%s is deprecated", field)
+func ignoredMessage(field string) string {
+	return fmt.Sprintf("%s ignored", field)
 }

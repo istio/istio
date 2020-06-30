@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,13 +27,11 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
-	rbac "istio.io/api/rbac/v1alpha1"
 	authz "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -163,40 +161,6 @@ var (
 		},
 	}
 
-	// ExampleServiceRole is an example rbac service role
-	ExampleServiceRole = &rbac.ServiceRole{Rules: []*rbac.AccessRule{
-		{
-			Services: []string{"service0"},
-			Methods:  []string{"GET", "POST"},
-			Constraints: []*rbac.AccessRule_Constraint{
-				{Key: "key", Values: []string{"value"}},
-				{Key: "key", Values: []string{"value"}},
-			},
-		},
-		{
-			Services: []string{"service0"},
-			Methods:  []string{"GET", "POST"},
-			Constraints: []*rbac.AccessRule_Constraint{
-				{Key: "key", Values: []string{"value"}},
-				{Key: "key", Values: []string{"value"}},
-			},
-		},
-	}}
-
-	// ExampleServiceRoleBinding is an example rbac service role binding
-	ExampleServiceRoleBinding = &rbac.ServiceRoleBinding{
-		Subjects: []*rbac.Subject{
-			{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
-			{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
-		},
-		RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
-	}
-
-	// ExampleRbacConfig is an example rbac config
-	ExampleRbacConfig = &rbac.RbacConfig{
-		Mode: rbac.RbacConfig_ON,
-	}
-
 	// ExampleAuthorizationPolicy is an example AuthorizationPolicy
 	ExampleAuthorizationPolicy = &authz.AuthorizationPolicy{
 		Selector: &api.WorkloadSelector{
@@ -215,11 +179,9 @@ func Make(namespace string, i int) model.Config {
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      mockGvk.Kind,
-			Group:     "test.istio.io",
-			Version:   "v1",
-			Name:      name,
-			Namespace: namespace,
+			GroupVersionKind: mockGvk,
+			Name:             name,
+			Namespace:        namespace,
 			Labels: map[string]string{
 				"key": name,
 			},
@@ -250,7 +212,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	// check that the config descriptor is the mock config descriptor
 	_, contains := r.Schemas().FindByGroupVersionKind(mockGvk)
 	if !contains {
-		t.Error("expected config mock types")
+		t.Fatal("expected config mock types")
 	}
 	log.Info("Created mock descriptor")
 
@@ -289,18 +251,18 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	invalid := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            mockGvk.Kind,
-			Name:            "invalid",
-			ResourceVersion: revs[0],
+			GroupVersionKind: mockGvk,
+			Name:             "invalid",
+			ResourceVersion:  revs[0],
 		},
 		Spec: &config.MockConfig{},
 	}
 
 	missing := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            mockGvk.Kind,
-			Name:            "missing",
-			ResourceVersion: revs[0],
+			GroupVersionKind: mockGvk,
+			Name:             "missing",
+			ResourceVersion:  revs[0],
 		},
 		Spec: &config.MockConfig{Key: "missing"},
 	}
@@ -421,30 +383,26 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"HTTPAPISpecBinding", configName, collections.IstioConfigV1Alpha2Httpapispecbindings, ExampleHTTPAPISpecBinding},
 		{"QuotaSpec", configName, collections.IstioMixerV1ConfigClientQuotaspecs, ExampleQuotaSpec},
 		{"QuotaSpecBinding", configName, collections.IstioMixerV1ConfigClientQuotaspecbindings, ExampleQuotaSpecBinding},
-		{"ServiceRole", configName, collections.IstioRbacV1Alpha1Serviceroles, ExampleServiceRole},
-		{"ServiceRoleBinding", configName, collections.IstioRbacV1Alpha1Servicerolebindings, ExampleServiceRoleBinding},
-		{"RbacConfig", constants.DefaultRbacConfigName, collections.IstioRbacV1Alpha1Rbacconfigs, ExampleRbacConfig},
-		{"ClusterRbacConfig", constants.DefaultRbacConfigName, collections.IstioRbacV1Alpha1Clusterrbacconfigs, ExampleRbacConfig},
 		{"AuthorizationPolicy", configName, collections.IstioSecurityV1Beta1Authorizationpolicies, ExampleAuthorizationPolicy},
 	}
 
 	for _, c := range cases {
-		configMeta := model.ConfigMeta{
-			Type:    c.schema.Resource().Kind(),
-			Name:    c.configName,
-			Group:   c.schema.Resource().Group(),
-			Version: c.schema.Resource().Version(),
-		}
-		if !c.schema.Resource().IsClusterScoped() {
-			configMeta.Namespace = namespace
-		}
+		t.Run(c.name, func(t *testing.T) {
+			configMeta := model.ConfigMeta{
+				GroupVersionKind: c.schema.Resource().GroupVersionKind(),
+				Name:             c.configName,
+			}
+			if !c.schema.Resource().IsClusterScoped() {
+				configMeta.Namespace = namespace
+			}
 
-		if _, err := store.Create(model.Config{
-			ConfigMeta: configMeta,
-			Spec:       c.spec,
-		}); err != nil {
-			t.Errorf("Post(%v) => got %v", c.name, err)
-		}
+			if _, err := store.Create(model.Config{
+				ConfigMeta: configMeta,
+				Spec:       c.spec,
+			}); err != nil {
+				t.Errorf("Post(%v) => got %v", c.name, err)
+			}
+		})
 	}
 }
 
@@ -489,7 +447,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	// validate cache consistency
 	cache.RegisterEventHandler(mockGvk, func(_, config model.Config, ev model.Event) {
 		elts, _ := cache.List(mockGvk, namespace)
-		elt := cache.Get(o.GroupVersionKind(), o.Name, o.Namespace)
+		elt := cache.Get(o.GroupVersionKind, o.Name, o.Namespace)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {

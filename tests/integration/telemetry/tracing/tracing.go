@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -30,14 +29,9 @@ import (
 var (
 	ist            istio.Instance
 	bookinfoNsInst namespace.Instance
-	galInst        galley.Instance
 	ingInst        ingress.Instance
 	zipkinInst     zipkin.Instance
 )
-
-func GetGalleyInstance() galley.Instance {
-	return galInst
-}
 
 func GetIstioInstance() *istio.Instance {
 	return &ist
@@ -56,10 +50,6 @@ func GetZipkinInstance() zipkin.Instance {
 }
 
 func TestSetup(ctx resource.Context) (err error) {
-	galInst, err = galley.New(ctx, galley.Config{})
-	if err != nil {
-		return
-	}
 	bookinfoNsInst, err = namespace.New(ctx, namespace.Config{
 		Prefix: "istio-bookinfo",
 		Inject: true,
@@ -96,8 +86,8 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	err = galInst.ApplyConfig(
-		bookinfoNsInst,
+	err = ctx.Config().ApplyYAML(
+		bookinfoNsInst.Name(),
 		bookingfoGatewayFile,
 		destinationRuleFile,
 		virtualServiceFile,

@@ -8,7 +8,9 @@ spec:
 
   # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
-    enablePrometheusMerge: false
+    defaultConfig:
+      proxyMetadata: {}
+    enablePrometheusMerge: true
     # Opt-out of global http2 upgrades.
     # Destination rule is used to opt-in.
     # h2_upgrade_policy: DO_NOT_UPGRADE
@@ -107,15 +109,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-    # Security feature
-    citadel:
-      enabled: false
-      k8s:
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -126,8 +119,8 @@ spec:
             value: "sni-dnat"
         service:
           ports:
-            - port: 15020
-              targetPort: 15020
+            - port: 15021
+              targetPort: 15021
               name: status-port
             - port: 80
               targetPort: 8080
@@ -204,22 +197,12 @@ spec:
     # Istio CNI feature
     cni:
       enabled: false
+    
+    # istiod remote configuration wwhen istiod isn't installed on the cluster
+    istiodRemote:
+      enabled: false
 
   addonComponents:
-    prometheus:
-      enabled: true
-      k8s:
-        replicaCount: 1
-    kiali:
-      enabled: false
-      k8s:
-        replicaCount: 1
-    grafana:
-      enabled: false
-      k8s:
-        replicaCount: 1
-    tracing:
-      enabled: false
     istiocoredns:
       enabled: false
 
@@ -229,7 +212,6 @@ spec:
     global:
       istioNamespace: istio-system
       istiod:
-        enabled: true
         enableAnalysis: false
       logging:
         level: "default:info"
@@ -259,17 +241,13 @@ spec:
         excludeOutboundPorts: ""
         excludeInboundPorts: ""
         autoInject: enabled
-        envoyStatsd:
-          enabled: false
-          host: # example: statsd-svc.istio-system
-          port: # example: 9125
         tracer: "zipkin"
       proxy_init:
         image: proxyv2
         resources:
           limits:
-            cpu: 100m
-            memory: 50Mi
+            cpu: 2000m
+            memory: 1024Mi
           requests:
             cpu: 10m
             memory: 10Mi
@@ -278,8 +256,6 @@ spec:
       imagePullPolicy: ""
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
-      policyCheckFailOpen: false
-      enableTracing: true
       tracer:
         lightstep:
           address: ""                # example: lightstep-satellite:443
@@ -293,8 +269,6 @@ spec:
           maxNumberOfAttributes: 200
           maxNumberOfAnnotations: 200
           maxNumberOfMessageEvents: 200
-      mtls:
-        auto: true
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -319,20 +293,17 @@ spec:
       priorityClassName: ""
       useMCP: false
       trustDomain: "cluster.local"
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
       sds:
         token:
           aud: istio-ca
       sts:
         servicePort: 0
       meshNetworks: {}
-      localityLbSetting:
-        enabled: true
       enableHelmTest: false
       mountMtlsCerts: false
     base:
       enableCRDTemplates: false
+      validationURL: ""
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -417,6 +388,9 @@ spec:
             enabled: true
           useAdapterCRDs: false
 
+    istiodRemote:
+      injectionURL: ""
+      
     gateways:
       istio-egressgateway:
         zvpn: {}
@@ -442,18 +416,12 @@ spec:
         zvpn: {}
         env: {}
         meshExpansionPorts:
-          - port: 15011
-            targetPort: 15011
-            name: tcp-pilot-grpc-tls
-          - port: 15012
-            targetPort: 15012
-            name: tcp-istiod
-          - port: 8060
-            targetPort: 8060
-            name: tcp-citadel-grpc-tls
-          - port: 853
-            targetPort: 8853
-            name: tcp-dns-tls
+        - port: 15012
+          targetPort: 15012
+          name: tcp-istiod
+        - port: 853
+          targetPort: 8853
+          name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs
             secretName: istio-ingressgateway-certs
@@ -472,7 +440,7 @@ spec:
 
     prometheus:
       hub: docker.io/prom
-      tag: v2.15.1
+      tag: v2.18.1
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
@@ -488,7 +456,7 @@ spec:
     grafana:
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 7.0.3
       persist: false
       storageClassName: ""
       accessMode: ReadWriteMany
@@ -534,7 +502,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.16"
+        tag: "1.18"
         memory:
           max_traces: 50000
         spanStorageType: badger
@@ -582,7 +550,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.15
+      tag: v1.18
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []

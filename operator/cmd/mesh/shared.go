@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
@@ -218,8 +217,6 @@ type applyOptions struct {
 	Context string
 	// DryRun performs all steps except actually applying the manifests or creating output dirs/files.
 	DryRun bool
-	// Wait for resources to be ready after install.
-	Wait bool
 	// Maximum amount of time to wait for resources to be ready after install when Wait=true.
 	WaitTimeout time.Duration
 }
@@ -237,7 +234,7 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr st
 		Name:    componentName,
 		Content: manifestStr,
 	}
-	_, _, err = reconciler.ApplyManifest(ms, true)
+	_, _, err = reconciler.ApplyManifest(ms)
 	return err
 }
 
@@ -247,7 +244,7 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 		return "", "", nil
 	}
 
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, "", false, nil, l)
+	_, mergedIOPS, err := GenerateConfig([]string{filePath}, nil, false, nil, l)
 	if err != nil {
 		return "", "", err
 	}
@@ -284,22 +281,4 @@ func createNamespace(cs kubernetes.Interface, namespace string) error {
 // deleteNamespace deletes namespace using the given k8s client.
 func deleteNamespace(cs kubernetes.Interface, namespace string) error {
 	return cs.CoreV1().Namespaces().Delete(context.TODO(), namespace, v12.DeleteOptions{})
-}
-
-// saveIOPToCluster saves the state in an IOP CR in the cluster.
-func saveIOPToCluster(reconciler *helmreconciler.HelmReconciler, iop string) error {
-	obj, err := object.ParseYAMLToK8sObject([]byte(iop))
-	if err != nil {
-		return err
-	}
-	return reconciler.ApplyObject("", obj.UnstructuredObject())
-}
-
-// checkExit exits and prints err it if it not nil.
-func checkExit(err error) {
-	if err == nil {
-		return
-	}
-	fmt.Print(err)
-	os.Exit(1)
 }

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,11 @@
 package authz
 
 import (
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -23,9 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/log"
-
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 )
 
 var (
@@ -154,19 +156,19 @@ func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *networking.Muta
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *cluster.Cluster) {
 }
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
+func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *route.RouteConfiguration) {
 }
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
+func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *route.RouteConfiguration) {
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *cluster.Cluster) {
 }
 
 // OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.

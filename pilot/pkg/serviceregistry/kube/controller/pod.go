@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -45,9 +46,9 @@ type PodCache struct {
 	c *Controller
 }
 
-func newPodCache(informer cache.SharedIndexInformer, c *Controller) *PodCache {
+func newPodCache(c *Controller, informer coreinformers.PodInformer) *PodCache {
 	out := &PodCache{
-		informer: informer,
+		informer: informer.Informer(),
 		c:        c,
 		podsByIP: make(map[string]string),
 		IPByPods: make(map[string]string),
@@ -79,7 +80,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	// via UpdateStatus.
 
 	if len(ip) > 0 {
-		log.Infof("Handling event %s for pod %s (%v) in namespace %s -> %v", ev, pod.Name, pod.Status.Phase, pod.Namespace, ip)
+		log.Debugf("Handling event %s for pod %s (%v) in namespace %s -> %v", ev, pod.Name, pod.Status.Phase, pod.Namespace, ip)
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
 		switch ev {
 		case model.EventAdd:

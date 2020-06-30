@@ -139,6 +139,10 @@ spec:
               {{- end }}
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ .Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+            {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
+            - name: {{ $key }}
+              value: "{{ $value }}"
+            {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30
@@ -201,12 +205,6 @@ spec:
         configMap:
           defaultMode: 420
           name: istio-ca-root-cert
-        {{- end }}
-        {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
-      - name: lightstep-certs
-        secret:
-          optional: true
-          secretName: lightstep.cacert
         {{- end }}
 {{- end }}
 

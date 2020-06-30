@@ -30,12 +30,6 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - rbac.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
   - security.istio.io
   resources:
   - '*'
@@ -124,6 +118,82 @@ roleRef:
   name: istio-operator
   apiGroup: rbac.authorization.k8s.io
 ---
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: operator-test-namespace
+  name: istio-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: istio-operator
+  template:
+    metadata:
+      labels:
+        name: istio-operator
+    spec:
+      serviceAccountName: istio-operator
+      containers:
+        - name: istio-operator
+          image: foo.io/istio/operator:1.2.3
+          command:
+          - operator
+          - server
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          env:
+            - name: WATCH_NAMESPACE
+              value: "istio-test-namespace1,istio-test-namespace2"
+            - name: LEADER_ELECTION_NAMESPACE
+              value: "operator-test-namespace"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "operator-test-namespace"
+            - name: WAIT_FOR_RESOURCES_TIMEOUT
+              value: "300s"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: operator-test-namespace
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: operator-test-namespace
+  labels:
+    name: istio-operator
+  name: istio-operator
+spec:
+  ports:
+  - name: http-metrics
+    port: 8383
+    targetPort: 8383
+  selector:
+    name: istio-operator
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: operator-test-namespace
+  name: istio-operator
+---
 # SYNC WITH manifests/charts/base/files
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -169,75 +239,4 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  namespace: operator-test-namespace
-  name: istio-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: istio-operator
-  template:
-    metadata:
-      labels:
-        name: istio-operator
-    spec:
-      serviceAccountName: istio-operator
-      containers:
-        - name: istio-operator
-          image: foo.io/istio/operator:1.2.3
-          command:
-          - operator
-          - server
-          imagePullPolicy: IfNotPresent
-          resources:
-            limits:
-              cpu: 200m
-              memory: 256Mi
-            requests:
-              cpu: 50m
-              memory: 128Mi
-          env:
-            - name: WATCH_NAMESPACE
-              value: istio-test-namespace
-            - name: LEADER_ELECTION_NAMESPACE
-              value: operator-test-namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: OPERATOR_NAME
-              value: operator-test-namespace
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-operator
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
-apiVersion: v1
-kind: Service
-metadata:
-  namespace: operator-test-namespace
-  labels:
-    name: istio-operator
-  name: istio-operator
-spec:
-  ports:
-  - name: http-metrics
-    port: 8383
-    targetPort: 8383
-  selector:
-    name: istio-operator
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  namespace: operator-test-namespace
-  name: istio-operator
 ---

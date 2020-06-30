@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,38 +18,21 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
 	inst istio.Instance
-	g    galley.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS multiple Gateway flow when
 	// the control plane certificate provider is k8s CA.
 	framework.
-		NewSuite("sds_ingress_k8sca", m).
+		NewSuite(m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
-				return err
-			}
-			return nil
-		}).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 
 }
@@ -69,17 +52,17 @@ values:
 func TestMtlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.control-plane.k8s-certs", "security.ingress.mtls").
 		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiMtlsGateways(ctx, inst, g)
+			util.RunTestMultiMtlsGateways(ctx, inst)
 		})
 }
 
 func TestTlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.control-plane.k8s-certs", "security.ingress.tls").
 		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiTLSGateways(ctx, inst, g)
+			util.RunTestMultiTLSGateways(ctx, inst)
 		})
 }

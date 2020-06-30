@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
@@ -50,14 +50,14 @@ spec:
 func TestProcessor(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	meshSrc := meshcfg.NewInmemory()
+	meshSrc := mesh.NewInmemoryMeshCfg()
 	src := inmemory.NewKubeSource(schema.MustGet().KubeCollections())
 	srcs := []event.Source{
 		meshSrc,
 		src,
 	}
 
-	meshSrc.Set(meshcfg.Default())
+	meshSrc.Set(mesh.DefaultMeshConfig())
 	distributor := snapshotter.NewInMemoryDistributor()
 	transformProviders := transforms.Providers(schema.MustGet())
 

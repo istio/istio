@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,15 +21,14 @@ import (
 	"strconv"
 	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -72,9 +71,7 @@ const (
 
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
-	// ForwardDownstreamSniFilter forwards the sni from downstream connections to upstream
-	// Used only in the fallthrough filter stack for TLS connections
-	ForwardDownstreamSniFilter = "forward_downstream_sni"
+
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
@@ -85,11 +82,11 @@ const (
 
 	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
 	// endpoint level plantext transport socket configuration
-	EnvoyRawBufferSocketName = "envoy.transport_sockets.raw_buffer"
+	EnvoyRawBufferSocketName = wellknown.TransportSocketRawBuffer
 
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
-	EnvoyTLSSocketName = "envoy.transport_sockets.tls"
+	EnvoyTLSSocketName = wellknown.TransportSocketTls
 
 	// StatName patterns
 	serviceStatPattern         = "%SERVICE%"
@@ -106,6 +103,11 @@ var ALPNH2Only = []string{"h2"}
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 // Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
 var ALPNInMeshH2 = []string{"istio", "h2"}
+
+// ALPNInMeshH2WithMxc advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+// The custom "istio-peer-exchange" value indicates, metadata exchange is enabled for TCP.
+var ALPNInMeshH2WithMxc = []string{"istio-peer-exchange", "istio", "h2"}
 
 // ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
@@ -204,6 +206,7 @@ func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
 		return nil, err
 	}
 	return &any.Any{
+		// nolint: staticcheck
 		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
 		Value:   b.Bytes(),
 	}, nil
@@ -352,29 +355,16 @@ func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
 	return 3
 }
 
-// return a shallow copy cluster
-func CloneCluster(cluster *xdsapi.Cluster) xdsapi.Cluster {
-	out := xdsapi.Cluster{}
-	if cluster == nil {
-		return out
-	}
-
-	out = *cluster
-	loadAssignment := CloneClusterLoadAssignment(cluster.LoadAssignment)
-	out.LoadAssignment = &loadAssignment
-
-	return out
-}
-
 // return a shallow copy ClusterLoadAssignment
-func CloneClusterLoadAssignment(original *xdsapi.ClusterLoadAssignment) xdsapi.ClusterLoadAssignment {
-	out := xdsapi.ClusterLoadAssignment{}
+func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) *endpoint.ClusterLoadAssignment {
 	if original == nil {
-		return out
+		return nil
 	}
+	out := &endpoint.ClusterLoadAssignment{}
 
-	out = *original
-	out.Endpoints = cloneLocalityLbEndpoints(out.Endpoints)
+	out.ClusterName = original.ClusterName
+	out.Endpoints = cloneLocalityLbEndpoints(original.Endpoints)
+	out.Policy = original.Policy
 
 	return out
 }
@@ -383,38 +373,45 @@ func CloneClusterLoadAssignment(original *xdsapi.ClusterLoadAssignment) xdsapi.C
 func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
 	out := make([]*endpoint.LocalityLbEndpoints, 0, len(endpoints))
 	for _, ep := range endpoints {
-		clone := *ep
+		clone := &endpoint.LocalityLbEndpoints{}
+		clone.Locality = ep.Locality
+		clone.LbEndpoints = ep.LbEndpoints
+		clone.Proximity = ep.Proximity
+		clone.Priority = ep.Priority
 		if ep.LoadBalancingWeight != nil {
 			clone.LoadBalancingWeight = &wrappers.UInt32Value{
 				Value: ep.GetLoadBalancingWeight().GetValue(),
 			}
 		}
-		out = append(out, &clone)
+		out = append(out, clone)
 	}
 	return out
-}
-
-// return a shallow copy LbEndpoint
-func CloneLbEndpoint(endpoint *endpoint.LbEndpoint) *endpoint.LbEndpoint {
-	if endpoint == nil {
-		return nil
-	}
-
-	clone := *endpoint
-	if endpoint.LoadBalancingWeight != nil {
-		clone.LoadBalancingWeight = &wrappers.UInt32Value{
-			Value: endpoint.GetLoadBalancingWeight().GetValue(),
-		}
-	}
-	return &clone
 }
 
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc. Used by Mixer client
 // to generate attributes for policy and telemetry.
 func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
-	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
+	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
+	return &core.Metadata{
+		FilterMetadata: map[string]*pstruct.Struct{
+			IstioMetadataKey: {
+				Fields: map[string]*pstruct.Value{
+					"config": {
+						Kind: &pstruct.Value_StringValue{
+							StringValue: s,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func BuildConfigInfoMetadataV2(config model.ConfigMeta) *core.Metadata {
+	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
 	return &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{
 			IstioMetadataKey: {
@@ -452,7 +449,7 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) *core.Metadata {
 // IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
 func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 	for _, f := range filterChain.Filters {
-		if f.Name == xdsutil.HTTPConnectionManager {
+		if f.Name == wellknown.HTTPConnectionManager {
 			return true
 		}
 	}

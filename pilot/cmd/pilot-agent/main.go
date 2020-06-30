@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"google.golang.org/grpc/grpclog"
 
 	"istio.io/istio/pkg/dns"
 
@@ -36,11 +38,10 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy"
-	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
+	securityutil "istio.io/istio/pilot/pkg/security/authn/utils"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
@@ -68,7 +69,6 @@ var (
 	proxyIP            string
 	registryID         serviceregistry.ProviderID
 	trustDomain        string
-	pilotIdentity      string
 	mixerIdentity      string
 	stsPort            int
 	tokenManagerPlugin string
@@ -90,10 +90,11 @@ var (
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
-	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
@@ -127,6 +128,7 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
+			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			// Extract pod variables.
 			podName := podNameVar.Get()
@@ -150,7 +152,7 @@ var (
 			}
 
 			// Obtain all the IPs from the node
-			if ipAddrs, ok := proxy.GetPrivateIPs(context.Background()); ok {
+			if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {
 				log.Infof("Obtained private IP %v", ipAddrs)
 				if len(role.IPAddresses) == 1 {
 					for _, ip := range ipAddrs {
@@ -200,18 +202,17 @@ var (
 			log.Infof("Proxy role: %#v", role)
 
 			var jwtPath string
-			if jwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
+			if jwtPolicy.Get() == jwt.PolicyThirdParty {
 				log.Info("JWT policy is third-party-jwt")
 				jwtPath = trustworthyJWTPath
-			} else if jwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
+			} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
 				log.Info("JWT policy is first-party-jwt")
 				jwtPath = securityModel.K8sSAJwtFileName
 			} else {
 				log.Info("Using existing certs")
 			}
-
 			sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-				pilotCertProvider, jwtPath, outputKeyCertToDir)
+				pilotCertProvider, jwtPath, outputKeyCertToDir, clusterIDVar.Get())
 
 			// Connection to Istiod secure port
 			if sa.RequireCerts {
@@ -222,7 +223,7 @@ var (
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
 				// Obtain the Mixer SAN, which uses SPIFFE certs. Used below to create a Envoy proxy.
-				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
+				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), securityutil.MixerSvcAccName, mixerIdentity)
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
@@ -233,18 +234,6 @@ var (
 			_, err = sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
 			if err != nil {
 				log.Fatala("Failed to start in-process SDS", err)
-			}
-
-			// dedupe cert paths so we don't set up 2 watchers for the same file
-			tlsCerts := dedupeStrings(getTLSCerts(proxyConfig))
-
-			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
-			// before starting it.
-			if len(tlsCerts) > 0 {
-				log.Infof("Monitored certs: %#v", tlsCerts)
-				for _, cert := range tlsCerts {
-					waitForFile(cert, 2*time.Minute)
-				}
 			}
 
 			// If we are using a custom template file (for control plane proxy, for example), configure this.
@@ -333,10 +322,16 @@ var (
 				ProvCert:            citadel.ProvCert,
 			})
 
-			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
+			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
+			if ds, f := features.TerminationDrainDuration.Lookup(); f {
+				// Legacy environment variable is set, us that instead
+				drainDuration = time.Second * time.Duration(ds)
+			}
+
+			agent := envoy.NewAgent(envoyProxy, drainDuration)
 
 			// Watcher is also kicking envoy start.
-			watcher := envoy.NewWatcher(tlsCerts, agent.Restart)
+			watcher := envoy.NewWatcher(agent.Restart)
 			go watcher.Run(ctx)
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
@@ -347,20 +342,14 @@ var (
 	}
 )
 
-// dedupes the string array and also ignores the empty string.
-func dedupeStrings(in []string) []string {
-	set := sets.NewSet(in...)
-	return set.UnsortedList()
-}
-
 // explicitly set the trustdomain so the pilot and mixer SAN will have same trustdomain
 // and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
 func setSpiffeTrustDomain(podNamespace string, domain string) {
 	pilotTrustDomain := trustDomain
 	if len(pilotTrustDomain) == 0 {
 		if registryID == serviceregistry.Kubernetes &&
-			(domain == podNamespace+".svc.cluster.local" || domain == "") {
-			pilotTrustDomain = "cluster.local"
+			(domain == podNamespace+".svc."+constants.DefaultKubernetesDomain || domain == "") {
+			pilotTrustDomain = constants.DefaultKubernetesDomain
 		} else if registryID == serviceregistry.Consul &&
 			(domain == "service.consul" || domain == "") {
 			pilotTrustDomain = ""
@@ -374,9 +363,9 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 	var san []string
 	if overrideIdentity == "" {
-		san = append(san, envoyDiscovery.GetSAN(ns, defaultSA))
+		san = append(san, securityutil.GetSAN(ns, defaultSA))
 	} else {
-		san = append(san, envoyDiscovery.GetSAN("", overrideIdentity))
+		san = append(san, securityutil.GetSAN("", overrideIdentity))
 
 	}
 	return san
@@ -385,7 +374,7 @@ func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
 		if registryID == serviceregistry.Kubernetes {
-			domain = podNamespace + ".svc.cluster.local"
+			domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
 		} else if registryID == serviceregistry.Consul {
 			domain = "service.consul"
 		} else {
@@ -393,17 +382,6 @@ func getDNSDomain(podNamespace, domain string) string {
 		}
 	}
 	return domain
-}
-
-func fromJSON(j string) *meshconfig.RemoteService {
-	var m meshconfig.RemoteService
-	err := jsonpb.UnmarshalString(j, &m)
-	if err != nil {
-		log.Warnf("Unable to unmarshal %s: %v", j, err)
-		return nil
-	}
-
-	return &m
 }
 
 func init() {
@@ -419,14 +397,12 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
 		"The domain to use for identities")
-	proxyCmd.PersistentFlags().StringVar(&pilotIdentity, "pilotIdentity", "",
-		"The identity used as the suffix for pilot's spiffe SAN ")
 	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
-			"PROXY_CONFIG environment variable or istio.io/proxyConfig annotation.")
+			"PROXY_CONFIG environment variable or proxy.istio.io/config annotation.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
 	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
@@ -463,37 +439,6 @@ func init() {
 		Section: "pilot-agent CLI",
 		Manual:  "Istio Pilot Agent",
 	}))
-}
-
-func waitForFile(fname string, maxWait time.Duration) bool {
-	log.Infof("waiting %v for %s", maxWait, fname)
-
-	logDelay := 1 * time.Second
-	nextLog := time.Now().Add(logDelay)
-	endWait := time.Now().Add(maxWait)
-
-	for {
-		_, err := os.Stat(fname)
-		if err == nil {
-			return true
-		}
-		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
-			log.Errora("error while waiting for file", err.Error())
-			return false
-		}
-
-		now := time.Now()
-		if now.After(endWait) {
-			log.Warna("file still not available after", maxWait)
-			return false
-		}
-		if now.After(nextLog) {
-			log.Infof("waiting for file")
-			logDelay *= 2
-			nextLog.Add(logDelay)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
 }
 
 // TODO: get the config and bootstrap from istiod, by passing the env

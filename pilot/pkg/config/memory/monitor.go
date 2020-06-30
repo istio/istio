@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -77,9 +77,6 @@ func (m *configstoreMonitor) Run(stop <-chan struct{}) {
 	for {
 		select {
 		case <-stop:
-			if _, ok := <-m.eventCh; ok {
-				close(m.eventCh)
-			}
 			return
 		case ce, ok := <-m.eventCh:
 			if ok {
@@ -90,8 +87,8 @@ func (m *configstoreMonitor) Run(stop <-chan struct{}) {
 }
 
 func (m *configstoreMonitor) processConfigEvent(ce ConfigEvent) {
-	if _, exists := m.handlers[ce.config.GroupVersionKind()]; !exists {
-		log.Warnf("Config Type %s does not exist in config store", ce.config.Type)
+	if _, exists := m.handlers[ce.config.GroupVersionKind]; !exists {
+		log.Warnf("Config GroupVersionKind %s does not exist in config store", ce.config.GroupVersionKind)
 		return
 	}
 	m.applyHandlers(ce.old, ce.config, ce.event)
@@ -102,7 +99,7 @@ func (m *configstoreMonitor) AppendEventHandler(typ resource.GroupVersionKind, h
 }
 
 func (m *configstoreMonitor) applyHandlers(old model.Config, config model.Config, e model.Event) {
-	for _, f := range m.handlers[config.GroupVersionKind()] {
+	for _, f := range m.handlers[config.GroupVersionKind] {
 		f(old, config, e)
 	}
 }

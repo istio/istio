@@ -178,7 +178,7 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
-  tag: 1.4-dev
+  tag: latest
   values:
     certmanager:
       hub: quay.io/jetstack
@@ -580,7 +580,7 @@ spec:
         persist: false
         spanStorageType: badger
         storageClassName: ""
-        tag: "1.16"
+        tag: "1.18"
       nodeSelector: {}
       opencensus:
         exporters:

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,17 +17,18 @@ package pilot
 import (
 	"testing"
 
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
 	i istio.Instance
-	g galley.Instance
 	p pilot.Instance
 )
 
@@ -36,19 +37,37 @@ var (
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("pilot_test", m).
+		NewSuite(m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
+		Setup(istio.Setup(&i, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  global:
+    meshExpansion:
+      enabled: true`
+		})).
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
+			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
 			return nil
 		}).
 		Run()
+}
+
+func echoConfig(ns namespace.Instance, name string) echo.Config {
+	return echo.Config{
+		Service:   name,
+		Namespace: ns,
+		Ports: []echo.Port{
+			{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+				// We use a port > 1024 to not require root
+				InstancePort: 8090,
+			},
+		},
+		Subsets: []echo.SubsetConfig{{}},
+		Pilot:   p,
+	}
 }

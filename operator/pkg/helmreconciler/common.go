@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,14 +27,18 @@ import (
 )
 
 const (
-	// owningResourceKey represents the name of the owner to which the resource relates
-	owningResourceKey = MetadataNamespace + "/owning-resource"
+	// MetadataNamespace is the namespace for mesh metadata (labels, annotations)
+	MetadataNamespace = "install.operator.istio.io"
+	// OwningResourceName represents the name of the owner to which the resource relates
+	OwningResourceName = MetadataNamespace + "/owning-resource"
+	// OwningResourceNamespace represents the namespace of the owner to which the resource relates
+	OwningResourceNamespace = MetadataNamespace + "/owning-resource-namespace"
 	// operatorLabelStr indicates Istio operator is managing this resource.
 	operatorLabelStr = name.OperatorAPINamespace + "/managed"
 	// operatorReconcileStr indicates that the operator will reconcile the resource.
 	operatorReconcileStr = "Reconcile"
-	// istioComponentLabelStr indicates which Istio component a resource belongs to.
-	istioComponentLabelStr = name.OperatorAPINamespace + "/component"
+	// IstioComponentLabelStr indicates which Istio component a resource belongs to.
+	IstioComponentLabelStr = name.OperatorAPINamespace + "/component"
 	// istioVersionLabelStr indicates the Istio version of the installation.
 	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
 )

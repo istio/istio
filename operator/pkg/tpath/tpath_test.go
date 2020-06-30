@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,24 @@ a:
 		wantFound bool
 		wantErr   string
 	}{
+		{
+			desc:      "AddListEntry",
+			path:      `a.b.[name:n2].list`,
+			value:     `foo`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list:
+    - v1
+    - v2
+    - v3_regex
+    - foo
+`,
+		},
 		{
 			desc:      "ModifyListEntryValue",
 			path:      `a.b.[name:n1].value`,
@@ -91,6 +109,25 @@ a:
     - v3
     - v3_regex
     name: n2
+`,
+		},
+		{
+			desc: "ModifyListEntryMapValue",
+			path: `a.b.[name:n2]`,
+			value: `name: n2
+list: 
+  - nk1: nv1
+  - nk2: nv2`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list:
+    - nk1: nv1
+    - nk2: nv2
 `,
 		},
 		{
@@ -293,8 +330,8 @@ a:
 		},
 		{
 			desc:      "AddMapEntry",
-			path:      `a.test`,
-			value:     `foo`,
+			path:      `a.new_key`,
+			value:     `new_val`,
 			wantFound: true,
 			want: `
 a:
@@ -306,13 +343,15 @@ a:
     - v1
     - v2
     - v3_regex
-  test: foo
+  new_key: new_val
 `,
 		},
 		{
-			desc:      "AddListEntry",
-			path:      `a.b.[name:n2].list`,
-			value:     `foo`,
+			desc: "AddMapEntryMapValue",
+			path: `a.new_key`,
+			value: `new_key:
+  nk1:
+    nk2: nv2`,
 			wantFound: true,
 			want: `
 a:
@@ -324,7 +363,29 @@ a:
     - v1
     - v2
     - v3_regex
-    - foo
+  new_key:
+    nk1:
+      nk2: nv2
+`,
+		},
+		{
+			desc: "ModifyMapEntryMapValue",
+			path: `a.b`,
+			value: `nk1:
+  nk2: nv2`,
+			wantFound: true,
+			want: `
+a:
+  nk1:
+    nk2: nv2
+`,
+		},
+		{
+			desc:      "DeleteMapEntry",
+			path:      `a.b`,
+			wantFound: true,
+			want: `
+a: {}
 `,
 		},
 		{
@@ -371,7 +432,7 @@ a:
 			gotYAML := util.ToYAML(root)
 			diff := util.YAMLDiff(gotYAML, tt.want)
 			if diff != "" {
-				t.Errorf("%s: diff:\n%s\n", tt.desc, diff)
+				t.Errorf("%s: (got:-, want:+):\n%s\n", tt.desc, diff)
 			}
 		})
 	}

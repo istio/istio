@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,9 @@ import (
 )
 
 const (
-	minK8SVersion = "1.13"
+	// Minimum K8 version required to run latest version of Istio
+	// https://istio.io/docs/setup/platform-setup/
+	minK8SVersion = "1.16"
 )
 
 var (
@@ -82,9 +84,9 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to initialize the Kubernetes client: %v", err))
 		fmt.Fprintf(writer, "Failed to initialize the Kubernetes client: %v.\n", err)
-	} else {
-		fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
+		return errs
 	}
+	fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
 	v, err := c.serverVersion()
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to query the Kubernetes API Server: %v", err))

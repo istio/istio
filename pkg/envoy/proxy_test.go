@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,13 +19,15 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestEnvoyArgs(t *testing.T) {
 	proxyConfig := mesh.DefaultProxyConfig()
 	proxyConfig.ServiceCluster = "my-cluster"
-	proxyConfig.Concurrency = 8
+	proxyConfig.Concurrency = &types.Int32Value{Value: 8}
 
 	cfg := ProxyConfig{
 		Config:            proxyConfig,

@@ -19,7 +19,6 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         kiali.io/runtimes: go,kiali

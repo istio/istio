@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -134,8 +134,8 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		}
 	}
 
-	if e.Config.Concurrency > 0 {
-		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.Config.Concurrency))
+	if e.Config.Concurrency.GetValue() > 0 {
+		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.Config.Concurrency.GetValue()))
 	}
 
 	return startupArgs

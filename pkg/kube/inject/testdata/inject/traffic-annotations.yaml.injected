@@ -12,12 +12,14 @@ spec:
   template:
     metadata:
       annotations:
-        istio.io/proxyConfig: |-
+        proxy.istio.io/config: |-
           discoveryAddress: foo:123
+          concurrency: 0
           proxyMetadata:
             FOO: bar
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/proxyCPU: 4000m
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6,15020
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/excludeOutboundPorts: 7,8,9
@@ -47,14 +49,12 @@ spec:
         - --proxyComponentLogLevel=misc:error
         - --trust-domain=cluster.local
         - --concurrency
-        - "2"
+        - "4"
         env:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
-        - name: CA_ADDR
-          value: istiod.istio-system.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -75,9 +75,17 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
-            {"discoveryAddress":"foo:123","proxyMetadata":{"FOO":"bar"}}
+            {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"FOO":"bar"}}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -94,7 +102,7 @@ spec:
           value: REDIRECT
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
-            {"istio.io/proxyConfig":"discoveryAddress: foo:123\nproxyMetadata:\n  FOO: bar","traffic.sidecar.istio.io/excludeInboundPorts":"4,5,6","traffic.sidecar.istio.io/excludeOutboundIPRanges":"10.96.0.2/24,10.96.0.3/24","traffic.sidecar.istio.io/excludeOutboundPorts":"7,8,9","traffic.sidecar.istio.io/includeInboundPorts":"1,2,3","traffic.sidecar.istio.io/includeOutboundIPRanges":"127.0.0.1/24,10.96.0.1/24"}
+            {"proxy.istio.io/config":"discoveryAddress: foo:123\nconcurrency: 0\nproxyMetadata:\n  FOO: bar","sidecar.istio.io/proxyCPU":"4000m","traffic.sidecar.istio.io/excludeInboundPorts":"4,5,6","traffic.sidecar.istio.io/excludeOutboundIPRanges":"10.96.0.2/24,10.96.0.3/24","traffic.sidecar.istio.io/excludeOutboundPorts":"7,8,9","traffic.sidecar.istio.io/includeInboundPorts":"1,2,3","traffic.sidecar.istio.io/includeOutboundIPRanges":"127.0.0.1/24,10.96.0.1/24"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: traffic
         - name: ISTIO_META_OWNER
@@ -116,16 +124,12 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15090
+            port: 15021
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: "4"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -139,6 +143,8 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
@@ -163,7 +169,7 @@ spec:
         - -b
         - 1,2,3
         - -d
-        - 15090,4,5,6,15020
+        - 15090,15021,4,5,6,15020
         - -o
         - 7,8,9
         env:
@@ -174,8 +180,8 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 100m
-            memory: 50Mi
+            cpu: "2"
+            memory: 1Gi
           requests:
             cpu: 10m
             memory: 10Mi
@@ -192,10 +198,14 @@ spec:
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
+      securityContext:
+        fsGroup: 1337
       volumes:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - emptyDir: {}
+        name: istio-data
       - downwardAPI:
           items:
           - fieldRef:

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,46 +21,19 @@ import (
 	"strconv"
 	"strings"
 
-	networking "istio.io/api/networking/v1alpha3"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/istio/pkg/kube/inject"
 )
-
-// getTLSCerts returns all file based certificates from mesh config
-// TODO(https://github.com/istio/istio/issues/21834) serve over SDS instead of files
-// This is used for static configuration in the bootstrap that needs certificates, currently this is
-// Envoy Metrics Service and ALS. In the future this could expand to others like tracing, which currently
-// are using other mechanisms to configure certs.
-func getTLSCerts(pc meshconfig.ProxyConfig) []string {
-	certs := []string{}
-	appendTLSCerts := func(rs *meshconfig.RemoteService) {
-		if rs.TlsSettings == nil {
-			return
-		}
-		if rs.TlsSettings.Mode == networking.ClientTLSSettings_DISABLE {
-			return
-		}
-		certs = append(certs, rs.TlsSettings.CaCertificates, rs.TlsSettings.ClientCertificate,
-			rs.TlsSettings.PrivateKey)
-	}
-	if pc.EnvoyMetricsService != nil {
-		appendTLSCerts(pc.EnvoyMetricsService)
-	}
-	if pc.EnvoyAccessLogService != nil {
-		appendTLSCerts(pc.EnvoyAccessLogService)
-	}
-	return certs
-}
 
 func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	annotations, err := readPodAnnotations()
@@ -75,7 +48,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		}
 		fileMeshContents = string(contents)
 	}
-	meshConfig, err := getMeshConfig(fileMeshContents, annotations[inject.ProxyConfigAnnotation])
+	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name])
 	if err != nil {
 		return meshconfig.ProxyConfig{}, err
 	}
@@ -84,11 +57,11 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		proxyConfig = *meshConfig.DefaultConfig
 	}
 
-	proxyConfig.Concurrency = int32(concurrency)
+	proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
 	proxyConfig.ServiceCluster = serviceCluster
 	// resolve statsd address
 	if proxyConfig.StatsdUdpAddress != "" {
-		addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
+		addr, err := network.ResolveAddr(proxyConfig.StatsdUdpAddress)
 		if err != nil {
 			// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
 			// (instead of crashing). Mixer is optional.

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,14 +53,16 @@ type citadelClient struct {
 	enableTLS     bool
 	caTLSRootCert []byte
 	client        pb.IstioCertificateServiceClient
+	clusterID     string
 }
 
 // NewCitadelClient create a CA client for Citadel.
-func NewCitadelClient(endpoint string, tls bool, rootCert []byte) (caClientInterface.Client, error) {
+func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (caClientInterface.Client, error) {
 	c := &citadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,
 		caTLSRootCert: rootCert,
+		clusterID:     clusterID,
 	}
 
 	var opts grpc.DialOption
@@ -96,7 +98,7 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 
 	// add Bearer prefix, which is required by Citadel.
 	token = bearerTokenPrefix + token
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
+	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to create certificate: %v", err)

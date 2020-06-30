@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2017 Istio Authors. All Rights Reserved.
+# Copyright Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,12 +40,10 @@ done
 set -x
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-OPERATOR_BASE_DIR="${SCRIPT_DIR}/.."
 INSTALLER_DIR="${SCRIPT_DIR}/../../manifests"
 
 mkdir -p "${OUTPUT_DIR}"
 
 cp -R "${INSTALLER_DIR}/charts" "${OUTPUT_DIR}"
 cp -R "${INSTALLER_DIR}/profiles" "${OUTPUT_DIR}"
-cp -R "${OPERATOR_BASE_DIR}"/data/* "${OUTPUT_DIR}"
 

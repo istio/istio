@@ -1,3 +1,54 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: istio-reader
+    release: istio
+  name: istio-reader-istio-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-reader-istio-system
+subjects:
+- kind: ServiceAccount
+  name: my-service-role
+  namespace: istio-system
+---
+
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    app: sidecar-injector
+    istio.io/rev: default
+    release: istio
+  name: istio-sidecar-injector-istio-control
+webhooks:
+- clientConfig:
+    caBundle: ""
+    service:
+      name: foo
+      namespace: istio-control
+      path: /inject
+  failurePolicy: Fail
+  name: sidecar-injector.istio.io
+  namespaceSelector:
+    matchLabels:
+      istio-injection: enabled
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+---
+
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,6 +70,8 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
@@ -36,8 +89,6 @@ spec:
         - --keepaliveMaxServerConnectionAge
         - 60m
         env:
-        - name: REVISION
-          value: default
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
@@ -50,8 +101,8 @@ spec:
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
+              apiVersion: v2
+              fieldPath: metadata.myPath
         - name: SERVICE_ACCOUNT
           valueFrom:
             fieldRef:
@@ -71,6 +122,8 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: CENTRAL_ISTIOD
+          value: "false"
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
@@ -89,13 +142,6 @@ spec:
           requests:
             cpu: 123m
             memory: 2048Mi
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
@@ -112,7 +158,7 @@ spec:
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -130,7 +176,6 @@ spec:
           secretName: cacerts
       - configMap:
           name: istio-sidecar-injector
-          optional: true
         name: inject
       - configMap:
           name: istio

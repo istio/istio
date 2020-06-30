@@ -7,6 +7,6 @@ keywords:
   - istio
   - operator
 sources:
-  - http://github.com/istio/istio/operator
+  - https://github.com/istio/istio/tree/master/operator
 engine: gotpl
-icon: https://istio.io/favicons/android-192x192.png
+icon: https://istio.io/latest/favicons/android-192x192.png

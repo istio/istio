@@ -1,0 +1,82 @@
+# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
+{{- if not .Values.global.operatorManageWebhooks }}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+{{- if eq .Release.Namespace "istio-system"}}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+{{ else }}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+{{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    app: sidecar-injector
+    release: {{ .Release.Name }}
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      {{- if .Values.istiodRemote.injectionURL }}
+      # the url doesn't take query params, so use inject/cluster/x/net/y format
+      url: {{ .Values.istiodRemote.injectionURL }}/cluster/{{ .Values.global.multiCluster.clusterName | default "remote0" }}/net/{{ .Values.global.network | default "network0" }}
+      {{- else }}
+      service:
+        name: istiod
+        namespace: {{ .Values.global.istioNamespace }}
+        path: "/inject"
+      {{- end }}
+      caBundle: {{ .Values.sidecarInjectorWebhook.caBundle }}
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
+      matchExpressions:
+      - key: name
+        operator: NotIn
+        values:
+        - {{ .Release.Namespace }}
+      - key: istio-injection
+        operator: NotIn
+        values:
+        - disabled
+      - key: istio-env
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: DoesNotExist
+{{- else if .Values.revision }}
+      matchExpressions:
+      - key: istio-injection
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: In
+        values:
+        - {{ .Values.revision }}
+{{- else }}
+      matchLabels:
+        istio-injection: enabled
+{{- end }}
+{{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
+    objectSelector:
+{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: NotIn
+        values:
+        - "false"
+{{- else if .Values.revision }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: In
+        values:
+        - {{ .Values.revision }}
+{{- else }}
+      matchLabels:
+        "sidecar.istio.io/inject": "true"
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,9 +18,11 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,16 +39,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	version2 "istio.io/istio/operator/version"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -60,28 +65,28 @@ var (
 	// Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
 	// a type that does not yet exist.
 	watchedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
-		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
-		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
-		{Group: "apps", Version: "v1", Kind: "Deployment"},
-		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
-		{Group: "", Version: "v1", Kind: "Service"},
-		// {Group: "", Version: "v1", Kind: "Endpoints"},
-		{Group: "", Version: "v1", Kind: "ConfigMap"},
-		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
-		{Group: "", Version: "v1", Kind: "Pod"},
-		{Group: "", Version: "v1", Kind: "Secret"},
-		{Group: "", Version: "v1", Kind: "ServiceAccount"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "Role"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
-		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
+		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
+		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
+		{Group: "apps", Version: "v1", Kind: name.StatefulSetStr},
+		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
+		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
+		{Group: "extensions", Version: "v1beta1", Kind: name.IngressStr},
+		{Group: "", Version: "v1", Kind: name.ServiceStr},
+		// {Group: "", Version: "v1", Kind: name.EndpointStr},
+		{Group: "", Version: "v1", Kind: name.CMStr},
+		{Group: "", Version: "v1", Kind: name.PVCStr},
+		{Group: "", Version: "v1", Kind: name.PodStr},
+		{Group: "", Version: "v1", Kind: name.SecretStr},
+		{Group: "", Version: "v1", Kind: name.SAStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: name.RoleBindingStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: name.RoleStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.ValidatingWebhookConfigurationStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
+		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
 	}
 
 	ownedResourcePredicates = predicate.Funcs{
@@ -94,12 +99,22 @@ var (
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			object, err := meta.Accessor(e.Object)
-			log.Debugf("got delete event for %s.%s", object.GetName(), object.GetNamespace())
+			obj, err := meta.Accessor(e.Object)
+			log.Debugf("got delete event for %s.%s", obj.GetName(), obj.GetNamespace())
 			if err != nil {
 				return false
 			}
-			if object.GetLabels()[helmreconciler.OwnerNameKey] != "" {
+			unsObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(e.Object)
+			if err != nil {
+				return false
+			}
+			if isOperatorCreatedResource(obj) {
+				crName := obj.GetLabels()[helmreconciler.OwningResourceName]
+				crNamespace := obj.GetLabels()[helmreconciler.OwningResourceNamespace]
+				componentName := obj.GetLabels()[helmreconciler.IstioComponentLabelStr]
+				crHash := strings.Join([]string{crName, crNamespace, componentName}, "-")
+				oh := object.NewK8sObject(&unstructured.Unstructured{Object: unsObj}, nil, nil).Hash()
+				cache.RemoveObject(crHash, oh)
 				return true
 			}
 			return false
@@ -314,11 +329,7 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 	if err != nil {
 		return nil, err
 	}
-	mvs := version2.OperatorBinaryVersion.MinorVersion
-	t, err := translate.NewReverseTranslator(mvs)
-	if err != nil {
-		return nil, fmt.Errorf("error creating values.yaml translator: %s", err)
-	}
+	t := translate.NewReverseTranslator()
 	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
 	if err != nil {
 		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
@@ -382,10 +393,11 @@ func watchIstioResources(c controller.Controller) error {
 		})
 		err := c.Watch(&source.Kind{Type: u}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
-				log.Debugf("watch a change for istio resource: %s.%s", a.Meta.GetName(), a.Meta.GetNamespace())
+				log.Infof("watch a change for istio resource: %s.%s", a.Meta.GetName(), a.Meta.GetNamespace())
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{
-						Name: a.Meta.GetLabels()[helmreconciler.OwnerNameKey],
+						Name:      a.Meta.GetLabels()[helmreconciler.OwningResourceName],
+						Namespace: a.Meta.GetLabels()[helmreconciler.OwningResourceNamespace],
 					}},
 				}
 			}),
@@ -395,4 +407,11 @@ func watchIstioResources(c controller.Controller) error {
 		}
 	}
 	return nil
+}
+
+// Check if the specified object is created by operator
+func isOperatorCreatedResource(obj metav1.Object) bool {
+	return obj.GetLabels()[helmreconciler.OwningResourceName] != "" &&
+		obj.GetLabels()[helmreconciler.OwningResourceNamespace] != "" &&
+		obj.GetLabels()[helmreconciler.IstioComponentLabelStr] != ""
 }

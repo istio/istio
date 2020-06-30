@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -24,15 +25,14 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/operator/cmd/mesh"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-
+	"istio.io/istio/pilot/pkg/xds"
 	istioVersion "istio.io/pkg/version"
 )
 
 type sidecarSyncStatus struct {
 	// nolint: structcheck, unused
 	pilot string
-	v2.SyncStatus
+	xds.SyncStatus
 }
 
 func newVersionCommand() *cobra.Command {
@@ -62,12 +62,12 @@ func newVersionCommand() *cobra.Command {
 }
 
 func getRemoteInfo(opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
+	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
 		return nil, err
 	}
 
-	return kubeClient.GetIstioVersions(istioNamespace)
+	return kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
 }
 
 func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptions) func() (*istioVersion.MeshInfo, error) {
@@ -92,13 +92,13 @@ func getProxyInfoWrapper(opts *clioptions.ControlPlaneOptions) func() (*[]istioV
 }
 
 func getProxyInfo(opts *clioptions.ControlPlaneOptions) (*[]istioVersion.ProxyInfo, error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext, *opts)
+	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
 		return nil, err
 	}
 
 	// Ask Pilot for the Envoy sidecar sync status, which includes the sidecar version info
-	allSyncz, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
+	allSyncz, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "/debug/syncz")
 	if err != nil {
 		return nil, err
 	}

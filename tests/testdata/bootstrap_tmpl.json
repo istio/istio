@@ -26,6 +26,7 @@
       "ads": {}
      },
     "cds_config": {
+      "resource_api_version": "V3",
       "ads": {}
     },
     "ads_config": {
@@ -148,7 +149,7 @@
     ]
   },
     {
-        "name": "mixertcpproxy",
+        "name": "tcpproxy",
         "address": {
           "socket_address": {
             "address": "0.0.0.0",
@@ -162,7 +163,7 @@
                 "name": "envoy.tcp_proxy",
                 "typed_config": {
                 "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy",
-                  "stat_prefix": "mixertcpproxy",
+                  "stat_prefix": "tcpproxy",
                   "cluster": "service1"
                 }
               }
@@ -356,25 +357,6 @@
       ],
       "http2_protocol_options": {}
       },
-      {
-        "name": "mixer_server",
-        "type": "STRICT_DNS",
-        "connect_timeout": {
-        "seconds": 5,
-        "nanos": 0
-        },
-        "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-        {
-          "socket_address": {
-          "address": "127.0.0.1",
-          "port_value": {{.Ports.MixerPort}}
-        }
-        }
-        ],
-        "http2_protocol_options": {}
-      }
-
     ]
   }
 }

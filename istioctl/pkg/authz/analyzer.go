@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,10 +27,11 @@ import (
 	"strings"
 
 	envoy_admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // Analyzer that can be used to check authentication and authorization policy status.
@@ -68,9 +69,11 @@ func NewAnalyzer(envoyConfig *configdump.Wrapper) (*Analyzer, error) {
 
 func (a *Analyzer) getParsedListeners() []*ParsedListener {
 	ret := make([]*ParsedListener, 0)
-	for _, listener := range a.listenerDump.DynamicListeners {
-		listenerTyped := &xdsapi.Listener{}
-		err := ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+	for _, l := range a.listenerDump.DynamicListeners {
+		listenerTyped := &listener.Listener{}
+		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+		l.ActiveState.Listener.TypeUrl = v3.ListenerType
+		err := ptypes.UnmarshalAny(l.ActiveState.Listener, listenerTyped)
 		if err != nil {
 			return nil
 		}

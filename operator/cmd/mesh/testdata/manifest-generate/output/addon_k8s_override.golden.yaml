@@ -24,21 +24,21 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - ppc64le
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - s390x
@@ -46,7 +46,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
@@ -59,7 +59,7 @@ spec:
         env:
         - name: NEW_VAR
           value: new_value
-        image: docker.io/prom/prometheus:v2.15.1
+        image: docker.io/prom/prometheus:v2.18.1
         livenessProbe:
           httpGet:
             path: /-/healthy
@@ -79,80 +79,6 @@ spec:
         volumeMounts:
         - mountPath: /etc/prometheus
           name: config-volume
-        - mountPath: /etc/istio-certs
-          name: istio-certs
-      - args:
-        - proxy
-        - sidecar
-        - --domain
-        - $(POD_NAMESPACE).svc.cluster.local
-        - istio-proxy-prometheus
-        - --proxyLogLevel=warning
-        - --proxyComponentLogLevel=misc:error
-        - --controlPlaneAuthPolicy
-        - NONE
-        - --trust-domain=cluster.local
-        env:
-        - name: OUTPUT_CERTS
-          value: /etc/istio-certs
-        - name: JWT_POLICY
-          value: third-party-jwt
-        - name: PILOT_CERT_PROVIDER
-          value: istiod
-        - name: CA_ADDR
-          value: istiod.istio-system.svc:15012
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        - name: SERVICE_ACCOUNT
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.serviceAccountName
-        - name: HOST_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        - name: ISTIO_META_MESH_ID
-          value: cluster.local
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
-        image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: Always
-        name: istio-proxy
-        ports:
-        - containerPort: 15090
-          name: http-envoy-prom
-          protocol: TCP
-        readinessProbe:
-          failureThreshold: 30
-          httpGet:
-            path: /healthz/ready
-            port: 15020
-            scheme: HTTP
-          initialDelaySeconds: 1
-          periodSeconds: 2
-          successThreshold: 1
-          timeoutSeconds: 1
-        volumeMounts:
-        - mountPath: /var/run/secrets/istio
-          name: istiod-ca-cert
-        - mountPath: /etc/istio/proxy
-          name: istio-envoy
-        - mountPath: /var/run/secrets/tokens
-          name: istio-token
-        - mountPath: /etc/istio-certs/
-          name: istio-certs
-        - mountPath: /etc/istio/config
-          name: istio-config-volume
       serviceAccountName: prometheus
       volumes:
       - configMap:
@@ -162,24 +88,6 @@ spec:
       - configMap:
           name: prometheus
         name: config-volume
-      - emptyDir:
-          medium: Memory
-        name: istio-certs
-      - emptyDir:
-          medium: Memory
-        name: istio-envoy
-      - name: istio-token
-        projected:
-          defaultMode: 420
-          sources:
-          - serviceAccountToken:
-              audience: istio-ca
-              expirationSeconds: 43200
-              path: istio-token
-      - configMap:
-          defaultMode: 420
-          name: istio-ca-root-cert
-        name: istiod-ca-cert
 ---
 
 

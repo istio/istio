@@ -52,14 +52,8 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
-        privileged: false
-        readOnlyRootFilesystem: true
 {{- end }}
-      serviceAccountName: istio-ingressgateway-service-account
+      serviceAccountName: {{ $gateway.name | default "istio-ingressgateway" }}-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -99,8 +93,10 @@ spec:
             {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
+            {{- if $.Values.global.meshExpansion.enabled }}
             {{- range $key, $val := $gateway.meshExpansionPorts }}
-            - containerPort: {{ $val.port }}
+            - containerPort: {{ $val.targetPort | default $val.port }}
+            {{- end }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
@@ -130,11 +126,20 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+        {{- if not $gateway.runAsRoot }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+        {{- end }}
           readinessProbe:
             failureThreshold: 30
             httpGet:
               path: /healthz/ready
-              port: 15020
+              port: 15021
               scheme: HTTP
             initialDelaySeconds: 1
             periodSeconds: 2
@@ -186,6 +191,14 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
+          - name: CANONICAL_SERVICE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-name']
+          - name: CANONICAL_REVISION
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $gateway.name | default "istio-ingressgateway" }}
           - name: ISTIO_META_OWNER
@@ -200,6 +213,10 @@ spec:
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: {{ $val }}
+          {{- end }}
+          {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
           {{- end }}
           {{ $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
           {{- if and (not $network_set) .Values.global.network }}
@@ -241,6 +258,13 @@ spec:
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
             readOnly: true
+          {{- end }}
+          {{- range $gateway.configVolumes }}
+          {{- if .mountPath }}
+          - name: {{ .name }}
+            mountPath: {{ .mountPath | quote }}
+            readOnly: true
+          {{- end }}
           {{- end }}
 {{- if $gateway.additionalContainers }}
 {{ toYaml $gateway.additionalContainers | indent 8 }}

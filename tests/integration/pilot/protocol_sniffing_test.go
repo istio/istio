@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -82,14 +82,12 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 			Namespace: ns,
 			Ports:     ports,
 			Subsets:   []echo.SubsetConfig{{}},
-			Galley:    g,
 			Pilot:     p,
 		}).
 		With(&fromWithoutSidecar, echo.Config{
 			Service:   "from-without-sidecar",
 			Namespace: ns,
 			Ports:     ports,
-			Galley:    g,
 			Pilot:     p,
 			Subsets: []echo.SubsetConfig{
 				{
@@ -105,7 +103,6 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 			Namespace: ns,
 			Subsets:   []echo.SubsetConfig{{}},
 			Ports:     ports,
-			Galley:    g,
 			Pilot:     p,
 		}).
 		BuildOrFail(ctx)

@@ -1,6 +1,6 @@
 // +build !race
 
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,14 +23,10 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/metadata"
-	metafake "k8s.io/client-go/metadata/fake"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	pkgtest "istio.io/istio/pkg/test"
 )
@@ -38,7 +34,7 @@ import (
 const (
 	testSecretName      = "testSecretName"
 	testSecretNameSpace = "istio-system"
-	WatchedNamespace    = "istio-system"
+	WatchedNamespaces   = "istio-system"
 	DomainSuffix        = "fake_domain"
 	ResyncPeriod        = 1 * time.Second
 )
@@ -72,14 +68,6 @@ func deleteMultiClusterSecret(k8s *fake.Clientset) error {
 		testSecretName, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
-func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
-	return &clientcmdapi.Config{}, nil
-}
-
-func mockValidateClientConfig(_ clientcmdapi.Config) error {
-	return nil
-}
-
 func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
 	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
 		m.m.Lock()
@@ -88,30 +76,18 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 	})
 }
 
-func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
-	return fake.NewSimpleClientset(), nil
-}
-
-func mockCreateMetaInterfaceFromClusterConfig(_ *clientcmdapi.Config) (metadata.Interface, error) {
-	scheme := runtime.NewScheme()
-	metav1.AddMetaToScheme(scheme)
-	return metafake.NewSimpleMetadataClient(scheme), nil
-}
-
 // This test is skipped by the build tag !race due to https://github.com/istio/istio/issues/15610
 func Test_KubeSecretController(t *testing.T) {
-	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
-	secretcontroller.ValidateClientConfig = mockValidateClientConfig
-	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
-	secretcontroller.CreateMetadataInterfaceFromClusterConfig = mockCreateMetaInterfaceFromClusterConfig
-
+	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+		return kube.NewFakeClient(), nil
+	}
 	clientset := fake.NewSimpleClientset()
 	mc, err := NewMulticluster(clientset,
 		testSecretNameSpace,
 		Options{
-			WatchedNamespace: WatchedNamespace,
-			DomainSuffix:     DomainSuffix,
-			ResyncPeriod:     ResyncPeriod,
+			WatchedNamespaces: WatchedNamespaces,
+			DomainSuffix:      DomainSuffix,
+			ResyncPeriod:      ResyncPeriod,
 		},
 		mockserviceController, nil, nil)
 

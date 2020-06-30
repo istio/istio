@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
@@ -63,10 +65,11 @@ func newHTTP(config Config) Instance {
 }
 
 func (s *httpInstance) Start(onReady OnReadyFunc) error {
+	h2s := &http2.Server{}
 	s.server = &http.Server{
-		Handler: &httpHandler{
+		Handler: h2c.NewHandler(&httpHandler{
 			Config: s.Config,
-		},
+		}, h2s),
 	}
 
 	var listener net.Listener

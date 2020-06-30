@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,12 @@
 package integration
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"istio.io/istio/pkg/test/framework"
 )
@@ -89,4 +92,50 @@ func TestParallel(t *testing.T) {
 	assertClosedBefore(t, l2d, l1b)
 	assertClosedBefore(t, l1a, top)
 	assertClosedBefore(t, l1b, top)
+}
+
+// Validate that cleanup is done synchronously for asynchronous tests
+func TestParallelWhenDone(t *testing.T) {
+	errors := make(chan error, 10)
+	framework.NewTest(t).Features("infrastructure.framework").
+		Run(func(ctx framework.TestContext) {
+			runCheck(ctx, errors, "root")
+			ctx.NewSubTest("nested-serial").Run(func(ctx framework.TestContext) {
+				runCheck(ctx, errors, "nested-serial")
+			})
+			ctx.NewSubTest("nested-parallel").RunParallel(func(ctx framework.TestContext) {
+				runCheck(ctx, errors, "nested-parallel")
+			})
+		})
+
+	for {
+		select {
+		case e := <-errors:
+			t.Error(e)
+		default:
+			return
+		}
+	}
+}
+
+func runCheck(ctx framework.TestContext, errors chan error, name string) {
+	currentTest := atomic.NewString("")
+	for _, c := range []string{"a", "b", "c"} {
+		c := c
+		ctx.NewSubTest(c).Run(func(ctx framework.TestContext) {
+			// Store the test name. We will check this in WhenDone to ensure we call finish cleanup before the next test runs
+			currentTest.Store(c)
+			ctx.WhenDone(func() error {
+				time.Sleep(time.Millisecond * 100)
+				if ct := currentTest.Load(); ct != c {
+					errors <- fmt.Errorf("expected current test for %s to be %s but was %s", name, c, ct)
+				}
+				return nil
+			})
+			for _, st := range []string{"p1", "p2"} {
+				ctx.NewSubTest(st).
+					RunParallel(func(ctx framework.TestContext) {})
+			}
+		})
+	}
 }

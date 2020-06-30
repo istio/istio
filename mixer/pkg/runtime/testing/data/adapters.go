@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,10 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/mixer/pkg/adapter"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 // BuildAdapters builds a standard set of testing adapters. The supplied settings is used to override behavior.
@@ -81,6 +85,15 @@ func (f *FakeEnv) ScheduleWork(fn adapter.WorkFunc) { panic("should not be calle
 
 // ScheduleDaemon is an implementation of adapter.Env.ScheduleDaemon.
 func (f *FakeEnv) ScheduleDaemon(fn adapter.DaemonFunc) { panic("should not be called") }
+
+func (f *FakeEnv) NewInformer(
+	clientset kubernetes.Interface,
+	objType runtime.Object,
+	duration time.Duration,
+	listerWatcher func(namespace string) cache.ListerWatcher,
+	indexers cache.Indexers) cache.SharedIndexInformer {
+	panic("This method should not be called within the current tests")
+}
 
 var _ adapter.Env = &FakeEnv{}
 

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ import (
 	"net"
 	"testing"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
@@ -182,7 +182,7 @@ func TestPilotPluginTCP(t *testing.T) {
 
 type mock struct{}
 
-func (mock) ID(*core.Node) string {
+func (mock) ID(*corev2.Node) string {
 	return id
 }
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
@@ -195,9 +195,7 @@ func (mock) GetService(_ host.Name) (*model.Service, error) { return nil, nil }
 func (mock) InstancesByPort(_ *model.Service, _ int, _ labels.Collection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) ManagementPorts(_ string) model.PortList                        { return nil }
 func (mock) Services() ([]*model.Service, error)                            { return nil, nil }
-func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList               { return nil }
 func (mock) GetIstioServiceAccounts(_ *model.Service, ports []int) []string { return nil }
 
 const (
@@ -227,8 +225,8 @@ var (
 	}
 )
 
-func makeListener(port uint16, cluster string) *v2.Listener {
-	return &v2.Listener{
+func makeListener(port uint16, cluster string) *listener.Listener {
+	return &listener.Listener{
 		Name: cluster,
 		Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 			Address:       "127.0.0.1",
@@ -287,6 +285,8 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 	clientListener.FilterChains[0].Filters = append(clientMutable.FilterChains[0].TCP, clientListener.FilterChains[0].Filters...)
 
 	snapshot := cache.Snapshot{}
-	snapshot.Resources[types.Listener] = cache.NewResources(string(node), []types.Resource{clientListener, serverListener})
+	snapshot.Resources[types.Listener] = cache.NewResources(string(node), []types.Resource{
+		env.CastListenerToV2(clientListener),
+		env.CastListenerToV2(serverListener)})
 	return snapshot
 }

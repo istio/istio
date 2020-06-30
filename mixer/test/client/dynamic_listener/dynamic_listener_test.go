@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,22 +23,23 @@ import (
 	"testing"
 	"time"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc"
 
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+
 	"istio.io/istio/mixer/test/client/env"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 )
@@ -119,30 +120,27 @@ const checkAttributesOkGet = `
 
 type hasher struct{}
 
-func (hasher) ID(*core.Node) string {
+func (hasher) ID(*corev2.Node) string {
 	return ""
 }
 
-func makeListener(s *env.TestSetup, key string) *v2.Listener {
-	mxServiceConfig, err := conversion.MessageToStruct(&mccpb.ServiceConfig{
+func makeListener(s *env.TestSetup, key string) *listener.Listener {
+	mxServiceConfig, err := ptypes.MarshalAny(&mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"key": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: key}},
 			},
 		}})
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
-	mxConf, err := conversion.MessageToStruct(env.GetDefaultHTTPServerConf())
-	if err != nil {
-		panic(err)
-	}
+	mxConf := pilotutil.MessageToAny(env.GetDefaultHTTPServerConf())
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: "http",
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-			RouteConfig: &v2.RouteConfiguration{
+			RouteConfig: &route.RouteConfiguration{
 				Name: key,
 				VirtualHosts: []*route.VirtualHost{{
 					Name:    "backend",
@@ -152,18 +150,18 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 						Action: &route.Route_Route{Route: &route.RouteAction{
 							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "backend"},
 						}},
-						PerFilterConfig: map[string]*structpb.Struct{
+						TypedPerFilterConfig: map[string]*any.Any{
 							"mixer": mxServiceConfig,
 						}}}}}}},
 		HttpFilters: []*hcm.HttpFilter{{
 			Name:       "mixer",
-			ConfigType: &hcm.HttpFilter_Config{mxConf},
+			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: mxConf},
 		}, {
 			Name: wellknown.Router,
 		}},
 	}
 
-	return &v2.Listener{
+	return &listener.Listener{
 		Name: strconv.Itoa(int(s.Ports().ServerProxyPort)),
 		Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 			Address:       "127.0.0.1",
@@ -194,7 +192,9 @@ func TestDynamicListener(t *testing.T) {
 	snapshot := cache.Snapshot{}
 	snapshot.Resources[types.Listener] = cache.Resources{Version: strconv.Itoa(count), Items: map[string]types.Resource{
 		"backend": makeListener(s, fmt.Sprintf("count%d", count))}}
-	snapshots.SetSnapshot("", snapshot)
+	if err := snapshots.SetSnapshot("", snapshot); err != nil {
+		t.Fatal(err)
+	}
 
 	go func() {
 		_ = grpcServer.Serve(lis)
@@ -211,7 +211,9 @@ func TestDynamicListener(t *testing.T) {
 		snapshot := cache.Snapshot{}
 		snapshot.Resources[types.Listener] = cache.Resources{Version: strconv.Itoa(count), Items: map[string]types.Resource{
 			"backend": makeListener(s, fmt.Sprintf("count%d", count))}}
-		snapshots.SetSnapshot("", snapshot)
+		if err := snapshots.SetSnapshot("", snapshot); err != nil {
+			t.Fatal(err)
+		}
 
 		// wait a bit for config to propagate and old listener to drain
 		time.Sleep(2 * time.Second)

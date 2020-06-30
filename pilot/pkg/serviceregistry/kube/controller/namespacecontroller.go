@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,14 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	informer "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -29,6 +32,7 @@ import (
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/pkg/queue"
 	certutil "istio.io/istio/security/pkg/util"
 )
@@ -68,11 +72,24 @@ func NewNamespaceController(data func() map[string]string, options Options, kube
 		queue:   queue.NewQueue(time.Second),
 	}
 
-	configmapInformer := informer.NewFilteredConfigMapInformer(kubeClient, metav1.NamespaceAll, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-		func(options *metav1.ListOptions) {
-			options.LabelSelector = fields.SelectorFromSet(configMapLabel).String()
-		})
+	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
+
+	mlw := listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				opts.LabelSelector = fields.SelectorFromSet(configMapLabel).String()
+				return kubeClient.CoreV1().ConfigMaps(namespace).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				opts.LabelSelector = fields.SelectorFromSet(configMapLabel).String()
+				return kubeClient.CoreV1().ConfigMaps(namespace).Watch(context.TODO(), opts)
+			},
+		}
+	})
+
+	configmapInformer := cache.NewSharedIndexInformer(mlw, &v1.ConfigMap{}, options.ResyncPeriod,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
 	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.queue.Push(func() error {

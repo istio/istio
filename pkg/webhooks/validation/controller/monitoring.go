@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -94,15 +94,6 @@ func reportValidationConfigUpdateError(reason kubeMeta.StatusReason) {
 		scope.Errorf("Error creating monitoring context for reportValidationConfigUpdateError: %v", err)
 	} else {
 		stats.Record(ctx, metricWebhookConfigurationUpdateError.M(1))
-	}
-}
-
-func reportValidationConfigDeleteError(reason kubeMeta.StatusReason) {
-	ctx, err := tag.New(context.Background(), tag.Insert(reasonTag, string(reason)))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationConfigDeleteError: %v", err)
-	} else {
-		stats.Record(ctx, metricWebhookConfigurationDeleteError.M(1))
 	}
 }
 

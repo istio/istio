@@ -19,6 +19,8 @@ spec:
       tag: 1.1.1
     grafana:
       enabled: true
+      image:
+        tag: 1.2.3
     kiali:
       enabled: true
       hub: docker.io/testing

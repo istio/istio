@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -51,7 +50,6 @@ import (
 
 func TestDistribute(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "locality-distribute-eds",
@@ -68,7 +66,7 @@ func TestDistribute(t *testing.T) {
 			fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
 
 			// First, deploy across multiple zones
-			deploy(ctx, ns, serviceConfig{
+			deploy(ctx, ctx, ns, serviceConfig{
 				Name:       "distribute-eds",
 				Host:       fakeHostname,
 				Namespace:  ns.Name(),
@@ -86,10 +84,10 @@ func TestDistribute(t *testing.T) {
 
 			if err := retry.UntilSuccess(func() error {
 				e := sendTraffic(a, fakeHostname, map[string]int{
-					"b": 20,
-					"c": 80,
+					"b": 10,
+					"c": 40,
 				})
-				scopes.CI.Errorf("%v: ", e)
+				scopes.Framework.Errorf("%v: ", e)
 				return e
 			}, retry.Timeout(time.Second*5)); err != nil {
 				ctx.Fatal(err)
@@ -97,7 +95,7 @@ func TestDistribute(t *testing.T) {
 
 			// Set a to no locality, b to matching locality, and c to non-matching.
 			// Expect all to get even traffic after disabling locality lb.
-			deploy(ctx, ns, serviceConfig{
+			deploy(ctx, ctx, ns, serviceConfig{
 				Name:                       "distribute-eds",
 				Host:                       fakeHostname,
 				Namespace:                  ns.Name(),
@@ -114,11 +112,11 @@ func TestDistribute(t *testing.T) {
 
 			if err := retry.UntilSuccess(func() error {
 				e := sendTraffic(a, fakeHostname, map[string]int{
-					"a": 33,
-					"b": 33,
-					"c": 33,
+					"a": 17,
+					"b": 17,
+					"c": 17,
 				})
-				scopes.CI.Errorf("%v: ", e)
+				scopes.Framework.Errorf("%v: ", e)
 				return e
 			}, retry.Delay(time.Second*5)); err != nil {
 				ctx.Fatal(err)

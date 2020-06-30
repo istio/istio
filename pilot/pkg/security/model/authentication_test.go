@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -227,6 +227,63 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
+			name:       "MTLS using SDS with custom certs in metadata",
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					SdsEnabled:         true,
+					TLSServerCertChain: "serverCertChain",
+					TLSServerKey:       "serverKey",
+					TLSServerRootCert:  "servrRootCert",
+				},
+			},
+			result: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: "file-cert:serverCertChain~serverKey",
+						SdsConfig: &core.ConfigSource{
+							InitialFetchTimeout: features.InitialFetchTimeout,
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType: core.ApiConfigSource_GRPC,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{})},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "file-root:servrRootCert",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: features.InitialFetchTimeout,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:       "ISTIO_MUTUAL SDS without node meta",
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			node: &model.Proxy{
@@ -259,7 +316,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "ISTIO_MUTUAL with custom cert paths from proxy node metadata",
+			name:       "ISTIO_MUTUAL with custom cert paths from proxy node metadata and SDS disabled",
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{

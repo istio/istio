@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,11 +26,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 )
 
@@ -43,6 +40,7 @@ const (
    No Traffic Policy
 7070 VirtualService: a\..*
    when headers are end-user=jason
+7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
@@ -61,6 +59,7 @@ Service: a\..*
    No Traffic Policy
 7070 VirtualService: a\..*
    when headers are end-user=jason
+7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
@@ -74,15 +73,38 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
 
+func TestWait(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "default",
+				Inject: true,
+			})
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  gateways: [missing-gw]
+  hosts:
+  - reviews
+  http:
+  - route:
+    - destination: 
+        host: reviews
+`)
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl.InvokeOrFail(t, []string{"x", "wait", "VirtualService", "reviews." + ns.Name()})
+		})
+}
+
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
 func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			g := galley.NewOrFail(t, ctx, galley.Config{})
-			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 			cfg := i.Settings()
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
@@ -122,7 +144,6 @@ func TestVersion(t *testing.T) {
 
 func TestDescribe(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-describe",
@@ -130,7 +151,7 @@ func TestDescribe(t *testing.T) {
 			})
 
 			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			g.ApplyConfigOrFail(t, ns, deployment)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
@@ -183,7 +204,6 @@ func getPodID(i echo.Instance) (string, error) {
 
 func TestAddToAndRemoveFromMesh(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-add-to-mesh",
@@ -222,7 +242,6 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-pc",
@@ -292,4 +311,79 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 		t.Fatalf("Could not unmarshal %s response %s", context, s)
 	}
 	return val
+}
+
+func TestProxyStatus(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "istioctl-ps",
+				Inject: true,
+			})
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			podID, err := getPodID(a)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			args = []string{"proxy-status"}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			// Just verify pod A is known to Pilot; implicitly this verifies that
+			// the printing code printed it.
+			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, ns.Name())))
+
+			args = []string{
+				"proxy-status", fmt.Sprintf("%s.%s", podID, ns.Name())}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
+			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
+			g.Expect(output).To(gomega.ContainSubstring("Routes Match"))
+		})
+}
+
+func TestAuthZCheck(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "istioctl-authz",
+				Inject: true,
+			})
+
+			authPol := file.AsStringOrFail(t, "../istioctl/testdata/authz-a.yaml")
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), authPol)
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			podID, err := getPodID(a)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			args = []string{"experimental", "authz", "check",
+				fmt.Sprintf("%s.%s", podID, ns.Name())}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			// Verify the output includes a policy "integ-test", which is the policy
+			// loaded above from authz-a.yaml
+			g.Expect(output).To(gomega.MatchRegexp("noneSDS: default.*\\[integ-test\\]"))
+		})
 }

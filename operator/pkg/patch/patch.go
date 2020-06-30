@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,13 +85,12 @@ package patch
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
-	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -102,90 +101,75 @@ var (
 	scope = log.RegisterScope("patch", "patch", 0)
 )
 
+// overlayMatches reports whether obj matches the overlay for either the default namespace or no namespace (cluster scope).
+func overlayMatches(overlay *v1alpha1.K8SObjectOverlay, obj *object.K8sObject, defaultNamespace string) bool {
+	oh := obj.Hash()
+	if oh == object.Hash(overlay.Kind, defaultNamespace, overlay.Name) ||
+		oh == object.Hash(overlay.Kind, "", overlay.Name) {
+		return true
+	}
+	return false
+}
+
 // YAMLManifestPatch patches a base YAML in the given namespace with a list of overlays.
 // Each overlay has the format described in the K8SObjectOverlay definition.
 // It returns the patched manifest YAML.
-func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha1.K8SObjectOverlay) (string, error) {
-	baseObjs, err := object.ParseK8sObjectsFromYAMLManifest(baseYAML)
+func YAMLManifestPatch(baseYAML string, defaultNamespace string, overlays []*v1alpha1.K8SObjectOverlay) (string, error) {
+	var ret strings.Builder
+	var errs util.Errors
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(baseYAML)
 	if err != nil {
 		return "", err
 	}
 
-	bom := baseObjs.ToMap()
-	oom := objectOverrideMap(overlays, namespace)
-
-	var ret strings.Builder
-
-	var errs util.Errors
-	keys := make([]string, 0)
-	for key := range oom {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
+	matches := make(map[*v1alpha1.K8SObjectOverlay]object.K8sObjects)
 	// Try to apply the defined overlays.
-	for _, k := range keys {
-		oo := oom[k]
-		bo := bom[k]
-		if bo == nil {
-			os := ""
-			for k2 := range bom {
-				os += k2 + "\n"
+	for _, obj := range objs {
+		oy, err := obj.YAML()
+		if err != nil {
+			errs = util.AppendErr(errs, fmt.Errorf("object to YAML error (%s) for base object: \n%s", err, obj.YAMLDebugString()))
+			continue
+		}
+		oys := string(oy)
+		for _, overlay := range overlays {
+			if overlayMatches(overlay, obj, defaultNamespace) {
+				matches[overlay] = append(matches[overlay], obj)
+				var errs2 util.Errors
+				oys, errs2 = applyPatches(obj, overlay.Patches)
+				errs = util.AppendErrs(errs, errs2)
 			}
-			errs = util.AppendErr(errs, fmt.Errorf("overlay for %s does not match any object in output manifest:\n%s\n\nAvailable objects are:\n%s",
-				k, pretty.Sprint(oo), os))
-			continue
 		}
-		patched, err := applyPatches(bo, oo)
-		if err != nil {
-			errs = util.AppendErr(errs, fmt.Errorf("patch error: %s", err))
-			continue
-		}
-		if _, err := ret.Write(patched); err != nil {
-			errs = util.AppendErr(errs, fmt.Errorf("write: %s", err))
-		}
-		if _, err := ret.WriteString("\n---\n"); err != nil {
-			errs = util.AppendErr(errs, fmt.Errorf("patch WriteString error: %s", err))
-		}
-	}
-	// Render the remaining objects with no overlays.
-	// keep the original sorted order
-	keys = make([]string, 0)
-	for key := range bom {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		oo := bom[k]
-		if oom[k] != nil {
-			// Skip objects that have overlays, these were rendered above.
-			continue
-		}
-		oy, err := oo.YAML()
-		if err != nil {
-			errs = util.AppendErr(errs, fmt.Errorf("object to YAML error (%s) for base object: \n%v", err, oo))
-			continue
-		}
-		if _, err := ret.Write(oy); err != nil {
-			errs = util.AppendErr(errs, fmt.Errorf("write: %s", err))
-		}
-		if _, err := ret.WriteString("\n---\n"); err != nil {
+		if _, err := ret.WriteString(oys + helm.YAMLSeparator); err != nil {
 			errs = util.AppendErr(errs, fmt.Errorf("writeString: %s", err))
 		}
 	}
+
+	for _, overlay := range overlays {
+		// Each overlay should have exactly one match in the output manifest.
+		switch {
+		case len(matches[overlay]) == 0:
+			errs = util.AppendErr(errs, fmt.Errorf("overlay for %s:%s does not match any object in output manifest. Available objects are:\n%s",
+				overlay.Kind, overlay.Name, strings.Join(objs.Keys(), "\n")))
+		case len(matches[overlay]) > 1:
+			errs = util.AppendErr(errs, fmt.Errorf("overlay for %s:%s matches multiple objects in output manifest:\n%s",
+				overlay.Kind, overlay.Name, strings.Join(objs.Keys(), "\n")))
+		}
+	}
+
 	return ret.String(), errs.ToError()
 }
 
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
 // or a list of errors otherwise.
-func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_PathValue) (outYAML []byte, errs util.Errors) {
+func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_PathValue) (outYAML string, errs util.Errors) {
 	bo := make(map[interface{}]interface{})
 	by, err := base.YAML()
 	if err != nil {
-		return nil, util.NewErrs(err)
+		return "", util.NewErrs(err)
 	}
 	err = yaml.Unmarshal(by, bo)
 	if err != nil {
-		return nil, util.NewErrs(err)
+		return "", util.NewErrs(err)
 	}
 	for _, p := range patches {
 		if strings.TrimSpace(p.Path) == "" {
@@ -193,7 +177,7 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_P
 			continue
 		}
 		scope.Debugf("applying path=%s, value=%s\n", p.Path, p.Value)
-		inc, _, err := tpath.GetPathContext(bo, util.PathFromString(p.Path), false)
+		inc, _, err := tpath.GetPathContext(bo, util.PathFromString(p.Path), true)
 		if err != nil {
 			errs = util.AppendErr(errs, err)
 			continue
@@ -202,17 +186,7 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_P
 	}
 	oy, err := yaml.Marshal(bo)
 	if err != nil {
-		return nil, util.AppendErr(errs, err)
+		return "", util.AppendErr(errs, err)
 	}
-	return oy, errs
-}
-
-// objectOverrideMap converts oos, a slice of object overlays, into a map of the same overlays where the key is the
-// object manifest.Hash.
-func objectOverrideMap(oos []*v1alpha1.K8SObjectOverlay, namespace string) map[string][]*v1alpha1.K8SObjectOverlay_PathValue {
-	ret := make(map[string][]*v1alpha1.K8SObjectOverlay_PathValue)
-	for _, o := range oos {
-		ret[object.Hash(o.Kind, namespace, o.Name)] = o.Patches
-	}
-	return ret
+	return string(oy), errs
 }

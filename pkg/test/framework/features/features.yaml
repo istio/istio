@@ -1,0 +1,70 @@
+# Copyright 2020 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http:#www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Edit this file to add more feature labels for the testing dashboard
+# Each element must be a map key in order to be valid yaml.
+features:
+  # features that relate to measuring or exploring your service mesh or the services which comprise it.
+  observability:
+    telemetry:
+      stats:
+        prometheus:
+          customize-metric:
+          merge:
+          http:
+            nullvm:
+            wasm:
+          tcp:
+      request-classification:
+      tracing:
+        client:
+        server:
+      dashboard:
+      istioctl:
+  # features relating to controlling the traffic of the service mesh.
+  traffic:
+    reachability:
+    routing:
+    short-circuiting:
+    mirroring:
+  usability:
+    observability:
+      status:
+  # features that allow users to secure their services and service mesh.
+  security:
+    peer:
+      secure-naming:
+    user:
+    ingress:
+      mtls:
+      tls:
+    egress:
+      mtls:
+      tls:
+        filebased:
+    control-plane:
+      k8s-certs:
+      plugin-cert:
+  # features which allow extending or deep integrations with istio and other products
+  extensibility:
+  # features releated to the lifecycle of istio installations
+  installation:
+    multicluster:
+      central-istiod:
+      multimaster:
+      remote:
+  # describes internal build and testing infrastrcuture
+  infrastructure:
+    # the testing framework
+    framework:

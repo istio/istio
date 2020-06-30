@@ -21,6 +21,9 @@ export CLUSTER3_NAME=${CLUSTER3_NAME:-"cluster3"}
 
 export CLUSTER_NAMES=("${CLUSTER1_NAME}" "${CLUSTER2_NAME}" "${CLUSTER3_NAME}")
 export CLUSTER_POD_SUBNETS=(10.10.0.0/16 10.20.0.0/16 10.30.0.0/16)
+export CLUSTER_SVC_SUBNETS=(10.255.10.0/24 10.255.20.0/24 10.255.30.0/24)
+
+export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
@@ -49,7 +52,6 @@ function setup_and_export_git_sha() {
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
     export GIT_SHA
-    export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
   fi
   GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
   export GIT_BRANCH
@@ -69,54 +71,45 @@ function download_untar_istio_release() {
 }
 
 function build_images() {
+  SELECT_TEST="${1}"
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
-  targets+="docker.app docker.test_policybackend "
+
+  # use ubuntu:bionic to test vms by default
+  targets+="docker.app docker.app_sidecar_ubuntu_bionic docker.test_policybackend "
+  if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" ]]; then
+    targets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_ubuntu_focal docker.app_sidecar_ubuntu_bionic "
+    targets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 "
+  fi
   targets+="docker.mixer "
   targets+="docker.operator "
+  targets+="docker.install-cni "
   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
-function kind_load_images() {
-  NAME="${1:-istio-testing}"
+# Creates a local registry for kind nodes to pull images from. Expects that the "kind" network already exists.
+function setup_kind_registry() {
+  # create a registry container
+  docker run \
+    -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
+    registry:2
 
-  # If HUB starts with "docker.io/" removes that part so that filtering and loading below works
-  local hub=${HUB#"docker.io/"}
+  # Allow kind nodes to reach the registry
+  docker network connect "kind" "${KIND_REGISTRY_NAME}"
 
-  for i in {1..3}; do
-    # Archived local images and load it into KinD's docker daemon
-    # Kubernetes in KinD can only access local images from its docker daemon.
-    docker images "${hub}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
-    echo "Attempt ${i} to load images failed, retrying in 1s..."
-    sleep 1
-	done
-
-  # If a variant is specified, load those images as well.
-  # We should still load non-variant images as well for things like `app` which do not use variants
-  if [[ "${VARIANT:-}" != "" ]]; then
-    for i in {1..3}; do
-      docker images "${hub}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
-      echo "Attempt ${i} to load images failed, retrying in 1s..."
-      sleep 1
+  # https://docs.tilt.dev/choosing_clusters.html#discovering-the-registry
+  for cluster in $(kind get clusters); do
+    # TODO get context/config from existing variables
+    kind export kubeconfig --name="${cluster}"
+    for node in $(kind get nodes --name="${cluster}"); do
+      kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}";
     done
-  fi
-}
-
-# Loads images into all clusters.
-function kind_load_images_on_clusters() {
-  for c in "${CLUSTER_NAMES[@]}"; do
-     time kind_load_images "${c}"
   done
 }
 
-function clone_cni() {
-  # Clone the CNI repo so the CNI artifacts can be built.
-  if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
-      TMP_DIR=$PWD
-      cd ../ || return
-      git clone -b "${GIT_BRANCH}" "https://github.com/istio/cni.git"
-      cd "${TMP_DIR}" || return
-  fi
+# Pushes images to local kind registry
+function kind_push_images() {
+  docker images "${HUB}/*:${TAG}*" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 docker push
 }
 
 function cleanup_kind_cluster() {
@@ -138,7 +131,7 @@ function cleanup_kind_clusters() {
 
 function setup_kind_cluster() {
   IP_FAMILY="${1:-ipv4}"
-  IMAGE="${2:-kindest/node:v1.18.0}"
+  IMAGE="${2:-kindest/node:v1.18.2}"
   NAME="${3:-istio-testing}"
   CONFIG="${4:-}"
   # Delete any previous KinD cluster
@@ -153,18 +146,8 @@ function setup_kind_cluster() {
 
   # If config not explicitly set, then use defaults
   if [[ -z "${CONFIG}" ]]; then
-    # Different Kubernetes versions need different patches
-    K8S_VERSION=$(cut -d ":" -f 2 <<< "${IMAGE}")
-    if [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.13" ]]; then
-      # Kubernetes 1.12
-      CONFIG=./prow/config/trustworthy-jwt-12.yaml
-    elif [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.15" ]]; then
-      # Kubernetes 1.13, 1.14
-      CONFIG=./prow/config/trustworthy-jwt-13-14.yaml
-    else
       # Kubernetes 1.15+
       CONFIG=./prow/config/trustworthy-jwt.yaml
-    fi
       # Configure the cluster IP Family only for default configs
     if [ "${IP_FAMILY}" = "ipv6" ]; then
       cat <<EOF >> "${CONFIG}"
@@ -173,6 +156,14 @@ networking:
 EOF
     fi
   fi
+
+  # Make kind nodes pull images using the in-container address and port for images in localhost:$KIND_REGISTRY_PORT/*
+  cat <<EOF >> "${CONFIG}"
+containerdConfigPatches:
+  - |-
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
+        endpoint = ["http://${KIND_REGISTRY_NAME}:5000"]
+EOF
 
   # Create KinD cluster
   if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
@@ -191,19 +182,26 @@ function setup_kind_clusters() {
 
   KUBECONFIG_DIR="$(mktemp -d)"
 
+  # The kind tool will error when trying to create clusters in paralell unless we create the network first
+  # TODO remove this when kind support creating multiple clusters in parallel - this will break ipv6
+  docker network inspect kind > /dev/null 2>&1 || docker network create -d=bridge -o com.docker.network.bridge.enable_ip_masquerade=true kind
+
+
   # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
   trap cleanup_kind_clusters EXIT
 
-  for i in "${!CLUSTER_NAMES[@]}"; do
-    CLUSTER_NAME="${CLUSTER_NAMES[$i]}"
-    CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$i]}"
+  function deploy_kind() {
+    IDX="${1}"
+    CLUSTER_NAME="${CLUSTER_NAMES[$IDX]}"
+    CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$IDX]}"
+    CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$IDX]}"
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
     cat <<EOF > "${CLUSTER_YAML}"
-      kind: Cluster
-      apiVersion: kind.sigs.k8s.io/v1alpha3
-      networking:
-        podSubnet: ${CLUSTER_POD_SUBNET}
-        serviceSubnet: 10.255.10.0/24
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  podSubnet: ${CLUSTER_POD_SUBNET}
+  serviceSubnet: ${CLUSTER_SVC_SUBNET}
 EOF
 
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
@@ -212,37 +210,39 @@ EOF
     # TODO: add IPv6
     KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER_NAME}" "${CLUSTER_YAML}"
 
-    # Replace with --internal which allows cross-cluster api server access
-    kind get kubeconfig --name "${CLUSTER_NAME}" --internal > "${CLUSTER_KUBECONFIG}"
+    # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
+    # its much simpler if we have a single kubeconfig that can be used internally and externally.
+    # To do this, we can replace the server with the IP address of the docker container
+    # https://github.com/kubernetes-sigs/kind/issues/1558 tracks this upstream
+    CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
+    kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
+      sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
+  }
+  declare -a DEPLOY_KIND_JOBS
+  for i in "${!CLUSTER_NAMES[@]}"; do
+    deploy_kind "${i}" & DEPLOY_KIND_JOBS+=("${!}")
+  done
+  for pid in "${DEPLOY_KIND_JOBS[@]}"; do
+    wait "${pid}" || exit 1
+  done
+
+  # Install MetalLB for LoadBalancer support. Must be done synchronously since METALLB_IPS is shared.
+  for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
+    install_metallb "${KUBECONFIG_DIR}/${CLUSTER_NAME}"
   done
 
   # Export variables for the kube configs for the clusters.
   export CLUSTER1_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER1_NAME}"
   export CLUSTER2_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER2_NAME}"
   export CLUSTER3_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER3_NAME}"
-  CLUSTER_KUBECONFIGS=("$CLUSTER1_KUBECONFIG" "$CLUSTER2_KUBECONFIG" "$CLUSTER3_KUBECONFIG")
 
-  if [[ "${TOPOLOGY}" == "MULTICLUSTER_SINGLE_NETWORK" ]]; then
-    # Allow direct access between all clusters.
-    for i in "${!CLUSTER_NAMES[@]}"; do
-      CLUSTERI_NAME="${CLUSTER_NAMES[$i]}"
-      CLUSTERI_KUBECONFIG="${CLUSTER_KUBECONFIGS[$i]}"
-
-      for j in "${!CLUSTER_NAMES[@]}"; do
-        CLUSTERJ_NAME="${CLUSTER_NAMES[$j]}"
-        CLUSTERJ_KUBECONFIG="${CLUSTER_KUBECONFIGS[$j]}"
-
-        if [ "$j" -gt "$i" ]; then
-          connect_kind_clusters "${CLUSTERI_NAME}" "${CLUSTERI_KUBECONFIG}" "${CLUSTERJ_NAME}" "${CLUSTERJ_KUBECONFIG}"
-        fi
-      done
-      install_metallb "$CLUSTERI_KUBECONFIG"
-    done
-  else
-    # Connect clusters 1 and 2, but leave cluster 3 on a separate network.
-    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}"
+  if [[ "${TOPOLOGY}" != "SINGLE_CLUSTER" ]]; then
+    # Clusters 1 and 2 are on the same network
+    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}" 1
+    # Cluster 3 is on a different network but we still need to set up routing for MetalLB addresses
+    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER3_NAME}" "${CLUSTER3_KUBECONFIG}" 0
+    connect_kind_clusters "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}" "${CLUSTER3_NAME}" "${CLUSTER3_KUBECONFIG}" 0
   fi
-
 }
 
 function connect_kind_clusters() {
@@ -250,30 +250,42 @@ function connect_kind_clusters() {
   C1_KUBECONFIG="${2}"
   C2="${3}"
   C2_KUBECONFIG="${4}"
+  POD_TO_POD_AND_SERVICE_CONNECTIVITY="${5}"
 
-  # Set up routing rules for inter-cluster direct pod to pod communication
   C1_NODE="${C1}-control-plane"
   C2_NODE="${C2}-control-plane"
-  C1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${C1_NODE}")
-  C2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${C2_NODE}")
-  C1_POD_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
-  C2_POD_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
-  docker exec "${C1_NODE}" ip route add "${C2_POD_CIDR}" via "${C2_DOCKER_IP}"
-  docker exec "${C2_NODE}" ip route add "${C1_POD_CIDR}" via "${C1_DOCKER_IP}"
+  C1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.Networks.kind.IPAddress }}" "${C1_NODE}")
+  C2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.Networks.kind.IPAddress }}" "${C2_NODE}")
+  if [ "${POD_TO_POD_AND_SERVICE_CONNECTIVITY}" -eq 1 ]; then
+    # Set up routing rules for inter-cluster direct pod to pod & service communication
+    C1_POD_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+    C2_POD_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+    C1_SVC_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl cluster-info dump | sed -n 's/^.*--service-cluster-ip-range=\([^"]*\).*$/\1/p' | head -n 1)
+    C2_SVC_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl cluster-info dump | sed -n 's/^.*--service-cluster-ip-range=\([^"]*\).*$/\1/p' | head -n 1)
+    docker exec "${C1_NODE}" ip route add "${C2_POD_CIDR}" via "${C2_DOCKER_IP}"
+    docker exec "${C1_NODE}" ip route add "${C2_SVC_CIDR}" via "${C2_DOCKER_IP}"
+    docker exec "${C2_NODE}" ip route add "${C1_POD_CIDR}" via "${C1_DOCKER_IP}"
+    docker exec "${C2_NODE}" ip route add "${C1_SVC_CIDR}" via "${C1_DOCKER_IP}"
+  fi
+
+  # Set up routing rules for inter-cluster pod to MetalLB LoadBalancer communication
+  connect_metallb "$C1_NODE" "$C2_KUBECONFIG" "$C2_DOCKER_IP"
+  connect_metallb "$C2_NODE" "$C1_KUBECONFIG" "$C1_DOCKER_IP"
 }
 
 function install_metallb() {
   KUBECONFIG="${1}"
   kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
   kubectl apply --kubeconfig="$KUBECONFIG" -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
+  kubectl create --kubeconfig="$KUBECONFIG" secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
 
   if [ -z "${METALLB_IPS[*]}" ]; then
-    # Take IPs from the end of the docker bridge network subnet to use for MetalLB IPs
-    DOCKER_BRIDGE_SUBNET="$(docker inspect bridge | jq .[0].IPAM.Config[0].Subnet -r)"
+    # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs
+    DOCKER_KIND_SUBNET="$(docker inspect kind | jq .[0].IPAM.Config[0].Subnet -r)"
     METALLB_IPS=()
     while read -r ip; do
       METALLB_IPS+=("$ip")
-    done < <(cidr_to_ips "$DOCKER_BRIDGE_SUBNET" | tail -n 100)
+    done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
   fi
 
   # Give this cluster of those IPs
@@ -294,32 +306,34 @@ data:
       - '"$RANGE" | kubectl apply --kubeconfig="$KUBECONFIG" -f -
 }
 
-function cidr_to_ips() {
-    CIDR="$1"
-    if command -v python3; then
-      python3 - <<EOF
-from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$CIDR').hosts()]
-EOF
-    elif command -v nmap; then
-      nmap -sL "$CIDR" | awk '/Nmap scan report/{print $NF}'
-    fi
+function connect_metallb() {
+  REMOTE_NODE=$1
+  METALLB_KUBECONFIG=$2
+  METALLB_DOCKER_IP=$3
+
+  IP_REGEX='(([0-9]{1,3}\.?){4})'
+  LB_CONFIG="$(kubectl --kubeconfig="${METALLB_KUBECONFIG}" -n metallb-system get cm config -o jsonpath="{.data.config}")"
+  if [[ "$LB_CONFIG" =~ $IP_REGEX-$IP_REGEX ]]; then
+    while read -r lb_cidr; do
+      docker exec "${REMOTE_NODE}" ip route add "${lb_cidr}" via "${METALLB_DOCKER_IP}"
+    done < <(ips_to_cidrs "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}")
+  fi
 }
 
-function cni_run_daemon_kind() {
-  echo 'Run the CNI daemon set'
-  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-testing}
-  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-latest}
+function cidr_to_ips() {
+    CIDR="$1"
+    python3 - <<EOF
+from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$CIDR').hosts()]
+EOF
+}
 
-  # TODO: this should not be pulling from external charts, instead the tests should checkout the CNI repo
-  chartdir=$(mktemp -d)
-  helm init --client-only
-  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts/
-  helm fetch --devel --untar --untardir "${chartdir}" istio.io/istio-cni
-
-  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" \
-    --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni >  "${chartdir}"/istio-cni_install.yaml
-
-  kubectl apply -f  "${chartdir}"/istio-cni_install.yaml
+function ips_to_cidrs() {
+  IP_RANGE_START="$1"
+  IP_RANGE_END="$2"
+  python3 - <<EOF
+from ipaddress import summarize_address_range, IPv4Address
+[ print(n.compressed) for n in summarize_address_range(IPv4Address(u'$IP_RANGE_START'), IPv4Address(u'$IP_RANGE_END')) ]
+EOF
 }
 
 # setup_cluster_reg is used to set up a cluster registry for multicluster testing

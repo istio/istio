@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,10 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 		return nil, err
 	}
 	dac := clusterDump.GetDynamicActiveClusters()
+	// Allow sorting to work even if we don't have the exact same type
+	for i := range dac {
+		dac[i].Cluster.TypeUrl = "type.googleapis.com/envoy.api.v2.Cluster"
+	}
 	sort.Slice(dac, func(i, j int) bool {
 		cluster := &xdsapi.Cluster{}
 		err = ptypes.UnmarshalAny(dac[i].Cluster, cluster)
@@ -58,7 +62,7 @@ func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
 		return nil, err
 	}
 	clusterDump := &adminapi.ClustersConfigDump{}
-	err = ptypes.UnmarshalAny(&clusterDumpAny, clusterDump)
+	err = ptypes.UnmarshalAny(clusterDumpAny, clusterDump)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,14 +23,13 @@ import (
 	yaml2 "github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	jsonpb2 "github.com/golang/protobuf/jsonpb"
 	"github.com/kylelemons/godebug/diff"
 	"sigs.k8s.io/yaml"
 )
 
 // ToYAML returns a YAML string representation of val, or the error string if an error occurs.
 func ToYAML(val interface{}) string {
-	y, err := yaml.Marshal(val)
+	y, err := yaml2.Marshal(val)
 	if err != nil {
 		return err.Error()
 	}
@@ -86,25 +85,13 @@ func UnmarshalValuesWithJSONPB(y string, out proto.Message, allowUnknown bool) e
 	if err != nil {
 		return err
 	}
-	u := jsonpb2.Unmarshaler{AllowUnknownFields: allowUnknown}
+	u := jsonpb.Unmarshaler{AllowUnknownFields: allowUnknown}
 	err = u.Unmarshal(bytes.NewReader(jb), out)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-
-/*func ObjectsInManifest(mstr string) string {
-	ao, err := manifest.ParseObjectsFromYAMLManifest(mstr)
-	if err != nil {
-		return err.Error()
-	}
-	var out []string
-	for _, v := range ao {
-		out = append(out, v.Hash())
-	}
-	return strings.Join(out, "\n")
-}*/
 
 // OverlayTrees performs a sequential JSON strategic of overlays over base.
 func OverlayTrees(base map[string]interface{}, overlays ...map[string]interface{}) (map[string]interface{}, error) {
@@ -219,5 +206,6 @@ func IsYAMLEmpty(y string) bool {
 			yc = append(yc, l)
 		}
 	}
-	return strings.TrimSpace(strings.Join(yc, "\n")) == "{}"
+	res := strings.TrimSpace(strings.Join(yc, "\n"))
+	return res == "{}" || res == ""
 }

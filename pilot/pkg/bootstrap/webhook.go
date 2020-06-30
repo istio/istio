@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,102 +16,35 @@ package bootstrap
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/webhooks/validation/server"
 )
 
 const (
-	// debounce file watcher events to minimize noise in logs
-	watchDebounceDelay = 100 * time.Millisecond
+	HTTPSHandlerReadyPath = "/httpsReady"
 )
 
-func (s *Server) getWebhookCertificate(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	s.webhookCertMu.Lock()
-	defer s.webhookCertMu.Unlock()
-	return s.webhookCert, nil
-}
-
-func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
-	if features.IstiodService.Get() == "" {
-		log.Info("Not starting HTTPS webhook server: istiod address not set")
-		return nil
+func (s *Server) initSecureWebhookServer(args *PilotArgs) {
+	if s.kubeClient == nil {
+		return
 	}
 
-	log.Info("Setting up HTTPS webhook server for istiod webhooks")
-
+	log.Info("initializing secure webhook server for istiod webhooks")
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	s.httpsMux = http.NewServeMux()
 	s.httpsServer = &http.Server{
-		Addr:    args.DiscoveryOptions.HTTPSAddr,
+		Addr:    args.ServerOptions.HTTPSAddr,
 		Handler: s.httpsMux,
 		TLSConfig: &tls.Config{
-			GetCertificate: s.getWebhookCertificate,
+			GetCertificate: s.getIstiodCertificate,
 		},
 	}
 
-	certFile := model.GetOrDefault(args.TLSOptions.CertFile, dnsCertFile)
-	keyFile := model.GetOrDefault(args.TLSOptions.KeyFile, dnsKeyFile)
-
-	// load the cert/key and setup a persistent watch for updates.
-	cert, err := server.ReloadCertkey(certFile, keyFile)
-	if err != nil {
-		return err
-	}
-	s.webhookCert = cert
-	keyCertWatcher := filewatcher.NewWatcher()
-	for _, file := range []string{certFile, keyFile} {
-		if err := keyCertWatcher.Add(file); err != nil {
-			return fmt.Errorf("could not watch %v: %v", file, err)
-		}
-	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		go func() {
-			var keyCertTimerC <-chan time.Time
-			for {
-				select {
-				case <-keyCertTimerC:
-					keyCertTimerC = nil
-
-					cert, err := server.ReloadCertkey(certFile, keyFile)
-					if err != nil {
-						return // error logged and metric reported by server.ReloadCertKey
-					}
-
-					s.webhookCertMu.Lock()
-					s.webhookCert = cert
-					s.webhookCertMu.Unlock()
-				case <-keyCertWatcher.Events(certFile):
-					if keyCertTimerC == nil {
-						keyCertTimerC = time.After(watchDebounceDelay)
-					}
-				case <-keyCertWatcher.Events(keyFile):
-					if keyCertTimerC == nil {
-						keyCertTimerC = time.After(watchDebounceDelay)
-					}
-				case <-keyCertWatcher.Errors(certFile):
-					log.Errorf("error watching %v: %v", certFile, err)
-				case <-keyCertWatcher.Errors(keyFile):
-					log.Errorf("error watching %v: %v", keyFile, err)
-				case <-stop:
-					return
-				}
-			}
-		}()
-		return nil
-	})
-
 	// setup our readiness handler and the corresponding client we'll use later to check it with.
-	s.httpsMux.HandleFunc(server.HTTPSHandlerReadyPath, func(w http.ResponseWriter, _ *http.Request) {
+	s.httpsMux.HandleFunc(HTTPSHandlerReadyPath, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	s.httpsReadyClient = &http.Client{
@@ -122,25 +55,24 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 			},
 		},
 	}
-
-	return nil
+	s.addReadinessProbe("Secure Webhook Server", s.webhookReadyHandler)
 }
 
-func (s *Server) checkHTTPSWebhookServerReadiness() int {
+func (s *Server) webhookReadyHandler() (bool, error) {
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL: &url.URL{
 			Scheme: "https",
 			Host:   s.httpsServer.Addr,
-			Path:   server.HTTPSHandlerReadyPath,
+			Path:   HTTPSHandlerReadyPath,
 		},
 	}
 
 	response, err := s.httpsReadyClient.Do(req)
 	if err != nil {
-		return http.StatusInternalServerError
+		return false, err
 	}
 	defer response.Body.Close()
 
-	return response.StatusCode
+	return response.StatusCode == http.StatusOK, nil
 }

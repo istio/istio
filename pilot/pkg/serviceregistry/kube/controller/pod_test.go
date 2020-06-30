@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -103,9 +103,7 @@ func cleanup(ki kubernetes.Interface) {
 func TestPodCache(t *testing.T) {
 	t.Run("fakeApiserver", func(t *testing.T) {
 		t.Parallel()
-		c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
-		defer c.Stop()
-		testPodCache(t, c, fx)
+		testPodCache(t)
 	})
 }
 
@@ -116,7 +114,7 @@ func TestIPReuse(t *testing.T) {
 	initTestEnv(t, c.client, fx)
 
 	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
-		c.services.HasSynced, c.endpoints.HasSynced)
+		c.serviceInformer.HasSynced, c.endpoints.HasSynced)
 
 	createPod(t, c, "128.0.0.1", "pod")
 	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/pod" {
@@ -176,7 +174,13 @@ func waitForPod(c *Controller, ip string) error {
 	})
 }
 
-func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
+func testPodCache(t *testing.T) {
+	c, fx := newFakeControllerWithOptions(fakeControllerOptions{
+		mode:              EndpointsOnly,
+		watchedNamespaces: "nsa,nsb",
+	})
+	defer c.Stop()
+
 	initTestEnv(t, c.client, fx)
 
 	// Namespace must be lowercase (nsA doesn't work)
@@ -186,7 +190,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
 	}
 	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
-		c.services.HasSynced, c.endpoints.HasSynced)
+		c.serviceInformer.HasSynced, c.endpoints.HasSynced)
 
 	for _, pod := range pods {
 		pod := pod
@@ -212,8 +216,15 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		}
 	}
 
-	// Former 'wantNotFound' test. A pod not in the cache results in found = false
+	// This pod exists, but should not be in the cache because it is in a
+	// namespace not watched by the controller.
 	pod := c.pods.getPodByIP("128.0.0.4")
+	if pod != nil {
+		t.Error("Expected not found but was found")
+	}
+
+	// This pod should not be in the cache because it never existed.
+	pod = c.pods.getPodByIP("128.0.0.128")
 	if pod != nil {
 		t.Error("Expected not found but was found")
 	}
@@ -224,11 +235,12 @@ func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
 	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
 	defer c.Stop()
-	podCache := newPodCache(nil, c)
+
+	ns := "default"
+	podCache := c.pods
 
 	f := podCache.onEvent
 
-	ns := "default"
 	ip := "172.0.3.35"
 	pod1 := metav1.ObjectMeta{Name: "pod1", Namespace: ns}
 	if err := f(&v1.Pod{ObjectMeta: pod1}, model.EventAdd); err != nil {

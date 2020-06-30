@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ func TestVerifyCert(t *testing.T) {
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
 			expectedFields: verifyField2,
-			expectedErr:    "the generated private key and cert doesn't match",
+			expectedErr:    "the generated private RSA key and cert doesn't match",
 		},
 		"Wrong SAN": {
 			privPem:        []byte(key),

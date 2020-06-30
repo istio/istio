@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,11 +28,11 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
@@ -51,11 +51,12 @@ type message struct {
 }
 
 type testCase struct {
-	name           string
-	inputFiles     []string
-	meshConfigFile string // Optional
-	analyzer       analysis.Analyzer
-	expected       []message
+	name             string
+	inputFiles       []string
+	meshConfigFile   string // Optional
+	meshNetworksFile string // Optional
+	analyzer         analysis.Analyzer
+	expected         []message
 }
 
 // Some notes on setting up tests for Analyzers:
@@ -80,32 +81,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "serviceRoleBindings",
-		inputFiles: []string{"testdata/servicerolebindings.yaml"},
-		analyzer:   &auth.ServiceRoleBindingAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "ServiceRoleBinding test-bogus-binding"},
-		},
-	},
-	{
-		name:       "serviceRoleServices",
-		inputFiles: []string{"testdata/serviceroleservices.yaml"},
-		analyzer:   &auth.ServiceRoleServicesAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "ServiceRole bogus-short-name.default"},
-			{msg.ReferencedResourceNotFound, "ServiceRole bogus-fqdn.default"},
-			{msg.ReferencedResourceNotFound, "ServiceRole fqdn.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole short-name.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole fqdn-cross-ns.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole namespace-wide.anothernamespace"},
-		},
-	},
-	{
 		name:       "deprecation",
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
+			{msg.Deprecated, "VirtualService productpage.foo"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
 		},
 	},
 	{
@@ -174,7 +158,6 @@ var testGrid = []testCase{
 			{msg.NamespaceNotInjected, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
-			{msg.NamespaceInvalidInjectorRevision, "Namespace pidgeon-test"},
 		},
 	},
 	{
@@ -303,6 +286,18 @@ var testGrid = []testCase{
 			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
 		},
 	},
+	{
+		name: "unknown service registry in mesh networks",
+		inputFiles: []string{
+			"testdata/multicluster-unknown-serviceregistry.yaml",
+		},
+		meshNetworksFile: "testdata/common/meshnetworks.yaml",
+		analyzer:         &multicluster.MeshNetworksAnalyzer{},
+		expected: []message{
+			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
+			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
@@ -427,6 +422,13 @@ func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*lo
 		err := sa.AddFileKubeMeshConfig(tc.meshConfigFile)
 		if err != nil {
 			return nil, fmt.Errorf("error applying mesh config file %s: %v", tc.meshConfigFile, err)
+		}
+	}
+
+	if tc.meshNetworksFile != "" {
+		err := sa.AddFileKubeMeshNetworks(tc.meshNetworksFile)
+		if err != nil {
+			return nil, fmt.Errorf("error apply mesh networks file %s: %v", tc.meshNetworksFile, err)
 		}
 	}
 

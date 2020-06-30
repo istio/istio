@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
+	names "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
@@ -76,8 +77,7 @@ func NewK8sObject(u *unstructured.Unstructured, json, yaml []byte) *K8sObject {
 // Hash returns a unique, insecure hash based on kind, namespace and name.
 func Hash(kind, namespace, name string) string {
 	switch kind {
-	// TODO: replace strings with k8s const (istio/istio#17237).
-	case "ClusterRole", "ClusterRoleBinding", "MeshPolicy":
+	case names.ClusterRoleStr, names.ClusterRoleBindingStr, names.MeshPolicyStr:
 		namespace = ""
 	}
 	return strings.Join([]string{kind, namespace, name}, ":")
@@ -131,7 +131,7 @@ func (o *K8sObject) UnstructuredObject() *unstructured.Unstructured {
 	return o.object
 }
 
-// UnstructuredObject exposes the raw object content, primarily for testing
+// Unstructured exposes the raw object content, primarily for testing
 func (o *K8sObject) Unstructured() map[string]interface{} {
 	return o.UnstructuredObject().UnstructuredContent()
 }
@@ -206,24 +206,6 @@ func (o *K8sObject) YAMLDebugString() string {
 	return string(y)
 }
 
-// AddLabels adds labels to the K8sObject.
-// This method will override the value if there is already label with the same key.
-func (o *K8sObject) AddLabels(labels map[string]string) {
-	merged := make(map[string]string)
-	for k, v := range o.object.GetLabels() {
-		merged[k] = v
-	}
-
-	for k, v := range labels {
-		merged[k] = v
-	}
-
-	o.object.SetLabels(merged)
-	// Invalidate cached json
-	o.json = nil
-	o.yaml = nil
-}
-
 // K8sObjects holds a collection of k8s objects, so that we can filter / sequence them
 type K8sObjects []*K8sObject
 
@@ -236,12 +218,21 @@ func (os K8sObjects) String() string {
 	return strings.Join(out, helm.YAMLSeparator)
 }
 
+// Keys returns a slice with the keys of os.
+func (os K8sObjects) Keys() []string {
+	var out []string
+	for _, oo := range os {
+		out = append(out, oo.Hash())
+	}
+	return out
+}
+
 // ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest.
 func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 	return ParseK8sObjectsFromYAMLManifestFailOption(manifest, true)
 }
 
-// ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest. Continues parsing when a bad object
+// ParseK8sObjectsFromYAMLManifestFailOption returns a K8sObjects representation of manifest. Continues parsing when a bad object
 // is found if failOnError is set to false.
 func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool) (K8sObjects, error) {
 	var b bytes.Buffer
@@ -299,30 +290,6 @@ func removeNonYAMLLines(yms string) string {
 
 	// helm charts sometimes emits blank objects with just a "disabled" comment.
 	return strings.TrimSpace(out)
-}
-
-// JSONManifest returns a JSON representation of K8sObjects os.
-func (os K8sObjects) JSONManifest() (string, error) {
-	var b bytes.Buffer
-
-	for i, item := range os {
-		if i != 0 {
-			if _, err := b.WriteString("\n\n"); err != nil {
-				return "", err
-			}
-		}
-		// We build a JSON manifest because conversion to yaml is harder
-		// (and we've lost line numbers anyway if we applied any transforms)
-		json, err := item.JSON()
-		if err != nil {
-			return "", fmt.Errorf("error building json: %v", err)
-		}
-		if _, err := b.Write(json); err != nil {
-			return "", err
-		}
-	}
-
-	return b.String(), nil
 }
 
 // YAMLManifest returns a YAML representation of K8sObjects os.
@@ -423,11 +390,10 @@ func (o *K8sObject) Equal(other *K8sObject) bool {
 
 func istioCustomResources(group string) bool {
 	switch group {
-	case "config.istio.io",
-		"rbac.istio.io",
-		"security.istio.io",
-		"authentication.istio.io",
-		"networking.istio.io":
+	case names.ConfigAPIGroupName,
+		names.SecurityAPIGroupName,
+		names.AuthenticationAPIGroupName,
+		names.NetworkingAPIGroupName:
 		return true
 	}
 	return false

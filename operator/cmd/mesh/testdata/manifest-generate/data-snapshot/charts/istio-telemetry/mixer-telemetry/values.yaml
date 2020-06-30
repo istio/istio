@@ -75,16 +75,6 @@ mixer:
         cpu: 4800m
         memory: 4G
 
-    # Set reportBatchMaxEntries to 0 to use the default batching behavior (i.e., every 100 requests).
-    # A positive value indicates the number of requests that are batched before telemetry data
-    # is sent to the mixer server
-    reportBatchMaxEntries: 100
-
-    # Set reportBatchMaxTime to 0 to use the default batching behavior (i.e., every 1 second).
-    # A positive time value indicates the maximum wait time since the last request will telemetry data
-    # be batched before being sent to the mixer server
-    reportBatchMaxTime: 1s
-
     nodeSelector: {}
     tolerations: []
     podAnnotations: {}

@@ -101,6 +101,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// IstioMeshV1Alpha1MeshNetworks describes the collection
+	// istio/mesh/v1alpha1/MeshNetworks
+	IstioMeshV1Alpha1MeshNetworks = collection.Builder{
+		Name:         "istio/mesh/v1alpha1/MeshNetworks",
+		VariableName: "IstioMeshV1Alpha1MeshNetworks",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "",
+			Kind:          "MeshNetworks",
+			Plural:        "meshnetworks",
+			Version:       "v1alpha1",
+			Proto:         "istio.mesh.v1alpha1.MeshNetworks",
+			ProtoPackage:  "istio.io/api/mesh/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// IstioMixerV1ConfigClientQuotaspecbindings describes the collection
 	// istio/mixer/v1/config/client/quotaspecbindings
 	IstioMixerV1ConfigClientQuotaspecbindings = collection.Builder{
@@ -332,78 +350,6 @@ var (
 			ProtoPackage:  "istio.io/api/policy/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioRbacV1Alpha1Clusterrbacconfigs describes the collection
-	// istio/rbac/v1alpha1/clusterrbacconfigs
-	IstioRbacV1Alpha1Clusterrbacconfigs = collection.Builder{
-		Name:         "istio/rbac/v1alpha1/clusterrbacconfigs",
-		VariableName: "IstioRbacV1Alpha1Clusterrbacconfigs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ClusterRbacConfig",
-			Plural:        "clusterrbacconfigs",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.RbacConfig",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: true,
-			ValidateProto: validation.ValidateClusterRbacConfig,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioRbacV1Alpha1Rbacconfigs describes the collection
-	// istio/rbac/v1alpha1/rbacconfigs
-	IstioRbacV1Alpha1Rbacconfigs = collection.Builder{
-		Name:         "istio/rbac/v1alpha1/rbacconfigs",
-		VariableName: "IstioRbacV1Alpha1Rbacconfigs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "RbacConfig",
-			Plural:        "rbacconfigs",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.RbacConfig",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateRbacConfig,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioRbacV1Alpha1Servicerolebindings describes the collection
-	// istio/rbac/v1alpha1/servicerolebindings
-	IstioRbacV1Alpha1Servicerolebindings = collection.Builder{
-		Name:         "istio/rbac/v1alpha1/servicerolebindings",
-		VariableName: "IstioRbacV1Alpha1Servicerolebindings",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ServiceRoleBinding",
-			Plural:        "servicerolebindings",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.ServiceRoleBinding",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceRoleBinding,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioRbacV1Alpha1Serviceroles describes the collection
-	// istio/rbac/v1alpha1/serviceroles
-	IstioRbacV1Alpha1Serviceroles = collection.Builder{
-		Name:         "istio/rbac/v1alpha1/serviceroles",
-		VariableName: "IstioRbacV1Alpha1Serviceroles",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ServiceRole",
-			Plural:        "serviceroles",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.ServiceRole",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceRole,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -939,78 +885,6 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SRbacIstioIoV1Alpha1Clusterrbacconfigs describes the collection
-	// k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs
-	K8SRbacIstioIoV1Alpha1Clusterrbacconfigs = collection.Builder{
-		Name:         "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs",
-		VariableName: "K8SRbacIstioIoV1Alpha1Clusterrbacconfigs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ClusterRbacConfig",
-			Plural:        "clusterrbacconfigs",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.RbacConfig",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: true,
-			ValidateProto: validation.ValidateClusterRbacConfig,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SRbacIstioIoV1Alpha1Policy describes the collection
-	// k8s/rbac.istio.io/v1alpha1/policy
-	K8SRbacIstioIoV1Alpha1Policy = collection.Builder{
-		Name:         "k8s/rbac.istio.io/v1alpha1/policy",
-		VariableName: "K8SRbacIstioIoV1Alpha1Policy",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ServiceRoleBinding",
-			Plural:        "servicerolebindings",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.ServiceRoleBinding",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceRoleBinding,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SRbacIstioIoV1Alpha1Rbacconfigs describes the collection
-	// k8s/rbac.istio.io/v1alpha1/rbacconfigs
-	K8SRbacIstioIoV1Alpha1Rbacconfigs = collection.Builder{
-		Name:         "k8s/rbac.istio.io/v1alpha1/rbacconfigs",
-		VariableName: "K8SRbacIstioIoV1Alpha1Rbacconfigs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "RbacConfig",
-			Plural:        "rbacconfigs",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.RbacConfig",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateRbacConfig,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SRbacIstioIoV1Alpha1Serviceroles describes the collection
-	// k8s/rbac.istio.io/v1alpha1/serviceroles
-	K8SRbacIstioIoV1Alpha1Serviceroles = collection.Builder{
-		Name:         "k8s/rbac.istio.io/v1alpha1/serviceroles",
-		VariableName: "K8SRbacIstioIoV1Alpha1Serviceroles",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ServiceRole",
-			Plural:        "serviceroles",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.ServiceRole",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceRole,
-		}.MustBuild(),
-	}.MustBuild()
-
 	// K8SSecurityIstioIoV1Beta1Authorizationpolicies describes the collection
 	// k8s/security.istio.io/v1beta1/authorizationpolicies
 	K8SSecurityIstioIoV1Beta1Authorizationpolicies = collection.Builder{
@@ -1072,12 +946,12 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Gatewayclasses",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
+			Group:         "networking.x-k8s.io",
 			Kind:          "GatewayClass",
 			Plural:        "gatewayclasses",
 			Version:       "v1alpha1",
 			Proto:         "k8s.io.service_apis.api.v1alpha1.GatewayClassSpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -1090,14 +964,14 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Gateways",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
+			Group:         "networking.x-k8s.io",
 			Kind:          "Gateway",
 			Plural:        "gateways",
 			Version:       "v1alpha1",
 			Proto:         "k8s.io.service_apis.api.v1alpha1.GatewaySpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.ValidateGateway,
+			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -1108,12 +982,12 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Httproutes",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
+			Group:         "networking.x-k8s.io",
 			Kind:          "HTTPRoute",
 			Plural:        "httproutes",
 			Version:       "v1alpha1",
 			Proto:         "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -1126,12 +1000,12 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Tcproutes",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
+			Group:         "networking.x-k8s.io",
 			Kind:          "TcpRoute",
 			Plural:        "tcproutes",
 			Version:       "v1alpha1",
 			Proto:         "k8s.io.service_apis.api.v1alpha1.TcpRouteSpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -1144,12 +1018,12 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Trafficsplits",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
+			Group:         "networking.x-k8s.io",
 			Kind:          "TrafficSplit",
 			Plural:        "trafficsplits",
 			Version:       "v1alpha1",
 			Proto:         "k8s.io.service_apis.api.v1alpha1.TrafficSplitSpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -1162,6 +1036,7 @@ var (
 		MustAdd(IstioConfigV1Alpha2Httpapispecs).
 		MustAdd(IstioConfigV1Alpha2Templates).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
+		MustAdd(IstioMeshV1Alpha1MeshNetworks).
 		MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
 		MustAdd(IstioMixerV1ConfigClientQuotaspecs).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
@@ -1175,10 +1050,6 @@ var (
 		MustAdd(IstioPolicyV1Beta1Handlers).
 		MustAdd(IstioPolicyV1Beta1Instances).
 		MustAdd(IstioPolicyV1Beta1Rules).
-		MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Rbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
-		MustAdd(IstioRbacV1Alpha1Serviceroles).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -1209,10 +1080,6 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
-		MustAdd(K8SRbacIstioIoV1Alpha1Clusterrbacconfigs).
-		MustAdd(K8SRbacIstioIoV1Alpha1Policy).
-		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
-		MustAdd(K8SRbacIstioIoV1Alpha1Serviceroles).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
@@ -1230,6 +1097,7 @@ var (
 		MustAdd(IstioConfigV1Alpha2Httpapispecs).
 		MustAdd(IstioConfigV1Alpha2Templates).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
+		MustAdd(IstioMeshV1Alpha1MeshNetworks).
 		MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
 		MustAdd(IstioMixerV1ConfigClientQuotaspecs).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
@@ -1243,10 +1111,6 @@ var (
 		MustAdd(IstioPolicyV1Beta1Handlers).
 		MustAdd(IstioPolicyV1Beta1Instances).
 		MustAdd(IstioPolicyV1Beta1Rules).
-		MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Rbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
-		MustAdd(IstioRbacV1Alpha1Serviceroles).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -1281,10 +1145,6 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
-		MustAdd(K8SRbacIstioIoV1Alpha1Clusterrbacconfigs).
-		MustAdd(K8SRbacIstioIoV1Alpha1Policy).
-		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
-		MustAdd(K8SRbacIstioIoV1Alpha1Serviceroles).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
@@ -1308,10 +1168,6 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
-		MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Rbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
-		MustAdd(IstioRbacV1Alpha1Serviceroles).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -1330,10 +1186,6 @@ var (
 			MustAdd(IstioNetworkingV1Alpha3Sidecars).
 			MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 			MustAdd(IstioNetworkingV1Alpha3Workloadentries).
-			MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
-			MustAdd(IstioRbacV1Alpha1Rbacconfigs).
-			MustAdd(IstioRbacV1Alpha1Servicerolebindings).
-			MustAdd(IstioRbacV1Alpha1Serviceroles).
 			MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 			MustAdd(IstioSecurityV1Beta1Peerauthentications).
 			MustAdd(IstioSecurityV1Beta1Requestauthentications).

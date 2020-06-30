@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
@@ -72,7 +72,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	"istio.io/pkg/env"
@@ -175,7 +175,7 @@ func configTypeToTypeURL(configType string) string {
 
 func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 	return &xdsapi.DiscoveryRequest{
-		Node: &core1.Node{
+		Node: &corev2.Node{
 			Id: p.makeNodeID(),
 		},
 		TypeUrl: configTypeToTypeURL(configType)}

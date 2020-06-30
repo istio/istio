@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,12 +31,12 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/progress"
 )
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
-// waitUnitReady waits until all resources in the manifest are in a ready state.
-func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, waitUntilReady bool) (object.K8sObjects, int, error) {
+func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObjects, int, error) {
 	var processedObjects object.K8sObjects
 	var deployedObjects int
 	var errs util.Errors
@@ -77,7 +77,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, waitUntilReady bo
 		changedObjectKeys = append(changedObjectKeys, oh)
 	}
 
-	var plog *util.ManifestLog
+	var plog *progress.ManifestLog
 	if len(changedObjectKeys) > 0 {
 		plog = h.opts.ProgressLog.NewComponent(cname)
 		scope.Infof("The following objects differ between generated manifest and cache: \n - %s", strings.Join(changedObjectKeys, "\n - "))
@@ -97,7 +97,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, waitUntilReady bo
 			if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
 				return nil, 0, err
 			}
-			if err := h.ApplyObject(cname, obj.UnstructuredObject()); err != nil {
+			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
 				scope.Error(err.Error())
 				errs = util.AppendErr(errs, err)
 				continue
@@ -127,27 +127,22 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, waitUntilReady bo
 			return processedObjects, 0, errs.ToError()
 		}
 
-		// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
-		// For example, for the validation webhook to become ready, so we should wait for it always.
-		if waitUntilReady || h.opts.Wait {
-			err := WaitForResources(processedObjects, h.restConfig, h.clientSet,
-				h.opts.WaitTimeout, h.opts.DryRun, plog)
-			if err != nil {
-				werr := fmt.Errorf("failed to wait for resource: %v", err)
-				plog.ReportError(werr.Error())
-				return processedObjects, 0, werr
-			}
-			plog.ReportFinished()
-		} else {
-			plog.ReportFinished()
+		err := WaitForResources(processedObjects, h.restConfig, h.clientSet,
+			h.opts.WaitTimeout, h.opts.DryRun, plog)
+		if err != nil {
+			werr := fmt.Errorf("failed to wait for resource: %v", err)
+			plog.ReportError(werr.Error())
+			return processedObjects, 0, werr
 		}
+		plog.ReportFinished()
+
 	}
 	return processedObjects, deployedObjects, nil
 }
 
 // ApplyObject creates or updates an object in the API server depending on whether it already exists.
 // It mutates obj.
-func (h *HelmReconciler) ApplyObject(chartName string, obj *unstructured.Unstructured) error {
+func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 	if obj.GetKind() == "List" {
 		var errs util.Errors
 		list, err := obj.ToList()
@@ -156,7 +151,7 @@ func (h *HelmReconciler) ApplyObject(chartName string, obj *unstructured.Unstruc
 			return err
 		}
 		for _, item := range list.Items {
-			err = h.ApplyObject(chartName, &item)
+			err = h.ApplyObject(&item)
 			if err != nil {
 				errs = util.AppendErr(errs, err)
 			}
@@ -192,11 +187,13 @@ func (h *HelmReconciler) ApplyObject(chartName string, obj *unstructured.Unstruc
 			return nil
 		case err == nil:
 			scope.Infof("updating resource: %s", objectStr)
+			// The correct way to do this is with a server-side apply. However, this requires users to be running Kube 1.16.
+			// When we no longer support < 1.16 use the code described in the linked issue.
+			// https://github.com/kubernetes-sigs/controller-runtime/issues/347
 			if err := applyOverlay(receiver, obj); err != nil {
 				return err
 			}
-			updateErr := h.client.Update(context.TODO(), receiver)
-			return updateErr
+			return h.client.Update(context.TODO(), receiver)
 		}
 		return nil
 	})

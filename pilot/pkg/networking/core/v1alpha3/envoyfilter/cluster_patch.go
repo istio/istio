@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 package envoyfilter
 
 import (
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/proto"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
@@ -31,7 +31,7 @@ func ApplyClusterPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
 	proxy *model.Proxy,
 	push *model.PushContext,
-	clusters []*xdsapi.Cluster) (out []*xdsapi.Cluster) {
+	clusters []*cluster.Cluster) (out []*cluster.Cluster) {
 	defer runtime.HandleCrash(func() {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
@@ -70,13 +70,13 @@ func ApplyClusterPatches(
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			if commonConditionMatch(patchContext, cp) {
-				clusters = append(clusters, proto.Clone(cp.Value).(*xdsapi.Cluster))
+				clusters = append(clusters, proto.Clone(cp.Value).(*cluster.Cluster))
 			}
 		}
 	}
 
 	if clustersRemoved {
-		trimmedClusters := make([]*xdsapi.Cluster, 0, len(clusters))
+		trimmedClusters := make([]*cluster.Cluster, 0, len(clusters))
 		for i := range clusters {
 			if clusters[i] == nil {
 				continue
@@ -88,7 +88,7 @@ func ApplyClusterPatches(
 	return clusters
 }
 
-func clusterMatch(cluster *xdsapi.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	cMatch := cp.Match.GetCluster()
 	if cMatch == nil {
 		return true

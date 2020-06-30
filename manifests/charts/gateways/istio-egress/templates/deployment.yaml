@@ -52,14 +52,8 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
-        privileged: false
-        readOnlyRootFilesystem: true
 {{- end }}
-      serviceAccountName: istio-egressgateway-service-account
+      serviceAccountName: {{ $gateway.name | default "istio-egressgateway" }}-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -127,11 +121,20 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+        {{- if not $gateway.runAsRoot }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+        {{- end }}
           readinessProbe:
             failureThreshold: 30
             httpGet:
               path: /healthz/ready
-              port: 15020
+              port: 15021
               scheme: HTTP
             initialDelaySeconds: 1
             periodSeconds: 2
@@ -177,6 +180,14 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
+          - name: CANONICAL_SERVICE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-name']
+          - name: CANONICAL_REVISION
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $gateway.name | default "istio-egressgateway" }}
           - name: ISTIO_META_OWNER
@@ -194,6 +205,10 @@ spec:
             value: {{ $val }}
           {{- end }}
           {{ end }}
+          {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
 {{- if $gateway.podAnnotations }}
           - name: "ISTIO_METAJSON_ANNOTATIONS"
             value: |
@@ -227,6 +242,13 @@ spec:
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
             readOnly: true
+          {{- end }}
+          {{- range $gateway.configVolumes }}
+          {{- if .mountPath }}
+          - name: {{ .name }}
+            mountPath: {{ .mountPath | quote }}
+            readOnly: true
+          {{- end }}
           {{- end }}
 {{- if $gateway.additionalContainers }}
 {{ toYaml $gateway.additionalContainers | indent 8 }}

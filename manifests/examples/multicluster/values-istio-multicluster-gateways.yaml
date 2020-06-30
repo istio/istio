@@ -1,0 +1,28 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  addonComponents:
+    istiocoredns:
+      enabled: true
+
+  components:
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: true
+
+  values:
+    global:
+      # Provides dns resolution for global services
+      podDNSSearchNamespaces:
+        - global
+
+      multiCluster:
+        enabled: true
+
+      controlPlaneSecurityEnabled: true
+
+    gateways:
+      istio-egressgateway:
+        env:
+          # Needed to route traffic via egress gateway if desired.
+          ISTIO_META_REQUESTED_NETWORK_VIEW: "external"

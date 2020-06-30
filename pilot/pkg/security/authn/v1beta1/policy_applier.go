@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ import (
 	"sort"
 	"strings"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"istio.io/api/security/v1beta1"
@@ -167,10 +167,11 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []networking.FilterChain {
+func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy,
+	listenerProtocol networking.ListenerProtocol) []networking.FilterChain {
 	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
-	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node)
+	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node, listenerProtocol)
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
@@ -240,7 +241,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		jwtPubKey := jwtRule.Jwks
 		if jwtPubKey == "" {
 			var err error
-			jwtPubKey, err = model.JwtKeyResolver.GetPublicKey(jwtRule.JwksUri)
+			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
 			if err != nil {
 				log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
 			}

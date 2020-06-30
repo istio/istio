@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,38 +22,34 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
 var (
 	ist               istio.Instance
 	bookinfoNamespace *namespace.Instance
-	galInst           *galley.Instance
 	ingInst           *ingress.Instance
 )
 
 func TestIstioAccessLog(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			_, g, ing := setupComponentsOrFail(t)
+			_, ing := setupComponentsOrFail(t)
 
 			ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-			g.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
-				ns,
+				ns.Name(),
 				bookinfo.TelemetryLogEntry.LoadOrFail(t))
-			defer g.DeleteConfigOrFail(
+			defer ctx.Config().DeleteYAMLOrFail(
 				t,
-				ns,
+				ns.Name(),
 				bookinfo.TelemetryLogEntry.LoadOrFail(t))
 
 			util.AllowRuleSync(t)
@@ -70,14 +66,13 @@ func TestIstioAccessLog(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mixer_telemetry_logs", m).
-		RequireEnvironment(environment.Kube).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
-  global:
+  meshConfig:
     disablePolicyChecks: false
   telemetry:
     v1:
@@ -106,11 +101,6 @@ func testsetup(ctx resource.Context) error {
 	if _, err := bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo}); err != nil {
 		return err
 	}
-	g, err := galley.New(ctx, galley.Config{})
-	if err != nil {
-		return err
-	}
-	galInst = &g
 	ing, err := ingress.New(ctx, ingress.Config{Istio: ist})
 	if err != nil {
 		return err
@@ -121,23 +111,18 @@ func testsetup(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
-	err = g.ApplyConfig(bookinfoNs, bookinfoGateWayConfig)
+	err = ctx.Config().ApplyYAML(bookinfoNs.Name(), bookinfoGateWayConfig)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func setupComponentsOrFail(t *testing.T) (bookinfoNs namespace.Instance, g galley.Instance,
-	ing ingress.Instance) {
+func setupComponentsOrFail(t *testing.T) (bookinfoNs namespace.Instance, ing ingress.Instance) {
 	if bookinfoNamespace == nil {
 		t.Fatalf("bookinfo namespace not allocated in setup")
 	}
 	bookinfoNs = *bookinfoNamespace
-	if galInst == nil {
-		t.Fatalf("galley not setup")
-	}
-	g = *galInst
 	if ingInst == nil {
 		t.Fatalf("ingress not setup")
 	}

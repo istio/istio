@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ func TestNewIstioOperator(t *testing.T) {
 			wantErr: nil,
 			wantIstioOperator: &IstioControlPlane{
 				components: []component.IstioComponent{
-					&component.CRDComponent{
+					&component.BaseComponent{
 						CommonComponentFields: &component.CommonComponentFields{
 							Options:       coreComponentOptions,
 							ComponentName: name.IstioBaseComponentName,
@@ -112,6 +112,12 @@ func TestNewIstioOperator(t *testing.T) {
 					&component.CNIComponent{
 						CommonComponentFields: &component.CommonComponentFields{
 							ComponentName: name.CNIComponentName,
+							Options:       coreComponentOptions,
+						},
+					},
+					&component.IstiodRemoteComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							ComponentName: name.IstiodRemoteComponentName,
 							Options:       coreComponentOptions,
 						},
 					},
@@ -145,7 +151,7 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 			desc: "components-not-started-operator-started",
 			testOperator: &IstioControlPlane{
 				components: []component.IstioComponent{
-					&component.CRDComponent{
+					&component.BaseComponent{
 						CommonComponentFields: &component.CommonComponentFields{
 							Options:       coreComponentOptions,
 							ComponentName: name.IstioBaseComponentName,
@@ -195,7 +201,7 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 			desc: "operator-not-started",
 			testOperator: &IstioControlPlane{
 				components: []component.IstioComponent{
-					&component.CRDComponent{
+					&component.BaseComponent{
 						CommonComponentFields: &component.CommonComponentFields{
 							Options:       coreComponentOptions,
 							ComponentName: name.IstioBaseComponentName,

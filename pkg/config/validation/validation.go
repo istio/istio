@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,12 +30,10 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
-	rbac "istio.io/api/rbac/v1alpha1"
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
@@ -136,16 +134,6 @@ func ValidatePort(port int) error {
 		return nil
 	}
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
-}
-
-// ValidatePorts checks if all ports are in range [0, 65535]
-func ValidatePorts(ports []int32) bool {
-	for _, port := range ports {
-		if ValidatePort(int(port)) != nil {
-			return false
-		}
-	}
-	return true
 }
 
 // ValidateFQDN checks a fully-qualified domain name
@@ -446,7 +434,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 
 // ValidateDestinationRule checks proxy policies
 var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
-	func(_, _ string, msg proto.Message) (errs error) {
+	func(_, namespace string, msg proto.Message) (errs error) {
 		rule, ok := msg.(*networking.DestinationRule)
 		if !ok {
 			return fmt.Errorf("cannot cast to destination rule")
@@ -460,16 +448,57 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			errs = appendErrors(errs, validateSubset(subset))
 		}
 
-		errs = appendErrors(errs, validateExportTo(rule.ExportTo))
+		errs = appendErrors(errs, validateExportTo(namespace, rule.ExportTo, false))
 		return
 	})
 
-func validateExportTo(exportTo []string) (errs error) {
+func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) (errs error) {
 	if len(exportTo) > 0 {
-		if len(exportTo) > 1 {
-			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
-		} else {
-			errs = appendErrors(errs, visibility.Instance(exportTo[0]).Validate())
+		// Make sure there are no duplicates
+		exportToMap := make(map[string]struct{})
+		for _, e := range exportTo {
+			key := e
+			if visibility.Instance(e) == visibility.Private {
+				// substitute this with the current namespace so that we
+				// can check for duplicates like ., namespace
+				key = namespace
+			}
+			if _, exists := exportToMap[key]; exists {
+				if key != e {
+					errs = appendErrors(errs, fmt.Errorf("duplicate entries in exportTo: . and current namespace %s", namespace))
+				} else {
+					errs = appendErrors(errs, fmt.Errorf("duplicate entries in exportTo for entry %s", e))
+				}
+			} else {
+				// if this is a serviceEntry, allow ~ in exportTo as it can be used to create
+				// a service that is not even visible within the local namespace to anyone other
+				// than the proxies of that service.
+				if isServiceEntry && visibility.Instance(e) == visibility.None {
+					exportToMap[key] = struct{}{}
+				} else {
+					if err := visibility.Instance(key).Validate(); err != nil {
+						errs = appendErrors(errs, err)
+					} else {
+						exportToMap[key] = struct{}{}
+					}
+				}
+			}
+		}
+
+		// Make sure we have only one of . or *
+		if _, public := exportToMap[string(visibility.Public)]; public {
+			// make sure that there are no other entries in the exportTo
+			// i.e. no point in saying ns1,ns2,*. Might as well say *
+			if len(exportTo) > 1 {
+				errs = appendErrors(errs, fmt.Errorf("cannot have both public (*) and non-public exportTo values for a resource"))
+			}
+		}
+
+		// if this is a service entry, then we need to disallow * and ~ together. Or ~ and other namespaces
+		if _, none := exportToMap[string(visibility.None)]; none {
+			if len(exportTo) > 1 {
+				errs = appendErrors(errs, fmt.Errorf("cannot export service entry to no one (~) and someone"))
+			}
 		}
 	}
 
@@ -856,15 +885,8 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 	if outlier.BaseEjectionTime != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
 	}
-	if outlier.ConsecutiveErrors < 0 {
-		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors cannot be negative"))
-	}
-	if outlier.Consecutive_5XxErrors != nil || outlier.ConsecutiveGatewayErrors != nil {
-		// ConsecutiveErrors is deprecated for Consecutive_5XxErrors and
-		// ConsecutiveGatewayErrors; they should not be set at the same time.
-		if outlier.ConsecutiveErrors > 0 {
-			errs = appendErrors(errs, fmt.Errorf("consecutive_errors should not be set with consecutive_5xx_errors or consecutive_gateway_errors"))
-		}
+	if outlier.ConsecutiveErrors != 0 {
+		scope.Warnf("outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead")
 	}
 	if outlier.Interval != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))
@@ -1295,7 +1317,7 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 func ValidateMixerAttributes(msg proto.Message) error {
 	in, ok := msg.(*mpb.Attributes)
 	if !ok {
-		return errors.New("cannot case to attributes")
+		return errors.New("cannot cast to attributes")
 	}
 	if in == nil || len(in.Attributes) == 0 {
 		return errors.New("list of attributes is nil/empty")
@@ -1348,7 +1370,7 @@ var ValidateHTTPAPISpec = registerValidateFunc("ValidateHTTPAPISpec",
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.HTTPAPISpec)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpec")
+			return errors.New("cannot cast to HTTPAPISpec")
 		}
 		var errs error
 		// top-level list of attributes is optional
@@ -1402,7 +1424,7 @@ var ValidateHTTPAPISpecBinding = registerValidateFunc("ValidateHTTPAPISpecBindin
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.HTTPAPISpecBinding)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
+			return errors.New("cannot cast to HTTPAPISpecBinding")
 		}
 		var errs error
 		if len(in.Services) == 0 {
@@ -1432,7 +1454,7 @@ var ValidateQuotaSpec = registerValidateFunc("ValidateQuotaSpec",
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.QuotaSpec)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
+			return errors.New("cannot cast to QuotaSpec")
 		}
 		var errs error
 		if len(in.Rules) == 0 {
@@ -1484,7 +1506,7 @@ var ValidateQuotaSpecBinding = registerValidateFunc("ValidateQuotaSpecBinding",
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.QuotaSpecBinding)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
+			return errors.New("cannot cast to QuotaSpecBinding")
 		}
 		var errs error
 		if len(in.Services) == 0 {
@@ -1506,75 +1528,6 @@ var ValidateQuotaSpecBinding = registerValidateFunc("ValidateQuotaSpecBinding",
 				errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", spec.Namespace))
 			}
 		}
-		return errs
-	})
-
-// ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
-var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationPolicy",
-	func(name, namespace string, msg proto.Message) error {
-		// Empty namespace indicate policy is from cluster-scoped CRD.
-		clusterScoped := namespace == ""
-		in, ok := msg.(*authn.Policy)
-		if !ok {
-			return errors.New("cannot cast to AuthenticationPolicy")
-		}
-		var errs error
-
-		if !clusterScoped {
-			// nolint: staticcheck
-			if len(in.Targets) == 0 && name != constants.DefaultAuthenticationPolicyName {
-				errs = appendErrors(errs, fmt.Errorf("authentication policy with no target rules  must be named %q, found %q",
-					constants.DefaultAuthenticationPolicyName, name))
-			}
-			// nolint: staticcheck
-			if len(in.Targets) > 0 && name == constants.DefaultAuthenticationPolicyName {
-				errs = appendErrors(errs, fmt.Errorf("authentication policy with name %q must not have any target rules", name))
-			}
-			// nolint: staticcheck
-			for _, target := range in.Targets {
-				errs = appendErrors(errs, validateAuthNPolicyTarget(target))
-			}
-		} else {
-			if name != constants.DefaultAuthenticationPolicyName {
-				errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy name must be %q, found %q",
-					constants.DefaultAuthenticationPolicyName, name))
-			}
-			// nolint: staticcheck
-			if len(in.Targets) > 0 {
-				errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
-			}
-		}
-
-		jwtIssuers := make(map[string]bool)
-		for _, method := range in.Peers {
-			// nolint: staticcheck
-			if jwt := method.GetJwt(); jwt != nil {
-				if _, jwtExist := jwtIssuers[jwt.Issuer]; jwtExist {
-					errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", jwt.Issuer))
-				} else {
-					jwtIssuers[jwt.Issuer] = true
-				}
-				errs = appendErrors(errs, validateJwt(jwt))
-			}
-		}
-		// nolint: staticcheck
-		for _, method := range in.Origins {
-			if method == nil {
-				errs = multierror.Append(errs, errors.New("origin cannot be empty"))
-				continue
-			}
-			if method.Jwt == nil {
-				errs = multierror.Append(errs, errors.New("jwt cannot be empty"))
-				continue
-			}
-			if _, jwtExist := jwtIssuers[method.Jwt.Issuer]; jwtExist {
-				errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", method.Jwt.Issuer))
-			} else {
-				jwtIssuers[method.Jwt.Issuer] = true
-			}
-			errs = appendErrors(errs, validateJwt(method.Jwt))
-		}
-
 		return errs
 	})
 
@@ -1734,11 +1687,6 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	return
 }
 
-// ValidateAccept always returns true
-func ValidateAccept(_, _ string, _ proto.Message) error {
-	return nil
-}
-
 // ValidatePeerAuthentication checks that peer authentication spec is well-formed.
 var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthentication",
 	func(name, namespace string, msg proto.Message) error {
@@ -1771,257 +1719,9 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 		return errs
 	})
 
-// ValidateServiceRole checks that ServiceRole is well-formed.
-var ValidateServiceRole = registerValidateFunc("ValidateServiceRole",
-	func(_, _ string, msg proto.Message) error {
-		in, ok := msg.(*rbac.ServiceRole)
-		if !ok {
-			return errors.New("cannot cast to ServiceRole")
-		}
-		var errs error
-		if len(in.Rules) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("at least 1 rule must be specified"))
-		}
-		for i, rule := range in.Rules {
-			// Regular rules and not rules (e.g. methods and not_methods should not be defined together).
-			sameAttributeKindError := "cannot have both regular and *not* attributes for the same kind (%s) for rule %d"
-			if len(rule.Methods) > 0 && len(rule.NotMethods) > 0 {
-				errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. methods and not_methods", i))
-			}
-			if len(rule.Ports) > 0 && len(rule.NotPorts) > 0 {
-				errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. ports and not_ports", i))
-			}
-			if !ValidatePorts(rule.Ports) || !ValidatePorts(rule.NotPorts) {
-				errs = appendErrors(errs, fmt.Errorf("at least one port is not in the range of [0, 65535]"))
-			}
-			for j, constraint := range rule.Constraints {
-				if len(constraint.Key) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("key cannot be empty for constraint %d in rule %d", j, i))
-				}
-				if len(constraint.Values) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("at least 1 value must be specified for constraint %d in rule %d", j, i))
-				}
-				if hasExistingFirstClassFieldInRole(constraint.Key, rule) {
-					errs = appendErrors(errs, fmt.Errorf("cannot define %s for rule %d because a similar first-class field has been defined", constraint.Key, i))
-				}
-			}
-		}
-		return errs
-	})
-
-// Returns true if the user defines a constraint that already exists in the first-class fields, false
-// if none has overlapped.
-// First-class fields are the immediate-level fields right after the `rules` field in a ServiceRole, e.g.
-// methods, services, etc., or after the `subjects` field in a binding, e.g. names, groups, etc. In shorts,
-// they are not fields under Constraints (in ServiceRole) and Properties (in binding).
-// This prevents the user from defining the same key, e.g. port of the serving service, in multiple places
-// in a ServiceRole definition.
-func hasExistingFirstClassFieldInRole(constraintKey string, rule *rbac.AccessRule) bool {
-	// Same as authz.attrDestPort
-	// Cannot use authz.attrDestPort since there is a import cycle. However, these constants can be
-	// defined at another place and both authz and model package can access them.
-	const attrDestPort = "destination.port"
-	// Only check for port since we only have ports (or not_ports) as first-class field and in destination.port
-	// in a ServiceRole definition.
-	if constraintKey == attrDestPort && len(rule.Ports) > 0 {
-		return true
-	}
-	if constraintKey == attrDestPort && len(rule.NotPorts) > 0 {
-		return true
-	}
-	return false
-}
-
-// checkServiceRoleBinding checks that ServiceRoleBinding is well-formed.
-func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
-	var errs error
-	if len(in.Subjects) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("at least 1 subject must be specified"))
-	}
-	for i, subject := range in.Subjects {
-		if isFirstClassFieldEmpty(subject) {
-			errs = appendErrors(errs, fmt.Errorf("empty subjects are not allowed. Found an empty subject at index %d", i))
-		}
-		for propertyKey := range subject.Properties {
-			if hasExistingFirstClassFieldInBinding(propertyKey, subject) {
-				errs = appendErrors(errs, fmt.Errorf("cannot define %s for binding %d because a similar first-class field has been defined", propertyKey, i))
-			}
-		}
-		// Since source.principal = "*" in binding properties is different than User: "*" from the old API,
-		// we want to remove ambiguity when the user defines "*" in names or not_names
-		if isStarInNames(subject.Names) || isStarInNames(subject.NotNames) {
-			errs = appendErrors(errs, fmt.Errorf("do not use * for names or not_names (in rule %d)", i))
-		}
-	}
-	roleFieldCount := 0
-	if in.RoleRef != nil {
-		roleFieldCount++
-	}
-	if len(in.Actions) > 0 {
-		roleFieldCount++
-	}
-	if in.Role != "" {
-		roleFieldCount++
-	}
-	if roleFieldCount != 1 {
-		errs = appendErrors(errs, fmt.Errorf("exactly one of `roleRef`, `role`, or `actions` must be specified"))
-	}
-	if in.RoleRef != nil {
-		expectKind := "ServiceRole"
-		if in.RoleRef.Kind != expectKind {
-			errs = appendErrors(errs, fmt.Errorf("kind set to %q, currently the only supported value is %q",
-				in.RoleRef.Kind, expectKind))
-		}
-		if len(in.RoleRef.Name) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("`name` in `roleRef` cannot be empty"))
-		}
-	}
-	if len(in.Actions) > 0 {
-		inlineServiceRole := &rbac.ServiceRole{Rules: in.Actions}
-		errs = appendErrors(errs, ValidateServiceRole("", "", inlineServiceRole))
-	}
-	if in.Role != "" {
-		// Same as rootNamespacePrefix in rbac_v2.go
-		const rootNamespacePrefix = "/"
-		if in.Role == rootNamespacePrefix {
-			errs = appendErrors(errs, fmt.Errorf("`role` cannot have an empty ServiceRole name"))
-		}
-	}
-	return errs
-}
-
-// ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
-var ValidateServiceRoleBinding = registerValidateFunc("ValidateServiceRoleBinding",
-	func(_, _ string, msg proto.Message) error {
-		in, ok := msg.(*rbac.ServiceRoleBinding)
-		if !ok {
-			return errors.New("cannot cast to ServiceRoleBinding")
-		}
-		return checkServiceRoleBinding(in)
-	})
-
-// isFirstClassFieldEmpty return false if there is at least one first class field (e.g. properties)
-func isFirstClassFieldEmpty(subject *rbac.Subject) bool {
-	return len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 &&
-		len(subject.Namespaces) == 0 && len(subject.NotNamespaces) == 0 && len(subject.Groups) == 0 &&
-		len(subject.NotGroups) == 0 && len(subject.Ips) == 0 && len(subject.NotIps) == 0 &&
-		len(subject.Names) == 0 && len(subject.NotNames) == 0
-}
-
-// Returns true if the user defines a property that already exists in the first-class fields, false
-// if none has overlapped.
-// In the future when we introduce expression conditions in properties field, we might need to revisit
-// this function.
-func hasExistingFirstClassFieldInBinding(propertiesKey string, subject *rbac.Subject) bool {
-	switch propertiesKey {
-	case "source.principal":
-		return len(subject.Names) > 0
-	case "request.auth.claims[groups]":
-		return len(subject.Groups) > 0
-	case "source.namespace":
-		return len(subject.Namespaces) > 0
-	case "source.ip":
-		return len(subject.Ips) > 0
-	}
-	return false
-}
-
-// isStarInNames returns true if there is a "*" in the names slice.
-func isStarInNames(names []string) bool {
-	for _, name := range names {
-		if name == "*" {
-			return true
-		}
-	}
-	return false
-}
-
-func checkRbacConfig(name, typ string, msg proto.Message) error {
-	in, ok := msg.(*rbac.RbacConfig)
-	if !ok {
-		return errors.New("cannot cast to " + typ)
-	}
-
-	if name != constants.DefaultRbacConfigName {
-		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, constants.DefaultRbacConfigName)
-	}
-
-	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
-		return errors.New("inclusion cannot be null (use 'inclusion: {}' for none)")
-	}
-
-	if in.Mode == rbac.RbacConfig_ON_WITH_EXCLUSION && in.Exclusion == nil {
-		return errors.New("exclusion cannot be null (use 'exclusion: {}' for none)")
-	}
-
-	return nil
-}
-
-// ValidateClusterRbacConfig checks that ClusterRbacConfig is well-formed.
-var ValidateClusterRbacConfig = registerValidateFunc("ValidateClusterRbacConfig",
-	func(name, _ string, msg proto.Message) error {
-		return checkRbacConfig(name, "ClusterRbacConfig", msg)
-	})
-
-// ValidateRbacConfig checks that RbacConfig is well-formed.
-var ValidateRbacConfig = registerValidateFunc("ValidateRbacConfig",
-	func(name, _ string, msg proto.Message) error {
-		scope.Warnf("RbacConfig is deprecated, use ClusterRbacConfig instead.")
-		return checkRbacConfig(name, "RbacConfig", msg)
-	})
-
-func validateJwt(jwt *authn.Jwt) (errs error) {
-	if jwt == nil {
-		return nil
-	}
-	if jwt.Issuer == "" {
-		errs = multierror.Append(errs, errors.New("issuer must be set"))
-	}
-	for _, audience := range jwt.Audiences {
-		if audience == "" {
-			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
-		}
-	}
-	if jwt.JwksUri != "" {
-		if _, err := security.ParseJwksURI(jwt.JwksUri); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	for _, location := range jwt.JwtHeaders {
-		if location == "" {
-			errs = multierror.Append(errs, errors.New("location header must be non-empty string"))
-		}
-	}
-
-	for _, location := range jwt.JwtParams {
-		if location == "" {
-			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
-		}
-	}
-	return
-}
-
-func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
-	if target == nil {
-		return
-	}
-
-	// AuthN policy target (host)name must be a shortname
-	if !labels.IsDNS1123Label(target.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
-	}
-
-	for _, port := range target.Ports {
-		errs = appendErrors(errs, validateAuthNPortSelector(port))
-	}
-
-	return
-}
-
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
-	func(_, _ string, msg proto.Message) (errs error) {
+	func(_, namespace string, msg proto.Message) (errs error) {
 		virtualService, ok := msg.(*networking.VirtualService)
 		if !ok {
 			return errors.New("cannot cast to virtual service")
@@ -2111,7 +1811,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendErrors(errs, validateTCPRoute(tcpRoute))
 		}
 
-		errs = appendErrors(errs, validateExportTo(virtualService.ExportTo))
+		errs = appendErrors(errs, validateExportTo(namespace, virtualService.ExportTo, false))
 		return
 	})
 
@@ -2256,6 +1956,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 				}
 				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
 			}
 
 			if match.Port != 0 {
@@ -2263,6 +1964,13 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 			}
 			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
+			for _, qp := range match.GetQueryParams() {
+				errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
+			}
 		}
 	}
 
@@ -2288,6 +1996,20 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 	}
 
 	return
+}
+
+func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
+	re := sm.GetRegex()
+	if re == "" {
+		return nil
+	}
+
+	_, err := regexp.Compile(re)
+	if err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("%q: %w; Istio uses RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax)", where, err)
 }
 
 func validateGatewayNames(gatewayNames []string) (errs error) {
@@ -2413,7 +2135,7 @@ func validateAllowOrigins(origin *networking.StringMatch) error {
 	if match == "" {
 		return fmt.Errorf("'%v' is not a valid match type for CORS allow origins", match)
 	}
-	return nil
+	return validateStringMatchRegexp(origin, "corsPolicy.allowOrigins")
 }
 
 func validateHTTPMethod(method string) error {
@@ -2526,23 +2248,6 @@ func validatePortSelector(selector *networking.PortSelector) (errs error) {
 	return
 }
 
-func validateAuthNPortSelector(selector *authn.PortSelector) error {
-	if selector == nil {
-		return nil
-	}
-
-	// port selector is either a name or a number
-	name := selector.GetName()
-	number := int(selector.GetNumber())
-	if name == "" && number == 0 {
-		// an unset value is indistinguishable from a zero value, so return both errors
-		return appendErrors(validateSubsetName(name), ValidatePort(number))
-	} else if number != 0 {
-		return ValidatePort(number)
-	}
-	return validateSubsetName(name)
-}
-
 func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	if retries == nil {
 		return
@@ -2611,7 +2316,7 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
-	func(_, _ string, config proto.Message) (errs error) {
+	func(_, namespace string, config proto.Message) (errs error) {
 		serviceEntry, ok := config.(*networking.ServiceEntry)
 		if !ok {
 			return fmt.Errorf("cannot cast to service entry")
@@ -2755,7 +2460,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				ValidatePort(int(port.Number)))
 		}
 
-		errs = appendErrors(errs, validateExportTo(serviceEntry.ExportTo))
+		errs = appendErrors(errs, validateExportTo(namespace, serviceEntry.ExportTo, true))
 		return
 	})
 
@@ -2898,4 +2603,46 @@ func validateLocalities(localities []string) error {
 	}
 
 	return nil
+}
+
+// ValidateMeshNetworks validates meshnetworks.
+func ValidateMeshNetworks(meshnetworks *meshconfig.MeshNetworks) (errs error) {
+	for name, network := range meshnetworks.Networks {
+		if err := validateNetwork(network); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid network %v:", name)))
+		}
+	}
+	return
+}
+
+func validateNetwork(network *meshconfig.Network) (errs error) {
+	for _, n := range network.Endpoints {
+		switch e := n.Ne.(type) {
+		case *meshconfig.Network_NetworkEndpoints_FromCidr:
+			if err := ValidateIPSubnet(e.FromCidr); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		case *meshconfig.Network_NetworkEndpoints_FromRegistry:
+			if ok := labels.IsDNS1123Label(e.FromRegistry); !ok {
+				errs = multierror.Append(errs, fmt.Errorf("invalid registry name: %v", e.FromRegistry))
+			}
+		}
+
+	}
+	for _, n := range network.Gateways {
+		switch g := n.Gw.(type) {
+		case *meshconfig.Network_IstioNetworkGateway_RegistryServiceName:
+			if err := ValidateFQDN(g.RegistryServiceName); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		case *meshconfig.Network_IstioNetworkGateway_Address:
+			if err := ValidateIPAddress(g.Address); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+		if err := ValidatePort(int(n.Port)); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return
 }

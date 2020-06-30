@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package inject
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -31,7 +30,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,12 +43,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	operatormesh "istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/tpath"
-	util2 "istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 const yamlSeparator = "\n---"
@@ -68,57 +64,6 @@ imagePullSecrets:
 - name: istio-image-pull-secrets
 `,
 }
-
-var (
-	rotatedKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEA3Tr24CaBegyfkdDGWckqMHEWvpJBThjXlMz/FKcg1bgq57OD
-oNHXN4dcyPCHWWEY3Eo3YG1es4pqTkvzK0+1JoY6/K88Lu1ePj5PeSFuWfPWi1BW
-9oyWJW+AAzqqGkZmSo4z26N+E7N8ht5bTBMNVD3jqz9+MaqCTVmQ6dAgdFKH07wd
-XWh6kKoh2g9bgBKB+qWrezmVRb31i93sM1pJos35cUmIbWgiSQYuSXEInitejcGZ
-cBjqRy61SiZB7nbmMoew0G0aGXe20Wx+QiyJjbt9XNUm0IvjAJ1SSiPqfFQ4F+tx
-K4q3xAwp1smyiMv57RNC2ny8YMntZYgQDDkhBQIDAQABAoIBAQDZHK396yw0WEEd
-vFN8+CRUaBfXLPe0KkMgAFLxtNdPhy9sNsueP3HESC7x8MQUHmtkfd1837kJ4HRV
-pMnfnpj8Vs17AIrCzycnVMVv7jQ7SUcrb8v4qJ4N3TA3exJHOQHYd1hDXF81/Hbg
-cUYOEcCKBTby8BvrqBe6y4ShQiUnoaeeM5j9x32+QB652/9PMuZJ9xfwyoEBjoVA
-cccp+u3oBX864ztaG9Gn0wbgRVeafsPfuAOUmShykohV1mVJddiA0wayxGi0TmoK
-dwrltdToI7BmpmmTLc59O44JFGwO67aJQHsrHBjEnpWlxFDwbfZuf93FgdFUFFjr
-tVx2dPF9AoGBAPkIaUYxMSW78MD9862eJlGS6F/SBfPLTve3l9M+UFnEsWapNz+V
-anlupaBtlfRJxLDzjheMVZTv/TaFIrrMdN/xc/NoYj6lw5RV8PEfKPB0FjSAqSEl
-iVOA5q4kuI1xEeV7xLE4uJUF3wdoHz9cSmjrXDVZXq/KsaInABlAl1xjAoGBAONr
-bgFUlQ+fbsGNjeefrIXBSU93cDo5tkd4+lefrmUVTwCo5V/AvMMQi88gV/sz6qCJ
-gR0hXOqdQyn++cuqfMTDj4lediDGFEPho+n4ToIvkA020NQ05cKxcmn/6Ei+P9pk
-v+zoT9RiVnkBje2n/KU2d/PEL9Nl4gvvAgPLt8V3AoGAZ6JZdQ15n3Nj0FyecKz0
-01Oogl+7fGYqGap8cztmYsUY8lkPFdXPNnOWV3njQoMEaIMiqagL4Wwx2uNyvXvi
-U2N+1lelMt720h8loqJN/irBJt44BARD7s0gsm2zo6DfSrnD8+Bf6BxGYSWyg0Kb
-8KepesYTQmK+o3VJdDjOBHMCgYAIxbwYkQqu75d2H9+5b49YGXyadCEAHfnKCACg
-IKi5fXjurZUrfGPLonfCJZ0/M2F5j9RLK15KLobIt+0qzgjCDkkbI2mrGfjuJWYN
-QGbG3s7Ps62age/a8r1XGWf8ZlpQMlK08MEjkCeFw2mWIUS9mrxFyuuNXAC8NRv+
-yXztQQKBgQDWTFFQdeYfuiKHrNmgOmLVuk1WhAaDgsdK8RrnNZgJX9bd7n7bm7No
-GheN946AYsFge4DX7o0UXXJ3h5hTFn/hSWASI54cO6WyWNEiaP5HRlZqK7Jfej7L
-mz+dlU3j/BY19RLmYeg4jFV4W66CnkDqpneOJs5WdmFFoWnHn7gRBw==
------END RSA PRIVATE KEY-----`)
-
-	// ServerCert is a test cert for dynamic admission controller.
-	rotatedCert = []byte(`-----BEGIN CERTIFICATE-----
-MIIDATCCAemgAwIBAgIJAJwGb32Zn8sDMA0GCSqGSIb3DQEBCwUAMA4xDDAKBgNV
-BAMMA19jYTAgFw0xODAzMTYxNzI0NDJaGA8yMjkxMTIzMDE3MjQ0MlowEjEQMA4G
-A1UEAwwHX3NlcnZlcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAN06
-9uAmgXoMn5HQxlnJKjBxFr6SQU4Y15TM/xSnINW4Kuezg6DR1zeHXMjwh1lhGNxK
-N2BtXrOKak5L8ytPtSaGOvyvPC7tXj4+T3khblnz1otQVvaMliVvgAM6qhpGZkqO
-M9ujfhOzfIbeW0wTDVQ946s/fjGqgk1ZkOnQIHRSh9O8HV1oepCqIdoPW4ASgfql
-q3s5lUW99Yvd7DNaSaLN+XFJiG1oIkkGLklxCJ4rXo3BmXAY6kcutUomQe525jKH
-sNBtGhl3ttFsfkIsiY27fVzVJtCL4wCdUkoj6nxUOBfrcSuKt8QMKdbJsojL+e0T
-Qtp8vGDJ7WWIEAw5IQUCAwEAAaNcMFowCQYDVR0TBAIwADALBgNVHQ8EBAMCBeAw
-HQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMCEGA1UdEQQaMBiHBH8AAAGH
-EAAAAAAAAAAAAAAAAAAAAAEwDQYJKoZIhvcNAQELBQADggEBACbBlWo/pY/OIJaW
-RwkfSRVzEIWpHt5OF6p93xfyy4/zVwwhH1AQB7Euji8vOaVNOpMfGYLNH3KIRReC
-CIvGEH4yZDbpiH2cOshqMCuV1CMRUTdl4mq6M0PtGm6b8OG3uIFTLIR973LBWOl5
-wCR1yrefT1NHuIScGaBXUGAV4JAx37pfg84hDD73T2j1TDD3Lrmsb9WCP+L26TG6
-ICN61cIhgz8wChQpF8/fFAI5Fjbjrz5C1Xw/EUHLf/TTn/7Yfp2BHsGm126Et+k+
-+MLBzBfrHKwPaGqDvNHUDrI6c3GI0Qp7jW93FbL5ul8JQ+AowoMF2dIEbN9qQEVP
-ZOQ5UvU=
------END CERTIFICATE-----`)
-)
 
 func parseToLabelSelector(t *testing.T, selector string) *metav1.LabelSelector {
 	result, err := metav1.ParseToLabelSelector(selector)
@@ -518,7 +463,6 @@ func TestInjectRequired(t *testing.T) {
 }
 
 func TestWebhookInject(t *testing.T) {
-	mesh.TestMode = true
 	cases := []struct {
 		inputFile    string
 		wantFile     string
@@ -665,7 +609,7 @@ func TestWebhookInject(t *testing.T) {
 						Raw: podJSON,
 					},
 				},
-			})
+			}, "")
 			var prettyPatch bytes.Buffer
 			if err := json.Indent(&prettyPatch, got.Patch, "", "  "); err != nil {
 				t.Fatalf(err.Error())
@@ -811,7 +755,7 @@ func TestHelmInject(t *testing.T) {
 								Raw: templateJSON,
 							},
 						},
-					})
+					}, "")
 
 					// Apply the generated patch to the template.
 					patch := prettyJSON(got.Patch, t)
@@ -876,27 +820,23 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate, values := loadInjectionConfigMap(t, "")
+	sidecarTemplate, values, _ := loadInjectionSettings(t, nil, "")
 	return createTestWebhook(t, sidecarTemplate, values)
 }
 
-// loadInjectionConfigMap will render the charts using the operator, with given yaml overrides.
+// loadInjectionSettings will render the charts using the operator, with given yaml overrides.
 // This allows us to fully simulate what will actually happen at run time.
-func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, values string) {
+func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (template *Config, values string, meshConfig *meshconfig.MeshConfig) {
 	t.Helper()
 	// add --set installPackagePath=<path to charts snapshot>
-	installPackagePathYAML := "installPackagePath: " + defaultInstallPackageDir()
-	settings, err := util2.OverlayYAML(settings, installPackagePathYAML)
-	if err != nil {
-		t.Fatal(err)
+	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir())
+	var inFilenames []string
+	if inFilePath != "" {
+		inFilenames = []string{"testdata/inject/" + inFilePath}
 	}
 
-	oy, err := tpath.AddSpecRoot(settings)
-	if err != nil {
-		t.Fatal(err)
-	}
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
-	manifests, _, err := operatormesh.GenManifests(nil, oy, false, nil, l)
+	manifests, _, err := operatormesh.GenManifests(inFilenames, setFlags, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
@@ -920,20 +860,38 @@ func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, va
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				values, ok := data["values"].(string)
+				values, ok = data["values"].(string)
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				injectConfig := &Config{}
-				if err := yaml.Unmarshal([]byte(config), injectConfig); err != nil {
+				template = &Config{}
+				if err := yaml.Unmarshal([]byte(config), template); err != nil {
 					t.Fatalf("failed to unmarshal injectionConfig: %v", err)
 				}
-				return injectConfig, values
+				if meshConfig != nil {
+					return template, values, meshConfig
+				}
+			} else if out.GetName() == "istio" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
+				data, ok := out.Object["data"].(map[string]interface{})
+				if !ok {
+					t.Fatalf("failed to convert %v", out)
+				}
+				meshdata, ok := data["mesh"].(string)
+				if !ok {
+					t.Fatalf("failed to get meshconfig %v", data)
+				}
+				meshConfig, err = mesh.ApplyMeshConfig(meshdata, mesh.DefaultMeshConfig())
+				if err != nil {
+					t.Fatalf("failed to unmarshal meshconfig: %v", err)
+				}
+				if template != nil {
+					return template, values, meshConfig
+				}
 			}
 		}
 	}
 	t.Fatal("could not find injection template")
-	return nil, ""
+	return nil, "", nil
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
@@ -950,7 +908,7 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 		byteParts = append(byteParts, getInjectableYamlDocs(stringPart, t)...)
 	}
 	if len(byteParts) == 0 {
-		t.Skip("Found no injectable parts")
+		t.Fatalf("Found no injectable parts")
 	}
 	return byteParts
 }
@@ -1205,13 +1163,10 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		cleanup()
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
-	_, values := loadInjectionConfigMap(t, "")
+	_, values, _ := loadInjectionSettings(t, nil, "")
 	var (
 		configFile     = filepath.Join(dir, "config-file.yaml")
 		valuesFile     = filepath.Join(dir, "values-file.yaml")
-		meshFile       = filepath.Join(dir, "mesh-file.yaml")
-		certFile       = filepath.Join(dir, "cert-file.yaml")
-		keyFile        = filepath.Join(dir, "key-file.yaml")
 		port           = 0
 		monitoringPort = 0
 	)
@@ -1226,40 +1181,18 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
 
-	// mesh
+	// mesh config
 	m := mesh.DefaultMeshConfig()
-	marshaller := jsonpb.Marshaler{
-		Indent: "  ",
+	env := model.Environment{
+		Watcher: mesh.NewFixedWatcher(&m),
 	}
-	var meshBytes bytes.Buffer
-	if err := marshaller.Marshal(&meshBytes, &m); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("yaml.Marshal(mesh) failed: %v", err)
-	}
-	if err := ioutil.WriteFile(meshFile, meshBytes.Bytes(), 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", meshFile, err)
-	}
-
-	// cert
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
-	}
-	// key
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
-	}
-
 	wh, err := NewWebhook(WebhookParameters{
 		ConfigFile:     configFile,
 		ValuesFile:     valuesFile,
-		MeshFile:       meshFile,
-		CertFile:       certFile,
-		KeyFile:        keyFile,
 		Port:           port,
 		MonitoringPort: monitoringPort,
+		Env:            &env,
+		Mux:            http.NewServeMux(),
 	})
 	if err != nil {
 		cleanup()
@@ -1270,7 +1203,6 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 
 func TestRunAndServe(t *testing.T) {
 	// TODO: adjust the test to match prod defaults instead of fake defaults.
-	mesh.TestMode = true
 	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
 	defer cleanup()
 	stop := make(chan struct{})
@@ -1314,6 +1246,13 @@ func TestRunAndServe(t *testing.T) {
       "path":"/spec/imagePullSecrets/-",
       "value":{
          "name":"istio-image-pull-secrets"
+      }
+   },
+   {
+      "op":"add",
+      "path":"/spec/securityContext",
+      "value":{
+         "fsGroup":1337
       }
    },
    {
@@ -1459,41 +1398,6 @@ func TestRunAndServe(t *testing.T) {
 	testSideCarInjectorMetrics(t, wh)
 }
 
-func TestReloadCert(t *testing.T) {
-	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
-	defer cleanup()
-	stop := make(chan struct{})
-	defer func() { close(stop) }()
-	go wh.Run(stop)
-	checkCert(t, wh, testcerts.ServerCert, testcerts.ServerKey)
-	// Update cert/key files.
-	if err := ioutil.WriteFile(wh.certFile, rotatedCert, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", wh.certFile, err)
-	}
-	if err := ioutil.WriteFile(wh.keyFile, rotatedKey, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
-	}
-	g := gomega.NewGomegaWithT(t)
-	g.Eventually(func() bool {
-		return checkCert(t, wh, rotatedCert, rotatedKey)
-	}, "10s", "100ms").Should(gomega.BeTrue())
-}
-
-func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
-	t.Helper()
-	actual, err := wh.getCert(nil)
-	if err != nil {
-		t.Fatalf("fail to get certificate from webhook: %s", err)
-	}
-	expected, err := tls.X509KeyPair(cert, key)
-	if err != nil {
-		t.Fatalf("fail to load test certs.")
-	}
-	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
-}
-
 func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
 	srv := httptest.NewServer(wh.mon.exporter)
 	defer srv.Close()
@@ -1530,7 +1434,7 @@ func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
 }
 
 func BenchmarkInjectServe(b *testing.B) {
-	sidecarTemplate, _ := loadInjectionConfigMap(b, "")
+	sidecarTemplate, _, _ := loadInjectionSettings(b, nil, "")
 	wh, cleanup := createWebhook(b, sidecarTemplate)
 	defer cleanup()
 

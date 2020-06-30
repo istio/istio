@@ -13,43 +13,21 @@ data:
     networks: {}
 
   mesh: |-
-    accessLogEncoding: TEXT
-    accessLogFile: ""
-    accessLogFormat: ""
     defaultConfig:
-      concurrency: 2
-      configPath: ./etc/istio/proxy
-      connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
       drainDuration: 12s
-      parentShutdownDuration: 1m0s
-      proxyAdminPort: 15000
       proxyMetadata:
         DNS_AGENT: ""
         TERMINATION_DRAIN_DURATION_SECONDS: "120"
-      serviceCluster: istio-proxy
       tracing:
         zipkin:
           address: zipkin.istio-system:9411
     disableMixerHttpReports: true
-    disablePolicyChecks: true
-    enableAutoMtls: true
     enablePrometheusMerge: true
-    enableTracing: true
-    ingressClass: istio
-    ingressControllerMode: STRICT
-    ingressService: istio-ingressgateway
-    localityLbSetting:
-      enabled: true
     mixerCheckServer: foo:1234
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY
-    protocolDetectionTimeout: 12s
-    reportBatchMaxEntries: 100
-    reportBatchMaxTime: 1s
     rootNamespace: istio-control
-    sdsUdsPath: unix:/etc/istio/proxy/SDS
     trustDomain: cluster.local
-    trustDomainAliases: null
 ---

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,6 +58,9 @@ const (
 
 	// The size of a private key for a self-signed Istio CA.
 	caKeySize = 2048
+
+	// The standard key size to use when generating an RSA private key
+	rsaKeySize = 2048
 )
 
 var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
@@ -330,7 +333,14 @@ func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert
 // returns the certificate chain and the private key.
 func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte, []byte, error) {
 	opts := util.CertOptions{
-		RSAKeySize: 2048,
+		RSAKeySize: rsaKeySize,
+	}
+
+	// use the type of private key the CA uses to generate an intermediate CA of that type (e.g. CA cert using RSA will
+	// cause intermediate CAs using RSA to be generated)
+	_, signingKey, _, _ := ca.keyCertBundle.GetAll()
+	if util.IsSupportedECPrivateKey(signingKey) {
+		opts.ECSigAlg = util.EcdsaSigAlg
 	}
 
 	csrPEM, privPEM, err := util.GenCSR(opts)

@@ -1,16 +1,7 @@
-# AddonComponents grafana component is disabled.
-
----
 # AddonComponents istiocoredns component is disabled.
 
 ---
-# AddonComponents kiali component is disabled.
-
----
 # AddonComponents prometheus component is disabled.
-
----
-# AddonComponents istio-tracing component is disabled.
 
 # Base component is disabled.
 
@@ -71,6 +62,9 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         aaa: aaa-val
@@ -88,21 +82,21 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - ppc64le
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - s390x
@@ -110,7 +104,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
@@ -164,6 +158,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: ISTIO_META_WORKLOAD_NAME
           value: istio-ingressgateway
         - name: ISTIO_META_OWNER
@@ -177,14 +179,14 @@ spec:
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
-        - containerPort: 15020
+        - containerPort: 15021
         - containerPort: 8080
         - containerPort: 8443
         - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
-        - containerPort: 853
+        - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
@@ -192,7 +194,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15021
             scheme: HTTP
           initialDelaySeconds: 1
           periodSeconds: 2
@@ -203,9 +205,18 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 111m
+            cpu: 999m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
         - mountPath: /etc/istio/config
           name: config-volume
         - mountPath: /var/run/secrets/istio
@@ -223,6 +234,11 @@ spec:
         - mountPath: /etc/istio/ingressgateway-ca-certs
           name: ingressgateway-ca-certs
           readOnly: true
+      securityContext:
+        fsGroup: 1337
+        runAsGroup: 1337
+        runAsNonRoot: true
+        runAsUser: 1337
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
       - configMap:
@@ -237,6 +253,8 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: podinfo
+      - emptyDir: {}
+        name: istio-envoy
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token
@@ -281,7 +299,6 @@ spec:
       app: istio-ingressgateway
       bbb: bbb-val
       istio: ingressgateway
-      release: istio
 ---
 
 
@@ -338,8 +355,8 @@ spec:
   ports:
     -
       name: status-port
-      port: 15020
-      targetPort: 15020
+      port: 15021
+      targetPort: 15021
     -
       name: http2
       port: 80
@@ -422,6 +439,9 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istio-ingressgateway
@@ -439,21 +459,21 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - ppc64le
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - s390x
@@ -461,7 +481,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
@@ -515,6 +535,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: ISTIO_META_WORKLOAD_NAME
           value: user-ingressgateway
         - name: ISTIO_META_OWNER
@@ -528,14 +556,14 @@ spec:
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
-        - containerPort: 15020
+        - containerPort: 15021
         - containerPort: 8080
         - containerPort: 8443
         - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
-        - containerPort: 853
+        - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
@@ -543,7 +571,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15021
             scheme: HTTP
           initialDelaySeconds: 1
           periodSeconds: 2
@@ -554,9 +582,18 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 222m
+            cpu: 555m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
         - mountPath: /etc/istio/config
           name: config-volume
         - mountPath: /var/run/secrets/istio
@@ -574,7 +611,12 @@ spec:
         - mountPath: /etc/istio/ingressgateway-ca-certs
           name: ingressgateway-ca-certs
           readOnly: true
-      serviceAccountName: istio-ingressgateway-service-account
+      securityContext:
+        fsGroup: 1337
+        runAsGroup: 1337
+        runAsNonRoot: true
+        runAsUser: 1337
+      serviceAccountName: user-ingressgateway-service-account
       volumes:
       - configMap:
           name: istio-ca-root-cert
@@ -588,6 +630,8 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: podinfo
+      - emptyDir: {}
+        name: istio-envoy
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token
@@ -632,14 +676,13 @@ spec:
       ccc: ccc-val
       ddd: ddd-val
       istio: ingressgateway
-      release: istio
 ---
 
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: istio-ingressgateway-sds
+  name: user-ingressgateway-sds
   namespace: istio-system
   labels:
     release: istio
@@ -653,17 +696,17 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: istio-ingressgateway-sds
+  name: user-ingressgateway-sds
   namespace: istio-system
   labels:
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: istio-ingressgateway-sds
+  name: user-ingressgateway-sds
 subjects:
 - kind: ServiceAccount
-  name: istio-ingressgateway-service-account
+  name: user-ingressgateway-service-account
 ---
 
 
@@ -689,8 +732,8 @@ spec:
   ports:
     -
       name: status-port
-      port: 15020
-      targetPort: 15020
+      port: 15021
+      targetPort: 15021
     -
       name: http2
       port: 80
@@ -709,7 +752,7 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: user-ingressgateway-service-account
   namespace: istio-system
   labels:
     app: istio-ingressgateway
@@ -719,6 +762,28 @@ metadata:
     release: istio
 ---
 
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ilb-gateway
+  namespace: user-ingressgateway-ns
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    release: istio
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ilb-gateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -741,6 +806,9 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istio-ingressgateway
@@ -753,21 +821,21 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - ppc64le
             weight: 2
           - preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - s390x
@@ -775,7 +843,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - amd64
@@ -829,6 +897,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: ISTIO_META_WORKLOAD_NAME
           value: ilb-gateway
         - name: ISTIO_META_OWNER
@@ -848,7 +924,7 @@ spec:
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
-        - containerPort: 853
+        - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
@@ -856,7 +932,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15021
             scheme: HTTP
           initialDelaySeconds: 1
           periodSeconds: 2
@@ -869,7 +945,16 @@ spec:
           requests:
             cpu: 333m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
         - mountPath: /etc/istio/config
           name: config-volume
         - mountPath: /var/run/secrets/istio
@@ -887,7 +972,12 @@ spec:
         - mountPath: /etc/istio/ingressgateway-ca-certs
           name: ingressgateway-ca-certs
           readOnly: true
-      serviceAccountName: istio-ingressgateway-service-account
+      securityContext:
+        fsGroup: 1337
+        runAsGroup: 1337
+        runAsNonRoot: true
+        runAsUser: 1337
+      serviceAccountName: ilb-gateway-service-account
       volumes:
       - configMap:
           name: istio-ca-root-cert
@@ -901,6 +991,8 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: podinfo
+      - emptyDir: {}
+        name: istio-envoy
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token
@@ -924,28 +1016,6 @@ spec:
           secretName: istio-ingressgateway-ca-certs
 
 ---
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: ilb-gateway
-  namespace: user-ingressgateway-ns
-  labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
-    release: istio
-spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: ilb-gateway
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
----
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -961,12 +1031,11 @@ spec:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
-      release: istio
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: istio-ingressgateway-sds
+  name: ilb-gateway-sds
   namespace: user-ingressgateway-ns
   labels:
     release: istio
@@ -978,17 +1047,17 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: istio-ingressgateway-sds
+  name: ilb-gateway-sds
   namespace: user-ingressgateway-ns
   labels:
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: istio-ingressgateway-sds
+  name: ilb-gateway-sds
 subjects:
 - kind: ServiceAccount
-  name: istio-ingressgateway-service-account
+  name: ilb-gateway-service-account
 ---
 apiVersion: v1
 kind: Service
@@ -1018,13 +1087,15 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: ilb-gateway-service-account
   namespace: user-ingressgateway-ns
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
     release: istio
 ---
+
+# IstiodRemote component is disabled.
 
 # Pilot istiod component is disabled.
 

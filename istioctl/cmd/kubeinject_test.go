@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,11 +20,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestKubeInject(t *testing.T) {
-	mesh.TestMode = true
 	cases := []testCase{
 		{ // case 0
 			configs:        []model.Config{},

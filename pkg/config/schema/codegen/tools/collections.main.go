@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,10 +57,20 @@ func main() {
 		os.Exit(-4)
 	}
 
-	contents, err := codegen.StaticCollections(pkg, m)
-	if err != nil {
-		fmt.Printf("Error applying static init template: %v", err)
-		os.Exit(-3)
+	var contents string
+
+	if pkg == "gvk" {
+		contents, err = codegen.WriteGvk(pkg, m)
+		if err != nil {
+			fmt.Printf("Error applying static init template: %v", err)
+			os.Exit(-3)
+		}
+	} else {
+		contents, err = codegen.StaticCollections(pkg, m)
+		if err != nil {
+			fmt.Printf("Error applying static init template: %v", err)
+			os.Exit(-3)
+		}
 	}
 
 	if err = ioutil.WriteFile(output, []byte(contents), os.ModePerm); err != nil {

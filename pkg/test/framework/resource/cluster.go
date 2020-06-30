@@ -16,6 +16,8 @@ package resource
 
 import (
 	"fmt"
+
+	"istio.io/istio/pkg/kube"
 )
 
 // ClusterIndex is the index of a cluster within the Environment
@@ -24,7 +26,50 @@ type ClusterIndex int
 // Cluster in a multicluster environment.
 type Cluster interface {
 	fmt.Stringer
+	kube.ExtendedClient
+
+	// Name of this cluster
+	Name() string
+
+	// NetworkName the cluster is on
+	NetworkName() string
 
 	// Index of this Cluster within the Environment
 	Index() ClusterIndex
+}
+
+// ClusterOrDefault gets the given cluster if available. Otherwise returns the first
+// Cluster in the Environment.
+func ClusterOrDefault(c Cluster, e Environment) Cluster {
+	if c != nil {
+		return c
+	}
+	return e.Clusters()[0]
+}
+
+var _ Cluster = FakeCluster{}
+
+// FakeCluster used for testing.
+type FakeCluster struct {
+	kube.ExtendedClient
+
+	NameValue        string
+	NetworkNameValue string
+	IndexValue       int
+}
+
+func (m FakeCluster) String() string {
+	panic("implement me")
+}
+
+func (m FakeCluster) Name() string {
+	return m.NameValue
+}
+
+func (m FakeCluster) NetworkName() string {
+	return m.NetworkNameValue
+}
+
+func (m FakeCluster) Index() ClusterIndex {
+	return ClusterIndex(m.IndexValue)
 }

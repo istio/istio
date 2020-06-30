@@ -88,37 +88,10 @@ pilot:
   # If false, pilot wil use default values (by default) or user-supplied values.
   configMap: true
 
-  # Controls legacy k8s ingress
-  # Only one pilot profile should enable ingress support !!!
-  ingress:
-    # If empty, node-port is assumed.
-    ingressService: istio-ingressgateway
-    # DEFAULT: all Ingress resources without annotation or with istio annotation
-    # STRICT: only with istio annotation
-    # OFF: no ingress or sync.
-    ingressControllerMode: "STRICT"
-
-    # Value to set on "kubernetes.io/ingress.class" annotations to activate, if mode is STRICT
-    # This is required to be different than 'istio' if multiple ingresses are present.
-    ingressClass: istio
-
-  policy:
-    # Will not define mixerCheckServer and mixerReportServer
-    enabled: false
 
 ## Mixer settings
 mixer:
   telemetry:
-    # Set reportBatchMaxEntries to 0 to use the default batching behavior (i.e., every 100 requests).
-    # A positive value indicates the number of requests that are batched before telemetry data
-    # is sent to the mixer server
-    reportBatchMaxEntries: 100
-
-    # Set reportBatchMaxTime to 0 to use the default batching behavior (i.e., every 1 second).
-    # A positive time value indicates the maximum wait time since the last request will telemetry data
-    # be batched before being sent to the mixer server
-    reportBatchMaxTime: 1s
-
     sessionAffinityEnabled: false
   policy:
     enabled: false
@@ -191,7 +164,12 @@ telemetry:
       #  disable_server_access_logging: false
       #  meshEdgesReportingDuration: 500s
       #  disable_host_header_fallback: true
-
+    # Access Log Policy Filter Settings. This enables filtering of access logs from stackdriver.
+    accessLogPolicy:
+      enabled: false
+      # To reduce the number of successful logs, default log window duration is
+      # set to 12 hours.
+      logWindowDuration: "43200s"
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
 
@@ -219,6 +197,11 @@ meshConfig:
       # finer grained control.
       # DNS_CAPTURE: ALL
 
+  # The namespace to treat as the administrative root namespace for Istio configuration.
+  # When processing a leaf namespace Istio will search for declarations in that namespace first
+  # and if none are found it will search in the root namespace. Any matching declaration found in the root namespace
+  # is processed as if it were declared in the leaf namespace.
+  rootNamespace: "istio-system"
 
   # TODO: the intent is to eventually have this enabled by default when security is used.
   # It is not clear if user should normally need to configure - the metadata is typically

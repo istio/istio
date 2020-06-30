@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -129,8 +129,8 @@ func makeStatusSyncer(t *testing.T, client kubernetes.Interface) (*StatusSyncer,
 	defer setAndRestoreEnv(t, oldEnvs)
 
 	return NewStatusSyncer(&m, client, kubecontroller.Options{
-		WatchedNamespace: testNamespace,
-		ResyncPeriod:     resync,
+		WatchedNamespaces: testNamespace,
+		ResyncPeriod:      resync,
 	})
 }
 

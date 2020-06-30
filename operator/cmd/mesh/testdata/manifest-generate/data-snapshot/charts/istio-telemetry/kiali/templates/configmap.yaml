@@ -11,7 +11,7 @@ data:
     istio_component_namespaces:
       grafana: {{ .Values.global.telemetryNamespace }}
       tracing: {{ .Values.global.telemetryNamespace }}
-      pilot: {{ .Values.global.istioNamespace }}
+      istiod: {{ .Values.global.istioNamespace }}
       prometheus: {{ .Values.global.prometheusNamespace }}
     istio_namespace: {{ .Values.global.istioNamespace }}
     auth:
@@ -33,7 +33,7 @@ data:
 {{- end }}
     external_services:
       istio:
-        url_service_version: http://istio-pilot.{{ .Values.global.istioNamespace }}:8080/version
+        url_service_version: http://istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}:15014/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
         in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}

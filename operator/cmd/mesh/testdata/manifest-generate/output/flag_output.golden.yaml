@@ -19,6 +19,8 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
@@ -71,6 +73,8 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: CENTRAL_ISTIOD
+          value: "false"
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
@@ -112,7 +116,7 @@ spec:
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -130,7 +134,6 @@ spec:
           secretName: cacerts
       - configMap:
           name: istio-sidecar-injector
-          optional: true
         name: inject
       - configMap:
           name: istio

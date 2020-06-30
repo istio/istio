@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
 package kube
 
 import (
+	"context"
 	"fmt"
 
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
-	kube2 "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"
 
@@ -27,7 +28,6 @@ import (
 
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/kube"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -43,27 +43,17 @@ var (
 type workload struct {
 	*client.Instance
 
-	addr      kubeCore.EndpointAddress
 	pod       kubeCore.Pod
-	forwarder kube.PortForwarder
+	forwarder istioKube.PortForwarder
 	sidecar   *sidecar
-	cluster   kube2.Cluster
+	cluster   resource.Cluster
 	ctx       resource.Context
 }
 
-func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
-	cluster kube2.Cluster, tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
-	if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" {
-		return nil, fmt.Errorf("invalid TargetRef for endpoint %s: %v", addr.IP, addr.TargetRef)
-	}
-
-	pod, err := cluster.GetPod(addr.TargetRef.Namespace, addr.TargetRef.Name)
-	if err != nil {
-		return nil, err
-	}
-
+func newWorkload(pod kubeCore.Pod, sidecared bool, grpcPort uint16, cluster resource.Cluster,
+	tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
 	// Create a forwarder to the command port of the app.
-	forwarder, err := cluster.NewPortForwarder(pod, 0, grpcPort)
+	forwarder, err := cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(grpcPort))
 	if err != nil {
 		return nil, fmt.Errorf("new port forwarder: %v", err)
 	}
@@ -74,7 +64,7 @@ func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
 	// Create a gRPC client to this workload.
 	c, err := client.New(forwarder.Address(), tls)
 	if err != nil {
-		_ = forwarder.Close()
+		forwarder.Close()
 		return nil, fmt.Errorf("grpc client: %v", err)
 	}
 
@@ -86,7 +76,6 @@ func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
 	}
 
 	return &workload{
-		addr:      addr,
 		pod:       pod,
 		forwarder: forwarder,
 		Instance:  c,
@@ -101,7 +90,7 @@ func (w *workload) Close() (err error) {
 		err = multierror.Append(err, w.Instance.Close()).ErrorOrNil()
 	}
 	if w.forwarder != nil {
-		err = multierror.Append(err, w.forwarder.Close()).ErrorOrNil()
+		w.forwarder.Close()
 	}
 	if w.ctx.Settings().FailOnDeprecation && w.sidecar != nil {
 		err = multierror.Append(err, w.checkDeprecation()).ErrorOrNil()
@@ -120,7 +109,7 @@ func (w *workload) checkDeprecation() error {
 }
 
 func (w *workload) Address() string {
-	return w.addr.IP
+	return w.pod.Status.PodIP
 }
 
 func (w *workload) Sidecar() echo.Sidecar {
@@ -128,7 +117,7 @@ func (w *workload) Sidecar() echo.Sidecar {
 }
 
 func (w *workload) Logs() (string, error) {
-	return w.cluster.Logs(w.pod.Namespace, w.pod.Name, appContainerName, false)
+	return w.cluster.PodLogs(context.TODO(), w.pod.Name, w.pod.Namespace, appContainerName, false)
 }
 
 func (w *workload) LogsOrFail(t test.Failer) string {

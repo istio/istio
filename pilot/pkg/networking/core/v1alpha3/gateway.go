@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,18 +19,18 @@ import (
 	"sort"
 	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -59,7 +59,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	errs := &multierror.Error{}
-	listeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
+	listeners := make([]*listener.Listener, 0, len(mergedGateway.Servers))
 	proxyConfig := node.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
 	for portNumber, servers := range mergedGateway.Servers {
 		var si *model.ServiceInstance
@@ -91,7 +91,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		p := protocol.Parse(servers[0].Port.Protocol)
-		listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(node, p, core.TrafficDirection_OUTBOUND)
+		listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(p, core.TrafficDirection_OUTBOUND)
 		filterChains := make([]istionetworking.FilterChain, 0)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
@@ -160,11 +160,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			continue
 		}
 
-		if err := mutable.Listener.Validate(); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
-			continue
-		}
-
 		if log.DebugEnabled() {
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
 				len(mutable.Listener.FilterChains), mutable.Listener)
@@ -183,21 +178,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		return builder
 	}
 
-	validatedListeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
-	for _, l := range listeners {
-		if err := l.Validate(); err != nil {
-			log.Warnf("buildGatewayListeners: error validating listener %s: %v.. Skipping.", l.Name, err)
-			continue
-		}
-		validatedListeners = append(validatedListeners, l)
-	}
-
-	builder.gatewayListeners = validatedListeners
+	builder.gatewayListeners = listeners
 	return builder
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
-	routeName string) *xdsapi.RouteConfiguration {
+	routeName string) *route.RouteConfiguration {
 
 	services := push.Services(node)
 
@@ -211,7 +197,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	// make sure that there is some server listening on this port
 	if _, ok := merged.ServersByRouteName[routeName]; !ok {
-		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted. Have %v", routeName, merged.ServersByRouteName)
+		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted.", routeName)
 
 		// This can happen when a gateway has recently been deleted. Envoy will still request route
 		// information due to the draining of listeners, so we should not return an error.
@@ -253,9 +239,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:    domainName(string(hostname), port),
-						Domains: buildGatewayVirtualHostDomains(string(hostname)),
-						Routes:  routes,
+						Name:                       domainName(string(hostname), port),
+						Domains:                    buildGatewayVirtualHostDomains(string(hostname)),
+						Routes:                     routes,
+						IncludeRequestAttemptCount: true,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
 						newVHost.RequireTls = route.VirtualHost_ALL
@@ -268,7 +255,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
-		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
+		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
 		virtualHosts = []*route.VirtualHost{{
 			Name:    domainName("blackhole", port),
 			Domains: []string{"*"},
@@ -296,7 +283,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	util.SortVirtualHosts(virtualHosts)
 
-	routeCfg := &xdsapi.RouteConfiguration{
+	routeCfg := &route.RouteConfiguration{
 		// Retain the routeName as its used by EnvoyFilter patching logic
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
@@ -353,11 +340,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			httpOpts: &httpListenerOpts{
 				rds:              routeName,
 				useRemoteAddress: true,
-				connectionManager: &http_conn.HttpConnectionManager{
+				connectionManager: &hcm.HttpConnectionManager{
 					XffNumTrustedHops: xffNumTrustedHops,
 					// Forward client cert if connection is mTLS
 					ForwardClientCertDetails: forwardClientCertDetails,
-					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+					SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 						Subject: proto.BoolTrue,
 						Cert:    true,
 						Uri:     true,
@@ -374,8 +361,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	// Build a filter chain for the HTTPS server
 	// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 	// where HTTPS server's TLS mode is not passthrough and not nil
-	// If proxy sends metadata USER_SDS, then create SDS config for
-	// gateway listener.
 	return &filterChainOpts{
 		// This works because we validate that only HTTPS servers can have same port but still different port names
 		// and that no two non-HTTPS servers can be on same port or share port names.
@@ -385,11 +370,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
-			connectionManager: &http_conn.HttpConnectionManager{
+			connectionManager: &hcm.HttpConnectionManager{
 				XffNumTrustedHops: xffNumTrustedHops,
 				// Forward client cert if connection is mTLS
 				ForwardClientCertDetails: forwardClientCertDetails,
-				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+				SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 					Subject: proto.BoolTrue,
 					Cert:    true,
 					Uri:     true,
@@ -402,12 +387,9 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	}
 }
 
-// enableIngressSds: signifies whether this is an SDS enabled ingress controller, with an embedded node agent running
-// alongside the gateway pod (https://istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/)
 // sdsPath: is the path to the mesh-wide workload sds uds path, and it is assumed that if this path is unset, that sds is
 // disabled mesh-wide
 // metadata: map of miscellaneous configuration values sent from the Envoy instance back to Pilot, could include the field
-// USER_SDS which signifies that the proxy is an SDS-enabled ingress gateway
 //
 // Below is a table of potential scenarios for the gateway configuration:
 //
@@ -419,14 +401,14 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 //
 // Note that ISTIO_MUTUAL TLS mode and ingressSds should not be used simultaneously on the same ingress gateway.
 func buildGatewayListenerTLSContext(
-	server *networking.Server, sdsPath string, metadata *model.NodeMetadata) *auth.DownstreamTlsContext {
+	server *networking.Server, sdsPath string, metadata *model.NodeMetadata) *tls.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || gateway.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
 
-	tls := &auth.DownstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
+	ctx := &tls.DownstreamTlsContext{
+		CommonTlsContext: &tls.CommonTlsContext{
 			AlpnProtocols: util.ALPNHttp,
 		},
 	}
@@ -434,12 +416,12 @@ func buildGatewayListenerTLSContext(
 	if server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
-		authn_model.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
+		authn_model.ApplyCustomSDSToCommonTLSContext(ctx.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
 	} else if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
-		authn_model.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
 	} else {
 		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
-		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+		ctx.CommonTlsContext.TlsCertificates = []*tls.TlsCertificate{
 			{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
@@ -462,8 +444,8 @@ func buildGatewayListenerTLSContext(
 			}
 		}
 		if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
+			ctx.CommonTlsContext.ValidationContextType = &tls.CommonTlsContext_ValidationContext{
+				ValidationContext: &tls.CertificateValidationContext{
 					TrustedCa:            trustedCa,
 					MatchSubjectAltNames: util.StringToExactMatch(server.Tls.SubjectAltNames),
 				},
@@ -471,10 +453,10 @@ func buildGatewayListenerTLSContext(
 		}
 	}
 
-	tls.RequireClientCertificate = proto.BoolFalse
+	ctx.RequireClientCertificate = proto.BoolFalse
 	if server.Tls.Mode == networking.ServerTLSSettings_MUTUAL ||
 		server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
-		tls.RequireClientCertificate = proto.BoolTrue
+		ctx.RequireClientCertificate = proto.BoolTrue
 	}
 
 	// Set TLS parameters if they are non-default
@@ -482,21 +464,21 @@ func buildGatewayListenerTLSContext(
 		server.Tls.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
 		server.Tls.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
 
-		tls.CommonTlsContext.TlsParams = &auth.TlsParameters{
+		ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
 			TlsMaximumProtocolVersion: convertTLSProtocol(server.Tls.MaxProtocolVersion),
 			CipherSuites:              server.Tls.CipherSuites,
 		}
 	}
 
-	return tls
+	return ctx
 }
 
-func convertTLSProtocol(in networking.ServerTLSSettings_TLSProtocol) auth.TlsParameters_TlsProtocol {
-	out := auth.TlsParameters_TlsProtocol(in) // There should be a one-to-one enum mapping
-	if out < auth.TlsParameters_TLS_AUTO || out > auth.TlsParameters_TLSv1_3 {
+func convertTLSProtocol(in networking.ServerTLSSettings_TLSProtocol) tls.TlsParameters_TlsProtocol {
+	out := tls.TlsParameters_TlsProtocol(in) // There should be a one-to-one enum mapping
+	if out < tls.TlsParameters_TLS_AUTO || out > tls.TlsParameters_TLSv1_3 {
 		log.Warnf("was not able to map TLS protocol to Envoy TLS protocol")
-		return auth.TlsParameters_TLS_AUTO
+		return tls.TlsParameters_TLS_AUTO
 	}
 	return out
 }
@@ -526,8 +508,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 		// Validation ensures that non-passthrough servers will have certs
 		if filters := buildGatewayNetworkFiltersFromTCPRoutes(node,
 			push, server, gatewaysForWorkload); len(filters) > 0 {
-			// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
-			// gateway listener.
 			return []*filterChainOpts{
 				{
 					sniHosts:       getSNIHostsForServer(server),

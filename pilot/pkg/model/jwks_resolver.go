@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/pkg/cache"
 	"istio.io/pkg/monitoring"
@@ -93,8 +92,9 @@ var (
 		"Total number of failed network fetch by pilot jwks resolver",
 	)
 
-	// JwtKeyResolver resolves JWT public key and JwksURI.
-	JwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	// jwtKeyResolverOnce lazy init jwt key resolver
+	jwtKeyResolverOnce sync.Once
+	jwtKeyResolver     *JwksResolver
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -150,6 +150,14 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 	)
 }
 
+// GetJwtKeyResolver lazy-creates JwtKeyResolver resolves JWT public key and JwksURI.
+func GetJwtKeyResolver() *JwksResolver {
+	jwtKeyResolverOnce.Do(func() {
+		jwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	})
+	return jwtKeyResolver
+}
+
 func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval time.Duration, caBundlePaths []string) *JwksResolver {
 	ret := &JwksResolver{
 		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
@@ -189,43 +197,6 @@ func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval time.Dur
 	go ret.refresher()
 
 	return ret
-}
-
-// Set jwks_uri through openID discovery if it's not set in auth policy.
-func (r *JwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) error {
-	if policy == nil {
-		return fmt.Errorf("invalid nil policy")
-	}
-
-	for _, method := range policy.Peers {
-		switch method.GetParams().(type) {
-		case *authn.PeerAuthenticationMethod_Jwt:
-			// nolint: staticcheck
-			policyJwt := method.GetJwt()
-			if policyJwt.JwksUri == "" && policyJwt.Jwks == "" {
-				uri, err := r.resolveJwksURIUsingOpenID(policyJwt.Issuer)
-				if err != nil {
-					log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
-					return err
-				}
-				policyJwt.JwksUri = uri
-			}
-		}
-	}
-	for _, method := range policy.Origins {
-		// JWT is only allowed authentication method type for Origin.
-		policyJwt := method.GetJwt()
-		if policyJwt.JwksUri == "" && policyJwt.Jwks == "" {
-			uri, err := r.resolveJwksURIUsingOpenID(policyJwt.Issuer)
-			if err != nil {
-				log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
-				return err
-			}
-			policyJwt.JwksUri = uri
-		}
-	}
-
-	return nil
 }
 
 // ResolveJwksURI sets jwks_uri through openID discovery if it's not set in request authentication policy.

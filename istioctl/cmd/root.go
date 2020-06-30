@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,14 +49,11 @@ var (
 	istioNamespace   string
 	defaultNamespace string
 
-	// Create a kubernetes.ExecClient (or mockExecClient) for talking to control plane components
-	clientExecFactory = newPilotExecClient
+	// Create a kubernetes client (or mockClient) for talking to control plane components
+	kubeClientWithRevision = newKubeClientWithRevision
 
 	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
-	envoyClientFactory = newEnvoyClient
-
-	// Create a kubernetes.ExecClientSDS
-	clientExecSdsFactory = newSDSExecClient
+	kubeClient = newKubeClient
 
 	loggingOptions = defaultLogOptions()
 )
@@ -150,6 +147,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(softGraduatedCmd(Analyze()))
+	experimentalCmd.AddCommand(vmBootstrapCommand())
 	experimentalCmd.AddCommand(waitCmd())
 
 	postInstallCmd.AddCommand(Webhook())

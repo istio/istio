@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@ package util
 
 import (
 	"regexp"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 const (
-	DefaultKubernetesDomain = "svc.cluster.local"
+	DefaultKubernetesDomain = "svc." + constants.DefaultKubernetesDomain
 	MeshGateway             = "mesh"
 	ExportToNamespaceLocal  = "."
 	ExportToAllNamespaces   = "*"

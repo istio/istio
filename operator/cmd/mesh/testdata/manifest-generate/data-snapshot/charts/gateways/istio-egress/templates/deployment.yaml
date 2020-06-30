@@ -46,7 +46,14 @@ spec:
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
     spec:
-      serviceAccountName: istio-egressgateway-service-account
+{{- if not $gateway.runAsRoot }}
+      securityContext:
+        runAsUser: 1337
+        runAsGroup: 1337
+        runAsNonRoot: true
+        fsGroup: 1337
+{{- end }}
+      serviceAccountName: {{ $gateway.name | default "istio-egressgateway" }}-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -67,6 +74,9 @@ spec:
             - -c
             - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
           securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
             privileged: true
 {{- end }}
       containers:
@@ -81,7 +91,7 @@ spec:
 {{- end }}
           ports:
             {{- range $key, $val := $gateway.ports }}
-            - containerPort: {{ $val.port }}
+            - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
@@ -111,11 +121,20 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+        {{- if not $gateway.runAsRoot }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+        {{- end }}
           readinessProbe:
             failureThreshold: 30
             httpGet:
               path: /healthz/ready
-              port: 15020
+              port: 15021
               scheme: HTTP
             initialDelaySeconds: 1
             periodSeconds: 2
@@ -161,6 +180,14 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
+          - name: CANONICAL_SERVICE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-name']
+          - name: CANONICAL_REVISION
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $gateway.name | default "istio-egressgateway" }}
           - name: ISTIO_META_OWNER
@@ -178,6 +205,10 @@ spec:
             value: {{ $val }}
           {{- end }}
           {{ end }}
+          {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
 {{- if $gateway.podAnnotations }}
           - name: "ISTIO_METAJSON_ANNOTATIONS"
             value: |
@@ -186,6 +217,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:
+          - name: istio-envoy
+            mountPath: /etc/istio/proxy
           - name: config-volume
             mountPath: /etc/istio/config
           {{- if eq .Values.global.pilotCertProvider "istiod" }}
@@ -228,6 +261,8 @@ spec:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
+      - name: istio-envoy
+        emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:

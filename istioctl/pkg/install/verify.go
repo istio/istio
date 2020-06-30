@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,13 +39,11 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/version"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema"
 )
 
 var (
-	verifyInstallCmd *cobra.Command
 	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
 		Group:    v1alpha1.SchemeGroupVersion.Group,
 		Version:  v1alpha1.SchemeGroupVersion.Version,
@@ -249,7 +247,7 @@ func NewVerifyCommand() *cobra.Command {
 		istioNamespace string
 		opts           clioptions.ControlPlaneOptions
 	)
-	verifyInstallCmd = &cobra.Command{
+	verifyInstallCmd := &cobra.Command{
 		Use:   "verify-install [-f <deployment or istio operator file>] [--revision <revision>]",
 		Short: "Verifies Istio Installation Status or performs pre-check for the cluster before Istio installation",
 		Long: `
@@ -359,10 +357,7 @@ func findResourceInSpec(kind string) string {
 // nolint: lll
 func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag string, iop *v1alpha1.IstioOperator, filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) (int, int, error) {
 	// Generate the manifest this IstioOperator will make
-	t, err := translate.NewTranslator(version.OperatorBinaryVersion.MinorVersion)
-	if err != nil {
-		return 0, 0, err
-	}
+	t := translate.NewTranslator()
 
 	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t)
 	if err != nil {

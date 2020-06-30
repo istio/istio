@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/ghodss/yaml"
+
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/pkg/log"
 
@@ -269,23 +274,24 @@ type ValidatorFunc func(path util.Path, i interface{}) util.Errors
 
 // UnmarshalIOP unmarshals a string containing IstioOperator as YAML.
 func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
+	// Remove creationDate (util.UnmarshalWithJSONPB fails if present)
+	mapIOP := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(iopYAML), &mapIOP); err != nil {
+		return nil, err
+	}
+	un := &unstructured.Unstructured{Object: mapIOP}
+	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+	byIOP, err := yaml.Marshal(un)
+	if err != nil {
+		return nil, err
+	}
+	iopYAML = string(byIOP)
+
 	iop := &v1alpha1.IstioOperator{}
 	if err := util.UnmarshalWithJSONPB(iopYAML, iop, false); err != nil {
 		return nil, fmt.Errorf("%s:\n\nYAML:\n%s", err, iopYAML)
 	}
 	return iop, nil
-}
-
-// ValidIOPYAML validates the iopYAML strings, which should contain IstioOperator YAML.
-func ValidIOPYAML(iopYAML string) error {
-	if strings.TrimSpace(iopYAML) == "" {
-		return nil
-	}
-	iop, err := UnmarshalIOP(iopYAML)
-	if err != nil {
-		return err
-	}
-	return ValidIOP(iop)
 }
 
 // ValidIOP validates the given IstioOperator object.

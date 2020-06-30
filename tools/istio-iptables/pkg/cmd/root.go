@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,8 +42,10 @@ var (
 	// TODO: this captures everything, if we want to split cluster.local to TLS and
 	// keep using plain UDP for the rest - we'll need to add another rule to allow
 	// istio-proxy to send.
-	dnsVar = env.RegisterStringVar("DNS_CAPTURE", "",
-		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to :15013")
+	dnsCaptureByEnvoy = env.RegisterStringVar("ISTIO_META_DNS_CAPTURE", "",
+		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to envoy on :15013")
+	dnsCaptureByAgent = env.RegisterStringVar("DNS_AGENT", "",
+		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 )
 
 var rootCmd = &cobra.Command{
@@ -91,6 +93,7 @@ func constructConfig() *config.Config {
 		InboundTProxyRouteTable: viper.GetString(constants.InboundTProxyRouteTable),
 		InboundPortsInclude:     viper.GetString(constants.InboundPorts),
 		InboundPortsExclude:     viper.GetString(constants.LocalExcludePorts),
+		OutboundPortsInclude:    viper.GetString(constants.OutboundPorts),
 		OutboundPortsExclude:    viper.GetString(constants.LocalOutboundPortsExclude),
 		OutboundIPRangesInclude: viper.GetString(constants.ServiceCidr),
 		OutboundIPRangesExclude: viper.GetString(constants.ServiceExcludeCidr),
@@ -224,6 +227,13 @@ func init() {
 		handleError(err)
 	}
 	viper.SetDefault(constants.ServiceExcludeCidr, "")
+
+	rootCmd.Flags().StringP(constants.OutboundPorts, "q", "",
+		"Comma separated list of outbound ports to be explicitly included for redirection to Envoy")
+	if err := viper.BindPFlag(constants.OutboundPorts, rootCmd.Flags().Lookup(constants.OutboundPorts)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OutboundPorts, "")
 
 	rootCmd.Flags().StringP(constants.LocalOutboundPortsExclude, "o", "",
 		"Comma separated list of outbound ports to be excluded from redirection to Envoy")

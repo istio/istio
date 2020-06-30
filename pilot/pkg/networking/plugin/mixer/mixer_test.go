@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,13 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	mixerClient "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -169,7 +171,7 @@ func TestOnOutboundListener(t *testing.T) {
 				},
 			},
 			mutableObjects: &istionetworking.MutableObjects{
-				Listener: &xdsapi.Listener{},
+				Listener: &listener.Listener{},
 				FilterChains: []istionetworking.FilterChain{
 					{
 						IsFallThrough: false,
@@ -189,7 +191,7 @@ func TestOnOutboundListener(t *testing.T) {
 				},
 			},
 			mutableObjects: &istionetworking.MutableObjects{
-				Listener: &xdsapi.Listener{},
+				Listener: &listener.Listener{},
 				FilterChains: []istionetworking.FilterChain{
 					{
 						IsFallThrough: false,
@@ -264,7 +266,7 @@ func TestOnOutboundListenerSkipMixer(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			}
-			mutable := &istionetworking.MutableObjects{Listener: &xdsapi.Listener{}, FilterChains: []istionetworking.FilterChain{{}}}
+			mutable := &istionetworking.MutableObjects{Listener: &listener.Listener{}, FilterChains: []istionetworking.FilterChain{{}}}
 			_ = mp.OnOutboundListener(inputParams, mutable)
 			for _, chain := range mutable.FilterChains {
 				if got := len(chain.HTTP); got != v.wantFilters {
@@ -327,7 +329,7 @@ func TestOnInboundListenerSkipMixer(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			}
-			mutable := &istionetworking.MutableObjects{Listener: &xdsapi.Listener{Address: testAddress()}, FilterChains: []istionetworking.FilterChain{{}}}
+			mutable := &istionetworking.MutableObjects{Listener: &listener.Listener{Address: testAddress()}, FilterChains: []istionetworking.FilterChain{{}}}
 			_ = mp.OnInboundListener(inputParams, mutable)
 			for _, chain := range mutable.FilterChains {
 				if got := len(chain.HTTP); got != v.wantFilters {
@@ -363,20 +365,20 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 	ns := "ns3"
 	l := &fakeStore{
 		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(): {
+			gvk.QuotaSpecBinding: {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Namespace: ns,
 						Domain:    "cluster.local",
 					},
-					Spec: &mccpb.QuotaSpecBinding{
-						Services: []*mccpb.IstioService{
+					Spec: &mixerClient.QuotaSpecBinding{
+						Services: []*mixerClient.IstioService{
 							{
 								Name:      "svc",
 								Namespace: ns,
 							},
 						},
-						QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{
+						QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
 							{
 								Name: "request-count",
 							},
@@ -384,16 +386,16 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 					},
 				},
 			},
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {
+			gvk.QuotaSpec: {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count",
 						Namespace: ns,
 					},
-					Spec: &mccpb.QuotaSpec{
-						Rules: []*mccpb.QuotaRule{
+					Spec: &mixerClient.QuotaSpec{
+						Rules: []*mixerClient.QuotaRule{
 							{
-								Quotas: []*mccpb.Quota{
+								Quotas: []*mixerClient.Quota{
 									{
 										Quota:  "requestcount",
 										Charge: 100,
@@ -420,7 +422,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 		serviceByHostnameAndNamespace map[host.Name]map[string]*model.Service
 		push                          *model.PushContext
 		node                          *model.Proxy
-		httpRoute                     route.Route
+		httpRoute                     *route.Route
 		quotaSpec                     []*mccpb.QuotaSpec
 	}{
 		{
@@ -433,7 +435,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 					PolicyCheck: "enable",
 				},
 			},
-			httpRoute: route.Route{
+			httpRoute: &route.Route{
 				Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||svc.ns3.svc.cluster.local"},
@@ -457,7 +459,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 					PolicyCheck: "enable",
 				},
 			},
-			httpRoute: route.Route{
+			httpRoute: &route.Route{
 				Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||a.ns3.svc.cluster.local"},
@@ -477,7 +479,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 			Push: c.push,
 			Node: c.node,
 		}
-		tc := modifyOutboundRouteConfig(push, &in, "", &c.httpRoute)
+		tc := modifyOutboundRouteConfig(push, &in, "", c.httpRoute)
 
 		mixerSvcConfigAny := tc.TypedPerFilterConfig["mixer"]
 		mixerSvcConfig := &mccpb.ServiceConfig{}

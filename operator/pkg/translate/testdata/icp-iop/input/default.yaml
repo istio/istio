@@ -285,9 +285,6 @@ spec:
           address: ""
         datadog:
           address: "$(HOST_IP):8126"
-      mtls:
-        enabled: false
-        auto: false
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -601,7 +598,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.16"
+        tag: "1.18"
         memory:
           max_traces: 50000
         spanStorageType: badger

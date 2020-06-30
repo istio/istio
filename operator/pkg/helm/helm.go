@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -77,28 +77,24 @@ func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace strin
 
 // ReadProfileYAML reads the YAML values associated with the given profile. It uses an appropriate reader for the
 // profile format (compiled-in, file, HTTP, etc.).
-func ReadProfileYAML(profile string) (string, error) {
+func ReadProfileYAML(profile, chartsDir string) (string, error) {
 	var err error
 	var globalValues string
-	if profile == "" {
-		scope.Infof("ReadProfileYAML for profile name: [Empty]")
-	} else {
-		scope.Infof("ReadProfileYAML for profile name: %s", profile)
-	}
 
 	// Get global values from profile.
 	switch {
-	case IsBuiltinProfileName(profile):
+	case chartsDir == "":
 		if globalValues, err = LoadValuesVFS(profile); err != nil {
 			return "", err
 		}
 	case util.IsFilePath(profile):
-		scope.Infof("Loading values from local filesystem at path %s", profile)
 		if globalValues, err = readFile(profile); err != nil {
 			return "", err
 		}
 	default:
-		return "", fmt.Errorf("unsupported Profile type: %s", profile)
+		if globalValues, err = LoadValues(profile, chartsDir); err != nil {
+			return "", fmt.Errorf("failed to read profile %v from %v: %v", profile, chartsDir, err)
+		}
 	}
 
 	return globalValues, nil
@@ -197,15 +193,12 @@ func renderTemplate(tmpl string, ts interface{}) (string, error) {
 }
 
 // DefaultFilenameForProfile returns the profile name of the default profile for the given profile.
-func DefaultFilenameForProfile(profile string) (string, error) {
+func DefaultFilenameForProfile(profile string) string {
 	switch {
 	case util.IsFilePath(profile):
-		return filepath.Join(filepath.Dir(profile), DefaultProfileFilename), nil
+		return filepath.Join(filepath.Dir(profile), DefaultProfileFilename)
 	default:
-		if _, ok := ProfileNames[profile]; ok || profile == "" {
-			return DefaultProfileString, nil
-		}
-		return "", fmt.Errorf("bad profile string %s", profile)
+		return DefaultProfileString
 	}
 }
 
@@ -308,23 +301,24 @@ func GetProfileYAML(installPackagePath, profileOrPath string) (string, error) {
 	if profileOrPath == "" {
 		profileOrPath = "default"
 	}
+	profiles, err := readProfiles(installPackagePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read profiles: %v", err)
+	}
 	// If charts are a file path and profile is a name like default, transform it to the file path.
-	if installPackagePath != "" && IsBuiltinProfileName(profileOrPath) {
+	if profiles[profileOrPath] {
 		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
 	}
 	// This contains the IstioOperator CR.
-	baseCRYAML, err := ReadProfileYAML(profileOrPath)
+	baseCRYAML, err := ReadProfileYAML(profileOrPath, installPackagePath)
 	if err != nil {
 		return "", err
 	}
 
 	if !IsDefaultProfile(profileOrPath) {
 		// Profile definitions are relative to the default profileOrPath, so read that first.
-		dfn, err := DefaultFilenameForProfile(profileOrPath)
-		if err != nil {
-			return "", err
-		}
-		defaultYAML, err := ReadProfileYAML(dfn)
+		dfn := DefaultFilenameForProfile(profileOrPath)
+		defaultYAML, err := ReadProfileYAML(dfn, installPackagePath)
 		if err != nil {
 			return "", err
 		}

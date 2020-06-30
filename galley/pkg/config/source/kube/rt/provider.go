@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,11 @@ package rt
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
@@ -28,7 +30,7 @@ import (
 )
 
 var (
-	defaultProvider = NewProvider(nil, 0)
+	defaultProvider = NewProvider(nil, metav1.NamespaceAll, 0)
 )
 
 // DefaultProvider returns a default provider that has no K8s connectivity enabled.
@@ -42,6 +44,7 @@ type Provider struct {
 
 	resyncPeriod time.Duration
 	interfaces   kube.Interfaces
+	namespaces   []string
 	known        map[string]*Adapter
 
 	informers        informers.SharedInformerFactory
@@ -49,10 +52,11 @@ type Provider struct {
 }
 
 // NewProvider returns a new instance of Provider.
-func NewProvider(interfaces kube.Interfaces, resyncPeriod time.Duration) *Provider {
+func NewProvider(interfaces kube.Interfaces, namespaces string, resyncPeriod time.Duration) *Provider {
 	p := &Provider{
 		resyncPeriod: resyncPeriod,
 		interfaces:   interfaces,
+		namespaces:   strings.Split(namespaces, ","),
 	}
 
 	p.initKnownAdapters()

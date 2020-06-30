@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	cfgpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
@@ -47,7 +49,9 @@ func TestRuntime_Basic(t *testing.T) {
 		adapters, "istio-system",
 		egp,
 		hgp,
-		true)
+		true,
+		[]string{metav1.NamespaceAll},
+	)
 
 	d := rt.Dispatcher()
 	if d == nil {
@@ -93,7 +97,9 @@ func TestRuntime_ErrorDuringWatch(t *testing.T) {
 		adapters, "istio-system",
 		egp,
 		hgp,
-		true)
+		true,
+		[]string{metav1.NamespaceAll},
+	)
 
 	err := rt.StartListening()
 	if err == nil {
@@ -112,7 +118,9 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 		adapters, "istio-system",
 		egp,
 		hgp,
-		true)
+		true,
+		[]string{metav1.NamespaceAll},
+	)
 
 	err := rt.StartListening()
 	if err != nil {
@@ -188,7 +196,9 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 		adapters, "istio-system",
 		egp,
 		hgp,
-		true)
+		true,
+		[]string{metav1.NamespaceAll},
+	)
 
 	err := rt.StartListening()
 	if err != nil {

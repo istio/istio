@@ -1,4 +1,19 @@
 hub: gcr.io/istio-testing
-tag: 1.6-dev
+tag: latest
 operatorNamespace: istio-operator
 istioNamespace: istio-system
+waitForResourcesTimeout: 300s
+
+# Used for helm2 to add the CRDs to templates.
+enableCRDTemplates: false
+
+# Operator resource defaults
+operator:
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+

@@ -22,21 +22,18 @@ spec:
           - server
           imagePullPolicy: IfNotPresent
           resources:
-            limits:
-              cpu: 200m
-              memory: 256Mi
-            requests:
-              cpu: 50m
-              memory: 128Mi
+{{ toYaml .Values.operator.resources | trim | indent 12 }}
           env:
             - name: WATCH_NAMESPACE
-              value: {{.Values.istioNamespace}}
+              value: {{.Values.watchedNamespaces | quote}}
             - name: LEADER_ELECTION_NAMESPACE
-              value: {{.Values.operatorNamespace}}
+              value: {{.Values.operatorNamespace | quote}}
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: {{.Values.operatorNamespace}}
+              value: {{.Values.operatorNamespace | quote}}
+            - name: WAIT_FOR_RESOURCES_TIMEOUT
+              value: {{.Values.waitForResourcesTimeout | quote}}
 ---
