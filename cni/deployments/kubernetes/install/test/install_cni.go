@@ -186,27 +186,50 @@ func docker(cmd, containerID string, t *testing.T) {
 	t.Logf("docker %s %s - out:\n%s", cmd, containerID, out)
 }
 
-// compareConfResult does a string compare of 2 test files.
-func compareConfResult(testWorkRootDir, tempCNIConfDir, result, expected string, t *testing.T) {
+// checkResult checks if resultFile is equal to expectedFile at each tick until timeout
+func checkResult(result, expected string, timeout, tick <-chan time.Time, t *testing.T) bool {
 	t.Helper()
-	tempResult := tempCNIConfDir + "/" + result
-	resultFile, err := ioutil.ReadFile(tempResult)
-	if err != nil {
-		t.Fatalf("Failed to read file %v, err: %v", tempResult, err)
+	for {
+		select {
+		case <-timeout:
+			return false
+		case <-tick:
+			resultFile, err := ioutil.ReadFile(result)
+			if err != nil {
+				break
+			}
+			expectedFile, err := ioutil.ReadFile(expected)
+			if err != nil {
+				break
+			}
+			if bytes.Equal(resultFile, expectedFile) {
+				return true
+			}
+		}
 	}
+}
 
-	expectedFile, err := ioutil.ReadFile(expected)
-	if err != nil {
-		t.Fatalf("Failed to read file %v, err: %v", expected, err)
-	}
-
-	if bytes.Equal(resultFile, expectedFile) {
-		t.Logf("PASS: result matches expected: %v v. %v", tempResult, expected)
+// compareConfResult does a string compare of 2 test files.
+func compareConfResult(testWorkRootDir, result, expected string, t *testing.T) {
+	t.Helper()
+	timeout := time.After(10 * time.Second)
+	tick := time.Tick(500 * time.Millisecond)
+	if checkResult(result, expected, timeout, tick, t) {
+		t.Logf("PASS: result matches expected: %v v. %v", result, expected)
 	} else {
+		// Log errors
+		_, err := ioutil.ReadFile(result)
+		if err != nil {
+			t.Fatalf("Failed to read file %v, err: %v", result, err)
+		}
+		_, err = ioutil.ReadFile(expected)
+		if err != nil {
+			t.Fatalf("Failed to read file %v, err: %v", expected, err)
+		}
 		tempFail := mktemp(testWorkRootDir, result+".fail.XXXX", t)
-		t.Errorf("FAIL: result doesn't match expected: %v v. %v", tempResult, expected)
-		cp(tempResult, tempFail+"/"+"failResult", t)
-		cmd := exec.Command("diff", tempResult, expected)
+		t.Errorf("FAIL: result doesn't match expected: %v v. %v", result, expected)
+		cp(result, tempFail+"/"+"failResult", t)
+		cmd := exec.Command("diff", result, expected)
 		diffOutput, derr := cmd.Output()
 		if derr != nil {
 			t.Logf("Diff output:\n %s", diffOutput)
@@ -273,9 +296,14 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 		docker("logs", containerID, t)
 		docker("rm", containerID, t)
 	}()
-	time.Sleep(10 * time.Second)
 
+	resultFile := tempCNIConfDir + "/" + resultFileName
 	if delayedConfFile != "" {
+		timeout := time.After(5 * time.Second)
+		tick := time.Tick(500 * time.Millisecond)
+		if checkResult(resultFile, expectedOutputFile, timeout, tick, t) {
+			t.Fatalf("FAIL: Isito CNI did not wait for valid config file")
+		}
 		var destFilenm string
 		if preConfFile != "" {
 			destFilenm = preConfFile
@@ -283,20 +311,18 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 			destFilenm = delayedConfFile
 		}
 		cp(delayedConfFile, tempCNIConfDir+"/"+destFilenm, t)
-		time.Sleep(10 * time.Second)
 	}
 
-	compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedOutputFile, t)
+	compareConfResult(testWorkRootDir, resultFile, expectedOutputFile, t)
 	checkBinDir(t, tempCNIBinDir, "add", "istio-cni", "istio-iptables")
 
 	docker("stop", containerID, t)
-	time.Sleep(10 * time.Second)
 
 	t.Logf("Test %v: Check the cleanup worked", testNum)
 	if len(expectedPostCleanFile) == 0 {
-		compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, wd+cniConfSubDir+preConfFile, t)
+		compareConfResult(testWorkRootDir, resultFile, wd+cniConfSubDir+preConfFile, t)
 	} else {
-		compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedPostCleanFile, t)
+		compareConfResult(testWorkRootDir, resultFile, expectedPostCleanFile, t)
 	}
 	checkBinDir(t, tempCNIBinDir, "del", "istio-cni", "istio-iptables")
 	checkTempFilesCleaned(tempCNIConfDir, t)
