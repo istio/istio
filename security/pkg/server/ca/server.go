@@ -177,13 +177,13 @@ func (s *Server) Run() error {
 
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca CertificateAuthority, ttl time.Duration, forCA bool,
-	hostlist []string, port int, trustDomain string, jwtPolicy, clusterID string) (*Server, error) {
-	return NewWithGRPC(nil, ca, ttl, forCA, hostlist, port, trustDomain, jwtPolicy, clusterID, nil, nil)
+	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy, clusterID string) (*Server, error) {
+	return NewWithGRPC(nil, ca, ttl, forCA,hostlist, port, trustDomain, sdsEnabled,  jwtPolicy, clusterID, nil, nil)
 }
 
 // New creates a new instance of `IstioCAServiceServer`, running inside an existing gRPC server.
 func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, forCA bool,
-	hostlist []string, port int, trustDomain string, jwtPolicy, clusterID string,
+	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy, clusterID string,
 	kubeClient kubernetes.Interface,
 	remoteKubeClientGetter authenticate.RemoteKubeClientGetter) (*Server, error) {
 
@@ -196,11 +196,13 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 	authenticators := []authenticate.Authenticator{&authenticate.ClientCertAuthenticator{}}
 	serverCaLog.Info("added client certificate authenticator")
 
-	// add k8s jwt authenticator
-	authenticator := authenticate.NewKubeJWTAuthenticator(kubeClient, clusterID, remoteKubeClientGetter,
-		trustDomain, jwtPolicy)
-	authenticators = append(authenticators, authenticator)
-	serverCaLog.Info("added K8s JWT authenticator")
+	// Only add k8s jwt authenticator if SDS is enabled.
+	if sdsEnabled {
+		authenticator := authenticate.NewKubeJWTAuthenticator(kubeClient, clusterID, remoteKubeClientGetter,
+			trustDomain, jwtPolicy)
+		authenticators = append(authenticators, authenticator)
+		serverCaLog.Info("added K8s JWT authenticator")
+	}
 
 	recordCertsExpiry(ca.GetCAKeyCertBundle())
 
