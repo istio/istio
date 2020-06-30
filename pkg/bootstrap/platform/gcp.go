@@ -15,11 +15,12 @@
 package platform
 
 import (
-	"cloud.google.com/go/compute/metadata"
 	"fmt"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"regexp"
 	"strings"
+
+	"cloud.google.com/go/compute/metadata"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"istio.io/pkg/env"
 
