@@ -15,6 +15,7 @@
 package ingress
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -22,14 +23,12 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	ingress "k8s.io/api/networking/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 var (
@@ -55,72 +54,75 @@ func makeAnnotatedIngress(annotation string) *ingress.Ingress {
 	}
 }
 
-func makeFakeClient() *fake.Clientset {
-	return fake.NewSimpleClientset(
-		&coreV1.PodList{Items: []coreV1.Pod{
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:      "ingressgateway",
-					Namespace: "istio-system",
-					Labels: map[string]string{
-						"app": "ingressgateway",
-					},
-				},
-				Spec: coreV1.PodSpec{
-					NodeName: "foo_node",
-				},
-				Status: coreV1.PodStatus{
-					Phase: coreV1.PodRunning,
+func setupFake(t *testing.T, client kubelib.Client) {
+	t.Helper()
+	if _, err := client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &coreV1.Pod{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "ingressgateway",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				"app": "ingressgateway",
+			},
+		},
+		Spec: coreV1.PodSpec{
+			NodeName: "foo_node",
+		},
+		Status: coreV1.PodStatus{
+			Phase: coreV1.PodRunning,
+		},
+	}, metaV1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := client.Kube().CoreV1().Services(testNamespace).Create(context.TODO(), &coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "istio-ingress",
+			Namespace: testNamespace,
+		},
+		Status: coreV1.ServiceStatus{
+			LoadBalancer: coreV1.LoadBalancerStatus{
+				Ingress: []coreV1.LoadBalancerIngress{{
+					IP: serviceIP,
+				}},
+			},
+		},
+	}, metaV1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := client.Kube().CoreV1().Services(testNamespace).Create(context.TODO(), &coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "istio-ingress-hostname",
+			Namespace: testNamespace,
+		},
+		Status: coreV1.ServiceStatus{
+			LoadBalancer: coreV1.LoadBalancerStatus{
+				Ingress: []coreV1.LoadBalancerIngress{{
+					Hostname: hostname,
+				}},
+			},
+		},
+	}, metaV1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Kube().CoreV1().Nodes().Create(context.TODO(), &coreV1.Node{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name: "foo_node",
+		},
+		Status: coreV1.NodeStatus{
+			Addresses: []coreV1.NodeAddress{
+				{
+					Type:    coreV1.NodeExternalIP,
+					Address: nodeIP,
 				},
 			},
-		}},
-		&coreV1.ServiceList{Items: []coreV1.Service{
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:      "istio-ingress",
-					Namespace: testNamespace,
-				},
-				Status: coreV1.ServiceStatus{
-					LoadBalancer: coreV1.LoadBalancerStatus{
-						Ingress: []coreV1.LoadBalancerIngress{{
-							IP: serviceIP,
-						}},
-					},
-				},
-			},
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:      "istio-ingress-hostname",
-					Namespace: testNamespace,
-				},
-				Status: coreV1.ServiceStatus{
-					LoadBalancer: coreV1.LoadBalancerStatus{
-						Ingress: []coreV1.LoadBalancerIngress{{
-							Hostname: hostname,
-						}},
-					},
-				},
-			},
-		}},
-		&coreV1.NodeList{Items: []coreV1.Node{
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name: "foo_node",
-				},
-				Status: coreV1.NodeStatus{
-					Addresses: []coreV1.NodeAddress{
-						{
-							Type:    coreV1.NodeExternalIP,
-							Address: nodeIP,
-						},
-					},
-				},
-			},
-		}},
-	)
+		},
+	}, metaV1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
 }
 
-func makeStatusSyncer(t *testing.T, client kubernetes.Interface) (*StatusSyncer, error) {
+func makeStatusSyncer(t *testing.T) (*StatusSyncer, error) {
 	m := mesh.DefaultMeshConfig()
 	m.IngressService = "istio-ingress"
 
@@ -128,10 +130,18 @@ func makeStatusSyncer(t *testing.T, client kubernetes.Interface) (*StatusSyncer,
 	// Restore env settings
 	defer setAndRestoreEnv(t, oldEnvs)
 
-	return NewStatusSyncer(&m, client, kubecontroller.Options{
-		WatchedNamespaces: testNamespace,
-		ResyncPeriod:      resync,
+	client := kubelib.NewFakeClient()
+	setupFake(t, client)
+	sync, err := NewStatusSyncer(&m, client)
+	if err != nil {
+		return nil, err
+	}
+	stop := make(chan struct{})
+	client.RunAndWait(stop)
+	t.Cleanup(func() {
+		close(stop)
 	})
+	return sync, nil
 }
 
 // setAndRestoreEnv set the envs with given value, and return the old setting.
@@ -204,8 +214,7 @@ func TestRunningAddresses(t *testing.T) {
 }
 
 func testRunningAddressesWithService(t *testing.T) {
-	client := makeFakeClient()
-	syncer, err := makeStatusSyncer(t, client)
+	syncer, err := makeStatusSyncer(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,8 +230,7 @@ func testRunningAddressesWithService(t *testing.T) {
 }
 
 func testRunningAddressesWithHostname(t *testing.T) {
-	client := makeFakeClient()
-	syncer, err := makeStatusSyncer(t, client)
+	syncer, err := makeStatusSyncer(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,8 +249,7 @@ func testRunningAddressesWithHostname(t *testing.T) {
 
 func TestRunningAddressesWithPod(t *testing.T) {
 	ingressNamespace = "istio-system" // it is set in real pilot on newController.
-	client := makeFakeClient()
-	syncer, err := makeStatusSyncer(t, client)
+	syncer, err := makeStatusSyncer(t)
 	if err != nil {
 		t.Fatal(err)
 	}
