@@ -143,7 +143,8 @@ func TestE2EClient(t *testing.T) {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		ctx, err := buildContext(caopts.KeyCertBundle.GetCertChainPem(), caopts.KeyCertBundle.GetRootCertPem())
+
+		ctx, err := buildContext(caopts.KeyCertBundle)
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create to create context: %v", id, err)
 		}
@@ -160,7 +161,8 @@ func TestE2EClient(t *testing.T) {
 
 }
 
-func buildContext(a,b []byte) (context.Context, error){
+func buildContext(bindle util.KeyCertBundle) (context.Context, error){
+	bindle.GetAll()
 	ctx := context.Background()
 	callerID := "test.identity"
 	ids := []util.Identity{
@@ -183,6 +185,9 @@ func buildContext(a,b []byte) (context.Context, error){
 	}
 	p := &peer.Peer{Addr: mockIPAddr, AuthInfo: tlsInfo}
 	ctx = peer.NewContext(ctx, p)
+	peer, _ := peer.FromContext(ctx)
+	fmt.Printf("ssssssppppoooooo")
+	fmt.Printf("%+v\n",peer.AuthInfo)
 	return ctx, nil
 }
 
