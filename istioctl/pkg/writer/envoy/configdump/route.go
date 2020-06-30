@@ -54,7 +54,7 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 	}
 	fmt.Fprintln(c.Stdout, "NOTE: This output only contains routes loaded via RDS.")
 	if filter.Verbose {
-		fmt.Fprintln(w, "NAME\tDOMAINS\tMATCH\tCONFIG\tVS")
+		fmt.Fprintln(w, "NAME\tDOMAINS\tMATCH\tCONFIG\tVIRTUAL SERVICE")
 	} else {
 		fmt.Fprintln(w, "NAME\tVIRTUAL HOSTS")
 	}
