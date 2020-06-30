@@ -250,7 +250,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureDiscoveryService(args, istiodPort); err != nil {
+	if err := s.initSecureDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
@@ -579,7 +579,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 }
 
 // initialize secureGRPCServer.
-func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error {
+func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	if s.peerCertVerifier == nil {
 		// Running locally without configured certs - no TLS mode
 		log.Warnf("The secure discovery service is disabled")
@@ -598,7 +598,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error 
 
 	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect.
 	// TODO(ramaraochavali): clean up istio-agent startup to remove the dependency of "15012" port.
-	secureGrpc := fmt.Sprintf(":%s", port)
+	secureGrpc := fmt.Sprintf(":%s", args.ServerOptions.GRPCAddr)
 
 	// create secure grpc listener
 	l, err := net.Listen("tcp", secureGrpc)
