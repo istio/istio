@@ -90,7 +90,7 @@ func getConnectionAddress(ctx context.Context) string {
 func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
 	*pb.IstioCertificateResponse, error) {
 	s.monitoring.CSR.Increment()
-	fmt.Printf("ssssssssssCreateCertificatelllllll")
+	fmt.Printf("ssssssssssCreateCertificatelllllll\n")
 	fmt.Printf("%+v", ctx)
 	caller := s.authenticate(ctx)
 	if caller == nil {
