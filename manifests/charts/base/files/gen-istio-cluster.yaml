@@ -4586,8 +4586,6 @@ metadata:
     release: istio
 ---
 # Source: base/templates/clusterrole.yaml
-# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
-# TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -4606,12 +4604,6 @@ rules:
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
 
-  # permissions to verify the webhook is ready and rejecting
-  # invalid config. We use --server-dry-run so no config is persisted.
-  - apiGroups: ["networking.istio.io"]
-    verbs: ["create"]
-    resources: ["gateways"]
-
   # istio configuration
   - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
     verbs: ["get", "watch", "list"]
@@ -4623,9 +4615,6 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # discovery and routing
-  - apiGroups: ["extensions","apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
     verbs: ["get", "list", "watch"]
@@ -4664,14 +4653,6 @@ rules:
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
     verbs: ["create"]
-
-  # TODO: remove, no longer needed at cluster
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["create", "get", "watch", "list", "update", "delete"]
-  - apiGroups: [""]
-    resources: ["serviceaccounts"]
-    verbs: ["get", "watch", "list"]
 
   # Use for Kubernetes Service APIs
   - apiGroups: ["networking.x-k8s.io"]
@@ -4729,6 +4710,56 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
+  name: istiod-istio-system
+subjects:
+  - kind: ServiceAccount
+    name: istiod-service-account
+    namespace: istio-system
+---
+# Source: base/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: istiod-istio-system
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+rules:
+# permissions to verify the webhook is ready and rejecting
+# invalid config. We use --server-dry-run so no config is persisted.
+- apiGroups: ["networking.istio.io"]
+  verbs: ["create"]
+  resources: ["gateways"]
+
+# Needed for multicluster secret reading
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
+
+# For storing CA secret
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames:
+    - "istio-ca-secret"
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
+# Cannot use resource name with create, so split it off
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create"]
+---
+# Source: base/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: istiod-istio-system
+  namespace: istio-system
+  labels:
+    app: pilot
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
   name: istiod-istio-system
 subjects:
   - kind: ServiceAccount
