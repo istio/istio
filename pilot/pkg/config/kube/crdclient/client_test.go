@@ -48,6 +48,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache
 		t.Fatal(err)
 	}
 	go config.Run(stop)
+	fake.RunAndWait(stop)
 	cache.WaitForCacheSync(stop, config.HasSynced)
 	t.Cleanup(func() {
 		close(stop)
