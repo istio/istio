@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-custom-bootstrap-config
+data:
+  custom_bootstrap.json: |
+    {
+      "layered_runtime": {
+        "layers": [
+         {"name": "static_layer_0",
+          "static_layer": {
+             "upstream": {
+               "base_retry_backoff_ms": 800
+             }
+          }},
+         {"name": "admin", "admin_layer": {}}
+        ]
+      }
+    }

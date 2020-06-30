@@ -36,6 +36,29 @@ To see what bootstrap configuration a pod is using:
 istioctl proxy-config bootstrap <POD-NAME>
 ```
 
+## Customizing Gateway
+
+`custom-bootstrap-runtime.yaml` contains an example of customizing `runtime` properties in Envoy.
+Create a config map in the `istio-system` namespace.
+
+```bash
+kubectl -n istio-system apply -f custom-bootstrap-runtime.yaml
+```
+
+Istio gateways do not use sidecar injector, so we need patch the gateway deployments manually.
+
+`gateway-patch.yaml` file performs the following steps.
+
+1. Attach the `boostrapOverride` config map to the gateway pod.
+2. Mount the configmap at a wellknown path (/etc/istio/custom-bootstrap/custom_bootstrap.json).
+3. Set `ISTIO_BOOTSTRAP_OVERRIDE` env variable to the above path.
+
+You can patch a gateway deployment using the following command.
+
+```bash
+kubectl --namespace istio-system patch deployment istio-ingressgateway --patch "$(cat gateway-patch.yaml)"
+```
+
 ## Customizing the Bootstrap
 
 The configuration provided will be passed to envoy using the [`--config-yaml`](https://www.envoyproxy.io/docs/envoy/v1.7.1/operations/cli#cmdoption-config-yaml) flag.
