@@ -26,7 +26,7 @@ type ClusterIndex int
 // Cluster in a multicluster environment.
 type Cluster interface {
 	fmt.Stringer
-	kube.Client
+	kube.ExtendedClient
 
 	// Name of this cluster
 	Name() string
@@ -51,7 +51,7 @@ var _ Cluster = FakeCluster{}
 
 // FakeCluster used for testing.
 type FakeCluster struct {
-	kube.Client
+	kube.ExtendedClient
 
 	NameValue        string
 	NetworkNameValue string

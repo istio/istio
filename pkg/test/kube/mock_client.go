@@ -22,8 +22,11 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
+	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
 
 	"istio.io/pkg/version"
@@ -43,6 +46,26 @@ type MockClient struct {
 	RevisionValue    string
 	ConfigValue      *rest.Config
 	IstioVersions    *version.MeshInfo
+}
+
+func (c MockClient) Metadata() metadata.Interface {
+	panic("not used in mock")
+}
+
+func (c MockClient) KubeInformer() informers.SharedInformerFactory {
+	panic("not used in mock")
+}
+
+func (c MockClient) DynamicInformer() dynamicinformer.DynamicSharedInformerFactory {
+	panic("not used in mock")
+}
+
+func (c MockClient) MetadataInformer() metadatainformer.SharedInformerFactory {
+	panic("not used in mock")
+}
+
+func (c MockClient) RunAndWait(stop <-chan struct{}) {
+	panic("not used in mock")
 }
 
 func (c MockClient) Kube() kubernetes.Interface {

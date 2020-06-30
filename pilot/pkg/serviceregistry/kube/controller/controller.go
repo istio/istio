@@ -242,7 +242,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nodeMetadataInformer = kubeClient.MetadataInformer().ForResource(v1.SchemeGroupVersion.WithResource("nodes")).Informer()
 	// This is for getting the node IPs of a selected set of nodes
 	c.filteredNodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
-	c.metadataClient = kubeClient.MetadataClient()
+	c.metadataClient = kubeClient.Metadata()
 	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", reflect.DeepEqual, c.onNodeEvent)
 
 	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods())

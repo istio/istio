@@ -244,7 +244,11 @@ var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 	}
 
 	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
-	clients, err := kube.NewClient(clientConfig)
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	clients, err := kube.NewClient(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}

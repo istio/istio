@@ -81,12 +81,18 @@ func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*ku
 }
 
 // DefaultRestConfig returns the rest.Config for the given kube config file and context.
-func DefaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
+func DefaultRestConfig(kubeconfig, configContext string, fns ...func(*rest.Config)) (*rest.Config, error) {
 	config, err := BuildClientConfig(kubeconfig, configContext)
 	if err != nil {
 		return nil, err
 	}
-	return SetRestDefaults(config), nil
+	config = SetRestDefaults(config)
+
+	for _, fn := range fns {
+		fn(config)
+	}
+
+	return config, nil
 }
 
 // SetRestDefaults is a helper function that sets default values for the given rest.Config.

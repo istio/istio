@@ -30,16 +30,20 @@ import (
 	v1 "k8s.io/api/core/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/metadata"
+	metadatafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -81,8 +85,8 @@ type Client interface {
 	// Dynamic client.
 	Dynamic() dynamic.Interface
 
-	// MetadataClient returns the Metadata kube client.
-	MetadataClient() metadata.Interface
+	// Metadata returns the Metadata kube client.
+	Metadata() metadata.Interface
 
 	// KubeInformer returns an informer for core kube client
 	KubeInformer() informers.SharedInformerFactory
@@ -144,40 +148,42 @@ type ExtendedClient interface {
 	// DeleteYAMLFilesDryRun performs a dry run for deleting the resources in the given YAML files.
 	DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) error
 }
-//
-//var _ Client = &client{}
-//var _ ExtendedClient = &client{}
+
+var _ Client = &client{}
+var _ ExtendedClient = &client{}
 
 const resyncInterval = 0
 
-//func NewFakeClient() Client {
-//	var c client
-//	c.Interface = fake.NewSimpleClientset()
-//	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
-//
-//	s := runtime.NewScheme()
-//	if err := metav1.AddMetaToScheme(s); err != nil {
-//		panic(err.Error())
-//	}
-//	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-//	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
-//
-//	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
-//	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
-//
-//	return &c
-//}
+func NewFakeClient() Client {
+	var c client
+	c.Interface = fake.NewSimpleClientset()
+	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
+
+	s := runtime.NewScheme()
+	if err := metav1.AddMetaToScheme(s); err != nil {
+		panic(err.Error())
+	}
+	c.metadata = metadatafake.NewSimpleMetadataClient(s)
+	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
+
+	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
+
+	return &c
+}
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type client struct {
 	kubernetes.Interface
+
+	// These may be set only when creating an extended client. TODO: remove this entirely
 	clientFactory util.Factory
 	restClient    *rest.RESTClient
-	config        *rest.Config
-	extSet        *kubeExtClient.Clientset
 	revision      string
-	*rest.RESTClient
 
+	config *rest.Config
+
+	extSet       *kubeExtClient.Clientset
 	kubeInformer informers.SharedInformerFactory
 
 	dynamic         dynamic.Interface
@@ -187,21 +193,31 @@ type client struct {
 	metadataInformer metadatainformer.SharedInformerFactory
 }
 
-// newClientInternal creates a Kubernetes client from the given factory. The "revision" parameter
+// newExtendedClientInternal creates a Kubernetes client from the given factory. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
-func newClientInternal(clientFactory util.Factory, revision string) (*client, error) {
-	var c client
+func newExtendedClientInternal(clientFactory util.Factory, revision string) (*client, error) {
+	restClient, err := clientFactory.RESTClient()
+	if err != nil {
+		return nil, err
+	}
+
+	config, err := clientFactory.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+	return newClientInternal(&client{
+		clientFactory: clientFactory,
+		revision:      revision,
+		restClient:    restClient,
+	}, config)
+}
+
+// newClientInternal creates a Kubernetes client from the given factory.
+// Caller may pass in an existing client with some settings already configured, for example the ExtendedClient
+// specific options
+func newClientInternal(c *client, restConfig *rest.Config) (*client, error) {
 	var err error
-	c.clientFactory = clientFactory
-	c.revision = revision
-	c.config, err = clientFactory.ToRESTConfig()
-	if err != nil {
-		return nil, err
-	}
-	c.restClient, err = clientFactory.RESTClient()
-	if err != nil {
-		return nil, err
-	}
+	c.config = restConfig
 
 	c.Interface, err = kubernetes.NewForConfig(c.config)
 	if err != nil {
@@ -225,35 +241,43 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	if err != nil {
 		return nil, err
 	}
-	return &c, nil
+
+	return c, nil
 }
 
 // NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
 func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
-	return newClientInternal(newClientFactory(clientConfig), revision)
+	return newExtendedClientInternal(newClientFactory(clientConfig), revision)
 }
 
-// NewClient creates a Kubernetes client from the given ClientConfig.
-func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
-	return newClientInternal(newClientFactory(clientConfig), "")
+// NewClient creates a Kubernetes client from the given rest config.
+func NewClient(config *rest.Config) (Client, error) {
+	return newClientInternal(&client{}, config)
 }
 
-// NewIstioctlClient is a constructor for the client wrapper that supports dual/multiple control plans
-func NewIstioctlClient(config *rest.Config, revision string) (ExtendedClient, error) {
-	//return newClientInternal(config, revision)
-	return nil, nil
+func (c *client) RESTConfig() *rest.Config {
+	cpy := *c.config
+	return &cpy
+}
+
+func (c *client) REST() rest.Interface {
+	return c.restClient
+}
+
+func (c *client) Ext() kubeExtClient.Interface {
+	return c.extSet
+}
+
+func (c *client) Dynamic() dynamic.Interface {
+	return c.dynamic
 }
 
 func (c *client) Kube() kubernetes.Interface {
 	return c
 }
 
-func (c *client) DynamicClient() dynamic.Interface {
-	return c.dynamic
-}
-
-func (c *client) MetadataClient() metadata.Interface {
+func (c *client) Metadata() metadata.Interface {
 	return c.metadata
 }
 
@@ -278,22 +302,6 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.kubeInformer.WaitForCacheSync(stop)
 	c.dynamicInformer.WaitForCacheSync(stop)
 	c.metadataInformer.WaitForCacheSync(stop)
-}
-
-func (c *client) RESTConfig() *rest.Config {
-	cpy := *c.config
-	return &cpy
-}
-
-func (c *client) REST() rest.Interface {
-	return c.restClient
-}
-func (c *client) Ext() kubeExtClient.Interface {
-	return c.extSet
-}
-
-func (c *client) Dynamic() dynamic.Interface {
-	return c.dynamic
 }
 
 func (c *client) Revision() string {

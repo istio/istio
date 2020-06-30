@@ -120,8 +120,8 @@ type Server struct {
 	clusterID   string
 	environment *model.Environment
 
-	kubeConfig  *rest.Config
-	kubeClients kubelib.Client
+	kubeRestConfig *rest.Config
+	kubeClients    kubelib.Client
 	// DEPRECATED. Use kubeClients
 	kubeClient   kubernetes.Interface
 	kubeRegistry *kubecontroller.Controller
@@ -398,13 +398,15 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.RegistryOptions.Registries) {
 		var err error
 		// Used by validation
-		s.kubeConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "")
+		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
+			config.QPS = 20
+			config.Burst = 40
+		})
 		if err != nil {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
-		s.kubeConfig.QPS = 20
-		s.kubeConfig.Burst = 40
-		s.kubeClients, err = kubelib.NewClient(s.kubeConfig)
+
+		s.kubeClients, err = kubelib.NewClient(s.kubeRestConfig)
 		// TODO deprecate kubeClient, replace with kubeClients
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
