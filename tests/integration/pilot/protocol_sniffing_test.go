@@ -16,9 +16,6 @@ package pilot
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/security/util/connection"
-	"istio.io/pkg/log"
 	"strconv"
 	"testing"
 	"time"
@@ -29,6 +26,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/integration/security/util/connection"
+	"istio.io/pkg/log"
 )
 
 type sniffingTestCase struct {
@@ -130,88 +130,62 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 				fromWithSidecar.Config().Service,
 				fromWithoutSidecar.Config().Service)
 
-			testCases = append(testCases,
-				sniffingTestCase{
-					portName:
-					"foo",
-					from:   fromWithSidecar,
-					to:     to,
-					scheme: scheme.HTTP,
-				},
-				sniffingTestCase{
-					portName:
-					"http",
-					from:   fromWithSidecar,
-					to:     to,
-					scheme: scheme.HTTP,
-				},
-				sniffingTestCase{
-					portName:
-					"baz",
-					from:   fromWithSidecar,
-					to:     to,
-					scheme: scheme.GRPC,
-				},
-				sniffingTestCase{
-					portName:
-					"grpc",
-					from:   fromWithSidecar,
-					to:     to,
-					scheme: scheme.GRPC,
-				},
-				sniffingTestCase{
-					portName:
-					"foo",
-					from:   fromWithoutSidecar,
-					to:     to,
-					scheme: scheme.HTTP,
-				},
-				sniffingTestCase{
-					portName:
-					"http",
-					from:   fromWithoutSidecar,
-					to:     to,
-					scheme: scheme.HTTP,
-				},
-				sniffingTestCase{
-					portName:
-					"baz",
-					from:   fromWithoutSidecar,
-					to:     to,
-					scheme: scheme.GRPC,
-				},
-				sniffingTestCase{
-					portName:
-					"grpc",
-					from:   fromWithoutSidecar,
-					to:     to,
-					scheme: scheme.GRPC,
-				},
-			)
-		}
-
-		for _, tc := range testCases {
-			connChecker := connection.Checker{
-				From: tc.from,
-				Options: echo.CallOptions{
-					Target:   tc.to,
-					PortName: tc.portName,
-					Scheme:   tc.scheme,
-				},
-				ExpectSuccess: true,
+			sources := []echo.Instance{fromWithSidecar}
+			if srcCluster == dstCluster {
+				// the sidecar is required for cross-cluster traffic
+				sources = append(sources, fromWithoutSidecar)
 			}
-			subTestName := fmt.Sprintf(
-				"%s->%s:%s",
-				tc.from.Config().Service,
-				tc.to.Config().Service,
-				connChecker.Options.PortName)
-
-			ctx.NewSubTest(subTestName).
-				RunParallel(func(ctx framework.TestContext) {
-					retry.UntilSuccessOrFail(ctx, connChecker.Check,
-						retry.Delay(time.Second),
-						retry.Timeout(10*time.Second))
-				})
+			for _, fromSvc := range sources {
+				testCases = append(testCases,
+					sniffingTestCase{
+						portName: "foo",
+						from:     fromSvc,
+						to:       to,
+						scheme:   scheme.HTTP,
+					},
+					sniffingTestCase{
+						portName: "http",
+						from:     fromSvc,
+						to:       to,
+						scheme:   scheme.HTTP,
+					},
+					sniffingTestCase{
+						portName: "baz",
+						from:     fromSvc,
+						to:       to,
+						scheme:   scheme.GRPC,
+					},
+					sniffingTestCase{
+						portName: "grpc",
+						from:     fromSvc,
+						to:       to,
+						scheme:   scheme.GRPC,
+					},
+				)
+			}
 		}
+	}
+	for _, tc := range testCases {
+		connChecker := connection.Checker{
+			From: tc.from,
+			Options: echo.CallOptions{
+				Target:   tc.to,
+				PortName: tc.portName,
+				Scheme:   tc.scheme,
+			},
+			ExpectSuccess: true,
+		}
+		subTestName := fmt.Sprintf(
+			"%s->%s:%s",
+			tc.from.Config().Service,
+			tc.to.Config().Service,
+			connChecker.Options.PortName)
+
+		ctx.NewSubTest(subTestName).
+			RunParallel(func(ctx framework.TestContext) {
+				retry.UntilSuccessOrFail(ctx, connChecker.Check,
+					retry.Delay(time.Second),
+					retry.Timeout(10*time.Second))
+			})
 	}
 }
