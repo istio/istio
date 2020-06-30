@@ -360,9 +360,13 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.kubeInformer.Start(stop)
 	c.dynamicInformer.Start(stop)
 	c.metadataInformer.Start(stop)
+	c.istioInformer.Start(stop)
+	c.serviceapisInformers.Start(stop)
 	c.kubeInformer.WaitForCacheSync(stop)
 	c.dynamicInformer.WaitForCacheSync(stop)
 	c.metadataInformer.WaitForCacheSync(stop)
+	c.istioInformer.WaitForCacheSync(stop)
+	c.serviceapisInformers.WaitForCacheSync(stop)
 }
 
 func (c *client) Revision() string {
