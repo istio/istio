@@ -29,14 +29,13 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
-
+	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/env"
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests
@@ -107,7 +107,7 @@ func (i *operatorComponent) Close() (err error) {
 	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
 		for _, cluster := range i.environment.KubeClusters {
-			if e := cluster.DeleteContents("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
+			if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
 				err = multierror.Append(err, e)
 			}
 			// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
@@ -118,10 +118,11 @@ func (i *operatorComponent) Close() (err error) {
 				}
 			}
 			if i.environment.IsMulticluster() {
-				if e := cluster.DeleteNamespace(i.settings.SystemNamespace); e != nil {
+				if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
+					kube2.DeleteOptionsForeground()); e != nil {
 					err = multierror.Append(err, e)
 				}
-				if e := cluster.WaitForNamespaceDeletion(i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
+				if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
 					err = multierror.Append(err, e)
 				}
 			}
@@ -201,7 +202,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			cluster := cluster
 			errG.Go(func() error {
 				if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
-					return fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
+					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
 				}
 				return nil
 			})
@@ -226,7 +227,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Wait for all of the control planes to be started before deploying remote clusters
 	for _, cluster := range env.KubeClusters {
 		if env.IsControlPlaneCluster(cluster) {
-			if err := waitForControlPlane(i, cluster, cfg); err != nil {
+			if err := waitForControlPlane(ctx, i, cluster, cfg); err != nil {
 				return nil, err
 			}
 		}
@@ -239,7 +240,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			cluster := cluster
 			errG.Go(func() error {
 				if err := deployControlPlane(i, cfg, cluster, remoteIopFile); err != nil {
-					return fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
+					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
 				}
 				return nil
 			})
@@ -260,7 +261,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	if env.IsMultinetwork() {
 		// enable cross network traffic
 		for _, cluster := range env.KubeClusters {
-			if err := createCrossNetworkGateway(cluster, cfg); err != nil {
+			if err := createCrossNetworkGateway(ctx, cluster, cfg); err != nil {
 				return nil, err
 			}
 		}
@@ -272,7 +273,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if !env.IsControlPlaneCluster(cluster) && isCentralIstio(env, cfg) {
 			continue
 		}
-		if err := waitForControlPlane(i, cluster, cfg); err != nil {
+		if err := waitForControlPlane(ctx, i, cluster, cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -280,17 +281,24 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func patchIstiodCustomHost(cfg Config, cluster kube.Cluster) error {
+func patchIstiodCustomHost(cfg Config, cluster resource.Cluster) error {
 	var remoteIstiodAddress net.TCPAddr
 	if err := retry.UntilSuccess(func() error {
 		var err error
 		remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, cluster, false)
 		return err
 	}, retry.Timeout(1*time.Minute)); err != nil {
-		return fmt.Errorf("failed getting the istiod address for cluster %d: %v", cluster.Index(), err)
+		return fmt.Errorf("failed getting the istiod address for cluster %s: %v", cluster.Name(), err)
 	}
 
-	if err := cluster.Accessor.PatchDeployment(cfg.ConfigNamespace, "istiod", fmt.Sprintf(`
+	patchOptions := kubeApiMeta.PatchOptions{
+		FieldManager: "istio-ci",
+		TypeMeta: kubeApiMeta.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "apps/v1",
+		},
+	}
+	contents := fmt.Sprintf(`
 apiVersion: apps/v1
 kind: Deployment
 spec:
@@ -301,7 +309,9 @@ spec:
         env:
         - name: ISTIOD_CUSTOM_HOST
           value: %s
-`, remoteIstiodAddress.IP.String())); err != nil {
+`, remoteIstiodAddress.IP.String())
+	if _, err := cluster.AppsV1().Deployments(cfg.ConfigNamespace).Patch(context.TODO(), "istiod", types.ApplyPatchType,
+		[]byte(contents), patchOptions); err != nil {
 		return fmt.Errorf("failed to patch istiod with ISTIOD_CUSTOM_HOST: %v", err)
 	}
 	return nil
@@ -363,9 +373,10 @@ spec:
 	return nil
 }
 
-func createCrossNetworkGateway(cluster kube.Cluster, cfg Config) error {
+func createCrossNetworkGateway(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
 	scopes.Framework.Infof("Setting up cross-network-gateway in cluster: %s namespace: %s", cluster.Name(), cfg.SystemNamespace)
-	_, err := cluster.ApplyContents(cfg.SystemNamespace, fmt.Sprintf(`
+
+	return ctx.Config(cluster).ApplyYAML(cfg.SystemNamespace, fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -384,10 +395,9 @@ spec:
     hosts:
     - "*.local"
 `, cfg.SystemNamespace))
-	return err
 }
 
-func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string) (err error) {
+func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) (err error) {
 	// Create an istioctl to configure this cluster.
 	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
 		Cluster: cluster,
@@ -433,15 +443,15 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 			installSettings = append(installSettings, "--set", "profile=remote")
 			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
 			if err != nil {
-				return fmt.Errorf("failed getting control plane cluster for cluster %d: %v", cluster.Index(), err)
+				return fmt.Errorf("failed getting control plane cluster for cluster %s: %v", cluster.Name(), err)
 			}
 			var remoteIstiodAddress net.TCPAddr
 			if err := retry.UntilSuccess(func() error {
 				var err error
-				remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, controlPlaneCluster.(kube.Cluster), false)
+				remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, controlPlaneCluster, false)
 				return err
 			}, retry.Timeout(1*time.Minute)); err != nil {
-				return fmt.Errorf("failed getting the istiod address for cluster %d: %v", controlPlaneCluster.Index(), err)
+				return fmt.Errorf("failed getting the istiod address for cluster %s: %v", controlPlaneCluster.Name(), err)
 			}
 			installSettings = append(installSettings,
 				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
@@ -530,10 +540,10 @@ func meshNetworkSettings(cfg Config, environment *kube.Environment) *meshAPI.Mes
 	return &meshNetworks
 }
 
-func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {
+func waitForControlPlane(ctx resource.Context, dumper resource.Dumper, cluster resource.Cluster, cfg Config) error {
 	if !cfg.SkipWaitForValidationWebhook {
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
-		if err := waitForValidationWebhook(cluster.Accessor, cfg); err != nil {
+		if err := waitForValidationWebhook(ctx, cluster, cfg); err != nil {
 			dumper.Dump()
 			return err
 		}
@@ -552,24 +562,20 @@ func configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment,
 	return nil
 }
 
-func configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config, cluster kube.Cluster) error {
+func configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config,
+	cluster resource.Cluster) error {
 	// Create a secret.
 	secret, err := createRemoteSecret(ctx, cluster, cfg)
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 	}
-	// Copy this secret to all control plane clusters.
-	for _, remote := range env.ControlPlaneClusters() {
-		if cluster.Index() != remote.Index() {
-			if _, err := remote.ApplyContents(cfg.SystemNamespace, secret); err != nil {
-				return fmt.Errorf("failed applying remote secret to cluster %s: %v", remote.Name(), err)
-			}
-		}
+	if err := ctx.Config(env.ControlPlaneClusters(cluster)...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
+		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil
 }
 
-func createRemoteSecret(ctx resource.Context, cluster kube.Cluster, cfg Config) (string, error) {
+func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Config) (string, error) {
 	istioCtl, err := istioctl.New(ctx, istioctl.Config{
 		Cluster: cluster,
 	})
@@ -582,10 +588,10 @@ func createRemoteSecret(ctx resource.Context, cluster kube.Cluster, cfg Config) 
 		"--namespace", cfg.SystemNamespace,
 	}
 
-	scopes.Framework.Infof("Creating remote secret for cluster cluster %d %v", cluster.Index(), cmd)
+	scopes.Framework.Infof("Creating remote secret for cluster cluster %s %v", cluster.Name(), cmd)
 	out, _, err := istioCtl.Invoke(cmd)
 	if err != nil {
-		return "", fmt.Errorf("create remote secret failed for cluster %d: %v", cluster.Index(), err)
+		return "", fmt.Errorf("create remote secret failed for cluster %s: %v", cluster.Name(), err)
 	}
 	return out, nil
 }
@@ -628,7 +634,11 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		}
 
 		// Create the system namespace.
-		if err := cluster.CreateNamespaceWithLabels(cfg.SystemNamespace, "", nil); err != nil {
+		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+			ObjectMeta: kubeApiMeta.ObjectMeta{
+				Name: cfg.SystemNamespace,
+			},
+		}, kubeApiMeta.CreateOptions{}); err != nil {
 			scopes.Framework.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+
 				"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
 		}

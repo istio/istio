@@ -235,12 +235,12 @@ func deploy(t test.Failer, ctx resource.Context, ns namespace.Instance, se servi
 	if err := deploymentTemplate.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
-	ctx.ApplyConfigOrFail(t, ns.Name(), buf.String())
+	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), buf.String())
 	buf.Reset()
 	if err := tmpl.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
-	ctx.ApplyConfigOrFail(t, ns.Name(), buf.String())
+	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), buf.String())
 
 	err := WaitUntilRoute(from, se.Host)
 	if err != nil {

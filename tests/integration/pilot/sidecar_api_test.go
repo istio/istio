@@ -74,9 +74,9 @@ func TestSidecarListeners(t *testing.T) {
 			namespace.ClaimOrFail(ctx, ctx, "seexamples")
 			// Apply some config
 			config := mustReadFile(t, "../../config/se-example.yaml")
-			ctx.ApplyConfigOrFail(t, "", config)
+			ctx.Config().ApplyYAMLOrFail(t, "", config)
 			defer func() {
-				if err := ctx.DeleteConfig("", config); err != nil {
+				if err := ctx.Config().DeleteYAML("", config); err != nil {
 					scopes.Framework.Errorf("failed to delete directory: %v", err)
 				}
 			}()

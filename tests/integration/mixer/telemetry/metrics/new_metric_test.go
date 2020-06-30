@@ -29,9 +29,9 @@ func TestNewMetric(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			ctx.ApplyConfigOrFail(ctx, "",
+			ctx.Config().ApplyYAMLOrFail(ctx, "",
 				bookinfo.DoubleMetric.LoadOrFail(ctx))
-			defer ctx.DeleteConfigOrFail(ctx, "",
+			defer ctx.Config().DeleteYAMLOrFail(ctx, "",
 				bookinfo.DoubleMetric.LoadOrFail(ctx))
 
 			util.AllowRuleSync(t)

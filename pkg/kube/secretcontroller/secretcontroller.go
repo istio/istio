@@ -36,8 +36,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/kube"
 )
 
 const (

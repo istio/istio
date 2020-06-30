@@ -38,7 +38,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 				Prefix: "mixreport",
 			})
 
-			ctx.ApplyConfigOrFail(t,
+			ctx.Config().ApplyYAMLOrFail(t,
 				ns.Name(),
 				testReportConfig,
 				be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))

@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/kube"
 )
 
 func TestNamespace(t *testing.T) {
@@ -36,7 +37,7 @@ func TestNamespace(t *testing.T) {
 			})
 			namespaceName = ns.Name()
 
-			if !cluster.NamespaceExists(ns.Name()) {
+			if !kube.NamespaceExists(cluster, ns.Name()) {
 				t.Fatalf("The namespace %q should have existed.", ns.Name())
 			}
 
@@ -51,9 +52,9 @@ func TestNamespace(t *testing.T) {
 			}
 		})
 
-	if !noCleanup && cluster.Accessor != nil {
+	if !noCleanup && cluster != nil {
 		// Check after run to see that the namespace is gone.
-		if err := cluster.WaitForNamespaceDeletion(namespaceName); err != nil {
+		if err := kube.WaitForNamespaceDeletion(cluster, namespaceName); err != nil {
 			t.Fatalf("WaitiForNamespaceDeletion failed: %v", err)
 		}
 	}

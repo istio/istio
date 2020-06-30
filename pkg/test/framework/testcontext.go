@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 // TestContext is a test-level context that can be created as part of test executing tests.
@@ -82,6 +83,8 @@ var _ test.Failer = &testContext{}
 
 // testContext for the currently executing test.
 type testContext struct {
+	yml.FileWriter
+
 	// The id of the test context. useful for debugging the test framework itself.
 	id string
 
@@ -164,12 +167,13 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 
 	scopeID := fmt.Sprintf("[%s]", id)
 	return &testContext{
-		id:      id,
-		test:    test,
-		T:       goTest,
-		suite:   s,
-		scope:   newScope(scopeID, parentScope),
-		workDir: workDir,
+		id:         id,
+		test:       test,
+		T:          goTest,
+		suite:      s,
+		scope:      newScope(scopeID, parentScope),
+		workDir:    workDir,
+		FileWriter: yml.NewFileWriter(workDir),
 	}
 }
 
@@ -197,6 +201,14 @@ func (c *testContext) WorkDir() string {
 
 func (c *testContext) Environment() resource.Environment {
 	return c.suite.environment
+}
+
+func (c *testContext) IsMulticluster() bool {
+	return c.Environment().IsMulticluster()
+}
+
+func (c *testContext) Clusters() []resource.Cluster {
+	return c.Environment().Clusters()
 }
 
 func (c *testContext) CreateDirectory(name string) (string, error) {
@@ -231,52 +243,8 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
-func (c *testContext) ApplyConfig(ns string, yamlText ...string) error {
-	for _, cc := range c.Environment().Clusters() {
-		if err := cc.ApplyConfig(ns, yamlText...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *testContext) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
-	for _, cc := range c.Environment().Clusters() {
-		cc.ApplyConfigOrFail(t, ns, yamlText...)
-	}
-}
-
-func (c *testContext) DeleteConfig(ns string, yamlText ...string) error {
-	for _, cc := range c.Environment().Clusters() {
-		if err := cc.DeleteConfig(ns, yamlText...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *testContext) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
-	for _, cc := range c.Environment().Clusters() {
-		cc.DeleteConfigOrFail(t, ns, yamlText...)
-	}
-}
-
-func (c *testContext) ApplyConfigDir(ns string, configDir string) error {
-	for _, cc := range c.Environment().Clusters() {
-		if err := cc.ApplyConfigDir(ns, configDir); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *testContext) DeleteConfigDir(ns string, configDir string) error {
-	for _, cc := range c.Environment().Clusters() {
-		if err := cc.DeleteConfigDir(ns, configDir); err != nil {
-			return err
-		}
-	}
-	return nil
+func (c *testContext) Config(clusters ...resource.Cluster) resource.ConfigManager {
+	return newConfigManager(c, clusters)
 }
 
 func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {

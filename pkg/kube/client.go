@@ -23,16 +23,26 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	v1 "k8s.io/api/core/v1"
+	kubeApiCore "k8s.io/api/core/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/kubectl/pkg/cmd/apply"
+	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
+	"k8s.io/kubectl/pkg/cmd/util"
 
 	"istio.io/api/label"
 
@@ -42,18 +52,24 @@ import (
 
 const (
 	defaultLocalAddress = "localhost"
+	fieldManager        = "istio-kube-client"
 )
 
 // Client is a helper for common Kubernetes client operations
 type Client interface {
 	kubernetes.Interface
-	rest.Interface
 
-	// Config returns the Kubernetes rest config used to configure the clients.
-	Config() *rest.Config
+	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
+	RESTConfig() *rest.Config
+
+	// Rest returns the raw Kubernetes REST client.
+	REST() rest.Interface
 
 	// Ext returns the API extensions client.
 	Ext() kubeExtClient.Interface
+
+	// Dynamic client.
+	Dynamic() dynamic.Interface
 
 	// Revision of the Istio control plane.
 	Revision() string
@@ -71,13 +87,13 @@ type Client interface {
 	GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error)
 
 	// PodsForSelector finds pods matching selector.
-	PodsForSelector(ctx context.Context, namespace, labelSelector string) (*v1.PodList, error)
+	PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*kubeApiCore.PodList, error)
 
 	// GetIstioPods retrieves the pod objects for Istio deployments
-	GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error)
+	GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]kubeApiCore.Pod, error)
 
 	// PodExec takes a command and the pod data to run the command in the specified pod.
-	PodExec(podName, podNamespace, container string, command []string) (*bytes.Buffer, *bytes.Buffer, error)
+	PodExec(podName, podNamespace, container string, command string) (stdout string, stderr string, err error)
 
 	// PodLogs retrieves the logs for the given pod.
 	PodLogs(ctx context.Context, podName string, podNamespace string, container string, previousLog bool) (string, error)
@@ -85,6 +101,18 @@ type Client interface {
 	// NewPortForwarder creates a new PortForwarder configured for the given pod. If localPort=0, a port will be
 	// dynamically selected. If localAddress is empty, "localhost" is used.
 	NewPortForwarder(podName string, ns string, localAddress string, localPort int, podPort int) (PortForwarder, error)
+
+	// ApplyYAMLFiles applies the resources in the given YAML files.
+	ApplyYAMLFiles(namespace string, yamlFiles ...string) error
+
+	// ApplyYAMLFilesDryRun performs a dry run for applying the resource in the given YAML files
+	ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) error
+
+	// DeleteYAMLFiles deletes the resources in the given YAML files.
+	DeleteYAMLFiles(namespace string, yamlFiles ...string) error
+
+	// DeleteYAMLFilesDryRun performs a dry run for deleting the resources in the given YAML files.
+	DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) error
 }
 
 var _ Client = &client{}
@@ -92,54 +120,68 @@ var _ Client = &client{}
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type client struct {
 	*kubernetes.Clientset
-	*rest.RESTClient
-	config   *rest.Config
-	extSet   *kubeExtClient.Clientset
-	revision string
+	clientFactory util.Factory
+	restClient    *rest.RESTClient
+	config        *rest.Config
+	extSet        *kubeExtClient.Clientset
+	revision      string
 }
 
-// NewClientForKubeConfig creates a client wrapper for the given kubeconfig file.
-func NewClientForKubeConfig(kubeconfig, context string) (Client, error) {
-	config, err := DefaultRestConfig(kubeconfig, context)
+// NewClient creates a Kubernetes client from the given factory. The "revision" parameter
+// controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
+func NewClient(clientFactory util.Factory, revision string) (Client, error) {
+	restConfig, err := clientFactory.ToRESTConfig()
 	if err != nil {
 		return nil, err
 	}
-	return NewClient(config)
-}
-
-// NewClient is the constructor for the client wrapper
-func NewClient(config *rest.Config) (Client, error) {
-	return NewClientWithRevision(config, "")
-}
-
-// NewClientWithRevision is a constructor for the client wrapper that supports dual/multiple control plans
-func NewClientWithRevision(config *rest.Config, revision string) (Client, error) {
-	clientSet, err := kubernetes.NewForConfig(config)
+	restClient, err := clientFactory.RESTClient()
 	if err != nil {
 		return nil, err
 	}
-	restClient, err := rest.RESTClientFor(config)
+	clientSet, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
-	extSet, err := kubeExtClient.NewForConfig(config)
+	extSet, err := kubeExtClient.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &client{
-		Clientset:  clientSet,
-		RESTClient: restClient,
-		config:     config,
-		extSet:     extSet,
-		revision:   revision}, nil
+		clientFactory: clientFactory,
+		Clientset:     clientSet,
+		restClient:    restClient,
+		config:        restConfig,
+		extSet:        extSet,
+		revision:      revision,
+	}, nil
 }
 
-func (c *client) Config() *rest.Config {
-	return c.config
+// NewClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
+// controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
+func NewClientForConfig(clientConfig clientcmd.ClientConfig, revision string) (Client, error) {
+	return NewClient(newClientFactory(clientConfig), revision)
 }
 
+func (c *client) RESTConfig() *rest.Config {
+	cpy := *c.config
+	return &cpy
+}
+
+func (c *client) REST() rest.Interface {
+	return c.restClient
+}
 func (c *client) Ext() kubeExtClient.Interface {
 	return c.extSet
+}
+
+func (c *client) Dynamic() dynamic.Interface {
+	// Create the dynamic client as-needed, so that we don't pre-maturely cache the server-side schemas.
+	out, err := c.clientFactory.DynamicClient()
+	if err != nil {
+		// This should never happen.
+		panic(err)
+	}
+	return out
 }
 
 func (c *client) Revision() string {
@@ -150,16 +192,28 @@ func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	return c.extSet.ServerVersion()
 }
 
-func (c *client) PodExec(podName, podNamespace, container string, command []string) (*bytes.Buffer, *bytes.Buffer, error) {
-	req := c.Post().
+func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {
+	defer func() {
+		if err != nil {
+			if len(stderr) > 0 {
+				err = fmt.Errorf("error exec'ing into %s/%s %s container: %v\n%s",
+					podName, podNamespace, container, err, stderr)
+			}
+			err = fmt.Errorf("error exec'ing into %s/%s %s container: %v",
+				podName, podNamespace, container, err)
+		}
+	}()
+
+	commandFields := strings.Fields(command)
+	req := c.restClient.Post().
 		Resource("pods").
 		Name(podName).
 		Namespace(podNamespace).
 		SubResource("exec").
 		Param("container", container).
-		VersionedParams(&v1.PodExecOptions{
+		VersionedParams(&kubeApiCore.PodExecOptions{
 			Container: container,
-			Command:   command,
+			Command:   commandFields,
 			Stdin:     false,
 			Stdout:    true,
 			Stderr:    true,
@@ -168,30 +222,32 @@ func (c *client) PodExec(podName, podNamespace, container string, command []stri
 
 	wrapper, upgrader, err := roundTripperFor(c.config)
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
 	}
 	exec, err := remotecommand.NewSPDYExecutorForTransports(wrapper, upgrader, "POST", req.URL())
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
 	}
 
-	var stdout, stderr bytes.Buffer
+	var stdoutBuf, stderrBuf bytes.Buffer
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdin:  nil,
-		Stdout: &stdout,
-		Stderr: &stderr,
+		Stdout: &stdoutBuf,
+		Stderr: &stderrBuf,
 		Tty:    false,
 	})
 
-	return &stdout, &stderr, err
+	stdout = stdoutBuf.String()
+	stderr = stderrBuf.String()
+	return
 }
 
-func (c *client) PodLogs(ctx context.Context, namespace string, pod string, container string, previousLog bool) (string, error) {
-	opts := &v1.PodLogOptions{
+func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container string, previousLog bool) (string, error) {
+	opts := &kubeApiCore.PodLogOptions{
 		Container: container,
 		Previous:  previousLog,
 	}
-	res, err := c.CoreV1().Pods(namespace).GetLogs(pod, opts).Stream(ctx)
+	res, err := c.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -213,7 +269,7 @@ func (c *client) proxyGet(name, namespace, path string, port int) rest.ResponseW
 		log.Errorf("failed to parse path %s: %v", path, err)
 		pathURL = &url.URL{Path: path}
 	}
-	request := c.RESTClient.Get().
+	request := c.restClient.Get().
 		Namespace(namespace).
 		Resource("pods").
 		SubResource("proxy").
@@ -281,19 +337,7 @@ func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, pat
 	return out, nil
 }
 
-// ExtractExecResult wraps PodExec and return the execution result and error if has any.
-func (c *client) ExtractExecResult(podName, podNamespace, container string, cmd []string) ([]byte, error) {
-	stdout, stderr, err := c.PodExec(podName, podNamespace, container, cmd)
-	if err != nil {
-		if stderr != nil && stderr.String() != "" {
-			return nil, fmt.Errorf("error exec'ing into %s/%s %s container: %v\n%s", podName, podNamespace, container, err, stderr.String())
-		}
-		return nil, fmt.Errorf("error exec'ing into %s/%s %s container: %v", podName, podNamespace, container, err)
-	}
-	return stdout.Bytes(), nil
-}
-
-func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error) {
+func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]kubeApiCore.Pod, error) {
 	if c.revision != "" {
 		labelSelector, ok := params["labelSelector"]
 		if ok {
@@ -303,7 +347,7 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 		}
 	}
 
-	req := c.Get().
+	req := c.restClient.Get().
 		Resource("pods").
 		Namespace(namespace)
 	for k, v := range params {
@@ -314,7 +358,7 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 	if res.Error() != nil {
 		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
 	}
-	list := &v1.PodList{}
+	list := &kubeApiCore.PodList{}
 	if err := res.Into(list); err != nil {
 		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
 	}
@@ -369,15 +413,203 @@ func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort in
 	return newPortForwarder(c.config, podName, ns, localAddress, localPort, podPort)
 }
 
-func (c *client) PodsForSelector(ctx context.Context, namespace, labelSelector string) (*v1.PodList, error) {
-	podGet := c.Get().Resource("pods").Namespace(namespace).Param("labelSelector", labelSelector)
-	obj, err := podGet.Do(ctx).Get()
-	if err != nil {
-		return nil, fmt.Errorf("failed retrieving pod: %v", err)
+func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*kubeApiCore.PodList, error) {
+	return c.CoreV1().Pods(namespace).List(ctx, kubeApiMeta.ListOptions{
+		LabelSelector: strings.Join(labelSelectors, ","),
+	})
+}
+
+func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
+	for _, f := range removeEmptyFiles(yamlFiles) {
+		if err := c.applyYAMLFile(namespace, false, f); err != nil {
+			return err
+		}
 	}
-	return obj.(*v1.PodList), nil
+	return nil
+}
+
+func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) error {
+	for _, f := range removeEmptyFiles(yamlFiles) {
+		if err := c.applyYAMLFile(namespace, true, f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {
+	dynamicClient, err := c.clientFactory.DynamicClient()
+	if err != nil {
+		return err
+	}
+	discoveryClient, err := c.clientFactory.ToDiscoveryClient()
+	if err != nil {
+		return err
+	}
+
+	// Create the options.
+	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
+	opts := apply.NewApplyOptions(streams)
+	opts.DynamicClient = dynamicClient
+	opts.DryRunVerifier = resource.NewDryRunVerifier(dynamicClient, discoveryClient)
+	opts.FieldManager = fieldManager
+	if dryRun {
+		opts.DryRunStrategy = util.DryRunServer
+	}
+
+	// allow for a success message operation to be specified at print time
+	opts.ToPrinter = func(operation string) (printers.ResourcePrinter, error) {
+		opts.PrintFlags.NamePrintFlags.Operation = operation
+		util.PrintFlagsWithDryRunStrategy(opts.PrintFlags, opts.DryRunStrategy)
+		return opts.PrintFlags.ToPrinter()
+	}
+
+	if len(namespace) > 0 {
+		opts.Namespace = namespace
+		opts.EnforceNamespace = true
+	} else {
+		var err error
+		opts.Namespace, opts.EnforceNamespace, err = c.clientFactory.ToRawKubeConfigLoader().Namespace()
+		if err != nil {
+			return err
+		}
+	}
+
+	opts.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
+	opts.DeleteOptions = &kubectlDelete.DeleteOptions{
+		DynamicClient:   dynamicClient,
+		IOStreams:       streams,
+		FilenameOptions: opts.DeleteFlags.FileNameFlags.ToOptions(),
+	}
+
+	opts.OpenAPISchema, _ = c.clientFactory.OpenAPISchema()
+
+	opts.Validator, err = c.clientFactory.Validator(true)
+	if err != nil {
+		return err
+	}
+	opts.Builder = c.clientFactory.NewBuilder()
+	opts.Mapper, err = c.clientFactory.ToRESTMapper()
+	if err != nil {
+		return err
+	}
+
+	opts.PostProcessorFn = opts.PrintAndPrunePostProcessor()
+
+	if err := opts.Run(); err != nil {
+		// Concatenate the stdout and stderr
+		s := stdout.String() + stderr.String()
+		return fmt.Errorf("%v: %s", err, s)
+	}
+	return nil
+}
+
+func (c *client) DeleteYAMLFiles(namespace string, yamlFiles ...string) (err error) {
+	for _, f := range removeEmptyFiles(yamlFiles) {
+		err = multierror.Append(err, c.deleteFile(namespace, false, f)).ErrorOrNil()
+	}
+	return err
+}
+
+func (c *client) DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) (err error) {
+	for _, f := range removeEmptyFiles(yamlFiles) {
+		err = multierror.Append(err, c.deleteFile(namespace, true, f)).ErrorOrNil()
+	}
+	return err
+}
+
+func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
+	// Create the options.
+	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
+
+	cmdNamespace, enforceNamespace, err := c.clientFactory.ToRawKubeConfigLoader().Namespace()
+	if err != nil {
+		return err
+	}
+
+	if len(namespace) > 0 {
+		cmdNamespace = namespace
+		enforceNamespace = true
+	}
+
+	fileOpts := resource.FilenameOptions{
+		Filenames: []string{file},
+	}
+
+	dynamicClient, err := c.clientFactory.DynamicClient()
+	if err != nil {
+		return err
+	}
+	discoveryClient, err := c.clientFactory.ToDiscoveryClient()
+	if err != nil {
+		return err
+	}
+	opts := kubectlDelete.DeleteOptions{
+		FilenameOptions:  fileOpts,
+		Cascade:          true,
+		GracePeriod:      -1,
+		IgnoreNotFound:   true,
+		WaitForDeletion:  true,
+		WarnClusterScope: enforceNamespace,
+		DynamicClient:    dynamicClient,
+		DryRunVerifier:   resource.NewDryRunVerifier(dynamicClient, discoveryClient),
+		IOStreams:        streams,
+	}
+	if dryRun {
+		opts.DryRunStrategy = util.DryRunServer
+	}
+
+	r := c.clientFactory.NewBuilder().
+		Unstructured().
+		ContinueOnError().
+		NamespaceParam(cmdNamespace).DefaultNamespace().
+		FilenameParam(enforceNamespace, &fileOpts).
+		LabelSelectorParam(opts.LabelSelector).
+		FieldSelectorParam(opts.FieldSelector).
+		SelectAllParam(opts.DeleteAll).
+		AllNamespaces(opts.DeleteAllNamespaces).
+		Flatten().
+		Do()
+	err = r.Err()
+	if err != nil {
+		return err
+	}
+	opts.Result = r
+
+	opts.Mapper, err = c.clientFactory.ToRESTMapper()
+	if err != nil {
+		return err
+	}
+
+	if err := opts.RunDelete(c.clientFactory); err != nil {
+		// Concatenate the stdout and stderr
+		s := stdout.String() + stderr.String()
+		return fmt.Errorf("%v: %s", err, s)
+	}
+	return nil
 }
 
 func closeQuietly(c io.Closer) {
 	_ = c.Close()
+}
+
+func removeEmptyFiles(files []string) []string {
+	out := make([]string, 0, len(files))
+	for _, f := range files {
+		if !isEmptyFile(f) {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+func isEmptyFile(f string) bool {
+	fileInfo, err := os.Stat(f)
+	if err != nil {
+		return true
+	}
+	if fileInfo.Size() == 0 {
+		return true
+	}
+	return false
 }

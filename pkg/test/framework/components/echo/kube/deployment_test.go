@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -134,20 +135,25 @@ func TestDeploymentYAML(t *testing.T) {
 		},
 	}
 	for _, tc := range testCase {
-		serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, kube.Cluster{})
-		if err != nil {
-			t.Errorf("failed to generate yaml %v", err)
-		}
-		gotBytes := []byte(serviceYAML + "---" + deploymentYAML)
-		wantedBytes := testutil.ReadGoldenFile(gotBytes, tc.wantFilePath, t)
+		t.Run(tc.name, func(t *testing.T) {
+			tc.config.Cluster = resource.FakeCluster{
+				NameValue: "cluster-0",
+			}
+			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, kube.Cluster{})
+			if err != nil {
+				t.Errorf("failed to generate yaml %v", err)
+			}
+			gotBytes := []byte(serviceYAML + "---" + deploymentYAML)
+			wantedBytes := testutil.ReadGoldenFile(gotBytes, tc.wantFilePath, t)
 
-		wantBytes := testutil.StripVersion(wantedBytes)
-		gotBytes = testutil.StripVersion(gotBytes)
+			wantBytes := testutil.StripVersion(wantedBytes)
+			gotBytes = testutil.StripVersion(gotBytes)
 
-		if testutil.Refresh() {
-			testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
-		}
+			if testutil.Refresh() {
+				testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
+			}
 
-		testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
+			testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
+		})
 	}
 }

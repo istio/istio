@@ -38,31 +38,26 @@ var _ resource.Environment = &Environment{}
 func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	scopes.Framework.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
 
-	workDir, err := ctx.CreateTmpDirectory("env-kube")
-	if err != nil {
-		return nil, err
-	}
-
 	e := &Environment{
 		ctx: ctx,
 		s:   s,
 	}
 	e.id = ctx.TrackResource(e)
 
-	accessors, err := s.NewAccessors(workDir)
+	clients, err := s.NewClients()
 	if err != nil {
 		return nil, err
 	}
 
-	e.KubeClusters = make([]Cluster, 0, len(accessors))
-	for i := range accessors {
-		accessor := accessors[i]
+	e.KubeClusters = make([]Cluster, 0, len(clients))
+	for i := range clients {
+		client := clients[i]
 		clusterIndex := resource.ClusterIndex(i)
 		e.KubeClusters = append(e.KubeClusters, Cluster{
 			networkName: s.networkTopology[clusterIndex],
 			filename:    s.KubeConfig[i],
 			index:       clusterIndex,
-			Accessor:    accessor,
+			Client:      client,
 		})
 	}
 
@@ -90,10 +85,20 @@ func (e *Environment) Clusters() []resource.Cluster {
 	return out
 }
 
-func (e *Environment) ControlPlaneClusters() []Cluster {
-	out := make([]Cluster, 0, len(e.KubeClusters))
+func (e *Environment) ControlPlaneClusters(excludedClusters ...resource.Cluster) []resource.Cluster {
+	out := make([]resource.Cluster, 0, len(e.KubeClusters))
+
+	isExcluded := func(c resource.Cluster) bool {
+		for _, excludedCluster := range excludedClusters {
+			if c.Name() == excludedCluster.Name() {
+				return true
+			}
+		}
+		return false
+	}
+
 	for _, c := range e.KubeClusters {
-		if e.IsControlPlaneCluster(c) {
+		if !isExcluded(c) && e.IsControlPlaneCluster(c) {
 			out = append(out, c)
 		}
 	}
@@ -119,7 +124,7 @@ func (e *Environment) GetControlPlaneCluster(cluster resource.Cluster) (resource
 		}
 		return e.KubeClusters[controlPlaneIndex], nil
 	}
-	return nil, fmt.Errorf("no control plane cluster found in topology for cluster %d", cluster.Index())
+	return nil, fmt.Errorf("no control plane cluster found in topology for cluster %s", cluster.Name())
 }
 
 // ClustersByNetwork returns an inverse mapping of the network topolgoy to a slice of clusters in a given network.
