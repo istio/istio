@@ -31,7 +31,7 @@ import (
 
 // IstioControlPlaneInstance defines the format Istio uses for when creating Envoy config.core.v3.ControlPlane.identifier
 type IstioControlPlaneInstance struct {
-	// The Istio Pilot component type (e.g. "pilot")
+	// The Istio component type (e.g. "istiod")
 	Component string
 	// The ID of the component instance
 	ID string
@@ -112,10 +112,10 @@ func ControlPlane() *corev3.ControlPlane {
 }
 
 func init() {
-	// The Pod Name (Pilot identity) is in PilotArgs, but not reachable globally nor from DiscoveryServer
+	// The Pod Name (instance identity) is in PilotArgs, but not reachable globally nor from DiscoveryServer
 	podName := env.RegisterStringVar("POD_NAME", "", "").Get()
 	byVersion, err := json.Marshal(IstioControlPlaneInstance{
-		Component: "pilot",
+		Component: "istiod",
 		ID:        podName,
 		Info:      istioversion.Info,
 	})
