@@ -92,7 +92,6 @@ func TestAgent(t *testing.T) {
 		},
 	}
 
-
 	t.Run("adscTLSDirect", func(t *testing.T) {
 		testAdscTLS(t, creds)
 	})

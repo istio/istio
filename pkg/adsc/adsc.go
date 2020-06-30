@@ -33,7 +33,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	
+
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -459,6 +459,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
+				// TODO: use jsonpb
 				strResponse, err := json.MarshalIndent(m, "  ", "  ")
 				if err != nil {
 					continue
