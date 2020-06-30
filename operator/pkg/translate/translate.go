@@ -163,6 +163,9 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
+		if componentName == name.IstioBaseComponentName {
+			return "", fmt.Errorf("base component can only have k8s.overlays, not other K8s settings")
+		}
 		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName, iop.Revision)
 		if err != nil {
 			return "", err
