@@ -44,7 +44,7 @@ func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command)
 		"XDS Endpoint")
 	cmd.PersistentFlags().StringVar(&o.CertDir, "cert-dir", "",
 		"XDS Endpoint certificates (UNIMPLEMENTED)")
-	cmd.PersistentFlags().StringVar(&o.XdsLabel, "xds-label", "istio=pilot",
+	cmd.PersistentFlags().StringVar(&o.XdsLabel, "xds-label", "",
 		"Istio XDS service label")
 	cmd.PersistentFlags().DurationVar(&o.Timeout, "timeout", time.Second*30,
 		"the duration to wait before failing")
@@ -54,9 +54,6 @@ func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command)
 func (o *CentralControlPlaneOptions) ValidateControlPlaneFlags() error {
 	if o.Xds != "" && o.XdsLabel != "" {
 		return fmt.Errorf("either --xds-address or --xds-label, not both")
-	}
-	if o.XdsLabel != "" {
-		return fmt.Errorf("--xds-label not implemented")
 	}
 	return nil
 }

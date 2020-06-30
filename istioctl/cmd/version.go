@@ -140,6 +140,15 @@ func xdsVersionCommand() *cobra.Command {
 	})
 	opts.AttachControlPlaneFlags(versionCmd)
 	centralOpts.AttachControlPlaneFlags(versionCmd)
+	versionCmd.Args = func(c *cobra.Command, args []string) error {
+		if err := cobra.NoArgs(c, args); err != nil {
+			return err
+		}
+		if err := centralOpts.ValidateControlPlaneFlags(); err != nil {
+			return err
+		}
+		return nil
+	}
 
 	versionCmd.Flags().VisitAll(func(flag *pflag.Flag) {
 		if flag.Name == "short" {
@@ -173,12 +182,12 @@ func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *
 		if err != nil {
 			return nil, err
 		}
-		xds, err := multixds.RequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, kubeClient)
+		xdsResponse, err := multixds.RequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, kubeClient)
 		if err != nil {
 			return nil, err
 		}
-		*outXDS = xds
-		if xds.ControlPlane == nil {
+		*outXDS = xdsResponse
+		if xdsResponse.ControlPlane == nil {
 			return &istioVersion.MeshInfo{
 				istioVersion.ServerInfo{
 					Component: "MISSING CP ID",
@@ -188,34 +197,15 @@ func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *
 				},
 			}, nil
 		}
-		cpID := map[string]interface{}{}
-		err = json.Unmarshal([]byte(xds.ControlPlane.Identifier), &cpID)
+		cpID := xds.IstioControlPlaneInstance{}
+		err = json.Unmarshal([]byte(xdsResponse.ControlPlane.Identifier), &cpID)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse CP Identifier: %w", err)
 		}
-		component, ok := cpID["component"].(string)
-		if !ok {
-			return nil, fmt.Errorf("could not parse CP ID component: %w", err)
-		}
-		cpInfo, ok := cpID["info"].(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("could not parse CP ID build info: %w", err)
-		}
-		strVersion, _ := cpInfo["version"].(string)
-		buildStatus, _ := cpInfo["status"].(string)
-		revision, _ := cpInfo["revision"].(string)
-		tag, _ := cpInfo["tag"].(string)
-		golangVersion, _ := cpInfo["golang_version"].(string)
 		return &istioVersion.MeshInfo{
 			istioVersion.ServerInfo{
-				Component: component,
-				Info: istioVersion.BuildInfo{
-					Version:       strVersion,
-					BuildStatus:   buildStatus,
-					GitRevision:   revision,
-					GitTag:        tag,
-					GolangVersion: golangVersion,
-				},
+				Component: cpID.Component,
+				Info:      cpID.Info,
 			},
 		}, nil
 	}

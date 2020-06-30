@@ -46,8 +46,12 @@ func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.C
 
 // nolint: lll
 func queryEachShard(dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.Client, centralOpts *clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
+	labelSelector := centralOpts.XdsLabel
+	if labelSelector == "" {
+		labelSelector = "istio=pilot"
+	}
 	pods, err := kubeClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
-		"labelSelector": centralOpts.XdsLabel,
+		"labelSelector": labelSelector,
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
@@ -84,6 +88,13 @@ func queryEachShard(dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClie
 
 func mergeShards(responses []*xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryResponse, error) {
 	retval := xdsapi.DiscoveryResponse{}
+	if len(responses) == 0 {
+		return &retval, nil
+	}
+
+	// Combine all the shards as one, even if that means losing information about
+	// the control plane version from each shard.
+	retval.ControlPlane = responses[0].ControlPlane
 
 	for _, response := range responses {
 		retval.Resources = append(retval.Resources, response.Resources...)
