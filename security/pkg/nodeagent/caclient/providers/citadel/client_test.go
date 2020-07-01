@@ -202,15 +202,15 @@ func buildContext() (context.Context, error){
 	}
 	p := &peer.Peer{Addr: mockIPAddr, AuthInfo: tlsInfo}
 	ctx = peer.NewContext(ctx, p)
-	peer, _ := peer.FromContext(ctx)
-	fmt.Printf("ssssssppppoooooo\n")
-	fmt.Printf("%+v\n",ctx)
-	fmt.Printf("pppppkkkkkkkkk\n")
-	fmt.Printf("%+v\n",peer)
-	fmt.Printf("nnnnnnnnnnnnnnnnn\n")
-	fmt.Printf("%+v\n",peer.AuthInfo)
-	fmt.Printf("ssssssssmmmm\n")
-	fmt.Printf("%+v\n",peer.AuthInfo.AuthType())
+	//peer, _ := peer.FromContext(ctx)
+	//fmt.Printf("ssssssppppoooooo\n")
+	//fmt.Printf("%+v\n",ctx)
+	//fmt.Printf("pppppkkkkkkkkk\n")
+	//fmt.Printf("%+v\n",peer)
+	//fmt.Printf("nnnnnnnnnnnnnnnnn\n")
+	//fmt.Printf("%+v\n",peer.AuthInfo)
+	//fmt.Printf("ssssssssmmmm\n")
+	//fmt.Printf("%+v\n",peer.AuthInfo.AuthType())
 	return ctx, nil
 }
 
