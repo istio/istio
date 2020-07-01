@@ -27,6 +27,7 @@ import (
 	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -1333,11 +1334,15 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// build sidecar scopes for namespaces that do not have a non-workloadSelector sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
+	namespaces := sets.NewSet()
 	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
 		for ns := range nsMap {
-			if _, exist := sidecarsWithoutSelectorByNamespace[ns]; !exist {
-				ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
-			}
+			namespaces.Insert(ns)
+		}
+	}
+	for ns := range namespaces {
+		if _, exist := sidecarsWithoutSelectorByNamespace[ns]; !exist {
+			ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
 		}
 	}
 
