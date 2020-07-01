@@ -178,7 +178,7 @@ func buildContext() (context.Context, error){
 	ids := []util.Identity{
 		{Type: util.TypeURI, Value: []byte(callerID)},
 	}
-	mockIPAddr := &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}
+	mockIPAddr := &net.IPAddr{IP: net.IPv4(127, 0, 0, 1)}
 	sanExt, err := util.BuildSANExtension(ids)
 	if err != nil {
 		return nil, err
