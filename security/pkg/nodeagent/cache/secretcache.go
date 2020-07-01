@@ -885,6 +885,11 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 			" resource name: %s", logPrefix, err, connKey.ResourceName)
 		csrHostName = connKey.ResourceName
 	}
+	fmt.Printf("llllllllllllll========\n")
+	fmt.Printf("%+v",csrHostName)
+	fmt.Printf("%+v",keySize)
+	fmt.Printf("%+v",sc.configOptions.Pkcs8Keys)
+	fmt.Printf("%+v",pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg))
 	options := pkiutil.CertOptions{
 		Host:       csrHostName,
 		RSAKeySize: keySize,
@@ -901,6 +906,9 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 
 	numOutgoingRequests.With(RequestType.Value(CSR)).Increment()
 	timeBeforeCSR := time.Now()
+	fmt.Printf("mmmmmmmmmmm\n")
+	fmt.Printf("%+v",connKey)
+	fmt.Printf("%+v",exchangedToken)
 	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, connKey, true)
 	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
 	outgoingLatency.With(RequestType.Value(CSR)).Record(csrLatency)
