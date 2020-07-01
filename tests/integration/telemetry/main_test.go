@@ -38,6 +38,10 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
+values:
+  global:
+    meshExpansion:
+      enabled: true
 # Add an additional TCP port, 31400
 components:
   ingressGateways:

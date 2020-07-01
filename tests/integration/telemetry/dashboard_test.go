@@ -48,9 +48,10 @@ import (
 
 var (
 	dashboards = []struct {
-		configmap string
-		name      string
-		excluded  []string
+		configmap  string
+		name       string
+		excluded   []string
+		vmExcluded []string
 	}{
 		{
 			"istio-grafana-dashboards",
@@ -72,6 +73,10 @@ var (
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 				"container_fs_usage_bytes",
 			},
+			[]string{
+				// VM is not injected with sidecar
+				"sidecar_injection_success_total",
+			},
 		},
 		{
 			"istio-services-grafana-dashboards",
@@ -80,6 +85,7 @@ var (
 				"galley_",
 				"istio_tcp_",
 			},
+			[]string{},
 		},
 		{
 			"istio-services-grafana-dashboards",
@@ -87,6 +93,7 @@ var (
 			[]string{
 				"istio_tcp_",
 			},
+			[]string{},
 		},
 		{
 			"istio-services-grafana-dashboards",
@@ -94,6 +101,7 @@ var (
 			[]string{
 				"istio_tcp_",
 			},
+			[]string{},
 		},
 		{
 			"istio-grafana-dashboards",
@@ -105,6 +113,11 @@ var (
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 				"container_fs_usage_bytes",
 			},
+			[]string{
+				// Metrics that are not reported by VM
+				"container_cpu_usage_seconds_total",
+				"istio_response_bytes_sum",
+			},
 		},
 		{
 			"istio-grafana-dashboards",
@@ -113,21 +126,36 @@ var (
 				// Exclude all metrics -- mixer is disabled by default
 				"_",
 			},
+			[]string{},
 		},
 	}
 )
 
 func TestDashboard(t *testing.T) {
+	dashboardTestBody(t, false)
+}
+
+func TestVMDashboard(t *testing.T) {
+	dashboardTestBody(t, true)
+}
+
+func dashboardTestBody(t *testing.T, useVM bool) {
 	framework.NewTest(t).
 		Features("observability.telemetry.dashboard").
 		Run(func(ctx framework.TestContext) {
 
 			p := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
 			kenv := ctx.Environment().(*kube.Environment)
-			setupDashboardTest(ctx)
+			setupDashboardTest(ctx, useVM)
 			waitForMetrics(ctx, p)
 			for _, d := range dashboards {
 				d := d
+
+				// If using VM, append the additional excluded queries
+				if useVM {
+					d.excluded = append(d.excluded, d.vmExcluded...)
+				}
+
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
 					cm, err := kenv.KubeClusters[0].CoreV1().ConfigMaps(i.Settings().TelemetryNamespace).Get(
 						context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
@@ -146,7 +174,7 @@ func TestDashboard(t *testing.T) {
 					}
 
 					for _, query := range queries {
-						if err := checkMetric(p, query, d.excluded); err != nil {
+						if err := checkMetric(p, query, d.excluded, useVM); err != nil {
 							t.Errorf("Check query failed: %v", err)
 						}
 					}
@@ -177,7 +205,7 @@ var (
 	)
 )
 
-func checkMetric(p prometheus.Instance, query string, excluded []string) error {
+func checkMetric(p prometheus.Instance, query string, excluded []string, useVM bool) error {
 	query = replacer.Replace(query)
 	value, _, err := p.API().QueryRange(context.Background(), query, promv1.Range{
 		Start: time.Now().Add(-time.Minute),
@@ -203,6 +231,12 @@ func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 	}
 	if includeQuery(query, excluded) {
 		if numSamples == 0 {
+			// With VMs, the destination info is unknown
+			// Filtered to not throw an error
+			if useVM && strings.Contains(query, "destination") {
+				scopes.Framework.Infof("Filtered VM queries reported by destination '%v'", query)
+				return nil
+			}
 			return fmt.Errorf("expected a metric value for '%s', found no samples: %#v", query, value)
 		}
 	} else {
@@ -225,7 +259,7 @@ func waitForMetrics(t framework.TestContext, instance prometheus.Instance) {
 
 	for _, query := range queries {
 		err := retry.UntilSuccess(func() error {
-			return checkMetric(instance, query, nil)
+			return checkMetric(instance, query, nil, false)
 		})
 		// Do not fail here - this is just to let the metrics sync. We will fail on the test if query fails
 		if err != nil {
@@ -284,7 +318,7 @@ spec:
           number: 7777
 `
 
-func setupDashboardTest(t framework.TestContext) {
+func setupDashboardTest(t framework.TestContext, useVM bool) {
 	ns := namespace.NewOrFail(t, t, namespace.Config{
 		Prefix: "dashboard",
 		Inject: true,
@@ -312,6 +346,7 @@ func setupDashboardTest(t framework.TestContext) {
 					Protocol: protocol.HTTP,
 					// We use a port > 1024 to not require root
 					InstancePort: 8090,
+					ServicePort:  8090,
 				},
 				{
 					Name:         "tcp",
@@ -320,6 +355,7 @@ func setupDashboardTest(t framework.TestContext) {
 					ServicePort:  7777,
 				},
 			},
+			DeployAsVM: useVM,
 		}).
 		BuildOrFail(t)
 
