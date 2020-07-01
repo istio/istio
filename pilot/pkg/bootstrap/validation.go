@@ -65,7 +65,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 
 	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" {
 		var dynamicInterface dynamic.Interface
-		if s.kubeClient == nil || s.kubeConfig == nil {
+		if s.kubeClient == nil || s.kubeRestConfig == nil {
 			iface, err := kube.NewInterfacesFromConfigFile(args.RegistryOptions.KubeConfig)
 			if err != nil {
 				return err
@@ -80,7 +80,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 				return err
 			}
 		} else {
-			dynamicInterface, err = dynamic.NewForConfig(s.kubeConfig)
+			dynamicInterface, err = dynamic.NewForConfig(s.kubeRestConfig)
 			if err != nil {
 				return err
 			}

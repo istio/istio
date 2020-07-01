@@ -82,18 +82,10 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 	return statusCmd
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.Client, error) {
-	config, err := kube.DefaultRestConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-	return kube.NewClientWithRevision(config, revision)
+func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
+	return kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 }
 
-func newKubeClient(kubeconfig, configContext string) (kube.Client, error) {
-	config, err := kube.DefaultRestConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-	return kube.NewClient(config)
+func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {
+	return newKubeClientWithRevision(kubeconfig, configContext, "")
 }

@@ -33,7 +33,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("telemetry_test", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {

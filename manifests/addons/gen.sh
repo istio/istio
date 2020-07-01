@@ -67,14 +67,14 @@ helm3 template prometheus stable/prometheus \
 
   # Set up grafana dashboards. Split into 2 to avoid Kubernetes size limits
   echo -e "\n---\n"
-  kubectl create configmap istio-grafana-dashboards \
+  kubectl create configmap -n istio-system istio-grafana-dashboards \
     --dry-run=client -oyaml \
     --from-file=pilot-dashboard.json="${DASHBOARDS}/pilot-dashboard.json" \
     --from-file=mixer-dashboard.json="${DASHBOARDS}/mixer-dashboard.json" \
     --from-file=istio-performance-dashboard.json="${DASHBOARDS}/istio-performance-dashboard.json"
 
   echo -e "\n---\n"
-  kubectl create configmap istio-services-grafana-dashboards \
+  kubectl create configmap -n istio-system istio-services-grafana-dashboards \
     --dry-run=client -oyaml \
     --from-file=istio-workload-dashboard.json="${DASHBOARDS}/istio-workload-dashboard.json" \
     --from-file=istio-service-dashboard.json="${DASHBOARDS}/istio-service-dashboard.json" \

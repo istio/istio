@@ -26,7 +26,7 @@ func (w *Wrapper) GetSecretConfigDump() (*adminapi.SecretsConfigDump, error) {
 		return nil, err
 	}
 	secretDump := &adminapi.SecretsConfigDump{}
-	err = ptypes.UnmarshalAny(&secretDumpAny, secretDump)
+	err = ptypes.UnmarshalAny(secretDumpAny, secretDump)
 	if err != nil {
 		return nil, err
 	}

@@ -16,6 +16,7 @@ package utils
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -27,9 +28,15 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
-	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/spiffe"
+)
+
+const (
+	expMixerSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account"
+	expPilotSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
 )
 
 func TestBuildInboundFilterChain(t *testing.T) {
@@ -277,5 +284,21 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				t.Logf("got:\n%v\n", got[0].TLSContext.CommonTlsContext.TlsCertificateSdsSecretConfigs[0])
 			}
 		})
+	}
+}
+
+func TestGetMixerSAN(t *testing.T) {
+	spiffe.SetTrustDomain("cluster.local")
+	mixerSANs := GetSAN("istio-system", MixerSvcAccName)
+	if strings.Compare(mixerSANs, expMixerSAN) != 0 {
+		t.Errorf("GetMixerSAN() => expected %#v but got %#v", expMixerSAN, mixerSANs[0])
+	}
+}
+
+func TestGetPilotSAN(t *testing.T) {
+	spiffe.SetTrustDomain("cluster.local")
+	pilotSANs := GetSAN("istio-system", PilotSvcAccName)
+	if strings.Compare(pilotSANs, expPilotSAN) != 0 {
+		t.Errorf("GetPilotSAN() => expected %#v but got %#v", expPilotSAN, pilotSANs[0])
 	}
 }

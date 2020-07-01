@@ -15,60 +15,48 @@
 package vm
 
 import (
+	"fmt"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/label"
+
+	"istio.io/istio/pkg/test/framework/components/namespace"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-var p pilot.Instance
-var ns namespace.Instance
+// Test wrapper for the VM OS version test. This test will run in pre-submit
+// to avoid building and testing all OS images
+func TestVmOS(t *testing.T) {
+	vmImages := []string{DefaultVMImage}
+	VMTestBody(t, vmImages)
+}
 
-// This tests VM mesh expansion. Rather than deal with the infra to get a real VM, we will use a pod
-// with no Service, no DNS, no service account, etc to simulate a VM.
-func TestMain(m *testing.M) {
+// Post-submit test wrapper to test against all OS images. These images will be build
+// in post-submit to reduce the runtime of prow/lib.sh
+func TestVmOSPost(t *testing.T) {
+	vmImages := GetSupportedOSVersion()
+	VMTestBody(t, vmImages, label.Postsubmit)
+}
+
+func VMTestBody(t *testing.T, vmImages []string, label ...label.Instance) {
 	framework.
-		NewSuite("vm_test", m).
-		RequireSingleCluster().
-		Setup(func(ctx resource.Context) error {
-			var err error
-			ns, err = namespace.New(ctx, namespace.Config{
+		NewTest(t).
+		Features("traffic.reachability").
+		Label(label...).
+		Run(func(ctx framework.TestContext) {
+			ns = namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "virtual-machine",
 				Inject: true,
 			})
-			return err
-		}).
-		Setup(istio.Setup(nil, func(cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-values:
-  global:
-    meshExpansion:
-      enabled: true`
-		})).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
-		Run()
-}
-
-func TestVmTraffic(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(ctx framework.TestContext) {
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.
-			ctx.ApplyConfigOrFail(ctx, ns.Name(), `
+			ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), `
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -96,15 +84,10 @@ spec:
 					ServicePort:  8090,
 				},
 			}
-			var pod, vm echo.Instance
+
+			var pod echo.Instance
+			// builder to build the instances iteratively
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&vm, echo.Config{
-					Service:    "vm",
-					Namespace:  ns,
-					Ports:      ports,
-					Pilot:      p,
-					DeployAsVM: true,
-				}).
 				With(&pod, echo.Config{
 					Service:   "pod",
 					Namespace: ns,
@@ -113,21 +96,37 @@ spec:
 				}).
 				BuildOrFail(t)
 
-			// Check pod -> VM
-			retry.UntilSuccessOrFail(ctx, func() error {
-				r, err := pod.Call(echo.CallOptions{Target: vm, PortName: "http"})
-				if err != nil {
-					return err
-				}
-				return r.CheckOK()
-			}, retry.Delay(100*time.Millisecond))
-			// Check VM -> pod
-			retry.UntilSuccessOrFail(ctx, func() error {
-				r, err := vm.Call(echo.CallOptions{Target: pod, PortName: "http"})
-				if err != nil {
-					return err
-				}
-				return r.CheckOK()
-			}, retry.Delay(100*time.Millisecond))
+			// build the VM instances in the array
+			for i, vmImage := range vmImages {
+				var vm echo.Instance
+				echoboot.NewBuilderOrFail(t, ctx).
+					With(&vm, echo.Config{
+						Service:    fmt.Sprintf("vm-%v", i),
+						Namespace:  ns,
+						Ports:      ports,
+						Pilot:      p,
+						DeployAsVM: true,
+						VMImage:    vmImage,
+					}).
+					BuildOrFail(t)
+
+				t.Logf("Testing %v", vmImages[i])
+				// Check pod -> VM
+				retry.UntilSuccessOrFail(ctx, func() error {
+					r, err := pod.Call(echo.CallOptions{Target: vm, PortName: "http"})
+					if err != nil {
+						return err
+					}
+					return r.CheckOK()
+				}, retry.Delay(100*time.Millisecond))
+				// Check VM -> pod
+				retry.UntilSuccessOrFail(ctx, func() error {
+					r, err := vm.Call(echo.CallOptions{Target: pod, PortName: "http"})
+					if err != nil {
+						return err
+					}
+					return r.CheckOK()
+				}, retry.Delay(100*time.Millisecond))
+			}
 		})
 }

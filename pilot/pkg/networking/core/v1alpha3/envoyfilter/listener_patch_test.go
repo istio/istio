@@ -22,15 +22,16 @@ import (
 	"testing"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
@@ -38,15 +39,16 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/config/memory"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	istio_proto "istio.io/istio/pkg/proto"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -59,26 +61,22 @@ var (
 	}
 )
 
-func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
-	return &fakes.IstioConfigStore{
-		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-			if kind == collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind() {
-				// to emulate returning multiple envoy filter configs
-				for i, cp := range configPatches {
-					configs = append(configs, model.Config{
-						ConfigMeta: model.ConfigMeta{
-							Name:      fmt.Sprintf("test-envoyfilter-%d", i),
-							Namespace: "not-default",
-						},
-						Spec: &networking.EnvoyFilter{
-							ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
-						},
-					})
-				}
-			}
-			return
-		},
+func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.IstioConfigStore {
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+
+	for i, cp := range configPatches {
+		store.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name:             fmt.Sprintf("test-envoyfilter-%d", i),
+				Namespace:        "not-default",
+				GroupVersionKind: gvk.EnvoyFilter,
+			},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
+			},
+		})
 	}
+	return store
 }
 
 func buildPatchStruct(config string) *types.Struct {
@@ -641,8 +639,9 @@ func TestApplyListenerPatches(t *testing.T) {
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									XffNumTrustedHops: 4,
-									MergeSlashes:      true,
+									XffNumTrustedHops:            4,
+									MergeSlashes:                 true,
+									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
@@ -839,8 +838,9 @@ func TestApplyListenerPatches(t *testing.T) {
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									XffNumTrustedHops: 4,
-									MergeSlashes:      true,
+									XffNumTrustedHops:            4,
+									MergeSlashes:                 true,
+									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
@@ -881,7 +881,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 	}
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
@@ -958,7 +958,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ApplyListenerPatches(tt.args.patchContext, tt.args.proxy, tt.args.push,
 				tt.args.listeners, tt.args.skipAdds)
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})
@@ -987,8 +987,9 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 						Name: wellknown.HTTPConnectionManager,
 						ConfigType: &listener.Filter_TypedConfig{
 							TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-								XffNumTrustedHops: 4,
-								MergeSlashes:      true,
+								XffNumTrustedHops:            4,
+								MergeSlashes:                 true,
+								AlwaysSetRequestIdInResponse: true,
 								HttpFilters: []*http_conn.HttpFilter{
 									{Name: "http-filter3"},
 									{Name: wellknown.Router},
@@ -1037,7 +1038,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 			},
 		},
 	}
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
