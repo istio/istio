@@ -131,7 +131,8 @@ func TestReachability(t *testing.T) {
 							return false
 						}
 
-						// Exclude calls from naked->VM.
+						// Exclude calls from naked->VM since VM is not injected with sidecar
+						// The call from naked will timeout
 						if src == rctx.Naked && opts.Target == rctx.VM {
 							return false
 						}
