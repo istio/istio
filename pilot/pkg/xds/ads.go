@@ -161,9 +161,6 @@ func isExpectedGRPCError(err error) bool {
 func receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
-		con.mu.RLock()
-		cid := con.ConID
-		con.mu.RUnlock()
 		req, err := con.stream.Recv()
 		con.mu.RLock()
 		cid := con.ConID

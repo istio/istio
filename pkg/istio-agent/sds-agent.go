@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/constants"
 
 	"istio.io/istio/pilot/pkg/security/model"
@@ -206,7 +206,7 @@ type Agent struct {
 	localListener   net.Listener
 	localGrpcServer *grpc.Server
 
-	xdsServer *xds.Server
+	xdsServer *xds.SimpleServer
 
 	cfg *AgentConfig
 }

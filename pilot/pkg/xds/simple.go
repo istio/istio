@@ -50,7 +50,7 @@ type SimpleServer struct {
 	// DiscoveryServer is the gRPC XDS implementation
 	// Env and MemRegistry are available as fields, as well as the default
 	// PushContext.
-	DiscoveryServer *v2.DiscoveryServer
+	DiscoveryServer *DiscoveryServer
 
 	// MemoryStore is an in-memory config store, part of the aggregate store
 	// used by the discovery server.
@@ -165,7 +165,7 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 // Responses are forwarded back on the connection that they are received.
 type ProxyGen struct {
 	adsc   *adsc.ADSC
-	server *Server
+	server *SimpleServer
 }
 
 // HandleResponse will dispatch a response from a federated
@@ -176,7 +176,7 @@ func (p *ProxyGen) HandleResponse(con *adsc.ADSC, res *discovery.DiscoveryRespon
 	p.server.DiscoveryServer.PushAll(res)
 }
 
-func (s *Server) NewProxy() *ProxyGen {
+func (s *SimpleServer) NewProxy() *ProxyGen {
 	return &ProxyGen{
 		server: s,
 	}

@@ -24,13 +24,13 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	envoyv2 "istio.io/istio/pilot/pkg/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -79,7 +79,7 @@ func (sa *Agent) initXDS() {
 	g := s.DiscoveryServer.Generators
 	// To allow gRPC clients to connect to localhost, avoiding TLS complexity
 	g["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &envoyv2.EdsGenerator{Server: s.DiscoveryServer}
+	epGen := &EdsGenerator{Server: s.DiscoveryServer}
 	g["grpc/"+envoyv2.EndpointType] = epGen
 	g["api"] = &apigen.APIGenerator{}
 	g["api/"+envoyv2.EndpointType] = epGen
