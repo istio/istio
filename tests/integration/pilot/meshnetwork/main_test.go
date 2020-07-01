@@ -133,10 +133,9 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 			})
 
 			// First setup the VM service and its endpoints
-			for _, cp := range ctx.Environment().ControlPlaneClusters() {
-				if err := ctx.Config(cp).ApplyYAML(ns.Name(), VMService); err != nil {
-					t.Fatal(err)
-				}
+			if err := ctx.Config(ctx.Environment().ControlPlaneClusters()...).
+				ApplyYAML(ns.Name(), VMService); err != nil {
+				t.Fatal(err)
 			}
 
 			// Now setup a K8S service in each cluster
