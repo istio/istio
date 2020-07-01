@@ -261,8 +261,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 	}
-
-	// Only operates if /var/lib/istio/validation exists
 	if err := s.initConfigValidation(args); err != nil {
 		return nil, fmt.Errorf("error initializing config validator: %v", err)
 	}
