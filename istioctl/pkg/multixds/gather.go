@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/xds"
@@ -29,7 +29,7 @@ import (
 
 // RequestAndProcessXds merges XDS responses from 1 central or 1..N local XDS servers
 // nolint: lll
-func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.Client) (*xdsapi.DiscoveryResponse, error) {
+func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (*xdsapi.DiscoveryResponse, error) {
 
 	// If Central Istiod case, just call it
 	if centralOpts.Xds != "" {
@@ -45,8 +45,8 @@ func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.C
 }
 
 // nolint: lll
-func queryEachShard(dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.Client, centralOpts *clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
-	labelSelector := centralOpts.XdsLabel
+func queryEachShard(dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.ExtendedClient, centralOpts *clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
+	labelSelector := centralOpts.XdsPodLabel
 	if labelSelector == "" {
 		labelSelector = "istio=pilot"
 	}
@@ -63,8 +63,7 @@ func queryEachShard(dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClie
 
 	responses := []*xdsapi.DiscoveryResponse{}
 	for _, pod := range pods {
-		// TODO Use 15012
-		fw, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "localhost", 0, 15010)
+		fw, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "localhost", 0, centralOpts.XdsPodPort)
 		if err != nil {
 			return nil, err
 		}

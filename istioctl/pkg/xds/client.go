@@ -19,7 +19,7 @@ package xds
 import (
 	"fmt"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pilot/pkg/model"

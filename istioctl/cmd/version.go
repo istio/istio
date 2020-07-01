@@ -20,9 +20,8 @@ import (
 	"fmt"
 	"os"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/spf13/cobra"
@@ -149,6 +148,25 @@ func xdsVersionCommand() *cobra.Command {
 		}
 		return nil
 	}
+	versionCmd.Example = `# Retrieve version information directly from XDS, without security
+istioctl x version --xds-address localhost:15012
+
+# Retrieve version information directly from XDS, with security
+# (the certificates must be retrieved before this step)
+istioctl x version --xds-address localhost:15010 --cert-dir ~/.istio-certs
+
+# Retrieve version information via XDS from all Istio pods in a Kubernetes cluster
+# (without security)
+istioctl x version --xds-port 15010
+
+# Retrieve version information via XDS from all Istio pods in a Kubernetes cluster
+# (the certificates must be retrieved before this step)
+istioctl x version --cert-dir ~/.istio-certs
+
+# Retrieve version information via XDS from default control plane Istio pods
+# in a Kubernetes cluster, without security
+istioctl x version --xds-label istio.io/rev=default --xds-port 15010
+`
 
 	versionCmd.Flags().VisitAll(func(flag *pflag.Flag) {
 		if flag.Name == "short" {
@@ -173,7 +191,7 @@ func xdsVersionCommand() *cobra.Command {
 func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **xdsapi.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		xdsRequest := xdsapi.DiscoveryRequest{
-			Node: &envoy_corev2.Node{
+			Node: &envoy_corev3.Node{
 				Id: "sidecar~0.0.0.0~debug~cluster.local",
 			},
 			TypeUrl: "istio.io/connections",
