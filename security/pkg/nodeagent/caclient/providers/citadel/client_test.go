@@ -65,8 +65,6 @@ func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCerti
 	fmt.Printf("%+v\n",peer)
 	fmt.Printf("nnnnnnnnnnnnnnnnn\n")
 	fmt.Printf("%+v\n",peer.AuthInfo)
-	fmt.Printf("ssssssssmmmm\n")
-	fmt.Printf("%+v\n",peer.AuthInfo.AuthType())
 	if ca.Err == nil {
 		return &pb.IstioCertificateResponse{CertChain: ca.Certs}, nil
 	}
