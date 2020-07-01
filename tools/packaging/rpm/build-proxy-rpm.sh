@@ -17,7 +17,7 @@
 #set -x
 
 # We rely on the following ENV variables:
-# ISTIO_ENVOY_VERSION
+# ISTIO_SIDECAR_VERSION
 # ISTIO_OUT
 # ISTIO_GO
 # USER_ID
@@ -38,7 +38,7 @@ source /opt/rh/devtoolset-7/enable
 cd /builder || exit 1
 git clone  https://github.com/istio/proxy.git istio-proxy
 cd istio-proxy || exit 1
-git checkout "${ISTIO_ENVOY_VERSION}"
+git checkout "${ISTIO_SIDECAR_VERSION}"
 
 cat "${RPM_DIR}/bazelrc" >> .bazelrc
 BUILD_SCM_REVISION=$(date +%s)
