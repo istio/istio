@@ -418,7 +418,8 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
-func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, version string, edsUpdatedServices map[string]struct{}, updatedClusters map[string]struct{}) error {
+func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, version string,
+	edsUpdatedServices map[string]struct{}, updatedClusters map[string]struct{}) error {
 	pushStart := time.Now()
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	endpoints := 0
@@ -428,6 +429,9 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range con.Clusters {
 		if updatedClusters != nil {
+			// If a cluster is in this map, we will skip it. This occurs when doing an incremental update.
+			// Generally edsUpdatedServices will be set for incremental push, and updatedClusters set for
+			// incremental request.
 			if _, f := updatedClusters[clusterName]; !f {
 				continue
 			}
