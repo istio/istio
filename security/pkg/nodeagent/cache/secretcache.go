@@ -259,10 +259,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	}
 
 	logPrefix := cacheLogPrefix(resourceName)
-	cacheLog.Infof("kkkkkkkkkkkkkkkmmmmmmmmmmmm")
-	cacheLog.Infof("%+v",sc.configOptions.RotationInterval.Seconds())
-	sc.configOptions.RotationInterval = time.Duration(10)
-	cacheLog.Infof("%+v",sc.configOptions.RotationInterval.Seconds())
 
 	// When there are existing root certificates, or private key and certificate under
 	// a well known path, they are used in the SDS response.
@@ -485,6 +481,10 @@ func (sc *SecretCache) Close() {
 
 func (sc *SecretCache) keyCertRotationJob() {
 	// Wake up once in a while and rotate keys and certificates if in grace period.
+	cacheLog.Infof("kkkkkkkkkkkkkkkmmmmmmmmmmmm")
+	cacheLog.Infof("%+v",sc.configOptions.RotationInterval.Seconds())
+	sc.configOptions.RotationInterval = time.Duration(15)
+	cacheLog.Infof("%+v",sc.configOptions.RotationInterval.Seconds())
 	sc.rotationTicker = time.NewTicker(sc.configOptions.RotationInterval)
 	for {
 		select {
