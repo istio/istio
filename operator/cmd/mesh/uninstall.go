@@ -59,9 +59,8 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 	uicmd := &cobra.Command{
 		Use:   "uninstall --revision foo",
 		Short: "uninstall the control plane by revision",
-		Long:  "The uninstall command uninstall the control plane by revision and" +
-			" issue possible warning if there are proxies still pointing to it.",
-		Args: cobra.ExactArgs(0),
+		Long:  "The uninstall command uninstall the control plane by revision and",
+		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return uninstallRev(cmd, rootArgs, uiArgs, logOpts)
 		}}
@@ -76,8 +75,9 @@ func uninstallRev(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs,
 		return err
 	}
 	if len(pids) != 0 && !rootArgs.dryRun && !uiArgs.skipConfirmation {
-		if !confirm(fmt.Sprintf("There are still proxies pointing to the control plane revision: %s:\n%s."+
-			" You can choose to proceed or upgrade the data plane then retry. Proceed? (y/N)",
+		if !confirm(fmt.Sprintf("There are still proxies pointing to the control plane revision %s:\n%s."+
+			" If you proceed with the uninstall, these proxies will become detached from any control plane"+
+			" and will not function correctly.. Proceed? (y/N)",
 			uiArgs.revision, strings.Join(pids, " \n")), cmd.OutOrStdout()) {
 			cmd.Print("Cancelled.\n")
 			os.Exit(1)
@@ -105,7 +105,6 @@ func pruneManifests(revision string, dryRun bool, kubeConfigPath string, context
 	if err != nil {
 		return err
 	}
-
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, ProgressLog: progress.NewLog()}
 	h, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, opts)

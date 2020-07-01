@@ -71,10 +71,10 @@ var (
 		// {Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
 	}
 
-	nonNamespacedCPResources = []schema.GroupVersionKind{
+	NonNamespacedCPResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
 	}
-	namespacedCPResources = []schema.GroupVersionKind{
+	NamespacedCPResources = []schema.GroupVersionKind{
 		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
 		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
 		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
@@ -136,7 +136,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevision(revision string) error {
 		operatorLabelStr: operatorReconcileStr,
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	for _, gvk := range append(namespacedCPResources, nonNamespacedCPResources...) {
+	for _, gvk := range append(NamespacedCPResources, NonNamespacedCPResources...) {
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
 		componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)

@@ -63,6 +63,8 @@ features:
   extensibility:
   # features releated to the lifecycle of istio installations
   installation:
+    istioctl:
+      uninstall:
     multicluster:
       central-istiod:
       multimaster:
