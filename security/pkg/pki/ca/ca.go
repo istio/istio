@@ -275,15 +275,21 @@ type IstioCA struct {
 // NewIstioCA returns a new IstioCA instance.
 func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
-		defaultCertTTL: opts.DefaultCertTTL,
-		maxCertTTL:     opts.MaxCertTTL,
-		keyCertBundle:  opts.KeyCertBundle,
-		livenessProbe:  probe.NewProbe(),
+		maxCertTTL:    opts.MaxCertTTL,
+		keyCertBundle: opts.KeyCertBundle,
+		livenessProbe: probe.NewProbe(),
 	}
 
 	if opts.CAType == selfSignedCA && opts.RotatorConfig.CheckInterval > time.Duration(0) {
 		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
 	}
+
+	certTTL, err := util.TimeBeforeNextRotate(ca.keyCertBundle.GetCertChainPem(), ca.defaultCertTTL, time.Now())
+	if err != nil {
+		return ca, fmt.Errorf("failed to find time before next rotate %s", err.Error())
+	}
+	ca.defaultCertTTL = certTTL
+
 	return ca, nil
 }
 

@@ -15,6 +15,7 @@
 package util
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -480,6 +481,100 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 			sec := expiryTimestamp - float64(tc.time.Unix())
 			if sec != tc.ttl {
 				t.Fatalf("expected ttl %v, got %v", tc.ttl, sec)
+			}
+		})
+	}
+}
+
+func TestTimeBeforeNextRotate(t *testing.T) {
+	t0 := time.Now()
+	caCertTTL := time.Second * 60
+	rootCertBytes, rootKeyBytes, err := GenCertKeyFromOptions(CertOptions{
+		Host:         "citadel.testing.istio.io",
+		Org:          "MyOrg",
+		NotBefore:    t0,
+		IsCA:         true,
+		IsSelfSigned: true,
+		TTL:          time.Hour,
+		RSAKeySize:   2048,
+	})
+	if err != nil {
+		t.Errorf("failed to gen root cert for Citadel self signed cert %v", err)
+	}
+
+	rootCert, err := ParsePemEncodedCertificate(rootCertBytes)
+	if err != nil {
+		t.Errorf("failed to parsing pem for root cert %v", err)
+	}
+
+	rootKey, err := ParsePemEncodedKey(rootKeyBytes)
+	if err != nil {
+		t.Errorf("failed to parsing pem for root key cert %v", err)
+	}
+
+	caCertBytes, _, err := GenCertKeyFromOptions(CertOptions{
+		Host:         "citadel.testing.istio.io",
+		Org:          "MyOrg",
+		NotBefore:    t0,
+		TTL:          time.Second * 60,
+		IsServer:     true,
+		IsCA:         true,
+		IsSelfSigned: false,
+		RSAKeySize:   2048,
+		SignerCert:   rootCert,
+		SignerPriv:   rootKey,
+	})
+	if err != nil {
+		t.Fatalf("failed to gen CA cert for Citadel self signed cert %v", err)
+	}
+
+	testCases := []struct {
+		name         string
+		cert         []byte
+		workloadTTL  time.Duration
+		expectedTime time.Duration
+		expectedErr  error
+	}{
+		{
+			name:         "workload TTL higher than cert TTL, so it should return cert TTL",
+			cert:         caCertBytes,
+			workloadTTL:  120 * time.Second,
+			expectedTime: caCertTTL,
+		},
+		{
+			name:         "workload TTL lower than cert TTL, so it should return workload TTL",
+			cert:         caCertBytes,
+			workloadTTL:  10 * time.Second,
+			expectedTime: 10 * time.Second,
+		},
+		{
+			name:         "no cert, so it should return workload TTL",
+			cert:         nil,
+			workloadTTL:  10 * time.Second,
+			expectedTime: 10 * time.Second,
+		},
+		{
+			name:         "invalid cert",
+			cert:         []byte("invalid cert"),
+			workloadTTL:  10 * time.Second,
+			expectedTime: 10 * time.Second,
+			expectedErr:  fmt.Errorf("failed to extract cert expiration timestamp: failed to parse the cert: invalid PEM encoded certificate"),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			time, err := TimeBeforeNextRotate(tc.cert, tc.workloadTTL, t0)
+			if err != nil {
+				if tc.expectedErr == nil {
+					t.Fatalf("Unexpected error: %v", err)
+				} else if strings.Compare(err.Error(), tc.expectedErr.Error()) != 0 {
+					t.Errorf("expected error: %v got %v", err, tc.expectedErr)
+				}
+				return
+			}
+
+			if time != tc.expectedTime {
+				t.Fatalf("expected time %v, got %v", tc.expectedTime, time)
 			}
 		})
 	}

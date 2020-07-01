@@ -233,6 +233,24 @@ func (b *KeyCertBundleImpl) ExtractCACertExpiryTimestamp() (float64, error) {
 	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
 }
 
+// TimeBeforeNextRotate returns time duration to the next cert rotation
+func TimeBeforeNextRotate(certBytes []byte, workloadTTL time.Duration, now time.Time) (time.Duration, error) {
+	if len(certBytes) == 0 {
+		return workloadTTL, nil
+	}
+
+	certExpiryTimestamp, err := extractCertExpiryTimestamp("cert", certBytes)
+	if err != nil {
+		return 0, fmt.Errorf("failed to extract cert expiration timestamp: %v", err)
+	}
+
+	certExpirySeconds := certExpiryTimestamp - float64(now.Unix())
+	if workloadTTL.Seconds() > certExpirySeconds {
+		return time.Duration(certExpirySeconds) * time.Second, nil
+	}
+	return workloadTTL, nil
+}
+
 // Verify that the cert chain, root cert and key/cert match.
 func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
 	// Verify the cert can be verified from the root cert through the cert chain.
