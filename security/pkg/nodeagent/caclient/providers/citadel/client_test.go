@@ -154,11 +154,11 @@ func TestE2EClient(t *testing.T) {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		ctx, err := buildContext()
-		if err != nil {
-			t.Errorf("Test case [%s]: failed to create to create context: %v", id, err)
-		}
-		resp, err := cli.CSRSign(ctx, "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
+		//ctx, err := buildContext()
+		//if err != nil {
+		//	t.Errorf("Test case [%s]: failed to create to create context: %v", id, err)
+		//}
+		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
 		if err != nil {
 				t.Logf("%+v", resp)
 				t.Errorf("Test case [%s]: error (%s) happens ", id, err.Error())
