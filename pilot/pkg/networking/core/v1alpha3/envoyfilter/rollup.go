@@ -1,15 +1,11 @@
 package envoyfilter
 
 import (
-	"encoding/hex"
 	"fmt"
-	"github.com/deepmind/objecthash-proto"
 	"github.com/golang/protobuf/proto"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
-
-var hasher = protohash.NewHasher()
 
 func newRollupPatch(cp *model.EnvoyFilterConfigPatchWrapper) *model.EnvoyFilterConfigPatchWrapper {
 	return &model.EnvoyFilterConfigPatchWrapper{
@@ -125,10 +121,10 @@ func matcherHash(cp *model.EnvoyFilterConfigPatchWrapper) (string, error) {
 		return "", fmt.Errorf("empty matcher for patch")
 	}
 
-	hash, err := hasher.HashProto(objectMatcher)
+	hash, err := proto.Marshal(objectMatcher)
 	if err != nil {
 		return "", err
 	}
 
-	return hex.EncodeToString(hash), nil
+	return string(hash), nil
 }
