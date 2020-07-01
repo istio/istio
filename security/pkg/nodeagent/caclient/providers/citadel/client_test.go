@@ -287,7 +287,8 @@ func TestCitadelClient(t *testing.T) {
 		if err != nil {
 			t.Errorf("ssss failed to generate key and certificate for CSR: %v", err)
 		}
-
+		fmt.Printf("gggggggggggg\n")
+		fmt.Printf("%+v\n",csrPEM)
 		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", csrPEM, fakeToken, 1)
 		if err != nil {
 			if err.Error() != tc.expectedErr {
