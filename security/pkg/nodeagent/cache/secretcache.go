@@ -862,6 +862,10 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	return sdsFromFile, nil, nil
 }
 
+//func (sc *SecretCache) generateSecretWithoutTokenBy(ctx context.Context, connKey ConnKey, t time.Time) (*model.SecretItem, error)  {
+//
+//}
+
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
@@ -889,11 +893,11 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 			" resource name: %s", logPrefix, err, connKey.ResourceName)
 		csrHostName = connKey.ResourceName
 	}
-	fmt.Printf("llllllllllllll========\n")
-	fmt.Printf("%+v\n",csrHostName)
-	fmt.Printf("%+v\n",keySize)
-	fmt.Printf("%+v\n",sc.configOptions.Pkcs8Keys)
-	fmt.Printf("%+v\n",pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg))
+	//fmt.Printf("llllllllllllll========\n")
+	//fmt.Printf("%+v\n",csrHostName)
+	//fmt.Printf("%+v\n",keySize)
+	//fmt.Printf("%+v\n",sc.configOptions.Pkcs8Keys)
+	//fmt.Printf("%+v\n",pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg))
 	options := pkiutil.CertOptions{
 		Host:       csrHostName,
 		RSAKeySize: keySize,
@@ -910,9 +914,9 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 
 	numOutgoingRequests.With(RequestType.Value(CSR)).Increment()
 	timeBeforeCSR := time.Now()
-	fmt.Printf("mmmmmmmmmmm\n")
-	fmt.Printf("%+v\n",connKey)
-	fmt.Printf("%+v\n",exchangedToken)
+	//fmt.Printf("mmmmmmmmmmm\n")
+	//fmt.Printf("%+v\n",connKey)
+	//fmt.Printf("%+v\n",exchangedToken)
 	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, connKey, true)
 	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
 	outgoingLatency.With(RequestType.Value(CSR)).Record(csrLatency)
@@ -974,7 +978,7 @@ func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
 	sc.configOptions.SecretRotationGracePeriodRatio = 0.99
 	gracePeriod := time.Duration(sc.configOptions.SecretRotationGracePeriodRatio * float64(secretLifeTime))
-	rotate := time.Now().After(secret.ExpireTime.Add(-gracePeriod))
+	rotate := time.Now().After(secret.CreatedTime.Add(time.Duration(30)))
 	cacheLog.Infof("gggggggkkkkjjjjjjjjssss")
 	cacheLog.Infof("Ratio:%s, secretLifeTime: %s, secret.CreatedTime: %s",sc.configOptions.SecretRotationGracePeriodRatio, secretLifeTime, secret.CreatedTime)
 	cacheLog.Infof("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
