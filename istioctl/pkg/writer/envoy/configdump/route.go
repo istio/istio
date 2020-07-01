@@ -25,7 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // RouteFilter is used to pass filter information into route based config writer print functions

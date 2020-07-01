@@ -51,11 +51,9 @@ var (
 	istioStaticWorkspace = []model.Config{
 		{
 			ConfigMeta: model.ConfigMeta{
-				Name:      "workload",
-				Namespace: "NS",
-				Type:      collections.IstioNetworkingV1Alpha3Workloadentries.Resource().Kind(),
-				Group:     collections.IstioNetworkingV1Alpha3Workloadentries.Resource().Group(),
-				Version:   collections.IstioNetworkingV1Alpha3Workloadentries.Resource().Version(),
+				Name:             "workload",
+				Namespace:        "NS",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind(),
 			},
 			Spec: &networking.WorkloadEntry{
 				Address:        "127.0.0.1",
@@ -228,7 +226,8 @@ func verifyVMCommandCaseOutput(t *testing.T, c vmBootstrapTestcase) {
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
-	rootCmd.SetOutput(&out)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
 
 	fErr := rootCmd.Execute()
 	output := out.String()

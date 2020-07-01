@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -611,10 +612,10 @@ var (
 
 	virtualServices1 = []Config{
 		{
-			ConfigMeta: ConfigMeta{Type: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-				Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-				Name:      "virtualbar",
-				Namespace: "foo",
+			ConfigMeta: ConfigMeta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "virtualbar",
+				Namespace:        "foo",
 			},
 			Spec: &networking.VirtualService{
 				Hosts: []string{"virtualbar"},
@@ -1211,9 +1212,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 
 	allContains := func(ns string, contains bool) map[ConfigKey]bool {
 		return map[ConfigKey]bool{
-			{ServiceEntryKind, svcName, ns}:   contains,
-			{VirtualServiceKind, vsName, ns}:  contains,
-			{DestinationRuleKind, drName, ns}: contains,
+			{gvk.ServiceEntry, svcName, ns}:   contains,
+			{gvk.VirtualService, vsName, ns}:  contains,
+			{gvk.DestinationRule, drName, ns}: contains,
 		}
 	}
 

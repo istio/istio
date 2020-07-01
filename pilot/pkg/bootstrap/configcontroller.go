@@ -24,7 +24,9 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/status"
+	kubecfg "istio.io/istio/pkg/kube"
 
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
@@ -36,7 +38,6 @@ import (
 
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
@@ -45,7 +46,6 @@ import (
 	"istio.io/pkg/log"
 
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
-	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
@@ -111,18 +111,24 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if hasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
 		s.ConfigStores = append(s.ConfigStores,
-			ingress.NewController(s.kubeClient, meshConfig, args.RegistryOptions.KubeOptions))
+			ingress.NewController(s.kubeClients, s.environment.Watcher, args.RegistryOptions.KubeOptions))
 
-		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClient, args.RegistryOptions.KubeOptions)
+		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClients)
 		if err != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", err)
 		} else {
 			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 				leaderelection.
-					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient).
-					AddRunFunction(func(stop <-chan struct{}) {
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClients.Kube()).
+					AddRunFunction(func(leaderStop <-chan struct{}) {
+						// Start informers again. This fixes the case where informers for namespace do not start,
+						// as we create them only after acquiring the leader lock
+						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+						// basically lazy loading the informer, if we stop it when we lose the lock we will never
+						// recreate it again.
+						s.kubeClients.RunAndWait(stop)
 						log.Infof("Starting ingress controller")
-						ingressSyncer.Run(stop)
+						ingressSyncer.Run(leaderStop)
 					}).
 					Run(stop)
 				return nil
@@ -178,7 +184,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 				if srcAddress.Path == "" {
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.RegistryOptions))
+				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.RegistryOptions), false)
 				configController := memory.NewController(store)
 
 				err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
@@ -339,7 +345,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 					controller := &status.DistributionController{
 						QPS:   float32(features.StatusQPS),
 						Burst: features.StatusBurst}
-					controller.Start(s.kubeConfig, args.Namespace, stop)
+					controller.Start(s.kubeRestConfig, args.Namespace, stop)
 				}).Run(stop)
 			return nil
 		})
@@ -388,13 +394,16 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 			return nil, err
 		}
 	}
-	configClient, err := controller.NewClient(args.RegistryOptions.KubeConfig, "", schemas.Build(),
-		args.RegistryOptions.KubeOptions.DomainSuffix, buildLedger(args.RegistryOptions), args.Revision)
+	// TODO use schemas
+	cfg, err := kubecfg.BuildClientConfig(args.RegistryOptions.KubeConfig, "")
 	if err != nil {
-		return nil, multierror.Prefix(err, "failed to open a config client.")
+		return nil, err
 	}
-
-	return controller.NewController(configClient, args.RegistryOptions.KubeOptions), nil
+	c, err := crdclient.NewForConfig(cfg, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {

@@ -43,11 +43,11 @@ func TestIstioAccessLog(t *testing.T) {
 			_, ing := setupComponentsOrFail(t)
 
 			ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-			ctx.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
 				ns.Name(),
 				bookinfo.TelemetryLogEntry.LoadOrFail(t))
-			defer ctx.DeleteConfigOrFail(
+			defer ctx.Config().DeleteYAMLOrFail(
 				t,
 				ns.Name(),
 				bookinfo.TelemetryLogEntry.LoadOrFail(t))
@@ -66,7 +66,7 @@ func TestIstioAccessLog(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mixer_telemetry_logs", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
@@ -111,7 +111,7 @@ func testsetup(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
-	err = ctx.ApplyConfig(bookinfoNs.Name(), bookinfoGateWayConfig)
+	err = ctx.Config().ApplyYAML(bookinfoNs.Name(), bookinfoGateWayConfig)
 	if err != nil {
 		return err
 	}

@@ -135,8 +135,8 @@ spec:
 type TestCase struct {
 	Name     string
 	PortName string
+	HTTP2    bool
 	Host     string
-	Gateway  bool
 	Expected Expected
 }
 
@@ -147,6 +147,9 @@ type Expected struct {
 	Metric          string
 	PromQueryFormat string
 	ResponseCode    []string
+	// Metadata includes headers and additional injected information such as Method, Proto, etc.
+	// The test will validate the returned metadata includes all options specified here
+	Metadata map[string]string
 }
 
 // TrafficPolicy is the mode of the outbound traffic policy to use
@@ -175,7 +178,7 @@ func createSidecarScope(t *testing.T, ctx resource.Context, tPolicy TrafficPolic
 	if err := tmpl.Execute(&buf, map[string]string{"ImportNamespace": serviceNamespace.Name(), "TrafficPolicyMode": tPolicy.String()}); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := ctx.ApplyConfig(appsNamespace.Name(), buf.String()); err != nil {
+	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 }
@@ -200,7 +203,7 @@ func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.I
 	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.ApplyConfig(serviceNamespace.Name(), buf.String()); err != nil {
+	if err := ctx.Config().ApplyYAML(serviceNamespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
 	}
 }
@@ -256,9 +259,6 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 
 			for _, tc := range cases {
 				t.Run(tc.Name, func(t *testing.T) {
-					if _, kube := ctx.Environment().(*kube.Environment); !kube && tc.Gateway {
-						t.Skip("Cannot run gateway in native environment.")
-					}
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := client.Call(echo.CallOptions{
 							Target:   dest,
@@ -266,6 +266,7 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 							Headers: map[string][]string{
 								"Host": {tc.Host},
 							},
+							HTTP2: tc.HTTP2,
 						})
 
 						// the expected response from a blackhole test case will have err
@@ -283,10 +284,13 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 						}
 
 						for _, r := range resp {
-							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
-								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+							for k, v := range tc.Expected.Metadata {
+								if got := r.RawResponse[k]; got != v {
+									return fmt.Errorf("expected metadata %v=%v, got %q", k, v, got)
+								}
 							}
 						}
+
 						return nil
 					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
 
@@ -321,7 +325,7 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 		With(&dest, echo.Config{
 			Service:   "destination",
 			Namespace: appsNamespace,
-			Subsets:   []echo.SubsetConfig{{}},
+			Subsets:   []echo.SubsetConfig{{Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false)}},
 			Pilot:     p,
 			Ports: []echo.Port{
 				{
@@ -369,7 +373,7 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 
 	// External traffic should work even if we have service entries on the same ports
 	createSidecarScope(t, ctx, mode, appsNamespace, serviceNamespace)
-	if err := ctx.ApplyConfig(serviceNamespace.Name(), ServiceEntry); err != nil {
+	if err := ctx.Config().ApplyYAML(serviceNamespace.Name(), ServiceEntry); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 

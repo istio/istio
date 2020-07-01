@@ -126,7 +126,7 @@ func CheckOutboundConfig(source echo.Instance, target echo.Instance, port echo.P
 			Check()
 	}
 
-	if !target.Config().Headless && source.Config().ClusterIndex() == target.Config().ClusterIndex() {
+	if !target.Config().Headless && source.Config().Cluster.Name() == target.Config().Cluster.Name() {
 		// TCP case: Make sure we have an outbound listener configured.
 		listenerName := listenerName(target.Address(), port)
 		return validator.

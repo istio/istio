@@ -55,6 +55,7 @@ ingressGateways[0].k8s.service.ports[3].targetPort=15443
 ingressGateways[0].k8s.strategy.rollingUpdate.maxSurge="100%"
 ingressGateways[0].k8s.strategy.rollingUpdate.maxUnavailable="25%"
 ingressGateways[0].name="istio-ingressgateway"
+istiodRemote.enabled=false
 pilot.enabled=false
 pilot.k8s.env[0].name="POD_NAME"
 pilot.k8s.env[0].valueFrom.fieldRef.apiVersion="v1"

@@ -22,7 +22,7 @@ import (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("operator_controller", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Run()
 }

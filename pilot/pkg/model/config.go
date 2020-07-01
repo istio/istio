@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -78,15 +78,9 @@ func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersio
 // The revision is optional, and if provided, identifies the
 // last update operation on the object.
 type ConfigMeta struct {
-	// Type is a short configuration name that matches the content message type
+	// GroupVersionKind is a short configuration name that matches the content message type
 	// (e.g. "route-rule")
-	Type string `json:"type,omitempty"`
-
-	// Group is the API group of the config.
-	Group string `json:"group,omitempty"`
-
-	// Version is the API version of the Config.
-	Version string `json:"version,omitempty"`
+	GroupVersionKind resource.GroupVersionKind `json:"type,omitempty"`
 
 	// Name is a unique immutable identifier in a namespace
 	Name string `json:"name,omitempty"`
@@ -123,14 +117,6 @@ type ConfigMeta struct {
 
 	// CreationTimestamp records the creation time
 	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
-}
-
-func (c *Config) GroupVersionKind() resource.GroupVersionKind {
-	return resource.GroupVersionKind{
-		Group:   c.Group,
-		Version: c.Version,
-		Kind:    c.Type,
-	}
 }
 
 // Config is a configuration unit consisting of the type of configuration, the
@@ -213,8 +199,9 @@ func Key(typ, name, namespace string) string {
 }
 
 // Key is the unique identifier for a configuration object
+// TODO: this is *not* unique - needs the version and group
 func (meta *ConfigMeta) Key() string {
-	return Key(meta.Type, meta.Name, meta.Namespace)
+	return Key(meta.GroupVersionKind.Kind, meta.Name, meta.Namespace)
 }
 
 // ConfigStoreCache is a local fully-replicated cache of the config store.  The
@@ -230,7 +217,6 @@ func (meta *ConfigMeta) Key() string {
 // Handlers execute on the single worker queue in the order they are appended.
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be registered before starting the cache controller.
-//go:generate counterfeiter -o ../config/aggregate/fakes/config_store_cache.gen.go --fake-name ConfigStoreCache . ConfigStoreCache
 type ConfigStoreCache interface {
 	ConfigStore
 
@@ -248,7 +234,6 @@ type ConfigStoreCache interface {
 // IstioConfigStore is a specialized interface to access config store using
 // Istio configuration types
 // nolint
-//go:generate counterfeiter -o ../networking/core/v1alpha3/fakes/fake_istio_config_store.gen.go --fake-name IstioConfigStore . IstioConfigStore
 type IstioConfigStore interface {
 	ConfigStore
 
@@ -345,17 +330,17 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 	if !strings.Contains(gwname, "/") {
 		if !strings.Contains(gwname, ".") {
 			// we have a short name. Resolve to a gateway in same namespace
-			out = fmt.Sprintf("%s/%s", meta.Namespace, gwname)
+			out = meta.Namespace + "/" + gwname
 		} else {
 			// parse namespace from FQDN. This is very hacky, but meant for backward compatibility only
-			parts := strings.Split(gwname, ".")
-			out = fmt.Sprintf("%s/%s", parts[1], parts[0])
+			i := strings.Index(gwname, ".")
+			out = gwname[i+1:] + "/" + gwname[:i]
 		}
 	} else {
 		// remove the . from ./gateway and substitute it with the namespace name
-		parts := strings.Split(gwname, "/")
-		if parts[0] == "." {
-			out = fmt.Sprintf("%s/%s", meta.Namespace, parts[1])
+		i := strings.Index(gwname, "/")
+		if gwname[:i] == "." {
+			out = meta.Namespace + "/" + gwname[i+1:]
 		}
 	}
 	return out
@@ -395,7 +380,7 @@ func MakeIstioStore(store ConfigStore) IstioConfigStore {
 }
 
 func (store *istioConfigStore) ServiceEntries() []Config {
-	serviceEntries, err := store.List(collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(), NamespaceAll)
+	serviceEntries, err := store.List(gvk.ServiceEntry, NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -418,7 +403,7 @@ func sortConfigByCreationTime(configs []Config) {
 }
 
 func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Config {
-	configs, err := store.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(), NamespaceAll)
+	configs, err := store.List(gvk.Gateway, NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -547,14 +532,14 @@ func filterQuotaSpecsByDestination(hostname host.Name, bindings []Config, specs 
 // associated with destination service instances.
 func (store *istioConfigStore) QuotaSpecByDestination(hostname host.Name) []Config {
 	log.Debugf("QuotaSpecByDestination(%v)", hostname)
-	bindings, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
+	bindings, err := store.List(gvk.QuotaSpecBinding, NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
 		return nil
 	}
 
 	log.Debugf("QuotaSpecByDestination bindings[%d] %v", len(bindings), bindings)
-	specs, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
+	specs, err := store.List(gvk.QuotaSpec, NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecs: %v", err)
 		return nil
@@ -566,7 +551,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(hostname host.Name) []Conf
 }
 
 func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {
-	authorizationPolicies, err := store.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(), namespace)
+	authorizationPolicies, err := store.List(gvk.AuthorizationPolicy, namespace)
 	if err != nil {
 		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
 		return nil

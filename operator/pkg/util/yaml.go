@@ -23,7 +23,6 @@ import (
 	yaml2 "github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	jsonpb2 "github.com/golang/protobuf/jsonpb"
 	"github.com/kylelemons/godebug/diff"
 	"sigs.k8s.io/yaml"
 )
@@ -86,25 +85,13 @@ func UnmarshalValuesWithJSONPB(y string, out proto.Message, allowUnknown bool) e
 	if err != nil {
 		return err
 	}
-	u := jsonpb2.Unmarshaler{AllowUnknownFields: allowUnknown}
+	u := jsonpb.Unmarshaler{AllowUnknownFields: allowUnknown}
 	err = u.Unmarshal(bytes.NewReader(jb), out)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-
-/*func ObjectsInManifest(mstr string) string {
-	ao, err := manifest.ParseObjectsFromYAMLManifest(mstr)
-	if err != nil {
-		return err.Error()
-	}
-	var out []string
-	for _, v := range ao {
-		out = append(out, v.Hash())
-	}
-	return strings.Join(out, "\n")
-}*/
 
 // OverlayTrees performs a sequential JSON strategic of overlays over base.
 func OverlayTrees(base map[string]interface{}, overlays ...map[string]interface{}) (map[string]interface{}, error) {

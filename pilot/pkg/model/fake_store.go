@@ -39,7 +39,7 @@ func NewFakeStore() *FakeStore {
 
 var _ ConfigStore = (*FakeStore)(nil)
 
-func (*FakeStore) Schemas() collection.Schemas {
+func (s *FakeStore) Schemas() collection.Schemas {
 	return collections.Pilot
 }
 
@@ -61,12 +61,12 @@ func (s *FakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Con
 }
 
 func (s *FakeStore) Create(config Config) (revision string, err error) {
-	configs := s.store[config.GroupVersionKind()]
+	configs := s.store[config.GroupVersionKind]
 	if configs == nil {
 		configs = make(map[string][]Config)
 	}
 	configs[config.Namespace] = append(configs[config.Namespace], config)
-	s.store[config.GroupVersionKind()] = configs
+	s.store[config.GroupVersionKind] = configs
 	return "", nil
 }
 
