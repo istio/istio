@@ -21,13 +21,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pkg/envoy"
 	"istio.io/pkg/env"
 
 	"istio.io/istio/pilot/pkg/request"
 )
-
-const defaultEnvyConfigPath = "/etc/istio/proxy/envoy-rev0.json"
 
 func init() {
 
@@ -76,7 +73,6 @@ func init() {
 }
 
 // get admin port from Istio mesh configuration , This may be overridden by "ISTIO_PROXY_ADMIN_PORT" variable
-// , defaultEnvyConfigPath: /etc/istio/proxy/envoy-rev0.json or envoyAdminPort flags
 func getEnvoyHostAndAdminPort() (string, int32) {
 	var adminHost = "localhost"
 	var adminPort int32 = 15000
@@ -88,17 +84,6 @@ func getEnvoyHostAndAdminPort() (string, int32) {
 
 	if proxyAdminPortConfigEnv != 0 {
 		adminPort = int32(proxyAdminPortConfigEnv)
-	}
-
-	host, port, err := envoy.GetAdminHostAndPort(defaultEnvyConfigPath)
-	if err == nil {
-		adminPort = port
-		adminHost = host
-
-	}
-
-	if envoyAdminPort != 0 {
-		adminPort = envoyAdminPort
 	}
 
 	return adminHost, adminPort
