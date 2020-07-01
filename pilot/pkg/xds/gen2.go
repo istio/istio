@@ -15,15 +15,33 @@
 package xds
 
 import (
+	"encoding/json"
 	"time"
 
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/env"
+	istioversion "istio.io/pkg/version"
 )
 
 // gen2 provides experimental support for extended generation mechanism.
+
+// IstioControlPlaneInstance defines the format Istio uses for when creating Envoy config.core.v3.ControlPlane.identifier
+type IstioControlPlaneInstance struct {
+	// The Istio component type (e.g. "istiod")
+	Component string
+	// The ID of the component instance
+	ID string
+	// The Istio version
+	Info istioversion.BuildInfo
+}
+
+var (
+	controlPlane *corev3.ControlPlane
+)
 
 // handleReqAck checks if the message is an ack/nack and handles it, returning true.
 // If false, the request should be processed by calling the generator.
@@ -89,6 +107,25 @@ func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.Disco
 	return w, isAck
 }
 
+// ControlPlane identifies the instance and Istio version.
+func ControlPlane() *corev3.ControlPlane {
+	return controlPlane
+}
+
+func init() {
+	// The Pod Name (instance identity) is in PilotArgs, but not reachable globally nor from DiscoveryServer
+	podName := env.RegisterStringVar("POD_NAME", "", "").Get()
+	byVersion, err := json.Marshal(IstioControlPlaneInstance{
+		Component: "istiod",
+		ID:        podName,
+		Info:      istioversion.Info,
+	})
+	if err != nil {
+		adsLog.Warnf("XDS: Could not serialize control plane id: %v", err)
+	}
+	controlPlane = &corev3.ControlPlane{Identifier: string(byVersion)}
+}
+
 // handleCustomGenerator uses model.Generator to generate the response.
 func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.DiscoveryRequest) error {
 	w, isAck := s.handleReqAck(con, req)
@@ -98,9 +135,10 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 
 	push := s.globalPushContext()
 	resp := &discovery.DiscoveryResponse{
-		TypeUrl:     w.TypeUrl,
-		VersionInfo: push.Version, // TODO: we can now generate per-type version !
-		Nonce:       nonce(push.Version),
+		ControlPlane: ControlPlane(),
+		TypeUrl:      w.TypeUrl,
+		VersionInfo:  push.Version, // TODO: we can now generate per-type version !
+		Nonce:        nonce(push.Version),
 	}
 	if push.Version == "" { // Usually in tests.
 		resp.VersionInfo = resp.Nonce

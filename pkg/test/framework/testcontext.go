@@ -189,10 +189,7 @@ func (c *testContext) TrackResource(r resource.Resource) resource.ID {
 }
 
 func (c *testContext) GetResource(ref interface{}) error {
-	if err := c.scope.get(ref); err != nil {
-		return c.suite.GetResource(ref)
-	}
-	return nil
+	return c.scope.get(ref)
 }
 
 func (c *testContext) WorkDir() string {

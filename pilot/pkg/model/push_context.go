@@ -27,6 +27,7 @@ import (
 	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -165,13 +166,14 @@ type processedDestRules struct {
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
-// Pilot uses multiple registries - for example each K8S cluster is a registry instance,
-// as well as consul and future EDS or MCP sources. Each registry is responsible for
-// tracking a set of endpoints associated with mesh services, and calling the EDSUpdate
-// on changes. A registry may group endpoints for a service in smaller subsets - for
-// example by deployment, or to deal with very large number of endpoints for a service.
-// We want to avoid passing around large objects - like full list of endpoints for a registry,
-// or the full list of endpoints for a service across registries, since it limits scalability.
+// Pilot uses multiple registries - for example each K8S cluster is a registry
+// instance, as well as consul. Each registry is responsible for tracking a set
+// of endpoints associated with mesh services, and calling the EDSUpdate on changes.
+// A registry may group endpoints for a service in smaller subsets - for example by
+// deployment, or to deal with very large number of endpoints for a service. We want
+// to avoid passing around large objects - like full list of endpoints for a registry,
+// or the full list of endpoints for a service across registries, since it limits
+// scalability.
 //
 // Future optimizations will include grouping the endpoints by labels, gateway or region to
 // reduce the time when subsetting or split-horizon is used. This design assumes pilot
@@ -179,10 +181,10 @@ type processedDestRules struct {
 // It is possible to split the endpoint tracking in future.
 type XDSUpdater interface {
 
-	// EDSUpdate is called when the list of endpoints or labels in a ServiceEntry is
-	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
-	// must be sent. The shard name is used as a key - current implementation is using the registry
-	// name.
+	// EDSUpdate is called when the list of endpoints or labels in a Service is changed.
+	// For each cluster and hostname, the full list of active endpoints (including empty list)
+	// must be sent. The shard name is used as a key - current implementation is using the
+	// registry name.
 	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint) error
 
 	// SvcUpdate is called when a service definition is updated/deleted.
@@ -190,7 +192,6 @@ type XDSUpdater interface {
 
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
-	// This replaces the 'cache invalidation' model.
 	ConfigUpdate(req *PushRequest)
 
 	// ProxyUpdate is called to notify the XDS server to send a push to the specified proxy.
@@ -1333,11 +1334,15 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// build sidecar scopes for namespaces that do not have a non-workloadSelector sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
+	namespaces := sets.NewSet()
 	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
 		for ns := range nsMap {
-			if _, exist := sidecarsWithoutSelectorByNamespace[ns]; !exist {
-				ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
-			}
+			namespaces.Insert(ns)
+		}
+	}
+	for ns := range namespaces {
+		if _, exist := sidecarsWithoutSelectorByNamespace[ns]; !exist {
+			ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
 		}
 	}
 
