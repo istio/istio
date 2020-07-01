@@ -56,6 +56,7 @@ type mockCAServer struct {
 }
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
+
 	if ca.Err == nil {
 		return &pb.IstioCertificateResponse{CertChain: ca.Certs}, nil
 	}
