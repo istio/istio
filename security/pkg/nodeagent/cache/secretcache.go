@@ -483,7 +483,7 @@ func (sc *SecretCache) keyCertRotationJob() {
 	// Wake up once in a while and rotate keys and certificates if in grace period.
 	cacheLog.Infof("kkkkkkkkkkkkkkkmmmmmmmmmmmm")
 	cacheLog.Infof("%+v",sc.configOptions.RotationInterval.Seconds())
-	sc.configOptions.RotationInterval = time.Duration(15)
+	sc.configOptions.RotationInterval = time.Duration(time.Second * 10)
 	cacheLog.Infof("%+v",sc.configOptions.RotationInterval.Seconds())
 	sc.rotationTicker = time.NewTicker(sc.configOptions.RotationInterval)
 	for {
@@ -862,8 +862,30 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	return sdsFromFile, nil, nil
 }
 
-//func (sc *SecretCache) generateSecretWithoutTokenBy(ctx context.Context, connKey ConnKey, t time.Time) (*model.SecretItem, error)  {
-//
+//func (sc *SecretCache) generateSecretWithoutTokenUsingCaClient(ctx context.Context, connKey ConnKey, t time.Time) (*model.SecretItem, error)  {
+//	logPrefix := cacheLogPrefix(connKey.ResourceName)
+//	csrHostName := connKey.ResourceName
+//	options := pkiutil.CertOptions{
+//		Host:       csrHostName,
+//		RSAKeySize: keySize,
+//		PKCS8Key:   sc.configOptions.Pkcs8Keys,
+//		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
+//	}
+//	// Generate the cert/key, send CSR to CA.
+//	csrPEM, keyPEM, err := pkiutil.GenCSR(options)
+//	if err != nil {
+//		cacheLog.Errorf("%s failed to generate key and certificate for CSR: %v", logPrefix, err)
+//		return nil, err
+//	}
+//	numOutgoingRequests.With(RequestType.Value(CSR)).Increment()
+//	timeBeforeCSR := time.Now()
+//	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, connKey, true)
+//	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
+//	outgoingLatency.With(RequestType.Value(CSR)).Record(csrLatency)
+//	if err != nil {
+//		numFailedOutgoingRequests.With(RequestType.Value(CSR)).Increment()
+//		return nil, err
+//	}
 //}
 
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
@@ -978,7 +1000,7 @@ func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
 	sc.configOptions.SecretRotationGracePeriodRatio = 0.99
 	gracePeriod := time.Duration(sc.configOptions.SecretRotationGracePeriodRatio * float64(secretLifeTime))
-	rotate := time.Now().After(secret.CreatedTime.Add(time.Duration(30)))
+	rotate := time.Now().After(secret.CreatedTime.Add(time.Second * 30))
 	cacheLog.Infof("gggggggkkkkjjjjjjjjssss")
 	cacheLog.Infof("Ratio:%s, secretLifeTime: %s, secret.CreatedTime: %s",sc.configOptions.SecretRotationGracePeriodRatio, secretLifeTime, secret.CreatedTime)
 	cacheLog.Infof("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
