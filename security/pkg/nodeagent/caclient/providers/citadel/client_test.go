@@ -43,7 +43,7 @@ import (
 	pb "istio.io/istio/security/proto"
 )
 
-const mockServerAddress = "127.0.0.1:51864"
+const mockServerAddress = "127.0.0.1:0"
 
 var (
 	fakeCert  = []string{"foo", "bar"}
