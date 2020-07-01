@@ -9,7 +9,7 @@ import (
 
 func newRollupPatch(cp *model.EnvoyFilterConfigPatchWrapper) *model.EnvoyFilterConfigPatchWrapper {
 	return &model.EnvoyFilterConfigPatchWrapper{
-		Value: proto.Clone(cp.Value),
+		Value: memoClone(cp.Value),
 		Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 			// assume context and proxy matches have already been checked
 			Context:              networking.EnvoyFilter_ANY,
