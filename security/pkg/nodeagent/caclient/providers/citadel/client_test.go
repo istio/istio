@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-
 	"fmt"
 	"net"
 	"reflect"
@@ -30,15 +29,13 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"istio.io/istio/pkg/jwt"
-	mockca "istio.io/istio/security/pkg/pki/ca/mock"
-	mockutil "istio.io/istio/security/pkg/pki/util/mock"
-
+	"istio.io/istio/security/pkg/pki/ca"
 	//mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	//mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	citadelca "istio.io/istio/security/pkg/server/ca"
 	//"istio.io/istio/security/pkg/pki/ca"
-	//"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/kubernetes/fake"
 
 	pb "istio.io/istio/security/proto"
 )
@@ -93,24 +90,24 @@ func TestE2EClient(t *testing.T) {
 	}
 	for id, tc := range cases {
 		fmt.Printf("%+v",tc.certChainFile)
-		//client := fake.NewSimpleClientset()
-		//caNamespace := "default"
-		//defaultWorkloadCertTTL := 30 * time.Minute
-		//maxWorkloadCertTTL := time.Hour
-		//
-		//caopts, err := ca.NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
-		//	defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
-		//if err != nil {
-		//	t.Fatalf("%s: Failed to create a plugged-cert CA Options: %v", id, err)
-		//}
+		client := fake.NewSimpleClientset()
+		caNamespace := "default"
+		defaultWorkloadCertTTL := 30 * time.Minute
+		maxWorkloadCertTTL := time.Hour
 
-		ca := &mockca.FakeCA{
-				SignedCert: []byte("cert"),
-				KeyCertBundle: &mockutil.FakeKeyCertBundle{
-				CertChainBytes: []byte("cert_chain"),
-				RootCertBytes:  []byte("root_cert"),
-			},
+		caopts, err := ca.NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+		if err != nil {
+			t.Fatalf("%s: Failed to create a plugged-cert CA Options: %v", id, err)
 		}
+
+		//ca := &mockca.FakeCA{
+		//		SignedCert: []byte("cert"),
+		//		KeyCertBundle: &mockutil.FakeKeyCertBundle{
+		//		CertChainBytes: []byte("cert_chain"),
+		//		RootCertBytes:  []byte("root_cert"),
+		//	},
+		//}
 
 		//
 		//ca := mockca.FakeCA{
@@ -121,13 +118,13 @@ func TestE2EClient(t *testing.T) {
 		//	},
 		//},
 
-		//ca, err := ca.NewIstioCA(caopts)
-		//if err != nil {
-		//	t.Errorf("%s: Got error while creating plugged-cert CA: %v", id, err)
-		//}
-		//if ca == nil {
-		//	t.Fatalf("Failed to create a plugged-cert CA.")
-		//}
+		ca, err := ca.NewIstioCA(caopts)
+		if err != nil {
+			t.Errorf("%s: Got error while creating plugged-cert CA: %v", id, err)
+		}
+		if ca == nil {
+			t.Fatalf("Failed to create a plugged-cert CA.")
+		}
 
 		server, err := citadelca.New(ca, time.Hour, false, []string{"hostname"}, 8080,
 			"testdomain.com", true, jwt.PolicyThirdParty, "kubernetes")
@@ -163,11 +160,11 @@ func TestE2EClient(t *testing.T) {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		//ctx, err := buildContext()
-		//if err != nil {
-		//	t.Errorf("Test case [%s]: failed to create to create context: %v", id, err)
-		//}
-		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
+		ctx, err := buildContext()
+		if err != nil {
+			t.Errorf("Test case [%s]: failed to create to create context: %v", id, err)
+		}
+		resp, err := cli.CSRSign(ctx, "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
 		if err != nil {
 				t.Logf("%+v", resp)
 				t.Errorf("Test case [%s]: error (%s) happens ", id, err.Error())
