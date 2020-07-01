@@ -30,8 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-
 	"istio.io/pkg/log"
 )
 
@@ -54,70 +52,69 @@ const (
 // To use a particular kubeconfig (other than ~/.kube/config), set:
 // --istio.test.kube.config=<path>
 func TestIngressLoadBalancing(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done()
+	framework.NewTest(t).
+		Features("traffic.ingress.loadbalancing").
+		Run(func(ctx framework.TestContext) {
+			bookinfoNs, err := namespace.New(ctx, namespace.Config{
+				Prefix: "istio-bookinfo",
+				Inject: true,
+			})
+			if err != nil {
+				t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
+			}
+			undeploy := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
+			defer undeploy()
 
-	ctx.RequireOrSkip(environment.Kube)
+			ctx.Config().ApplyYAMLOrFail(
+				t,
+				bookinfoNs.Name(),
+				bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
+			ctx.Config().ApplyYAMLOrFail(
+				t,
+				bookinfoNs.Name(),
+				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+				bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+			)
 
-	bookinfoNs, err := namespace.New(ctx, namespace.Config{
-		Prefix: "istio-bookinfo",
-		Inject: true,
-	})
-	if err != nil {
-		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
-	}
-	undeploy := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
-	defer undeploy()
+			prom := prometheus.NewOrFail(t, ctx, prometheus.Config{})
+			ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
-	ctx.Config().ApplyYAMLOrFail(
-		t,
-		bookinfoNs.Name(),
-		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-	ctx.Config().ApplyYAMLOrFail(
-		t,
-		bookinfoNs.Name(),
-		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-	)
+			rangeStart := time.Now()
 
-	prom := prometheus.NewOrFail(t, ctx, prometheus.Config{})
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
+			// Send traffic to ingress for the test duration.
+			wg := &sync.WaitGroup{}
+			wg.Add(numSendTasks + 1)
+			go logProgress(testDuration, wg)
+			for i := 0; i < numSendTasks; i++ {
+				go sendTraffic(testDuration, ing, wg)
+			}
+			wg.Wait()
 
-	rangeStart := time.Now()
+			rangeEnd := time.Now()
 
-	// Send traffic to ingress for the test duration.
-	wg := &sync.WaitGroup{}
-	wg.Add(numSendTasks + 1)
-	go logProgress(testDuration, wg)
-	for i := 0; i < numSendTasks; i++ {
-		go sendTraffic(testDuration, ing, wg)
-	}
-	wg.Wait()
+			// Gather the CPU usage across all of the ingress gateways.
+			query := `sum(rate(container_cpu_usage_seconds_total{job='kubernetes-cadvisor', pod=~'istio-ingressgateway-.*'}[1m])) by (pod_name)`
+			v, _, err := prom.API().QueryRange(context.Background(), query, v1.Range{
+				Start: rangeStart,
+				End:   rangeEnd,
+				Step:  step,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	rangeEnd := time.Now()
+			// Aggregate the per-CPU samples.
+			s := getCPUSamples(v, t)
 
-	// Gather the CPU usage across all of the ingress gateways.
-	query := `sum(rate(container_cpu_usage_seconds_total{job='kubernetes-cadvisor', pod=~'istio-ingressgateway-.*'}[1m])) by (pod_name)`
-	v, _, err := prom.API().QueryRange(context.Background(), query, v1.Range{
-		Start: rangeStart,
-		End:   rangeEnd,
-		Step:  step,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+			// Calculate the ratio of the range to the median
+			rng := calcRange(s...)
+			med := calcMedian(s...)
+			ratio := rng / med
 
-	// Aggregate the per-CPU samples.
-	s := getCPUSamples(v, t)
-
-	// Calculate the ratio of the range to the median
-	rng := calcRange(s...)
-	med := calcMedian(s...)
-	ratio := rng / med
-
-	if ratio > threshold {
-		t.Fatalf("ratio %f > %f (range=%f, median=%f). CPU samples: %v", ratio, threshold, rng, med, s)
-	}
+			if ratio > threshold {
+				t.Fatalf("ratio %f > %f (range=%f, median=%f). CPU samples: %v", ratio, threshold, rng, med, s)
+			}
+		})
 }
 
 func calcRange(sorted ...float64) float64 {
