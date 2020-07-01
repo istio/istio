@@ -36,6 +36,7 @@ import (
 	citadelca "istio.io/istio/security/pkg/server/ca"
 	//"istio.io/istio/security/pkg/pki/ca"
 	"k8s.io/client-go/kubernetes/fake"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 
 	pb "istio.io/istio/security/proto"
 )
@@ -274,7 +275,20 @@ func TestCitadelClient(t *testing.T) {
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
-		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
+		csrHostName := "spiffe://cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"
+		options := pkiutil.CertOptions{
+			Host:       csrHostName,
+			RSAKeySize: 2048,
+			PKCS8Key:   false,
+			ECSigAlg:   "",
+		}
+		// Generate the cert/key, send CSR to CA.
+		csrPEM, _, err := pkiutil.GenCSR(options)
+		if err != nil {
+			t.Errorf("ssss failed to generate key and certificate for CSR: %v", err)
+		}
+
+		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", csrPEM, fakeToken, 1)
 		if err != nil {
 			if err.Error() != tc.expectedErr {
 				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
