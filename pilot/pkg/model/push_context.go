@@ -599,7 +599,7 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
 func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) []Config {
-	res := ps.privateVirtualServicesByNamespaceAndGateway[proxy.ConfigNamespace][gateway][:]
+	res := ps.privateVirtualServicesByNamespaceAndGateway[proxy.ConfigNamespace][gateway]
 	res = append(res, ps.virtualServicesExportedToNamespaceByGateway[proxy.ConfigNamespace][gateway]...)
 	res = append(res, ps.publicVirtualServicesByGateway[gateway]...)
 	return res
