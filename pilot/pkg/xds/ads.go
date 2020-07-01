@@ -158,18 +158,18 @@ func isExpectedGRPCError(err error) bool {
 	return false
 }
 
-func receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
+func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
+	firstReq := true
 	for {
 		req, err := con.stream.Recv()
 		con.mu.RLock()
 		cid := con.ConID
 		con.mu.RUnlock()
 		if err != nil {
+			cid := con.ConID
 			if isExpectedGRPCError(err) {
-				con.mu.RLock()
 				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, cid, err)
-				con.mu.RUnlock()
 				return
 			}
 			*errP = err
@@ -177,6 +177,26 @@ func receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest,
 			totalXDSInternalErrors.Increment()
 			return
 		}
+		// This should be only set for the first request. The node id may not be set - for example malicious clients.
+		if firstReq {
+			firstReq = false
+			if req.Node == nil {
+				*errP = errors.New("missing node ID")
+				return
+			}
+			// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
+			if err := s.initConnection(req.Node, con); err != nil {
+				*errP = err
+				return
+			}
+			defer func() {
+				s.removeCon(con.ConID)
+				if s.InternalGen != nil {
+					s.InternalGen.OnDisconnect(con)
+				}
+			}()
+		}
+
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
@@ -184,6 +204,62 @@ func receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest,
 			return
 		}
 	}
+}
+
+// processRequest is handling one request. This is currently called from the 'main' thread, which also
+// handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
+// protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
+func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, con *Connection) error {
+	if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, TypeURLToEventType(discReq.TypeUrl), discReq.ResponseNonce)
+	}
+
+	var err error
+
+	// Based on node metadata a different generator was selected, use it instead of the default
+	// behavior.
+	if con.node.XdsResourceGenerator != nil {
+		// Endpoints are special - will use the optimized code path.
+		err = s.handleCustomGenerator(con, discReq)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	switch discReq.TypeUrl {
+	case v2.ClusterType, v3.ClusterType:
+		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
+			return err
+		}
+		if err := s.handleCds(con, discReq); err != nil {
+			return err
+		}
+	case v2.ListenerType, v3.ListenerType:
+		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.LDS); err != nil {
+			return err
+		}
+		if err := s.handleLds(con, discReq); err != nil {
+			return err
+		}
+	case v2.RouteType, v3.RouteType:
+		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.RDS); err != nil {
+			return err
+		}
+		if err := s.handleRds(con, discReq); err != nil {
+			return err
+		}
+	case v2.EndpointType, v3.EndpointType:
+		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.EDS); err != nil {
+			return err
+		}
+		if err := s.handleEds(con, discReq); err != nil {
+			return err
+		}
+	default:
+		adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
+	}
+	return nil
 }
 
 // authenticate authenticates the ADS request using the configured authenticators.
@@ -267,78 +343,27 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	// This also detects close.
 	var receiveError error
 	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
-	go receiveThread(con, reqChannel, &receiveError)
+	go s.receiveThread(con, reqChannel, &receiveError)
 
 	for {
 		// Block until either a request is received or a push is triggered.
+		// We need 2 go routines because 'read' blocks in Recv().
+		//
+		// To avoid 2 routines, we tried to have Recv() in StreamAggregateResource - and the push
+		// on different short-lived go routines started when the push is happening. This would cut in 1/2
+		// the number of long-running go routines, since push is throttled. The main problem is with
+		// closing - the current gRPC library didn't allow closing the stream.
 		select {
-		case discReq, ok := <-reqChannel:
+		case req, ok := <-reqChannel:
 			if !ok {
-				// Remote side closed connection.
+				// Remote side closed connection or error processing the request.
 				return receiveError
 			}
-			// This should be only set for the first request. The node id may not be set - for example malicious clients.
-			if con.node == nil {
-				if discReq.Node == nil {
-					return errors.New("missing node ID")
-				}
-				// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
-				if err := s.initConnection(discReq.Node, con); err != nil {
-					return err
-				}
-				defer func() {
-					s.removeCon(con.ConID)
-					if s.InternalGen != nil {
-						s.InternalGen.OnDisconnect(con)
-					}
-				}()
-			}
-			if s.StatusReporter != nil {
-				s.StatusReporter.RegisterEvent(con.ConID, TypeURLToEventType(discReq.TypeUrl), discReq.ResponseNonce)
-			}
-
-			// Based on node metadata a different generator was selected, use it instead of the default
-			// behavior.
-			if con.node.XdsResourceGenerator != nil {
-				// Endpoints are special - will use the optimized code path.
-				err = s.handleCustomGenerator(con, discReq)
-				if err != nil {
-					return err
-				}
-				continue
-			}
-
-			switch discReq.TypeUrl {
-			case v2.ClusterType, v3.ClusterType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
-					return err
-				}
-				if err := s.handleCds(con, discReq); err != nil {
-					return err
-				}
-			case v2.ListenerType, v3.ListenerType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.LDS); err != nil {
-					return err
-				}
-				if err := s.handleLds(con, discReq); err != nil {
-					return err
-				}
-			case v2.RouteType, v3.RouteType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.RDS); err != nil {
-					return err
-				}
-				if err := s.handleRds(con, discReq); err != nil {
-					return err
-				}
-			case v2.EndpointType, v3.EndpointType:
-				if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.EDS); err != nil {
-					return err
-				}
-				if err := s.handleEds(con, discReq); err != nil {
-					return err
-				}
-			default:
-				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
+			// processRequest is calling pushXXX, accessing common structs with pushConnection.
+			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.git di
+			err = s.processRequest(req, con)
+			if err != nil {
+				return err
 			}
 
 		case pushEv := <-con.pushChannel:
