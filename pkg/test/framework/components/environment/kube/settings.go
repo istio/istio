@@ -37,9 +37,12 @@ type Settings struct {
 	// instances for interacting with clusters. If not specified, the clients will be created from KubeConfig.
 	ClientFactoryFunc ClientFactoryFunc
 
-	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
+	// NoLoadBalancer indicates that the Ingress Gateway is not available. This typically happens in minikube. The Ingress
 	// component will fall back to node-port in this case.
 	NoLoadBalancer bool
+
+	// minikube is the legacy version of the NoLoadBalancer flag.
+	minikube bool
 
 	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).

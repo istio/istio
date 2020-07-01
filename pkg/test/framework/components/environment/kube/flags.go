@@ -46,8 +46,8 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	if !flag.Parsed() {
 		panic("flag.Parse must be called before this function")
 	}
-
 	s := settingsFromCommandLine.clone()
+	s.NoLoadBalancer = s.NoLoadBalancer || s.minikube
 
 	var err error
 	s.KubeConfig, err = parseKubeConfigs(kubeConfigs)
@@ -200,9 +200,9 @@ func defaultKubeConfig() string {
 func init() {
 	flag.StringVar(&kubeConfigs, "istio.test.kube.config", strings.Join(settingsFromCommandLine.KubeConfig, ":"),
 		"A comma-separated list of paths to kube config files for cluster environments (default is current kube context)")
-	flag.BoolVar(&settingsFromCommandLine.NoLoadBalancer, "istio.test.kube.minikube", settingsFromCommandLine.NoLoadBalancer,
-		"(legacy) Indicates that the target environment does not support External Loadbalancers. Used by to obtain the right IP address for ingress gateway.")
-	flag.BoolVar(&settingsFromCommandLine.NoLoadBalancer, "istio.test.kube.noloadbalancer", settingsFromCommandLine.NoLoadBalancer,
+	flag.BoolVar(&settingsFromCommandLine.minikube, "istio.test.kube.minikube", settingsFromCommandLine.NoLoadBalancer,
+		"Indicates that the target environment does not support External Loadbalancers. Used by to obtain the right IP address for ingress gateway. (legacy, use lbunsupported)")
+	flag.BoolVar(&settingsFromCommandLine.NoLoadBalancer, "istio.test.kube.lbunsupported", settingsFromCommandLine.NoLoadBalancer,
 		"Indicates that the target environment does not support External Loadbalancers. Used by to obtain the right IP address for ingress gateway.")
 	flag.StringVar(&controlPlaneTopology, "istio.test.kube.controlPlaneTopology",
 		"", "Specifies the mapping for each cluster to the cluster hosting its control plane. The value is a "+
