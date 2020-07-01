@@ -188,6 +188,7 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
+			IstioVersion: "1.6.0",
 		},
 		// TODO: if you update this, make sure telemetry.yaml is also updated
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},
