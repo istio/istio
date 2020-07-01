@@ -31,8 +31,10 @@ features:
         client:
         server:
       dashboard:
+      istioctl:
   # features relating to controlling the traffic of the service mesh.
   traffic:
+    reachability:
     routing:
     short-circuiting:
     mirroring:
@@ -42,10 +44,27 @@ features:
   # features that allow users to secure their services and service mesh.
   security:
     peer:
+      secure-naming:
     user:
+    ingress:
+      mtls:
+      tls:
+    egress:
+      mtls:
+      tls:
+        filebased:
     control-plane:
       k8s-certs:
+      plugin-cert:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
   # features releated to the lifecycle of istio installations
   installation:
+    multicluster:
+      central-istiod:
+      multimaster:
+      remote:
+  # describes internal build and testing infrastrcuture
+  infrastructure:
+    # the testing framework
+    framework:

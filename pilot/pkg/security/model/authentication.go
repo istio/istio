@@ -58,7 +58,7 @@ const (
 	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
 	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
-	IngressGatewaySdsUdsPath = "unix:/var/run/ingress_gateway/sds"
+	IngressGatewaySdsUdsPath = "unix:./var/run/ingress_gateway/sds"
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"
@@ -281,10 +281,9 @@ func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMet
 		headerKey:     headerKey,
 	}
 	if v, found := fileBasedMetadataConfigAnyMap.Load(key); found {
-		marshalAny := v.(any.Any)
-		return &marshalAny
+		return v.(*any.Any)
 	}
 	any, _ := ptypes.MarshalAny(fbMetadata)
-	fileBasedMetadataConfigAnyMap.Store(key, *any)
+	fileBasedMetadataConfigAnyMap.Store(key, any)
 	return any
 }

@@ -50,7 +50,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	params := server.Options{
 		MixerValidator: validate.NewDefaultValidator(false),
 		Schemas:        collections.Istio,
-		DomainSuffix:   args.Config.ControllerOptions.DomainSuffix,
+		DomainSuffix:   args.RegistryOptions.KubeOptions.DomainSuffix,
 		Mux:            s.httpsMux,
 	}
 	whServer, err := server.New(params)
@@ -65,8 +65,8 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 
 	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" {
 		var dynamicInterface dynamic.Interface
-		if s.kubeClient == nil || s.kubeConfig == nil {
-			iface, err := kube.NewInterfacesFromConfigFile(args.Config.KubeConfig)
+		if s.kubeClient == nil || s.kubeRestConfig == nil {
+			iface, err := kube.NewInterfacesFromConfigFile(args.RegistryOptions.KubeConfig)
 			if err != nil {
 				return err
 			}
@@ -80,7 +80,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 				return err
 			}
 		} else {
-			dynamicInterface, err = dynamic.NewForConfig(s.kubeConfig)
+			dynamicInterface, err = dynamic.NewForConfig(s.kubeRestConfig)
 			if err != nil {
 				return err
 			}
@@ -91,8 +91,8 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		}
 
 		caBundlePath := s.caBundlePath
-		if hasCustomTLSCerts(args.TLSOptions) {
-			caBundlePath = args.TLSOptions.CaCertFile
+		if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
+			caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
 		}
 		o := controller.Options{
 			WatchedNamespace:  args.Namespace,

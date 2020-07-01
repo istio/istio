@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -42,6 +43,7 @@ const (
 var (
 	fqdn, direction, subset string
 	port                    int
+	verboseListener         bool
 
 	address, listenerType string
 
@@ -146,12 +148,12 @@ var (
 )
 
 func setupPodConfigdumpWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
-	kubeClient, err := envoyClientFactory(kubeconfig, configContext)
+	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "config_dump"
-	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
+	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
 	}
@@ -189,7 +191,7 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 }
 
 func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
-	kubeClient, err := envoyClientFactory(kubeconfig, configContext)
+	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
@@ -197,7 +199,7 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	if param != "" {
 		path = path + "?" + param
 	}
-	result, err := kubeClient.EnvoyDo(podName, podNamespace, "POST", path, nil)
+	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "POST", path, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -225,12 +227,12 @@ func getLogLevelFromConfigMap() (string, error) {
 }
 
 func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
-	kubeClient, err := envoyClientFactory(kubeconfig, configContext)
+	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "clusters?format=json"
-	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
+	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -382,6 +384,7 @@ func proxyConfig() *cobra.Command {
 				Address: address,
 				Port:    uint32(port),
 				Type:    listenerType,
+				Verbose: verboseListener,
 			}
 
 			switch outputFormat {
@@ -398,6 +401,7 @@ func proxyConfig() *cobra.Command {
 	listenerConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter listeners by address field")
 	listenerConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 	listenerConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter listeners by Port field")
+	listenerConfigCmd.PersistentFlags().BoolVar(&verboseListener, "verbose", true, "Output filter chain information")
 	listenerConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 

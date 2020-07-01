@@ -26,18 +26,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/duration"
-
 	"istio.io/pkg/log"
 )
 
 var (
-	FakeFederatedToken = "FakeFederatedToken"
-	FakeAccessToken    = "FakeAccessToken"
-	FakeTrustDomain    = "FakeTrustDomain"
-	FakeSubjectToken   = "FakeSubjectToken"
-	FakeProjectNum     = "1234567"
-	FakeGKEClusterURL  = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
+	FakeFederatedToken   = "FakeFederatedToken"
+	FakeAccessToken      = "FakeAccessToken"
+	FakeTrustDomain      = "FakeTrustDomain"
+	FakeSubjectToken     = "FakeSubjectToken"
+	FakeProjectNum       = "1234567"
+	FakeGKEClusterURL    = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
+	FakeExpiresInSeconds = 3600
 )
 
 type federatedTokenRequest struct {
@@ -57,10 +56,10 @@ type federatedTokenResponse struct {
 }
 
 type accessTokenRequest struct {
-	Name      string            `json:"name"`
-	Delegates []string          `json:"delegates"` // nolint: structcheck, unused
-	Scope     []string          `json:"scope"`
-	LifeTime  duration.Duration `json:"lifetime"` // nolint: structcheck, unused
+	Name      string        `json:"name"`
+	Delegates []string      `json:"delegates"` // nolint: structcheck, unused
+	Scope     []string      `json:"scope"`
+	LifeTime  time.Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
 type accessTokenResponse struct {
@@ -275,7 +274,7 @@ func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *htt
 		AccessToken:     FakeFederatedToken,
 		IssuedTokenType: "urn:ietf:params:oauth:token-type:access_token",
 		TokenType:       "Bearer",
-		ExpiresIn:       3600,
+		ExpiresIn:       int32(FakeExpiresInSeconds),
 	}
 	_ = json.NewEncoder(w).Encode(resp)
 }

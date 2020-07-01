@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"time"
 
+	istioKube "istio.io/istio/pkg/kube"
 	environ "istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -47,24 +47,24 @@ var (
 type kubeComponent struct {
 	id        resource.ID
 	ns        namespace.Instance
-	forwarder testKube.PortForwarder
-	cluster   kube.Cluster
+	forwarder istioKube.PortForwarder
+	cluster   resource.Cluster
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: resource.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
-	scopes.CI.Info("=== BEGIN: Deploy Stackdriver ===")
+	scopes.Framework.Info("=== BEGIN: Deploy Stackdriver ===")
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("stackdriver deployment failed: %v", err) // nolint:golint
-			scopes.CI.Infof("=== FAILED: Deploy Stackdriver ===")
+			scopes.Framework.Infof("=== FAILED: Deploy Stackdriver ===")
 			_ = c.Close()
 		} else {
-			scopes.CI.Info("=== SUCCEEDED: Deploy Stackdriver ===")
+			scopes.Framework.Info("=== SUCCEEDED: Deploy Stackdriver ===")
 		}
 	}()
 
@@ -76,23 +76,18 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	// apply stackdriver YAML
-	yamlContent, err := ioutil.ReadFile(environ.StackdriverInstallFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read %s, err: %v", environ.StackdriverInstallFilePath, err)
-	}
-
-	if _, err := c.cluster.ApplyContents(c.ns.Name(), string(yamlContent)); err != nil {
+	if err := c.cluster.ApplyYAMLFiles(c.ns.Name(), environ.StackdriverInstallFilePath); err != nil {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.StackdriverInstallFilePath, err)
 	}
 
-	fetchFn := c.cluster.NewSinglePodFetch(c.ns.Name(), "app=stackdriver")
-	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := testKube.NewSinglePodFetch(c.cluster, c.ns.Name(), "app=stackdriver")
+	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 	pod := pods[0]
 
-	forwarder, err := c.cluster.NewPortForwarder(pod, 0, stackdriverPort)
+	forwarder, err := c.cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, stackdriverPort)
 	if err != nil {
 		return nil, err
 	}

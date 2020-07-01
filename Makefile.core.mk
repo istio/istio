@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 VERSION ?= 1.7-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.7-dev.0
+BASE_VERSION ?= 1.7-dev.3
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -181,7 +181,7 @@ ifeq ($(USE_LOCAL_PROXY),1)
 endif
 
 # Allow user-override envoy bootstrap config path.
-export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap_v2.json
+export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap.json
 export ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR = $(dir ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH})
 
 GO_VERSION_REQUIRED:=1.10
@@ -279,7 +279,9 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
-  ./operator/cmd/operator
+  ./operator/cmd/operator \
+  ./cni/cmd/istio-cni ./cni/cmd/istio-cni-repair \
+  ./tools/istio-iptables
 
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
@@ -430,7 +432,7 @@ with_junit_report: | $(JUNIT_REPORT)
 
 # Run coverage tests
 ifeq ($(WHAT),)
-       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test operator-test
+       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test operator-test cni-test
 else
        TEST_OBJ = selected-pkg-test
 endif
@@ -459,6 +461,14 @@ galley-test: galley-racetest
 
 .PHONY: security-test
 security-test: security-racetest
+
+.PHONY: cni-test cni.cmd-test cni.install-test
+cni-test: cni.cmd-test cni.install-test
+cni.cmd-test:
+	go test ${GOBUILDFLAGS} ${T} ./cni/cmd/...
+# May want to make this depend on push but it will always push at the moment:  install-test: docker.push
+cni.install-test: docker.install-cni
+	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} ${T} ./cni/test/...
 
 .PHONY: common-test
 common-test: common-racetest

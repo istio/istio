@@ -26,9 +26,9 @@ import (
 
 	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/kube"
 )
 
 const (
@@ -45,11 +45,10 @@ type client struct {
 
 	conns      []*grpc.ClientConn
 	clients    map[string]istioMixerV1.MixerClient
-	forwarders []kube.PortForwarder
+	forwarders []istioKube.PortForwarder
 
-	args    *server.Args
-	server  *server.Server
-	workdir string
+	args   *server.Args
+	server *server.Server
 }
 
 // Report implements DeployedMixer.Report.
@@ -93,9 +92,9 @@ func (c *client) Close() error {
 	c.conns = make([]*grpc.ClientConn, 0)
 
 	for _, fw := range c.forwarders {
-		_ = fw.Close()
+		fw.Close()
 	}
-	c.forwarders = make([]kube.PortForwarder, 0)
+	c.forwarders = make([]istioKube.PortForwarder, 0)
 
 	if c.server != nil {
 		err = multierror.Append(err, c.server.Close()).ErrorOrNil()

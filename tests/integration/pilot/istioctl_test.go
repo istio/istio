@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 )
 
@@ -76,13 +75,12 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 
 func TestWait(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "default",
 				Inject: true,
 			})
-			ctx.ApplyConfigOrFail(t, ns.Name(), `
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -106,7 +104,6 @@ spec:
 func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			cfg := i.Settings()
 
@@ -147,7 +144,6 @@ func TestVersion(t *testing.T) {
 
 func TestDescribe(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-describe",
@@ -155,7 +151,7 @@ func TestDescribe(t *testing.T) {
 			})
 
 			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
@@ -208,7 +204,6 @@ func getPodID(i echo.Instance) (string, error) {
 
 func TestAddToAndRemoveFromMesh(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-add-to-mesh",
@@ -247,7 +242,6 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-pc",
@@ -321,7 +315,6 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-ps",
@@ -361,7 +354,6 @@ func TestProxyStatus(t *testing.T) {
 
 func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-authz",
@@ -369,7 +361,7 @@ func TestAuthZCheck(t *testing.T) {
 			})
 
 			authPol := file.AsStringOrFail(t, "../istioctl/testdata/authz-a.yaml")
-			ctx.ApplyConfigOrFail(t, ns.Name(), authPol)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), authPol)
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).

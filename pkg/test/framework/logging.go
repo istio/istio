@@ -39,9 +39,7 @@ func configureLogging(ciMode bool) error {
 	o := *logOptionsFromCommandline
 
 	if ciMode {
-		o.SetOutputLevel(scopes.CI.Name(), log.InfoLevel)
-	} else {
-		o.SetOutputLevel(scopes.CI.Name(), log.NoneLevel)
+		o.SetOutputLevel(scopes.Framework.Name(), log.DebugLevel)
 	}
 
 	return log.Configure(&o)

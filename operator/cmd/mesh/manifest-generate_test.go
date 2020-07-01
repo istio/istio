@@ -25,8 +25,6 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/pkg/version"
-
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
@@ -36,10 +34,11 @@ import (
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/version"
 )
 
 const (
-	istioTestVersion = "istio-1.5.0"
+	istioTestVersion = "istio-1.6.0"
 	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
 )
 
@@ -312,7 +311,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector",
+			diffSelect: "Deployment:*:istiod, Service:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ClusterRoleBinding::istio-reader-istio-system",
 		},
 		// TODO https://github.com/istio/istio/issues/22347 this is broken for overriding things to default value
 		// This can be seen from REGISTRY_ONLY not applying
@@ -401,7 +400,7 @@ func TestManifestGenerateFlagAliases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --charts="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
+	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --manifests="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,11 +16,11 @@ package utils
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
@@ -29,7 +29,14 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/spiffe"
+)
+
+const (
+	expMixerSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account"
+	expPilotSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
 )
 
 func TestBuildInboundFilterChain(t *testing.T) {
@@ -131,10 +138,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
 					},
 					ListenerFilters: []*listener.ListenerFilter{
-						{
-							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: util.MessageToAny(&tlsinspector.TlsInspector{})},
-						},
+						xdsfilters.TLSInspector,
 					},
 				},
 				{
@@ -280,5 +284,21 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				t.Logf("got:\n%v\n", got[0].TLSContext.CommonTlsContext.TlsCertificateSdsSecretConfigs[0])
 			}
 		})
+	}
+}
+
+func TestGetMixerSAN(t *testing.T) {
+	spiffe.SetTrustDomain("cluster.local")
+	mixerSANs := GetSAN("istio-system", MixerSvcAccName)
+	if strings.Compare(mixerSANs, expMixerSAN) != 0 {
+		t.Errorf("GetMixerSAN() => expected %#v but got %#v", expMixerSAN, mixerSANs[0])
+	}
+}
+
+func TestGetPilotSAN(t *testing.T) {
+	spiffe.SetTrustDomain("cluster.local")
+	pilotSANs := GetSAN("istio-system", PilotSvcAccName)
+	if strings.Compare(pilotSANs, expPilotSAN) != 0 {
+		t.Errorf("GetPilotSAN() => expected %#v but got %#v", expPilotSAN, pilotSANs[0])
 	}
 }

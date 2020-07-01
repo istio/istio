@@ -22,6 +22,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/util/retry"
 
@@ -154,10 +155,10 @@ type kubeComponent struct {
 	kubeEnv   *kube.Environment
 	namespace namespace.Instance
 
-	forwarder  testKube.PortForwarder
-	deployment *testKube.Deployment
+	forwarder   istioKube.PortForwarder
+	appliedYAML string
 
-	cluster kube.Cluster
+	cluster resource.Cluster
 }
 
 // NewKubeComponent factory function for the component
@@ -167,18 +168,18 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		ctx:     ctx,
 		kubeEnv: env,
 		client:  &client{},
-		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: resource.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 
 	var err error
-	scopes.CI.Infof("=== BEGIN: PolicyBackend Deployment ===")
+	scopes.Framework.Infof("=== BEGIN: PolicyBackend Deployment ===")
 	defer func() {
 		if err != nil {
-			scopes.CI.Infof("=== FAILED: PolicyBackend Deployment ===")
+			scopes.Framework.Infof("=== FAILED: PolicyBackend Deployment ===")
 			_ = c.Close()
 		} else {
-			scopes.CI.Infof("=== SUCCEEDED: PolicyBackend Deployment ===")
+			scopes.Framework.Infof("=== SUCCEEDED: PolicyBackend Deployment ===")
 		}
 	}()
 
@@ -207,23 +208,23 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	c.deployment = testKube.NewYamlContentDeployment(c.namespace.Name(), yamlContent, c.cluster.Accessor)
-	if err = c.deployment.Deploy(false); err != nil {
-		scopes.CI.Info("Error applying PolicyBackend deployment config")
+	if err = ctx.Config(c.cluster).ApplyYAML(c.namespace.Name(), yamlContent); err != nil {
+		scopes.Framework.Info("Error applying PolicyBackend deployment config")
 		return nil, err
 	}
+	c.appliedYAML = yamlContent
 
-	podFetchFunc := c.cluster.NewSinglePodFetch(c.namespace.Name(), "app=policy-backend", "version=test")
-	pods, err := c.cluster.WaitUntilPodsAreReady(podFetchFunc)
+	podFetchFunc := testKube.NewSinglePodFetch(c.cluster, c.namespace.Name(), "app=policy-backend", "version=test")
+	pods, err := testKube.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
-		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
+		scopes.Framework.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
 		return nil, err
 	}
 	pod := pods[0]
 
 	var svc *kubeApiCore.Service
-	if svc, _, err = c.cluster.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "policy-backend"); err != nil {
-		scopes.CI.Infof("Error waiting for PolicyBackend service to be available: %v", err)
+	if svc, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster, c.namespace.Name(), "policy-backend"); err != nil {
+		scopes.Framework.Infof("Error waiting for PolicyBackend service to be available: %v", err)
 		return nil, err
 	}
 
@@ -231,18 +232,18 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	scopes.Framework.Infof("Policy Backend in-cluster address: %s", address)
 
 	if c.forwarder, err = c.cluster.NewPortForwarder(
-		pod, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
-		scopes.CI.Infof("Error setting up PortForwarder for PolicyBackend: %v", err)
+		pod.Name, pod.Namespace, "", 0, svc.Spec.Ports[0].TargetPort.IntValue()); err != nil {
+		scopes.Framework.Infof("Error setting up PortForwarder for PolicyBackend: %v", err)
 		return nil, err
 	}
 
 	if err = c.forwarder.Start(); err != nil {
-		scopes.CI.Infof("Error starting PortForwarder for PolicyBackend: %v", err)
+		scopes.Framework.Infof("Error starting PortForwarder for PolicyBackend: %v", err)
 		return nil, err
 	}
 
 	if c.client.controller, err = policy.NewController(c.forwarder.Address()); err != nil {
-		scopes.CI.Infof("Error starting Controller for PolicyBackend: %v", err)
+		scopes.Framework.Infof("Error starting Controller for PolicyBackend: %v", err)
 		return nil, err
 	}
 
@@ -257,7 +258,7 @@ func (c *kubeComponent) CreateConfigSnippet(name string, _ string, am AdapterMod
 		handler := fmt.Sprintf(outOfProcessHandlerKube, c.namespace.Name(), c.namespace.Name(), c.namespace.Name())
 		return handler
 	default:
-		scopes.CI.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
+		scopes.Framework.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
 		return ""
 	}
 }
@@ -267,12 +268,18 @@ func (c *kubeComponent) ID() resource.ID {
 }
 
 func (c *kubeComponent) Close() (err error) {
-	if c.deployment != nil {
-		err = c.deployment.Delete(true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
+	if len(c.appliedYAML) > 0 {
+		if err = c.ctx.Config(c.cluster).DeleteYAML(c.namespace.Name(), c.appliedYAML); err == nil {
+			if e := testKube.WaitForNamespaceDeletion(c.cluster, c.namespace.Name(), retry.Timeout(time.Minute*5),
+				retry.Delay(time.Second*5)); e != nil {
+				scopes.Framework.Warnf("Error waiting for PolicyBackend deletion: %v", e)
+				err = multierror.Append(err, e)
+			}
+		}
 	}
 
 	if c.forwarder != nil {
-		err = multierror.Append(err, c.forwarder.Close()).ErrorOrNil()
+		c.forwarder.Close()
 		c.forwarder = nil
 	}
 
@@ -282,11 +289,11 @@ func (c *kubeComponent) Close() (err error) {
 func (c *kubeComponent) Dump() {
 	workDir, err := c.ctx.CreateTmpDirectory("policy-backend-state")
 	if err != nil {
-		scopes.CI.Errorf("Unable to create dump folder for policy-backend-state: %v", err)
+		scopes.Framework.Errorf("Unable to create dump folder for policy-backend-state: %v", err)
 		return
 	}
-	c.cluster.DumpPods(workDir, c.namespace.Name(),
-		c.cluster.DumpPodEvents,
-		c.cluster.DumpPodLogs,
+	testKube.DumpPods(c.cluster, workDir, c.namespace.Name(),
+		testKube.DumpPodEvents,
+		testKube.DumpPodLogs,
 	)
 }

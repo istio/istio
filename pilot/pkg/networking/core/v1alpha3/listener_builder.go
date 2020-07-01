@@ -21,7 +21,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	gogoproto "github.com/gogo/protobuf/proto"
+	golangproto "github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -35,6 +35,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -119,7 +120,7 @@ func reduceInboundListenerToFilterChains(listeners []*listener.Listener) ([]*lis
 			continue
 		}
 		for _, c := range l.FilterChains {
-			newChain, needTLSLocal := amendFilterChainMatchFromInboundListener(gogoproto.Clone(c).(*listener.FilterChain), l, needTLS)
+			newChain, needTLSLocal := amendFilterChainMatchFromInboundListener(golangproto.Clone(c).(*listener.FilterChain), l, needTLS)
 			chains = append(chains, newChain)
 			needTLS = needTLS || needTLSLocal
 		}
@@ -132,9 +133,10 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// 1. filter chains in this listener
 	// 2. explicit original_dst listener filter
 	// UseOriginalDst: proto.BoolTrue,
+	// nolint: staticcheck
 	lb.virtualInboundListener.HiddenEnvoyDeprecatedUseOriginalDst = nil
 	lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters,
-		originalDestinationFilter,
+		xdsfilters.OriginalDestination,
 	)
 	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
@@ -148,12 +150,12 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 
 	if needTLS || needTLSForPassThroughFilterChain {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, tlsInspectorFilter)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.TLSInspector)
 	}
 
 	if lb.node.GetInterceptionMode() == model.InterceptionTproxy {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, originalSrcFilter)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.OriginalSrc)
 	}
 
 	// Note: the HTTP inspector should be after TLS inspector.
@@ -161,7 +163,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// won't inspect the packet.
 	if features.EnableProtocolSniffingForInbound {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, httpInspectorFilter)
+			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.HTTPInspector)
 	}
 
 	timeout := features.InboundProtocolDetectionTimeout
@@ -224,7 +226,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
 		Name:                                VirtualOutboundListenerName,
-		Address:                             util.BuildAddressV2(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
+		Address:                             util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
 		Transparent:                         isTransparentProxy,
 		HiddenEnvoyDeprecatedUseOriginalDst: proto.BoolTrue,
 		FilterChains:                        filterChains,
@@ -251,7 +253,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	}
 	lb.virtualInboundListener = &listener.Listener{
 		Name:                                VirtualInboundListenerName,
-		Address:                             util.BuildAddressV2(actualWildcard, ProxyInboundListenPort),
+		Address:                             util.BuildAddress(actualWildcard, ProxyInboundListenPort),
 		Transparent:                         isTransparentProxy,
 		HiddenEnvoyDeprecatedUseOriginalDst: proto.BoolTrue,
 		TrafficDirection:                    core.TrafficDirection_INBOUND,
@@ -276,7 +278,7 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 }
 func (lb *ListenerBuilder) patchListeners() {
 	if lb.node.Type == model.Router {
-		envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, lb.node, lb.push, lb.gatewayListeners, false)
+		lb.gatewayListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, lb.node, lb.push, lb.gatewayListeners, false)
 		return
 	}
 

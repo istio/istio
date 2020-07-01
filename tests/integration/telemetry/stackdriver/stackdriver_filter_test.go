@@ -31,11 +31,10 @@ import (
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -112,7 +111,6 @@ func getWantServerLogEntry() (srvLogEntry loggingpb.LogEntry, err error) {
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			srvReceived := false
 			cltReceived := false
@@ -174,11 +172,10 @@ func TestStackdriverMonitoring(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("stackdriver_filter_test", m).
-		RequireEnvironment(environment.Kube).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(getIstioInstance(), setupConfig)).
+		Setup(istio.Setup(getIstioInstance(), setupConfig)).
 		Setup(testSetup).
 		Run()
 }
@@ -187,10 +184,7 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	// disable mixer telemetry and enable stackdriver filter
-	cfg.Values["telemetry.enabled"] = "true"
-	cfg.Values["telemetry.v1.enabled"] = "false"
-	cfg.Values["telemetry.v2.enabled"] = "true"
+	// enable stackdriver filter
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 }
@@ -220,7 +214,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.ApplyConfig(echoNsInst.Name(), sdBootstrap)
+	err = ctx.Config().ApplyYAML(echoNsInst.Name(), sdBootstrap)
 	if err != nil {
 		return
 	}

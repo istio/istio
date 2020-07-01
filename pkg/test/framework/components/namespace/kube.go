@@ -15,19 +15,22 @@
 package namespace
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math/rand"
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	kubeApiCore "k8s.io/api/core/v1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -46,16 +49,16 @@ type kubeNamespace struct {
 }
 
 func (n *kubeNamespace) Dump() {
-	scopes.CI.Errorf("=== Dumping Namespace %s State...", n.name)
+	scopes.Framework.Errorf("=== Dumping Namespace %s State...", n.name)
 
 	d, err := n.ctx.CreateTmpDirectory(n.name + "-state")
 	if err != nil {
-		scopes.CI.Errorf("Unable to create directory for dumping %s contents: %v", n.name, err)
+		scopes.Framework.Errorf("Unable to create directory for dumping %s contents: %v", n.name, err)
 		return
 	}
 
 	for _, cluster := range n.env.KubeClusters {
-		cluster.DumpPods(d, n.name)
+		kube2.DumpPods(cluster, d, n.name)
 	}
 }
 
@@ -80,7 +83,7 @@ func (n *kubeNamespace) Close() (err error) {
 		n.name = ""
 
 		for _, cluster := range n.env.KubeClusters {
-			err = multierror.Append(err, cluster.DeleteNamespace(ns)).ErrorOrNil()
+			err = cluster.CoreV1().Namespaces().Delete(context.TODO(), ns, kube2.DeleteOptionsForeground())
 		}
 	}
 
@@ -96,13 +99,18 @@ func claimKube(ctx resource.Context, name string, injectSidecar bool) (Instance,
 	}
 
 	for _, cluster := range env.KubeClusters {
-		if !cluster.NamespaceExists(name) {
+		if !kube2.NamespaceExists(cluster, name) {
 			nsConfig := Config{
 				Inject:   injectSidecar,
 				Revision: cfg.CustomSidecarInjectorNamespace,
 			}
-			nsLabels := createNamespaceLabels(&nsConfig)
-			if err := cluster.CreateNamespaceWithLabels(name, "istio-test", nsLabels); err != nil {
+
+			if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+				ObjectMeta: kubeApiMeta.ObjectMeta{
+					Name:   name,
+					Labels: createNamespaceLabels(&nsConfig),
+				},
+			}, kubeApiMeta.CreateOptions{}); err != nil {
 				return nil, err
 			}
 		}
@@ -128,8 +136,12 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	n.id = id
 
 	for _, cluster := range n.env.KubeClusters {
-		nsLabels := createNamespaceLabels(nsConfig)
-		if err := cluster.CreateNamespaceWithLabels(ns, "istio-test", nsLabels); err != nil {
+		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+			ObjectMeta: kubeApiMeta.ObjectMeta{
+				Name:   ns,
+				Labels: createNamespaceLabels(nsConfig),
+			},
+		}, kubeApiMeta.CreateOptions{}); err != nil {
 			return nil, err
 		}
 	}
@@ -140,6 +152,7 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 // createNamespaceLabels will take a namespace config and generate the proper k8s labels
 func createNamespaceLabels(cfg *Config) map[string]string {
 	l := make(map[string]string)
+	l["istio-testing"] = "istio-test"
 	if cfg.Inject {
 		if cfg.Revision != "" {
 			l[label.IstioRev] = cfg.Revision

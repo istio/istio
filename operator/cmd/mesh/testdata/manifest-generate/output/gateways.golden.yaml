@@ -1,16 +1,7 @@
-# AddonComponents grafana component is disabled.
-
----
 # AddonComponents istiocoredns component is disabled.
 
 ---
-# AddonComponents kiali component is disabled.
-
----
 # AddonComponents prometheus component is disabled.
-
----
-# AddonComponents istio-tracing component is disabled.
 
 # Base component is disabled.
 
@@ -195,7 +186,7 @@ spec:
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
-        - containerPort: 853
+        - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
@@ -216,6 +207,13 @@ spec:
           requests:
             cpu: 999m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -237,13 +235,7 @@ spec:
           name: ingressgateway-ca-certs
           readOnly: true
       securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
         fsGroup: 1337
-        privileged: false
-        readOnlyRootFilesystem: true
         runAsGroup: 1337
         runAsNonRoot: true
         runAsUser: 1337
@@ -571,7 +563,7 @@ spec:
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
-        - containerPort: 853
+        - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
@@ -592,6 +584,13 @@ spec:
           requests:
             cpu: 555m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -613,17 +612,11 @@ spec:
           name: ingressgateway-ca-certs
           readOnly: true
       securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
         fsGroup: 1337
-        privileged: false
-        readOnlyRootFilesystem: true
         runAsGroup: 1337
         runAsNonRoot: true
         runAsUser: 1337
-      serviceAccountName: istio-ingressgateway-service-account
+      serviceAccountName: user-ingressgateway-service-account
       volumes:
       - configMap:
           name: istio-ca-root-cert
@@ -931,7 +924,7 @@ spec:
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
-        - containerPort: 853
+        - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
@@ -952,6 +945,13 @@ spec:
           requests:
             cpu: 333m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -973,17 +973,11 @@ spec:
           name: ingressgateway-ca-certs
           readOnly: true
       securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
         fsGroup: 1337
-        privileged: false
-        readOnlyRootFilesystem: true
         runAsGroup: 1337
         runAsNonRoot: true
         runAsUser: 1337
-      serviceAccountName: istio-ingressgateway-service-account
+      serviceAccountName: ilb-gateway-service-account
       volumes:
       - configMap:
           name: istio-ca-root-cert

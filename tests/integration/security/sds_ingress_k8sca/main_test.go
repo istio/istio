@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
@@ -31,9 +30,9 @@ func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS multiple Gateway flow when
 	// the control plane certificate provider is k8s CA.
 	framework.
-		NewSuite("sds_ingress_k8sca", m).
+		NewSuite(m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 
 }
@@ -53,7 +52,7 @@ values:
 func TestMtlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.control-plane.k8s-certs", "security.ingress.mtls").
 		Run(func(ctx framework.TestContext) {
 			util.RunTestMultiMtlsGateways(ctx, inst)
 		})
@@ -62,7 +61,7 @@ func TestMtlsGatewaysK8sca(t *testing.T) {
 func TestTlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.control-plane.k8s-certs", "security.ingress.tls").
 		Run(func(ctx framework.TestContext) {
 			util.RunTestMultiTLSGateways(ctx, inst)
 		})

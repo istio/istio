@@ -15,8 +15,6 @@
 package environment
 
 const (
-	// Native environment name
-	Native Name = "native"
 	// Kube environment name
 	Kube Name = "kube"
 )
@@ -32,12 +30,11 @@ func (n Name) String() string {
 // environmentNames of supported environments
 func Names() []Name {
 	return []Name{
-		Native,
 		Kube,
 	}
 }
 
 // DefaultName is the name of the default environment
 func DefaultName() Name {
-	return Native
+	return Kube
 }

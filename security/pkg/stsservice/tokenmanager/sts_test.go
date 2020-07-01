@@ -100,6 +100,38 @@ func TestStsCache(t *testing.T) {
 	}
 }
 
+func TestStsTokenSource(t *testing.T) {
+	stsServer, mockBackend, _ := setUpTestComponents(t, testSetUp{})
+	defer tearDownTest(t, stsServer, mockBackend)
+
+	ts := NewTokenSource(mock.FakeTrustDomain, mock.FakeSubjectToken, "https://www.googleapis.com/auth/cloud-platform")
+
+	// Override token manager in token source to use mock plugin
+	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, false)
+	tokenManager := CreateTokenManager(GoogleTokenExchange,
+		Config{TrustDomain: mock.FakeTrustDomain})
+	tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
+	ts.tm = tokenManager
+
+	// Get and verify access token
+	got, err := ts.Token()
+	if err != nil {
+		t.Fatalf("failed to get access token: %v", err)
+	}
+	if got.AccessToken != mock.FakeAccessToken {
+		t.Errorf("access token want %v got %v", mock.FakeAccessToken, got.AccessToken)
+	}
+	if got.TokenType != "Bearer" {
+		t.Errorf("access token type want %v got %v", "Bearer", got.TokenType)
+	}
+	gotExpireIn := time.Until(got.Expiry)
+	// Give wanted expire duration 10 seconds headroom.
+	wantedExpireIn := time.Duration(mock.FakeExpiresInSeconds-10) * time.Second
+	if gotExpireIn < wantedExpireIn {
+		t.Errorf("expiry too short want at least %v, got %v", wantedExpireIn, gotExpireIn)
+	}
+}
+
 func genDumpReq(t *testing.T) (req *http.Request) {
 	dumpURL := "http://" + stsServerAddress + stsServer.StsStatusPath
 	req, _ = http.NewRequest("GET", dumpURL, nil)

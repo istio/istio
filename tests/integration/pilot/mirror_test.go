@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
+	"istio.io/istio/tests/integration/telemetry/outboundtrafficpolicy"
 )
 
 //	Virtual service topology
@@ -166,9 +166,9 @@ func TestMirroringExternalService(t *testing.T) {
 		cases:      cases,
 		mirrorHost: fakeExternalURL,
 		fnInjectConfig: func(ns namespace.Instance, ctx resource.Context, instances [3]echo.Instance) {
-			ctx.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(sidecar, ns.Name(),
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(sidecar, ns.Name(),
 				instances[1].Config().Domain, fakeExternalURL))
-			ctx.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
 			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)
 			}
@@ -212,8 +212,8 @@ func runMirrorTest(options mirrorTestOptions) {
 
 					deployment := tmpl.EvaluateOrFail(t,
 						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-					ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
-					defer ctx.DeleteConfigOrFail(t, ns.Name(), deployment)
+					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
+					defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), deployment)
 
 					for _, proto := range mirrorProtocols {
 						t.Run(string(proto), func(t *testing.T) {
@@ -292,11 +292,11 @@ func logCount(instance echo.Instance, testID string) (float64, error) {
 
 	var logs string
 	for _, w := range workloads {
-		log, err := w.Logs()
+		l, err := w.Logs()
 		if err != nil {
-			return -1, err
+			return -1, fmt.Errorf("failed getting logs: %v", err)
 		}
-		logs += log
+		logs += l
 	}
 
 	return float64(strings.Count(logs, testID)), nil

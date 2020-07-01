@@ -21,8 +21,7 @@ import (
 	"sync"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/hashicorp/go-multierror"
 
 	"google.golang.org/grpc"
@@ -33,8 +32,8 @@ import (
 type client struct {
 	discoveryAddr *net.TCPAddr
 	conn          *grpc.ClientConn
-	stream        adsapi.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	lastRequest   *xdsapi.DiscoveryRequest
+	stream        discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	lastRequest   *discovery.DiscoveryRequest
 
 	wg sync.WaitGroup
 }
@@ -45,7 +44,7 @@ func newClient(discoveryAddr *net.TCPAddr) (*client, error) {
 		return nil, err
 	}
 
-	adsClient := adsapi.NewAggregatedDiscoveryServiceClient(conn)
+	adsClient := discovery.NewAggregatedDiscoveryServiceClient(conn)
 	stream, err := adsClient.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return nil, err
@@ -58,7 +57,7 @@ func newClient(discoveryAddr *net.TCPAddr) (*client, error) {
 	}, nil
 }
 
-func (c *client) CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
+func (c *client) CallDiscovery(req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
 	c.lastRequest = req
 	err := c.stream.Send(req)
 	if err != nil {
@@ -67,7 +66,7 @@ func (c *client) CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryR
 	return c.stream.Recv()
 }
 
-func (c *client) CallDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
+func (c *client) CallDiscoveryOrFail(t test.Failer, req *discovery.DiscoveryRequest) *discovery.DiscoveryResponse {
 	t.Helper()
 	resp, err := c.CallDiscovery(req)
 	if err != nil {
@@ -76,7 +75,7 @@ func (c *client) CallDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest
 	return resp
 }
 
-func (c *client) StartDiscovery(req *xdsapi.DiscoveryRequest) error {
+func (c *client) StartDiscovery(req *discovery.DiscoveryRequest) error {
 	c.lastRequest = req
 	err := c.stream.Send(req)
 	if err != nil {
@@ -85,7 +84,7 @@ func (c *client) StartDiscovery(req *xdsapi.DiscoveryRequest) error {
 	return nil
 }
 
-func (c *client) StartDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest) {
+func (c *client) StartDiscoveryOrFail(t test.Failer, req *discovery.DiscoveryRequest) {
 	t.Helper()
 	if err := c.StartDiscovery(req); err != nil {
 		t.Fatal(err)
@@ -93,7 +92,7 @@ func (c *client) StartDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryReques
 }
 
 func (c *client) WatchDiscovery(timeout time.Duration,
-	accept func(*xdsapi.DiscoveryResponse) (bool, error)) error {
+	accept func(*discovery.DiscoveryResponse) (bool, error)) error {
 	c1 := make(chan error, 1)
 
 	c.wg.Add(1)
@@ -107,7 +106,7 @@ func (c *client) WatchDiscovery(timeout time.Duration,
 				break
 			}
 			// ACK all responses so that when an update arrives we can receive it
-			err = c.stream.Send(&xdsapi.DiscoveryRequest{
+			err = c.stream.Send(&discovery.DiscoveryRequest{
 				Node:          c.lastRequest.Node,
 				ResponseNonce: result.Nonce,
 				VersionInfo:   result.VersionInfo,
@@ -138,7 +137,7 @@ func (c *client) WatchDiscovery(timeout time.Duration,
 }
 
 func (c *client) WatchDiscoveryOrFail(t test.Failer, timeout time.Duration,
-	accept func(*xdsapi.DiscoveryResponse) (bool, error)) {
+	accept func(*discovery.DiscoveryResponse) (bool, error)) {
 
 	t.Helper()
 	if err := c.WatchDiscovery(timeout, accept); err != nil {

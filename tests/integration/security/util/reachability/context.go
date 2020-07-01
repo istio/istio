@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -45,8 +44,6 @@ type TestCase struct {
 	// CallOpts specified the call options for destination service. If not specified, use the default
 	// framework provided ones.
 	CallOpts []echo.CallOptions
-
-	RequiredEnvironment environment.Name
 
 	// Indicates whether a test should be created for the given configuration.
 	Include func(src echo.Instance, opts echo.CallOptions) bool
@@ -137,20 +134,16 @@ func (rc *Context) Run(testCases []TestCase) {
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		test := rc.ctx.NewSubTest(testName)
 
-		if c.RequiredEnvironment != "" {
-			test.RequiresEnvironment(c.RequiredEnvironment)
-		}
-
 		test.Run(func(ctx framework.TestContext) {
 			// Apply the policy.
 			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(ctx, func() error {
 				ctx.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return rc.ctx.ApplyConfig(c.Namespace.Name(), policyYAML)
+				return rc.ctx.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
 			ctx.WhenDone(func() error {
-				return rc.ctx.DeleteConfig(c.Namespace.Name(), policyYAML)
+				return rc.ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
 			})
 
 			// Give some time for the policy propagate.

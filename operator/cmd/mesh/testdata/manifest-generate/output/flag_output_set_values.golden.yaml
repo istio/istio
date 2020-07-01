@@ -141,7 +141,7 @@ spec:
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
-        - containerPort: 853
+        - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
@@ -162,6 +162,13 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -183,13 +190,7 @@ spec:
           name: ingressgateway-ca-certs
           readOnly: true
       securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
         fsGroup: 1337
-        privileged: false
-        readOnlyRootFilesystem: true
         runAsGroup: 1337
         runAsNonRoot: true
         runAsUser: 1337

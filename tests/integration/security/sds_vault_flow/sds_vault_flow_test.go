@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/util"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -35,7 +34,6 @@ import (
 
 func TestSdsVaultCaFlow(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			// Istio 1.3 uses Trustworthy JWT, which, unlike normal k8s JWT, is not
 			// recognized on Vault.
@@ -75,8 +73,8 @@ func TestSdsVaultCaFlow(t *testing.T) {
 					"Namespace": ns.Name(),
 				})
 
-			ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
-			defer ctx.DeleteConfigOrFail(t, ns.Name(), deployment)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), deployment)
 
 			// Sleep 10 seconds for the policy to take effect.
 			time.Sleep(10 * time.Second)

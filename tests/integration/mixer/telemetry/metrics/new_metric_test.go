@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
 )
@@ -29,11 +28,10 @@ import (
 func TestNewMetric(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ctx.ApplyConfigOrFail(ctx, "",
+			ctx.Config().ApplyYAMLOrFail(ctx, "",
 				bookinfo.DoubleMetric.LoadOrFail(ctx))
-			defer ctx.DeleteConfigOrFail(ctx, "",
+			defer ctx.Config().DeleteYAMLOrFail(ctx, "",
 				bookinfo.DoubleMetric.LoadOrFail(ctx))
 
 			util.AllowRuleSync(t)

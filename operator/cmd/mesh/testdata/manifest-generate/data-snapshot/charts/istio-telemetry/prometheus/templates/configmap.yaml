@@ -13,7 +13,6 @@ data:
     scrape_configs:
 
 
-{{- if not .Values.meshConfig.enablePrometheusMerge }}
     # Mixer scrapping. Defaults to Prometheus and mixer on same namespace.
     - job_name: 'istio-mesh'
       kubernetes_sd_configs:
@@ -26,6 +25,7 @@ data:
         action: keep
         regex: istio-telemetry;prometheus
 
+{{- if not .Values.meshConfig.enablePrometheusMerge }}
     # Scrape config for envoy stats
     - job_name: 'envoy-stats'
       metrics_path: /stats/prometheus

@@ -894,6 +894,9 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if reflect.DeepEqual(pc.DrainDuration, defaults.DrainDuration) {
 		pc.DrainDuration = nil
 	}
+	if reflect.DeepEqual(pc.TerminationDrainDuration, defaults.TerminationDrainDuration) {
+		pc.TerminationDrainDuration = nil
+	}
 	if reflect.DeepEqual(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
 		pc.ParentShutdownDuration = nil
 	}

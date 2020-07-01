@@ -49,11 +49,11 @@ var (
 	istioNamespace   string
 	defaultNamespace string
 
-	// Create a kubernetes.ExecClient (or mockExecClient) for talking to control plane components
-	clientExecFactory = newPilotExecClient
+	// Create a kubernetes client (or mockClient) for talking to control plane components
+	kubeClientWithRevision = newKubeClientWithRevision
 
 	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
-	envoyClientFactory = newEnvoyClient
+	kubeClient = newKubeClient
 
 	loggingOptions = defaultLogOptions()
 )
