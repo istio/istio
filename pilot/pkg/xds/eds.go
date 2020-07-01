@@ -427,8 +427,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range con.Clusters {
-		if _, f := updatedClusters[clusterName]; !f {
-			continue
+		if updatedClusters != nil {
+			if _, f := updatedClusters[clusterName]; !f {
+				continue
+			}
 		}
 		l := s.generateEndpoints(clusterName, con.node, push, edsUpdatedServices)
 		if l == nil {
