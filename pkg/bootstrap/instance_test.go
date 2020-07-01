@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,11 +28,13 @@ import (
 	"strings"
 	"testing"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
-	tracev2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
+	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
@@ -172,12 +174,12 @@ func TestGolden(t *testing.T) {
 			check: func(got *v2.Bootstrap, t *testing.T) {
 				// nolint: staticcheck
 				cfg := got.Tracing.Http.GetTypedConfig()
-				sdMsg := tracev2.OpenCensusConfig{}
-				if err := ptypes.UnmarshalAny(cfg, &sdMsg); err != nil {
+				sdMsg := &trace.OpenCensusConfig{}
+				if err := ptypes.UnmarshalAny(cfg, sdMsg); err != nil {
 					t.Fatalf("unable to parse: %v %v", cfg, err)
 				}
 
-				want := tracev2.OpenCensusConfig{
+				want := &trace.OpenCensusConfig{
 					TraceConfig: &v1.TraceConfig{
 						Sampler: &v1.TraceConfig_ConstantSampler{
 							ConstantSampler: &v1.ConstantSampler{
@@ -192,21 +194,20 @@ func TestGolden(t *testing.T) {
 					StackdriverExporterEnabled: true,
 					StdoutExporterEnabled:      true,
 					StackdriverProjectId:       "my-sd-project",
-					IncomingTraceContext: []tracev2.OpenCensusConfig_TraceContext{
-						tracev2.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_GRPC_TRACE_BIN,
-						tracev2.OpenCensusConfig_B3},
-					OutgoingTraceContext: []tracev2.OpenCensusConfig_TraceContext{
-						tracev2.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_GRPC_TRACE_BIN,
-						tracev2.OpenCensusConfig_B3},
+					IncomingTraceContext: []trace.OpenCensusConfig_TraceContext{
+						trace.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
+						trace.OpenCensusConfig_TRACE_CONTEXT,
+						trace.OpenCensusConfig_GRPC_TRACE_BIN,
+						trace.OpenCensusConfig_B3},
+					OutgoingTraceContext: []trace.OpenCensusConfig_TraceContext{
+						trace.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
+						trace.OpenCensusConfig_TRACE_CONTEXT,
+						trace.OpenCensusConfig_GRPC_TRACE_BIN,
+						trace.OpenCensusConfig_B3},
 				}
 
-				p, equal := diff.PrettyDiff(sdMsg, want)
-				if !equal {
-					t.Fatalf("t diff: %v\ngot: %v\nwant: %v\n", p, sdMsg, want)
+				if diff := cmp.Diff(sdMsg, want, protocmp.Transform()); diff != "" {
+					t.Fatalf("got unexpected diff: %v", diff)
 				}
 			},
 		},
@@ -318,8 +319,8 @@ func TestGolden(t *testing.T) {
 				golden = []byte{}
 			}
 
-			realM := v2.Bootstrap{}
-			goldenM := v2.Bootstrap{}
+			realM := &v2.Bootstrap{}
+			goldenM := &v2.Bootstrap{}
 
 			jgolden, err := yaml.YAMLToJSON(golden)
 
@@ -327,7 +328,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("unable to convert: %s %v", c.base, err)
 			}
 
-			if err = jsonpb.UnmarshalString(string(jgolden), &goldenM); err != nil {
+			if err = jsonpb.UnmarshalString(string(jgolden), goldenM); err != nil {
 				t.Fatalf("invalid json %s %s\n%v", c.base, err, string(jgolden))
 			}
 
@@ -341,7 +342,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("unable to convert: %s (%s) %v", c.base, fn, err)
 			}
 
-			if err = jsonpb.UnmarshalString(string(jreal), &realM); err != nil {
+			if err = jsonpb.UnmarshalString(string(jreal), realM); err != nil {
 				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 
@@ -349,13 +350,13 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid generated file %s: %v", c.base, err)
 			}
 
-			checkStatsMatcher(t, &realM, &goldenM, c.stats)
+			checkStatsMatcher(t, realM, goldenM, c.stats)
 
 			if c.check != nil {
-				c.check(&realM, t)
+				c.check(realM, t)
 			}
 
-			checkOpencensusConfig(t, &realM, &goldenM)
+			checkOpencensusConfig(t, realM, goldenM)
 
 			if !reflect.DeepEqual(realM, goldenM) {
 				s, _ := diff.PrettyDiff(goldenM, realM)
@@ -474,10 +475,10 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 			replacement: []byte("$1/test-path/$2"),
 		},
 		{
-			// Example: "customConfigFile":"../../tools/packaging/common/envoy_bootstrap_v2.json"
+			// Example: "customConfigFile":"../../tools/packaging/common/envoy_bootstrap.json"
 			// The path may change in CI/other machines
-			pattern:     regexp.MustCompile(`("customConfigFile":").*(envoy_bootstrap_v2.json")`),
-			replacement: []byte(`"customConfigFile":"envoy_bootstrap_v2.json"`),
+			pattern:     regexp.MustCompile(`("customConfigFile":").*(envoy_bootstrap.json")`),
+			replacement: []byte(`"customConfigFile":"envoy_bootstrap.json"`),
 		},
 	}
 	if excludeLocality {
@@ -517,7 +518,7 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 	if gobase == "" {
 		gobase = "../.."
 	}
-	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap_v2.json"
+	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap.json"
 	return cfg, nil
 }
 
@@ -636,6 +637,6 @@ func (f *fakePlatform) Metadata() map[string]string {
 	return f.meta
 }
 
-func (f *fakePlatform) Locality() *corev3.Locality {
-	return &corev3.Locality{}
+func (f *fakePlatform) Locality() *core.Locality {
+	return &core.Locality{}
 }

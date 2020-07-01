@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,14 @@
 package mtlscertplugincasecurenaming
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -29,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
@@ -101,7 +103,7 @@ spec:
 // - Secure naming information is respected in the mTLS handshake.
 func TestMTLSCertPluginCASecureNaming(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("security.peer.secure-naming", "security.control-plane.plugin-cert").
 		Run(func(ctx framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 			testNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
@@ -176,7 +178,7 @@ func TestMTLSCertPluginCASecureNaming(t *testing.T) {
 				ctx.NewSubTest(tc.name).
 					Run(func(ctx framework.TestContext) {
 						dr := strings.ReplaceAll(tc.destinationRule, "NS", testNamespace.Name())
-						ctx.ApplyConfigOrFail(t, testNamespace.Name(), dr)
+						ctx.Config().ApplyYAMLOrFail(t, testNamespace.Name(), dr)
 						// Verify mTLS works between a and b
 						callOptions := echo.CallOptions{
 							Target:   b,
@@ -224,7 +226,8 @@ func verifyCertificatesWithPluginCA(t *testing.T, dump string) {
 func checkCACert(testCtx framework.TestContext, t *testing.T, testNamespace namespace.Instance) error {
 	configMapName := "istio-ca-root-cert"
 	env := testCtx.Environment().(*kube.Environment)
-	cm, err := env.KubeClusters[0].GetConfigMap(configMapName, testNamespace.Name())
+	cm, err := env.KubeClusters[0].CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
+		kubeApiMeta.GetOptions{})
 	if err != nil {
 		return err
 	}

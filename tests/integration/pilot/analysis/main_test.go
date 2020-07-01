@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -27,10 +26,9 @@ import (
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("pilot_analysis_test", m).
+		NewSuite(m).
 		RequireSingleCluster().
-		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+		Setup(istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   pilot:
@@ -38,7 +36,6 @@ values:
       PILOT_ENABLE_STATUS: true
   global:
     istiod:
-      enabled: true
       enableAnalysis: true
 `
 		})).

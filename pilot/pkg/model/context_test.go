@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
 )
@@ -38,63 +38,70 @@ import (
 func TestNodeMetadata(t *testing.T) {
 	tests := []struct {
 		name  string
-		in    model.NodeMetadata
+		in    model.BootstrapNodeMetadata
 		out   string
-		inOut model.NodeMetadata
+		inOut model.BootstrapNodeMetadata
 	}{
 		{
 			"empty",
-			model.NodeMetadata{},
+			model.BootstrapNodeMetadata{},
 			"{}",
-			model.NodeMetadata{Raw: map[string]interface{}{}},
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{Raw: map[string]interface{}{}}},
 		},
 		{
 			"csvlists",
-			model.NodeMetadata{InstanceIPs: []string{"abc", "1.2.3.4"}},
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{InstanceIPs: []string{"abc", "1.2.3.4"}}},
 			`{"INSTANCE_IPS":"abc,1.2.3.4"}`,
-			model.NodeMetadata{
-				InstanceIPs: []string{"abc", "1.2.3.4"},
-				Raw: map[string]interface{}{
-					"INSTANCE_IPS": "abc,1.2.3.4",
-				}},
+			model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					InstanceIPs: []string{"abc", "1.2.3.4"},
+					Raw: map[string]interface{}{
+						"INSTANCE_IPS": "abc,1.2.3.4",
+					}},
+			},
 		},
 		{
 			"labels",
-			model.NodeMetadata{Labels: map[string]string{"foo": "bar"}},
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{Labels: map[string]string{"foo": "bar"}}},
 			`{"LABELS":{"foo":"bar"}}`,
-			model.NodeMetadata{Labels: map[string]string{"foo": "bar"},
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{Labels: map[string]string{"foo": "bar"},
 				Raw: map[string]interface{}{
 					"LABELS": map[string]interface{}{
 						"foo": "bar",
 					},
 				}},
+			},
 		},
 		{
 			"proxy config",
-			model.NodeMetadata{ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
-				ConfigPath:             "foo",
-				DrainDuration:          types.DurationProto(time.Second * 5),
-				ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-				EnvoyAccessLogService: &meshconfig.RemoteService{
-					Address: "address",
-					TlsSettings: &v1alpha3.ClientTLSSettings{
-						SubjectAltNames: []string{"san"},
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{
+				ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
+					ConfigPath:             "foo",
+					DrainDuration:          types.DurationProto(time.Second * 5),
+					ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+					EnvoyAccessLogService: &meshconfig.RemoteService{
+						Address: "address",
+						TlsSettings: &v1alpha3.ClientTLSSettings{
+							SubjectAltNames: []string{"san"},
+						},
 					},
-				},
-			})},
+				}),
+			},
+			},
 			// nolint: lll
 			`{"PROXY_CONFIG":{"configPath":"foo","drainDuration":"5s","controlPlaneAuthPolicy":"MUTUAL_TLS","envoyAccessLogService":{"address":"address","tlsSettings":{"subjectAltNames":["san"]}}}}`,
-			model.NodeMetadata{ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
-				ConfigPath:             "foo",
-				DrainDuration:          types.DurationProto(time.Second * 5),
-				ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-				EnvoyAccessLogService: &meshconfig.RemoteService{
-					Address: "address",
-					TlsSettings: &v1alpha3.ClientTLSSettings{
-						SubjectAltNames: []string{"san"},
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{
+				ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
+					ConfigPath:             "foo",
+					DrainDuration:          types.DurationProto(time.Second * 5),
+					ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+					EnvoyAccessLogService: &meshconfig.RemoteService{
+						Address: "address",
+						TlsSettings: &v1alpha3.ClientTLSSettings{
+							SubjectAltNames: []string{"san"},
+						},
 					},
-				},
-			}),
+				}),
 				Raw: map[string]interface{}{
 					"PROXY_CONFIG": map[string]interface{}{
 						"drainDuration":          "5s",
@@ -109,6 +116,7 @@ func TestNodeMetadata(t *testing.T) {
 					},
 				},
 			},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -120,7 +128,7 @@ func TestNodeMetadata(t *testing.T) {
 			if string(j) != tt.out {
 				t.Errorf("Got json '%s', expected '%s'", string(j), tt.out)
 			}
-			var meta model.NodeMetadata
+			var meta model.BootstrapNodeMetadata
 			if err := json.Unmarshal(j, &meta); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
@@ -527,8 +535,8 @@ func TestSetServiceInstances(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery := new(fakes.ServiceDiscovery)
-	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,

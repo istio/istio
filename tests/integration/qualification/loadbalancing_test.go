@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,6 @@ const (
 
 // NOTE: To avoid noise due to autoscaling, set the following helm values to the same value (>1):
 //
-// --istio.test.env=kubernetes
 // --istio.test.kube.helm.values=gateways.istio-ingressgateway.replicaCount=3,\
 //                               gateways.istio-ingressgateway.autoscaleMin=3,\
 //                               gateways.istio-ingressgateway.autoscaleMax=3
@@ -70,11 +69,11 @@ func TestIngressLoadBalancing(t *testing.T) {
 	undeploy := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
 	defer undeploy()
 
-	ctx.ApplyConfigOrFail(
+	ctx.Config().ApplyYAMLOrFail(
 		t,
 		bookinfoNs.Name(),
 		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-	ctx.ApplyConfigOrFail(
+	ctx.Config().ApplyYAMLOrFail(
 		t,
 		bookinfoNs.Name(),
 		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),

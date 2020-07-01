@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,7 +98,7 @@ var (
 	// except for tests.
 	// By default will be active, set to empty string to disable DNS functionality.
 	// Iptables interception matches this.
-	DNSAgentAddr = ":15013"
+	DNSAgentAddr = ":15053"
 
 	// DNSTLSEnableAgent activates the DNS-over-TLS in istio-agent.
 	// This will just attempt to connect to Istiod and start the DNS server on the default port -
@@ -106,7 +106,8 @@ var (
 	// Not using a bool - it's error prone in template, annotations, helm.
 	// For now any non-empty value will enable TLS in the agent - we may further customize
 	// the mode, for example specify DNS-HTTPS vs DNS-TLS
-	DNSTLSEnableAgent = env.RegisterStringVar("DNS_AGENT", "", "DNS-over-TLS upstream server")
+	DNSTLSEnableAgent = env.RegisterStringVar("DNS_AGENT", "", "If set, enable the "+
+		"capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 
 	// DNSUpstream allows overriding the upstream server. By default we use [discovery-address]:853
 	// If a secure DNS server is available - set this to point to the server.

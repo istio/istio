@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,7 +45,13 @@ func TestCheckOutboundConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	src := testConfig{}
+	cluster := resource.FakeCluster{
+		NameValue: "cluster-0",
+	}
+
+	src := testConfig{
+		cluster: cluster,
+	}
 
 	cfgs := []testConfig{
 		{
@@ -55,6 +61,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			domain:      "cluster.local",
 			servicePort: 80,
 			address:     "10.43.241.185",
+			cluster:     cluster,
 		},
 		{
 			protocol:    protocol.HTTP,
@@ -63,6 +70,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			domain:      "cluster.local",
 			servicePort: 8080,
 			address:     "10.43.241.185",
+			cluster:     cluster,
 		},
 		{
 			protocol:    protocol.TCP,
@@ -71,6 +79,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			domain:      "cluster.local",
 			servicePort: 90,
 			address:     "10.43.241.185",
+			cluster:     cluster,
 		},
 		{
 			protocol:    protocol.HTTPS,
@@ -79,6 +88,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			domain:      "cluster.local",
 			servicePort: 9090,
 			address:     "10.43.241.185",
+			cluster:     cluster,
 		},
 		{
 			protocol:    protocol.HTTP2,
@@ -87,6 +97,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			domain:      "cluster.local",
 			servicePort: 70,
 			address:     "10.43.241.185",
+			cluster:     cluster,
 		},
 		{
 			protocol:    protocol.GRPC,
@@ -95,6 +106,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			domain:      "cluster.local",
 			servicePort: 7070,
 			address:     "10.43.241.185",
+			cluster:     cluster,
 		},
 	}
 
@@ -119,6 +131,7 @@ type testConfig struct {
 	service     string
 	domain      string
 	namespace   string
+	cluster     resource.Cluster
 }
 
 func (e *testConfig) Owner() echo.Instance {
@@ -138,6 +151,7 @@ func (e *testConfig) Address() string {
 
 func (e *testConfig) Config() echo.Config {
 	return echo.Config{
+		Cluster: e.cluster,
 		Service: e.service,
 		Namespace: &fakeNamespace{
 			name: e.namespace,

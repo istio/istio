@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,33 +33,33 @@ import (
 var (
 	// ordered by which types should be deleted, first to last
 	namespacedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
-		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
-		{Group: "apps", Version: "v1", Kind: "Deployment"},
-		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "", Version: "v1", Kind: "Service"},
-		{Group: "", Version: "v1", Kind: "ConfigMap"},
-		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
-		{Group: "", Version: "v1", Kind: "Pod"},
-		{Group: "", Version: "v1", Kind: "Secret"},
-		{Group: "", Version: "v1", Kind: "ServiceAccount"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "DestinationRule"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "EnvoyFilter"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Gateway"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "VirtualService"},
-		{Group: "security.istio.io", Version: "v1beta1", Kind: "PeerAuthentication"},
+		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
+		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
+		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
+		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
+		{Group: "", Version: "v1", Kind: name.ServiceStr},
+		{Group: "", Version: "v1", Kind: name.CMStr},
+		{Group: "", Version: "v1", Kind: name.PVCStr},
+		{Group: "", Version: "v1", Kind: name.PodStr},
+		{Group: "", Version: "v1", Kind: name.SecretStr},
+		{Group: "", Version: "v1", Kind: name.SAStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.DestinationRuleStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.EnvoyFilterStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.GatewayStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.VirtualServiceStr},
+		{Group: name.SecurityAPIGroupName, Version: "v1beta1", Kind: name.PeerAuthenticationStr},
 	}
 
 	// ordered by which types should be deleted, first to last
 	nonNamespacedResources = []schema.GroupVersionKind{
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.ValidatingWebhookConfigurationStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
 		// Cannot currently prune CRDs because this will also wipe out user config.
-		// {Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
+		// {Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
 	}
 )
 
@@ -97,12 +97,12 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		// First, we collect all objects for the provided GVK
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
-		componentRequirement, err := klabels.NewRequirement(istioComponentLabelStr, selection.Exists, nil)
+		componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
 		if err != nil {
 			return err
 		}
 		selector = selector.Add(*componentRequirement)
-		if err := h.client.List(context.TODO(), objects, client.MatchingLabelsSelector{Selector: selector}, client.InNamespace(h.iop.Namespace)); err != nil {
+		if err := h.client.List(context.TODO(), objects, client.MatchingLabelsSelector{Selector: selector}); err != nil {
 			// we only want to retrieve resources clusters
 			scope.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
 			continue
@@ -113,7 +113,7 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 	return errs.ToError()
 }
 
-// Delete removes all resources associated with componentName.
+// DeleteComponent Delete removes all resources associated with componentName.
 func (h *HelmReconciler) DeleteComponent(componentName string) error {
 	return h.runForAllTypes(func(labels map[string]string, objects *unstructured.UnstructuredList) error {
 		return h.pruneUnlistedResources(map[string]bool{}, labels, componentName, objects, false)

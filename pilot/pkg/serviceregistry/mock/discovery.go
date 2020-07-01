@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -159,19 +159,6 @@ type ServiceDiscovery struct {
 	GetProxyServiceInstancesError error
 }
 
-// ClearErrors clear errors used for failures during model.ServiceDiscovery interface methods
-func (sd *ServiceDiscovery) ClearErrors() {
-	sd.ServicesError = nil
-	sd.GetServiceError = nil
-	sd.InstancesError = nil
-	sd.GetProxyServiceInstancesError = nil
-}
-
-// AddService will add to the registry the provided service
-func (sd *ServiceDiscovery) AddService(name host.Name, svc *model.Service) {
-	sd.services[name] = svc
-}
-
 // Services implements discovery interface
 func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	if sd.ServicesError != nil {
@@ -247,24 +234,6 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 	}
 	// no useful labels from the ServiceInstances created by newServiceInstance()
 	return nil, nil
-}
-
-// ManagementPorts implements discovery interface
-func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
-	return model.PortList{{
-		Name:     "http",
-		Port:     3333,
-		Protocol: protocol.HTTP,
-	}, {
-		Name:     "custom",
-		Port:     9999,
-		Protocol: protocol.TCP,
-	}}
-}
-
-// WorkloadHealthCheckInfo implements discovery interface
-func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	return nil
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,13 +67,4 @@ func main() {
 		fmt.Printf("Error writing output file: %v", err)
 		os.Exit(-4)
 	}
-}
-
-func readMetadata(path string) (*schema.Metadata, error) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read input file: %v", err)
-	}
-
-	return schema.ParseAndBuild(string(b))
 }

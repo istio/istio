@@ -8,6 +8,8 @@ spec:
 
   # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
+    defaultConfig:
+      proxyMetadata: {}
     enablePrometheusMerge: true
     # Opt-out of global http2 upgrades.
     # Destination rule is used to opt-in.
@@ -201,20 +203,6 @@ spec:
       enabled: false
 
   addonComponents:
-    prometheus:
-      enabled: true
-      k8s:
-        replicaCount: 1
-    kiali:
-      enabled: false
-      k8s:
-        replicaCount: 1
-    grafana:
-      enabled: false
-      k8s:
-        replicaCount: 1
-    tracing:
-      enabled: false
     istiocoredns:
       enabled: false
 
@@ -224,7 +212,6 @@ spec:
     global:
       istioNamespace: istio-system
       istiod:
-        enabled: true
         enableAnalysis: false
       logging:
         level: "default:info"
@@ -254,10 +241,6 @@ spec:
         excludeOutboundPorts: ""
         excludeInboundPorts: ""
         autoInject: enabled
-        envoyStatsd:
-          enabled: false
-          host: # example: statsd-svc.istio-system
-          port: # example: 9125
         tracer: "zipkin"
       proxy_init:
         image: proxyv2
@@ -433,18 +416,12 @@ spec:
         zvpn: {}
         env: {}
         meshExpansionPorts:
-          - port: 15011
-            targetPort: 15011
-            name: tcp-pilot-grpc-tls
-          - port: 15012
-            targetPort: 15012
-            name: tcp-istiod
-          - port: 8060
-            targetPort: 8060
-            name: tcp-citadel-grpc-tls
-          - port: 853
-            targetPort: 8853
-            name: tcp-dns-tls
+        - port: 15012
+          targetPort: 15012
+          name: tcp-istiod
+        - port: 853
+          targetPort: 8853
+          name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs
             secretName: istio-ingressgateway-certs
@@ -463,7 +440,7 @@ spec:
 
     prometheus:
       hub: docker.io/prom
-      tag: v2.15.1
+      tag: v2.18.1
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
@@ -479,7 +456,7 @@ spec:
     grafana:
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 7.0.3
       persist: false
       storageClassName: ""
       accessMode: ReadWriteMany

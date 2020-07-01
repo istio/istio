@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package prometheus
+package http
 
 import (
 	"fmt"
@@ -23,13 +23,13 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/features"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
 	promUtil "istio.io/istio/tests/integration/telemetry/stats/prometheus"
@@ -60,16 +60,13 @@ func GetPromInstance() prometheus.Instance {
 
 // TestStatsFilter includes common test logic for stats and mx exchange filters running
 // with nullvm and wasm runtime.
-func TestStatsFilter(t *testing.T) {
+func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features(feature).
 		Run(func(ctx framework.TestContext) {
 			sourceQuery, destinationQuery, appQuery := buildQuery()
 			retry.UntilSuccessOrFail(t, func() error {
-				if _, err := client.Call(echo.CallOptions{
-					Target:   server,
-					PortName: "http",
-				}); err != nil {
+				if err := SendTraffic(); err != nil {
 					return err
 				}
 				// Query client side metrics
@@ -140,8 +137,17 @@ func TestSetup(ctx resource.Context) (err error) {
 	return nil
 }
 
+// SendTraffic makes a client call to the "server" service on the http port.
+func SendTraffic() error {
+	_, err := client.Call(echo.CallOptions{
+		Target:   server,
+		PortName: "http",
+	})
+	return err
+}
+
 func SetupStrictMTLS(ctx resource.Context) error {
-	return ctx.ApplyConfig(appNsInst.Name(), fmt.Sprintf(`
+	return ctx.Config().ApplyYAML(appNsInst.Name(), fmt.Sprintf(`
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -176,6 +182,6 @@ func buildQuery() (sourceQuery, destinationQuery, appQuery string) {
 	}
 	sourceQuery += "}"
 	destinationQuery += "}"
-	appQuery += `istio_echo_http_requests_total{namespace="` + ns.Name() + `"}`
+	appQuery += `istio_echo_http_requests_total{kubernetes_namespace="` + ns.Name() + `"}`
 	return
 }

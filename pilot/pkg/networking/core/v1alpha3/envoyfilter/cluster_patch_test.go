@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@ import (
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
 func Test_clusterMatch(t *testing.T) {
@@ -206,7 +207,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	sidecarOutboundIn := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_MAGLEV,
@@ -216,7 +217,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	sidecarOutboundOut := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_RING_HASH, DnsLookupFamily: cluster.Cluster_V6_ONLY,
@@ -236,7 +237,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	gatewayInput := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_MAGLEV,
@@ -246,7 +247,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	gatewayOutput := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
 		{Name: "cluster2",
-			Http2ProtocolOptions: &corev3.Http2ProtocolOptions{
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_RING_HASH, DnsLookupFamily: cluster.Cluster_V6_ONLY,
@@ -283,14 +284,14 @@ func TestApplyClusterPatches(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := ApplyClusterPatches(tc.patchContext, tc.proxy, push, tc.input)
-			if diff := cmp.Diff(tc.output, got); diff != "" {
+			if diff := cmp.Diff(tc.output, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyClusterPatches(): %s mismatch (-want +got):\n%s", tc.name, diff)
 			}
 		})

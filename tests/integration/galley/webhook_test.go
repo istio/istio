@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,15 +15,17 @@
 package galley
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
 
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1beta1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -34,14 +36,14 @@ const (
 func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
 		// Limit to Kube environment as we're testing integration of webhook with K8s.
-		RequiresEnvironment(environment.Kube).
+
 		Run(func(ctx framework.TestContext) {
 			env := ctx.Environment().(*kube.Environment)
 
 			// clear the updated fields and verify istiod updates them
 
 			retry.UntilSuccessOrFail(t, func() error {
-				got, err := env.KubeClusters[0].GetValidatingWebhookConfiguration(vwcName)
+				got, err := getValidatingWebhookConfiguration(env.KubeClusters[0], vwcName)
 				if err != nil {
 					return fmt.Errorf("error getting initial webhook: %v", err)
 				}
@@ -54,11 +56,15 @@ func TestWebhook(t *testing.T) {
 				ignore := kubeApiAdmission.Ignore // can't take the address of a constant
 				updated.Webhooks[0].FailurePolicy = &ignore
 
-				return env.KubeClusters[0].UpdateValidatingWebhookConfiguration(updated)
+				if _, err := env.KubeClusters[0].AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(context.TODO(),
+					updated, kubeApiMeta.UpdateOptions{}); err != nil {
+					return fmt.Errorf("could not update validating webhook config: %s", updated.Name)
+				}
+				return nil
 			})
 
 			retry.UntilSuccessOrFail(t, func() error {
-				got, err := env.KubeClusters[0].GetValidatingWebhookConfiguration(vwcName)
+				got, err := getValidatingWebhookConfiguration(env.KubeClusters[0], vwcName)
 				if err != nil {
 					t.Fatalf("error getting initial webhook: %v", err)
 				}
@@ -68,6 +74,15 @@ func TestWebhook(t *testing.T) {
 				return nil
 			})
 		})
+}
+
+func getValidatingWebhookConfiguration(client kubernetes.Interface, name string) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
+	whc, err := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.TODO(),
+		name, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not get validating webhook config: %s", name)
+	}
+	return whc, nil
 }
 
 func verifyValidatingWebhookConfiguration(c *kubeApiAdmission.ValidatingWebhookConfiguration) error {

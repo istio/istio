@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	golangany "github.com/golang/protobuf/ptypes/any"
 
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -65,15 +66,15 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	// The actual type in the Any should be a real proto - which is based on the generated package name.
 	// For example: type is for Any is 'type.googlepis.com/istio.networking.v1alpha3.EnvoyFilter
 	// We use: networking.istio.io/v1alpha3/EnvoyFilter
-	gvk := strings.SplitN(w.TypeUrl, "/", 3)
-	if len(gvk) == 3 {
+	kind := strings.SplitN(w.TypeUrl, "/", 3)
+	if len(kind) == 3 {
 		// TODO: extra validation may be needed - at least logging that a resource
 		// of unknown type was requested. This should not be an error - maybe client asks
 		// for a valid CRD we just don't know about. An empty set indicates we have no such config.
 		rgvk := resource.GroupVersionKind{
-			Group:   gvk[0],
-			Version: gvk[1],
-			Kind:    gvk[2],
+			Group:   kind[0],
+			Version: kind[1],
+			Kind:    kind[2],
 		}
 		if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
 			meshAny, err := gogotypes.MarshalAny(push.Mesh)
@@ -118,7 +119,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 
 		// TODO: MeshConfig, current dynamic ProxyConfig (for this proxy), Networks
 
-		if w.TypeUrl == collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String() {
+		if w.TypeUrl == gvk.ServiceEntry.String() {
 			// Include 'synthetic' SE - but without the endpoints. Used to generate CDS, LDS.
 			// EDS is pass-through.
 			svcs := push.Services(proxy)

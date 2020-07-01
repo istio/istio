@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -107,7 +105,14 @@ type Config struct {
 
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
+	// These values are applied to non-remote clusters
 	ControlPlaneValues string
+
+	// Override values specifically for the ICP crd
+	// This is mostly required for cases where --set cannot be used
+	// These values are only applied to remote clusters
+	// Default value will be ControlPlaneValues if no remote values provided
+	RemoteClusterValues string
 
 	// Overrides for the Helm values file.
 	Values map[string]string
@@ -124,41 +129,10 @@ type Config struct {
 	CustomSidecarInjectorNamespace string
 }
 
-// IsMtlsEnabled checks in Values flag and Values file.
-func (c *Config) IsMtlsEnabled() bool {
-	if c.Values["global.mtls.auto"] == "true" {
-		return true
-	}
-
-	m := make(map[interface{}]interface{})
-	err := yaml2.Unmarshal([]byte(c.ControlPlaneValues), &m)
-	if err != nil {
-		return false
-	}
-	if m["values"] != nil {
-		switch values := m["values"].(type) {
-		case map[interface{}]interface{}:
-			if values["global"] != nil {
-				switch globalVal := values["global"].(type) {
-				case map[interface{}]interface{}:
-					switch mtlsVal := globalVal["mtls"].(type) {
-					case map[interface{}]interface{}:
-						if !mtlsVal["auto"].(bool) {
-							return false
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return true
-}
-
-func (c *Config) IstioOperatorConfigYAML() string {
+func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {
 	data := ""
-	if c.ControlPlaneValues != "" {
-		data = Indent(c.ControlPlaneValues, "  ")
+	if iopYaml != "" {
+		data = Indent(iopYaml, "  ")
 	}
 
 	s, err := image.SettingsFromCommandLine()

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,13 +20,11 @@ import (
 
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/metadata"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // allow out of cluster authentication
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // BuildClientConfig builds a client rest config from a kubeconfig filepath and context.
@@ -82,53 +80,19 @@ func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*ku
 	return kubernetes.NewForConfig(c)
 }
 
-// CreateMetadataClient is a helper function that builds a kubernetes metadata client from a kubeconfig
-// filepath. See `BuildClientConfig` for kubeconfig loading rules.
-func CreateMetadataClient(kubeconfig, context string, fns ...func(*rest.Config)) (metadata.Interface, error) {
-	c, err := BuildClientConfig(kubeconfig, context)
+// DefaultRestConfig returns the rest.Config for the given kube config file and context.
+func DefaultRestConfig(kubeconfig, configContext string, fns ...func(*rest.Config)) (*rest.Config, error) {
+	config, err := BuildClientConfig(kubeconfig, configContext)
 	if err != nil {
 		return nil, err
 	}
+	config = SetRestDefaults(config)
+
 	for _, fn := range fns {
-		fn(c)
+		fn(config)
 	}
-	return metadata.NewForConfig(c)
-}
 
-// CreateInterfaceFromClusterConfig is a helper function to create Kubernetes interface from in memory cluster config struct
-func CreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
-	return createInterface(clusterConfig)
-}
-
-// createInterface is new function which creates rest config and kubernetes interface
-// from passed cluster's config struct
-func createInterface(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
-	clientConfig := clientcmd.NewDefaultClientConfig(*clusterConfig, &clientcmd.ConfigOverrides{})
-	restConfig, err := clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(restConfig)
-}
-
-// CreateMetadataInterfaceFromClusterConfig is a helper function to create Kubernetes metadata interface from in memory cluster config struct
-func CreateMetadataInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (metadata.Interface, error) {
-	clientConfig := clientcmd.NewDefaultClientConfig(*clusterConfig, &clientcmd.ConfigOverrides{})
-	restConfig, err := clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	return metadata.NewForConfig(restConfig)
-}
-
-// CreateDynamicInterfaceFromClusterConfig is a helper function to create Kubernetes dynamic interface from in memory cluster config struct
-func CreateDynamicInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (dynamic.Interface, error) {
-	clientConfig := clientcmd.NewDefaultClientConfig(*clusterConfig, &clientcmd.ConfigOverrides{})
-	restConfig, err := clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	return dynamic.NewForConfig(restConfig)
+	return config, nil
 }
 
 // SetRestDefaults is a helper function that sets default values for the given rest.Config.
@@ -156,4 +120,29 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
 	return config
+}
+
+// CheckPodReady returns nil if the given pod and all of its containers are ready.
+func CheckPodReady(pod *kubeApiCore.Pod) error {
+	switch pod.Status.Phase {
+	case kubeApiCore.PodSucceeded:
+		return nil
+	case kubeApiCore.PodRunning:
+		// Wait until all containers are ready.
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if !containerStatus.Ready {
+				return fmt.Errorf("container not ready: '%s'", containerStatus.Name)
+			}
+		}
+		if len(pod.Status.Conditions) > 0 {
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == kubeApiCore.PodReady && condition.Status != kubeApiCore.ConditionTrue {
+					return fmt.Errorf("pod not ready, condition message: %v", condition.Message)
+				}
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("%s", pod.Status.Phase)
+	}
 }

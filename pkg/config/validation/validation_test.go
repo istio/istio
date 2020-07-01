@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -3573,261 +3572,6 @@ func TestValidateServiceEntries(t *testing.T) {
 	}
 }
 
-func TestValidateAuthenticationPolicy(t *testing.T) {
-	cases := []struct {
-		name       string
-		configName string
-		in         proto.Message
-		valid      bool
-	}{
-		{
-			name:       "empty policy with namespace-wide policy name",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in:         &authn.Policy{},
-			valid:      true,
-		},
-		{
-			name:       "empty policy with non-default name",
-			configName: someName,
-			in:         &authn.Policy{},
-			valid:      false,
-		},
-		{
-			name:       "service-specific policy with namespace-wide name",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-			},
-			valid: false,
-		},
-		{
-			name:       "Targets only policy",
-			configName: someName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "Source mTLS",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "Source JWT",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "Origin",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: true,
-		},
-		{
-			name:       "Bad JkwsURI",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Bad JkwsURI Port",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io:not-a-number/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Duplicate Jwt issuers",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				}},
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Just binding",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
-			},
-			valid: true,
-		},
-		{
-			name:       "Bad target name",
-			configName: someName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{
-					{
-						Name: "foo.bar",
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Good target name",
-			configName: someName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{
-					{
-						Name: "good-service-name",
-					},
-				},
-			},
-			valid: true,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateAuthenticationPolicy(c.configName, someNamespace, c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
-func TestValidateAuthenticationMeshPolicy(t *testing.T) {
-	cases := []struct {
-		name       string
-		configName string
-		in         proto.Message
-		valid      bool
-	}{
-		{
-			name:       "good name",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in:         &authn.Policy{},
-			valid:      true,
-		},
-		{
-			name:       "bad-name",
-			configName: someName,
-			in:         &authn.Policy{},
-			valid:      false,
-		},
-		{
-			name:       "has targets",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-			},
-			valid: false,
-		},
-		{
-			name:       "good",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "empty origin",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Origins: []*authn.OriginAuthenticationMethod{{}},
-			},
-			valid: false,
-		},
-		{
-			name:       "nil origin",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Origins: []*authn.OriginAuthenticationMethod{nil},
-			},
-			valid: false,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateAuthenticationPolicy(c.configName, "", c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
 func TestValidateAuthorizationPolicy(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -5661,6 +5405,104 @@ func TestValidateMeshNetworks(t *testing.T) {
 			}
 			if err == nil && !tc.valid {
 				t.Errorf("expected an error on invalid meshnetworks: %v", *tc.mn)
+			}
+		})
+	}
+}
+
+func Test_validateExportTo(t *testing.T) {
+	tests := []struct {
+		name           string
+		namespace      string
+		exportTo       []string
+		isServiceEntry bool
+		wantErr        bool
+	}{
+		{
+			name:      "empty exportTo is okay",
+			namespace: "ns5",
+			wantErr:   false,
+		},
+		{
+			name:      "* is allowed",
+			namespace: "ns5",
+			exportTo:  []string{"*"},
+			wantErr:   false,
+		},
+		{
+			name:      ". and ns1 are allowed",
+			namespace: "ns5",
+			exportTo:  []string{".", "ns1"},
+			wantErr:   false,
+		},
+		{
+			name:      "bunch of namespaces in exportTo is okay",
+			namespace: "ns5",
+			exportTo:  []string{"ns1", "ns2", "ns5"},
+			wantErr:   false,
+		},
+		{
+			name:           "~ is allowed for service entry configs",
+			namespace:      "ns5",
+			exportTo:       []string{"~"},
+			isServiceEntry: true,
+			wantErr:        false,
+		},
+		{
+			name:      "~ not allowed for non service entry configs",
+			namespace: "ns5",
+			exportTo:  []string{"~", "ns1"},
+			wantErr:   true,
+		},
+		{
+			name:      ". and * together are not allowed",
+			namespace: "ns5",
+			exportTo:  []string{".", "*"},
+			wantErr:   true,
+		},
+		{
+			name:      "* and ns1 together are not allowed",
+			namespace: "ns5",
+			exportTo:  []string{"*", "ns1"},
+			wantErr:   true,
+		},
+		{
+			name:      ". and same namespace in exportTo is not okay",
+			namespace: "ns5",
+			exportTo:  []string{".", "ns5"},
+			wantErr:   true,
+		},
+		{
+			name:      "duplicate namespaces in exportTo is not okay",
+			namespace: "ns5",
+			exportTo:  []string{"ns1", "ns2", "ns1"},
+			wantErr:   true,
+		},
+		{
+			name:           "duplicate none in service entry exportTo is not okay",
+			namespace:      "ns5",
+			exportTo:       []string{"~", "~", "ns1"},
+			isServiceEntry: true,
+			wantErr:        true,
+		},
+		{
+			name:      "invalid namespace names are not okay",
+			namespace: "ns5",
+			exportTo:  []string{"ns1_"},
+			wantErr:   true,
+		},
+		{
+			name:           "none and other namespaces cannot be combined in service entry exportTo",
+			namespace:      "ns5",
+			exportTo:       []string{"~", "ns1"},
+			isServiceEntry: true,
+			wantErr:        true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateExportTo(tt.namespace, tt.exportTo, tt.isServiceEntry); (err != nil) != tt.wantErr {
+				t.Errorf("validateExportTo() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

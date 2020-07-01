@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
@@ -33,6 +32,7 @@ import (
 // - Send HTTP/gRPC requests between apps.
 func TestMtlsStrictK8sCA(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.control-plane.k8s-certs").
 		Run(func(ctx framework.TestContext) {
 
 			rctx := reachability.CreateContext(ctx, p)
@@ -40,14 +40,9 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "global-mtls-on-no-dr.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "global-mtls-on-no-dr.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude headless naked service
-						if src == rctx.HeadlessNaked || opts.Target == rctx.HeadlessNaked {
-							return false
-						}
 						// Exclude calls to the headless service.
 						// Auto mtls does not apply to headless service, because for headless service
 						// the cluster discovery type is ORIGINAL_DST, and it will not apply upstream tls setting
@@ -66,14 +61,9 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "global-plaintext.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "global-plaintext.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude headless naked service
-						if src == rctx.HeadlessNaked || opts.Target == rctx.HeadlessNaked {
-							return false
-						}
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
 							return false

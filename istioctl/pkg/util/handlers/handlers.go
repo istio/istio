@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,9 @@
 package handlers
 
 import (
-	"fmt"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 //InferPodInfo Uses proxyName to infer namespace if the passed proxyName contains namespace information.
@@ -39,48 +37,4 @@ func HandleNamespace(ns, defaultNamespace string) string {
 		ns = defaultNamespace
 	}
 	return ns
-}
-
-//GetDefaultNamespace returns the default namespace for a kubeconfig
-func GetDefaultNamespace(kubeconfig string) string {
-	configAccess := clientcmd.NewDefaultPathOptions()
-
-	if kubeconfig != "" {
-		// use specified kubeconfig file for the location of the
-		// config to read
-		configAccess.GlobalFile = kubeconfig
-	}
-
-	// gets existing kubeconfig or returns new empty config
-	config, err := configAccess.GetStartingConfig()
-	if err != nil {
-		return v1.NamespaceDefault
-	}
-
-	context, ok := config.Contexts[config.CurrentContext]
-	if !ok {
-		return v1.NamespaceDefault
-	}
-	if context.Namespace == "" {
-		return v1.NamespaceDefault
-	}
-	return context.Namespace
-}
-
-//HandleNamespaces returns the correct namespace
-func HandleNamespaces(objectNamespace, namespace, defaultNamespace string) (string, error) {
-	if objectNamespace != "" && namespace != "" && namespace != objectNamespace {
-		return "", fmt.Errorf(`the namespace from the provided object "%s" does `+
-			`not match the namespace "%s". You must pass '--namespace=%s' to perform `+
-			`this operation`, objectNamespace, namespace, objectNamespace)
-	}
-
-	if namespace != "" {
-		return namespace, nil
-	}
-
-	if objectNamespace != "" {
-		return objectNamespace, nil
-	}
-	return defaultNamespace, nil
 }

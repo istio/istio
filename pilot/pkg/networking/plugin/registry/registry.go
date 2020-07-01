@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,15 +21,13 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
-	"istio.io/istio/pilot/pkg/networking/plugin/health"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 )
 
 var availablePlugins = map[string]plugin.Plugin{
-	plugin.Authn:  authn.NewPlugin(),
-	plugin.Authz:  authz.NewPlugin(),
-	plugin.Health: health.NewPlugin(),
-	plugin.Mixer:  mixer.NewPlugin(),
+	plugin.Authn: authn.NewPlugin(),
+	plugin.Authz: authz.NewPlugin(),
+	plugin.Mixer: mixer.NewPlugin(),
 }
 
 // NewPlugins returns a slice of default Plugins.

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ pilot:
       memory: 1G
   replicaCount: 1
   nodeSelector:
-    beta.kubernetes.io/os: linux
+    kubernetes.io/os: linux
   tolerations:
   - key: dedicated
     operator: Exists
@@ -106,14 +106,14 @@ components:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-pilot
+            name: istiod
           metrics:
            - resource:
                name: cpu
                targetAverageUtilization: 80
              type: Resource
        nodeSelector:
-          beta.kubernetes.io/os: linux
+          kubernetes.io/os: linux
        tolerations:
        - key: dedicated
          operator: Exists

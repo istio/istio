@@ -2,21 +2,7 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   addonComponents:
-    grafana:
-      enabled: false
-      k8s:
-        replicaCount: 1
     istiocoredns:
-      enabled: false
-    kiali:
-      enabled: false
-      k8s:
-        replicaCount: 1
-    prometheus:
-      enabled: true
-      k8s:
-        replicaCount: 1
-    tracing:
       enabled: false
   components:
     base:
@@ -196,6 +182,8 @@ spec:
   hub: gcr.io/istio-testing
 
   meshConfig:
+    defaultConfig:
+      proxyMetadata: {}
     enablePrometheusMerge: true
   profile: default
   tag: latest
@@ -266,7 +254,6 @@ spec:
       istioNamespace: istio-system
       istiod:
         enableAnalysis: false
-        enabled: true
       jwtPolicy: third-party-jwt
       logAsJson: false
       logging:
@@ -290,8 +277,6 @@ spec:
         clusterDomain: cluster.local
         componentLogLevel: misc:error
         enableCoreDump: false
-        envoyStatsd:
-          enabled: false
         excludeIPRanges: ""
         excludeInboundPorts: ""
         excludeOutboundPorts: ""
@@ -315,8 +300,8 @@ spec:
         image: proxyv2
         resources:
           limits:
-            cpu: 100m
-            memory: 50Mi
+            cpu: 2000m
+            memory: 1024Mi
           requests:
             cpu: 10m
             memory: 10Mi
@@ -361,7 +346,7 @@ spec:
       envSecrets: {}
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 7.0.3
       nodeSelector: {}
       persist: false
       podAntiAffinityLabelSelector: []
@@ -482,7 +467,7 @@ spec:
       scrapeInterval: 15s
       security:
         enabled: true
-      tag: v2.15.1
+      tag: v2.18.1
       tolerations: []
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false

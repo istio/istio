@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,6 +95,7 @@ var (
 		annotation.SidecarTrafficKubevirtInterfaces.Name:          alwaysValidFunc,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
 		annotation.ProxyConfig.Name:                               validateProxyConfig,
+		"k8s.v1.cni.cncf.io/networks":                             alwaysValidFunc,
 	}
 )
 
@@ -311,7 +312,7 @@ func validateBool(value string) error {
 
 func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
 	// Skip injection when host networking is enabled. The problem is
-	// that the iptable changes are assumed to be within the pod when,
+	// that the iptables changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
 	// often results in routing failures within a node which can
 	// affect the network provider within the cluster causing
@@ -761,6 +762,8 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 
 	podSpec.DNSConfig = spec.DNSConfig
 
+	podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets, spec.ImagePullSecrets...)
+
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.
 	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec, meshconfig.DefaultConfig.GetStatusPort())
@@ -890,6 +893,9 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	}
 	if reflect.DeepEqual(pc.DrainDuration, defaults.DrainDuration) {
 		pc.DrainDuration = nil
+	}
+	if reflect.DeepEqual(pc.TerminationDrainDuration, defaults.TerminationDrainDuration) {
+		pc.TerminationDrainDuration = nil
 	}
 	if reflect.DeepEqual(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
 		pc.ParentShutdownDuration = nil

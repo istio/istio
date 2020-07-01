@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,6 +41,8 @@ import (
 	mpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 type mixerplugin struct{}
@@ -112,6 +114,7 @@ func createOutboundListenerAttributes(in *plugin.InputParams) attributes {
 }
 
 func skipMixerHTTPFilter(dir direction, mesh *meshconfig.MeshConfig, node *model.Proxy) bool {
+	// nolint: staticcheck
 	return disablePolicyChecks(dir, mesh, node) && mesh.GetDisableMixerHttpReports()
 }
 
@@ -434,7 +437,8 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 		DefaultDestinationService: defaultConfig,
 		ServiceConfigs: map[string]*mpb.ServiceConfig{
 			defaultConfig: {
-				DisableCheckCalls:  disablePolicyChecks(outbound, mesh, node),
+				DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
+				// nolint: staticcheck
 				DisableReportCalls: mesh.GetDisableMixerHttpReports(),
 			},
 		},
@@ -459,7 +463,8 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 		DefaultDestinationService: defaultConfig,
 		ServiceConfigs: map[string]*mpb.ServiceConfig{
 			defaultConfig: {
-				DisableCheckCalls:  disablePolicyChecks(inbound, mesh, node),
+				DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
+				// nolint: staticcheck
 				DisableReportCalls: mesh.GetDisableMixerHttpReports(),
 			},
 		},
@@ -478,7 +483,8 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes,
 	quotaSpec []*mpb.QuotaSpec) {
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mpb.ServiceConfig{
-		DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+		DisableCheckCalls: disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+		// nolint: staticcheck
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 		MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 		ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
@@ -490,7 +496,8 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	isPolicyCheckDisabled := disablePolicyChecks(outbound, in.Push.Mesh, in.Node)
 	// default config, to be overridden by per-weighted cluster
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mpb.ServiceConfig{
-		DisableCheckCalls:  isPolicyCheckDisabled,
+		DisableCheckCalls: isPolicyCheckDisabled,
+		// nolint: staticcheck
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 	})
 	switch action := httpRoute.Action.(type) {
@@ -512,7 +519,8 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 				attrs := addDestinationServiceAttributes(make(attributes), svc)
 				weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mpb.ServiceConfig{
-					DisableCheckCalls:  isPolicyCheckDisabled,
+					DisableCheckCalls: isPolicyCheckDisabled,
+					// nolint: staticcheck
 					DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 					MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 					ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
@@ -544,7 +552,8 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 
 	attrs := addDestinationServiceAttributes(make(attributes), instance.Service)
 	out := &mpb.ServiceConfig{
-		DisableCheckCalls:  disablePolicyChecks(inbound, in.Push.Mesh, in.Node),
+		DisableCheckCalls: disablePolicyChecks(inbound, in.Push.Mesh, in.Node),
+		// nolint: staticcheck
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 		MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 	}
@@ -710,7 +719,18 @@ func getQuotaSpec(in *plugin.InputParams, hostname host.Name, isPolicyCheckDisab
 	quotaSpecs := config.QuotaSpecByDestination(hostname)
 	model.SortQuotaSpec(quotaSpecs)
 	for _, config := range quotaSpecs {
-		quotaSpec = append(quotaSpec, config.Spec.(*mpb.QuotaSpec))
+		// Converting gogo proto used by IstioConfig (istio.io/api/mixer/v1/config/client)
+		// to golang proto(istio.io/istio/pilot/pkg/networking/plugin/mixer/client) passed to Envoy in xDS update.
+		gogoSpec, err := gogoprotomarshal.ToJSON(config.Spec)
+		if err != nil {
+			continue
+		}
+		spec := &mpb.QuotaSpec{}
+		err = protomarshal.ApplyJSON(gogoSpec, spec)
+		if err != nil {
+			continue
+		}
+		quotaSpec = append(quotaSpec, spec)
 	}
 	return quotaSpec
 }

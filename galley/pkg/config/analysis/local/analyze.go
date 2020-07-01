@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -279,7 +279,8 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	if err := sa.addRunningKubeIstioConfigMapSource(client); err != nil {
 		_, err := client.CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
-			scope.Analysis.Warnf("%v namespace not found. Istio may not be installed in the target cluster. "+
+			// An AnalysisMessage already show up to warn the absence of istio-system namespace, so making it debug level.
+			scope.Analysis.Debugf("%v namespace not found. Istio may not be installed in the target cluster. "+
 				"Using default mesh configuration values for analysis", sa.istioNamespace.String())
 		} else if err != nil {
 			scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)

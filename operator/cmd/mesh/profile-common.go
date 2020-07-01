@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 		return "", nil, err
 	}
 
-	fy, profile, err := readYamlProfle(inFilenames, setFlags, force, l)
+	fy, profile, err := readYamlProfile(inFilenames, setFlags, force, l)
 	if err != nil {
 		return "", nil, err
 	}
@@ -63,17 +63,18 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 		return "", nil, err
 	}
 
-	errs, warning := validation.ValidateConfig(false, iops.Values, iops)
+	errs, warning := validation.ValidateConfig(false, iops)
 	if warning != "" {
 		l.LogAndError(warning)
 	}
+
 	if errs.ToError() != nil {
-		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
+		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", errs)
 	}
 	return iopsString, iops, nil
 }
 
-func readYamlProfle(inFilenames []string, setFlags []string, force bool, l clog.Logger) (string, string, error) {
+func readYamlProfile(inFilenames []string, setFlags []string, force bool, l clog.Logger) (string, string, error) {
 	profile := name.DefaultProfileName
 	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
 	fy, fp, err := parseYAMLFiles(inFilenames, force, l)
