@@ -166,8 +166,15 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 	return item.(*v1.Pod)
 }
 
-// getPod loads the pod from k8s.
+// getPod loads will try to load the pod from informer store and if it is not available, load it from k8s.
 func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
+	key := kube.KeyFunc(name, namespace)
+	// Try loading it from informer cache by key.
+	if item, exists, err := pc.informer.GetStore().GetByKey(key); exists && err != nil {
+		log.Debugf("loading pod %s from informer store", key)
+		return item.(*v1.Pod)
+	}
+	// It is not available in cache, get directly from k8s.
 	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		log.Warnf("failed to get pod %s/%s from kube-apiserver: %v", namespace, name, err)
