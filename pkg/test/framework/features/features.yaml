@@ -38,6 +38,8 @@ features:
     routing:
     short-circuiting:
     mirroring:
+    ingress:
+      loadbalancing:
   usability:
     observability:
       status:
