@@ -12,7 +12,7 @@ to utilize actual compute instances from different providers.**
 To deploy an echo instance as a VM just set `DeployAsVm` to be true in `echo.Config`
 and `VMImage` to be any image available from `GetSupportedOSVersion`. For example,
 
-```
+```go
 ports := []echo.Port{
    {
        Name:     "http",
