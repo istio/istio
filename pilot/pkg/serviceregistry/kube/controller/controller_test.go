@@ -1583,7 +1583,7 @@ func TestEndpointUpdate(t *testing.T) {
 	}
 }
 
-// Validates that when Pilot sees Endpoint before the corresponding Pod, it loads Pod from K8S and proceed.
+// Validates that when Pilot sees Endpoint when pod is deleted it ignores that event.
 func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
