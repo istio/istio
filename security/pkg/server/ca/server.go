@@ -91,7 +91,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	*pb.IstioCertificateResponse, error) {
 	s.monitoring.CSR.Increment()
 	fmt.Printf("ssssssssssCreateCertificatelllllll\n")
-	fmt.Printf("%+v", ctx)
+	fmt.Printf("%+v\n", ctx)
 	peer, _ := peer.FromContext(ctx)
 	fmt.Printf("ssssssppppoooooo\n")
 	fmt.Printf("%+v\n",ctx)

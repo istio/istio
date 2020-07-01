@@ -97,7 +97,7 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		ValidityDuration: certValidTTLInSec,
 	}
 	fmt.Printf("CSRSign========\n")
-	fmt.Printf("%+v",ctx)
+	fmt.Printf("%+v\n",ctx)
 	peer, _ := peer.FromContext(ctx)
 	fmt.Printf("ssssssppppoooooo\n")
 	fmt.Printf("%+v\n",ctx)
