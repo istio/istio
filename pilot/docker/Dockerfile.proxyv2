@@ -34,9 +34,10 @@ FROM ${BASE_DISTRIBUTION}
 
 ARG proxy_version
 ARG istio_version
+ARG SIDECAR=envoy
 
 # Install Envoy.
-COPY envoy /usr/local/bin/envoy
+COPY $SIDECAR /usr/local/bin/$SIDECAR
 
 # Environment variable indicating the exact proxy sha - for debugging or version-specific configs 
 ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
@@ -47,8 +48,7 @@ COPY pilot-agent /usr/local/bin/pilot-agent
 
 COPY envoy_policy.yaml.tmpl /var/lib/istio/envoy/envoy_policy.yaml.tmpl
 
-COPY stats-filter.wasm /etc/istio/extensions/stats-filter.wasm
-COPY metadata-exchange-filter.wasm /etc/istio/extensions/metadata-exchange-filter.wasm
+COPY . *.wasm /etc/istio/extensions/
 
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]
