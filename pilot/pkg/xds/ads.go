@@ -344,7 +344,7 @@ func (s *DiscoveryServer) handleTypeURL(typeURL string, node *model.Proxy) error
 	short := v3.GetShortType(typeURL)
 	current, f := node.Active[short]
 	if !f {
-		node.Active[short] = &model.WatchedResource{TypeUrl: typeURL}
+		node.Active[short] = &model.CoreWatchedResource{TypeUrl: typeURL}
 		return nil
 	}
 	if f && typeURL != current.TypeUrl {
