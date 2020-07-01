@@ -1639,9 +1639,9 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			pod2Ips := []string{"172.0.1.2"}
 			createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)
 
-			// Validate that EDS is triggered with endpoints.
-			if ev := fx.Wait("eds"); ev == nil {
-				t.Fatalf("Timeout incremental eds")
+			// Validate that EDS is not triggered with endpoints.
+			if ev := fx.Wait("eds"); ev != nil {
+				t.Fatalf("Unexpected endpoint event")
 			}
 		})
 	}

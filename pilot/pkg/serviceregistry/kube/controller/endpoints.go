@@ -185,9 +185,16 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 		for _, ea := range ss.Addresses {
 			pod := e.c.pods.getPodByIP(ea.IP)
 			if pod == nil {
-				// This means, the endpoint event has arrived before pod event. This might happen because
-				// PodCache is eventually consistent. We should try to get the pod from kube-api server.
 				if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
+					// Check if Pod has been deleted recently and we are still processing the endpoints
+					// of deleted pod. This might happen when a cluster wide rolling update happens.
+					key := kube.KeyFunc(ea.TargetRef.Name, ea.TargetRef.Namespace)
+					if e.c.pods.isDeleted(ea.IP, key) {
+						log.Infof("Pod with IP %s %s has been deleted. Ignoring this endpoint ", ea.IP, key)
+						continue
+					}
+					// This means, the endpoint event has arrived before pod event. This might happen because
+					// PodCache is eventually consistent. We should try to get the pod from kube-api server.
 					pod = e.c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
 					if pod == nil {
 						// If pod is still not available, this an unusual case.

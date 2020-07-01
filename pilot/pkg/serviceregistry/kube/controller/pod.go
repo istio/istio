@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
+
+type podKey struct {
+	ip   string
+	name string
+}
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
@@ -43,15 +49,18 @@ type PodCache struct {
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
 
+	recentDeletedPods map[podKey]struct{}
+
 	c *Controller
 }
 
 func newPodCache(c *Controller, informer coreinformers.PodInformer) *PodCache {
 	out := &PodCache{
-		informer: informer.Informer(),
-		c:        c,
-		podsByIP: make(map[string]string),
-		IPByPods: make(map[string]string),
+		informer:          informer.Informer(),
+		c:                 c,
+		podsByIP:          make(map[string]string),
+		IPByPods:          make(map[string]string),
+		recentDeletedPods: make(map[podKey]struct{}),
 	}
 
 	return out
@@ -126,6 +135,7 @@ func (pc *PodCache) deleteIP(ip string) {
 	pod := pc.podsByIP[ip]
 	delete(pc.podsByIP, ip)
 	delete(pc.IPByPods, pod)
+	pc.recentDeletedPods[podKey{ip, pod}] = struct{}{}
 }
 
 func (pc *PodCache) update(ip, key string) {
@@ -166,6 +176,13 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 	return item.(*v1.Pod)
 }
 
+func (pc *PodCache) isDeleted(addr, pod string) bool {
+	pc.RLock()
+	defer pc.RUnlock()
+	_, exists := pc.recentDeletedPods[podKey{addr, pod}]
+	return exists
+}
+
 // getPod loads will try to load the pod from informer store and if it is not available, load it from k8s.
 func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
 	key := kube.KeyFunc(name, namespace)
@@ -181,4 +198,19 @@ func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
 		return nil
 	}
 	return pod
+}
+
+func (pc *PodCache) periodicRefreshDeletedPods(stopCh <-chan struct{}) {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			pc.Lock()
+			pc.recentDeletedPods = make(map[podKey]struct{})
+			pc.c.Unlock()
+		case <-stopCh:
+			return
+		}
+	}
 }
