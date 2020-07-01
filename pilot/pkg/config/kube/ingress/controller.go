@@ -258,11 +258,6 @@ func (c *controller) Run(stop <-chan struct{}) {
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
-	go c.ingressInformer.Run(stop)
-	go c.serviceInformer.Run(stop)
-	if c.classes != nil {
-		go c.classes.Informer().Run(stop)
-	}
 	<-stop
 }
 
