@@ -181,6 +181,7 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {
 	endpoints := make([]*model.IstioEndpoint, 0)
 	ep := endpoint.(*v1.Endpoints)
+	key := kube.KeyFunc(ep.Name, ep.Namespace)
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			pod := e.c.pods.getPodByIP(ea.IP)
@@ -188,18 +189,23 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 				// This means, the endpoint event has arrived before pod event. This might happen because
 				// PodCache is eventually consistent. We should try to get the pod from kube-api server.
 				if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
-					pod = e.c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
-					if pod == nil {
+					podFromInformer, f, err := e.c.pods.informer.GetStore().GetByKey(key)
+					if err != nil || !f {
 						// If pod is still not available, this an unusual case.
 						endpointsWithNoPods.Increment()
 						log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
 						if e.c.metrics != nil {
 							e.c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, ea.IP)
 						}
+						// Tell pod cache
+						e.c.pods.recordNeedsUpdate(key, ea.IP)
 						continue
+					} else {
+						pod = podFromInformer.(*v1.Pod)
 					}
 				}
 			}
+			e.c.pods.dropNeedsUpdate(key, ea.IP)
 
 			builder := NewEndpointBuilder(e.c, pod)
 

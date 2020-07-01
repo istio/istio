@@ -56,7 +56,7 @@ func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 
 // processEndpointEvent triggers the config update.
 func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep interface{}) error {
-	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, name, namespace)
+	log.Infof("howardjohn: Handle event %s for endpoint %s in namespace %s", event, name, namespace)
 	if features.EnableHeadlessService {
 		if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
 			// if the service is headless service, trigger a full push.
