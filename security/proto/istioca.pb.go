@@ -285,6 +285,13 @@ func (c *istioCertificateServiceClient) CreateCertificate(ctx context.Context, i
 	out := new(IstioCertificateResponse)
 	fmt.Printf("CreateCertificate===istioCertificateServiceClient\n")
 	fmt.Printf("%+v\n", ctx)
+	peer, _ := peer.FromContext(ctx)
+	fmt.Printf("ssssssppppoooooo\n")
+	fmt.Printf("%+v\n",ctx)
+	fmt.Printf("pppppkkkkkkkkk\n")
+	fmt.Printf("%+v\n",peer.AuthInfo)
+	fmt.Printf("ssssssssmmmm\n")
+	fmt.Printf("%+v\n",peer.AuthInfo.AuthType())
 	err := c.cc.Invoke(ctx, "/istio.v1.auth.IstioCertificateService/CreateCertificate", in, out, opts...)
 	fmt.Printf("0000000\n")
 	if err != nil {

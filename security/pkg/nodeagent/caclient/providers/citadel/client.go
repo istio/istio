@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/grpc/peer"
 	"istio.io/pkg/env"
 
 	"google.golang.org/grpc"
@@ -96,9 +97,17 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		ValidityDuration: certValidTTLInSec,
 	}
 	fmt.Printf("CSRSign========\n")
+	fmt.Printf("%+v",ctx)
+	peer, _ := peer.FromContext(ctx)
+	fmt.Printf("ssssssppppoooooo\n")
+	fmt.Printf("%+v\n",ctx)
+	fmt.Printf("pppppkkkkkkkkk\n")
+	fmt.Printf("%+v\n",peer.AuthInfo)
+	fmt.Printf("ssssssssmmmm\n")
+	fmt.Printf("%+v\n",peer.AuthInfo.AuthType())
 	// add Bearer prefix, which is required by Citadel.
 	token = bearerTokenPrefix + token
-	fmt.Printf("%+v",ctx)
+	fmt.Printf("%+v\n",ctx)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
