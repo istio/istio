@@ -56,7 +56,17 @@ type mockCAServer struct {
 }
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
-
+	fmt.Printf("kkkkkkkkkkkkkkkkkCreateCertificate")
+	fmt.Printf("%+v\n",ctx)
+	peer, _ := peer.FromContext(ctx)
+	fmt.Printf("ssssssppppoooooo\n")
+	fmt.Printf("%+v\n",ctx)
+	fmt.Printf("pppppkkkkkkkkk\n")
+	fmt.Printf("%+v\n",peer)
+	fmt.Printf("nnnnnnnnnnnnnnnnn\n")
+	fmt.Printf("%+v\n",peer.AuthInfo)
+	fmt.Printf("ssssssssmmmm\n")
+	fmt.Printf("%+v\n",peer.AuthInfo.AuthType())
 	if ca.Err == nil {
 		return &pb.IstioCertificateResponse{CertChain: ca.Certs}, nil
 	}
