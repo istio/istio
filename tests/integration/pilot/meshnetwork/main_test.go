@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,10 +20,12 @@ import (
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/proto"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -33,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -68,10 +69,10 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("meshnetwork_test", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
+		Setup(istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
@@ -111,14 +112,13 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 	framework.
 		NewTest(t).
 		Label(label.CustomSetup).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "meshnetwork",
 				Inject: true,
 			})
 			// First setup the VM service and its endpoints
-			if err := ctx.ApplyConfig(ns.Name(), VMService); err != nil {
+			if err := ctx.Config().ApplyYAML(ns.Name(), VMService); err != nil {
 				t.Fatal(err)
 			}
 			// Now setup a K8S service
@@ -212,7 +212,6 @@ func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP str
 		ConfigNamespace: ns,
 		Metadata: &model.NodeMetadata{
 			InstanceIPs:      []string{endpointIP},
-			ConfigNamespace:  ns,
 			Namespace:        ns,
 			InterceptionMode: "NONE",
 			Network:          "vm",
@@ -220,15 +219,15 @@ func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP str
 	}
 
 	// make an eds request, simulating a VM, asking for a cluster on k8s
-	request := pilot.NewDiscoveryRequest(node.ServiceNode(), pilot.ClusterLoadAssignment)
+	request := pilot.NewDiscoveryRequest(node.ServiceNode(), v3.EndpointType)
 	request.ResourceNames = []string{k8sSvcClusterName}
 	if err := p.StartDiscovery(request); err != nil {
 		return err
 	}
 
-	return p.WatchDiscovery(time.Second*10, func(resp *xdsapi.DiscoveryResponse) (b bool, e error) {
+	return p.WatchDiscovery(time.Second*10, func(resp *discovery.DiscoveryResponse) (b bool, e error) {
 		for _, res := range resp.Resources {
-			c := &xdsapi.ClusterLoadAssignment{}
+			c := &endpoint.ClusterLoadAssignment{}
 			if err := proto.Unmarshal(res.Value, c); err != nil {
 				return false, err
 			}

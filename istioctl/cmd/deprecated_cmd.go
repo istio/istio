@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,17 +17,34 @@
 package cmd
 
 import (
-	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
+	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/collections"
+	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	kubecfg "istio.io/istio/pkg/kube"
 )
 
 var (
 	// Create a model.ConfigStore (or sortedConfigStore)
-	clientFactory = newClient
+	configStoreFactory = newConfigStore
 )
 
-func newClient() (model.ConfigStore, error) {
-	return controller.NewClient(kubeconfig, configContext, collections.Pilot,
-		"", &model.DisabledLedger{}, "")
+func newConfigStore() (model.ConfigStore, error) {
+	cfg, err := kubecfg.BuildClientConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := crdclient.NewForConfig(cfg, &model.DisabledLedger{}, "", controller2.Options{DomainSuffix: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	stop := make(chan struct{})
+	// TODO: replace with direct istio/client-go usage so we don't have to do this part
+	go client.Run(stop)
+	cache.WaitForCacheSync(stop, client.HasSynced)
+
+	return client, nil
 }

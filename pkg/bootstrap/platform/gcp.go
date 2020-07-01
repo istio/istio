@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	"cloud.google.com/go/compute/metadata"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"istio.io/pkg/env"
 
@@ -192,8 +192,8 @@ func zoneToRegion(z string) (string, error) {
 }
 
 // Locality returns the GCP-specific region and zone.
-func (e *gcpEnv) Locality() *corev3.Locality {
-	var l corev3.Locality
+func (e *gcpEnv) Locality() *core.Locality {
+	var l core.Locality
 	if metadata.OnGCE() {
 		z, zerr := metadata.Zone()
 		if zerr != nil {

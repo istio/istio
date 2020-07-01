@@ -3,7 +3,7 @@ prometheus:
   replicaCount: 1
   hub: docker.io/prom
   image: prometheus
-  tag: v2.15.1
+  tag: v2.18.1
   retention: 6h
 
   # Controls the frequency of prometheus scraping

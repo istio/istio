@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -46,8 +45,6 @@ type TestCase struct {
 	// framework provided ones.
 	CallOpts []echo.CallOptions
 
-	RequiredEnvironment environment.Name
-
 	// Indicates whether a test should be created for the given configuration.
 	Include func(src echo.Instance, opts echo.CallOptions) bool
 
@@ -60,14 +57,13 @@ type TestCase struct {
 
 // Context is a context for reachability tests.
 type Context struct {
-	ctx           framework.TestContext
-	p             pilot.Instance
-	Namespace     namespace.Instance
-	A, B          echo.Instance
-	Multiversion  echo.Instance
-	Headless      echo.Instance
-	Naked         echo.Instance
-	HeadlessNaked echo.Instance
+	ctx          framework.TestContext
+	p            pilot.Instance
+	Namespace    namespace.Instance
+	A, B         echo.Instance
+	Multiversion echo.Instance
+	Headless     echo.Instance
+	Naked        echo.Instance
 }
 
 // CreateContext creates and initializes reachability context.
@@ -77,7 +73,7 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 		Inject: true,
 	})
 
-	var a, b, multiVersion, headless, naked, headlessNaked echo.Instance
+	var a, b, multiVersion, headless, naked echo.Instance
 	cfg := util.EchoConfig("multiversion", ns, false, nil, p)
 	cfg.Subsets = []echo.SubsetConfig{
 		// Istio deployment, with sidecar.
@@ -97,20 +93,17 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance) Context {
 		With(&headless, util.EchoConfig("headless", ns, true, nil, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), p)).
-		With(&headlessNaked, util.EchoConfig("headless-naked", ns, true, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false), p)).
 		BuildOrFail(ctx)
 
 	return Context{
-		ctx:           ctx,
-		p:             p,
-		Namespace:     ns,
-		A:             a,
-		B:             b,
-		Multiversion:  multiVersion,
-		Headless:      headless,
-		Naked:         naked,
-		HeadlessNaked: headlessNaked,
+		ctx:          ctx,
+		p:            p,
+		Namespace:    ns,
+		A:            a,
+		B:            b,
+		Multiversion: multiVersion,
+		Headless:     headless,
+		Naked:        naked,
 	}
 }
 
@@ -141,20 +134,16 @@ func (rc *Context) Run(testCases []TestCase) {
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		test := rc.ctx.NewSubTest(testName)
 
-		if c.RequiredEnvironment != "" {
-			test.RequiresEnvironment(c.RequiredEnvironment)
-		}
-
 		test.Run(func(ctx framework.TestContext) {
 			// Apply the policy.
 			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(ctx, func() error {
 				ctx.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return rc.ctx.ApplyConfig(c.Namespace.Name(), policyYAML)
+				return rc.ctx.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
 			ctx.WhenDone(func() error {
-				return rc.ctx.DeleteConfig(c.Namespace.Name(), policyYAML)
+				return rc.ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
 			})
 
 			// Give some time for the policy propagate.
@@ -209,12 +198,4 @@ func (rc *Context) Run(testCases []TestCase) {
 			}
 		})
 	}
-}
-
-func (rc *Context) IsNaked(i echo.Instance) bool {
-	return i == rc.HeadlessNaked || i == rc.Naked
-}
-
-func (rc *Context) IsHeadless(i echo.Instance) bool {
-	return i == rc.HeadlessNaked || i == rc.Headless
 }

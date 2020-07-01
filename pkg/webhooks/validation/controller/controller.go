@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	kubeLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -129,10 +128,14 @@ type Controller struct {
 	dryRunOfInvalidConfigRejected bool
 	fw                            filewatcher.FileWatcher
 
+	stopCh <-chan struct{}
+
 	// unittest hooks
 	readFile      readFileFunc
 	reconcileDone func()
 }
+
+const QuitSignal = "unblock client on queue.Get return and exit the current go routine"
 
 type reconcileRequest struct {
 	description string
@@ -269,6 +272,7 @@ func newController(
 }
 
 func (c *Controller) Start(stop <-chan struct{}) {
+	c.stopCh = stop
 	go c.startFileWatcher(stop)
 	go c.sharedInformers.Start(stop)
 
@@ -282,6 +286,9 @@ func (c *Controller) Start(stop <-chan struct{}) {
 	c.queue.Add(req)
 
 	go c.runWorker()
+
+	<-stop
+	c.queue.Add(&reconcileRequest{QuitSignal})
 }
 
 func (c *Controller) startFileWatcher(stop <-chan struct{}) {
@@ -315,6 +322,11 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 		// don't retry an invalid reconcileRequest item
 		c.queue.Forget(req)
 		return true
+	}
+
+	// return false when leader lost in case go routine leak.
+	if req.description == QuitSignal {
+		return false
 	}
 
 	if err := c.reconcileRequest(req); err != nil {
@@ -447,18 +459,6 @@ func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string
 		}
 	}
 	return false, "no subset addresses ready"
-}
-
-func (c *Controller) galleyPodsRunning() (running bool, err error) {
-	selector := kubeLabels.SelectorFromSet(map[string]string{"istio": "galley"})
-	pods, err := c.sharedInformers.Core().V1().Pods().Lister().List(selector)
-	if err != nil {
-		return true, err
-	}
-	if len(pods) > 0 {
-		return true, nil
-	}
-	return false, nil
 }
 
 func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {

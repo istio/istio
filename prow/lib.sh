@@ -23,6 +23,8 @@ export CLUSTER_NAMES=("${CLUSTER1_NAME}" "${CLUSTER2_NAME}" "${CLUSTER3_NAME}")
 export CLUSTER_POD_SUBNETS=(10.10.0.0/16 10.20.0.0/16 10.30.0.0/16)
 export CLUSTER_SVC_SUBNETS=(10.255.10.0/24 10.255.20.0/24 10.255.30.0/24)
 
+export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
+
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
     gcloud auth configure-docker -q
@@ -50,7 +52,6 @@ function setup_and_export_git_sha() {
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
     export GIT_SHA
-    export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
   fi
   GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
   export GIT_BRANCH
@@ -70,59 +71,45 @@ function download_untar_istio_release() {
 }
 
 function build_images() {
+  SELECT_TEST="${1}"
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
-  targets+="docker.app docker.test_policybackend "
+
+  # use ubuntu:bionic to test vms by default
+  targets+="docker.app docker.app_sidecar_ubuntu_bionic docker.test_policybackend "
+  if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" ]]; then
+    targets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_ubuntu_focal docker.app_sidecar_ubuntu_bionic "
+    targets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 "
+  fi
   targets+="docker.mixer "
   targets+="docker.operator "
+  targets+="docker.install-cni "
   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
-function kind_load_images() {
-  NAME="${1:-istio-testing}"
+# Creates a local registry for kind nodes to pull images from. Expects that the "kind" network already exists.
+function setup_kind_registry() {
+  # create a registry container
+  docker run \
+    -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
+    registry:2
 
-  # If HUB starts with "docker.io/" removes that part so that filtering and loading below works
-  local hub=${HUB#"docker.io/"}
+  # Allow kind nodes to reach the registry
+  docker network connect "kind" "${KIND_REGISTRY_NAME}"
 
-  for i in {1..3}; do
-    # Archived local images and load it into KinD's docker daemon
-    # Kubernetes in KinD can only access local images from its docker daemon.
-    docker images "${hub}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
-    echo "Attempt ${i} to load images failed, retrying in 1s..."
-    sleep 1
-	done
-
-  # If a variant is specified, load those images as well.
-  # We should still load non-variant images as well for things like `app` which do not use variants
-  if [[ "${VARIANT:-}" != "" ]]; then
-    for i in {1..3}; do
-      docker images "${hub}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
-      echo "Attempt ${i} to load images failed, retrying in 1s..."
-      sleep 1
+  # https://docs.tilt.dev/choosing_clusters.html#discovering-the-registry
+  for cluster in $(kind get clusters); do
+    # TODO get context/config from existing variables
+    kind export kubeconfig --name="${cluster}"
+    for node in $(kind get nodes --name="${cluster}"); do
+      kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}";
     done
-  fi
-}
-
-# Loads images into all clusters.
-function kind_load_images_on_clusters() {
-  declare -a LOAD_IMAGE_JOBS
-  for c in "${CLUSTER_NAMES[@]}"; do
-    kind_load_images "${c}" &
-    LOAD_IMAGE_JOBS+=("${!}")
-  done
-  for pid in "${LOAD_IMAGE_JOBS[@]}"; do
-    wait "${pid}" || return 1
   done
 }
 
-function clone_cni() {
-  # Clone the CNI repo so the CNI artifacts can be built.
-  if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
-      TMP_DIR=$PWD
-      cd ../ || return
-      git clone -b "${GIT_BRANCH}" "https://github.com/istio/cni.git"
-      cd "${TMP_DIR}" || return
-  fi
+# Pushes images to local kind registry
+function kind_push_images() {
+  docker images "${HUB}/*:${TAG}*" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 docker push
 }
 
 function cleanup_kind_cluster() {
@@ -159,18 +146,8 @@ function setup_kind_cluster() {
 
   # If config not explicitly set, then use defaults
   if [[ -z "${CONFIG}" ]]; then
-    # Different Kubernetes versions need different patches
-    K8S_VERSION=$(cut -d ":" -f 2 <<< "${IMAGE}")
-    if [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.13" ]]; then
-      # Kubernetes 1.12
-      CONFIG=./prow/config/trustworthy-jwt-12.yaml
-    elif [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.15" ]]; then
-      # Kubernetes 1.13, 1.14
-      CONFIG=./prow/config/trustworthy-jwt-13-14.yaml
-    else
       # Kubernetes 1.15+
       CONFIG=./prow/config/trustworthy-jwt.yaml
-    fi
       # Configure the cluster IP Family only for default configs
     if [ "${IP_FAMILY}" = "ipv6" ]; then
       cat <<EOF >> "${CONFIG}"
@@ -179,6 +156,14 @@ networking:
 EOF
     fi
   fi
+
+  # Make kind nodes pull images using the in-container address and port for images in localhost:$KIND_REGISTRY_PORT/*
+  cat <<EOF >> "${CONFIG}"
+containerdConfigPatches:
+  - |-
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
+        endpoint = ["http://${KIND_REGISTRY_NAME}:5000"]
+EOF
 
   # Create KinD cluster
   if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
@@ -197,20 +182,26 @@ function setup_kind_clusters() {
 
   KUBECONFIG_DIR="$(mktemp -d)"
 
+  # The kind tool will error when trying to create clusters in paralell unless we create the network first
+  # TODO remove this when kind support creating multiple clusters in parallel - this will break ipv6
+  docker network inspect kind > /dev/null 2>&1 || docker network create -d=bridge -o com.docker.network.bridge.enable_ip_masquerade=true kind
+
+
   # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
   trap cleanup_kind_clusters EXIT
 
-  for i in "${!CLUSTER_NAMES[@]}"; do
-    CLUSTER_NAME="${CLUSTER_NAMES[$i]}"
-    CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$i]}"
-    CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$i]}"
+  function deploy_kind() {
+    IDX="${1}"
+    CLUSTER_NAME="${CLUSTER_NAMES[$IDX]}"
+    CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$IDX]}"
+    CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$IDX]}"
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
     cat <<EOF > "${CLUSTER_YAML}"
-      kind: Cluster
-      apiVersion: kind.sigs.k8s.io/v1alpha3
-      networking:
-        podSubnet: ${CLUSTER_POD_SUBNET}
-        serviceSubnet: ${CLUSTER_SVC_SUBNET}
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  podSubnet: ${CLUSTER_POD_SUBNET}
+  serviceSubnet: ${CLUSTER_SVC_SUBNET}
 EOF
 
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
@@ -219,9 +210,6 @@ EOF
     # TODO: add IPv6
     KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER_NAME}" "${CLUSTER_YAML}"
 
-    # Install MetalLB for LoadBalancer support
-    install_metallb "$CLUSTER_KUBECONFIG"
-
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.
     # To do this, we can replace the server with the IP address of the docker container
@@ -229,6 +217,18 @@ EOF
     CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
     kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
       sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
+  }
+  declare -a DEPLOY_KIND_JOBS
+  for i in "${!CLUSTER_NAMES[@]}"; do
+    deploy_kind "${i}" & DEPLOY_KIND_JOBS+=("${!}")
+  done
+  for pid in "${DEPLOY_KIND_JOBS[@]}"; do
+    wait "${pid}" || exit 1
+  done
+
+  # Install MetalLB for LoadBalancer support. Must be done synchronously since METALLB_IPS is shared.
+  for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
+    install_metallb "${KUBECONFIG_DIR}/${CLUSTER_NAME}"
   done
 
   # Export variables for the kube configs for the clusters.
@@ -334,23 +334,6 @@ function ips_to_cidrs() {
 from ipaddress import summarize_address_range, IPv4Address
 [ print(n.compressed) for n in summarize_address_range(IPv4Address(u'$IP_RANGE_START'), IPv4Address(u'$IP_RANGE_END')) ]
 EOF
-}
-
-function cni_run_daemon_kind() {
-  echo 'Run the CNI daemon set'
-  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-testing}
-  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-latest}
-
-  # TODO: this should not be pulling from external charts, instead the tests should checkout the CNI repo
-  chartdir=$(mktemp -d)
-  helm init --client-only
-  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts/
-  helm fetch --devel --untar --untardir "${chartdir}" istio.io/istio-cni
-
-  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" \
-    --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni >  "${chartdir}"/istio-cni_install.yaml
-
-  kubectl apply -f  "${chartdir}"/istio-cni_install.yaml
 }
 
 # setup_cluster_reg is used to set up a cluster registry for multicluster testing

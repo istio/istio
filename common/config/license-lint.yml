@@ -119,6 +119,7 @@ whitelisted_modules:
   - github.com/projectcalico/go-yaml
   - github.com/projectcalico/go-yaml-wrapper
   - github.com/rcrowley/go-metrics
+  - github.com/yvasiyarov/go-metrics # fork of above with identical license
   - github.com/russross/blackfriday
   - github.com/russross/blackfriday/v2
   - gopkg.in/russross/blackfriday.v2
@@ -197,7 +198,8 @@ whitelisted_modules:
   # Apache 2.0: https://github.com/xeipuuv/gojsonschema/blob/master/LICENSE-APACHE-2.0.txt
   - github.com/xeipuuv/gojsonschema
 
-  # Apache 2.0: https://github.com/garyburd/redigo/blob/master/LICENSE
+  # Apache 2.0 (but missing appendix): https://github.com/garyburd/redigo/blob/master/LICENSE
+  - github.com/garyburd/redigo
   - github.com/gomodule/redigo
 
   # Apache 2.0: https://github.com/xdg/scram/blob/master/LICENSE

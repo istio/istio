@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 package platform
 
 import (
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 // Environment provides information for the platform on which the bootstrapping
@@ -29,7 +29,7 @@ type Environment interface {
 
 	// Locality returns the run location for the bootstrap transformed from the
 	// platform-specific representation into the Envoy Locality schema.
-	Locality() *corev3.Locality
+	Locality() *core.Locality
 }
 
 // Unknown provides a default platform environment for cases in which the platform
@@ -42,6 +42,6 @@ func (*Unknown) Metadata() map[string]string {
 }
 
 // Locality returns an empty core.Locality struct.
-func (*Unknown) Locality() *corev3.Locality {
-	return &corev3.Locality{}
+func (*Unknown) Locality() *core.Locality {
+	return &core.Locality{}
 }

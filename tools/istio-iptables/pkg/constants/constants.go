@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -121,4 +121,10 @@ const (
 
 const (
 	ValidationErrorCode = 126
+)
+
+// DNS ports
+const (
+	EnvoyDNSListenerPort      = "15013"
+	IstioAgentDNSListenerPort = "15053"
 )

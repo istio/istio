@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,15 +44,27 @@ func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) *Iptables
 }
 
 type NetworkRange struct {
-	IsWildcard bool
-	IPNets     []*net.IPNet
+	IsWildcard    bool
+	IPNets        []*net.IPNet
+	HasLoopBackIP bool
+}
+
+func filterEmpty(strs []string) []string {
+	filtered := make([]string, 0, len(strs))
+	for _, s := range strs {
+		if s == "" {
+			continue
+		}
+		filtered = append(filtered, s)
+	}
+	return filtered
 }
 
 func split(s string) []string {
 	if s == "" {
 		return nil
 	}
-	return strings.Split(s, ",")
+	return filterEmpty(strings.Split(s, ","))
 }
 
 func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
@@ -72,8 +84,14 @@ func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (Netw
 		}
 		if ip.To4() != nil {
 			ipv4Ranges.IPNets = append(ipv4Ranges.IPNets, ipNet)
+			if ip.IsLoopback() {
+				ipv4Ranges.HasLoopBackIP = true
+			}
 		} else {
 			ipv6Ranges.IPNets = append(ipv6Ranges.IPNets, ipNet)
+			if ip.IsLoopback() {
+				ipv6Ranges.HasLoopBackIP = true
+			}
 		}
 	}
 	return ipv4Ranges, ipv6Ranges, nil
@@ -376,7 +394,10 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
+		if !ipv4RangesInclude.HasLoopBackIP && !ipv6RangesInclude.HasLoopBackIP {
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
@@ -391,7 +412,10 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
+		if !ipv4RangesInclude.HasLoopBackIP && !ipv6RangesInclude.HasLoopBackIP {
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
@@ -417,7 +441,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
 	}
 
-	if dnsVar.Get() != "" {
+	if dnsCaptureByAgent.Get() != "" || dnsCaptureByEnvoy.Get() != "" {
 		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
 			// TODO: add ip6 as well
 			if gid != "0" { // not clear why gid 0 would be excluded - istio-proxy is not running as 0
@@ -425,10 +449,14 @@ func (iptConfigurator *IptablesConfigurator) run() {
 					"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 			}
 		}
+		targetPort := constants.EnvoyDNSListenerPort
+		if dnsCaptureByAgent.Get() != "" {
+			targetPort = constants.IstioAgentDNSListenerPort
+		}
 		// TODO: also capture TCP 53
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
 			"-p", "udp", "--dport", "53",
-			"-j", "REDIRECT", "--to-ports", "15013")
+			"-j", "REDIRECT", "--to-ports", targetPort)
 	}
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 		// mark outgoing packets from 127.0.0.1/32 with 1337, match it to policy routing entry setup for TPROXY mode

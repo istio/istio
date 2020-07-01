@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ import (
 type Client struct {
 	stream        sds.SecretDiscoveryService_StreamSecretsClient
 	conn          *grpc.ClientConn
-	updateChan    chan xdsapi.DiscoveryResponse
+	updateChan    chan *xdsapi.DiscoveryResponse
 	serverAddress string
 }
 
@@ -83,7 +83,7 @@ func NewClient(opt ClientOptions) (*Client, error) {
 	return &Client{
 		stream:        stream,
 		conn:          conn,
-		updateChan:    make(chan xdsapi.DiscoveryResponse, 1),
+		updateChan:    make(chan *xdsapi.DiscoveryResponse, 1),
 		serverAddress: opt.ServerAddress,
 	}, nil
 }
@@ -97,7 +97,7 @@ func (c *Client) Start() {
 				log.Errorf("Connection closed %v", err)
 				return
 			}
-			c.updateChan <- *msq
+			c.updateChan <- msq
 			log.Infof("Received response from sds server %v", msq)
 			if err := ValidateResponse(msq); err != nil {
 				log.Errorf("Failed to validate sds response %v", err)
@@ -118,7 +118,7 @@ func (c *Client) WaitForUpdate(duration time.Duration) (*xdsapi.DiscoveryRespons
 	for {
 		select {
 		case resp := <-c.updateChan:
-			return &resp, nil
+			return resp, nil
 		case <-t.C:
 			return nil, fmt.Errorf("timeout for updates")
 		}
@@ -138,7 +138,7 @@ func (c *Client) Send() error {
 		ResourceNames: []string{
 			sdscache.WorkloadKeyCertResourceName,
 		},
-		TypeUrl: agent_sds.SecretType,
+		TypeUrl: agent_sds.SecretTypeV3,
 	})
 }
 

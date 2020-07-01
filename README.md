@@ -44,34 +44,35 @@ Istio is composed of these components:
   > simplifies and enhances how microservices in an application talk to each
   > other over the network provided by the underlying platform.
 
-- **Mixer** - Central component that is leveraged by the proxies and microservices
-   to enforce policies such as authorization, rate limits, quotas, authentication, request
-   tracing and telemetry collection.
+- **Istiod** - The Istio control plane. It provides service discovery, configuration and certificate management. It consists of the following sub-components:
 
-- **Pilot** - A component responsible for configuring the proxies at runtime.
+    - **Pilot** - Responsible for configuring the proxies at runtime.
 
-- **Citadel** - A centralized component responsible for certificate issuance and rotation.
+    - **Citadel** - Responsible for certificate issuance and rotation.
 
-- **Citadel Agent** - A per-node component responsible for certificate issuance and rotation.
+    - **Galley** - Responsible for validating, ingesting, aggregating, transforming and distributing config within Istio.
 
-- **Galley**- Central component for validating, ingesting, aggregating, transforming and distributing config within Istio.
-
-- **Operator**- The component provides user friendly options to operate the Istio service mesh.
-
-Istio currently supports Kubernetes and Consul-based environments. We plan support for additional platforms such as
-Cloud Foundry, and Mesos in the near future.
+- **Operator** - The component provides user friendly options to operate the Istio service mesh.
 
 ## Repositories
 
-The Istio project is divided across a few GitHub repositories.
+The Istio project is divided across a few GitHub repositories:
 
-- [istio/istio](README.md). This is the main repository that you are
-currently looking at. It hosts Istio's core components and also
-the sample programs and the various documents that govern the Istio open source
-project. It includes:
+- [istio/api](https://github.com/istio/api). This repository defines
+component-level APIs and common configuration formats for the Istio platform.
 
-    - [security](security/). This directory contains security related code,
-including Citadel (acting as Certificate Authority), citadel agent, etc.
+- [istio/community](https://github.com/istio/community). This repository contains
+information on the Istio community, including the various documents that govern
+the Istio open source project.
+
+- [istio/istio](README.md). This is the main code repository. It hosts Istio's
+core components, install artifacts, and sample programs. It includes:
+
+    - [istioctl](istioctl/). This directory contains code for the
+[_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility.
+
+    - [operator](operator/). This directory contains code for the standalone
+[Istio Operator](https://istio.io/latest/docs/setup/install/standalone-operator/).
 
     - [pilot](pilot/). This directory
 contains platform-specific code to populate the
@@ -79,22 +80,12 @@ contains platform-specific code to populate the
 when the application topology changes, as well as translate
 [routing rules](https://istio.io/docs/reference/config/networking/) into proxy specific configuration.
 
-    - [istioctl](istioctl/). This directory contains code for the
-[_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility.
-
-    - [mixer](mixer/). This directory
-contains code to enforce various policies for traffic passing through the
-proxies, and collect telemetry data from proxies and services. There
-are plugins for interfacing with various cloud platforms, policy
-management services, and monitoring services.
-
-- [istio/api](https://github.com/istio/api). This repository defines
-component-level APIs and common configuration formats for the Istio platform.
+    - [security](security/). This directory contains security related code,
+including Citadel (acting as Certificate Authority), citadel agent, etc.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
 extensions to the [Envoy proxy](https://github.com/envoyproxy/envoy) (in the form of
-Envoy filters), that allow the proxy to delegate policy enforcement
-decisions to Mixer.
+Envoy filters) that support authentication, authorization, and telemetry collection.
 
 ## Issue management
 

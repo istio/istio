@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
@@ -166,7 +166,7 @@ type Proxy struct {
 	// Locality is the location of where Envoy proxy runs. This is extracted from
 	// the registry where possible. If the registry doesn't provide a locality for the
 	// proxy it will use the one sent via ADS that can be configured in the Envoy bootstrap
-	Locality *corev3.Locality
+	Locality *core.Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
@@ -213,6 +213,18 @@ type Proxy struct {
 	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
 	// It is nil if the Proxy uses the default generator
 	Active map[string]*WatchedResource
+
+	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
+	// only generate one version or the other, because the protos are wire compatible we can cast to the
+	// requested version. This struct keeps track of the types requested for each resource type.
+	// For example, if Envoy requests Clusters v3, we would track that here. Pilot would generate a v2
+	// cluster response, but change the TypeUrl in the response to be v3.
+	RequestedTypes struct {
+		CDS string
+		EDS string
+		RDS string
+		LDS string
+	}
 }
 
 // WatchedResource tracks an active DiscoveryRequest type.
@@ -359,6 +371,36 @@ func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
 }
 
+// BootstrapNodeMetadata is a superset of NodeMetadata, intended to model the entirety of the node metadata
+// we configure in the Envoy bootstrap. This is split out from NodeMetadata to explicitly segment the parameters
+// that are consumed by Pilot from the parameters used only as part of the bootstrap. Fields used by bootstrap only
+// are consumed by Envoy itself, such as the telemetry filters.
+type BootstrapNodeMetadata struct {
+	NodeMetadata
+
+	// ExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
+	ExchangeKeys StringList `json:"EXCHANGE_KEYS,omitempty"`
+
+	// InstanceName is the short name for the workload instance (ex: pod name)
+	// replaces POD_NAME
+	InstanceName string `json:"NAME,omitempty"`
+
+	// WorkloadName specifies the name of the workload represented by this node.
+	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
+
+	// Owner specifies the workload owner (opaque string). Typically, this is the owning controller of
+	// of the workload instance (ex: k8s deployment for a k8s pod).
+	Owner string `json:"OWNER,omitempty"`
+
+	// PlatformMetadata contains any platform specific metadata
+	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
+
+	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
+	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
+	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
+	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
+}
+
 // NodeMetadata defines the metadata associated with a proxy
 // Fields should not be assumed to exist on the proxy, especially newly added fields which will not exist
 // on older versions.
@@ -380,12 +422,8 @@ type NodeMetadata struct {
 	// InstanceIPs is the set of IPs attached to this proxy
 	InstanceIPs StringList `json:"INSTANCE_IPS,omitempty"`
 
-	// ConfigNamespace is the name of the metadata variable that carries info about
-	// the config namespace associated with the proxy
-	ConfigNamespace string `json:"CONFIG_NAMESPACE,omitempty"`
-
 	// Namespace is the namespace in which the workload instance is running.
-	Namespace string `json:"NAMESPACE,omitempty"` // replaces CONFIG_NAMESPACE
+	Namespace string `json:"NAMESPACE,omitempty"`
 
 	// InterceptionMode is the name of the metadata variable that carries info about
 	// traffic interception mode at the proxy
@@ -412,38 +450,13 @@ type NodeMetadata struct {
 	// RequestedNetworkView specifies the networks that the proxy wants to see
 	RequestedNetworkView StringList `json:"REQUESTED_NETWORK_VIEW,omitempty"`
 
-	// ExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
-	ExchangeKeys StringList `json:"EXCHANGE_KEYS,omitempty"`
-
-	// PlatformMetadata contains any platform specific metadata
-	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
-
-	// InstanceName is the short name for the workload instance (ex: pod name)
-	// replaces POD_NAME
-	InstanceName string `json:"NAME,omitempty"`
-
-	// WorkloadName specifies the name of the workload represented by this node.
-	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
-
-	// Owner specifies the workload owner (opaque string). Typically, this is the owning controller of
-	// of the workload instance (ex: k8s deployment for a k8s pod).
-	Owner string `json:"OWNER,omitempty"`
-
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
-
-	// LocalityLabel defines the locality specified for the pod
-	LocalityLabel string `json:"istio-locality,omitempty"`
 
 	PolicyCheck                  string `json:"policy.istio.io/check,omitempty"`
 	PolicyCheckRetries           string `json:"policy.istio.io/checkRetries,omitempty"`
 	PolicyCheckBaseRetryWaitTime string `json:"policy.istio.io/checkBaseRetryWaitTime,omitempty"`
 	PolicyCheckMaxRetryWaitTime  string `json:"policy.istio.io/checkMaxRetryWaitTime,omitempty"`
-
-	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
-	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
-	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
-	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
 
 	// TLSServerCertChain is the absolute path to server cert-chain file
 	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
@@ -458,19 +471,13 @@ type NodeMetadata struct {
 	// TLSClientRootCert is the absolute path to client root cert file
 	TLSClientRootCert string `json:"TLS_CLIENT_ROOT_CERT,omitempty"`
 
-	// SdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
-	// If not set, Pilot uses the default SDS token path.
-	SdsTokenPath string `json:"SDS_TOKEN_PATH,omitempty"`
-	SdsBase      string `json:"BASE,omitempty"`
+	CertBaseDir string `json:"BASE,omitempty"`
 	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
 	SdsEnabled StringBool `json:"SDS,omitempty"`
-	// SdsTrustJwt indicates if SDS trust jwt is enabled or not. This is are set to "1" if true
-	SdsTrustJwt StringBool `json:"TRUSTJWT,omitempty"`
 
 	// StsPort specifies the port of security token exchange server (STS).
+	// Used by envoy filters
 	StsPort string `json:"STS_PORT,omitempty"`
-
-	InsecurePath string `json:"istio.io/insecurepath,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
@@ -483,6 +490,9 @@ type NodeMetadata struct {
 
 	// Generator indicates the client wants to use a custom Generator plugin.
 	Generator string `json:"GENERATOR,omitempty"`
+
+	// DNSCapture indicates whether the workload has enabled dns capture
+	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
@@ -499,11 +509,11 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 	return def
 }
 
-func (m *NodeMetadata) UnmarshalJSON(data []byte) error {
+func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
 	// Create a new type from the target type to avoid recursion.
-	type NodeMetadata2 NodeMetadata
+	type BootstrapNodeMetadata2 BootstrapNodeMetadata
 
-	t2 := &NodeMetadata2{}
+	t2 := &BootstrapNodeMetadata2{}
 	if err := json.Unmarshal(data, t2); err != nil {
 		return err
 	}
@@ -511,7 +521,7 @@ func (m *NodeMetadata) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	*m = NodeMetadata(*t2)
+	*m = BootstrapNodeMetadata(*t2)
 	m.Raw = raw
 
 	return nil
@@ -588,9 +598,6 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
-
-	// AllPortsLiteral is the string value indicating all ports
-	AllPortsLiteral = "*"
 )
 
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
@@ -778,11 +785,11 @@ func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
 	if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, metadata); err != nil {
 		return nil, fmt.Errorf("failed to read node metadata %v: %v", metadata, err)
 	}
-	meta := &NodeMetadata{}
+	meta := &BootstrapNodeMetadata{}
 	if err := json.Unmarshal(buf.Bytes(), meta); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal node metadata (%v): %v", buf.String(), err)
 	}
-	return meta, nil
+	return &meta.NodeMetadata, nil
 }
 
 // ParseServiceNodeWithMetadata parse the Envoy Node from the string generated by ServiceNode
@@ -862,8 +869,8 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
 	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
-	if len(proxy.Metadata.ConfigNamespace) > 0 {
-		return proxy.Metadata.ConfigNamespace
+	if len(proxy.Metadata.Namespace) > 0 {
+		return proxy.Metadata.Namespace
 	}
 
 	// if not found, for backward compatibility, extract the namespace from
@@ -908,27 +915,6 @@ func isValidIPAddress(ip string) bool {
 	return net.ParseIP(ip) != nil
 }
 
-// Pile all node metadata constants here
-const (
-	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
-	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
-
-	// NodeMetadataTLSServerKey is the absolute path to server private key file
-	NodeMetadataTLSServerKey = "TLS_SERVER_KEY"
-
-	// NodeMetadataTLSServerRootCert is the absolute path to server root cert file
-	NodeMetadataTLSServerRootCert = "TLS_SERVER_ROOT_CERT"
-
-	// NodeMetadataTLSClientCertChain is the absolute path to client cert-chain file
-	NodeMetadataTLSClientCertChain = "TLS_CLIENT_CERT_CHAIN"
-
-	// NodeMetadataTLSClientKey is the absolute path to client private key file
-	NodeMetadataTLSClientKey = "TLS_CLIENT_KEY"
-
-	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
-	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
-)
-
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
 // sent to Envoy. This should not be confused with the CaptureMode in the API that indicates
 // how the user wants traffic to be intercepted for the listener. TrafficInterceptionMode is
@@ -965,3 +951,7 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 
 	return InterceptionRedirect
 }
+
+// SidecarDNSListenerPort specifes the port at which the sidecar hosts a DNS resolver listener.
+// TODO: customize me. tools/istio-iptables package also has this hardcoded.
+const SidecarDNSListenerPort = 15013

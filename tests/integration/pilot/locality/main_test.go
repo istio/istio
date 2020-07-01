@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,13 +35,12 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
 const (
-	sendCount = 100
+	sendCount = 50
 
 	deploymentYAML = `
 apiVersion: networking.istio.io/v1alpha3
@@ -184,10 +183,10 @@ func init() {
 }
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("locality_prioritized_failover_loadbalancing", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Setup(istio.Setup(&ist, nil)).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
@@ -236,12 +235,12 @@ func deploy(t test.Failer, ctx resource.Context, ns namespace.Instance, se servi
 	if err := deploymentTemplate.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
-	ctx.ApplyConfigOrFail(t, ns.Name(), buf.String())
+	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), buf.String())
 	buf.Reset()
 	if err := tmpl.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
-	ctx.ApplyConfigOrFail(t, ns.Name(), buf.String())
+	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), buf.String())
 
 	err := WaitUntilRoute(from, se.Host)
 	if err != nil {
@@ -309,7 +308,7 @@ func sendTraffic(from echo.Instance, host string, expected map[string]int) error
 	}
 	for svc, reqs := range got {
 		expect := expected[svc]
-		if !almostEquals(reqs, expect, 5) {
+		if !almostEquals(reqs, expect, 3) {
 			return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
 		}
 	}

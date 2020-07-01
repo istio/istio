@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	var err error
 	s.KubeConfig, err = parseKubeConfigs(kubeConfigs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("kubeconfig: %v", err)
 	}
 
 	s.ControlPlaneTopology, err = newControlPlaneTopology(s.KubeConfig)
@@ -185,13 +185,6 @@ func normalizeFile(path *string) error {
 		return err
 	}
 
-	return checkFileExists(*path)
-}
-
-func checkFileExists(path string) error {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return err
-	}
 	return nil
 }
 

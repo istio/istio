@@ -55,6 +55,17 @@ for file in "$@"; do
       output='output = ["type=registry"]'
     fi
 
+    # Wild card check to assign the vm name and version
+    # The name of the VM image would be app_sidecar_IMAGE_VERSION
+    # Split the $image using "_"
+    VM_IMAGE_NAME=""
+    VM_IMAGE_VERSION=""
+    if [[ "$image" == *"app_sidecar"* ]]; then
+      readarray -d _ -t split < <(printf '%s'"$image")
+      VM_IMAGE_NAME="${split[-2]}"
+      VM_IMAGE_VERSION="${split[-1]}"
+    fi
+
     cat <<EOF >> "${config}"
 target "$image-$variant" {
     context = "${out}/${file}"
@@ -65,6 +76,8 @@ target "$image-$variant" {
       BASE_DISTRIBUTION = "${variant}"
       proxy_version = "istio-proxy:${PROXY_REPO_SHA}"
       istio_version = "${VERSION}"
+      VM_IMAGE_NAME = "${VM_IMAGE_NAME}"
+      VM_IMAGE_VERSION = "${VM_IMAGE_VERSION}"
     }
     ${output}
 }

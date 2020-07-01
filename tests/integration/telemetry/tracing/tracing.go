@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	err = ctx.ApplyConfig(
+	err = ctx.Config().ApplyYAML(
 		bookinfoNsInst.Name(),
 		bookingfoGatewayFile,
 		destinationRuleFile,

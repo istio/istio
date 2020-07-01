@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,9 +47,12 @@ func TestIntoResourceFile(t *testing.T) {
 		},
 		// verify cni
 		{
-			in:       "hello.yaml",
-			want:     "hello.yaml.cni.injected",
-			setFlags: []string{"components.cni.enabled=true"},
+			in:   "hello.yaml",
+			want: "hello.yaml.cni.injected",
+			setFlags: []string{
+				"components.cni.enabled=true",
+				"values.istio_cni.chained=true",
+			},
 		},
 		{
 			in:   "hello-mtls-not-ready.yaml",
@@ -235,6 +238,11 @@ func TestIntoResourceFile(t *testing.T) {
 			want: "status_annotations.yaml.injected",
 		},
 		{
+			// Verifies that the status annotations override the params.
+			in:   "status_annotations_zeroport.yaml",
+			want: "status_annotations_zeroport.yaml.injected",
+		},
+		{
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
 			in:   "kubevirtInterfaces.yaml",
 			want: "kubevirtInterfaces.yaml.injected",
@@ -251,6 +259,18 @@ func TestIntoResourceFile(t *testing.T) {
 			want: "kubevirtInterfaces_list.yaml.injected",
 		},
 		{
+			// Verifies that global.imagePullSecrets are applied properly
+			in:         "hello.yaml",
+			want:       "hello-image-secrets-in-values.yaml.injected",
+			inFilePath: "hello-image-secrets-in-values-iop.yaml",
+		},
+		{
+			// Verifies that global.imagePullSecrets are appended properly
+			in:         "hello-image-pull-secret.yaml",
+			want:       "hello-multiple-image-secrets.yaml.injected",
+			inFilePath: "hello-image-secrets-in-values-iop.yaml",
+		},
+		{
 			// Verifies that global.podDNSSearchNamespaces are applied properly
 			in:         "hello.yaml",
 			want:       "hello-template-in-values.yaml.injected",
@@ -262,6 +282,24 @@ func TestIntoResourceFile(t *testing.T) {
 			want:     "hello-mount-mtls-certs.yaml.injected",
 			setFlags: []string{`values.global.mountMtlsCerts=true`},
 		},
+		{
+			// Verifies that k8s.v1.cni.cncf.io/networks is set to istio-cni when not chained
+			in:   "hello.yaml",
+			want: "hello-cncf-networks.yaml.injected",
+			setFlags: []string{
+				`components.cni.enabled=true`,
+				`values.istio_cni.chained=false`,
+			},
+		},
+		{
+			// Verifies that istio-cni is appended to k8s.v1.cni.cncf.io/networks value if set
+			in:   "hello-existing-cncf-networks.yaml",
+			want: "hello-existing-cncf-networks.yaml.injected",
+			setFlags: []string{
+				`components.cni.enabled=true`,
+				`values.istio_cni.chained=false`,
+			},
+		},
 	}
 
 	for i, c := range cases {
@@ -269,11 +307,10 @@ func TestIntoResourceFile(t *testing.T) {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
-			m := mesh.DefaultMeshConfig()
+			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, c.setFlags, c.inFilePath)
 			if c.mesh != nil {
-				c.mesh(&m)
+				c.mesh(m)
 			}
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, c.setFlags, c.inFilePath)
 			inputFilePath := "testdata/inject/" + c.in
 			wantFilePath := "testdata/inject/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -282,7 +319,7 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -359,6 +396,21 @@ func TestRewriteAppProbe(t *testing.T) {
 			rewriteAppHTTPProbe: true,
 			want:                "ready_live.yaml.injected",
 		},
+		{
+			in:                  "startup_only.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_only.yaml.injected",
+		},
+		{
+			in:                  "startup_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_live.yaml.injected",
+		},
+		{
+			in:                  "startup_ready_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_ready_live.yaml.injected",
+		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.
 	}
@@ -366,8 +418,7 @@ func TestRewriteAppProbe(t *testing.T) {
 	for i, c := range cases {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
-			m := mesh.DefaultMeshConfig()
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, nil, "")
+			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, nil, "")
 			inputFilePath := "testdata/inject/app_probe/" + c.in
 			wantFilePath := "testdata/inject/app_probe/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -376,7 +427,7 @@ func TestRewriteAppProbe(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -421,7 +472,7 @@ func TestInvalidAnnotations(t *testing.T) {
 	m := mesh.DefaultMeshConfig()
 	for _, c := range cases {
 		t.Run(c.annotation, func(t *testing.T) {
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, nil, "")
+			sidecarTemplate, valuesConfig, _ := loadInjectionSettings(t, nil, "")
 			inputFilePath := "testdata/inject/" + c.in
 			in, err := os.Open(inputFilePath)
 			if err != nil {

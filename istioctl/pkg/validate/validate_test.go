@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -586,7 +586,8 @@ $`),
 
 			// capture output to keep test logs clean
 			var out bytes.Buffer
-			validateCmd.SetOutput(&out)
+			validateCmd.SetOut(&out)
+			validateCmd.SetErr(&out)
 
 			err := validateCmd.Execute()
 			if (err != nil) != c.wantError {

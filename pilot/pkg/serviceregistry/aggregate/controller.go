@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -199,28 +199,6 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		}
 	}
 	return out, errs
-}
-
-// ManagementPorts retrieves set of health check ports by instance IP
-// Return on the first hit.
-func (c *Controller) ManagementPorts(addr string) model.PortList {
-	for _, r := range c.GetRegistries() {
-		if portList := r.ManagementPorts(addr); portList != nil {
-			return portList
-		}
-	}
-	return nil
-}
-
-// WorkloadHealthCheckInfo returne the health check information for IP addr
-// Return on the first hit.
-func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	for _, r := range c.GetRegistries() {
-		if probeList := r.WorkloadHealthCheckInfo(addr); probeList != nil {
-			return probeList
-		}
-	}
-	return nil
 }
 
 // InstancesByPort retrieves instances for a service on a given port that match
