@@ -599,10 +599,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect.
 	// TODO(ramaraochavali): clean up istio-agent startup to remove the dependency of "15012" port.
 
-
 	// create secure grpc listener
 	l, err := net.Listen("tcp", args.ServerOptions.SecureGRPCAddr)
-
 	if err != nil {
 		return err
 	}
