@@ -35,6 +35,7 @@ import (
 
 	istiolog "istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 
@@ -463,9 +464,10 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 		return nil
 	}
 
+	changed := listDifference(clusters, con.Clusters)
 	con.Clusters = clusters
 	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters))
-	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
+	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil, changed)
 	if err != nil {
 		return err
 	}
@@ -516,6 +518,12 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 		return err
 	}
 	return nil
+}
+
+// listDifference returns a - b
+func listDifference(a []string, b []string) sets.Set {
+	clusterSet := sets.NewSet(a...)
+	return clusterSet.Difference(sets.NewSet(b...))
 }
 
 // listEqualUnordered checks that two lists contain all the same elements
@@ -663,7 +671,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 && len(edsUpdatedServices) > 0 {
-			if err := s.pushEds(pushEv.push, con, versionInfo(), edsUpdatedServices); err != nil {
+			if err := s.pushEds(pushEv.push, con, versionInfo(), edsUpdatedServices, nil); err != nil {
 				return err
 			}
 		}
@@ -724,7 +732,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 
 	if len(con.Clusters) > 0 && pushTypes[EDS] {
-		err := s.pushEds(pushEv.push, con, currentVersion, nil)
+		err := s.pushEds(pushEv.push, con, currentVersion, nil, nil)
 		if err != nil {
 			return err
 		}
