@@ -511,9 +511,10 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 			return nil
 		}
 	}
+	changed := listDifference(routes, con.Routes)
 	con.Routes = routes
 	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes))
-	err := s.pushRoute(con, s.globalPushContext(), versionInfo())
+	err := s.pushRoute(con, changed.UnsortedList(), s.globalPushContext(), versionInfo())
 	if err != nil {
 		return err
 	}
@@ -748,7 +749,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		s.StatusReporter.RegisterEvent(con.ConID, ListenerEventType, pushEv.noncePrefix)
 	}
 	if len(con.Routes) > 0 && pushTypes[RDS] {
-		err := s.pushRoute(con, pushEv.push, currentVersion)
+		err := s.pushRoute(con, con.Routes, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
