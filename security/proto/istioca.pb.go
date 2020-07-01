@@ -15,6 +15,7 @@ import (
 	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
+	"google.golang.org/grpc/peer"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
