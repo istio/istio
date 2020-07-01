@@ -259,6 +259,10 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	}
 
 	logPrefix := cacheLogPrefix(resourceName)
+	cacheLog.Infof("kkkkkkkkkkkkkkkmmmmmmmmmmmm")
+	cacheLog.Infof("%+v",sc.configOptions.RotationInterval.Seconds())
+	sc.configOptions.RotationInterval = time.Duration(10)
+	cacheLog.Infof("%+v",sc.configOptions.RotationInterval.Seconds())
 
 	// When there are existing root certificates, or private key and certificate under
 	// a well known path, they are used in the SDS response.
@@ -968,7 +972,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 	// secret should be rotated before it expired.
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
-
+	sc.configOptions.SecretRotationGracePeriodRatio = 0.99
 	gracePeriod := time.Duration(sc.configOptions.SecretRotationGracePeriodRatio * float64(secretLifeTime))
 	rotate := time.Now().After(secret.ExpireTime.Add(-gracePeriod))
 	cacheLog.Infof("gggggggkkkkjjjjjjjjssss")
