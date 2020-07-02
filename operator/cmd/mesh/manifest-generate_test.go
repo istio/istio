@@ -144,92 +144,94 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 
 func TestManifestGenerateGateways(t *testing.T) {
 	g := NewGomegaWithT(t)
-	m, _, err := generateManifest("gateways", "", liveCharts)
+
+	objss, err := runManifestCommands("gateways", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs, err := parseObjectSetFromManifest(m)
-	if err != nil {
-		t.Fatal(err)
+
+	for _, objs := range objss {
+		g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
+		g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
+		g.Expect(objs.kind(name.ServiceStr).labels("istio=ingressgateway").size()).Should(Equal(3))
+		g.Expect(objs.kind(name.RoleStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
+		g.Expect(objs.kind(name.RoleBindingStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
+		g.Expect(objs.kind(name.SAStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
+
+		dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
+		d := dobj.Unstructured()
+		c := dobj.Container("istio-proxy")
+		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
+		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "111m"}))
+
+		dobj = mustGetDeployment(g, objs, "user-ingressgateway")
+		d = dobj.Unstructured()
+		c = dobj.Container("istio-proxy")
+		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("ccc:ccc-val,ddd:ddd-val")}))
+		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "222m"}))
+
+		dobj = mustGetDeployment(g, objs, "ilb-gateway")
+		d = dobj.Unstructured()
+		c = dobj.Container("istio-proxy")
+		s := mustGetService(g, objs, "ilb-gateway").Unstructured()
+		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("app:istio-ingressgateway,istio:ingressgateway,release: istio")}))
+		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "333m"}))
+		g.Expect(c).Should(HavePathValueEqual(PathValue{"env.[name:PILOT_CERT_PROVIDER].value", "foobar"}))
+		g.Expect(s).Should(HavePathValueContain(PathValue{"metadata.annotations", toMap("cloud.google.com/load-balancer-type: internal")}))
+		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[0]", portVal("grpc-pilot-mtls", 15011, -1)}))
+		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
+		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
+
+		for _, o := range objs.kind(name.HPAStr).objSlice {
+			ou := o.Unstructured()
+			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
+			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
+		}
+
+		checkRoleBindingsReferenceRoles(g, objs)
 	}
-
-	g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(name.RoleStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(name.RoleBindingStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(3))
-
-	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
-	d := dobj.Unstructured()
-	c := dobj.Container("istio-proxy")
-	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "111m"}))
-
-	dobj = mustGetDeployment(g, objs, "user-ingressgateway")
-	d = dobj.Unstructured()
-	c = dobj.Container("istio-proxy")
-	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("ccc:ccc-val,ddd:ddd-val")}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "222m"}))
-
-	dobj = mustGetDeployment(g, objs, "ilb-gateway")
-	d = dobj.Unstructured()
-	c = dobj.Container("istio-proxy")
-	s := mustGetService(g, objs, "ilb-gateway").Unstructured()
-	g.Expect(d).Should(HavePathValueEqual(PathValue{"metadata.labels", toMap("app:istio-ingressgateway,istio:ingressgateway,release: istio")}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "333m"}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"volumeMounts.[name:ilbgateway-certs].name", "ilbgateway-certs"}))
-	g.Expect(s).Should(HavePathValueEqual(PathValue{"metadata.annotations", toMap("cloud.google.com/load-balancer-type: internal")}))
-	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[0]", portVal("grpc-pilot-mtls", 15011, -1)}))
-	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
-	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
-
-	for _, o := range objs.kind(name.HPAStr).objSlice {
-		ou := o.Unstructured()
-		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
-		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
-	}
-
-	checkRoleBindingsReferenceRoles(g, objs)
 }
 
 func TestManifestGenerateIstiodRemote(t *testing.T) {
 	g := NewGomegaWithT(t)
-	m, _, err := generateManifest("istiod_remote", "", liveCharts)
+
+	objss, err := runManifestCommands("istiod_remote", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs := parseObjectSetFromManifest(t, m)
 
-	// check core CRDs exists
-	g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
+	for _, objs := range objss {
 
-	g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istiod-pilot-istio-system")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.SAStr).nameEquals("istiod-service-account")).Should(Not(BeNil()))
+		// check core CRDs exists
+		g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
 
-	mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
-	g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject/cluster/remote0/net/network2"}))
-	g.Expect(mwc).Should(HavePathValueContain(PathValue{"webhooks.[0].namespaceSelector.matchLabels", toMap("istio-injection:enabled")}))
+		g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istiod-pilot-istio-system")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.SAStr).nameEquals("istiod-service-account")).Should(Not(BeNil()))
 
-	vwc := mustGetValidatingWebhookConfiguration(g, objs, "istiod-istio-system").Unstructured()
-	g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/validate"}))
+		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
+		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject/cluster/remote0/net/network2"}))
+		g.Expect(mwc).Should(HavePathValueContain(PathValue{"webhooks.[0].namespaceSelector.matchLabels", toMap("istio-injection:enabled")}))
 
-	ep := mustGetEndpoint(g, objs, "istiod").Unstructured()
-	g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
-	g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
+		vwc := mustGetValidatingWebhookConfiguration(g, objs, "istiod-istio-system").Unstructured()
+		g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/validate"}))
 
-	checkClusterRoleBindingsReferenceRoles(g, objs)
+		ep := mustGetEndpoint(g, objs, "istiod").Unstructured()
+		g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
+		g.Expect(ep).Should(HavePathValueContain(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
+
+		checkClusterRoleBindingsReferenceRoles(g, objs)
+	}
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
@@ -650,7 +652,11 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				filenames = []string{inPath}
 			}
 
-			got, err := runManifestGenerate(filenames, tt.flags, tt.chartSource)
+			csource := snapshotCharts
+			if tt.chartSource != "" {
+				csource = tt.chartSource
+			}
+			got, err := runManifestGenerate(filenames, tt.flags, csource)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -698,28 +704,6 @@ func runTestGroup(t *testing.T, tests testGroup) {
 
 		})
 	}
-}
-
-// runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
-// flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType) (string, error) {
-	args := "manifest generate"
-	for _, f := range filenames {
-		args += " -f " + f
-	}
-	if flags != "" {
-		args += " " + flags
-	}
-	switch {
-	case chartSource == compiledInCharts:
-		// For compiled in charts, pass no flag
-	case len(chartSource) > 0:
-		args += " --set installPackagePath=" + string(chartSource)
-	default:
-		// We default to using snapshot directory
-		args += " --set installPackagePath=" + string(snapshotCharts)
-	}
-	return runCommand(args)
 }
 
 // nolint: unparam

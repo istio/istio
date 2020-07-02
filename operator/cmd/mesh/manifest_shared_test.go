@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,18 +31,17 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 // cmdType is one of the commands used to generate and optionally apply a manifest.
@@ -58,24 +56,6 @@ const (
 	cmdController
 )
 
-// chartSourceType defines where charts used in the test come from.
-type chartSourceType int
-
-const (
-	// Snapshot charts are in testdata/manifest-generate/data-snapshot
-	snapshotCharts chartSourceType = iota
-	// Compiled in charts come from assets.gen.go
-	compiledInCharts
-	// Live charts come from manifests/
-	liveCharts
-)
-
-const (
-	istioTestVersion = "istio-1.5.0"
-	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
-	testDataSubdir   = "cmd/mesh/testdata/manifest-generate"
-)
-
 // Golden output files add a lot of noise to pull requests. Use a unique suffix so
 // we can hide them by default. This should match one of the `linuguist-generated=true`
 // lines in istio.io/istio/.gitattributes.
@@ -88,12 +68,6 @@ var (
 	// By default, tests only run with manifest generate, since it doesn't require any external fake test environment.
 	testedManifestCmds = []cmdType{cmdGenerate}
 
-	// All below paths are dynamically derived and absolute.
-
-	// Path to the operator root dir.
-	operatorRootDir string
-	// Dir for testdata for istioctl commands.
-	testDataDir string
 	// Path to the manifests/ dir in istio root dir.
 	manifestsDir string
 	// A release dir with the live profiles and charts is created in this dir for tests.
@@ -113,6 +87,7 @@ var (
 		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
 		{Group: "", Version: "v1", Kind: "Service"},
 		{Group: "", Version: "v1", Kind: "ConfigMap"},
+		{Group: "", Version: "v1", Kind: "Endpoints"},
 		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
 		{Group: "", Version: "v1", Kind: "Pod"},
 		{Group: "", Version: "v1", Kind: "Secret"},
@@ -142,23 +117,28 @@ func TestMain(m *testing.M) {
 	var err error
 
 	// If kubebuilder is installed, use that test env for apply and controller testing.
-	if kubeBuilderInstalled() {
+	//if kubeBuilderInstalled() {
+	if true { // XXX
 		testenv = &envtest.Environment{}
 		testRestConfig, err = testenv.Start()
 		checkExit(err)
 
 		testK8Interface, err = kubernetes.NewForConfig(testRestConfig)
+		testRestConfig.QPS = 50
+		testRestConfig.Burst = 100
 		checkExit(err)
-		testClient, err = client.New(testRestConfig, client.Options{Scheme: scheme.Scheme})
+		s := scheme.Scheme
+		s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
+
+		testClient, err = client.New(testRestConfig, client.Options{Scheme: s})
+
 		checkExit(err)
 		// TestMode is required to not wait in the go client for resources that will never be created in the test server.
 		helmreconciler.TestMode = true
-		testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testRestConfig, scheme.Scheme)
+		testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testRestConfig, s)
 
 		// Add manifest apply and controller to the list of commands to run tests against.
-		// XXX TEST
-		// testedManifestCmds = append(testedManifestCmds, cmdApply, cmdController)
-		testedManifestCmds = []cmdType{cmdController}
+		testedManifestCmds = append(testedManifestCmds, cmdApply, cmdController)
 	}
 	defer func() {
 		if kubeBuilderInstalled() {
@@ -166,32 +146,9 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	operatorRootDir = filepath.Join(env.IstioSrc, "operator")
-	manifestsDir = filepath.Join(operatorRootDir, "manifests")
-	liveReleaseDir, err = createLocalReleaseCharts()
-	defer os.RemoveAll(liveReleaseDir)
-	checkExit(err)
-	liveInstallPackageDir = filepath.Join(liveReleaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
-	snapshotInstallPackageDir = filepath.Join(operatorRootDir, testDataSubdir, "data-snapshot")
-
 	flag.Parse()
 	code := m.Run()
 	os.Exit(code)
-}
-
-// createLocalReleaseCharts creates local release charts using the create_release_charts.sh script and returns a path
-// to the resulting dir.
-func createLocalReleaseCharts() (string, error) {
-	releaseDir, err := ioutil.TempDir(os.TempDir(), "istio-test-release-*")
-	if err != nil {
-		return "", err
-	}
-	releaseSubDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
-	cmd := exec.Command("../../scripts/create_release_charts.sh", "-o", releaseSubDir)
-	if stdo, err := cmd.Output(); err != nil {
-		return "", fmt.Errorf("%s: \n%s", err, string(stdo))
-	}
-	return releaseDir, nil
 }
 
 // runManifestCommands runs all given commands with the given input IOP file, flags and chartSource. It returns
@@ -200,55 +157,72 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType) (map
 	out := make(map[cmdType]*objectSet)
 	for _, cmd := range testedManifestCmds {
 		switch cmd {
+		case cmdApply, cmdController:
+			if err := cleanTestCluster(); err != nil {
+				return nil, err
+			}
+			if err := fakeApplyExtraResources(inFile); err != nil {
+				return nil, err
+			}
+		default:
+		}
+
+		var objs *objectSet
+		var err error
+		switch cmd {
 		case cmdGenerate:
 			m, _, err := generateManifest(inFile, flags, chartSource)
 			if err != nil {
 				return nil, err
 			}
-			out[cmdGenerate], err = parseObjectSetFromManifest(m)
-			if err != nil {
-				return nil, err
-			}
-
+			objs, err = parseObjectSetFromManifest(m)
 		case cmdApply:
-			objs, err := fakeApplyManifest(inFile, flags, chartSource)
-			if err != nil {
-				return nil, err
-			}
-			out[cmdApply] = NewObjectSet(objs)
+			objs, err = fakeApplyManifest(inFile, flags, chartSource)
 		case cmdController:
-			objs, err := fakeControllerReconcile(inFile, chartSource)
-			if err != nil {
-				return nil, err
-			}
-			out[cmdController] = NewObjectSet(objs)
+			objs, err = fakeControllerReconcile(inFile, chartSource)
 		default:
 		}
+		if err != nil {
+			return nil, err
+		}
+		out[cmd] = objs
 	}
 
 	return out, nil
 }
 
 // fakeApplyManifest runs manifest apply. It is assumed that
-func fakeApplyManifest(inFile, flags string, chartSource chartSourceType) (object.K8sObjects, error) {
-	inPath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
+func fakeApplyManifest(inFile, flags string, chartSource chartSourceType) (*objectSet, error) {
+	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
 	manifest, err := runManifestCommand("apply", []string{inPath}, flags, chartSource)
 	if err != nil {
 		return nil, fmt.Errorf("error %s: %s", err, manifest)
 	}
-	return getAllIstioObjects()
+	objs, err := getAllIstioObjects()
+	return NewObjectSet(objs), err
 }
 
-func fakeControllerReconcile(inFile string, chartSource chartSourceType) (object.K8sObjects, error) {
-	l := clog.NewDefaultLogger()
-	inPath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
-
-	ysf, err := yamlFromSetFlags([]string{"installPackagePath=" + chartSourceInstallPackagePath(chartSource)}, true, l)
+// fakeApplyExtraResources applies any extra resources for the given test name.
+func fakeApplyExtraResources(inFile string) error {
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testRestConfig, nil, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	_, iops, err := GenerateConfig([]string{inPath}, ysf, false, testRestConfig, l)
+	if rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", inFile+".yaml")); err == nil {
+		if err := applyWithReconciler(reconciler, rs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*objectSet, error) {
+	l := clog.NewDefaultLogger()
+	_, iops, err := GenerateConfig(
+		[]string{inFileAbsolutePath(inFile)},
+		[]string{"installPackagePath=" + string(chartSource)},
+		false, testRestConfig, l)
 	if err != nil {
 		return nil, err
 	}
@@ -261,34 +235,67 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType) (object
 	if err != nil {
 		return nil, err
 	}
-	iop.Spec.InstallPackagePath = chartSourceInstallPackagePath(chartSource)
+	iop.Spec.InstallPackagePath = string(chartSource)
 
 	if err := createNamespace(testK8Interface, iop.Namespace); err != nil {
 		return nil, err
 	}
 
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testRestConfig, nil, nil)
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testRestConfig, iop, nil)
 	if err != nil {
 		return nil, err
 	}
-	if err := removeAllIstioResourcesFromServer(reconciler); err != nil {
+	if err := fakeInstallOperator(reconciler, chartSource, iop); err != nil {
 		return nil, err
 	}
 
+	if _, err := reconciler.Reconcile(); err != nil {
+		return nil, err
+	}
+
+	objs, err := getAllIstioObjects()
+	return NewObjectSet(objs), err
+}
+
+// fakeInstallOperator installs the operator manifest resources into a cluster using the given reconciler.
+// The installation is for testing with a kubebuilder fake cluster only, since no functional Deployment will be
+// created.
+func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType, iop *v1alpha1.IstioOperator) error {
+	ocArgs := &operatorCommonArgs{
+		manifestsPath:     string(chartSource),
+		istioNamespace:    istioDefaultNamespace,
+		watchedNamespaces: istioDefaultNamespace,
+		operatorNamespace: operatorDefaultNamespace,
+		hub:               "foo",
+		tag:               "bar",
+	}
+
+	_, mstr, err := renderOperatorManifest(nil, ocArgs)
+	if err != nil {
+		return err
+	}
+	if err := applyWithReconciler(reconciler, mstr); err != nil {
+		return err
+	}
 	iopStr, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if err := saveIOPToCluster(reconciler, iopStr); err != nil {
-		return nil, err
+		return err
 	}
 
-	req := reconcile.Request{}
-	req.Namespace = iop.Namespace
-	if _, err = testReconcileOperator.Reconcile(req); err != nil {
-		return nil, err
+	return err
+}
+
+// applyWithReconciler applies the given manifest string using the given reconciler.
+func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest string) error {
+	m := name.Manifest{
+		Name:    name.IstioOperatorComponentName,
+		Content: manifest,
 	}
-	return getAllIstioObjects()
+	_, _, err := reconciler.ApplyManifest(m)
+	return err
 }
 
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,
@@ -301,22 +308,8 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 	if flags != "" {
 		args += " " + flags
 	}
-	args += " --set installPackagePath=" + chartSourceInstallPackagePath(chartSource)
+	args += " --set installPackagePath=" + string(chartSource)
 	return runCommand(args)
-}
-
-// chartSourceInstallPackagePath returns the install path for the given chart source.
-func chartSourceInstallPackagePath(chartSource chartSourceType) string {
-	out := ""
-	switch chartSource {
-	case snapshotCharts:
-		out = filepath.Join(testDataDir, "data-snapshot")
-	case liveCharts:
-		out = liveInstallPackageDir
-	case compiledInCharts:
-	default:
-	}
-	return out
 }
 
 // runCommand runs the given command string.
@@ -329,7 +322,11 @@ func runCommand(command string) (string, error) {
 	return out.String(), err
 }
 
-func removeAllIstioResourcesFromServer(reconciler *helmreconciler.HelmReconciler) error {
+func cleanTestCluster() error {
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testRestConfig, nil, nil)
+	if err != nil {
+		return err
+	}
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
 	return reconciler.DeleteAll()
@@ -342,7 +339,8 @@ func getAllIstioObjects() (object.K8sObjects, error) {
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
 		if err := testClient.List(context.TODO(), objects); err != nil {
-			return nil, err
+			log.Error(err.Error())
+			continue
 		}
 		for _, o := range objects.Items {
 			no := o.DeepCopy()
@@ -356,4 +354,9 @@ func getAllIstioObjects() (object.K8sObjects, error) {
 func readFile(path string) (string, error) {
 	b, err := ioutil.ReadFile(path)
 	return string(b), err
+}
+
+// inFileAbsolutePath returns the absolute path for an input file like "gateways".
+func inFileAbsolutePath(inFile string) string {
+	return filepath.Join(testDataDir, "input", inFile+".yaml")
 }

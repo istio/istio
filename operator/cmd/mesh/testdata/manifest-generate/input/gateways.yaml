@@ -46,5 +46,5 @@ spec:
             - kind: Deployment
               name: ilb-gateway
               patches:
-                - path: spec.template.spec.containers.[name:istio-proxy].volumeMounts.[name:ingressgateway-certs].name
-                  value: ilbgateway-certs # OVERRIDDEN
+                - path: spec.template.spec.containers.[name:istio-proxy].env.[name:PILOT_CERT_PROVIDER].value
+                  value: foobar # OVERRIDDEN

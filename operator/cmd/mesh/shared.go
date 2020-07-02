@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
@@ -79,7 +80,7 @@ func refreshGoldenFiles() bool {
 }
 
 func kubeBuilderInstalled() bool {
-	ev := os.Getenv("KUBEBUILDER_INSTALLED")
+	ev := os.Getenv("KUBEBUILDER")
 	return ev == "true" || ev == "1"
 }
 
@@ -281,4 +282,22 @@ func createNamespace(cs kubernetes.Interface, namespace string) error {
 // deleteNamespace deletes namespace using the given k8s client.
 func deleteNamespace(cs kubernetes.Interface, namespace string) error {
 	return cs.CoreV1().Namespaces().Delete(context.TODO(), namespace, v12.DeleteOptions{})
+}
+
+// saveIOPToCluster saves the state in an IOP CR in the cluster.
+func saveIOPToCluster(reconciler *helmreconciler.HelmReconciler, iop string) error {
+	obj, err := object.ParseYAMLToK8sObject([]byte(iop))
+	if err != nil {
+		return err
+	}
+	return reconciler.ApplyObject(obj.UnstructuredObject())
+}
+
+// checkExit exits and prints err it if it not nil.
+func checkExit(err error) {
+	if err == nil {
+		return
+	}
+	fmt.Print(err)
+	os.Exit(1)
 }

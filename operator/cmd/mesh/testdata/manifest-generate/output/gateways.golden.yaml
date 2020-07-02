@@ -865,7 +865,7 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: istiod
+          value: foobar
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
         - name: NODE_NAME
@@ -967,7 +967,7 @@ spec:
         - mountPath: /etc/istio/pod
           name: podinfo
         - mountPath: /etc/istio/ingressgateway-certs
-          name: ilbgateway-certs
+          name: ingressgateway-certs
           readOnly: true
         - mountPath: /etc/istio/ingressgateway-ca-certs
           name: ingressgateway-ca-certs

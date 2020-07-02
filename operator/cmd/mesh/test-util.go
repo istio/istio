@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test"
+	"istio.io/pkg/log"
 )
 
 // PathValue is a path/value type.
@@ -92,7 +93,11 @@ func (o *objectSet) nameMatches(nameRegex string) *objectSet {
 	for k, v := range o.objMap {
 		_, _, objName := object.FromHash(k)
 		m, err := regexp.MatchString(nameRegex, objName)
-		if err != nil && m {
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		if m {
 			ret.append(v)
 		}
 	}
@@ -134,6 +139,41 @@ func (o *objectSet) namespace(namespace string) *objectSet {
 	return ret
 }
 
+// labels returns a subset of o where the object's labels match all the given labels.
+func (o *objectSet) labels(labels ...string) *objectSet {
+	ret := &objectSet{}
+	for _, obj := range o.objMap {
+		hasAll := true
+		for _, l := range labels {
+			lkv := strings.Split(l, "=")
+			if len(lkv) != 2 {
+				panic("label must have format key=value")
+			}
+			if !hasLabel(obj, lkv[0], lkv[1]) {
+				hasAll = false
+				break
+			}
+		}
+		if hasAll {
+			ret.append(obj)
+		}
+	}
+	return ret
+}
+
+// HasLabel reports whether 0 has the given label.
+func hasLabel(o *object.K8sObject, label, value string) bool {
+	got, found, err := tpath.Find(o.UnstructuredObject().UnstructuredContent(), util.PathFromString("metadata.labels"))
+	if err != nil {
+		log.Errorf("bad path: %s", err)
+		return false
+	}
+	if !found {
+		return false
+	}
+	return got.(map[string]interface{})[label] == value
+}
+
 // mustGetService returns the service with the given name or fails if it's not found in objs.
 func mustGetService(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
 	obj := objs.kind(name2.ServiceStr).nameEquals(name)
@@ -166,9 +206,6 @@ func mustGetRole(g *gomega.WithT, objs *objectSet, name string) *object.K8sObjec
 func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
 	obj := mustGetDeployment(g, objs, deploymentName)
 	container := obj.Container(containerName)
-	if container == nil {
-		panic("foo")
-	}
 	g.Expect(container).Should(gomega.Not(gomega.BeNil()), fmt.Sprintf("Expected to get container %s in deployment %s", containerName, deploymentName))
 	return container
 }
@@ -176,6 +213,9 @@ func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containe
 // mustGetEndpoint returns the endpoint tree with the given name in the deployment with the given name.
 func mustGetEndpoint(g *gomega.WithT, objs *objectSet, endpointName string) *object.K8sObject {
 	obj := objs.kind(name2.EndpointStr).nameEquals(endpointName)
+	if obj == nil {
+		return nil
+	}
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }

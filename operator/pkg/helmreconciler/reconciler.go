@@ -205,7 +205,7 @@ func (h *HelmReconciler) DeleteAll() error {
 	for _, c := range name.AllComponentNames {
 		manifestMap[c] = nil
 	}
-	return h.Prune(manifestMap)
+	return h.Prune(manifestMap, true)
 }
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
