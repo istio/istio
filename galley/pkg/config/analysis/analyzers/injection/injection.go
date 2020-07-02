@@ -40,8 +40,6 @@ var _ analysis.Analyzer = &Analyzer{}
 // In theory, there can be alternatives using Mutatingwebhookconfiguration, but they're very uncommon
 // See https://istio.io/docs/ops/troubleshooting/injection/ for more info.
 const (
-	InjectionLabelName         = "istio-injection"
-	InjectionLabelEnableValue  = "enabled"
 	RevisionInjectionLabelName = label.IstioRev
 )
 
@@ -68,7 +66,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		injectionLabel := r.Metadata.Labels[InjectionLabelName]
+		injectionLabel := r.Metadata.Labels[util.InjectionLabelName]
 		_, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
 
 		if injectionLabel == "" && !okNewInjectionLabel {
@@ -87,7 +85,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 						r.Metadata.FullName.String()))
 				return true
 			}
-		} else if injectionLabel != InjectionLabelEnableValue {
+		} else if injectionLabel != util.InjectionLabelEnableValue {
 			// If legacy label has any value other than the enablement value, they are deliberately not injecting it, so ignore
 			return true
 		}

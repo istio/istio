@@ -20,7 +20,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/api/annotation"
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
 
@@ -192,7 +191,7 @@ func initPodLabelsMap(c analysis.Context) map[string][]k8s_labels.Set {
 			podLabelsMap[p.Namespace] = make([]k8s_labels.Set, 0)
 		}
 
-		if podInMesh(r) {
+		if util.PodInMesh(r, c) {
 			podLabelsMap[p.Namespace] = append(podLabelsMap[p.Namespace], pLabels)
 		}
 
@@ -200,23 +199,4 @@ func initPodLabelsMap(c analysis.Context) map[string][]k8s_labels.Set {
 	})
 
 	return podLabelsMap
-}
-
-// Whether the pod is part of the mesh or not
-func podInMesh(r *resource.Instance) bool {
-	p := r.Message.(*v1.Pod)
-
-	if val := p.GetAnnotations()[annotation.SidecarInject.Name]; strings.EqualFold(val, "false") {
-		return false
-	}
-
-	proxyImage := ""
-	for _, container := range p.Spec.Containers {
-		if container.Name == util.IstioProxyName {
-			proxyImage = container.Image
-			break
-		}
-	}
-
-	return proxyImage != ""
 }
