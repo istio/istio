@@ -21,14 +21,14 @@ import (
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
-type TestCase struct {
+type testCase struct {
 	name string
 	v    string
 	want *matcherpb.StringMatcher
 }
 
 func TestStringMatcherWithPrefix(t *testing.T) {
-	testCases := []TestCase{
+	testCases := []testCase{
 		{
 			name: "wildcardAsRequired",
 			v:    "*",
@@ -73,9 +73,8 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 	}
 }
 
-
 func TestStringMatcherRegex(t *testing.T) {
-	testCases := []TestCase{
+	testCases := []testCase{
 		{
 			name: "wildcardAsRequired",
 			v:    "*",
