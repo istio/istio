@@ -634,12 +634,13 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.isTokenExpired(&secret) {
+			isTokenExpired := sc.isTokenExpired(&secret)
+			if isTokenExpired {
 				cacheLog.Debugf("%s token expired", logPrefix)
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 				// requiring the client to send another SDS request.
-				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				return true
+				//sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+				//return true
 			}
 
 			wg.Add(1)
@@ -650,7 +651,13 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
-				ns, err := sc.generateSecretUsingCaClientWithoutToken(context.Background(), connKey, now)
+				var ns *model.SecretItem
+				var err error
+				if isTokenExpired {
+					ns, err = sc.generateSecretUsingCaClientWithoutToken(context.Background(), connKey, now)
+				} else {
+					ns, err = sc.generateSecret(context.Background(), secret.Token, connKey, now)
+				}
 				if err != nil {
 					cacheLog.Errorf("%s failed to rotate secret: %v", logPrefix, err)
 					return
@@ -1059,7 +1066,10 @@ func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 func (sc *SecretCache) isTokenExpired(secret *model.SecretItem) bool {
 	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
 	if sc.configOptions.AlwaysValidTokenFlag {
+		sc.configOptions.AlwaysValidTokenFlag = false
 		return false
+	} else {
+		return true
 	}
 
 	expired, err := util.IsJwtExpired(secret.Token, time.Now())
