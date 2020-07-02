@@ -56,8 +56,8 @@ func (cca *ClientCertAuthenticator) AuthenticatorType() string {
 func (cca *ClientCertAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
 	peer, ok := peer.FromContext(ctx)
 	fmt.Printf("ClientCertAuthenticator\n")
-	fmt.Printf("%+v\n",ctx)
-	fmt.Printf("%+v\n",peer)
+	fmt.Printf("%+v\n", ctx)
+	fmt.Printf("%+v\n", peer)
 	fmt.Printf("pppoooooooooendssss\n")
 	if !ok || peer.AuthInfo == nil {
 		return nil, fmt.Errorf("no client certificate is presented")

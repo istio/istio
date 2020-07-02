@@ -28,15 +28,18 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/pki/ca"
+
 	//mockca "istio.io/istio/security/pkg/pki/ca/mock"
+
 	"istio.io/istio/security/pkg/pki/util"
 	//mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	citadelca "istio.io/istio/security/pkg/server/ca"
 	//"istio.io/istio/security/pkg/pki/ca"
-	"k8s.io/client-go/kubernetes/fake"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"k8s.io/client-go/kubernetes/fake"
 
 	pb "istio.io/istio/security/proto"
 )
@@ -55,14 +58,14 @@ type mockCAServer struct {
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
 	fmt.Printf("kkkkkkkkkkkkkkkkkCreateCertificate")
-	fmt.Printf("%+v\n",ctx)
+	fmt.Printf("%+v\n", ctx)
 	peer, _ := peer.FromContext(ctx)
 	fmt.Printf("ssssssppppoooooo\n")
-	fmt.Printf("%+v\n",ctx)
+	fmt.Printf("%+v\n", ctx)
 	fmt.Printf("pppppkkkkkkkkk\n")
-	fmt.Printf("%+v\n",peer)
+	fmt.Printf("%+v\n", peer)
 	fmt.Printf("nnnnnnnnnnnnnnnnn\n")
-	fmt.Printf("%+v\n",peer.AuthInfo)
+	fmt.Printf("%+v\n", peer.AuthInfo)
 	if ca.Err == nil {
 		return &pb.IstioCertificateResponse{CertChain: ca.Certs}, nil
 	}
@@ -90,7 +93,7 @@ func TestE2EClient(t *testing.T) {
 		},
 	}
 	for id, tc := range cases {
-		fmt.Printf("%+v",tc.certChainFile)
+		fmt.Printf("%+v", tc.certChainFile)
 		client := fake.NewSimpleClientset()
 		caNamespace := "default"
 		defaultWorkloadCertTTL := 30 * time.Minute
@@ -167,8 +170,8 @@ func TestE2EClient(t *testing.T) {
 		}
 		resp, err := cli.CSRSign(ctx, "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1, true)
 		if err != nil {
-				t.Logf("%+v", resp)
-				t.Errorf("Test case [%s]: error (%s) happens ", id, err.Error())
+			t.Logf("%+v", resp)
+			t.Errorf("Test case [%s]: error (%s) happens ", id, err.Error())
 		} else {
 			//if !reflect.DeepEqual(resp, tc.expectedCert) {
 			//	t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
@@ -178,7 +181,7 @@ func TestE2EClient(t *testing.T) {
 
 }
 
-func buildContext() (context.Context, error){
+func buildContext() (context.Context, error) {
 	//cert *x509.Certificate, privKey *crypto.PrivateKey, certChainBytes, rootCertBytes []byte
 	ctx := context.Background()
 	callerID := "test.identity"
@@ -190,7 +193,7 @@ func buildContext() (context.Context, error){
 	if err != nil {
 		return nil, err
 	}
-	certChain :=[][]*x509.Certificate{
+	certChain := [][]*x509.Certificate{
 		{
 			{
 				Extensions: []pkix.Extension{*sanExt},
@@ -288,7 +291,7 @@ func TestCitadelClient(t *testing.T) {
 			t.Errorf("ssss failed to generate key and certificate for CSR: %v", err)
 		}
 		fmt.Printf("gggggggggggg\n")
-		fmt.Printf("%+v\n",csrPEM)
+		fmt.Printf("%+v\n", csrPEM)
 		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", csrPEM, fakeToken, 1, true)
 		if err != nil {
 			if err.Error() != tc.expectedErr {

@@ -29,8 +29,9 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"istio.io/istio/security/pkg/pki/util"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/security/pkg/pki/util"
 
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/pki/ca"

@@ -485,9 +485,9 @@ func (sc *SecretCache) Close() {
 func (sc *SecretCache) keyCertRotationJob() {
 	// Wake up once in a while and rotate keys and certificates if in grace period.
 	cacheLog.Infof("kkkkkkkkkkkkkkkmmmmmmmmmmmm")
-	cacheLog.Infof("%+v",sc.configOptions.RotationInterval.Seconds())
+	cacheLog.Infof("%+v", sc.configOptions.RotationInterval.Seconds())
 	sc.configOptions.RotationInterval = time.Duration(time.Second * 10)
-	cacheLog.Infof("%+v",sc.configOptions.RotationInterval.Seconds())
+	cacheLog.Infof("%+v", sc.configOptions.RotationInterval.Seconds())
 	sc.rotationTicker = time.NewTicker(sc.configOptions.RotationInterval)
 	for {
 		select {
@@ -865,7 +865,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	return sdsFromFile, nil, nil
 }
 
-func (sc *SecretCache) generateSecretUsingCaClientWithoutToken(ctx context.Context, connKey ConnKey, t time.Time) (*model.SecretItem, error)  {
+func (sc *SecretCache) generateSecretUsingCaClientWithoutToken(ctx context.Context, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	csrHostName := connKey.ResourceName
 	options := pkiutil.CertOptions{
@@ -1050,7 +1050,7 @@ func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 	gracePeriod := time.Duration(sc.configOptions.SecretRotationGracePeriodRatio * float64(secretLifeTime))
 	rotate := time.Now().After(secret.CreatedTime.Add(time.Second * 30))
 	cacheLog.Infof("gggggggkkkkjjjjjjjjssss")
-	cacheLog.Infof("Ratio:%s, secretLifeTime: %s, secret.CreatedTime: %s",sc.configOptions.SecretRotationGracePeriodRatio, secretLifeTime, secret.CreatedTime)
+	cacheLog.Infof("Ratio:%s, secretLifeTime: %s, secret.CreatedTime: %s", sc.configOptions.SecretRotationGracePeriodRatio, secretLifeTime, secret.CreatedTime)
 	cacheLog.Infof("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
 		secret.ResourceName, secretLifeTime, gracePeriod, secret.ExpireTime, rotate)
 	return rotate
@@ -1094,7 +1094,7 @@ func (sc *SecretCache) sendRetriableCSRRequestWithoutToken(ctx context.Context, 
 		var httpRespCode int
 		requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
 		certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-				ctx, reqID, csrPEM, EmptyToken, int64(sc.configOptions.SecretTTL.Seconds()), false)
+			ctx, reqID, csrPEM, EmptyToken, int64(sc.configOptions.SecretTTL.Seconds()), false)
 		cacheLog.Debugf("%s", requestErrorString)
 
 		if err == nil {
@@ -1154,7 +1154,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
 			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()) ,true)
+				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()), true)
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
 			p := sc.configOptions.Plugins[0]

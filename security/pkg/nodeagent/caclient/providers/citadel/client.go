@@ -113,7 +113,7 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		//fmt.Printf("%+v\n",ctx)
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
 	} else {
-		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs( "ClusterID", c.clusterID))
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("ClusterID", c.clusterID))
 	}
 
 	resp, err := c.client.CreateCertificate(ctx, req)

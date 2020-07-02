@@ -6,16 +6,15 @@ package istio_v1_auth
 import (
 	context "context"
 	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
-
-	proto "github.com/gogo/protobuf/proto"
-	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -284,24 +283,10 @@ func NewIstioCertificateServiceClient(cc *grpc.ClientConn) IstioCertificateServi
 
 func (c *istioCertificateServiceClient) CreateCertificate(ctx context.Context, in *IstioCertificateRequest, opts ...grpc.CallOption) (*IstioCertificateResponse, error) {
 	out := new(IstioCertificateResponse)
-	//fmt.Printf("CreateCertificate===istioCertificateServiceClient\n")
-	//fmt.Printf("%+v\n", ctx)
-	//peer, _ := peer.FromContext(ctx)
-	//fmt.Printf("ssssssppppoooooo\n")
-	//fmt.Printf("%+v\n",ctx)
-	//fmt.Printf("pppppkkkkkkkkk\n")
-	//fmt.Printf("%+v\n",peer)
-	//fmt.Printf("nnnnnnnnnnnnnnnnn\n")
-	//fmt.Printf("%+v\n",peer.AuthInfo)
-	//fmt.Printf("ssssssssmmmm\n")
-	//fmt.Printf("%+v\n",peer.AuthInfo.AuthType())
 	err := c.cc.Invoke(ctx, "/istio.v1.auth.IstioCertificateService/CreateCertificate", in, out, opts...)
-	fmt.Printf("0000000\n")
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("1111111\n")
-	fmt.Printf("%+v", out)
 	return out, nil
 }
 
