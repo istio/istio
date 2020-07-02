@@ -79,12 +79,12 @@ func (sa *Agent) initXDS() {
 	g := s.DiscoveryServer.Generators
 	// To allow gRPC clients to connect to localhost, avoiding TLS complexity
 	g["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &EdsGenerator{Server: s.DiscoveryServer}
+	epGen := &xds.EdsGenerator{Server: s.DiscoveryServer}
 	g["grpc/"+envoyv2.EndpointType] = epGen
 	g["api"] = &apigen.APIGenerator{}
 	g["api/"+envoyv2.EndpointType] = epGen
 
-	g[envoyv2.TypeURLConnections] = p
+	g[xds.TypeURLConnections] = p
 	g[envoyv2.ClusterType] = p
 	g[v3.ClusterType] = p
 
