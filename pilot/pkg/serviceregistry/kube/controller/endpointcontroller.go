@@ -56,7 +56,7 @@ func (e *kubeEndpoints) HasSynced() bool {
 
 func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 	e.informer.Run(stopCh)
-	go e.syncEndpointsMissingPods(stopCh)
+	go e.reSyncEndpoints(stopCh)
 }
 
 // processEndpointEvent triggers the config update.
@@ -117,7 +117,10 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	}
 }
 
-func (e *kubeEndpoints) syncEndpointsMissingPods(stopCh <-chan struct{}) {
+// reSyncEndpoints syncs endpoints that were not processed because of unavailibility of pod
+// when endpoint event came. Try to reprocess it to see if pod is available or endpoint it self
+// might have been deleted.
+func (e *kubeEndpoints) reSyncEndpoints(stopCh <-chan struct{}) {
 	ticker := time.NewTicker(1 * time.Minute) // TODO: Make this resync period configurable.
 	defer ticker.Stop()
 	for {
@@ -129,10 +132,11 @@ func (e *kubeEndpoints) syncEndpointsMissingPods(stopCh <-chan struct{}) {
 						delete(e.needResync[ip], ep)
 						item, exists, err := e.informer.GetStore().GetByKey(ep)
 						if err != nil {
-							log.Errorf("got error on endpoint update: %v", err)
+							log.Errorf("error rerieving endpoint %s: %v", ep, err)
+							continue
 						}
 						if !exists {
-							log.Errorf("looked up %v, does not exist", ep)
+							log.Debugf("endpoint %v does not exist. So ignoring it", ep)
 							// must be stale, do nothing
 							continue
 						}

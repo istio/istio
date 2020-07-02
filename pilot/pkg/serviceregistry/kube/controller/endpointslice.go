@@ -157,25 +157,27 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 		for _, a := range e.Addresses {
 			pod := esc.c.pods.getPodByIP(a)
 			if pod == nil {
-				if pod == nil {
-					if item, exists, err := esc.c.pods.informer.GetStore().GetByKey(key); exists && err != nil {
+				if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
+					podkey := kube.KeyFunc(e.TargetRef.Name, e.TargetRef.Namespace)
+					// This means pod is missing in pod cache. This either means pod is deleted or pod event
+					// corresponding to this endpoint has not arrived yet in the pod cache. First check informer
+					// if the pod exists and use it if it exists.
+					if item, exists, err := esc.c.pods.informer.GetStore().GetByKey(podkey); exists && err != nil {
 						pod = item.(*v1.Pod)
 					}
-				}
-				if pod == nil {
-					if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
+					// If pod is still available, mark it for resync and try later.
+					if pod == nil {
 						if _, f := esc.needResync[a]; !f {
 							esc.needResync[a] = sets.NewSet(key)
 						} else {
 							esc.needResync[a].Insert(key)
 						}
 					}
-					continue
 				}
-
-				// For service without selector, maybe there are no related pods
+				continue
 			}
 
+			// For service without selector, maybe there are no related pods
 			builder := esc.newEndpointBuilder(pod, e)
 			// EDS and ServiceEntry use name for service port - ADS will need to
 			// map to numbers.

@@ -188,16 +188,21 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 		for _, ea := range ss.Addresses {
 			pod := e.c.pods.getPodByIP(ea.IP)
 			if pod == nil {
-				if item, exists, err := e.c.pods.informer.GetStore().GetByKey(key); exists && err != nil {
-					pod = item.(*v1.Pod)
-				}
-			}
-			if pod == nil {
 				if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
-					if _, f := e.needResync[ea.IP]; !f {
-						e.needResync[ea.IP] = sets.NewSet(key)
-					} else {
-						e.needResync[ea.IP].Insert(key)
+					podkey := kube.KeyFunc(ea.TargetRef.Name, ea.TargetRef.Namespace)
+					// This means pod is missing in pod cache. This either means pod is deleted or pod event
+					// corresponding to this endpoint has not arrived yet in the pod cache. First check informer
+					// if the pod exists and use it if it exists.
+					if item, exists, err := e.c.pods.informer.GetStore().GetByKey(podkey); exists && err != nil {
+						pod = item.(*v1.Pod)
+					}
+					// If pod is still available, mark it for resync and try later.
+					if pod == nil {
+						if _, f := e.needResync[ea.IP]; !f {
+							e.needResync[ea.IP] = sets.NewSet(key)
+						} else {
+							e.needResync[ea.IP].Insert(key)
+						}
 					}
 				}
 				continue
