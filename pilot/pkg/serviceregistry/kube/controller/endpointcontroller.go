@@ -15,6 +15,8 @@
 package controller
 
 import (
+	"time"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -22,6 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -42,8 +45,9 @@ type kubeEndpointsController interface {
 
 // kubeEndpoints abstracts the common behavior across endpoint and endpoint slices.
 type kubeEndpoints struct {
-	c        *Controller
-	informer cache.SharedIndexInformer
+	c          *Controller
+	informer   cache.SharedIndexInformer
+	needResync map[string]sets.Set
 }
 
 func (e *kubeEndpoints) HasSynced() bool {
@@ -52,6 +56,7 @@ func (e *kubeEndpoints) HasSynced() bool {
 
 func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 	e.informer.Run(stopCh)
+	go e.syncEndpointsMissingPods(stopCh)
 }
 
 // processEndpointEvent triggers the config update.
@@ -108,6 +113,48 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 				Endpoint:    ep,
 			}
 			handler(si, event)
+		}
+	}
+}
+
+func (e *kubeEndpoints) syncEndpointsMissingPods(stopCh <-chan struct{}) {
+	ticker := time.NewTicker(1 * time.Minute) // TODO: Make this resync period configurable.
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			for ip := range e.needResync {
+				if endpoints, f := e.needResync[ip]; f {
+					for ep := range endpoints {
+						delete(e.needResync[ip], ep)
+						item, exists, err := e.informer.GetStore().GetByKey(ep)
+						if err != nil {
+							log.Errorf("got error on endpoint update: %v", err)
+						}
+						if !exists {
+							log.Errorf("looked up %v, does not exist", ep)
+							// must be stale, do nothing
+							continue
+						}
+						// Trigger event on right controller.
+						switch e.c.endpoints.(type) {
+						case *endpointsController:
+							epc := e.c.endpoints.(*endpointsController)
+							e.c.queue.Push(func() error {
+								return epc.onEvent(item, model.EventUpdate)
+							})
+						case *endpointSliceController:
+							epc := e.c.endpoints.(*endpointSliceController)
+							e.c.queue.Push(func() error {
+								return epc.onEvent(item, model.EventUpdate)
+							})
+						}
+					}
+					delete(e.needResync, ip)
+				}
+			}
+		case <-stopCh:
+			return
 		}
 	}
 }

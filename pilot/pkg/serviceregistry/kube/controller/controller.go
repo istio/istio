@@ -499,7 +499,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.pods.informer.HasSynced,
 		c.serviceInformer.HasSynced)
 
-	go c.pods.periodicRefreshDeletedPods(stop)
 	<-stop
 	log.Infof("Controller terminated")
 }

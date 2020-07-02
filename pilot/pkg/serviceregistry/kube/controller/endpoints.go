@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
@@ -38,8 +39,9 @@ var _ kubeEndpointsController = &endpointsController{}
 func newEndpointsController(c *Controller, informer coreinformers.EndpointsInformer) *endpointsController {
 	out := &endpointsController{
 		kubeEndpoints: kubeEndpoints{
-			c:        c,
-			informer: informer.Informer(),
+			c:          c,
+			informer:   informer.Informer(),
+			needResync: make(map[string]sets.Set),
 		},
 	}
 	registerHandlers(informer.Informer(), c.queue, "Endpoints", endpointsEqual, out.onEvent)
@@ -181,31 +183,24 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {
 	endpoints := make([]*model.IstioEndpoint, 0)
 	ep := endpoint.(*v1.Endpoints)
+	key := kube.KeyFunc(ep.Name, ep.Namespace)
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			pod := e.c.pods.getPodByIP(ea.IP)
 			if pod == nil {
+				if item, exists, err := e.c.pods.informer.GetStore().GetByKey(key); exists && err != nil {
+					pod = item.(*v1.Pod)
+				}
+			}
+			if pod == nil {
 				if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
-					// Check if Pod has been deleted recently and we are still processing the endpoints
-					// of deleted pod. This might happen when a cluster wide rolling update happens.
-					key := kube.KeyFunc(ea.TargetRef.Name, ea.TargetRef.Namespace)
-					if e.c.pods.isDeleted(ea.IP, key) {
-						log.Infof("Pod with IP %s %s has been deleted. Ignoring this endpoint ", ea.IP, key)
-						continue
-					}
-					// This means, the endpoint event has arrived before pod event. This might happen because
-					// PodCache is eventually consistent. We should try to get the pod from kube-api server.
-					pod = e.c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
-					if pod == nil {
-						// If pod is still not available, this an unusual case.
-						endpointsWithNoPods.Increment()
-						log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-						if e.c.metrics != nil {
-							e.c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, ea.IP)
-						}
-						continue
+					if _, f := e.needResync[ea.IP]; !f {
+						e.needResync[ea.IP] = sets.NewSet(key)
+					} else {
+						e.needResync[ea.IP].Insert(key)
 					}
 				}
+				continue
 			}
 
 			builder := NewEndpointBuilder(e.c, pod)

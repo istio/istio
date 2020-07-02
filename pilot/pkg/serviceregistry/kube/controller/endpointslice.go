@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
@@ -45,8 +46,9 @@ func newEndpointSliceController(c *Controller, informer v1alpha1.EndpointSliceIn
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
-			c:        c,
-			informer: informer.Informer(),
+			c:          c,
+			informer:   informer.Informer(),
+			needResync: make(map[string]sets.Set),
 		},
 		endpointCache: newEndpointSliceCache(),
 	}
@@ -146,6 +148,7 @@ func sliceServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, p
 func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
 	slice := es.(*discoveryv1alpha1.EndpointSlice)
 	endpoints := make([]*model.IstioEndpoint, 0)
+	key := kube.KeyFunc(slice.Name, slice.Namespace)
 	for _, e := range slice.Endpoints {
 		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
 			// Ignore not ready endpoints
@@ -154,27 +157,22 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 		for _, a := range e.Addresses {
 			pod := esc.c.pods.getPodByIP(a)
 			if pod == nil {
-				if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
-					// Check if Pod has been deleted recently and we are still processing the endpoints
-					// of deleted pod. This might happen when a cluster wide rolling update happens.
-					key := kube.KeyFunc(e.TargetRef.Name, e.TargetRef.Namespace)
-					if esc.c.pods.isDeleted(a, key) {
-						log.Infof("Pod with IP %s %s has been deleted. Ignoring this endpoint ", a, key)
-						continue
-					}
-					// This means, the endpoint event has arrived before pod event. This might happen because
-					// PodCache is eventually consistent. We should try to get the pod from kube-api server.
-					pod = esc.c.pods.getPod(e.TargetRef.Name, e.TargetRef.Namespace)
-					if pod == nil {
-						// If pod is still not available, this an unusual case.
-						endpointsWithNoPods.Increment()
-						log.Errorf("Endpoint without pod %s %s.%s", a, host, slice.Namespace)
-						if esc.c.metrics != nil {
-							esc.c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, a)
-						}
-						continue
+				if pod == nil {
+					if item, exists, err := esc.c.pods.informer.GetStore().GetByKey(key); exists && err != nil {
+						pod = item.(*v1.Pod)
 					}
 				}
+				if pod == nil {
+					if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
+						if _, f := esc.needResync[a]; !f {
+							esc.needResync[a] = sets.NewSet(key)
+						} else {
+							esc.needResync[a].Insert(key)
+						}
+					}
+					continue
+				}
+
 				// For service without selector, maybe there are no related pods
 			}
 

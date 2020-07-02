@@ -15,13 +15,10 @@
 package controller
 
 import (
-	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -102,10 +99,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			}
 		case model.EventUpdate:
 			if pod.DeletionTimestamp != nil {
-				// delete only if this pod was in the cache
-				if pc.podsByIP[ip] == key {
-					pc.deleteIP(ip)
-				}
+				// just ignore this event as endpoint update might come later for this.
 				return nil
 			}
 			switch pod.Status.Phase {
@@ -174,43 +168,4 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 		return nil
 	}
 	return item.(*v1.Pod)
-}
-
-func (pc *PodCache) isDeleted(addr, pod string) bool {
-	pc.RLock()
-	defer pc.RUnlock()
-	_, exists := pc.recentDeletedPods[podKey{addr, pod}]
-	return exists
-}
-
-// getPod loads will try to load the pod from informer store and if it is not available, load it from k8s.
-func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
-	key := kube.KeyFunc(name, namespace)
-	// Try loading it from informer cache by key.
-	if item, exists, err := pc.informer.GetStore().GetByKey(key); exists && err != nil {
-		log.Debugf("loading pod %s from informer store", key)
-		return item.(*v1.Pod)
-	}
-	// It is not available in cache, get directly from k8s.
-	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		log.Warnf("failed to get pod %s/%s from kube-apiserver: %v", namespace, name, err)
-		return nil
-	}
-	return pod
-}
-
-func (pc *PodCache) periodicRefreshDeletedPods(stopCh <-chan struct{}) {
-	ticker := time.NewTicker(10 * time.Minute)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			pc.Lock()
-			pc.recentDeletedPods = make(map[podKey]struct{})
-			pc.c.Unlock()
-		case <-stopCh:
-			return
-		}
-	}
 }
