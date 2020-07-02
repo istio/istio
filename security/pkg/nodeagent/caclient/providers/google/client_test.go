@@ -72,7 +72,7 @@ func TestGoogleCAClient(t *testing.T) {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
+		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1 ,true)
 		if err != nil {
 			if err.Error() != tc.expectedErr {
 				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)

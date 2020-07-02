@@ -165,7 +165,7 @@ func TestE2EClient(t *testing.T) {
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create to create context: %v", id, err)
 		}
-		resp, err := cli.CSRSign(ctx, "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
+		resp, err := cli.CSRSign(ctx, "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1, true)
 		if err != nil {
 				t.Logf("%+v", resp)
 				t.Errorf("Test case [%s]: error (%s) happens ", id, err.Error())
@@ -289,7 +289,7 @@ func TestCitadelClient(t *testing.T) {
 		}
 		fmt.Printf("gggggggggggg\n")
 		fmt.Printf("%+v\n",csrPEM)
-		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", csrPEM, fakeToken, 1)
+		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", csrPEM, fakeToken, 1, true)
 		if err != nil {
 			if err.Error() != tc.expectedErr {
 				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)

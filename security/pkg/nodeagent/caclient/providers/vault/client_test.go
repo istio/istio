@@ -161,7 +161,7 @@ func TestClientOnMockVaultCA(t *testing.T) {
 		}
 
 		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012",
-			tc.cliConfig.csr, tc.cliConfig.clientToken, 1)
+			tc.cliConfig.csr, tc.cliConfig.clientToken, 1, true)
 		if err != nil {
 			match, _ := regexp.MatchString(tc.expectedErr+".+", err.Error())
 			if !match {

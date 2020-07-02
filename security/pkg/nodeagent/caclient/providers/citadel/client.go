@@ -90,7 +90,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 
 // CSR Sign calls Citadel to sign a CSR.
 func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+	certValidTTLInSec int64, withToken bool) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
@@ -107,32 +107,15 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 	//fmt.Printf("ssssssssmmmm\n")
 	//fmt.Printf("%+v\n",peer.AuthInfo.AuthType())
 	// add Bearer prefix, which is required by Citadel.
-	token = bearerTokenPrefix + token
-	fmt.Printf("%+v\n",ctx)
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
-	resp, err := c.client.CreateCertificate(ctx, req)
-	if err != nil {
-		citadelClientLog.Errorf("Failed to create certificate: %v", err)
-		return nil, err
+	if withToken {
+		token = bearerTokenPrefix + token
+		//fmt.Printf("ppppppppppppp",ctx)
+		//fmt.Printf("%+v\n",ctx)
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
+	} else {
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs( "ClusterID", c.clusterID))
 	}
 
-	if len(resp.CertChain) <= 1 {
-		citadelClientLog.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
-		return nil, errors.New("invalid response cert chain")
-	}
-
-	return resp.CertChain, nil
-}
-
-// CSR Sign calls Citadel to sign a CSR.
-func (c *citadelClient) CSRSignWithoutToken(ctx context.Context, reqID string, csrPEM []byte,
-		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	req := &pb.IstioCertificateRequest{
-		Csr:              string(csrPEM),
-		ValidityDuration: certValidTTLInSec,
-	}
-
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs( "ClusterID", c.clusterID))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to create certificate: %v", err)
