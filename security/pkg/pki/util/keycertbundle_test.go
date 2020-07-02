@@ -486,7 +486,7 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 	}
 }
 
-func TestTimeBeforeNextRotate(t *testing.T) {
+func TestMinTTL(t *testing.T) {
 	t0 := time.Now()
 	caCertTTL := time.Second * 60
 	rootCertBytes, rootKeyBytes, err := GenCertKeyFromOptions(CertOptions{
@@ -531,39 +531,39 @@ func TestTimeBeforeNextRotate(t *testing.T) {
 	testCases := []struct {
 		name         string
 		cert         []byte
-		workloadTTL  time.Duration
+		defaultTTL   time.Duration
 		expectedTime time.Duration
 		expectedErr  error
 	}{
 		{
-			name:         "workload TTL higher than cert TTL, so it should return cert TTL",
+			name:         "default TTL higher than CA cert TTL, so it should return CA cert TTL",
 			cert:         caCertBytes,
-			workloadTTL:  120 * time.Second,
+			defaultTTL:   120 * time.Second,
 			expectedTime: caCertTTL,
 		},
 		{
-			name:         "workload TTL lower than cert TTL, so it should return workload TTL",
+			name:         "default TTL lower than CA cert TTL, so it should return default TTL",
 			cert:         caCertBytes,
-			workloadTTL:  10 * time.Second,
+			defaultTTL:   10 * time.Second,
 			expectedTime: 10 * time.Second,
 		},
 		{
-			name:         "no cert, so it should return workload TTL",
+			name:         "no cert, so it should return default TTL",
 			cert:         nil,
-			workloadTTL:  10 * time.Second,
+			defaultTTL:   10 * time.Second,
 			expectedTime: 10 * time.Second,
 		},
 		{
 			name:         "invalid cert",
 			cert:         []byte("invalid cert"),
-			workloadTTL:  10 * time.Second,
+			defaultTTL:   10 * time.Second,
 			expectedTime: 10 * time.Second,
 			expectedErr:  fmt.Errorf("failed to extract cert expiration timestamp: failed to parse the cert: invalid PEM encoded certificate"),
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			time, err := TimeBeforeNextRotate(tc.cert, tc.workloadTTL, t0)
+			time, err := MinTTL(tc.cert, tc.defaultTTL, t0)
 			if err != nil {
 				if tc.expectedErr == nil {
 					t.Fatalf("Unexpected error: %v", err)

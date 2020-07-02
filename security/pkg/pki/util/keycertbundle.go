@@ -233,10 +233,11 @@ func (b *KeyCertBundleImpl) ExtractCACertExpiryTimestamp() (float64, error) {
 	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
 }
 
-// TimeBeforeNextRotate returns time duration to the next cert rotation
-func TimeBeforeNextRotate(certBytes []byte, workloadTTL time.Duration, now time.Time) (time.Duration, error) {
+// MinTTL returns min TTL between certificate and default value.
+func MinTTL(certBytes []byte, defaultTTL time.Duration, now time.Time) (time.Duration, error) {
+	// returns defaultTTL if there is no certificate
 	if len(certBytes) == 0 {
-		return workloadTTL, nil
+		return defaultTTL, nil
 	}
 
 	certExpiryTimestamp, err := extractCertExpiryTimestamp("cert", certBytes)
@@ -245,10 +246,10 @@ func TimeBeforeNextRotate(certBytes []byte, workloadTTL time.Duration, now time.
 	}
 
 	certExpirySeconds := certExpiryTimestamp - float64(now.Unix())
-	if workloadTTL.Seconds() > certExpirySeconds {
+	if defaultTTL.Seconds() > certExpirySeconds {
 		return time.Duration(certExpirySeconds) * time.Second, nil
 	}
-	return workloadTTL, nil
+	return defaultTTL, nil
 }
 
 // Verify that the cert chain, root cert and key/cert match.

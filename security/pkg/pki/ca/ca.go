@@ -284,7 +284,10 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
 	}
 
-	certTTL, err := util.TimeBeforeNextRotate(ca.keyCertBundle.GetCertChainPem(), ca.defaultCertTTL, time.Now())
+	// if CA cert becomes invalid before workload cert it's gonna cause workload cert to be invalid too,
+	// however citatel won't rotate if that happens, using min TTL between CA cert and workload cert
+	// will prevent from that
+	certTTL, err := util.MinTTL(ca.keyCertBundle.GetCertChainPem(), opts.DefaultCertTTL, time.Now())
 	if err != nil {
 		return ca, fmt.Errorf("failed to find time before next rotate %s", err.Error())
 	}
