@@ -141,14 +141,12 @@ func (e *kubeEndpoints) reSyncEndpoints(stopCh <-chan struct{}) {
 							continue
 						}
 						// Trigger event on right controller.
-						switch e.c.endpoints.(type) {
+						switch epc := e.c.endpoints.(type) {
 						case *endpointsController:
-							epc := e.c.endpoints.(*endpointsController)
 							e.c.queue.Push(func() error {
 								return epc.onEvent(item, model.EventUpdate)
 							})
 						case *endpointSliceController:
-							epc := e.c.endpoints.(*endpointSliceController)
 							e.c.queue.Push(func() error {
 								return epc.onEvent(item, model.EventUpdate)
 							})
