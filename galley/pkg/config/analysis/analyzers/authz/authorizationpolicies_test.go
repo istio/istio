@@ -12,26 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package authz
 
 import (
-	"regexp"
+	"testing"
 
-	"istio.io/istio/pkg/config/constants"
+	"github.com/stretchr/testify/assert"
 )
 
-const (
-	DefaultKubernetesDomain   = "svc." + constants.DefaultKubernetesDomain
-	ExportToNamespaceLocal    = "."
-	ExportToAllNamespaces     = "*"
-	IstioProxyName            = "istio-proxy"
-	MeshGateway               = "mesh"
-	Wildcard                  = "*"
-	MeshConfigName            = "istio"
-	InjectionLabelName        = "istio-injection"
-	InjectionLabelEnableValue = "enabled"
-)
+func TestNamespaceMatch(t *testing.T) {
+	assert := assert.New(t)
 
-var (
-	fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)
-)
+	assert.True(namespaceMatch("test-login", "*"))
+
+	assert.True(namespaceMatch("test-login", "test-*"))
+	assert.False(namespaceMatch("test-login", "*-test"))
+
+	assert.False(namespaceMatch("test-login", "login-*"))
+	assert.True(namespaceMatch("test-login", "*-login"))
+}

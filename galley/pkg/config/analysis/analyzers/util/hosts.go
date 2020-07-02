@@ -28,6 +28,13 @@ func (s ScopedFqdn) GetScopeAndFqdn() (string, string) {
 	return parts[0], parts[1]
 }
 
+// InScopeOf returns true if ns is in the scope of ScopedFqdn
+func (s ScopedFqdn) InScopeOf(ns string) bool {
+	scope, fqdn := s.GetScopeAndFqdn()
+	fn := GetFullNameFromFQDN(fqdn)
+	return scope == "*" || scope == "." && ns == fn.Namespace.String() || scope == ns
+}
+
 // NewScopedFqdn converts the passed host to FQDN if needed and applies the passed scope.
 func NewScopedFqdn(scope string, namespace resource.Namespace, host string) ScopedFqdn {
 	fqdn := ConvertHostToFQDN(namespace, host)
