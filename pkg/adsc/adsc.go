@@ -32,8 +32,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -41,9 +41,6 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/resource"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -118,7 +115,7 @@ type Config struct {
 type ADSC struct {
 	// Stream is the GRPC connection stream, allowing direct GRPC send operations.
 	// Set after Dial is called.
-	stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
 	conn *grpc.ClientConn
 
@@ -156,11 +153,11 @@ type ADSC struct {
 
 	// Updates includes the type of the last update received from the server.
 	Updates     chan string
-	XDSUpdates  chan *xdsapi.DiscoveryResponse
+	XDSUpdates  chan *discovery.DiscoveryResponse
 	VersionInfo map[string]string
 
 	// Last received message, by type
-	Received map[string]*xdsapi.DiscoveryResponse
+	Received map[string]*discovery.DiscoveryResponse
 
 	mutex sync.Mutex
 
@@ -192,7 +189,7 @@ type ADSC struct {
 }
 
 type ResponseHandler interface {
-	HandleResponse(con *ADSC, response *xdsapi.DiscoveryResponse)
+	HandleResponse(con *ADSC, response *discovery.DiscoveryResponse)
 }
 
 const (
@@ -233,10 +230,10 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	}
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),
-		XDSUpdates:  make(chan *xdsapi.DiscoveryResponse, 100),
+		XDSUpdates:  make(chan *discovery.DiscoveryResponse, 100),
 		VersionInfo: map[string]string{},
 		url:         url,
-		Received:    map[string]*xdsapi.DiscoveryResponse{},
+		Received:    map[string]*discovery.DiscoveryResponse{},
 		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
 		syncCh:      make(chan string, len(collections.Pilot.All())),
@@ -383,7 +380,7 @@ func (a *ADSC) Run() error {
 		}
 	}
 
-	xds := xdsapi.NewAggregatedDiscoveryServiceClient(a.conn)
+	xds := discovery.NewAggregatedDiscoveryServiceClient(a.conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return err
@@ -393,7 +390,7 @@ func (a *ADSC) Run() error {
 
 	// Send the initial requests
 	for _, r := range a.cfg.Watch {
-		_ = a.Send(&xdsapi.DiscoveryRequest{
+		_ = a.Send(&discovery.DiscoveryRequest{
 			TypeUrl: r,
 		})
 	}
@@ -796,7 +793,7 @@ func (a *ADSC) node() *core.Node {
 }
 
 // Raw send of a request.
-func (a *ADSC) Send(req *xdsapi.DiscoveryRequest) error {
+func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
 	if a.sendNodeMeta {
 		req.Node = a.node()
 		a.sendNodeMeta = false
@@ -822,7 +819,7 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 	}
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
-		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
+		_ = a.stream.Send(&discovery.DiscoveryRequest{
 			ResponseNonce: time.Now().String(),
 			Node:          a.node(),
 			TypeUrl:       ListenerType,
@@ -933,7 +930,7 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 }
 
 // WaitVersion waits for a new or updated for a typeURL.
-func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*xdsapi.DiscoveryResponse, error) {
+func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*discovery.DiscoveryResponse, error) {
 	t := time.NewTimer(to)
 	a.mutex.Lock()
 	ex := a.Received[typeURL]
@@ -975,7 +972,7 @@ func (a *ADSC) EndpointsJSON() string {
 // it will start watching RDS and CDS.
 func (a *ADSC) Watch() {
 	a.watchTime = time.Now()
-	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
+	_ = a.stream.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
 		TypeUrl:       v3.ClusterType,
@@ -984,14 +981,14 @@ func (a *ADSC) Watch() {
 
 // WatchConfig will use the new experimental API watching, similar with MCP.
 func (a *ADSC) WatchConfig() {
-	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
+	_ = a.stream.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
 		TypeUrl:       collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
 	})
 
 	for _, sch := range collections.Pilot.All() {
-		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
+		_ = a.stream.Send(&discovery.DiscoveryRequest{
 			ResponseNonce: time.Now().String(),
 			Node:          a.node(),
 			TypeUrl:       sch.Resource().GroupVersionKind().String(),
@@ -1020,7 +1017,7 @@ func (a *ADSC) WaitConfigSync(max time.Duration) bool {
 }
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
-	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
+	_ = a.stream.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: "",
 		Node:          a.node(),
 		TypeUrl:       typeurl,
@@ -1028,8 +1025,8 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 	})
 }
 
-func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse) {
-	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
+func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
+	_ = a.stream.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: msg.Nonce,
 		TypeUrl:       msg.TypeUrl,
 		Node:          a.node(),

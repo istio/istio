@@ -264,6 +264,11 @@ type WatchedResource struct {
 	// LastSize tracks the size of the last update
 	LastSize int
 
+	// Last request contains the last DiscoveryRequest received for
+	// this type. Generators are called imediately after each request,
+	// and may use the information in DiscoveryRequest.
+	// Note that Envoy may send multiple requests for the same type, for
+	// example to update the set of watched resources or to ACK/NACK.
 	LastRequest *discovery.DiscoveryRequest
 }
 

@@ -124,9 +124,9 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 
 	resources := make([]*any.Any, 0, len(data))
-  for _, v := range data {
-  	resources = append(resources, util.MessageToAny(v))
-  }
+	for _, v := range data {
+		resources = append(resources, util.MessageToAny(v))
+	}
 	dr := &discovery.DiscoveryResponse{
 		TypeUrl:   typeURL,
 		Resources: resources,
