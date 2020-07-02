@@ -21,17 +21,20 @@ import (
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
+type TestCase struct {
+	name string
+	v    string
+	want *matcherpb.StringMatcher
+}
+
 func TestStringMatcherWithPrefix(t *testing.T) {
-	testCases := []struct {
-		name string
-		v    string
-		want *matcherpb.StringMatcher
-	}{
+	testCases := []TestCase{
 		{
 			name: "wildcardAsRequired",
 			v:    "*",
 			want: StringMatcherRegex(".+"),
-		},{
+		},
+		{
 			name: "prefix",
 			v:    "-prefix-*",
 			want: &matcherpb.StringMatcher{
@@ -70,12 +73,9 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 	}
 }
 
+
 func TestStringMatcherRegex(t *testing.T) {
-	testCases := []struct {
-		name string
-		v    string
-		want *matcherpb.StringMatcher
-	}{
+	testCases := []TestCase{
 		{
 			name: "wildcardAsRequired",
 			v:    "*",
@@ -107,8 +107,7 @@ func TestStringMatcherRegex(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := StringMatcherRegex(tc.v)
-			if !reflect.DeepEqual(*actual, *tc.want) {
+			if actual := StringMatcherRegex(tc.v); !reflect.DeepEqual(*actual, *tc.want) {
 				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
 			}
 		})
