@@ -149,7 +149,7 @@ func TestADSC_Save(t *testing.T) {
 		fsChecker    func(baseDir string, t *testing.T, expected map[string]string)
 	}{
 		{
-			desc: "emtpy",
+			desc: "empty",
 			base: "out/test",
 			expectedJSON: map[string]string{
 				"_lds_tcp":  `{}`,
@@ -262,11 +262,11 @@ func TestADSC_Save(t *testing.T) {
 			if err := tt.adsc.Save(tt.base); (err == nil && tt.err != nil) || (err != nil && tt.err == nil) {
 				t.Errorf("AdscSave() => %v expected err %v", err, tt.err)
 			}
-			if ldsTcp := readFile(tt.base+"_lds_tcp.json", t); ldsTcp != tt.expectedJSON["_lds_tcp"] {
-				t.Errorf("AdscSave() => %s expected ldsTcp %s", ldsTcp, tt.expectedJSON["_lds_tcp"])
+			if ldsTCP := readFile(tt.base+"_lds_tcp.json", t); ldsTCP != tt.expectedJSON["_lds_tcp"] {
+				t.Errorf("AdscSave() => %s expected ldsTcp %s", ldsTCP, tt.expectedJSON["_lds_tcp"])
 			}
-			if ldsHttp := readFile(tt.base+"_lds_http.json", t); ldsHttp != tt.expectedJSON["_lds_http"] {
-				t.Errorf("AdscSave() => %s expected ldsHttp %s", ldsHttp, tt.expectedJSON["_lds_http"])
+			if ldsHTTP := readFile(tt.base+"_lds_http.json", t); ldsHTTP != tt.expectedJSON["_lds_http"] {
+				t.Errorf("AdscSave() => %s expected ldsHttp %s", ldsHTTP, tt.expectedJSON["_lds_http"])
 			}
 			if rds := readFile(tt.base+"_rds.json", t); rds != tt.expectedJSON["_rds"] {
 				t.Errorf("AdscSave() => %s expected rds %s", rds, tt.expectedJSON["_rds"])
