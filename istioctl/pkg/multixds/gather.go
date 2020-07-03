@@ -74,9 +74,9 @@ func queryEachShard(dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClie
 		defer fw.Close()
 		response, err := xds.GetXdsResponse(dr, &clioptions.CentralControlPlaneOptions{
 			Xds:                fw.Address(),
+			InsecureSkipVerify: true, // (Client certs won't be good for fw.Address())
 			CertDir:            centralOpts.CertDir,
 			Timeout:            centralOpts.Timeout,
-			InsecureSkipVerify: centralOpts.InsecureSkipVerify,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
