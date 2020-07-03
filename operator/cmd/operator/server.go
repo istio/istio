@@ -17,9 +17,11 @@ package main
 import (
 	"fmt"
 	"os" // Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	"strings"
 
 	"github.com/spf13/cobra"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -97,14 +99,30 @@ func run() {
 		log.Fatalf("Could not get apiserver config: %v", err)
 	}
 
+	var mgrOpt manager.Options
+	if watchNS != "" {
+		namespaces := strings.Split(watchNS, ",")
+		// Create MultiNamespacedCache with watched namespaces if it's not empty.
+		mgrOpt = manager.Options{
+			NewCache:                cache.MultiNamespacedCacheBuilder(namespaces),
+			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			LeaderElection:          leaderElectionEnabled,
+			LeaderElectionNamespace: leaderElectionNS,
+			LeaderElectionID:        "istio-operator-lock",
+		}
+	} else {
+		// Create manager option for watching all namespaces.
+		mgrOpt = manager.Options{
+			Namespace:               watchNS,
+			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			LeaderElection:          leaderElectionEnabled,
+			LeaderElectionNamespace: leaderElectionNS,
+			LeaderElectionID:        "istio-operator-lock",
+		}
+	}
+
 	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:               watchNS,
-		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		LeaderElection:          leaderElectionEnabled,
-		LeaderElectionNamespace: leaderElectionNS,
-		LeaderElectionID:        "istio-operator-lock",
-	})
+	mgr, err := manager.New(cfg, mgrOpt)
 	if err != nil {
 		log.Fatalf("Could not create a controller manager: %v", err)
 	}

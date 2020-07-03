@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -300,7 +301,7 @@ func init() {
 	}
 }
 
-func generateYAML(cfg echo.Config, cluster kube.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Create the parameters for the YAML template.
 	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -309,7 +310,8 @@ func generateYAML(cfg echo.Config, cluster kube.Cluster) (serviceYAML string, de
 	return generateYAMLWithSettings(cfg, settings, cluster)
 }
 
-func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster kube.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
+	cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -365,7 +367,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
-		"Cluster":             cfg.ClusterIndex(),
+		"Cluster":             cfg.Cluster.Name(),
 		"Namespace":           namespace,
 		"VM": map[string]interface{}{
 			"Image":      vmImage,

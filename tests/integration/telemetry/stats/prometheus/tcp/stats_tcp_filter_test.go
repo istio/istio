@@ -51,13 +51,13 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 		Run(func(ctx framework.TestContext) {
 			addr := ing.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
-			ctx.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
 				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
-			defer ctx.DeleteConfig(
+			defer ctx.Config().DeleteYAML(
 				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
@@ -69,12 +69,12 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 				t.Errorf("unable to load config %s, err:%v", cleanupFilterConfig, err)
 			}
 
-			ctx.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
 				systemNM.Name(),
 				cleanup,
 			)
-			defer ctx.DeleteConfig(
+			defer ctx.Config().DeleteYAML(
 				systemNM.Name(),
 				cleanup,
 			)
@@ -99,20 +99,9 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		Setup(istio.Setup(&ist, setupConfig)).
+		Setup(istio.Setup(&ist, nil)).
 		Setup(testsetup).
 		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	// disable mixer telemetry and enable telemetry v2
-	// This turns on telemetry v2 for both HTTP and TCP.
-	cfg.Values["telemetry.enabled"] = "true"
-	cfg.Values["telemetry.v1.enabled"] = "false"
-	cfg.Values["telemetry.v2.enabled"] = "true"
 }
 
 func testsetup(ctx resource.Context) (err error) {
@@ -144,7 +133,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	err = ctx.ApplyConfig(bookinfoNs.Name(), yamlText)
+	err = ctx.Config().ApplyYAML(bookinfoNs.Name(), yamlText)
 	if err != nil {
 		return err
 	}

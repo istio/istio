@@ -17,7 +17,6 @@
 package ingress
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -25,16 +24,13 @@ import (
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/informers/networking/v1beta1"
 
 	"istio.io/pkg/ledger"
 
 	ingress "k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -49,7 +45,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/listwatch"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -89,13 +85,15 @@ type controller struct {
 	meshWatcher  mesh.Holder
 	domainSuffix string
 
-	client                 kubernetes.Interface
 	queue                  queue.Instance
-	informer               cache.SharedIndexInformer
 	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
 	gatewayHandlers        []func(model.Config, model.Config, model.Event)
+
+	ingressInformer cache.SharedInformer
+	serviceInformer cache.SharedInformer
+	serviceLister   listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
-	classes *v1beta1.IngressClassInformer
+	classes v1beta1.IngressClassInformer
 }
 
 var (
@@ -121,7 +119,7 @@ func ingressClassSupported(client kubernetes.Interface) bool {
 }
 
 // NewController creates a new Kubernetes controller
-func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
+func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options) model.ConfigStoreCache {
 
 	// queue requires a time duration for a retry delay after a handler error
@@ -131,41 +129,31 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
-	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
-
-	mlw := listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return client.NetworkingV1beta1().Ingresses(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return client.NetworkingV1beta1().Ingresses(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	informer := cache.NewSharedIndexInformer(mlw, &ingress.Ingress{}, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	ingressInformer := client.KubeInformer().Networking().V1beta1().Ingresses().Informer()
 	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespaces)
 
-	var classes *v1beta1.IngressClassInformer
+	serviceInformer := client.KubeInformer().Core().V1().Services()
+
+	var classes v1beta1.IngressClassInformer
 	if ingressClassSupported(client) {
-		sharedInformers := informers.NewSharedInformerFactory(client, options.ResyncPeriod)
-		i := sharedInformers.Networking().V1beta1().IngressClasses()
-		classes = &i
+		classes = client.KubeInformer().Networking().V1beta1().IngressClasses()
+		// Register the informer now, so it will be properly started
+		_ = classes.Informer()
 	} else {
 		log.Infof("Skipping IngressClass, resource not supported")
 	}
+
 	c := &controller{
-		meshWatcher:  meshWatcher,
-		domainSuffix: options.DomainSuffix,
-		client:       client,
-		queue:        q,
-		informer:     informer,
-		classes:      classes,
+		meshWatcher:     meshWatcher,
+		domainSuffix:    options.DomainSuffix,
+		queue:           q,
+		ingressInformer: ingressInformer,
+		classes:         classes,
+		serviceInformer: serviceInformer.Informer(),
+		serviceLister:   serviceInformer.Lister(),
 	}
 
-	informer.AddEventHandler(
+	ingressInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				q.Push(func() error {
@@ -192,7 +180,7 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingress.Ingress) (bool, error) {
 	var class *ingress.IngressClass
 	if c.classes != nil && i.Spec.IngressClassName != nil {
-		c, err := (*c.classes).Lister().Get(*i.Spec.IngressClassName)
+		c, err := c.classes.Lister().Get(*i.Spec.IngressClassName)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return false, fmt.Errorf("failed to get ingress class %v: %v", i.Spec.IngressClassName, err)
 		}
@@ -202,7 +190,7 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingres
 }
 
 func (c *controller) onEvent(obj interface{}, event model.Event) error {
-	if !c.informer.HasSynced() {
+	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
 
@@ -263,7 +251,8 @@ func (c *controller) SetLedger(ledger.Ledger) error {
 }
 
 func (c *controller) HasSynced() bool {
-	return c.informer.HasSynced()
+	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
+		(c.classes == nil || c.classes.Informer().HasSynced())
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
@@ -271,10 +260,6 @@ func (c *controller) Run(stop <-chan struct{}) {
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
-	go c.informer.Run(stop)
-	if c.classes != nil {
-		go (*c.classes).Informer().Run(stop)
-	}
 	<-stop
 }
 
@@ -297,7 +282,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 
 	ingressByHost := map[string]*model.Config{}
 
-	for _, obj := range c.informer.GetStore().List() {
+	for _, obj := range c.ingressInformer.GetStore().List() {
 		ingress := obj.(*ingress.Ingress)
 		if namespace != "" && namespace != ingress.Namespace {
 			continue
@@ -312,7 +297,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 
 		switch typ {
 		case gvk.VirtualService:
-			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
+			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost, c.serviceLister)
 		case gvk.Gateway:
 			gateways := ConvertIngressV1alpha3(*ingress, c.meshWatcher.Mesh(), c.domainSuffix)
 			out = append(out, gateways)

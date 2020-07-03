@@ -38,6 +38,8 @@ var (
 	// MockPilotGrpcAddr is the address to be used for grpc connections.
 	MockPilotGrpcAddr string
 
+	MockPilotSGrpcAddr string
+
 	// MockPilotHTTPPort is the dynamic port for pilot http
 	MockPilotHTTPPort int
 
@@ -81,6 +83,10 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 	defer meshFile.Close()
 	meshConfig := mesh.DefaultMeshConfig()
+
+	// Secure GRPC address
+	meshConfig.DefaultConfig.DiscoveryAddress = "localhost:15012"
+
 	meshConfig.EnableAutoMtls.Value = false
 	tearFunc := func() {
 		os.Remove(meshFile.Name())
@@ -138,6 +144,12 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 	MockPilotGrpcAddr = "localhost:" + port
 	MockPilotGrpcPort, _ = strconv.Atoi(port)
+
+	_, port, err = net.SplitHostPort(s.SecureGrpcListener.Addr().String())
+	if err != nil {
+		return nil, nil, err
+	}
+	MockPilotSGrpcAddr = "localhost:" + port
 
 	// Wait a bit for the server to come up.
 	err = wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {

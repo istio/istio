@@ -908,7 +908,7 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 		byteParts = append(byteParts, getInjectableYamlDocs(stringPart, t)...)
 	}
 	if len(byteParts) == 0 {
-		t.Skip("Found no injectable parts")
+		t.Fatalf("Found no injectable parts")
 	}
 	return byteParts
 }

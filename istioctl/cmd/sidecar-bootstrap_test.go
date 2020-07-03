@@ -226,7 +226,8 @@ func verifyVMCommandCaseOutput(t *testing.T, c vmBootstrapTestcase) {
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
-	rootCmd.SetOutput(&out)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
 
 	fErr := rootCmd.Execute()
 	output := out.String()

@@ -46,7 +46,8 @@ func TestHideInheritedFlags(t *testing.T) {
 	_ = parent.PersistentFlags().String(parentFlag1, "", parentFlag1)
 	_ = parent.PersistentFlags().String(parentFlag2, "", parentFlag2)
 	var out bytes.Buffer
-	parent.SetOutput(&out)
+	parent.SetOut(&out)
+	parent.SetErr(&out)
 
 	child := &cobra.Command{
 		Use: "child",

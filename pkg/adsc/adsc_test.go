@@ -18,24 +18,24 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"reflect"
 	"sync"
 	"testing"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 type testAdscRunServer struct{}
 
-var StreamHandler func(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
+var StreamHandler func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
 
-func (t *testAdscRunServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (t *testAdscRunServer) StreamAggregatedResources(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	return StreamHandler(stream)
 }
 
-func (t *testAdscRunServer) DeltaAggregatedResources(ads.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+func (t *testAdscRunServer) DeltaAggregatedResources(xdsapi.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	return nil
 }
 
@@ -44,55 +44,53 @@ func TestADSC_Run(t *testing.T) {
 		desc                 string
 		inAdsc               *ADSC
 		port                 uint32
-		streamHandler        func(server ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
+		streamHandler        func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
 		expectedADSResources *ADSC
 	}{
 		{
 			desc: "stream-no-resources",
 			inAdsc: &ADSC{
-				certDir:    "",
 				url:        "127.0.0.1:49133",
-				Received:   make(map[string]*v2.DiscoveryResponse),
+				Received:   make(map[string]*xdsapi.DiscoveryResponse),
 				Updates:    make(chan string),
-				XDSUpdates: make(chan *v2.DiscoveryResponse),
+				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
 				cfg: &Config{
 					Watch: make([]string, 0),
 				},
 			},
 			port: uint32(49133),
-			streamHandler: func(server ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+			streamHandler: func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				return nil
 			},
 			expectedADSResources: &ADSC{
-				Received: map[string]*v2.DiscoveryResponse{},
+				Received: map[string]*xdsapi.DiscoveryResponse{},
 			},
 		},
 		{
 			desc: "stream-2-unnamed-resources",
 			inAdsc: &ADSC{
-				certDir:    "",
 				url:        "127.0.0.1:49133",
-				Received:   make(map[string]*v2.DiscoveryResponse),
+				Received:   make(map[string]*xdsapi.DiscoveryResponse),
 				Updates:    make(chan string),
-				XDSUpdates: make(chan *v2.DiscoveryResponse),
+				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
 				cfg: &Config{
 					Watch: make([]string, 0),
 				},
 			},
 			port: uint32(49133),
-			streamHandler: func(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-				_ = stream.Send(&v2.DiscoveryResponse{
+			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+				_ = stream.Send(&xdsapi.DiscoveryResponse{
 					TypeUrl: "foo",
 				})
-				_ = stream.Send(&v2.DiscoveryResponse{
+				_ = stream.Send(&xdsapi.DiscoveryResponse{
 					TypeUrl: "bar",
 				})
 				return nil
 			},
 			expectedADSResources: &ADSC{
-				Received: map[string]*v2.DiscoveryResponse{
+				Received: map[string]*xdsapi.DiscoveryResponse{
 					"foo": {
 						TypeUrl: "foo",
 					},
@@ -113,7 +111,7 @@ func TestADSC_Run(t *testing.T) {
 				t.Errorf("Unable to listen on port %v with tcp err %v", tt.port, err)
 			}
 			xds := grpc.NewServer()
-			ads.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
+			xdsapi.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
 			go func() {
 				err = xds.Serve(l)
 				if err != nil {
@@ -127,7 +125,7 @@ func TestADSC_Run(t *testing.T) {
 			tt.inAdsc.RecvWg.Add(1)
 			err = tt.inAdsc.Run()
 			tt.inAdsc.RecvWg.Wait()
-			if !reflect.DeepEqual(tt.inAdsc.Received, tt.expectedADSResources.Received) {
+			if !cmp.Equal(tt.inAdsc.Received, tt.expectedADSResources.Received, protocmp.Transform()) {
 				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedADSResources.Received, tt.inAdsc.Received)
 			}
 		})

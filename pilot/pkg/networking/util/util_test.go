@@ -24,6 +24,8 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -40,14 +42,45 @@ import (
 	proto2 "istio.io/istio/pkg/proto"
 )
 
-func TestCloneLbEndpoint(t *testing.T) {
-	ep := &endpoint.LbEndpoint{
-		LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+var testCla = &endpoint.ClusterLoadAssignment{
+	ClusterName: "cluster",
+	Endpoints: []*endpoint.LocalityLbEndpoints{{
+		Locality: &core.Locality{Region: "foo", Zone: "bar"},
+		LbEndpoints: []*endpoint.LbEndpoint{
+			{
+				HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
+				LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+			},
+			{
+				HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
+				LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		LoadBalancingWeight: &wrappers.UInt32Value{Value: 50},
+		Priority:            2,
+	}},
+}
+
+func BenchmarkCloneClusterLoadAssignment(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		cpy := CloneClusterLoadAssignment(testCla)
+		_ = cpy
 	}
-	cloned := CloneLbEndpoint(ep)
-	cloned.LoadBalancingWeight.Value = 200
-	if ep.LoadBalancingWeight.GetValue() != 100 {
-		t.Errorf("original LbEndpoint is mutated")
+}
+
+func TestCloneClusterLoadAssignment(t *testing.T) {
+	cloned := CloneClusterLoadAssignment(testCla)
+	cloned2 := CloneClusterLoadAssignment(testCla)
+	if !cmp.Equal(testCla, cloned, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the same as %v", testCla, cloned)
+	}
+	cloned.ClusterName = "foo"
+	cloned.Endpoints[0].LbEndpoints[0].LoadBalancingWeight.Value = 5
+	if cmp.Equal(testCla, cloned, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the different from %v", testCla, cloned)
+	}
+	if !cmp.Equal(testCla, cloned2, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the same as %v", testCla, cloned)
 	}
 }
 
@@ -407,7 +440,7 @@ func TestAddSubsetToMetadata(t *testing.T) {
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
 			got := AddSubsetToMetadata(v.in, v.subset)
-			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
 				tt.Errorf("AddSubsetToMetadata(%v, %s) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, v.subset, got, v.want, diff)
 			}
 		})
@@ -492,8 +525,8 @@ func TestMergeAnyWithStruct(t *testing.T) {
 		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
 	}
 
-	if !reflect.DeepEqual(expectedHCM, &outHCM) {
-		t.Errorf("Merged HCM does not match the expected output")
+	if diff := cmp.Diff(expectedHCM, &outHCM, protocmp.Transform()); diff != "" {
+		t.Errorf("Merged HCM does not match the expected output: %v", diff)
 	}
 }
 
@@ -817,7 +850,7 @@ func TestBuildAddress(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			addr := BuildAddressV2(test.addr, test.port)
+			addr := BuildAddress(test.addr, test.port)
 			if !reflect.DeepEqual(addr, test.expected) {
 				t.Errorf("expected add %v, but got %v", test.expected, addr)
 			}

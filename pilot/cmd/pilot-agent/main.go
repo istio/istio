@@ -38,11 +38,10 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy"
-	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
+	securityutil "istio.io/istio/pilot/pkg/security/authn/utils"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
@@ -153,7 +152,7 @@ var (
 			}
 
 			// Obtain all the IPs from the node
-			if ipAddrs, ok := proxy.GetPrivateIPs(context.Background()); ok {
+			if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {
 				log.Infof("Obtained private IP %v", ipAddrs)
 				if len(role.IPAddresses) == 1 {
 					for _, ip := range ipAddrs {
@@ -212,8 +211,13 @@ var (
 			} else {
 				log.Info("Using existing certs")
 			}
-			sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-				pilotCertProvider, jwtPath, outputKeyCertToDir, clusterIDVar.Get())
+
+			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{
+				PilotCertProvider:  pilotCertProvider,
+				JWTPath:            jwtPath,
+				OutputKeyCertToDir: outputKeyCertToDir,
+				ClusterID:          clusterIDVar.Get(),
+			})
 
 			// Connection to Istiod secure port
 			if sa.RequireCerts {
@@ -224,7 +228,7 @@ var (
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
 				// Obtain the Mixer SAN, which uses SPIFFE certs. Used below to create a Envoy proxy.
-				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
+				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), securityutil.MixerSvcAccName, mixerIdentity)
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
@@ -235,18 +239,6 @@ var (
 			_, err = sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
 			if err != nil {
 				log.Fatala("Failed to start in-process SDS", err)
-			}
-
-			// dedupe cert paths so we don't set up 2 watchers for the same file
-			tlsCerts := dedupeStrings(getTLSCerts(proxyConfig))
-
-			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
-			// before starting it.
-			if len(tlsCerts) > 0 {
-				log.Infof("Monitored certs: %#v", tlsCerts)
-				for _, cert := range tlsCerts {
-					waitForFile(cert, 2*time.Minute)
-				}
 			}
 
 			// If we are using a custom template file (for control plane proxy, for example), configure this.
@@ -344,7 +336,7 @@ var (
 			agent := envoy.NewAgent(envoyProxy, drainDuration)
 
 			// Watcher is also kicking envoy start.
-			watcher := envoy.NewWatcher(tlsCerts, agent.Restart)
+			watcher := envoy.NewWatcher(agent.Restart)
 			go watcher.Run(ctx)
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
@@ -354,12 +346,6 @@ var (
 		},
 	}
 )
-
-// dedupes the string array and also ignores the empty string.
-func dedupeStrings(in []string) []string {
-	set := sets.NewSet(in...)
-	return set.UnsortedList()
-}
 
 // explicitly set the trustdomain so the pilot and mixer SAN will have same trustdomain
 // and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
@@ -382,9 +368,9 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 	var san []string
 	if overrideIdentity == "" {
-		san = append(san, envoyDiscovery.GetSAN(ns, defaultSA))
+		san = append(san, securityutil.GetSAN(ns, defaultSA))
 	} else {
-		san = append(san, envoyDiscovery.GetSAN("", overrideIdentity))
+		san = append(san, securityutil.GetSAN("", overrideIdentity))
 
 	}
 	return san
@@ -458,37 +444,6 @@ func init() {
 		Section: "pilot-agent CLI",
 		Manual:  "Istio Pilot Agent",
 	}))
-}
-
-func waitForFile(fname string, maxWait time.Duration) bool {
-	log.Infof("waiting %v for %s", maxWait, fname)
-
-	logDelay := 1 * time.Second
-	nextLog := time.Now().Add(logDelay)
-	endWait := time.Now().Add(maxWait)
-
-	for {
-		_, err := os.Stat(fname)
-		if err == nil {
-			return true
-		}
-		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
-			log.Errora("error while waiting for file", err.Error())
-			return false
-		}
-
-		now := time.Now()
-		if now.After(endWait) {
-			log.Warna("file still not available after", maxWait)
-			return false
-		}
-		if now.After(nextLog) {
-			log.Infof("waiting for file")
-			logDelay *= 2
-			nextLog.Add(logDelay)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
 }
 
 // TODO: get the config and bootstrap from istiod, by passing the env

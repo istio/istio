@@ -81,12 +81,12 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
-		ctx.ApplyConfigOrFail(
+		ctx.Config().ApplyYAMLOrFail(
 			t,
 			bookinfoNs.Name(),
 			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		)
-		defer ctx.DeleteConfigOrFail(t,
+		defer ctx.Config().DeleteYAMLOrFail(t,
 			bookinfoNs.Name(),
 			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 		bookInfoNameSpaceStr := bookinfoNs.Name()
@@ -138,13 +138,13 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 		"namespace: "+bookInfoNameSpaceStr, -1)
 
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-	ctx.ApplyConfigOrFail(t, ns.Name(), con)
+	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), con)
 	return con
 }
 
 func deleteConfigOrFail(t *testing.T, config string, ctx resource.Context) {
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-	ctx.DeleteConfigOrFail(t, ns.Name(), config)
+	ctx.Config().DeleteYAMLOrFail(t, ns.Name(), config)
 }
 
 func TestMain(m *testing.M) {
@@ -216,7 +216,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	err = ctx.ApplyConfig(bookinfoNs.Name(),
+	err = ctx.Config().ApplyYAML(bookinfoNs.Name(),
 		bookinfoGatewayFile,
 		destinationRuleFile,
 		virtualServiceFile)

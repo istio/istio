@@ -72,7 +72,7 @@ func TestVersion(t *testing.T) {
 	}
 }
 
-func mockExecClientVersionTest(_, _ string, _ string) (kube.Client, error) {
+func mockExecClientVersionTest(_, _ string, _ string) (kube.ExtendedClient, error) {
 	return testKube.MockClient{
 		IstioVersions: &meshInfo,
 	}, nil

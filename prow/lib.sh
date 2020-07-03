@@ -87,41 +87,29 @@ function build_images() {
   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
-function kind_load_images() {
-  NAME="${1:-istio-testing}"
+# Creates a local registry for kind nodes to pull images from. Expects that the "kind" network already exists.
+function setup_kind_registry() {
+  # create a registry container
+  docker run \
+    -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
+    registry:2
 
-  # If HUB starts with "docker.io/" removes that part so that filtering and loading below works
-  local hub=${HUB#"docker.io/"}
+  # Allow kind nodes to reach the registry
+  docker network connect "kind" "${KIND_REGISTRY_NAME}"
 
-  for i in {1..3}; do
-    # Archived local images and load it into KinD's docker daemon
-    # Kubernetes in KinD can only access local images from its docker daemon.
-    docker images "${hub}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
-    echo "Attempt ${i} to load images failed, retrying in 1s..."
-    sleep 1
-	done
-
-  # If a variant is specified, load those images as well.
-  # We should still load non-variant images as well for things like `app` which do not use variants
-  if [[ "${VARIANT:-}" != "" ]]; then
-    for i in {1..3}; do
-      docker images "${hub}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
-      echo "Attempt ${i} to load images failed, retrying in 1s..."
-      sleep 1
+  # https://docs.tilt.dev/choosing_clusters.html#discovering-the-registry
+  for cluster in $(kind get clusters); do
+    # TODO get context/config from existing variables
+    kind export kubeconfig --name="${cluster}"
+    for node in $(kind get nodes --name="${cluster}"); do
+      kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}";
     done
-  fi
+  done
 }
 
-# Loads images into all clusters.
-function kind_load_images_on_clusters() {
-  declare -a LOAD_IMAGE_JOBS
-  for c in "${CLUSTER_NAMES[@]}"; do
-    kind_load_images "${c}" &
-    LOAD_IMAGE_JOBS+=("${!}")
-  done
-  for pid in "${LOAD_IMAGE_JOBS[@]}"; do
-    wait "${pid}" || return 1
-  done
+# Pushes images to local kind registry
+function kind_push_images() {
+  docker images "${HUB}/*:${TAG}*" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 docker push
 }
 
 function cleanup_kind_cluster() {
@@ -158,18 +146,8 @@ function setup_kind_cluster() {
 
   # If config not explicitly set, then use defaults
   if [[ -z "${CONFIG}" ]]; then
-    # Different Kubernetes versions need different patches
-    K8S_VERSION=$(cut -d ":" -f 2 <<< "${IMAGE}")
-    if [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.13" ]]; then
-      # Kubernetes 1.12
-      CONFIG=./prow/config/trustworthy-jwt-12.yaml
-    elif [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.15" ]]; then
-      # Kubernetes 1.13, 1.14
-      CONFIG=./prow/config/trustworthy-jwt-13-14.yaml
-    else
       # Kubernetes 1.15+
       CONFIG=./prow/config/trustworthy-jwt.yaml
-    fi
       # Configure the cluster IP Family only for default configs
     if [ "${IP_FAMILY}" = "ipv6" ]; then
       cat <<EOF >> "${CONFIG}"
@@ -178,6 +156,14 @@ networking:
 EOF
     fi
   fi
+
+  # Make kind nodes pull images using the in-container address and port for images in localhost:$KIND_REGISTRY_PORT/*
+  cat <<EOF >> "${CONFIG}"
+containerdConfigPatches:
+  - |-
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
+        endpoint = ["http://${KIND_REGISTRY_NAME}:5000"]
+EOF
 
   # Create KinD cluster
   if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
@@ -211,11 +197,11 @@ function setup_kind_clusters() {
     CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$IDX]}"
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
     cat <<EOF > "${CLUSTER_YAML}"
-      kind: Cluster
-      apiVersion: kind.sigs.k8s.io/v1alpha3
-      networking:
-        podSubnet: ${CLUSTER_POD_SUBNET}
-        serviceSubnet: ${CLUSTER_SVC_SUBNET}
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  podSubnet: ${CLUSTER_POD_SUBNET}
+  serviceSubnet: ${CLUSTER_SVC_SUBNET}
 EOF
 
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"

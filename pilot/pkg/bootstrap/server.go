@@ -33,7 +33,6 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -56,12 +55,13 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pilot/pkg/xds"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -115,18 +115,19 @@ type Server struct {
 	MonitorListeningAddr net.Addr
 
 	// TODO(nmittler): Consider alternatives to exposing these directly
-	EnvoyXdsServer *envoyv2.DiscoveryServer
+	EnvoyXdsServer *xds.DiscoveryServer
 
 	clusterID   string
 	environment *model.Environment
 
-	kubeConfig   *rest.Config
+	kubeRestConfig *rest.Config
+	kubeClients    kubelib.Client
+	// DEPRECATED. Use kubeClients
 	kubeClient   kubernetes.Interface
 	kubeRegistry *kubecontroller.Controller
 	multicluster *kubecontroller.Multicluster
 
 	configController  model.ConfigStoreCache
-	metadataClient    metadata.Interface
 	ConfigStores      []model.ConfigStoreCache
 	serviceEntryStore *serviceentry.ServiceEntryStore
 
@@ -151,7 +152,7 @@ type Server struct {
 	fileWatcher filewatcher.FileWatcher
 
 	certController *chiron.WebhookController
-	ca             *ca.IstioCA
+	CA             *ca.IstioCA
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
 	certMu       sync.Mutex
@@ -185,7 +186,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s := &Server{
 		clusterID:       getClusterID(args),
 		environment:     e,
-		EnvoyXdsServer:  envoyv2.NewDiscoveryServer(e, args.Plugins),
+		EnvoyXdsServer:  xds.NewDiscoveryServer(e, args.Plugins),
 		fileWatcher:     filewatcher.NewWatcher(),
 		httpMux:         http.NewServeMux(),
 		readinessProbes: make(map[string]readinessProbe),
@@ -260,8 +261,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 	}
-
-	// Only operates if /var/lib/istio/validation exists
 	if err := s.initConfigValidation(args); err != nil {
 		return nil, fmt.Errorf("error initializing config validator: %v", err)
 	}
@@ -280,7 +279,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// TODO(irisdingbj):add integration test after centralIstiod finished
 	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
 	args.RegistryOptions.KubeOptions.CABundlePath = s.caBundlePath
-	if features.CentralIstioD && s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
+	if features.CentralIstioD && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
 		args.RegistryOptions.KubeOptions.FetchCaRoot = s.fetchCARoot
 	}
 
@@ -298,6 +297,14 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
 		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
+	}
+
+	// This must be last, otherwise we will not know which informers to register
+	if s.kubeClients != nil {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			s.kubeClients.RunAndWait(stop)
+			return nil
+		})
 	}
 
 	return s, nil
@@ -389,22 +396,20 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.RegistryOptions.Registries) {
 		var err error
 		// Used by validation
-		s.kubeConfig, err = kubelib.BuildClientConfig(args.RegistryOptions.KubeConfig, "")
-		if err != nil {
-			return fmt.Errorf("failed creating kube config: %v", err)
-		}
-		s.kubeClient, err = kubelib.CreateClientset(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
+		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
 			config.QPS = 20
 			config.Burst = 40
 		})
 		if err != nil {
-			return fmt.Errorf("failed creating kube client: %v", err)
+			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.metadataClient, err = kubelib.CreateMetadataClient(args.RegistryOptions.KubeConfig, "")
+		s.kubeClients, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
+		// TODO deprecate kubeClient, replace with kubeClients
 		if err != nil {
-			return fmt.Errorf("failed creating kube metadata client: %v", err)
+			return fmt.Errorf("failed creating kube client: %v", err)
 		}
+		s.kubeClient = s.kubeClients.Kube()
 	}
 
 	return nil
@@ -554,7 +559,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 		return nil
 	}
 	// Mainly for tests.
-	if !hasCustomTLSCerts(tlsOptions) && s.ca == nil {
+	if !hasCustomTLSCerts(tlsOptions) && s.CA == nil {
 		return nil
 	}
 
@@ -905,7 +910,7 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 
 // setPeerCertVerifier sets up a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
-	if tlsOptions.CaCertFile == "" && s.ca == nil && features.SpiffeBundleEndpoints == "" {
+	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" {
 		// Running locally without configured certs - no TLS mode
 		return nil
 	}
@@ -916,8 +921,8 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
 			return err
 		}
-	} else if s.ca != nil {
-		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	} else if s.CA != nil {
+		rootCertBytes = s.CA.GetCAKeyCertBundle().GetRootCertPem()
 	}
 
 	if len(rootCertBytes) != 0 {
@@ -975,7 +980,7 @@ func (s *Server) initControllers(args *PilotArgs) error {
 
 // initNamespaceController initializes namespace controller to sync config map.
 func (s *Server) initNamespaceController(args *PilotArgs) {
-	if s.ca != nil && s.kubeClient != nil {
+	if s.CA != nil && s.kubeClient != nil {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient).
@@ -993,14 +998,14 @@ func (s *Server) initNamespaceController(args *PilotArgs) {
 // initGenerators initializes generators to be used by XdsServer.
 func (s *Server) initGenerators() {
 	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &envoyv2.EdsGenerator{Server: s.EnvoyXdsServer}
-	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
+	epGen := &xds.EdsGenerator{Server: s.EnvoyXdsServer}
+	s.EnvoyXdsServer.Generators["grpc/"+v2.EndpointType] = epGen
 	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
-	s.EnvoyXdsServer.Generators["api/"+envoyv2.EndpointType] = epGen
-	s.EnvoyXdsServer.InternalGen = &envoyv2.InternalGen{
+	s.EnvoyXdsServer.Generators["api/"+v2.EndpointType] = epGen
+	s.EnvoyXdsServer.InternalGen = &xds.InternalGen{
 		Server: s.EnvoyXdsServer,
 	}
-	s.EnvoyXdsServer.Generators["api/"+envoyv2.TypeURLConnections] = s.EnvoyXdsServer.InternalGen
+	s.EnvoyXdsServer.Generators["api/"+xds.TypeURLConnections] = s.EnvoyXdsServer.InternalGen
 	s.EnvoyXdsServer.Generators["event"] = s.EnvoyXdsServer.InternalGen
 }
 
@@ -1031,7 +1036,7 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 			corev1 = s.kubeClient.CoreV1()
 		}
 		// May return nil, if the CA is missing required configs - This is not an error.
-		if s.ca, err = s.createIstioCA(corev1, caOpts); err != nil {
+		if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
 			return fmt.Errorf("failed to create CA: %v", err)
 		}
 		if err = s.initPublicKey(); err != nil {
@@ -1043,10 +1048,10 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 
 // startCA starts the CA server if configured.
 func (s *Server) startCA(caOpts *CAOptions) {
-	if s.ca != nil {
+	if s.CA != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			log.Infof("staring CA")
-			s.RunCA(s.secureGrpcServer, s.ca, caOpts)
+			s.RunCA(s.secureGrpcServer, s.CA, caOpts)
 			return nil
 		})
 	}
@@ -1054,7 +1059,7 @@ func (s *Server) startCA(caOpts *CAOptions) {
 
 func (s *Server) fetchCARoot() map[string]string {
 	return map[string]string{
-		constants.CACertNamespaceConfigMapDataName: string(s.ca.GetCAKeyCertBundle().GetRootCertPem()),
+		constants.CACertNamespaceConfigMapDataName: string(s.CA.GetCAKeyCertBundle().GetRootCertPem()),
 	}
 }
 

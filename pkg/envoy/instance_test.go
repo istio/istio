@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	envoyLogFormat = envoy.LogFormat("[ENVOY][%Y-%m-%d %T.%e][%t][%l][%n] %v")
+	envoyLogFormat = envoy.LogFormat("[ENVOY][%Y-%m-%d %T.%e][%t][%l][%n]")
 )
 
 func TestNewWithoutConfigShouldFail(t *testing.T) {
@@ -308,8 +308,8 @@ func TestCommandLineArgs(t *testing.T) {
 	g.Expect(opts.RestartEpoch).To(Equal(uint32(1)))
 	g.Expect(opts.ServiceCluster).To(Equal("mycluster"))
 	g.Expect(opts.ServiceNode).To(Equal("mynode"))
-	g.Expect(opts.DrainTime).To(Equal(ptypes.DurationProto(drainDuration)))
-	g.Expect(opts.ParentShutdownTime).To(Equal(ptypes.DurationProto(parentShutdownDuration)))
+	g.Expect(opts.DrainTime.AsDuration()).To(Equal(drainDuration))
+	g.Expect(opts.ParentShutdownTime.AsDuration()).To(Equal(parentShutdownDuration))
 }
 
 func TestShutdown(t *testing.T) {

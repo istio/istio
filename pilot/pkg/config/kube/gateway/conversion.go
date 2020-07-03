@@ -21,7 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	k8s "sigs.k8s.io/service-apis/api/v1alpha1"
+	k8s "sigs.k8s.io/service-apis/apis/v1alpha1"
 
 	"istio.io/pkg/log"
 
@@ -133,12 +133,11 @@ func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSp
 			log.Warnf("Ignoring default route for %v/%v", obj.Name, obj.Namespace)
 		}
 
-		for _, h := range route.Hosts {
-			namePrefix := strings.Replace(h.Hostname, ".", "-", -1)
-			name := namePrefix + "-" + obj.Name + "-" + constants.KubernetesGatewayName
+		for i, h := range route.Hosts {
+			name := fmt.Sprintf("%s-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
 
 			httproutes := []*istio.HTTPRoute{}
-			hosts := []string{h.Hostname}
+			hosts := h.Hostnames
 			for _, r := range h.Rules {
 				// TODO: implement redirect, rewrite, timeout, mirror, corspolicy, retries
 				vs := &istio.HTTPRoute{}
@@ -216,22 +215,16 @@ func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers {
 }
 
 func createHeadersMatch(match *k8s.HTTPRouteMatch) map[string]*istio.StringMatch {
-	if len(match.Header) == 0 {
+	if len(match.Headers) == 0 {
 		return nil
 	}
 	res := map[string]*istio.StringMatch{}
-	for k, v := range match.Header {
-		if match.HeaderType == nil || *match.HeaderType == k8s.HeaderTypeExact {
+	for k, v := range match.Headers {
+		if match.HeaderMatchType == nil ||
+			*match.HeaderMatchType == k8s.HeaderMatchTypeExact ||
+			*match.HeaderMatchType == k8s.HeaderMatchTypeImplementionSpecific {
 			res[k] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: v},
-			}
-		} else if match.PathType == k8s.PathTypePrefix {
-			res[k] = &istio.StringMatch{
-				MatchType: &istio.StringMatch_Prefix{Prefix: v},
-			}
-		} else if match.PathType == k8s.PathTypeRegularExpression {
-			res[k] = &istio.StringMatch{
-				MatchType: &istio.StringMatch_Regex{Regex: v},
 			}
 		} else {
 			log.Warnf("unknown type: %s is not supported PathType", match.PathType)
