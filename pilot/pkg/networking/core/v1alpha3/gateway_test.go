@@ -899,8 +899,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 func TestGatewayHTTPRouteConfig(t *testing.T) {
 	httpsRedirectGateway := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Name:      "gateway-redirect",
-			Namespace: "default",
+			Name:             "gateway-redirect",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
 		},
 		Spec: &networking.Gateway{
 			Selector: map[string]string{"istio": "ingressgateway"},
