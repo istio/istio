@@ -127,8 +127,6 @@ spec:
 					}
 					return r.CheckOK()
 				}, retry.Delay(100*time.Millisecond))
-				// TODO: run a full suite of tests like reaching headless services,
-				// service entries, etc.
 			}
 		})
 }
