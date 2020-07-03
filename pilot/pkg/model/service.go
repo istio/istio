@@ -74,8 +74,13 @@ type Service struct {
 	// Do not access directly. Use GetServiceAddressForProxy
 	Address string `json:"address,omitempty"`
 
-	// AutoAllocatedAddress specifies the automatically allocated IPv4 address
-	// out of 240.240.0.0/16 subnet for service entries with non-wildcard hostnames,
+	// AutoAllocatedAddress specifies the automatically allocated
+	// IPv4 address out of the reserved Class E subnet
+	// (240.240.0.0/16) for service entries with non-wildcard
+	// hostnames. The IPs assigned to services are not
+	// synchronized across istiod replicas as the DNS resolution
+	// for these service entries happens completely inside a pod
+	// whose proxy is managed by one istiod.
 	AutoAllocatedAddress string `json:"autoAllocatedAddress,omitempty"`
 
 	// Protect concurrent ClusterVIPs read/write

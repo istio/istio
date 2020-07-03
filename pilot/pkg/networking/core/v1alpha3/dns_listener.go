@@ -100,13 +100,17 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 		//
 		// host: *.mysql.aws.com, port 3306,
 		//
-		// our only recourse is to allocate a 0.0.0.0:3306 listener and forward to
+		// our only recourse is to allocate a 0.0.0.0:3306 passthrough listener and forward to
 		// original dest IP. It is now the user's responsibility to not allocate
 		// another wildcard service on the same port. i.e.
 		//
 		// 1. host: *.mysql.aws.com, port 3306
-		// 2. host: *.mongo.aws.com, port 3306 will result in conflict. Traffic may still
-		// flow but metrics wont be correct.
+		// 2. host: *.mongo.aws.com, port 3306 will result in conflict.
+		//
+		// Traffic will still flow but metrics wont be correct
+		// as two different TCP services are consuming the
+		// same wildcard passthrough TCP listener 0.0.0.0:3306.
+		//
 		if svc.Hostname.IsWildCarded() {
 			continue
 		}

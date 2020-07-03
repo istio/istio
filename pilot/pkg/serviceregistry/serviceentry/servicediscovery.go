@@ -682,11 +682,18 @@ func selectorChanged(old, curr model.Config) bool {
 	return !reflect.DeepEqual(o.WorkloadSelector, n.WorkloadSelector)
 }
 
-// automatically allocates IPs for service entry services without an address field
-// if the hostname is not a wildcard, or when resolution is not NONE. The IPs are allocated
-// from the 240.240.0.0 subnet that is not reachable outside the pod. When DNS capture is
-// enabled, Envoy will resolve the DNS to these IPs. The listeners for TCP services will also
-// be set up on these IPs.
+// Automatically allocates IPs for service entry services without an
+// address field if the hostname is not a wildcard, or when resolution
+// is not NONE. The IPs are allocated from the reserved Class E subnet
+// (240.240.0.0/16) that is not reachable outside the pod. When DNS
+// capture is enabled, Envoy will resolve the DNS to these IPs. The
+// listeners for TCP services will also be set up on these IPs. The
+// IPs allocated to a service entry may differ from istiod to istiod
+// but it does not matter because these IPs only affect the listener
+// IPs on a given proxy managed by a given istiod.
+//
+// NOTE: If DNS capture is not enabled by the proxy, the automatically
+// allocated IP addresses do not take effect.
 func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// i is everything from 240.240.0.(j) to 240.240.255.(j)
 	// j is everything from 240.240.(i).1 to 240.240.(i).254
