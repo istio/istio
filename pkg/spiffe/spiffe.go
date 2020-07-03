@@ -275,7 +275,6 @@ func (v *PeerCertVerifier) VerifyPeerCert(rawCerts [][]byte, _ [][]*x509.Certifi
 	spiffeLog.Debugf("Verifying %d peer certificates", len(rawCerts))
 	if len(rawCerts) == 0 {
 		// Peer doesn't present a certificate. Just skip. Other authn methods may be used.
-		spiffeLog.Infof("Peer didn't present certificate")
 		return nil
 	}
 	var peerCert *x509.Certificate
