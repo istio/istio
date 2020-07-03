@@ -451,10 +451,11 @@ func TestGetServerCertificate(t *testing.T) {
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
+	rsaKeySize := 2048
 
 	for id, tc := range cases {
 		caopts, err := ca.NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
-			defaultWorkloadCertTTL, maxWorkloadCertTTL)
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 		if err != nil {
 			t.Fatalf("%s: Failed to create a plugged-cert CA Options: %v", id, err)
 		}
