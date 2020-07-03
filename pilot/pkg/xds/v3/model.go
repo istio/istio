@@ -16,6 +16,7 @@ package v3
 
 import (
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
 )
 

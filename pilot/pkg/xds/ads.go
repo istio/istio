@@ -301,25 +301,24 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-	fmt.Println("Stream aggregate resources")
 	ctx := stream.Context()
 	peerAddr := "0.0.0.0"
 	if peerInfo, ok := peer.FromContext(ctx); ok {
 		peerAddr = peerInfo.Addr.String()
 	}
 
-	if ids, err := s.authenticate(ctx); err != nil {
+	ids, err := s.authenticate(ctx)
+	if err != nil {
 		return err
+	}
+	if ids != nil {
+		adsLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		if ids != nil {
-			adsLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
-		} else {
-			adsLog.Debuga("Unauthenticated XDS: ", peerAddr)
-		}
+		adsLog.Debuga("Unauthenticated XDS: ", peerAddr)
 	}
 
 	// InitContext returns immediately if the context was already initialized.
-	if err := s.globalPushContext().InitContext(s.Env, nil, nil); err != nil {
+	if err = s.globalPushContext().InitContext(s.Env, nil, nil); err != nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
 		adsLog.Warnf("Error reading config %v", err)
@@ -429,6 +428,11 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 	if !s.shouldRespond(con, edsReject, discReq) {
 		return nil
 	}
+	// TODO(ramaraochavali): This special handling is not needed for EDS. But tests are failing without this.
+	// Need to investigate if there is a bug in test client.
+	if discReq.ResourceNames == nil && discReq.ResponseNonce != "" {
+		return nil
+	}
 	con.Clusters = discReq.ResourceNames
 	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters))
 	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
@@ -466,35 +470,36 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 		return false
 	}
 
-	if previousAckInfo != nil && request.ResponseNonce != previousAckInfo.NonceSent {
-		adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype, con.ConID, request.ResponseNonce, previousAckInfo.NonceSent)
-		xdsExpiredNonce.Increment()
-		return false
-	} else {
+	if request.ResponseNonce != "" {
+		if previousAckInfo != nil && request.ResponseNonce != previousAckInfo.NonceSent {
+			adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype, con.ConID, request.ResponseNonce, previousAckInfo.NonceSent)
+			xdsExpiredNonce.Increment()
+			return false
+		}
+
 		con.mu.Lock()
 		if con.AckInfo[request.TypeUrl] == nil {
 			con.AckInfo[request.TypeUrl] = &AckInfo{}
 		}
 		con.AckInfo[request.TypeUrl].NonceAcked = request.ResponseNonce
 		con.mu.Unlock()
-	}
 
-	// Envoy can send two DiscoveryRequests with same version and nonce when it detects a new resource.
-	// We should respond if they change.
-	var previousResources []string
-	switch request.TypeUrl {
-	case v2.EndpointType, v3.EndpointType:
-		previousResources = con.Clusters
-	case v2.RouteType, v3.RouteType:
-		previousResources = con.Routes
-	}
-	if !listEqualUnordered(previousResources, request.ResourceNames) {
-		adsLog.Debugf("ADS:%s: RESOURCE CHANGE %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
-		return true
-	}
+		// Envoy can send two DiscoveryRequests with same version and nonce when it detects a new resource.
+		// We should respond if they change.
+		var previousResources []string
+		switch request.TypeUrl {
+		case v2.EndpointType, v3.EndpointType:
+			previousResources = con.Clusters
+		case v2.RouteType, v3.RouteType:
+			previousResources = con.Routes
+		}
 
-	adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
-	return false
+		if listEqualUnordered(previousResources, request.ResourceNames) {
+			adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+			return false
+		}
+	}
+	return true
 }
 
 // listEqualUnordered checks that two lists contain all the same elements
