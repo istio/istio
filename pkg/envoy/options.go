@@ -391,10 +391,9 @@ func (bid BaseID) validate(ctx *configContext) error {
 	return baseIDValidator.validate(ctx, bid.FlagValue())
 }
 
-// GetInternalEnvoyValue returns the value used internally by Envoy. Envoy internally multiplies the base ID
-// from the command line by 10 so that they have spread of domain sockets.
+// GetInternalEnvoyValue returns the value used internally by Envoy.
 func (bid BaseID) GetInternalEnvoyValue() uint64 {
-	return uint64(bid) * 10
+	return uint64(bid)
 }
 
 // Close removes the shared memory allocated by Envoy for this BaseID.
