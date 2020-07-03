@@ -28,11 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
-type podKey struct {
-	ip   string
-	name string
-}
-
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
 	informer cache.SharedIndexInformer
@@ -46,18 +41,15 @@ type PodCache struct {
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
 
-	recentDeletedPods map[podKey]struct{}
-
 	c *Controller
 }
 
 func newPodCache(c *Controller, informer coreinformers.PodInformer) *PodCache {
 	out := &PodCache{
-		informer:          informer.Informer(),
-		c:                 c,
-		podsByIP:          make(map[string]string),
-		IPByPods:          make(map[string]string),
-		recentDeletedPods: make(map[podKey]struct{}),
+		informer: informer.Informer(),
+		c:        c,
+		podsByIP: make(map[string]string),
+		IPByPods: make(map[string]string),
 	}
 
 	return out
@@ -129,7 +121,6 @@ func (pc *PodCache) deleteIP(ip string) {
 	pod := pc.podsByIP[ip]
 	delete(pc.podsByIP, ip)
 	delete(pc.IPByPods, pod)
-	pc.recentDeletedPods[podKey{ip, pod}] = struct{}{}
 }
 
 func (pc *PodCache) update(ip, key string) {
