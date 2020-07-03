@@ -59,6 +59,12 @@ type DiscoveryStream interface {
 	grpc.ServerStream
 }
 
+type AckInfo struct {
+	VersionSent string
+	NonceSent   string
+	NonceAcked  string
+}
+
 // Connection is a listener connection type.
 type Connection struct {
 	// Mutex to protect changes to this XDS connection
@@ -85,11 +91,13 @@ type Connection struct {
 	CDSClusters  []*cluster.Cluster
 
 	// Last nonce sent and ack'd (timestamps) used for debugging
-	ClusterNonceSent, ClusterNonceAcked   string
-	ListenerNonceSent, ListenerNonceAcked string
-	RouteNonceSent, RouteNonceAcked       string
-	RouteVersionInfoSent                  string
-	EndpointNonceSent, EndpointNonceAcked string
+	AckInfo map[string]*AckInfo
+
+	// ClusterNonceSent, ClusterNonceAcked   string
+	// ListenerNonceSent, ListenerNonceAcked string
+	// RouteNonceSent, RouteNonceAcked       string
+	// RouteVersionInfoSent                  string
+	// EndpointNonceSent, EndpointNonceAcked string
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -136,6 +144,7 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		Clusters:     []string{},
 		Connect:      time.Now(),
 		stream:       stream,
+		AckInfo:      map[string]*AckInfo{},
 		LDSListeners: []*listener.Listener{},
 		RouteConfigs: map[string]*route.RouteConfiguration{},
 	}
@@ -163,24 +172,20 @@ func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discov
 	firstReq := true
 	for {
 		req, err := con.stream.Recv()
-		con.mu.RLock()
-		cid := con.ConID
-		con.mu.RUnlock()
 		if err != nil {
-			cid := con.ConID
 			if isExpectedGRPCError(err) {
-				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, cid, err)
+				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
 			*errP = err
-			adsLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, cid, err)
+			adsLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
 		// This should be only set for the first request. The node id may not be set - for example malicious clients.
 		if firstReq {
 			firstReq = false
-			if req.Node == nil {
+			if req.Node == nil || req.Node.Id == "" {
 				*errP = errors.New("missing node ID")
 				return
 			}
@@ -200,7 +205,7 @@ func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discov
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
-			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, cid)
+			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
 		}
 	}
@@ -216,8 +221,8 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 
 	var err error
 
-	// Based on node metadata a different generator was selected, use it instead of the default
-	// behavior.
+	// Based on node metadata a different generator was selected,
+	// use it instead of the default behavior.
 	if con.node.XdsResourceGenerator != nil {
 		// Endpoints are special - will use the optimized code path.
 		err = s.handleCustomGenerator(con, discReq)
@@ -263,13 +268,13 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 }
 
 // authenticate authenticates the ADS request using the configured authenticators.
-// Returns the validated principals or an error.
-// If no authenticators are configured, or if the request is on a non-secure
-// stream ( 15010 ) - returns an empty list of principals and no errors.
+// Returns the validated principals or an error. If no authenticators are configured,
+// or if the request is on a non-secure stream ( 15010 ) - returns an empty list of
+// principals and no errors.
 func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	// Authenticate - currently just checks that request has a certificate signed with the our key.
-	// Protected by flag to avoid breaking upgrades - should be enabled in multi-cluster/meshexpansion where
-	// XDS is exposed.
+	// Protected by flag to avoid breaking upgrades - should be enabled in multi-cluster/meshexpansion
+	// where XDS is exposed.
 	if s.Authenticators != nil && len(s.Authenticators) > 0 {
 		peerInfo, ok := peer.FromContext(ctx)
 		if !ok {
@@ -301,41 +306,37 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	fmt.Println("Stream aggregate resources")
 	ctx := stream.Context()
-	peerInfo, ok := peer.FromContext(ctx)
 	peerAddr := "0.0.0.0"
-	if ok {
+	if peerInfo, ok := peer.FromContext(ctx); ok {
 		peerAddr = peerInfo.Addr.String()
 	}
 
-	ids, err := s.authenticate(ctx)
-	if err != nil {
+	if ids, err := s.authenticate(ctx); err != nil {
 		return err
-	}
-	if ids != nil {
-		adsLog.Infof("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		adsLog.Infoa("Unauthenticated XDS: ", peerAddr)
+		if ids != nil {
+			adsLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
+		} else {
+			adsLog.Debuga("Unauthenticated XDS: ", peerAddr)
+		}
 	}
 
-	// first call - lazy loading, in tests. This should not happen if readiness
-	// check works, since it assumes ClearCache is called (and as such PushContext
-	// is initialized)
 	// InitContext returns immediately if the context was already initialized.
-	err = s.globalPushContext().InitContext(s.Env, nil, nil)
-	if err != nil {
+	if err := s.globalPushContext().InitContext(s.Env, nil, nil); err != nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
 		adsLog.Warnf("Error reading config %v", err)
 		return err
 	}
+
 	con := newConnection(peerAddr, stream)
 
-	// Do not call: defer close(con.pushChannel) !
-	// the push channel will be garbage collected when the connection is no longer used.
-	// Closing the channel can cause subtle race conditions with push. According to the spec:
-	// "It's only necessary to close a channel when it is important to tell the receiving goroutines that all data
-	// have been sent."
+	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
+	// when the connection is no longer used. Closing the channel can cause subtle race conditions
+	// with push. According to the spec: "It's only necessary to close a channel when it is important
+	// to tell the receiving goroutines that all data have been sent."
 
 	// Reading from a stream is a blocking operation. Each connection needs to read
 	// discovery requests and wait for push commands on config change, so we add a
@@ -360,8 +361,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 				return receiveError
 			}
 			// processRequest is calling pushXXX, accessing common structs with pushConnection.
-			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.git di
-			err = s.processRequest(req, con)
+			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
+			err := s.processRequest(req, con)
 			if err != nil {
 				return err
 			}
@@ -410,7 +411,7 @@ func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.Discover
 				s.InternalGen.OnNack(con.node, discReq)
 			}
 		} else if discReq.ResponseNonce != "" {
-			con.ListenerNonceAcked = discReq.ResponseNonce
+			con.AckInfo[discReq.TypeUrl].NonceAcked = discReq.ResponseNonce
 		}
 		adsLog.Debugf("ADS:LDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 		return nil
@@ -434,9 +435,8 @@ func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.Discover
 			if s.InternalGen != nil {
 				s.InternalGen.OnNack(con.node, discReq)
 			}
-
 		} else if discReq.ResponseNonce != "" {
-			con.ClusterNonceAcked = discReq.ResponseNonce
+			con.AckInfo[discReq.TypeUrl].NonceAcked = discReq.ResponseNonce
 		}
 		adsLog.Debugf("ADS:CDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 		return nil
@@ -467,7 +467,7 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 	if clusters == nil && discReq.ResponseNonce != "" {
 		// There is no requirement that ACK includes clusters. The test doesn't.
 		con.mu.Lock()
-		con.EndpointNonceAcked = discReq.ResponseNonce
+		con.AckInfo[discReq.TypeUrl].NonceAcked = discReq.ResponseNonce
 		con.mu.Unlock()
 		return nil
 	}
@@ -482,7 +482,7 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 		adsLog.Debugf("ADS:EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 		if discReq.ResponseNonce != "" {
 			con.mu.Lock()
-			con.EndpointNonceAcked = discReq.ResponseNonce
+			con.AckInfo[discReq.TypeUrl].NonceAcked = discReq.ResponseNonce
 			con.mu.Unlock()
 		}
 		return nil
@@ -510,8 +510,8 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 	routes := discReq.GetResourceNames()
 	if discReq.ResponseNonce != "" {
 		con.mu.RLock()
-		routeNonceSent := con.RouteNonceSent
-		routeVersionInfoSent := con.RouteVersionInfoSent
+		routeNonceSent := con.AckInfo[discReq.TypeUrl].NonceSent
+		routeVersionInfoSent := con.AckInfo[discReq.TypeUrl].VersionSent
 		con.mu.RUnlock()
 		if routeNonceSent != "" && routeNonceSent != discReq.ResponseNonce {
 			adsLog.Debugf("ADS:RDS: Expired nonce received %s, sent %s, received %s",
@@ -523,7 +523,7 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 			if listEqualUnordered(con.Routes, routes) {
 				adsLog.Debugf("ADS:RDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 				con.mu.Lock()
-				con.RouteNonceAcked = discReq.ResponseNonce
+				con.AckInfo[discReq.TypeUrl].NonceAcked = discReq.ResponseNonce
 				con.mu.Unlock()
 				return nil
 			}
@@ -902,19 +902,8 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		err := conn.stream.Send(res)
 		conn.mu.Lock()
 		if res.Nonce != "" {
-			switch res.TypeUrl {
-			case v2.ClusterType, v3.ClusterType:
-				conn.ClusterNonceSent = res.Nonce
-			case v2.ListenerType, v3.ListenerType:
-				conn.ListenerNonceSent = res.Nonce
-			case v2.RouteType, v3.RouteType:
-				conn.RouteNonceSent = res.Nonce
-			case v2.EndpointType, v3.EndpointType:
-				conn.EndpointNonceSent = res.Nonce
-			}
-		}
-		if res.TypeUrl == v2.RouteType || res.TypeUrl == v3.RouteType {
-			conn.RouteVersionInfoSent = res.VersionInfo
+			conn.AckInfo[res.TypeUrl].NonceSent = res.Nonce
+			conn.AckInfo[res.TypeUrl].VersionSent = res.VersionInfo
 		}
 		conn.mu.Unlock()
 		done <- err
