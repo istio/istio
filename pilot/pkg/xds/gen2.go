@@ -89,9 +89,9 @@ func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.Disco
 	}
 
 	if nonceSent != discReq.ResponseNonce {
-		adsLog.Debugf("ADS:RDS: Expired nonce received %s, sent %s, received %s",
+		adsLog.Debugf("ADS: Expired nonce received %s, sent %s, received %s",
 			con.ConID, nonceSent, discReq.ResponseNonce)
-		rdsExpiredNonce.Increment()
+		xdsExpiredNonce.Increment()
 		// This is an ACK for a resource sent on an older stream, or out of sync.
 		// Send a response back.
 		isAck = false
