@@ -272,8 +272,10 @@ func (v *PeerCertVerifier) AddMappings(certMap map[string][]*x509.Certificate) {
 // VerifyPeerCert is an implementation of tls.Config.VerifyPeerCertificate.
 // It verifies the peer certificate using the root certificates associated with its trust domain.
 func (v *PeerCertVerifier) VerifyPeerCert(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+	spiffeLog.Debugf("Verifying %d peer certificates", len(rawCerts))
 	if len(rawCerts) == 0 {
 		// Peer doesn't present a certificate. Just skip. Other authn methods may be used.
+		spiffeLog.Infof("Peer didn't present certificate")
 		return nil
 	}
 	var peerCert *x509.Certificate
@@ -281,6 +283,7 @@ func (v *PeerCertVerifier) VerifyPeerCert(rawCerts [][]byte, _ [][]*x509.Certifi
 	for id, rawCert := range rawCerts {
 		cert, err := x509.ParseCertificate(rawCert)
 		if err != nil {
+			spiffeLog.Infof("Couldn't parse peer certificate %d", id)
 			return err
 		}
 		if id == 0 {
@@ -290,14 +293,17 @@ func (v *PeerCertVerifier) VerifyPeerCert(rawCerts [][]byte, _ [][]*x509.Certifi
 		}
 	}
 	if len(peerCert.URIs) != 1 {
+		spiffeLog.Infof("Peer certificate does not contain 1 URI type SAN, detected %d\n", len(peerCert.URIs))
 		return fmt.Errorf("peer certificate does not contain 1 URI type SAN, detected %d", len(peerCert.URIs))
 	}
 	trustDomain, err := GetTrustDomainFromURISAN(peerCert.URIs[0].String())
 	if err != nil {
+		spiffeLog.Infof("Couldn't get trust domain from %s", peerCert.URIs[0].String())
 		return err
 	}
 	rootCertPool, ok := v.certPools[trustDomain]
 	if !ok {
+		spiffeLog.Infof("No cert pool found for trust domain %s", trustDomain)
 		return fmt.Errorf("no cert pool found for trust domain %s", trustDomain)
 	}
 
@@ -305,5 +311,8 @@ func (v *PeerCertVerifier) VerifyPeerCert(rawCerts [][]byte, _ [][]*x509.Certifi
 		Roots:         rootCertPool,
 		Intermediates: intCertPool,
 	})
+	if err != nil {
+		spiffeLog.Infof("Couldn't verify peer certificate: %v", err)
+	}
 	return err
 }
