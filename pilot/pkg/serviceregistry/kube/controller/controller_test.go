@@ -27,12 +27,8 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
-	metafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/annotation"
@@ -45,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 )
@@ -154,12 +151,8 @@ type fakeControllerOptions struct {
 func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *FakeXdsUpdater) {
 	fx := NewFakeXDS()
 
-	clientSet := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	metaV1.AddMetaToScheme(scheme)
-	metadataClient := metafake.NewSimpleMetadataClient(scheme)
-
-	c := NewController(clientSet, metadataClient, Options{
+	clients := kubelib.NewFakeClient()
+	options := Options{
 		WatchedNamespaces: opts.watchedNamespaces, // default is all namespaces
 		ResyncPeriod:      resync,
 		DomainSuffix:      domainSuffix,
@@ -168,8 +161,8 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 		NetworksWatcher:   opts.networksWatcher,
 		EndpointMode:      opts.mode,
 		ClusterID:         opts.clusterID,
-	})
-
+	}
+	c := NewController(clients, options)
 	if opts.instanceHandler != nil {
 		_ = c.AppendInstanceHandler(opts.instanceHandler)
 	}
@@ -180,9 +173,9 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	// Run in initiation to prevent calling each test
 	// TODO: fix it, so we can remove `stop` channel
 	go c.Run(c.stop)
+	clients.RunAndWait(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
-	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
-		c.serviceInformer.HasSynced)
+	cache.WaitForCacheSync(c.stop, c.pods.informer.HasSynced, c.serviceInformer.HasSynced, c.endpoints.HasSynced)
 	return c, fx
 }
 
@@ -1506,15 +1499,10 @@ func generateNode(name string, labels map[string]string) *coreV1.Node {
 }
 
 func addNodes(t *testing.T, controller *Controller, nodes ...*coreV1.Node) {
-	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-	fakeClient := controller.metadataClient.(*metafake.FakeMetadataClient)
+	fakeClient := controller.client
 
 	for _, node := range nodes {
-		partialMetadata := &metaV1.PartialObjectMetadata{
-			TypeMeta:   node.TypeMeta,
-			ObjectMeta: node.ObjectMeta,
-		}
-		_, err := fakeClient.Resource(nodeResource).(metafake.MetadataClient).CreateFake(partialMetadata, metaV1.CreateOptions{})
+		_, err := fakeClient.CoreV1().Nodes().Create(context.TODO(), node, metaV1.CreateOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}

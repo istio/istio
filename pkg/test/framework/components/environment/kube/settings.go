@@ -18,25 +18,25 @@ import (
 	"errors"
 	"fmt"
 
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-// ClientFactoryFunc is a transformation function that creates the k8s client factories
+// ClientFactoryFunc is a transformation function that creates k8s clients
 // from the provided k8s config files.
-type AccessorFactoryFunc func(kubeConfigs []string, workDir string) ([]kube.Accessor, error)
+type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.ExtendedClient, error)
 
 // Settings provide kube-specific Settings from flags.
 type Settings struct {
 	// An array of paths to kube config files. Required if the environment is kubernetes.
 	KubeConfig []string
 
-	// AccessorFactoryFunc is an optional override for the default behavior for creating kube.Accessor
-	// instances for interacting with clusters. If not specified, Accessors will be created from KubeConfig.
-	AccessorFactoryFunc AccessorFactoryFunc
+	// ClientFactoryFunc is an optional override for the default behavior for creating k8s clients.
+	// instances for interacting with clusters. If not specified, the clients will be created from KubeConfig.
+	ClientFactoryFunc ClientFactoryFunc
 
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.
@@ -80,21 +80,21 @@ func (s *Settings) GetControlPlaneClusters() map[resource.ClusterIndex]bool {
 	return out
 }
 
-// NewAccessors creates the kubernetes Accessors for interacting with the configured clusters.
-func (s *Settings) NewAccessors(workDir string) ([]kube.Accessor, error) {
-	newAccessorsFn := s.AccessorFactoryFunc
-	if newAccessorsFn == nil {
-		newAccessorsFn = newAccessors
+// NewClients creates the kubernetes clients for interacting with the configured clusters.
+func (s *Settings) NewClients() ([]istioKube.ExtendedClient, error) {
+	newClientsFn := s.ClientFactoryFunc
+	if newClientsFn == nil {
+		newClientsFn = newClients
 	}
 
-	accessors, err := newAccessorsFn(s.KubeConfig, workDir)
+	clients, err := newClientsFn(s.KubeConfig)
 	if err != nil {
 		return nil, err
 	}
-	if len(accessors) == 0 {
+	if len(clients) == 0 {
 		return nil, errors.New("failed creating Kubernetes environment: no clusters")
 	}
-	return accessors, nil
+	return clients, nil
 }
 
 // String implements fmt.Stringer
@@ -109,13 +109,13 @@ func (s *Settings) String() string {
 	return result
 }
 
-func newAccessors(kubeConfigs []string, workDir string) ([]kube.Accessor, error) {
-	out := make([]kube.Accessor, 0, len(kubeConfigs))
+func newClients(kubeConfigs []string) ([]istioKube.ExtendedClient, error) {
+	out := make([]istioKube.ExtendedClient, 0, len(kubeConfigs))
 	for _, cfg := range kubeConfigs {
 		if len(cfg) > 0 {
-			a, err := kube.NewAccessor(cfg, workDir)
+			a, err := istioKube.NewExtendedClient(istioKube.BuildClientCmd(cfg, ""), "")
 			if err != nil {
-				return nil, fmt.Errorf("accessor setup: %v", err)
+				return nil, fmt.Errorf("client setup: %v", err)
 			}
 			out = append(out, a)
 		}

@@ -55,6 +55,7 @@ func mustReadCert(t *testing.T, f string) string {
 // This test brings up an egress gateway to originate TLS connection. The test will ensure that requests
 // are routed securely through the egress gateway and that the TLS origination happens at the gateway.
 func TestEgressGatewayTls(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/25069")
 	framework.NewTest(t).
 		Features("security.egress.tls.filebased").
 		Run(func(ctx framework.TestContext) {
@@ -109,31 +110,31 @@ func TestEgressGatewayTls(t *testing.T) {
 				//      --> externalServer(443 with TLS enforced)
 				//     request fails as server has no sidecar proxy and istio_mutual case shouldn't be used
 				// TODO: nschhina figure out why the following tests are flaky
-				//"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint": {
-				//	destinationRuleMode: "ISTIO_MUTUAL",
-				//	response:            []string{response.StatusCodeBadRequest},
-				//	gateway:             false, // 400 response will not contain header
-				//	fakeRootCert:        false,
-				//},
-				// 5. SIMPLE TLS origination with "fake" root cert::
-				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
-				//      VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
-				//      --> externalServer(443 with TLS enforced)
-				//     request fails as the server cert can't be validated using the fake root cert used during origination
-				//"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
-				//	destinationRuleMode: "SIMPLE",
-				//	response:            []string{response.StatusCodeBadRequest},
-				//	gateway:             false, // 400 response will not contain header
-				//	fakeRootCert:        true,
-				//},
+				"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint": {
+					destinationRuleMode: "ISTIO_MUTUAL",
+					response:            []string{response.StatusCodeBadRequest},
+					gateway:             false, // 400 response will not contain header
+					fakeRootCert:        false,
+				},
+				//5. SIMPLE TLS origination with "fake" root cert::
+				//   internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+				//     VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
+				//     --> externalServer(443 with TLS enforced)
+				//    request fails as the server cert can't be validated using the fake root cert used during origination
+				"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
+					destinationRuleMode: "SIMPLE",
+					response:            []string{response.StatusCodeBadRequest},
+					gateway:             false, // 400 response will not contain header
+					fakeRootCert:        true,
+				},
 			}
 
 			for name, tc := range testCases {
 				t.Run(name, func(t *testing.T) {
 					bufDestinationRule := createDestinationRule(t, appNamespace, tc.destinationRuleMode, tc.fakeRootCert)
 
-					ctx.ApplyConfigOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
-					defer ctx.DeleteConfigOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
+					ctx.Config().ApplyYAMLOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
+					defer ctx.Config().DeleteYAMLOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
@@ -355,7 +356,7 @@ func createSidecarScope(t *testing.T, ctx resource.Context, appsNamespace namesp
 	if err := tmpl.Execute(&buf, map[string]string{"ImportNamespace": serviceNamespace.Name()}); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := ctx.ApplyConfig(appsNamespace.Name(), buf.String()); err != nil {
+	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
 		t.Errorf("failed to apply sidecar scope: %v", err)
 	}
 }
@@ -430,7 +431,7 @@ func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.I
 	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.ApplyConfig(serviceNamespace.Name(), buf.String()); err != nil {
+	if err := ctx.Config().ApplyYAML(serviceNamespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
 	}
 }

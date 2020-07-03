@@ -18,20 +18,20 @@ import (
 	"fmt"
 	"os"
 
-	"istio.io/istio/operator/pkg/util"
-
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/util"
 )
 
 type profileDiffArgs struct {
-	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
-	charts string
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	manifestsPath string
 }
 
 func addProfileDiffFlags(cmd *cobra.Command, args *profileDiffArgs) {
-	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
 func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command {
@@ -55,12 +55,12 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 func profileDiff(rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) error {
 	initLogsOrExit(rootArgs)
 
-	a, err := helm.ReadProfileYAML(args[0], pfArgs.charts)
+	a, err := helm.ReadProfileYAML(args[0], pfArgs.manifestsPath)
 	if err != nil {
 		return fmt.Errorf("could not read %q: %v", args[0], err)
 	}
 
-	b, err := helm.ReadProfileYAML(args[1], pfArgs.charts)
+	b, err := helm.ReadProfileYAML(args[1], pfArgs.manifestsPath)
 	if err != nil {
 		return fmt.Errorf("could not read %q: %v", args[1], err)
 	}

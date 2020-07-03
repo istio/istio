@@ -60,7 +60,7 @@ func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []
 							results := callOrFail(ctx, src, dst)
 
 							// Ensure that all requests went to the local cluster.
-							results.CheckClusterOrFail(ctx, fmt.Sprintf("%d", local.Index()))
+							results.CheckClusterOrFail(ctx, local.Name())
 						})
 				}
 			})

@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	envoyLogFormat = envoy.LogFormat("[ENVOY][%Y-%m-%d %T.%e][%t][%l][%n] %v")
+	envoyLogFormat = envoy.LogFormat("[ENVOY][%Y-%m-%d %T.%e][%t][%l][%n]")
 )
 
 func TestNewWithoutConfigShouldFail(t *testing.T) {

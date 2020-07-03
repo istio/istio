@@ -1,0 +1,96 @@
+# Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: proxy-service-instance
+spec:
+  hosts:
+  - example.com
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: STATIC
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      istio.io/benchmark: "true"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: gateway
+spec:
+  selector:
+    istio.io/benchmark: "true"
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - random-1.host.example
+    - random-2.host.example
+    - random-3.host.example
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - random-1.host.example
+    - random-2.host.example
+    - random-3.host.example
+    tls:
+      mode: ISTIO_MUTUAL
+---
+{{- range $i := until .Services }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs-{{$i}}
+  namespace: gateway
+spec:
+  hosts:
+  - random-1.host.example
+  - random-2.host.example
+  - random-3.host.example
+  gateways:
+  - gateway/gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/route-a-{{$i}}"
+    - uri:
+        prefix: "/route-b-{{$i}}"
+    - uri:
+        prefix: "/route-c-{{$i}}"
+    - uri:
+        prefix: "/route-d-{{$i}}"
+    - uri:
+        prefix: "/route-e-{{$i}}"
+    - uri:
+        prefix: "/route-f-{{$i}}"
+    route:
+    - destination:
+        host: random-{{$i}}.host.example
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-{{$i}}
+spec:
+  hosts:
+  - random-{{$i}}.host.example
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: 1.2.3.4
+---
+{{- end }}

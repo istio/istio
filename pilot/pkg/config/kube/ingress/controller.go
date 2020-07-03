@@ -24,7 +24,6 @@ import (
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/informers/networking/v1beta1"
 
 	"istio.io/pkg/ledger"
@@ -46,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -85,16 +85,15 @@ type controller struct {
 	meshWatcher  mesh.Holder
 	domainSuffix string
 
-	client                 kubernetes.Interface
 	queue                  queue.Instance
-	ingressInformer        cache.SharedIndexInformer
 	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
 	gatewayHandlers        []func(model.Config, model.Config, model.Event)
+
+	ingressInformer cache.SharedInformer
+	serviceInformer cache.SharedInformer
+	serviceLister   listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
 	classes v1beta1.IngressClassInformer
-
-	serviceInformer cache.SharedIndexInformer
-	serviceLister   listerv1.ServiceLister
 }
 
 var (
@@ -120,7 +119,7 @@ func ingressClassSupported(client kubernetes.Interface) bool {
 }
 
 // NewController creates a new Kubernetes controller
-func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
+func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options) model.ConfigStoreCache {
 
 	// queue requires a time duration for a retry delay after a handler error
@@ -130,17 +129,16 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
-	sharedInformerFactory := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod,
-		informers.WithNamespace(options.WatchedNamespaces))
-
-	ingressInformer := sharedInformerFactory.Networking().V1beta1().Ingresses().Informer()
+	ingressInformer := client.KubeInformer().Networking().V1beta1().Ingresses().Informer()
 	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespaces)
 
-	serviceInformer := sharedInformerFactory.Core().V1().Services()
+	serviceInformer := client.KubeInformer().Core().V1().Services()
 
 	var classes v1beta1.IngressClassInformer
 	if ingressClassSupported(client) {
-		classes = sharedInformerFactory.Networking().V1beta1().IngressClasses()
+		classes = client.KubeInformer().Networking().V1beta1().IngressClasses()
+		// Register the informer now, so it will be properly started
+		_ = classes.Informer()
 	} else {
 		log.Infof("Skipping IngressClass, resource not supported")
 	}
@@ -148,7 +146,6 @@ func NewController(client kubernetes.Interface, meshWatcher mesh.Holder,
 	c := &controller{
 		meshWatcher:     meshWatcher,
 		domainSuffix:    options.DomainSuffix,
-		client:          client,
 		queue:           q,
 		ingressInformer: ingressInformer,
 		classes:         classes,
@@ -263,11 +260,6 @@ func (c *controller) Run(stop <-chan struct{}) {
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
-	go c.ingressInformer.Run(stop)
-	go c.serviceInformer.Run(stop)
-	if c.classes != nil {
-		go c.classes.Informer().Run(stop)
-	}
 	<-stop
 }
 
