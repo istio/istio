@@ -88,10 +88,8 @@ docker.proxyv2: $(ISTIO_SIDECAR_LINUX_RELEASE_DIR)/${SIDECAR}
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
-ifeq ($(SIDECAR),envoy)
 docker.proxyv2: $(ISTIO_SIDECAR_LINUX_RELEASE_DIR)/stats-filter.wasm
 docker.proxyv2: $(ISTIO_SIDECAR_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
-endif
 	$(DOCKER_RULE)
 
 docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery cacert.pem
