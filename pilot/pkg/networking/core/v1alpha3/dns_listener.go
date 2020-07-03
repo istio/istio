@@ -77,6 +77,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		Address:          address,
 		ListenerFilters:  []*listener.ListenerFilter{dnsFilter},
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
+		// DNS listener requires SO_REUSEPORT option to be set esp when concurrency >1
+		ReusePort: true,
 	}
 }
 
