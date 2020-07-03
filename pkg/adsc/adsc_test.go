@@ -146,7 +146,6 @@ func TestADSC_Save(t *testing.T) {
 		expectedJSON map[string]string
 		adsc         *ADSC
 		err          error
-		fsChecker    func(baseDir string, t *testing.T, expected map[string]string)
 	}{
 		{
 			desc: "empty",
