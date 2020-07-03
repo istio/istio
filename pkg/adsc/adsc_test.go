@@ -258,6 +258,7 @@ func TestADSC_Save(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
+			_ = os.Mkdir("out", 0777)
 			if err := tt.adsc.Save(tt.base); (err == nil && tt.err != nil) || (err != nil && tt.err == nil) {
 				t.Errorf("AdscSave() => %v expected err %v", err, tt.err)
 			}
