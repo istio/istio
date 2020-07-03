@@ -38,6 +38,9 @@ type CentralControlPlaneOptions struct {
 
 	// Timeout is how long to wait before giving up on XDS
 	Timeout time.Duration
+
+	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
+	InsecureSkipVerify bool
 }
 
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
@@ -53,6 +56,8 @@ func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command)
 		"Istiod pod port")
 	cmd.PersistentFlags().DurationVar(&o.Timeout, "timeout", time.Second*30,
 		"the duration to wait before failing")
+	cmd.PersistentFlags().BoolVar(&o.InsecureSkipVerify, "insecure", false,
+		"Skip server certificate and domain verification. (NOT SECURE!)")
 }
 
 // ValidateControlPlaneFlags checks arguments for valid values and combinations

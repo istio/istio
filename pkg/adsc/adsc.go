@@ -93,6 +93,9 @@ type Config struct {
 	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
 	XDSSAN string
 
+	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
+	InsecureSkipVerify bool
+
 	// Watch is a list of resources to watch, represented as URLs (for new XDS resource naming)
 	// or type URLs.
 	Watch []string
@@ -343,6 +346,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			return nil
 		},
+		InsecureSkipVerify: a.cfg.InsecureSkipVerify,
 	}, nil
 }
 
