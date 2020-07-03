@@ -151,6 +151,15 @@ message CoreDNSConfig {
   TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 12 [deprecated=true];
 
   TypeSliceOfMapStringInterface tolerations = 13 [deprecated=true];
+
+  // Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.
+  google.protobuf.BoolValue autoscaleEnabled = 14;
+
+  // maxReplicas setting for HorizontalPodAutoscaler.
+  uint32 autoscaleMax = 15;
+
+  // minReplicas setting for HorizontalPodAutoscaler.
+  uint32 autoscaleMin = 16;
 }
 
 // DefaultPodDisruptionBudgetConfig specifies the default pod disruption budget configuration.

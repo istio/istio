@@ -3,6 +3,9 @@
 #
 istiocoredns:
   enabled: false
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
   replicaCount: 1
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
