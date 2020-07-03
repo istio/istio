@@ -1007,80 +1007,101 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 		}
 
-	case networking.ClientTLSSettings_SIMPLE:
-		res := model.SdsCertificateConfig{
-			CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
-		}
+	case networking.ClientTLSSettings_SIMPLE, networking.ClientTLSSettings_MUTUAL:
 
-		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
-			Sni:              tls.Sni,
-		}
-		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
-			},
-		}
-		if c.Http2ProtocolOptions != nil {
-			// This is HTTP/2 cluster, advertise it with ALPN.
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
-		}
-	case networking.ClientTLSSettings_MUTUAL:
-		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
-			err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
-				c.Name)
-			return nil, err
-		}
-
-		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
-			Sni:              tls.Sni,
-		}
-
-		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or SDS is disabled
-		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" {
-			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: certValidationContext,
+		if tls.CredentialName != "" {
+			tlsContext = &auth.UpstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{},
+				Sni:              tls.Sni,
 			}
-			tlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
-						},
-					},
-				},
+
+			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
+			// SDS config for egress gateway to fetch key/cert at gateway agent.
+			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, authn_model.EressGatewaySdsUdsPath)
+
+			if c.Http2ProtocolOptions != nil {
+				// This is HTTP/2 cluster, advertise it with ALPN.
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		} else {
-			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
-			// which does not support rotation, we will serve them over SDS by reading the files.
-			res := model.SdsCertificateConfig{
-				CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
-				PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
-				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
-			}
-			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), opts.push.Mesh.SdsUdsPath))
+			if tls.Mode == networking.ClientTLSSettings_SIMPLE {
+				res := model.SdsCertificateConfig{
+					CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+				}
 
-			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
-				},
+				tlsContext = &auth.UpstreamTlsContext{
+					CommonTlsContext: &auth.CommonTlsContext{
+						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+							ValidationContext: certValidationContext,
+						},
+					},
+					Sni: tls.Sni,
+				}
+				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
+					},
+				}
+				if c.Http2ProtocolOptions != nil {
+					// This is HTTP/2 cluster, advertise it with ALPN.
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+				}
+			} else {
+				if tls.ClientCertificate == "" || tls.PrivateKey == "" {
+					err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
+						c.Name)
+					return nil, err
+				}
+
+				tlsContext = &auth.UpstreamTlsContext{
+					CommonTlsContext: &auth.CommonTlsContext{},
+					Sni:              tls.Sni,
+				}
+				// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or SDS is disabled
+				if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" {
+					tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+						ValidationContext: certValidationContext,
+					}
+					tlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+						{
+							CertificateChain: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
+								},
+							},
+							PrivateKey: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
+								},
+							},
+						},
+					}
+				} else {
+					// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+					// which does not support rotation, we will serve them over SDS by reading the files.
+					res := model.SdsCertificateConfig{
+						CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
+						PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
+						CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+					}
+					tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+						authn_model.ConstructSdsSecretConfig(res.GetResourceName(), opts.push.Mesh.SdsUdsPath))
+						authn_model.ConstructSdsSecretConfig(res.GetResourceName(), opts.push.Mesh.SdsUdsPath))
+					tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+							ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
+						},
+					}
+				}
+				}
+				if c.Http2ProtocolOptions != nil {
+					// This is HTTP/2 cluster, advertise it with ALPN.
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+				}
 			}
 		}
-
-		if c.Http2ProtocolOptions != nil {
-			// This is HTTP/2 cluster, advertise it with ALPN.
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
-		}
-	}
 	return tlsContext, nil
 }
 
