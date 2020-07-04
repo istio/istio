@@ -37,12 +37,6 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
-        privileged: false
-        readOnlyRootFilesystem: true
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
@@ -52,7 +46,7 @@ spec:
             - containerPort: 15011
             - containerPort: 15012
             - containerPort: 8060
-            - containerPort: 853
+            - containerPort: 8853
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
@@ -67,6 +61,13 @@ spec:
           - --serviceCluster
           - istio-ingressgateway
           - --trust-domain=cluster.local
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
           readinessProbe:
             failureThreshold: 30
             httpGet:
@@ -200,7 +201,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "amd64"
@@ -210,21 +211,21 @@ spec:
           - weight: 2
             preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "amd64"
           - weight: 2
             preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "ppc64le"
           - weight: 2
             preference:
               matchExpressions:
-              - key: beta.kubernetes.io/arch
+              - key: kubernetes.io/arch
                 operator: In
                 values:
                 - "s390x"

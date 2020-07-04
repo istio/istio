@@ -7,9 +7,12 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.0.2
+    chart: prometheus-11.3.0
     heritage: Helm
   name: prometheus
+  namespace: istio-system
+  annotations:
+    {}
 ---
 # Source: prometheus/templates/server-configmap.yaml
 apiVersion: v1
@@ -19,9 +22,10 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.0.2
+    chart: prometheus-11.3.0
     heritage: Helm
   name: prometheus
+  namespace: istio-system
 data:
   alerting_rules.yml: |
     {}
@@ -285,7 +289,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.0.2
+    chart: prometheus-11.3.0
     heritage: Helm
   name: prometheus
 rules:
@@ -326,7 +330,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.0.2
+    chart: prometheus-11.3.0
     heritage: Helm
   name: prometheus
 subjects:
@@ -346,9 +350,10 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.0.2
+    chart: prometheus-11.3.0
     heritage: Helm
   name: prometheus
+  namespace: istio-system
 spec:
   ports:
     - name: http
@@ -370,9 +375,10 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.0.2
+    chart: prometheus-11.3.0
     heritage: Helm
   name: prometheus
+  namespace: istio-system
 spec:
   selector:
     matchLabels:
@@ -386,7 +392,7 @@ spec:
         component: "server"
         app: prometheus
         release: prometheus
-        chart: prometheus-11.0.2
+        chart: prometheus-11.3.0
         heritage: Helm
     spec:
       serviceAccountName: prometheus
@@ -405,7 +411,7 @@ spec:
               readOnly: true
 
         - name: prometheus-server
-          image: "prom/prometheus:v2.16.0"
+          image: "prom/prometheus:v2.18.1"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d
@@ -420,7 +426,7 @@ spec:
             httpGet:
               path: /-/ready
               port: 9090
-            initialDelaySeconds: 30
+            initialDelaySeconds: 0
             timeoutSeconds: 30
             failureThreshold: 3
             successThreshold: 1

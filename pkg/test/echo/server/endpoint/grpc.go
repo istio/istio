@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -129,6 +130,9 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		for key, values := range md {
+			if strings.HasSuffix(key, "-bin") {
+				continue
+			}
 			field := response.Field(key)
 			if key == ":authority" {
 				field = response.HostField

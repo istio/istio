@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -292,18 +292,6 @@ func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 		return nil, fmt.Errorf("%s:\n\nYAML:\n%s", err, iopYAML)
 	}
 	return iop, nil
-}
-
-// ValidIOPYAML validates the iopYAML strings, which should contain IstioOperator YAML.
-func ValidIOPYAML(iopYAML string) error {
-	if strings.TrimSpace(iopYAML) == "" {
-		return nil
-	}
-	iop, err := UnmarshalIOP(iopYAML)
-	if err != nil {
-		return err
-	}
-	return ValidIOP(iop)
 }
 
 // ValidIOP validates the given IstioOperator object.

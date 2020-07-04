@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,14 +16,16 @@ package outboundtrafficpolicy
 
 import (
 	"testing"
+
+	trafficpolicytest "istio.io/istio/tests/integration/telemetry/outboundtrafficpolicy"
 )
 
-func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
-	cases := []*TestCase{
+func TestOutboundTrafficPolicy_RegistryOnly_Mixer(t *testing.T) {
+	cases := []*trafficpolicytest.TestCase{
 		{
 			Name:     "HTTP Traffic",
 			PortName: "http",
-			Expected: Expected{
+			Expected: trafficpolicytest.Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
 				ResponseCode:    []string{"502"},
@@ -32,7 +34,7 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 		{
 			Name:     "HTTPS Traffic",
 			PortName: "https",
-			Expected: Expected{
+			Expected: trafficpolicytest.Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
 				ResponseCode:    []string{},
@@ -41,7 +43,7 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 		{
 			Name:     "HTTPS Traffic Conflict",
 			PortName: "https-conflict",
-			Expected: Expected{
+			Expected: trafficpolicytest.Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
 				ResponseCode:    []string{},
@@ -51,18 +53,21 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Name:     "HTTP Traffic Egress",
 			PortName: "http",
 			Host:     "some-external-site.com",
-			Gateway:  true,
-			Expected: Expected{
+			Expected: trafficpolicytest.Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
 				ResponseCode:    []string{"200"},
+				Metadata: map[string]string{
+					// We inject this header in the VirtualService
+					"Handled-By-Egress-Gateway": "true",
+				},
 			},
 		},
 		// TODO add HTTPS through gateway
 		{
 			Name:     "TCP",
 			PortName: "tcp",
-			Expected: Expected{
+			Expected: trafficpolicytest.Expected{
 				// TODO(https://github.com/istio/istio/issues/22735) add metrics
 				Metric:          "",
 				PromQueryFormat: "",
@@ -72,7 +77,7 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 		{
 			Name:     "TCP Conflict",
 			PortName: "tcp-conflict",
-			Expected: Expected{
+			Expected: trafficpolicytest.Expected{
 				// TODO(https://github.com/istio/istio/issues/22735) add metrics
 				Metric:          "",
 				PromQueryFormat: "",
@@ -81,6 +86,6 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 		},
 	}
 
-	RunExternalRequest(cases, prom, RegistryOnly, t)
+	trafficpolicytest.RunExternalRequest(cases, prom, trafficpolicytest.RegistryOnly, t)
 
 }

@@ -44,7 +44,7 @@ static_resources:
                 api_type: GRPC
                 grpc_services:
                 - envoy_grpc:
-                    cluster_name: sds-grpc        
+                    cluster_name: sds-grpc
   - name: sds-grpc
     type: STATIC
     http2_protocol_options: {}

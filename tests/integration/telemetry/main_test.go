@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -34,11 +33,10 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("telemetry_test", m).
-		RequireEnvironment(environment.Kube).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
+		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 # Add an additional TCP port, 31400
 components:
@@ -59,18 +57,7 @@ components:
             name: https
           - port: 31400
             targetPort: 31400
-            name: tcp
-values:
-  global:
-    proxy:
-      accessLogFile: "/dev/stdout"
-  prometheus:
-    enabled: true
-    scrapeInterval: 5s
-  grafana:
-    enabled: true
-  prometheus:
-    enabled: true`
+            name: tcp`
 		})).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {

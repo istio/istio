@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,9 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/tests/integration/pilot/vm"
+
 	"istio.io/istio/pkg/test/util/retry"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -66,6 +67,8 @@ type VirtualServiceConfig struct {
 	Weight2   int32
 }
 
+// Traffic shifting test body. This test will call from client to 3 instances
+// to see if the traffic distribution follows the weights set by the VirtualService
 func TestTrafficShifting(t *testing.T) {
 	// Traffic distribution
 	weights := map[string][]int32{
@@ -84,10 +87,10 @@ func TestTrafficShifting(t *testing.T) {
 
 			var instances [4]echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&instances[0], echoConfig(ns, "a")).
-				With(&instances[1], echoConfig(ns, "b")).
-				With(&instances[2], echoConfig(ns, "c")).
-				With(&instances[3], echoConfig(ns, "d")).
+				With(&instances[0], echoVMConfig(ns, "a")).
+				With(&instances[1], echoVMConfig(ns, "b")).
+				With(&instances[2], echoVMConfig(ns, "c", vm.DefaultVMImage)).
+				With(&instances[3], echoVMConfig(ns, "d")).
 				BuildOrFail(t)
 
 			hosts := []string{"b", "c", "d"}
@@ -108,7 +111,7 @@ func TestTrafficShifting(t *testing.T) {
 					}
 
 					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
-					ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
+					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
 
 					sendTraffic(t, 100, instances[0], instances[1], hosts, v, errorThreshold)
 				})
@@ -116,21 +119,21 @@ func TestTrafficShifting(t *testing.T) {
 		})
 }
 
-func echoConfig(ns namespace.Instance, name string) echo.Config {
-	return echo.Config{
-		Service:   name,
-		Namespace: ns,
-		Ports: []echo.Port{
-			{
-				Name:     "http",
-				Protocol: protocol.HTTP,
-				// We use a port > 1024 to not require root
-				InstancePort: 8090,
-			},
-		},
-		Subsets: []echo.SubsetConfig{{}},
-		Pilot:   p,
+// Wrapper to initialize instance with ServicePort without affecting other tests
+// If ServicePort is set to InstancePort, tests such as TestDescribe would fail
+func echoVMConfig(ns namespace.Instance, name string, vmImage ...string) echo.Config {
+	image := ""
+	if len(vmImage) > 0 {
+		image = vmImage[0]
 	}
+	config := echoConfig(ns, name)
+	config.DeployAsVM = image != ""
+	config.VMImage = image
+
+	// This is necessary because there exists a bug in WorkloadEntry
+	// The ServicePort has to be the same with the InstancePort
+	config.Ports[0].ServicePort = config.Ports[0].InstancePort
+	return config
 }
 
 func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorThreshold float64) {

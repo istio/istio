@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,13 +21,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
 	gax "github.com/googleapis/gax-go/v2"
 	xcontext "golang.org/x/net/context"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	grpcstatus "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/mixer/pkg/adapter/test"
 )
@@ -231,7 +232,7 @@ func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, with
 		for _, ets := range expReqTS[*pushCount] {
 			found := false
 			for _, ts := range req.TimeSeries {
-				if proto.Equal(ts, ets) {
+				if cmp.Equal(ts, ets, protocmp.Transform()) {
 					found = true
 					break
 				}

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import (
 
 	"go.opencensus.io/stats/view"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
+
 	"istio.io/istio/pilot/pkg/model/test"
 )
 
@@ -70,109 +70,6 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was only called once because of the cache.
 	if got, want := ms.OpenIDHitNum, uint64(1); got != want {
 		t.Errorf("Mock OpenID discovery Hit number => expected %d but got %d", want, got)
-	}
-}
-
-func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
-	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
-
-	ms, err := test.StartNewServer()
-	defer ms.Stop()
-	if err != nil {
-		t.Fatal("failed to start a mock server")
-	}
-
-	mockCertURL := ms.URL + "/oauth2/v3/certs"
-
-	authNPolicies := map[string]*authn.Policy{
-		"one": {
-			Targets: []*authn.TargetSelector{{
-				Name: "one",
-				Ports: []*authn.PortSelector{
-					{
-						Port: &authn.PortSelector_Number{
-							Number: 80,
-						},
-					},
-				},
-			}},
-			Origins: []*authn.OriginAuthenticationMethod{
-				{
-					Jwt: &authn.Jwt{
-						Issuer: ms.URL,
-					},
-				},
-			},
-			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
-		},
-		"two": {
-			Targets: []*authn.TargetSelector{{
-				Name: "two",
-				Ports: []*authn.PortSelector{
-					{
-						Port: &authn.PortSelector_Number{
-							Number: 80,
-						},
-					},
-				},
-			}},
-			Origins: []*authn.OriginAuthenticationMethod{
-				{
-					Jwt: &authn.Jwt{
-						Issuer:  "http://abc",
-						JwksUri: "http://xyz",
-					},
-				},
-			},
-			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
-		},
-		"jwks": {
-			Targets: []*authn.TargetSelector{{
-				Name: "two",
-				Ports: []*authn.PortSelector{
-					{
-						Port: &authn.PortSelector_Number{
-							Number: 80,
-						},
-					},
-				},
-			}},
-			Origins: []*authn.OriginAuthenticationMethod{
-				{
-					Jwt: &authn.Jwt{
-						Issuer: "http://abc",
-						Jwks:   "JSONWebKeySet",
-					},
-				},
-			},
-			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
-		},
-	}
-
-	cases := []struct {
-		in       *authn.Policy
-		expected string
-	}{
-		{
-			in:       authNPolicies["one"],
-			expected: mockCertURL,
-		},
-		{
-			in:       authNPolicies["two"],
-			expected: "http://xyz",
-		},
-		{
-			in:       authNPolicies["jwks"],
-			expected: "",
-		},
-	}
-	for _, c := range cases {
-		_ = r.SetAuthenticationPolicyJwksURIs(c.in)
-		// nolint: staticcheck
-		got := c.in.GetOrigins()[0].GetJwt().JwksUri
-		if want := c.expected; got != want {
-			t.Errorf("setAuthenticationPolicyJwksURIs(%+v): expected (%s), got (%s)", c.in, c.expected, c.in)
-		}
 	}
 }
 

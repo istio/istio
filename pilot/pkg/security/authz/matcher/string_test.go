@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
 package matcher
 
 import (
-	"reflect"
 	"testing"
 
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestStringMatcherWithPrefix(t *testing.T) {
@@ -64,7 +65,7 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := StringMatcherWithPrefix(tc.v, "abc")
-			if !reflect.DeepEqual(*actual, *tc.want) {
+			if !cmp.Equal(actual, tc.want, protocmp.Transform()) {
 				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
 			}
 		})

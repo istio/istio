@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
 	"github.com/golang/protobuf/ptypes/duration"
@@ -27,14 +27,16 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestApplyDestinationRule(t *testing.T) {
@@ -187,8 +189,6 @@ func TestApplyDestinationRule(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 
-			serviceDiscovery := &fakes.ServiceDiscovery{}
-
 			instances := []*model.ServiceInstance{
 				{
 					Service:     tt.service,
@@ -205,29 +205,22 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			}
 
-			serviceDiscovery.ServicesReturns([]*model.Service{tt.service}, nil)
-			serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
-			serviceDiscovery.InstancesByPortReturns(instances, nil)
+			serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{tt.service})
+			serviceDiscovery.WantGetProxyServiceInstances = instances
 
-			configStore := &fakes.IstioConfigStore{
-				ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-					if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
-						if tt.destRule != nil {
-							return []model.Config{
-								{ConfigMeta: model.ConfigMeta{
-									Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-									Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-									Name:    "acme",
-								},
-									Spec: tt.destRule,
-								}}, nil
-						}
-					}
-					return nil, nil
-				},
+			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+			if tt.destRule != nil {
+				configStore.Create(model.Config{
+					ConfigMeta: model.ConfigMeta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "acme",
+					},
+					Spec: tt.destRule,
+				})
 			}
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
+			proxy := getProxy()
 			proxy.SetSidecarScope(env.PushContext)
 
 			cb := NewClusterBuilder(tt.proxy, env.PushContext)
@@ -263,11 +256,11 @@ func compareClusters(t *testing.T, ec *cluster.Cluster, gc *cluster.Cluster) {
 }
 
 func TestApplyEdsConfig(t *testing.T) {
-
 	cases := []struct {
-		name      string
-		cluster   *cluster.Cluster
-		edsConfig *cluster.Cluster_EdsClusterConfig
+		name       string
+		cluster    *cluster.Cluster
+		cdsVersion string
+		edsConfig  *cluster.Cluster_EdsClusterConfig
 	}{
 		{
 			name:      "non eds type of cluster",
@@ -279,19 +272,34 @@ func TestApplyEdsConfig(t *testing.T) {
 			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			edsConfig: &cluster.Cluster_EdsClusterConfig{
 				ServiceName: "foo",
-				EdsConfig: &corev3.ConfigSource{
-					ConfigSourceSpecifier: &corev3.ConfigSource_Ads{
-						Ads: &corev3.AggregatedConfigSource{},
+				EdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
 					},
 					InitialFetchTimeout: features.InitialFetchTimeout,
 				},
 			},
 		},
+		{
+			name:    "eds type of cluster v3",
+			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			edsConfig: &cluster.Cluster_EdsClusterConfig{
+				ServiceName: "foo",
+				EdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
+					},
+					InitialFetchTimeout: features.InitialFetchTimeout,
+					ResourceApiVersion:  core.ApiVersion_V3,
+				},
+			},
+			cdsVersion: v3.ClusterType,
+		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			maybeApplyEdsConfig(tt.cluster)
+			maybeApplyEdsConfig(tt.cluster, tt.cdsVersion)
 			if !reflect.DeepEqual(tt.cluster.EdsClusterConfig, tt.edsConfig) {
 				t.Errorf("Unexpected Eds config in cluster. want %v, got %v", tt.edsConfig, tt.cluster.EdsClusterConfig)
 			}
@@ -355,7 +363,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			discovery:   cluster.Cluster_STATIC,
 			endpoints: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
@@ -377,7 +385,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 					ClusterName: "foo",
 					Endpoints: []*endpoint.LocalityLbEndpoints{
 						{
-							Locality: &corev3.Locality{
+							Locality: &core.Locality{
 								Region:  "region1",
 								Zone:    "zone1",
 								SubZone: "subzone1",
@@ -399,10 +407,11 @@ func TestBuildDefaultCluster(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			serviceDiscovery := &fakes.ServiceDiscovery{}
-			configStore := &fakes.IstioConfigStore{}
+			serviceDiscovery := memregistry.NewServiceDiscovery(nil)
+			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
+			proxy := getProxy()
 			proxy.SetSidecarScope(env.PushContext)
 
 			cb := NewClusterBuilder(&model.Proxy{}, env.PushContext)
@@ -445,8 +454,8 @@ func TestBuildPassthroughClusters(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			serviceDiscovery := &fakes.ServiceDiscovery{}
-			configStore := &fakes.IstioConfigStore{}
+			serviceDiscovery := memregistry.NewServiceDiscovery(nil)
+			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 			proxy := &model.Proxy{IPAddresses: tt.ips}

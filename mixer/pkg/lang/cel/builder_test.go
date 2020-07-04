@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,15 +35,13 @@ import (
 	"istio.io/pkg/attribute"
 )
 
-func compatTest(test ilt.TestInfo, mutex sync.Locker) func(t *testing.T) {
+func compatTest(test ilt.TestInfo) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
 		finder := attribute.NewFinder(test.Conf())
 		builder := NewBuilder(finder, LegacySyntaxCEL)
-		mutex.Lock()
 		ex, typ, err := builder.Compile(test.E)
-		mutex.Unlock()
 
 		if err != nil {
 			if test.CompileErr != "" {
@@ -100,15 +98,12 @@ func compatTest(test ilt.TestInfo, mutex sync.Locker) func(t *testing.T) {
 }
 
 func TestCEXLCompatibility(t *testing.T) {
-	//TODO remove the mutex once CEL data race is fixed
-	//ref: https://github.com/google/cel-go/issues/175
-	mutex := &sync.Mutex{}
 	for _, test := range ilt.TestData {
 		if test.E == "" {
 			continue
 		}
 
-		t.Run(test.TestName(), compatTest(test, mutex))
+		t.Run(test.TestName(), compatTest(test))
 	}
 }
 

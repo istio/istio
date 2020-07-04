@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // MutualTLSMode is the mutule TLS mode specified by authentication policy.
@@ -90,7 +91,7 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 	}
 
 	if configs, err := env.List(
-		collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+		gvk.RequestAuthentication, NamespaceAll); err == nil {
 		sortConfigByCreationTime(configs)
 		policy.addRequestAuthentication(configs)
 	} else {
@@ -98,7 +99,7 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 	}
 
 	if configs, err := env.List(
-		collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+		gvk.PeerAuthentication, NamespaceAll); err == nil {
 		policy.addPeerAuthentication(configs)
 	} else {
 		return nil, err
@@ -111,7 +112,7 @@ func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config)
 	for _, config := range configs {
 		reqPolicy := config.Spec.(*v1beta1.RequestAuthentication)
 		// Follow OIDC discovery to resolve JwksURI if need to.
-		JwtKeyResolver.ResolveJwksURI(reqPolicy)
+		GetJwtKeyResolver().ResolveJwksURI(reqPolicy)
 		policy.requestAuthentications[config.Namespace] =
 			append(policy.requestAuthentications[config.Namespace], config)
 	}
@@ -239,13 +240,13 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 					continue
 				}
 				var selector labels.Instance
-				switch cfg.Type {
-				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind():
-					selector = labels.Instance(cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels())
-				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind():
-					selector = labels.Instance(cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels())
+				switch cfg.GroupVersionKind {
+				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+					selector = cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
+				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
 				default:
-					log.Warnf("Not support authentication type %q", cfg.Type)
+					log.Warnf("Not support authentication type %q", cfg.GroupVersionKind)
 					continue
 				}
 				if workloadLabels.IsSupersetOf(selector) {

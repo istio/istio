@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,8 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -36,6 +34,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
 	oversion "istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -69,12 +68,6 @@ type Translator struct {
 	GlobalNamespaces map[name.ComponentName]string `yaml:"globalNamespaces"`
 	// ComponentMaps is a set of mappings for each Istio component.
 	ComponentMaps map[name.ComponentName]*ComponentMaps `yaml:"componentMaps"`
-}
-
-// FeatureMap is a set of mappings for an Istio feature.
-type FeatureMap struct {
-	// Components contains list of components that belongs to the current feature.
-	Components []name.ComponentName
 }
 
 // ComponentMaps is a set of mappings for an Istio component.
@@ -276,6 +269,9 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		if mint, ok := util.ToIntValue(m); ok && mint == 0 {
 			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
+		}
+		if componentName == name.IstioBaseComponentName {
+			return "", fmt.Errorf("base component can only have k8s.overlays, not other K8s settings")
 		}
 		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName, iop.Revision)
 		if err != nil {

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,8 +42,10 @@ var (
 	// TODO: this captures everything, if we want to split cluster.local to TLS and
 	// keep using plain UDP for the rest - we'll need to add another rule to allow
 	// istio-proxy to send.
-	dnsVar = env.RegisterStringVar("DNS_CAPTURE", "",
-		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to :15013")
+	dnsCaptureByEnvoy = env.RegisterStringVar("ISTIO_META_DNS_CAPTURE", "",
+		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to envoy on :15013")
+	dnsCaptureByAgent = env.RegisterStringVar("DNS_AGENT", "",
+		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 )
 
 var rootCmd = &cobra.Command{

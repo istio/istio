@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,11 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
-
-var serviceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
-var workloadEntryKind = collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind()
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
 
@@ -89,8 +86,8 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 		refreshIndexes:               true,
 	}
 	if configController != nil {
-		configController.RegisterEventHandler(serviceEntryKind, s.serviceEntryHandler)
-		configController.RegisterEventHandler(workloadEntryKind, s.workloadEntryHandler)
+		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
+		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
 	}
 	return s
 }
@@ -190,7 +187,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 	for _, svcs := range [][]*model.Service{addedSvcs, deletedSvcs, updatedSvcs} {
 		for _, svc := range svcs {
 			configsUpdated[model.ConfigKey{
-				Kind:      model.ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace}] = struct{}{}
 		}
@@ -207,7 +204,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 				// fqdn endpoints have changed. Need full push
 				for _, svc := range unchangedSvcs {
 					configsUpdated[model.ConfigKey{
-						Kind:      model.ServiceEntryKind,
+						Kind:      gvk.ServiceEntry,
 						Name:      string(svc.Hostname),
 						Namespace: svc.Attributes.Namespace}] = struct{}{}
 				}
@@ -373,20 +370,6 @@ func (s *ServiceEntryStore) getServices() []*model.Service {
 	return services
 }
 
-// ManagementPorts retrieves set of health check ports by instance IP.
-// This does not apply to Service Entry registry, as Service entries do not
-// manage the service instances.
-func (s *ServiceEntryStore) ManagementPorts(_ string) model.PortList {
-	return nil
-}
-
-// WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
-// This does not apply to Service Entry registry, as Service entries do not
-// manage the service instances.
-func (s *ServiceEntryStore) WorkloadHealthCheckInfo(_ string) model.ProbeList {
-	return nil
-}
-
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
 func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
@@ -529,7 +512,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 
 	s.storeMutex.RUnlock()
 
-	wles, err := s.store.List(workloadEntryKind, model.NamespaceAll)
+	wles, err := s.store.List(gvk.WorkloadEntry, model.NamespaceAll)
 	if err != nil {
 		log.Errorf("Error listing workload entries: %v", err)
 	}
@@ -570,19 +553,24 @@ func (s *ServiceEntryStore) deleteExistingInstances(ckey configKey, instances []
 	s.storeMutex.Lock()
 	defer s.storeMutex.Unlock()
 
+	deleteInstances(ckey, instances, s.instances, s.ip2instance)
+}
+
+// This method is not concurrent safe.
+func deleteInstances(key configKey, instances []*model.ServiceInstance, instancemap map[instancesKey]map[configKey][]*model.ServiceInstance,
+	ip2instance map[string][]*model.ServiceInstance) {
 	for _, i := range instances {
-		delete(s.instances[makeInstanceKey(i)], ckey)
-		delete(s.ip2instance, i.Endpoint.Address)
+		delete(instancemap[makeInstanceKey(i)], key)
+		delete(ip2instance, i.Endpoint.Address)
 	}
 }
 
 // updateExistingInstances updates the indexes (by host, byip maps) for the passed in instances.
 func (s *ServiceEntryStore) updateExistingInstances(ckey configKey, instances []*model.ServiceInstance) {
-	// First, delete the existing instances to avoid leaking memory.
-	s.deleteExistingInstances(ckey, instances)
-
 	s.storeMutex.Lock()
 	defer s.storeMutex.Unlock()
+	// First, delete the existing instances to avoid leaking memory.
+	deleteInstances(ckey, instances, s.instances, s.ip2instance)
 	// Update the indexes with new instances.
 	updateInstances(ckey, instances, s.instances, s.ip2instance)
 }

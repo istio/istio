@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,16 +15,10 @@
 package kube
 
 import (
-	"context"
-	"fmt"
-	"net"
 	"sort"
-	"strconv"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
 
@@ -33,7 +27,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/kube"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -48,8 +41,6 @@ const (
 	// that can be used to select a subset of nodes from the pool of k8s nodes
 	// It is used for multi-cluster scenario, and with nodePort type gateway service.
 	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
-
-	managementPortPrefix = "mgmt-"
 )
 
 func convertPort(port coreV1.ServicePort) *model.Port {
@@ -145,10 +136,12 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 				if len(ingress.IP) > 0 {
 					lbAddrs = append(lbAddrs, ingress.IP)
 				} else if len(ingress.Hostname) > 0 {
-					addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
-					if err == nil {
-						lbAddrs = append(lbAddrs, addrs...)
-					}
+					// DO NOT resolve the DNS here. In environments like AWS, the ELB hostname
+					// does not have a repeatable DNS address and IPs resolved at an earlier point
+					// in time may not work. So, when we get just hostnames instead of IPs, we need
+					// to smartly switch from EDS to strict_dns rather than doing the naive thing of
+					// resolving the DNS name and hoping the resolution is one-time task.
+					lbAddrs = append(lbAddrs, ingress.Hostname)
 				}
 			}
 			if len(lbAddrs) > 0 {
@@ -216,81 +209,6 @@ func KeyFunc(name, namespace string) string {
 		return name
 	}
 	return namespace + "/" + name
-}
-
-func ConvertProbePort(c *coreV1.Container, handler *coreV1.Handler) (*model.Port, error) {
-	if handler == nil {
-		return nil, nil
-	}
-
-	var p protocol.Instance
-	var portVal intstr.IntOrString
-
-	// Only two types of handler is allowed by Kubernetes (HTTPGet or TCPSocket)
-	switch {
-	case handler.HTTPGet != nil:
-		portVal = handler.HTTPGet.Port
-		p = protocol.HTTP
-	case handler.TCPSocket != nil:
-		portVal = handler.TCPSocket.Port
-		p = protocol.TCP
-	default:
-		return nil, nil
-	}
-
-	switch portVal.Type {
-	case intstr.Int:
-		port := portVal.IntValue()
-		return &model.Port{
-			Name:     managementPortPrefix + strconv.Itoa(port),
-			Port:     port,
-			Protocol: p,
-		}, nil
-	case intstr.String:
-		for _, named := range c.Ports {
-			if named.Name == portVal.String() {
-				port := int(named.ContainerPort)
-				return &model.Port{
-					Name:     managementPortPrefix + strconv.Itoa(port),
-					Port:     port,
-					Protocol: p,
-				}, nil
-			}
-		}
-		return nil, fmt.Errorf("missing named port %q", portVal)
-	default:
-		return nil, fmt.Errorf("incorrect port type %q", portVal.Type)
-	}
-}
-
-// ConvertProbesToPorts returns a PortList consisting of the ports where the
-// pod is configured to do Liveness and Readiness probes
-func ConvertProbesToPorts(t *coreV1.PodSpec) (model.PortList, error) {
-	set := make(map[string]*model.Port)
-	var errs error
-	for _, container := range t.Containers {
-		for _, probe := range []*coreV1.Probe{container.LivenessProbe, container.ReadinessProbe} {
-			if probe == nil {
-				continue
-			}
-
-			p, err := ConvertProbePort(&container, &probe.Handler)
-			if err != nil {
-				errs = multierror.Append(errs, err)
-			} else if p != nil && set[p.Name] == nil {
-				// Deduplicate along the way. We don't differentiate between HTTP vs TCP mgmt ports
-				set[p.Name] = p
-			}
-		}
-	}
-
-	mgmtPorts := make(model.PortList, 0, len(set))
-	for _, p := range set {
-		mgmtPorts = append(mgmtPorts, p)
-	}
-	sort.Slice(mgmtPorts, func(i, j int) bool { return mgmtPorts[i].Port < mgmtPorts[j].Port })
-
-	return mgmtPorts, errs
 }
 
 func formatUID(namespace, name string) string {

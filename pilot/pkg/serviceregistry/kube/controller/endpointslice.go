@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,16 +15,13 @@
 package controller
 
 import (
-	"context"
-	"strings"
+	"reflect"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers/discovery/v1alpha1"
 	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
@@ -34,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/listwatch"
 )
 
 type endpointSliceController struct {
@@ -44,112 +40,18 @@ type endpointSliceController struct {
 
 var _ kubeEndpointsController = &endpointSliceController{}
 
-func newEndpointSliceController(c *Controller, options Options) *endpointSliceController {
-	namespaces := strings.Split(options.WatchedNamespaces, ",")
-
-	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return c.client.DiscoveryV1alpha1().EndpointSlices(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return c.client.DiscoveryV1alpha1().EndpointSlices(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	informer := cache.NewSharedIndexInformer(mlw, &discoveryv1alpha1.EndpointSlice{}, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-
+func newEndpointSliceController(c *Controller, informer v1alpha1.EndpointSliceInformer) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
-			informer: informer,
+			informer: informer.Informer(),
 		},
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers(informer, c.queue, "EndpointSlice", out.onEvent)
+	registerHandlers(informer.Informer(), c.queue, "EndpointSlice", reflect.DeepEqual, out.onEvent)
 	return out
-}
-
-func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event) {
-	slice := es.(*discoveryv1alpha1.EndpointSlice)
-	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
-	hostname := kube.ServiceHostname(svcName, slice.Namespace, esc.c.domainSuffix)
-
-	esc.c.RLock()
-	svc := esc.c.servicesMap[hostname]
-	esc.c.RUnlock()
-
-	if svc == nil {
-		log.Infof("Handle EDS endpoint: skip updating, service %s/%s has mot been populated", svcName, slice.Namespace)
-		return
-	}
-
-	endpoints := make([]*model.IstioEndpoint, 0)
-	if event != model.EventDelete {
-		for _, e := range slice.Endpoints {
-			if e.Conditions.Ready != nil && !*e.Conditions.Ready {
-				// Ignore not ready endpoints
-				continue
-			}
-			for _, a := range e.Addresses {
-				pod := esc.c.pods.getPodByIP(a)
-				if pod == nil {
-					// This can not happen in usual case
-					if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
-						log.Warnf("Endpoint without pod %s %s.%s", a, svcName, slice.Namespace)
-
-						if esc.c.metrics != nil {
-							esc.c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, a)
-						}
-						// TODO: keep them in a list, and check when pod events happen !
-						continue
-					}
-					// For service without selector, maybe there are no related pods
-				}
-
-				builder := esc.newEndpointBuilder(pod, e)
-				// EDS and ServiceEntry use name for service port - ADS will need to
-				// map to numbers.
-				for _, port := range slice.Ports {
-					var portNum int32
-					if port.Port != nil {
-						portNum = *port.Port
-					}
-					var portName string
-					if port.Name != nil {
-						portName = *port.Name
-					}
-
-					istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName)
-					endpoints = append(endpoints, istioEndpoint)
-				}
-			}
-		}
-	}
-
-	esc.endpointCache.Update(hostname, slice.Name, endpoints)
-
-	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
-
-	fep := esc.c.collectAllForeignEndpoints(svc)
-
-	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace,
-		append(esc.endpointCache.Get(hostname), fep...))
-	// fire instance handles for k8s endpoints only
-	for _, handler := range esc.c.instanceHandlers {
-		for _, ep := range endpoints {
-			si := &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: nil,
-				Endpoint:    ep,
-			}
-			handler(si, event)
-		}
-	}
 }
 
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
@@ -161,7 +63,7 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Errorf("1 Couldn't get object from tombstone %#v", curr)
+			log.Errorf("Couldn't get object from tombstone %#v", curr)
 			return nil
 		}
 		ep, ok = tombstone.Obj.(*discoveryv1alpha1.EndpointSlice)
@@ -171,9 +73,7 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 		}
 	}
 
-	return esc.handleEvent(ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, event, curr, func(obj interface{}, event model.Event) {
-		esc.updateEDS(obj, event)
-	})
+	return processEndpointEvent(esc.c, esc, ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, event, curr)
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
@@ -187,14 +87,14 @@ func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, prox
 	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, ep := range eps {
-		instances := esc.proxyServiceInstances(c, ep, proxy)
+		instances := sliceServiceInstances(c, ep, proxy)
 		out = append(out, instances...)
 	}
 
 	return out
 }
 
-func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
+func sliceServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
 	hostname := kube.ServiceHostname(ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, c.domainSuffix)
@@ -241,6 +141,61 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 	}
 
 	return out
+}
+
+func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
+	slice := es.(*discoveryv1alpha1.EndpointSlice)
+	endpoints := make([]*model.IstioEndpoint, 0)
+	for _, e := range slice.Endpoints {
+		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
+			// Ignore not ready endpoints
+			continue
+		}
+		for _, a := range e.Addresses {
+			pod := esc.c.pods.getPodByIP(a)
+			if pod == nil {
+				// This can not happen in usual case
+				if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
+					pod = esc.c.pods.getPod(e.TargetRef.Name, e.TargetRef.Namespace)
+					if pod == nil {
+						// If pod is still not available, this an unusual case.
+						endpointsWithNoPods.Increment()
+						log.Errorf("Endpoint without pod %s %s.%s", a, host, slice.Namespace)
+						if esc.c.metrics != nil {
+							esc.c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, a)
+						}
+						continue
+					}
+				}
+				// For service without selector, maybe there are no related pods
+			}
+
+			builder := esc.newEndpointBuilder(pod, e)
+			// EDS and ServiceEntry use name for service port - ADS will need to
+			// map to numbers.
+			for _, port := range slice.Ports {
+				var portNum int32
+				if port.Port != nil {
+					portNum = *port.Port
+				}
+				var portName string
+				if port.Name != nil {
+					portName = *port.Name
+				}
+
+				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName)
+				endpoints = append(endpoints, istioEndpoint)
+			}
+		}
+	}
+	esc.endpointCache.Update(host, slice.Name, endpoints)
+	return esc.endpointCache.Get(host)
+}
+
+func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, string, string) {
+	slice := es.(*discoveryv1alpha1.EndpointSlice)
+	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
+	return kube.ServiceHostname(svcName, slice.Namespace, esc.c.domainSuffix), svcName, slice.Namespace
 }
 
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,

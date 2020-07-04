@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ func TestNilRetryShouldReturnDefault(t *testing.T) {
 
 	policy := retry.ConvertPolicy(route.Retries)
 	g.Expect(policy).To(Not(BeNil()))
-	g.Expect(*policy).To(Equal(*retry.DefaultPolicy()))
+	g.Expect(policy).To(Equal(retry.DefaultPolicy()))
 }
 
 func TestZeroAttemptsShouldReturnNilPolicy(t *testing.T) {

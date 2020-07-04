@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,9 +71,7 @@ const (
 
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
-	// ForwardDownstreamSniFilter forwards the sni from downstream connections to upstream
-	// Used only in the fallthrough filter stack for TLS connections
-	ForwardDownstreamSniFilter = "forward_downstream_sni"
+
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
@@ -175,30 +173,6 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	return cidr
 }
 
-// BuildAddressV2 returns a SocketAddress with the given ip and port or uds.
-func BuildAddressV2(bind string, port uint32) *core.Address {
-	if port != 0 {
-		return &core.Address{
-			Address: &core.Address_SocketAddress{
-				SocketAddress: &core.SocketAddress{
-					Address: bind,
-					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: port,
-					},
-				},
-			},
-		}
-	}
-
-	return &core.Address{
-		Address: &core.Address_Pipe{
-			Pipe: &core.Pipe{
-				Path: strings.TrimPrefix(bind, model.UnixAddressPrefix),
-			},
-		},
-	}
-}
-
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
 func BuildAddress(bind string, port uint32) *core.Address {
 	if port != 0 {
@@ -232,6 +206,7 @@ func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
 		return nil, err
 	}
 	return &any.Any{
+		// nolint: staticcheck
 		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
 		Value:   b.Bytes(),
 	}, nil
@@ -381,14 +356,15 @@ func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
 }
 
 // return a shallow copy ClusterLoadAssignment
-func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) endpoint.ClusterLoadAssignment {
-	out := endpoint.ClusterLoadAssignment{}
+func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) *endpoint.ClusterLoadAssignment {
 	if original == nil {
-		return out
+		return nil
 	}
+	out := &endpoint.ClusterLoadAssignment{}
 
-	out = *original
-	out.Endpoints = cloneLocalityLbEndpoints(out.Endpoints)
+	out.ClusterName = original.ClusterName
+	out.Endpoints = cloneLocalityLbEndpoints(original.Endpoints)
+	out.Policy = original.Policy
 
 	return out
 }
@@ -397,38 +373,27 @@ func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) endpoi
 func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
 	out := make([]*endpoint.LocalityLbEndpoints, 0, len(endpoints))
 	for _, ep := range endpoints {
-		clone := *ep
+		clone := &endpoint.LocalityLbEndpoints{}
+		clone.Locality = ep.Locality
+		clone.LbEndpoints = ep.LbEndpoints
+		clone.Proximity = ep.Proximity
+		clone.Priority = ep.Priority
 		if ep.LoadBalancingWeight != nil {
 			clone.LoadBalancingWeight = &wrappers.UInt32Value{
 				Value: ep.GetLoadBalancingWeight().GetValue(),
 			}
 		}
-		out = append(out, &clone)
+		out = append(out, clone)
 	}
 	return out
-}
-
-// return a shallow copy LbEndpoint
-func CloneLbEndpoint(endpoint *endpoint.LbEndpoint) *endpoint.LbEndpoint {
-	if endpoint == nil {
-		return nil
-	}
-
-	clone := *endpoint
-	if endpoint.LoadBalancingWeight != nil {
-		clone.LoadBalancingWeight = &wrappers.UInt32Value{
-			Value: endpoint.GetLoadBalancingWeight().GetValue(),
-		}
-	}
-	return &clone
 }
 
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc. Used by Mixer client
 // to generate attributes for policy and telemetry.
 func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
-	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
+	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
 	return &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{
 			IstioMetadataKey: {
@@ -445,8 +410,8 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 }
 
 func BuildConfigInfoMetadataV2(config model.ConfigMeta) *core.Metadata {
-	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
+	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
 	return &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{
 			IstioMetadataKey: {

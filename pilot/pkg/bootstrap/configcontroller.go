@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,19 +24,17 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/status"
-
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/leaderelection"
-
-	"istio.io/istio/pilot/pkg/config/kube/gateway"
-	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pilot/pkg/status"
 
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/pilot/pkg/config/kube/gateway"
+	"istio.io/istio/pilot/pkg/features"
+
 	"google.golang.org/grpc"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
@@ -45,7 +43,6 @@ import (
 	"istio.io/pkg/log"
 
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
-	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
@@ -75,11 +72,11 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
-	} else if args.Config.FileDir != "" {
+	} else if args.RegistryOptions.FileDir != "" {
 		store := memory.Make(collections.Pilot)
 		configController := memory.NewController(store)
 
-		err := s.makeFileMonitor(args.Config.FileDir, args.Config.ControllerOptions.DomainSuffix, configController)
+		err := s.makeFileMonitor(args.RegistryOptions.FileDir, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
 		if err != nil {
 			return err
 		}
@@ -91,7 +88,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
 		if features.EnableServiceApis {
-			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController))
+			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions))
 		}
 		if features.EnableAnalysis {
 			if err := s.initInprocessAnalysisController(args); err != nil {
@@ -108,21 +105,27 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	s.EnvoyXdsServer.MemConfigController = memConfigController
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if hasKubeRegistry(args.Service.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
+	if hasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
 		s.ConfigStores = append(s.ConfigStores,
-			ingress.NewController(s.kubeClient, meshConfig, args.Config.ControllerOptions))
+			ingress.NewController(s.kubeClients, s.environment.Watcher, args.RegistryOptions.KubeOptions))
 
-		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClient, args.Config.ControllerOptions)
+		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClients)
 		if err != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", err)
 		} else {
 			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 				leaderelection.
-					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient).
-					AddRunFunction(func(stop <-chan struct{}) {
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClients.Kube()).
+					AddRunFunction(func(leaderStop <-chan struct{}) {
+						// Start informers again. This fixes the case where informers for namespace do not start,
+						// as we create them only after acquiring the leader lock
+						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+						// basically lazy loading the informer, if we stop it when we lose the lock we will never
+						// recreate it again.
+						s.kubeClients.RunAndWait(stop)
 						log.Infof("Starting ingress controller")
-						ingressSyncer.Run(stop)
+						ingressSyncer.Run(leaderStop)
 					}).
 					Run(stop)
 				return nil
@@ -161,8 +164,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 	var conns []*grpc.ClientConn
 
 	mcpOptions := &mcp.Options{
-		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-		ConfigLedger: buildLedger(args.Config),
+		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
+		ConfigLedger: buildLedger(args.RegistryOptions),
 		XDSUpdater:   s.EnvoyXdsServer,
 		Revision:     args.Revision,
 	}
@@ -178,10 +181,10 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 				if srcAddress.Path == "" {
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.Config))
+				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.RegistryOptions), false)
 				configController := memory.NewController(store)
 
-				err := s.makeFileMonitor(srcAddress.Path, args.Config.ControllerOptions.DomainSuffix, configController)
+				err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
 				if err != nil {
 					return err
 				}
@@ -299,32 +302,22 @@ func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSour
 func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 	processingArgs := settings.DefaultArgs()
-	processingArgs.KubeConfig = args.Config.KubeConfig
-	processingArgs.WatchedNamespaces = args.Config.ControllerOptions.WatchedNamespaces
-	processingArgs.EnableValidationController = false
-	processingArgs.EnableValidationServer = false
-	processingArgs.MonitoringPort = 0
-	processingArgs.Liveness.UpdateInterval = 0
-	processingArgs.Readiness.UpdateInterval = 0
-	processingArgs.Insecure = true // TODO - use sidecar?
-	processingArgs.EnableServer = false
-	processingArgs.MeshConfigFile = args.Mesh.ConfigFile
+	processingArgs.KubeConfig = args.RegistryOptions.KubeConfig
+	processingArgs.WatchedNamespaces = args.RegistryOptions.KubeOptions.WatchedNamespaces
+	processingArgs.MeshConfigFile = args.MeshConfigFile
 	processingArgs.EnableConfigAnalysis = true
 
 	processing := components.NewProcessing(processingArgs)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go leaderelection.
-			NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
 				if err := processing.Start(); err != nil {
 					log.Fatalf("Error starting Background Analysis: %s", err)
 				}
-
-				go func() {
-					<-stop
-					processing.Stop()
-				}()
+				<-stop
+				processing.Stop()
 			}).Run(stop)
 		return nil
 	})
@@ -346,8 +339,10 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
-					(&status.DistributionController{QPS: float32(features.StatusQPS), Burst: features.StatusBurst}).
-						Start(s.kubeConfig, args.Namespace, stop)
+					controller := &status.DistributionController{
+						QPS:   float32(features.StatusQPS),
+						Burst: features.StatusBurst}
+					controller.Start(s.kubeRestConfig, args.Namespace, stop)
 				}).Run(stop)
 			return nil
 		})
@@ -380,29 +375,11 @@ func (s *Server) mcpController(
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
-	// TODO(howardjohn) allow the collection here to be configurable to allow running with only
-	// Kubernetes APIs.
-	schemas := collection.NewSchemasBuilder()
-	if features.EnableServiceApis {
-		schemas = schemas.
-			MustAdd(collections.K8SServiceApisV1Alpha1Tcproutes).
-			MustAdd(collections.K8SServiceApisV1Alpha1Gatewayclasses).
-			MustAdd(collections.K8SServiceApisV1Alpha1Gateways).
-			MustAdd(collections.K8SServiceApisV1Alpha1Httproutes).
-			MustAdd(collections.K8SServiceApisV1Alpha1Trafficsplits)
-	}
-	for _, schema := range collections.Pilot.All() {
-		if err := schemas.Add(schema); err != nil {
-			return nil, err
-		}
-	}
-	configClient, err := controller.NewClient(args.Config.KubeConfig, "", schemas.Build(),
-		args.Config.ControllerOptions.DomainSuffix, buildLedger(args.Config), args.Revision)
+	c, err := crdclient.New(s.kubeClients, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
 	if err != nil {
-		return nil, multierror.Prefix(err, "failed to open a config client.")
+		return nil, err
 	}
-
-	return controller.NewController(configClient, args.Config.ControllerOptions), nil
+	return c, nil
 }
 
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {

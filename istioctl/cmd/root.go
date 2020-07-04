@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,11 +49,11 @@ var (
 	istioNamespace   string
 	defaultNamespace string
 
-	// Create a kubernetes.ExecClient (or mockExecClient) for talking to control plane components
-	clientExecFactory = newPilotExecClient
+	// Create a kubernetes client (or mockClient) for talking to control plane components
+	kubeClientWithRevision = newKubeClientWithRevision
 
 	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
-	envoyClientFactory = newEnvoyClient
+	kubeClient = newKubeClient
 
 	loggingOptions = defaultLogOptions()
 )
@@ -69,6 +69,7 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("installer", log.WarnLevel)
 	o.SetOutputLevel("translator", log.WarnLevel)
 	o.SetOutputLevel("kube", log.ErrorLevel)
+	o.SetOutputLevel("adsc", log.WarnLevel)
 	o.SetOutputLevel("default", log.WarnLevel)
 
 	return o
@@ -149,6 +150,8 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(softGraduatedCmd(Analyze()))
 	experimentalCmd.AddCommand(vmBootstrapCommand())
 	experimentalCmd.AddCommand(waitCmd())
+
+	experimentalCmd.AddCommand(xdsVersionCommand())
 
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)

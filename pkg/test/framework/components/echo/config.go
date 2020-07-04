@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,6 +80,13 @@ type Config struct {
 
 	// TLS settings for echo server
 	TLSSettings *common.TLSSettings
+
+	// If enabled, echo will be deployed as a "VM". This means it will run Envoy in the same pod as echo,
+	// disable sidecar injection, etc.
+	DeployAsVM bool
+
+	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
+	VMImage string
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
@@ -106,12 +113,4 @@ func (c Config) FQDN() string {
 		out += "." + c.Domain
 	}
 	return out
-}
-
-// ClusterIndex returns the index of the cluster or 0 (the default) if none specified.
-func (c Config) ClusterIndex() resource.ClusterIndex {
-	if c.Cluster != nil {
-		return c.Cluster.Index()
-	}
-	return 0
 }

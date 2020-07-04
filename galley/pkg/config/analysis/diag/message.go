@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ func (m *MessageType) Code() string { return m.code }
 func (m *MessageType) Template() string { return m.template }
 
 // Message is a specific diagnostic message
+// TODO: Implement using Analysis message API
 type Message struct {
 	Type *MessageType
 

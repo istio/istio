@@ -1,4 +1,4 @@
-# Copyright 2017 Istio Authors
+# Copyright Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -12,12 +12,17 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM node:12.9.0-slim
+FROM node:12.18.1-slim
 
 COPY package.json /opt/microservices/
 COPY ratings.js /opt/microservices/
 WORKDIR /opt/microservices
 RUN npm install
+
+#hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get install curl --no-install-recommends -y \
+    && rm -rf /var/lib/apt/lists/*
 
 ARG service_version
 ENV SERVICE_VERSION ${service_version:-v1}

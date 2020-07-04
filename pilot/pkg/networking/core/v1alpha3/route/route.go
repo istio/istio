@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -63,6 +63,8 @@ const DefaultRouteName = "default"
 const maxRegExProgramSize = 1024
 
 var (
+	// TODO remove max program size once all envoys have unlimited default
+	// nolint: staticcheck
 	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(maxRegExProgramSize),
@@ -516,7 +518,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
-		out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(in.Fault))
+		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
 	return out
@@ -597,13 +599,13 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 
 	for name, stringMatch := range in.Headers {
 		matcher := translateHeaderMatch(name, stringMatch)
-		out.Headers = append(out.Headers, &matcher)
+		out.Headers = append(out.Headers, matcher)
 	}
 
 	for name, stringMatch := range in.WithoutHeaders {
 		matcher := translateHeaderMatch(name, stringMatch)
 		matcher.InvertMatch = true
-		out.Headers = append(out.Headers, &matcher)
+		out.Headers = append(out.Headers, matcher)
 	}
 
 	// guarantee ordering of headers
@@ -620,6 +622,7 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 		case *networking.StringMatch_Regex:
 			out.PathSpecifier = &route.RouteMatch_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
+					// nolint: staticcheck
 					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 						MaxProgramSize: &wrappers.UInt32Value{
 							Value: uint32(maxRegExProgramSize),
@@ -635,30 +638,30 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 
 	if in.Method != nil {
 		matcher := translateHeaderMatch(HeaderMethod, in.Method)
-		out.Headers = append(out.Headers, &matcher)
+		out.Headers = append(out.Headers, matcher)
 	}
 
 	if in.Authority != nil {
 		matcher := translateHeaderMatch(HeaderAuthority, in.Authority)
-		out.Headers = append(out.Headers, &matcher)
+		out.Headers = append(out.Headers, matcher)
 	}
 
 	if in.Scheme != nil {
 		matcher := translateHeaderMatch(HeaderScheme, in.Scheme)
-		out.Headers = append(out.Headers, &matcher)
+		out.Headers = append(out.Headers, matcher)
 	}
 
 	for name, stringMatch := range in.QueryParams {
 		matcher := translateQueryParamMatch(name, stringMatch)
-		out.QueryParameters = append(out.QueryParameters, &matcher)
+		out.QueryParameters = append(out.QueryParameters, matcher)
 	}
 
 	return out
 }
 
 // translateQueryParamMatch translates a StringMatch to a QueryParameterMatcher.
-func translateQueryParamMatch(name string, in *networking.StringMatch) route.QueryParameterMatcher {
-	out := route.QueryParameterMatcher{
+func translateQueryParamMatch(name string, in *networking.StringMatch) *route.QueryParameterMatcher {
+	out := &route.QueryParameterMatcher{
 		Name: name,
 	}
 
@@ -671,6 +674,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) route.Que
 		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
 			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
+					// nolint: staticcheck
 					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 						MaxProgramSize: &wrappers.UInt32Value{
 							Value: uint32(maxRegExProgramSize),
@@ -703,8 +707,8 @@ func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
 }
 
 // translateHeaderMatch translates to HeaderMatcher
-func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderMatcher {
-	out := route.HeaderMatcher{
+func translateHeaderMatch(name string, in *networking.StringMatch) *route.HeaderMatcher {
+	out := &route.HeaderMatcher{
 		Name: name,
 	}
 

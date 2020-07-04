@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,7 +46,8 @@ func TestHideInheritedFlags(t *testing.T) {
 	_ = parent.PersistentFlags().String(parentFlag1, "", parentFlag1)
 	_ = parent.PersistentFlags().String(parentFlag2, "", parentFlag2)
 	var out bytes.Buffer
-	parent.SetOutput(&out)
+	parent.SetOut(&out)
+	parent.SetErr(&out)
 
 	child := &cobra.Command{
 		Use: "child",

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,9 +23,7 @@
 package model
 
 import (
-	"bytes"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,8 +33,6 @@ import (
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/api/label"
-
-	authn "istio.io/api/authentication/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
@@ -385,7 +381,6 @@ type ServiceAttributes struct {
 
 // ServiceDiscovery enumerates Istio service instances.
 // nolint: lll
-//go:generate counterfeiter -o ../networking/core/v1alpha3/fakes/fake_service_discovery.gen.go --fake-name ServiceDiscovery . ServiceDiscovery
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
 	Services() ([]*Service, error)
@@ -438,38 +433,10 @@ type ServiceDiscovery interface {
 
 	GetProxyWorkloadLabels(*Proxy) (labels.Collection, error)
 
-	// ManagementPorts lists set of management ports associated with an IPv4 address.
-	// These management ports are typically used by the platform for out of band management
-	// tasks such as health checks, etc. In a scenario where the proxy functions in the
-	// transparent mode (traps all traffic to and from the service instance IP address),
-	// the configuration generated for the proxy will not manipulate traffic destined for
-	// the management ports
-	ManagementPorts(addr string) PortList
-
-	// WorkloadHealthCheckInfo lists set of probes associated with an IPv4 address.
-	// These probes are used by the platform to identify requests that are performing
-	// health checks.
-	WorkloadHealthCheckInfo(addr string) ProbeList
-
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
-}
-
-// Match returns true if port matches with authentication port selector criteria.
-func (port Port) Match(portSelector *authn.PortSelector) bool {
-	if portSelector == nil {
-		return true
-	}
-	switch portSelector.Port.(type) {
-	case *authn.PortSelector_Name:
-		return portSelector.GetName() == port.Name
-	case *authn.PortSelector_Number:
-		return portSelector.GetNumber() == uint32(port.Port)
-	default:
-		return false
-	}
 }
 
 // GetNames returns port names
@@ -504,61 +471,6 @@ func (ports PortList) GetByPort(num int) (*Port, bool) {
 // External predicate checks whether the service is external
 func (s *Service) External() bool {
 	return s.MeshExternal
-}
-
-// ServiceKey generates a service key for a collection of ports and labels
-// Deprecated
-//
-// Interface wants to turn `Name` into `fmt.Stringer`, completely defeating the purpose of the type alias.
-// nolint: interfacer
-func ServiceKey(hostname host.Name, servicePorts PortList, labelsList labels.Collection) string {
-	// example: name.namespace|http|env=prod;env=test,version=my-v1
-	var buffer bytes.Buffer
-	buffer.WriteString(string(hostname))
-	np := len(servicePorts)
-	nt := len(labelsList)
-
-	if nt == 1 && labelsList[0] == nil {
-		nt = 0
-	}
-
-	if np == 0 && nt == 0 {
-		return buffer.String()
-	} else if np == 1 && nt == 0 && servicePorts[0].Name == "" {
-		return buffer.String()
-	} else {
-		buffer.WriteString("|")
-	}
-
-	if np > 0 {
-		ports := make([]string, np)
-		for i := 0; i < np; i++ {
-			ports[i] = servicePorts[i].Name
-		}
-		sort.Strings(ports)
-		for i := 0; i < np; i++ {
-			if i > 0 {
-				buffer.WriteString(",")
-			}
-			buffer.WriteString(ports[i])
-		}
-	}
-
-	if nt > 0 {
-		buffer.WriteString("|")
-		l := make([]string, nt)
-		for i := 0; i < nt; i++ {
-			l[i] = labelsList[i].String()
-		}
-		sort.Strings(l)
-		for i := 0; i < nt; i++ {
-			if i > 0 {
-				buffer.WriteString(";")
-			}
-			buffer.WriteString(l[i])
-		}
-	}
-	return buffer.String()
 }
 
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.

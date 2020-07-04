@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/pki/util"
@@ -67,8 +67,6 @@ var (
 	sshPort           int
 	sshUser           string
 	startIstio        bool
-
-	workloadKind = collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind()
 )
 
 type workloadEntryAddressKeys struct {
@@ -96,7 +94,7 @@ func fetchSingleWorkloadEntry(workloadName string, client model.ConfigStore) ([]
 		return nil, "", fmt.Errorf("workload name: %s is not in the format: workloadName.Namespace", workloadName)
 	}
 
-	we := client.Get(workloadKind, workloadSplit[0], workloadSplit[1])
+	we := client.Get(gvk.WorkloadEntry, workloadSplit[0], workloadSplit[1])
 	if we == nil {
 		return nil, "", fmt.Errorf("workload entry: %s in namespace: %s was not found", workloadSplit[0], workloadSplit[1])
 	}
@@ -105,7 +103,7 @@ func fetchSingleWorkloadEntry(workloadName string, client model.ConfigStore) ([]
 }
 
 func fetchAllWorkloadEntries(client model.ConfigStore) ([]model.Config, string, error) {
-	list, err := client.List(workloadKind, namespace)
+	list, err := client.List(gvk.WorkloadEntry, namespace)
 	return list, namespace, err
 }
 
@@ -589,7 +587,7 @@ Istio will be started on the host network as a docker container in capture mode.
 			var configClient model.ConfigStore
 			var err error
 
-			if configClient, err = clientFactory(); err != nil {
+			if configClient, err = configStoreFactory(); err != nil {
 				return err
 			}
 
