@@ -36,7 +36,7 @@ data:
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
       proxyMetadata:
-        DNS_AGENT: ""
+        ISTIO_META_DNS_CAPTURE: ALL
       tracing:
         zipkin:
           address: zipkin.istio-system:9411

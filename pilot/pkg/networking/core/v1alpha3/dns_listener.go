@@ -15,11 +15,15 @@
 package v1alpha3
 
 import (
+	"time"
+
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	dnstable "github.com/envoyproxy/go-control-plane/envoy/data/dns/v3"
 	dnsfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/udp/dns_filter/v3alpha"
 	stringmatcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -37,6 +41,8 @@ var knownSuffixes = []*stringmatcher.StringMatcher{
 		},
 	},
 }
+
+const resolverTimeout = 10 * time.Second
 
 // This is a UDP listener is on port 15013.  It has a DNS listener filter containing the
 // cluster IPs of all services visible to the proxy (those that have one anyway).  The
@@ -64,6 +70,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		ServerConfig: &dnsfilter.DnsFilterConfig_ServerContextConfig{
 			ConfigSource: &dnsfilter.DnsFilterConfig_ServerContextConfig_InlineDnsTable{InlineDnsTable: inlineDNSTable},
 		},
+		ClientConfig: &dnsfilter.DnsFilterConfig_ClientContextConfig{
+			ResolverTimeout: ptypes.DurationProto(resolverTimeout),
+			// no upstream resolves. Envoy will use the ambient ones
+			MaxPendingLookups: 64, // arbitrary
+		},
 	}
 	dnsFilter := &listener.ListenerFilter{
 		Name: filters.DNSListenerFilterName,
@@ -72,7 +83,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		},
 	}
 
-	return &listener.Listener{
+	out := &listener.Listener{
 		Name:             dnsListenerName,
 		Address:          address,
 		ListenerFilters:  []*listener.ListenerFilter{dnsFilter},
@@ -80,6 +91,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		// DNS listener requires SO_REUSEPORT option to be set esp when concurrency >1
 		ReusePort: true,
 	}
+
+	if push.Mesh.AccessLogFile != "" {
+		out.AccessLog = []*accesslog.AccessLog{maybeBuildAccessLog(push.Mesh)}
+	}
+	return out
 }
 
 func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, push *model.PushContext) *dnstable.DnsTable {
@@ -121,10 +137,15 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 		// The IP will be unspecified here if its headless service or if the auto
 		// IP allocation logic for service entry was unable to allocate an IP.
 		if address == constants.UnspecifiedIP {
+			// TODO: For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
+			// In addition, need to have an entry per pod hostname of stateful set
 			continue
 		}
 
 		virtualDomains = append(virtualDomains, &dnstable.DnsTable_DnsVirtualDomain{
+			// TODO: if we are to do full DNS capture in pod, this is insufficient. We need to
+			//  have multiple formats for each FQDN such as name.namespace, name.namespace.svc, etc.
+			//  - for k8s services - very similar to buildAltVirtualHostsForService
 			Name: string(svc.Hostname),
 			Endpoint: &dnstable.DnsTable_DnsEndpoint{
 				EndpointConfig: &dnstable.DnsTable_DnsEndpoint_AddressList{

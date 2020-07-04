@@ -682,7 +682,7 @@ func selectorChanged(old, curr model.Config) bool {
 	return !reflect.DeepEqual(o.WorkloadSelector, n.WorkloadSelector)
 }
 
-// Automatically allocates IPs for service entry services without an
+// Automatically allocates IPs for service entry services WITHOUT an
 // address field if the hostname is not a wildcard, or when resolution
 // is not NONE. The IPs are allocated from the reserved Class E subnet
 // (240.240.0.0/16) that is not reachable outside the pod. When DNS
@@ -694,6 +694,20 @@ func selectorChanged(old, curr model.Config) bool {
 //
 // NOTE: If DNS capture is not enabled by the proxy, the automatically
 // allocated IP addresses do not take effect.
+//
+// The current algorithm to allocate IPs is deterministic across all istiods.
+// At stable state, given two istiods with exact same set of services, there should
+// be no change in XDS as the algorithm is just a dumb iterative one that allocates sequentially.
+//
+// TODO: Rather than sequentially allocate IPs, switch to a hash based allocation mechanism so that
+// deletion of the oldest service entry does not cause change of IPs for all other service entries.
+// Currently, the sequential allocation will result in unnecessary XDS reloads (lds/rds) when a
+// service entry with auto allocated IP is deleted. We are trading off a perf problem (xds reload)
+// for a usability problem (e.g., multiple cloud SQL or AWS RDS tcp services with no VIPs end up having
+// the same port, causing traffic to go to the wrong place). Once we move to a deterministic hash-based
+// allocation with deterministic collision resolution, the perf problem will go away. If the collision guarantee
+// cannot be made within the IP address space we have (which is about 64K services), then we may need to
+// have the sequential allocation algorithm as a fallback when too many collisions take place.
 func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// i is everything from 240.240.0.(j) to 240.240.255.(j)
 	// j is everything from 240.240.(i).1 to 240.240.(i).254
