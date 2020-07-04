@@ -1,0 +1,45 @@
+mkdir -p /work/out/linux_amd64/logs
+mkdir -p /work/out/linux_amd64/release
+STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh /work/out/linux_amd64/ ./istioctl/cmd/istioctl ./pilot/cmd/pilot-discovery ./pilot/cmd/pilot-agent ./mixer/cmd/mixs ./mixer/cmd/mixc ./mixer/tools/mixgen ./security/tools/sdsclient ./pkg/test/echo/cmd/client ./pkg/test/echo/cmd/server ./mixer/test/policybackend ./operator/cmd/operator
+
+real	0m2.186s
+user	0m6.189s
+sys	0m2.290s
+time (mkdir -p /work/out/linux_amd64/docker_build/docker.pilot && cp -r pilot/docker/Dockerfile.pilot /work/out/linux_amd64/pilot-discovery tests/testdata/certs/cacert.pem /work/out/linux_amd64/docker_build/docker.pilot && cd /work/out/linux_amd64/docker_build/docker.pilot && chmod 755 pilot-discovery cacert.pem && docker build --build-arg BASE_VERSION=1.7-dev.0 --build-arg BASE_DISTRIBUTION=default -t docker.io/davidraskin/pilot:davidraskin -f Dockerfile.pilot . ); 
+Sending build context to Docker daemon  557.1kBSending build context to Docker daemon  24.51MBSending build context to Docker daemon  48.46MBSending build context to Docker daemon  72.42MBSending build context to Docker daemon  95.81MBSending build context to Docker daemon  102.5MB
+Step 1/10 : ARG BASE_DISTRIBUTION=default
+Step 2/10 : ARG BASE_VERSION=latest
+Step 3/10 : FROM docker.io/istio/base:${BASE_VERSION} as default
+ ---> ebf8286c3d46
+Step 4/10 : USER 1337:1337
+ ---> Using cache
+ ---> d0f3561f13b2
+Step 5/10 : FROM gcr.io/distroless/static@sha256:23aa732bba4c8618c0d97c26a72a32997363d591807b0d4c31b0bbc8a774bddf as distroless
+ ---> 52ed073f70ec
+Step 6/10 : WORKDIR /
+ ---> Using cache
+ ---> c938ce049762
+Step 7/10 : FROM ${BASE_DISTRIBUTION}
+ ---> d0f3561f13b2
+Step 8/10 : COPY pilot-discovery /usr/local/bin/
+ ---> Using cache
+ ---> 376f3b4935cb
+Step 9/10 : COPY cacert.pem /cacert.pem
+ ---> Using cache
+ ---> e860fd36a435
+Step 10/10 : ENTRYPOINT ["/usr/local/bin/pilot-discovery"]
+ ---> Using cache
+ ---> 616c79df02fa
+Successfully built 616c79df02fa
+Successfully tagged davidraskin/pilot:davidraskin
+
+real	0m2.174s
+user	0m0.154s
+sys	0m0.783s
+mkdir -p /work/out/linux_amd64/docker_build/proxyv2
+cp  /envoy
+cp: missing destination file operand after '/envoy'
+Try 'cp --help' for more information.
+tools/istio-docker.mk:62: recipe for target '/envoy' failed
+make[1]: *** [/envoy] Error 1
+make: *** [Makefile.overrides.mk:28: docker] Error 2

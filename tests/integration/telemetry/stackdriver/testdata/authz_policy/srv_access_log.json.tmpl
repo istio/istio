@@ -1,0 +1,28 @@
+{
+    "http_request": {
+        "request_method": "GET",
+        "request_url": "{{ .Scheme }}://{{ .DestName }}.{{ .Namespace }}.svc.cluster.local:80/",
+        "protocol": "{{ .Protocol }}",
+        "status": "{{ .Code }}"
+    },
+    "labels": {
+        "destination_app": "{{ .DestName }}",
+        "destination_canonical_revision": "v1",
+        "destination_canonical_service": "{{ .DestName }}",
+        "destination_namespace": "{{ .Namespace }}",
+        "destination_principal": "spiffe://cluster.local/ns/{{ .Namespace }}/sa/{{ .DestName }}",
+        "destination_service_host": "{{ .DestName }}.{{ .Namespace }}.svc.cluster.local",
+        "destination_version": "v1",
+        "destination_workload": "{{ .DestName }}-v1",
+        "mesh_uid": "test-mesh",
+        "response_flag": "-",
+        "service_authentication_policy": "MUTUAL_TLS",
+        "source_app": "{{ .SourceName }}",
+        "source_canonical_revision": "v1",
+        "source_canonical_service": "{{ .SourceName }}",
+        "source_namespace": "{{ .Namespace }}",
+        "source_principal": "spiffe://cluster.local/ns/{{ .Namespace }}/sa/{{ .SourceName }}",
+        "source_version": "v1",
+        "source_workload": "{{ .SourceName }}-v1"
+    }
+}

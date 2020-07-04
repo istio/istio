@@ -1,0 +1,29 @@
+{
+    "metric": {
+       "type": "istio.io/service/client/request_count",
+       "labels": {
+          "destination_canonical_revision": "v1",
+          "destination_canonical_service_name": "{{ .DestName }}",
+          "destination_canonical_service_namespace": "{{ .Namespace }}",
+          "destination_owner": "kubernetes://apis/apps/v1/namespaces/{{ .Namespace }}/deployments/{{ .DestName }}-v1",
+          "destination_port": "{{ .Port }}",
+          "destination_principal": "spiffe://cluster.local/ns/{{ .Namespace }}/sa/{{ .DestName }}",
+          "destination_service_name": "{{ .DestName }}",
+          "destination_service_namespace": "{{ .Namespace }}",
+          "destination_workload_name": "{{ .DestName }}-v1",
+          "destination_workload_namespace": "{{ .Namespace }}",
+          "mesh_uid": "test-mesh",
+          "request_operation": "GET",
+          "request_protocol": "{{ .Protocol }}",
+          "response_code": "{{ .Code }}",
+          "service_authentication_policy": "",
+          "source_canonical_revision": "v1",
+          "source_canonical_service_name": "{{ .SourceName }}",
+          "source_canonical_service_namespace": "{{ .Namespace }}",
+          "source_owner": "kubernetes://apis/apps/v1/namespaces/{{ .Namespace }}/deployments/{{ .SourceName }}-v1",
+          "source_principal": "spiffe://cluster.local/ns/{{ .Namespace }}/sa/{{ .SourceName }}",
+          "source_workload_name": "{{ .SourceName }}-v1",
+          "source_workload_namespace": "{{ .Namespace }}"
+       }
+    }
+}

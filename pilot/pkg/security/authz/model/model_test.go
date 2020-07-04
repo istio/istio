@@ -124,15 +124,54 @@ when:
 `)
 
 	cases := []struct {
-		name    string
-		forTCP  bool
-		forDeny bool
-		rule    *authzpb.Rule
-		want    []string
-		notWant []string
+		name     string
+		forTCP   bool
+		forAllow bool
+		rule     *authzpb.Rule
+		want     []string
+		notWant  []string
 	}{
 		{
-			name: "allow-http",
+			name:     "allow-http",
+			forAllow: true,
+			rule:     rule,
+			want: []string{
+				"td-1/ns/foo/sa/sleep-1",
+				"td-1/ns/foo/sa/sleep-2",
+				"td-1/ns/foo/sa/sleep-3",
+				"td-1/ns/foo/sa/sleep-4",
+				"td-1/ns/foo/sa/httpbin-1",
+				"td-1/ns/foo/sa/httpbin-2",
+				"8001",
+				"8002",
+				"8003",
+				"8004",
+				"10.0.0.1",
+				"10.0.0.2",
+			},
+		},
+		{
+			name:     "allow-tcp",
+			forAllow: true,
+			forTCP:   true,
+			rule:     rule,
+			notWant: []string{
+				"td-1/ns/foo/sa/sleep-1",
+				"td-1/ns/foo/sa/sleep-2",
+				"td-1/ns/foo/sa/sleep-3",
+				"td-1/ns/foo/sa/sleep-4",
+				"td-1/ns/foo/sa/httpbin-1",
+				"td-1/ns/foo/sa/httpbin-2",
+				"8001",
+				"8002",
+				"8003",
+				"8004",
+				"10.0.0.1",
+				"10.0.0.2",
+			},
+		},
+		{
+			name: "not-allow-http",
 			rule: rule,
 			want: []string{
 				"td-1/ns/foo/sa/sleep-1",
@@ -150,48 +189,9 @@ when:
 			},
 		},
 		{
-			name:   "allow-tcp",
+			name:   "not-allow-tcp",
 			forTCP: true,
 			rule:   rule,
-			notWant: []string{
-				"td-1/ns/foo/sa/sleep-1",
-				"td-1/ns/foo/sa/sleep-2",
-				"td-1/ns/foo/sa/sleep-3",
-				"td-1/ns/foo/sa/sleep-4",
-				"td-1/ns/foo/sa/httpbin-1",
-				"td-1/ns/foo/sa/httpbin-2",
-				"8001",
-				"8002",
-				"8003",
-				"8004",
-				"10.0.0.1",
-				"10.0.0.2",
-			},
-		},
-		{
-			name:    "deny-http",
-			forDeny: true,
-			rule:    rule,
-			want: []string{
-				"td-1/ns/foo/sa/sleep-1",
-				"td-1/ns/foo/sa/sleep-2",
-				"td-1/ns/foo/sa/sleep-3",
-				"td-1/ns/foo/sa/sleep-4",
-				"td-1/ns/foo/sa/httpbin-1",
-				"td-1/ns/foo/sa/httpbin-2",
-				"8001",
-				"8002",
-				"8003",
-				"8004",
-				"10.0.0.1",
-				"10.0.0.2",
-			},
-		},
-		{
-			name:    "deny-tcp",
-			forDeny: true,
-			forTCP:  true,
-			rule:    rule,
 			want: []string{
 				"8001",
 				"8002",
@@ -217,7 +217,7 @@ when:
 			if err != nil {
 				t.Fatal(err)
 			}
-			p, _ := m.Generate(tc.forTCP, tc.forDeny)
+			p, _ := m.Generate(tc.forTCP, tc.forAllow)
 			var gotYaml string
 			if p != nil {
 				if gotYaml, err = protomarshal.ToYAML(p); err != nil {

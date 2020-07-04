@@ -1,0 +1,15 @@
+# c accepts requests from a but denies requests from b
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-c
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "c"
+  action: DENY
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{ .Namespace }}/sa/b"]

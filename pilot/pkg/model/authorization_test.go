@@ -63,6 +63,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	denyPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
 	denyPolicy.Action = authpb.AuthorizationPolicy_DENY
 
+	logPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	logPolicy.Action = authpb.AuthorizationPolicy_LOG
+
 	cases := []struct {
 		name           string
 		ns             string
@@ -70,6 +73,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		configs        []Config
 		wantDeny       []AuthorizationPolicy
 		wantAllow      []AuthorizationPolicy
+		wantLog        []AuthorizationPolicy
 	}{
 		{
 			name:      "no policies",
@@ -114,6 +118,20 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 		{
+			name: "one log policy",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("authz-1", "bar", logPolicy),
+			},
+			wantLog: []AuthorizationPolicy{
+				{
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      logPolicy,
+				},
+			},
+		},
+		{
 			name: "two policies",
 			ns:   "bar",
 			configs: []Config{
@@ -135,11 +153,13 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 		{
-			name: "mixing allow and deny policies",
+			name: "mixing allow, deny, and log policies",
 			ns:   "bar",
 			configs: []Config{
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", denyPolicy),
+				newConfig("authz-3", "bar", logPolicy),
+				newConfig("authz-4", "bar", logPolicy),
 			},
 			wantDeny: []AuthorizationPolicy{
 				{
@@ -153,6 +173,18 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 					Name:      "authz-1",
 					Namespace: "bar",
 					Spec:      policy,
+				},
+			},
+			wantLog: []AuthorizationPolicy{
+				{
+					Name:      "authz-3",
+					Namespace: "bar",
+					Spec:      logPolicy,
+				},
+				{
+					Name:      "authz-4",
+					Namespace: "bar",
+					Spec:      logPolicy,
 				},
 			},
 		},
@@ -271,13 +303,16 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			gotDeny, gotAllow := authzPolicies.ListAuthorizationPolicies(
+			gotDeny, gotAllow, gotLog := authzPolicies.ListAuthorizationPolicies(
 				tc.ns, []labels.Instance{tc.workloadLabels})
 			if !reflect.DeepEqual(tc.wantAllow, gotAllow) {
 				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, gotAllow)
 			}
 			if !reflect.DeepEqual(tc.wantDeny, gotDeny) {
 				t.Errorf("wantDeny:%v\n but got: %v\n", tc.wantDeny, gotDeny)
+			}
+			if !reflect.DeepEqual(tc.wantLog, gotLog) {
+				t.Errorf("wantLog:%v\n but got: %v\n", tc.wantLog, gotLog)
 			}
 		})
 	}

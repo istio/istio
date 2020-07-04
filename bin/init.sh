@@ -120,7 +120,7 @@ function download_wasm_if_necessary () {
 
 # Included for support on macOS.
 function realpath () {
-  python -c "import os; print(os.path.realpath('$1'))"
+  python3 -c "import os; print(os.path.realpath('$1'))"
 }
 
 if [[ -z "${PROXY_REPO_SHA:-}" ]] ; then
