@@ -9,12 +9,7 @@ spec:
   # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
     defaultConfig:
-      proxyMetadata:
-        # If empty, DNS capture is disabled.
-        # If set, intercept UDP port :53 and redirect to localhost:15013
-        # Currently only 'ALL' capture is supported - we may refine it if we want
-        # finer grained control.
-        ISTIO_META_DNS_CAPTURE: "ALL"
+      proxyMetadata: {}
     enablePrometheusMerge: true
     # Opt-out of global http2 upgrades.
     # Destination rule is used to opt-in.
