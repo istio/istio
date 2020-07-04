@@ -47,7 +47,6 @@ export REPO_ROOT=/work
     --env-file <(env | grep -v ${ENV_BLOCKLIST}) \
     -e IN_BUILD_CONTAINER=1 \
     -e TZ="${TIMEZONE:-$TZ}" \
-    --cpus=4 -m=3G \
     --mount "type=bind,source=${PWD},destination=/work,consistency=delegated" \
     --mount "type=volume,source=go,destination=/go,consistency=delegated" \
     --mount "type=volume,source=gocache,destination=/gocache,consistency=delegated" \
