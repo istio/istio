@@ -123,13 +123,11 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 // when endpoint event came. Try to reprocess it to see if pod is available or endpoint it self
 // might have been deleted.
 func (e *kubeEndpoints) reSyncEndpoints(stopCh <-chan struct{}) {
-	fmt.Println("Triggering Resync Job....")
 	ticker := time.NewTicker(5 * time.Second) // TODO: Make this resync period configurable.
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			fmt.Println("Resycing......")
 			for ip := range e.needResync {
 				if endpoints, f := e.needResync[ip]; f {
 					for ep := range endpoints {
