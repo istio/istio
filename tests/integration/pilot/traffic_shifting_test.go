@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/tests/integration/pilot/vm"
-
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/framework"
@@ -89,7 +87,7 @@ func TestTrafficShifting(t *testing.T) {
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&instances[0], echoVMConfig(ns, "a")).
 				With(&instances[1], echoVMConfig(ns, "b")).
-				With(&instances[2], echoVMConfig(ns, "c", vm.DefaultVMImage)).
+				With(&instances[2], echoVMConfig(ns, "c")).
 				With(&instances[3], echoVMConfig(ns, "d")).
 				BuildOrFail(t)
 

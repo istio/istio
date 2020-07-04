@@ -191,16 +191,19 @@ data:
 	// connecting, etc we run it inside a pod. The pod has pretty much all Kubernetes features disabled (DNS and SA token mount)
 	// such that we can adequately simulate a VM and DIY the bootstrapping.
 	vmDeploymentYaml = `
+{{- $subsets := .Subsets }}
 {{- $cluster := .Cluster }}
+{{- range $i, $subset := $subsets }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Service }}
+  name: {{ $.Service }}-{{ $subset.Version }}
 spec:
   replicas: 1
   selector:
     matchLabels:
       istio.io/test-vm: {{ $.Service }}
+      istio.io/test-vm-version: {{ $subset.Version }}
   template:
     metadata:
       annotations:
@@ -209,6 +212,7 @@ spec:
       labels:
         # Label should not be selected. We will create a workload entry instead
         istio.io/test-vm: {{ $.Service }}
+        istio.io/test-vm-version: {{ $subset.Version }}
     spec:
       # Disable kube-dns, to mirror VM
       dnsPolicy: Default
@@ -232,11 +236,10 @@ spec:
           sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
-          # sudo sh -c 'echo "1.1.1.1 pod.{{$.Namespace}}.svc.cluster.local" >> /etc/hosts'
 
           # TODO: run with systemctl?
           sudo -E /usr/local/bin/istio-start.sh&
-          /usr/local/bin/server --cluster "{{ $cluster }}" \
+          /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
              --grpc \
@@ -278,7 +281,9 @@ spec:
         name: {{ $.Service }}-istio-token
       - configMap:
           name: istio-ca-root-cert
-        name: istio-ca-root-cert`
+        name: istio-ca-root-cert
+{{- end}}
+`
 )
 
 var (
