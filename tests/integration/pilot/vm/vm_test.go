@@ -15,10 +15,13 @@
 package vm
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common/response"
+	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -85,11 +88,11 @@ spec:
 				},
 			}
 
-			var pod echo.Instance
+			var k8sService echo.Instance
 			// builder to build the instances iteratively
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&pod, echo.Config{
-					Service:   "pod",
+				With(&k8sService, echo.Config{
+					Service:   "k8s",
 					Namespace: ns,
 					Ports:     ports,
 					Pilot:     p,
@@ -110,23 +113,50 @@ spec:
 					}).
 					BuildOrFail(t)
 
-				t.Logf("Testing %v", vmImages[i])
-				// Check pod -> VM
-				retry.UntilSuccessOrFail(ctx, func() error {
-					r, err := pod.Call(echo.CallOptions{Target: vm, PortName: "http"})
+				ctx.NewSubTest(fmt.Sprintf("K8S service to VM service reachability using %v", vmImages[i])).
+					Run(func(ctx framework.TestContext) {
+						// Check pod -> VM
+						retry.UntilSuccessOrFail(ctx, func() error {
+							r, err := k8sService.Call(echo.CallOptions{Target: vm, PortName: "http"})
+							if err != nil {
+								return err
+							}
+							return r.CheckOK()
+						}, retry.Delay(100*time.Millisecond))
+					})
+
+				ctx.NewSubTest(fmt.Sprintf("VM to k8s service reachability using %v", vmImages[i])).
+					Run(func(ctx framework.TestContext) {
+						// Check VM -> pod
+						retry.UntilSuccessOrFail(ctx, func() error {
+							r, err := vm.Call(echo.CallOptions{Target: k8sService, PortName: "http"})
+							if err != nil {
+								return err
+							}
+							return r.CheckOK()
+						}, retry.Delay(100*time.Millisecond))
+					})
+
+				ctx.NewSubTest(fmt.Sprintf("proxy resolves unknown hosts using system resolver using %v",
+					vmImages[i])).Run(func(ctx framework.TestContext) {
+					w := vm.WorkloadsOrFail(ctx)[0]
+					externalURL := "www.google.com"
+					responses, err := w.ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
+						Url:   externalURL,
+						Count: 1,
+					})
 					if err != nil {
-						return err
+						ctx.Fatalf("failed to make request from echo instance to %s: %v", externalURL, err)
 					}
-					return r.CheckOK()
-				}, retry.Delay(100*time.Millisecond))
-				// Check VM -> pod
-				retry.UntilSuccessOrFail(ctx, func() error {
-					r, err := vm.Call(echo.CallOptions{Target: pod, PortName: "http"})
-					if err != nil {
-						return err
+					if len(responses) < 1 {
+						ctx.Fatalf("received no responses from request to %s", externalURL)
 					}
-					return r.CheckOK()
-				}, retry.Delay(100*time.Millisecond))
+					resp := responses[0]
+
+					if response.StatusCodeOK != resp.Code {
+						ctx.Errorf("expected status %s but got %s", response.StatusCodeOK, resp.Code)
+					}
+				})
 			}
 		})
 }
