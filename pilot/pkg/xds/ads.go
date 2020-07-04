@@ -60,12 +60,6 @@ type DiscoveryStream interface {
 	grpc.ServerStream
 }
 
-type AckInfo struct {
-	VersionSent string
-	NonceSent   string
-	NonceAcked  string
-}
-
 // Connection is a listener connection type.
 type Connection struct {
 	// Mutex to protect changes to this XDS connection
@@ -91,9 +85,10 @@ type Connection struct {
 	RouteConfigs map[string]*route.RouteConfiguration `json:"-"`
 	CDSClusters  []*cluster.Cluster
 
-	// Last nonce sent and ack'd (timestamps) used for debugging
-	AckInfo map[string]*AckInfo
+	// Active contains the list of watched resources for the connection, keyed by the TypeUrl.
+	Active map[string]*model.WatchedResource
 
+	// TODO(ramaraochavali): Remove Clusters and Routes - use resource names in WatchedResource instead.
 	// current list of clusters monitored by the client
 	Clusters []string
 
@@ -103,6 +98,7 @@ type Connection struct {
 	// Routes is the list of watched Routes.
 	Routes []string
 
+	// TODO(ramaraochavali): Remove LDSWatch and CDSWatch. Dervice it from Active map.
 	// LDSWatch is set if the remote server is watching Listeners
 	LDSWatch bool
 	// CDSWatch is set if the remote server is watching Clusters
@@ -139,10 +135,26 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		Clusters:     []string{},
 		Connect:      time.Now(),
 		stream:       stream,
-		AckInfo:      map[string]*AckInfo{},
+		Active:       map[string]*model.WatchedResource{},
 		LDSListeners: []*listener.Listener{},
 		RouteConfigs: map[string]*route.RouteConfiguration{},
 	}
+}
+
+// nolint
+func (c *Connection) NonceAcked(typeUrl string) string {
+	if c.Active != nil && c.Active[typeUrl] != nil {
+		return c.Active[typeUrl].NonceAcked
+	}
+	return ""
+}
+
+// nolint
+func (c *Connection) NonceSent(typeUrl string) string {
+	if c.Active != nil && c.Active[typeUrl] != nil {
+		return c.Active[typeUrl].NonceSent
+	}
+	return ""
 }
 
 // isExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
@@ -160,20 +172,6 @@ func isExpectedGRPCError(err error) bool {
 		return true
 	}
 	return false
-}
-
-func (c *Connection) NonceAcked(typeUrl string) string {
-	if c.AckInfo != nil && c.AckInfo[typeUrl] != nil {
-		return c.AckInfo[typeUrl].NonceAcked
-	}
-	return ""
-}
-
-func (c *Connection) NonceSent(typeUrl string) string {
-	if c.AckInfo != nil && c.AckInfo[typeUrl] != nil {
-		return c.AckInfo[typeUrl].NonceSent
-	}
-	return ""
 }
 
 func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
@@ -469,11 +467,14 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 	return nil
 }
 
+// shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
+// using WatchedResource for previous state and discovery request for the current state.
 func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring.Metric, request *discovery.DiscoveryRequest) bool {
-	previousAckInfo := con.AckInfo[request.TypeUrl]
 	stype := v3.GetShortType(request.TypeUrl)
 
-	// Check if there is an error in previous request. We do not have to respond in that case.
+	// If there is an error in request that means previous response is errorneous.
+	// We do not have to respond in that case. In this case request's version info
+	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
 		errCode := codes.Code(request.ErrorDetail.Code)
 		adsLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
@@ -484,22 +485,31 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 		return false
 	}
 
+	previousInfo := con.Active[request.TypeUrl]
+
+	// This is not a first request, we should see if it is a ACK/NACK.
 	if request.ResponseNonce != "" {
-		if previousAckInfo != nil && request.ResponseNonce != previousAckInfo.NonceSent {
-			adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype, con.ConID, request.ResponseNonce, previousAckInfo.NonceSent)
+		// If there is mismatch in the nonce, that is a case of expired/stale nonce.
+		// A nonce becomes stale following a newer nonce being sent to Envoy.
+		if previousInfo != nil && request.ResponseNonce != previousInfo.NonceSent {
+			adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
+				con.ConID, request.ResponseNonce, previousInfo.NonceSent)
 			xdsExpiredNonce.Increment()
 			return false
 		}
 
+		// If it comes here, that means nonce and version match. This an ACK. We should
+		// record the ack details and respond if there is a change in resource names.
 		con.mu.Lock()
-		if con.AckInfo[request.TypeUrl] == nil {
-			con.AckInfo[request.TypeUrl] = &AckInfo{}
+		if con.Active[request.TypeUrl] == nil {
+			con.Active[request.TypeUrl] = &model.WatchedResource{}
 		}
-		con.AckInfo[request.TypeUrl].NonceAcked = request.ResponseNonce
+		con.Active[request.TypeUrl].VersionAcked = request.VersionInfo
+		con.Active[request.TypeUrl].NonceAcked = request.ResponseNonce
 		con.mu.Unlock()
 
-		// Envoy can send two DiscoveryRequests with same version and nonce when it detects a new resource.
-		// We should respond if they change.
+		// Envoy can send two DiscoveryRequests with same version and nonce when it detects
+		// a new resource. We should respond if they change.
 		var previousResources []string
 		switch request.TypeUrl {
 		case v2.EndpointType, v3.EndpointType:
@@ -875,11 +885,11 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		err := conn.stream.Send(res)
 		conn.mu.Lock()
 		if res.Nonce != "" {
-			if conn.AckInfo[res.TypeUrl] == nil {
-				conn.AckInfo[res.TypeUrl] = &AckInfo{}
+			if conn.Active[res.TypeUrl] == nil {
+				conn.Active[res.TypeUrl] = &model.WatchedResource{}
 			}
-			conn.AckInfo[res.TypeUrl].NonceSent = res.Nonce
-			conn.AckInfo[res.TypeUrl].VersionSent = res.VersionInfo
+			conn.Active[res.TypeUrl].NonceSent = res.Nonce
+			conn.Active[res.TypeUrl].VersionSent = res.VersionInfo
 		}
 		conn.mu.Unlock()
 		done <- err
