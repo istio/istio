@@ -141,22 +141,6 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	}
 }
 
-// nolint
-func (c *Connection) NonceAcked(typeUrl string) string {
-	if c.Active != nil && c.Active[typeUrl] != nil {
-		return c.Active[typeUrl].NonceAcked
-	}
-	return ""
-}
-
-// nolint
-func (c *Connection) NonceSent(typeUrl string) string {
-	if c.Active != nil && c.Active[typeUrl] != nil {
-		return c.Active[typeUrl].NonceSent
-	}
-	return ""
-}
-
 // isExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
 // things are operating normally. This is basically capturing when the client disconnects.
 func isExpectedGRPCError(err error) bool {
@@ -904,4 +888,20 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		t.Stop()
 		return err
 	}
+}
+
+// nolint
+func (conn *Connection) NonceAcked(typeUrl string) string {
+	if conn.Active != nil && conn.Active[typeUrl] != nil {
+		return conn.Active[typeUrl].NonceAcked
+	}
+	return ""
+}
+
+// nolint
+func (conn *Connection) NonceSent(typeUrl string) string {
+	if conn.Active != nil && conn.Active[typeUrl] != nil {
+		return conn.Active[typeUrl].NonceSent
+	}
+	return ""
 }
