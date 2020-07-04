@@ -46,12 +46,15 @@ var (
 	// be handled by the proxy.
 	savePath = env.RegisterStringVar("XDS_SAVE", "",
 		"If set, the XDS proxy will save a snapshot of the received config")
-)
 
-var (
 	// Can be used by Envoy or istioctl debug tools. Recommended value: 127.0.0.1:15002
 	xdsAddr = env.RegisterStringVar("XDS_LOCAL", "",
 		"Address for a local XDS proxy. If empty, the proxy is disabled")
+
+	// To configure envoy to use the proxy we'll set discoveryAddress to localhost
+	xdsUpstream = env.RegisterStringVar("XDS_UPSTREAM", "",
+		"Address for upstream XDS server. If not set, discoveryAddress is used")
+
 )
 
 // initXDS starts an XDS proxy server, using the adsc connection.
@@ -100,7 +103,6 @@ func (sa *Agent) initXDS() {
 	s.DiscoveryServer.Register(sa.localGrpcServer)
 	reflection.Register(sa.localGrpcServer)
 	sa.LocalXDSListener = sa.localListener
-
 }
 
 // startXDS will start the XDS proxy and client. Will connect to Istiod (or XDS server),
@@ -113,7 +115,11 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.Sec
 		return nil
 	}
 	// Same as getPilotSan
-	discHost := strings.Split(proxyConfig.DiscoveryAddress, ":")[0]
+	addr := xdsUpstream.Get()
+	if addr == "" {
+		addr = proxyConfig.DiscoveryAddress
+	}
+	discHost := strings.Split(addr, ":")[0]
 	if discHost == "localhost" {
 		discHost = "istiod.istio-system.svc"
 	}

@@ -153,7 +153,7 @@ func testAdscTLS(t *testing.T, creds cache.SecretManager) {
 			Secrets:   creds,
 			Watch: []string{
 				v3.ClusterType,
-				v2.TypeURLConnections,
+				xds.TypeURLConnections,
 				collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
 		})
 	if err != nil {
