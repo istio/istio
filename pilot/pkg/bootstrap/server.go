@@ -261,8 +261,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 	}
-
-	// Only operates if /var/lib/istio/validation exists
 	if err := s.initConfigValidation(args); err != nil {
 		return nil, fmt.Errorf("error initializing config validator: %v", err)
 	}
@@ -594,10 +592,16 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error 
 	log.Info("initializing secure discovery service")
 
 	cfg := &tls.Config{
-		GetCertificate:        s.getIstiodCertificate,
-		ClientAuth:            tls.VerifyClientCertIfGiven,
-		ClientCAs:             s.peerCertVerifier.GetGeneralCertPool(),
-		VerifyPeerCertificate: s.peerCertVerifier.VerifyPeerCert,
+		GetCertificate: s.getIstiodCertificate,
+		ClientAuth:     tls.VerifyClientCertIfGiven,
+		ClientCAs:      s.peerCertVerifier.GetGeneralCertPool(),
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			err := s.peerCertVerifier.VerifyPeerCert(rawCerts, verifiedChains)
+			if err != nil {
+				log.Infof("Could not verify certificate: %v", err)
+			}
+			return err
+		},
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
