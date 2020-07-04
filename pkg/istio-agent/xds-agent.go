@@ -54,7 +54,6 @@ var (
 	// To configure envoy to use the proxy we'll set discoveryAddress to localhost
 	xdsUpstream = env.RegisterStringVar("XDS_UPSTREAM", "",
 		"Address for upstream XDS server. If not set, discoveryAddress is used")
-
 )
 
 // initXDS starts an XDS proxy server, using the adsc connection.
