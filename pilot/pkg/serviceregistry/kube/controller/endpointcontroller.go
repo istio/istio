@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"fmt"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -55,6 +56,7 @@ func (e *kubeEndpoints) HasSynced() bool {
 }
 
 func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
+	fmt.Println("Run ^^^^^")
 	e.informer.Run(stopCh)
 	go e.reSyncEndpoints(stopCh)
 }
@@ -121,11 +123,13 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 // when endpoint event came. Try to reprocess it to see if pod is available or endpoint it self
 // might have been deleted.
 func (e *kubeEndpoints) reSyncEndpoints(stopCh <-chan struct{}) {
-	ticker := time.NewTicker(1 * time.Minute) // TODO: Make this resync period configurable.
+	fmt.Println("Triggering Resync Job....")
+	ticker := time.NewTicker(5 * time.Second) // TODO: Make this resync period configurable.
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
+			fmt.Println("Resycing......")
 			for ip := range e.needResync {
 				if endpoints, f := e.needResync[ip]; f {
 					for ep := range endpoints {
@@ -155,6 +159,7 @@ func (e *kubeEndpoints) reSyncEndpoints(stopCh <-chan struct{}) {
 					delete(e.needResync, ip)
 				}
 			}
+			syncQueueSize.Record(float64(len(e.needResync)))
 		case <-stopCh:
 			return
 		}

@@ -77,14 +77,14 @@ var (
 		monitoring.WithLabels(typeTag, eventTag),
 	)
 
-	endpointsWithNoPods = monitoring.NewSum(
-		"pilot_k8s_endpoints_with_no_pods",
-		"Endpoints that does not have any corresponding pods.")
+	syncQueueSize = monitoring.NewGauge(
+		"pilot_k8s_endpoints_sync_queue_size",
+		"Endpoints queue size that needs resync.")
 )
 
 func init() {
 	monitoring.MustRegister(k8sEvents)
-	monitoring.MustRegister(endpointsWithNoPods)
+	monitoring.MustRegister(syncQueueSize)
 }
 
 func incrementEvent(kind, event string) {

@@ -175,10 +175,11 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	// Run in initiation to prevent calling each test
 	// TODO: fix it, so we can remove `stop` channel
 	go c.Run(c.stop)
+
 	clients.RunAndWait(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
 	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
-		c.serviceInformer.HasSynced)
+		c.serviceInformer.HasSynced, c.endpoints.HasSynced)
 	return c, fx
 }
 
@@ -1243,6 +1244,11 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 		Endpoints: []discoveryv1alpha1.Endpoint{
 			{
 				Addresses: ips,
+				TargetRef: &coreV1.ObjectReference{
+					Kind:      "Pod",
+					Name:      name,
+					Namespace: namespace,
+				},
 			},
 		},
 		Ports: esps,
@@ -1594,7 +1600,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			pod1 := generatePod("172.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
 			pod2 := generatePod("172.0.1.2", "pod2", "nsA", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
 
-			pods := []*coreV1.Pod{pod1, pod2}
+			pods := []*coreV1.Pod{pod1}
 			nodes := []*coreV1.Node{
 				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
 				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2", IstioSubzoneLabel: "subzone2"}),
@@ -1627,7 +1633,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 
 			// Now delete pod2, from PodCache and send Endpoints. This simulates the case that endpoint comes
 			// when PodCache does not yet have entry for the pod.
-			_ = controller.pods.onEvent(pod2, model.EventDelete)
+			//_ = controller.pods.onEvent(pod2, model.EventDelete)
 
 			// create service
 			createService(controller, "pod2", "nsA", nil,
@@ -1639,10 +1645,27 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			pod2Ips := []string{"172.0.1.2"}
 			createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)
 
+			pods = []*coreV1.Pod{pod2}
+
+			addPods(t, controller, pods...)
+			for _, pod := range pods {
+				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+					t.Fatalf("wait for pod err: %v", err)
+				}
+				// pod first time occur will trigger proxy push
+				if ev := fx.Wait("proxy"); ev == nil {
+					t.Fatal("Timeout creating service")
+				}
+			}
+
+			_ = controller.pods.onEvent(pod2, model.EventAdd)
+
 			// Validate that EDS is not triggered with endpoints.
 			if ev := fx.Wait("eds"); ev != nil {
 				t.Fatalf("Unexpected endpoint event")
 			}
+
+			time.Sleep(2 * time.Second)
 		})
 	}
 }

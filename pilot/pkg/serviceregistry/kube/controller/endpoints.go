@@ -203,9 +203,10 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 						} else {
 							e.needResync[ea.IP].Insert(key)
 						}
+						syncQueueSize.Record(float64(len(e.needResync)))
+						continue
 					}
 				}
-				continue
 			}
 
 			builder := NewEndpointBuilder(e.c, pod)

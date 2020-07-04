@@ -172,9 +172,10 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 						} else {
 							esc.needResync[a].Insert(key)
 						}
+						syncQueueSize.Record(float64(len(esc.needResync)))
+						continue
 					}
 				}
-				continue
 			}
 
 			// For service without selector, maybe there are no related pods
