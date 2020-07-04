@@ -162,6 +162,20 @@ func isExpectedGRPCError(err error) bool {
 	return false
 }
 
+func (c *Connection) NonceAcked(typeUrl string) string {
+	if c.AckInfo != nil && c.AckInfo[typeUrl] != nil {
+		return c.AckInfo[typeUrl].NonceAcked
+	}
+	return ""
+}
+
+func (c *Connection) NonceSent(typeUrl string) string {
+	if c.AckInfo != nil && c.AckInfo[typeUrl] != nil {
+		return c.AckInfo[typeUrl].NonceSent
+	}
+	return ""
+}
+
 func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	firstReq := true
@@ -429,7 +443,7 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 		return nil
 	}
 	// TODO(ramaraochavali): This special handling is not needed for EDS. But tests are failing without this.
-	// Need to investigate if there is a bug in test client.
+	// Need to investigate if there is a bug in adsc.
 	if discReq.ResourceNames == nil && discReq.ResponseNonce != "" {
 		return nil
 	}
