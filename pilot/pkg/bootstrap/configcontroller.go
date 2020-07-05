@@ -375,7 +375,7 @@ func (s *Server) mcpController(
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
-	c, err := crdclient.New(s.kubeClients, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
+	c, err := crdclient.New(s.kubeClient, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
 	if err != nil {
 		return nil, err
 	}
