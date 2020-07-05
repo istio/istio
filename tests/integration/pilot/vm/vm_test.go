@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strings"
 	"testing"
 	"time"
 
@@ -154,7 +153,7 @@ spec:
 				ctx.NewSubTest(fmt.Sprintf("proxy resolves unknown hosts using system resolver using %v",
 					vmImages[i])).Run(func(ctx framework.TestContext) {
 					w := vm.WorkloadsOrFail(ctx)[0]
-					externalURL := "www.google.com"
+					externalURL := "http://www.google.com"
 					responses, err := w.ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
 						Url:   externalURL,
 						Count: 1,
@@ -206,7 +205,7 @@ spec:
 					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
 					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
 
-					sendTraffic(t, 100, k8sService, vm, []string{fmt.Sprintf("vm-%v", i)}, []int32{50, 50}, 10.0)
+					sendTraffic(t, 100, k8sService, vm, []string{"v1", "v2"}, []int32{50, 50}, 10.0)
 
 				})
 
@@ -215,7 +214,7 @@ spec:
 }
 
 // TODO: dedup from main traffic shift test
-func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorThreshold float64) {
+func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, versions []string, weight []int32, errorThreshold float64) {
 	t.Helper()
 	// Send `batchSize` requests and ensure they are distributed as expected.
 	retry.UntilSuccessOrFail(t, func() error {
@@ -230,24 +229,24 @@ func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []st
 		var totalRequests int
 		hitCount := map[string]int{}
 		for _, r := range resp {
-			for _, h := range hosts {
-				if strings.HasPrefix(r.Hostname, h+"-") {
-					hitCount[h]++
+			for _, v := range versions {
+				if r.Version == v {
+					hitCount[v]++
 					totalRequests++
 					break
 				}
 			}
 		}
 
-		for i, v := range hosts {
-			percentOfTrafficToHost := float64(hitCount[v]) * 100.0 / float64(totalRequests)
-			deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToHost)
+		for i, v := range versions {
+			percentOfTrafficToVersion := float64(hitCount[v]) * 100.0 / float64(totalRequests)
+			deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToVersion)
 			if errorThreshold-deltaFromExpected < 0 {
-				return fmt.Errorf("unexpected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
-					v, weight[i], percentOfTrafficToHost, errorThreshold)
+				return fmt.Errorf("unexpected traffic weight for version %v. Expected %d%%, got %g%% (thresold: %g%%)",
+					v, weight[i], percentOfTrafficToVersion, errorThreshold)
 			}
-			t.Logf("Got expected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
-				v, weight[i], percentOfTrafficToHost, errorThreshold)
+			t.Logf("Got expected traffic weight for version %v. Expected %d%%, got %g%% (thresold: %g%%)",
+				v, weight[i], percentOfTrafficToVersion, errorThreshold)
 		}
 		return nil
 	}, retry.Delay(time.Second))
