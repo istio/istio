@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 
@@ -1012,7 +1013,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 			if tt.virtualServices != nil {
-				ps.publicVirtualServices = append(ps.publicVirtualServices, tt.virtualServices...)
+				ps.publicVirtualServicesByGateway[constants.IstioMeshGateway] = append(ps.publicVirtualServicesByGateway[constants.IstioMeshGateway], tt.virtualServices...)
 			}
 
 			sidecarConfig := tt.sidecarConfig
@@ -1278,7 +1279,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 				},
 			}
 			ps.publicServices = append(ps.publicServices, services...)
-			ps.publicVirtualServices = append(ps.publicVirtualServices, virtualServices...)
+			ps.publicVirtualServicesByGateway[constants.IstioMeshGateway] = append(ps.publicVirtualServicesByGateway[constants.IstioMeshGateway], virtualServices...)
 			ps.SetDestinationRules(destinationRules)
 			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {
