@@ -101,14 +101,27 @@ spec:
 				},
 			}
 
-			var k8sService echo.Instance
+			clusterServiceHostname := "cluster"
+			headlessServiceHostname := "headless"
+			var k8sClusterIPService echo.Instance
+			var k8sHeadlessService echo.Instance
 			// builder to build the instances iteratively
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&k8sService, echo.Config{
-					Service:   "k8s",
+				With(&k8sClusterIPService, echo.Config{
+					Service:   clusterServiceHostname,
 					Namespace: ns,
 					Ports:     ports,
 					Pilot:     p,
+				}).
+				BuildOrFail(t)
+
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&k8sHeadlessService, echo.Config{
+					Service:   headlessServiceHostname,
+					Namespace: ns,
+					Ports:     ports,
+					Pilot:     p,
+					Headless:  true,
 				}).
 				BuildOrFail(t)
 
@@ -126,31 +139,61 @@ spec:
 					}).
 					BuildOrFail(t)
 
-				ctx.NewSubTest(fmt.Sprintf("K8S service to VM service reachability using %v", vmImages[i])).
-					Run(func(ctx framework.TestContext) {
-						// Check pod -> VM
-						retry.UntilSuccessOrFail(ctx, func() error {
-							r, err := k8sService.Call(echo.CallOptions{Target: vm, PortName: "http"})
-							if err != nil {
-								return err
-							}
-							return r.CheckOK()
-						}, retry.Delay(100*time.Millisecond))
-					})
+				testCases := []struct {
+					name string
+					from echo.Instance
+					to   echo.Instance
+					host string
+				}{
+					{
+						name: "k8s to vm",
+						from: k8sClusterIPService,
+						to:   vm,
+					},
+					{
+						name: "dns: VM to k8s cluster IP service fqdn host",
+						from: vm,
+						to:   k8sClusterIPService,
+						host: k8sClusterIPService.Config().FQDN(),
+					},
+					{
+						name: "dns: VM to k8s cluster IP service name.namespace host",
+						from: vm,
+						to:   k8sClusterIPService,
+						host: clusterServiceHostname + "." + ns.Name(),
+					},
+					{
+						name: "dns: VM to k8s cluster IP service short name host",
+						from: vm,
+						to:   k8sClusterIPService,
+						host: clusterServiceHostname,
+					},
+					{
+						name: "dns: VM to k8s headless service short name host",
+						from: vm,
+						to:   k8sHeadlessService,
+						host: headlessServiceHostname,
+					},
+				}
 
-				ctx.NewSubTest(fmt.Sprintf("VM to k8s service reachability using %v", vmImages[i])).
-					Run(func(ctx framework.TestContext) {
-						// Check VM -> pod
-						retry.UntilSuccessOrFail(ctx, func() error {
-							r, err := vm.Call(echo.CallOptions{Target: k8sService, PortName: "http"})
-							if err != nil {
-								return err
-							}
-							return r.CheckOK()
-						}, retry.Delay(100*time.Millisecond))
-					})
+				for _, tt := range testCases {
+					ctx.NewSubTest(fmt.Sprintf("%s using image %v", tt.name, vmImages[i])).
+						Run(func(ctx framework.TestContext) {
+							retry.UntilSuccessOrFail(ctx, func() error {
+								r, err := tt.from.Call(echo.CallOptions{
+									Target:   tt.to,
+									PortName: "http",
+									Host:     tt.host,
+								})
+								if err != nil {
+									return err
+								}
+								return r.CheckOK()
+							}, retry.Delay(100*time.Millisecond))
+						})
+				}
 
-				ctx.NewSubTest(fmt.Sprintf("proxy resolves unknown hosts using system resolver using %v",
+				ctx.NewSubTest(fmt.Sprintf("VM proxy resolves unknown hosts using system resolver using %v",
 					vmImages[i])).Run(func(ctx framework.TestContext) {
 					w := vm.WorkloadsOrFail(ctx)[0]
 					externalURL := "http://www.google.com"
@@ -159,10 +202,10 @@ spec:
 						Count: 1,
 					})
 					if err != nil {
-						ctx.Fatalf("failed to make request from echo instance to %s: %v", externalURL, err)
+						ctx.Fatalf("failed to make request from VM echo instance to %s: %v", externalURL, err)
 					}
 					if len(responses) < 1 {
-						ctx.Fatalf("received no responses from request to %s", externalURL)
+						ctx.Fatalf("received no responses from VM request to %s", externalURL)
 					}
 					resp := responses[0]
 
@@ -201,14 +244,10 @@ spec:
 						50,
 						50,
 					}
-
 					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
 					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
-
-					sendTraffic(t, 100, k8sService, vm, []string{"v1", "v2"}, []int32{50, 50}, 10.0)
-
+					sendTraffic(t, 100, k8sClusterIPService, vm, []string{"v1", "v2"}, []int32{50, 50}, 10.0)
 				})
-
 			}
 		})
 }

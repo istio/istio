@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"time"
 
-	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	dnstable "github.com/envoyproxy/go-control-plane/envoy/data/dns/v3"
@@ -27,6 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/constants"
 )
@@ -83,7 +83,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		},
 	}
 
-	out := &listener.Listener{
+	return &listener.Listener{
 		Name:             dnsListenerName,
 		Address:          address,
 		ListenerFilters:  []*listener.ListenerFilter{dnsFilter},
@@ -91,11 +91,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		// DNS listener requires SO_REUSEPORT option to be set esp when concurrency >1
 		ReusePort: true,
 	}
-
-	if push.Mesh.AccessLogFile != "" {
-		out.AccessLog = []*accesslog.AccessLog{maybeBuildAccessLog(push.Mesh)}
-	}
-	return out
 }
 
 func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, push *model.PushContext) *dnstable.DnsTable {
@@ -132,27 +127,68 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 		if svc.Hostname.IsWildCarded() {
 			continue
 		}
-		address := svc.GetServiceAddressForProxy(node)
+		svcAddress := svc.GetServiceAddressForProxy(node)
+		var addressList []string
 
 		// The IP will be unspecified here if its headless service or if the auto
 		// IP allocation logic for service entry was unable to allocate an IP.
-		if address == constants.UnspecifiedIP {
-			// TODO: For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
-			// In addition, need to have an entry per pod hostname of stateful set
-			continue
+		if svcAddress == constants.UnspecifiedIP {
+			// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
+			// TODO: Need to have an entry per pod hostname of stateful set but for this, we need to parse
+			// the stateful set object, associate the object with the appropriate kubernetes headless service
+			// and then derive the stable network identities.
+			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
+				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
+				// TODO: this is used in two places now. Needs to be cached as part of the headless service
+				// object to avoid the costly lookup in the registry code
+				if instances, err := push.InstancesByPort(svc, svc.Ports[0].Port, nil); err == nil {
+					for _, instance := range instances {
+						// TODO: should we skip the node's own IP like we do in listener?
+						addressList = append(addressList, instance.Endpoint.Address)
+					}
+				}
+			}
+
+			if len(addressList) == 0 {
+				// could not reliably determine the addresses of endpoints of headless service
+				// or this is not a k8s service
+				continue
+			}
+		} else {
+			addressList = append(addressList, svcAddress)
 		}
 
 		virtualDomains = append(virtualDomains, &dnstable.DnsTable_DnsVirtualDomain{
-			// TODO: if we are to do full DNS capture in pod, this is insufficient. We need to
-			//  have multiple formats for each FQDN such as name.namespace, name.namespace.svc, etc.
-			//  - for k8s services - very similar to buildAltVirtualHostsForService
 			Name: string(svc.Hostname),
 			Endpoint: &dnstable.DnsTable_DnsEndpoint{
 				EndpointConfig: &dnstable.DnsTable_DnsEndpoint_AddressList{
-					AddressList: &dnstable.DnsTable_AddressList{Address: []string{address}},
+					AddressList: &dnstable.DnsTable_AddressList{Address: addressList},
 				},
 			},
 		})
+
+		// If this is a kubernetes service, generate short form names (name.namespace) and
+		// just name (if proxy is in same namespace).
+		if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
+			virtualDomains = append(virtualDomains, &dnstable.DnsTable_DnsVirtualDomain{
+				Name: svc.Attributes.Name + "." + svc.Attributes.Namespace,
+				Endpoint: &dnstable.DnsTable_DnsEndpoint{
+					EndpointConfig: &dnstable.DnsTable_DnsEndpoint_AddressList{
+						AddressList: &dnstable.DnsTable_AddressList{Address: addressList},
+					},
+				},
+			})
+			if node.ConfigNamespace == svc.Attributes.Namespace {
+				virtualDomains = append(virtualDomains, &dnstable.DnsTable_DnsVirtualDomain{
+					Name: svc.Attributes.Name,
+					Endpoint: &dnstable.DnsTable_DnsEndpoint{
+						EndpointConfig: &dnstable.DnsTable_DnsEndpoint_AddressList{
+							AddressList: &dnstable.DnsTable_AddressList{Address: addressList},
+						},
+					},
+				})
+			}
+		}
 	}
 
 	return &dnstable.DnsTable{
