@@ -160,6 +160,11 @@ message CoreDNSConfig {
 
   // minReplicas setting for HorizontalPodAutoscaler.
   uint32 autoscaleMin = 16;
+
+  // K8s utilization setting for HorizontalPodAutoscaler target.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  CPUTargetUtilizationConfig cpu = 17 [deprecated=true];
 }
 
 // DefaultPodDisruptionBudgetConfig specifies the default pod disruption budget configuration.

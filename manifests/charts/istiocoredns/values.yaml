@@ -39,3 +39,6 @@ istiocoredns:
   # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
+
+  cpu:
+    targetAverageUtilization: 80
