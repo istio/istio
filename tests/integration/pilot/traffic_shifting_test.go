@@ -85,10 +85,10 @@ func TestTrafficShifting(t *testing.T) {
 
 			var instances [4]echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&instances[0], echoVMConfig(ns, "a")).
-				With(&instances[1], echoVMConfig(ns, "b")).
-				With(&instances[2], echoVMConfig(ns, "c")).
-				With(&instances[3], echoVMConfig(ns, "d")).
+				With(&instances[0], echoConfig(ns, "a")).
+				With(&instances[1], echoConfig(ns, "b")).
+				With(&instances[2], echoConfig(ns, "c")).
+				With(&instances[3], echoConfig(ns, "d")).
 				BuildOrFail(t)
 
 			hosts := []string{"b", "c", "d"}
@@ -115,23 +115,6 @@ func TestTrafficShifting(t *testing.T) {
 				})
 			}
 		})
-}
-
-// Wrapper to initialize instance with ServicePort without affecting other tests
-// If ServicePort is set to InstancePort, tests such as TestDescribe would fail
-func echoVMConfig(ns namespace.Instance, name string, vmImage ...string) echo.Config {
-	image := ""
-	if len(vmImage) > 0 {
-		image = vmImage[0]
-	}
-	config := echoConfig(ns, name)
-	config.DeployAsVM = image != ""
-	config.VMImage = image
-
-	// This is necessary because there exists a bug in WorkloadEntry
-	// The ServicePort has to be the same with the InstancePort
-	config.Ports[0].ServicePort = config.Ports[0].InstancePort
-	return config
 }
 
 func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorThreshold float64) {
