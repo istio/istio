@@ -227,8 +227,8 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          runAsUser: 1338
-          runAsGroup: 1338
+          runAsUser: 1337
+          runAsGroup: 1337
         command:
         - bash
         - -c
