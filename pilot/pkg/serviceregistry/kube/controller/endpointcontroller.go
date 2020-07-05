@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"fmt"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -56,7 +55,6 @@ func (e *kubeEndpoints) HasSynced() bool {
 }
 
 func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
-	fmt.Println("Run ^^^^^")
 	e.informer.Run(stopCh)
 	go e.reSyncEndpoints(stopCh)
 }
