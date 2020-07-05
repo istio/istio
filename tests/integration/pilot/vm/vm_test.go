@@ -169,10 +169,9 @@ spec:
 						host: clusterServiceHostname,
 					},
 					{
-						name: "dns: VM to k8s headless service short name host",
+						name: "dns: VM to k8s headless service",
 						from: vm,
 						to:   k8sHeadlessService,
-						host: headlessServiceHostname,
 					},
 				}
 
@@ -193,10 +192,10 @@ spec:
 						})
 				}
 
-				ctx.NewSubTest(fmt.Sprintf("VM proxy resolves unknown hosts using system resolver using %v",
+				ctx.NewSubTest(fmt.Sprintf("dns: VM proxy resolves unknown hosts using system resolver using %v",
 					vmImages[i])).Run(func(ctx framework.TestContext) {
 					w := vm.WorkloadsOrFail(ctx)[0]
-					externalURL := "http://www.google.com"
+					externalURL := "http://www.bing.com"
 					responses, err := w.ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
 						Url:   externalURL,
 						Count: 1,

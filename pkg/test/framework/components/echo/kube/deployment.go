@@ -263,6 +263,8 @@ spec:
         # Capture all DNS traffic in the VM and forward to Envoy
         - name: ISTIO_META_DNS_CAPTURE
           value: "ALL"
+        - name: ISTIO_NAMESPACE # start.sh reads this and converts to POD_NAMESPACE
+          value: {{ $.Namespace }}
         readinessProbe:
           httpGet:
             path: /healthz/ready
