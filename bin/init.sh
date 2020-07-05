@@ -208,15 +208,13 @@ else
   ISTIO_SIDECAR_NATIVE_PATH=${ISTIO_SIDECAR_LINUX_RELEASE_PATH}
 fi
 
-if [[ "$SIDECAR" = "envoy" ]]; then
-  # Donwload WebAssembly plugin files
-  WASM_RELEASE_DIR=${ISTIO_SIDECAR_LINUX_RELEASE_DIR}
-  for plugin in stats metadata_exchange
-  do
-    FILTER_WASM_URL="${ISTIO_SIDECAR_BASE_URL}/${plugin}-${ISTIO_SIDECAR_VERSION}.wasm"
-    download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.wasm
-  done
-fi
+# Donwload WebAssembly plugin files
+WASM_RELEASE_DIR=${ISTIO_SIDECAR_LINUX_RELEASE_DIR}
+for plugin in stats metadata_exchange
+do
+  FILTER_WASM_URL="${ISTIO_SIDECAR_BASE_URL}/${plugin}-${ISTIO_SIDECAR_VERSION}.wasm"
+  download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.wasm
+done
 
 # Copy native sidecar binary to ISTIO_OUT
 echo "Copying ${ISTIO_SIDECAR_NATIVE_PATH} to ${ISTIO_OUT}/${SIDECAR}"
