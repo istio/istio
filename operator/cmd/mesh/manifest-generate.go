@@ -22,18 +22,14 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/rest"
 
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-
-	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/pkg/log"
 )
 
 type manifestGenerateArgs struct {
@@ -98,7 +94,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	manifests, _, err := GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
+	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}
@@ -121,38 +117,6 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 	}
 
 	return nil
-}
-
-// GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
-// representation of path-values passed through the --set flag.
-// If force is set, validation errors will not cause processing to abort but will result in warnings going to the
-// supplied logger.
-func GenManifests(inFilename []string, setFlags []string, force bool,
-	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
-	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
-	if err != nil {
-		return nil, nil, err
-	}
-	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, force, l)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	t := translate.NewTranslator()
-
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS, t)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := cp.Run(); err != nil {
-		return nil, nil, err
-	}
-
-	manifests, errs := cp.RenderManifest()
-	if errs != nil {
-		return manifests, mergedIOPS, errs.ToError()
-	}
-	return manifests, mergedIOPS, nil
 }
 
 // orderedManifests generates a list of manifests from the given map sorted by the default object order

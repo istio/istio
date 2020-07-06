@@ -214,8 +214,21 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 
 // Delete resources associated with the custom resource instance
 func (h *HelmReconciler) Delete() error {
-	_, err := h.Prune(nil, true)
-	return err
+	iop := h.iop
+	if iop.Spec.Revision == "" {
+		return h.Prune(nil, true)
+	}
+	// Delete IOP with revision:
+	// for this case we update the status field to pending if there are still proxies pointing to this revision
+	// and we do not prune shared resources, same effect as `istioctl uninstall --revision foo` command.
+	status, err := h.PruneControlPlaneByRevisionWithController(iop.Spec.Namespace, iop.Spec.Revision)
+	if err != nil {
+		return err
+	}
+	if err := h.SetStatusComplete(status); err != nil {
+		return err
+	}
+	return nil
 }
 
 // DeleteAll deletes all Istio resources in the cluster.

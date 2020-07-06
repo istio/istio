@@ -25,6 +25,7 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -126,9 +127,9 @@ func uninstallByManifest(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninsta
 	)
 	if uiArgs.revision != "" {
 		setFlag := fmt.Sprintf("revision=%s", uiArgs.revision)
-		manifestMap, iop, err = GenManifests([]string{}, []string{setFlag}, true, restConfig, l)
+		manifestMap, iop, err = manifest.GenManifests([]string{}, []string{setFlag}, true, restConfig, l)
 	} else if uiArgs.filename != "" {
-		manifestMap, iop, err = GenManifests([]string{uiArgs.filename}, []string{}, true, restConfig, l)
+		manifestMap, iop, err = manifest.GenManifests([]string{uiArgs.filename}, []string{}, true, restConfig, l)
 	}
 	if err != nil {
 		return err

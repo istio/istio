@@ -17,7 +17,6 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
-	"istio.io/api/operator/v1alpha1"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
