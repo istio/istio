@@ -346,5 +346,7 @@ func getDefaultSelfSignedIstioCAOptions(fclient *fake.Clientset) *IstioCAOptions
 
 func getRootCertRotator(opts *IstioCAOptions) *SelfSignedCARootCertRotator {
 	ca, _ := NewIstioCA(opts)
+	ca.rootCertRotator.config.retryMax = time.Millisecond * 50
+	ca.rootCertRotator.config.retryInterval = time.Millisecond * 5
 	return ca.rootCertRotator
 }
