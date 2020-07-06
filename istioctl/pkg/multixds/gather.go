@@ -73,10 +73,10 @@ func queryEachShard(dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClie
 		}
 		defer fw.Close()
 		response, err := xds.GetXdsResponse(dr, &clioptions.CentralControlPlaneOptions{
-			Xds:                fw.Address(),
-			InsecureSkipVerify: true, // (Client certs won't be good for fw.Address())
-			CertDir:            centralOpts.CertDir,
-			Timeout:            centralOpts.Timeout,
+			Xds:     fw.Address(),
+			XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
+			CertDir: centralOpts.CertDir,
+			Timeout: centralOpts.Timeout,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
@@ -101,4 +101,11 @@ func mergeShards(responses []*xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryRespon
 	}
 
 	return &retval, nil
+}
+
+func makeSan(istioNamespace, revision string) string {
+	if revision == "" {
+		return fmt.Sprintf("istiod.%s.svc", istioNamespace)
+	}
+	return fmt.Sprintf("istiod-%s.%s.svc", revision, istioNamespace)
 }

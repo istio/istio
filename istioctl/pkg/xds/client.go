@@ -33,6 +33,7 @@ func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControl
 			Generator: "event",
 		}.ToStruct(),
 		InsecureSkipVerify: opts.InsecureSkipVerify,
+		XDSSAN:             opts.XDSSAN,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not dial: %w", err)

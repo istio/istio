@@ -41,6 +41,9 @@ type CentralControlPlaneOptions struct {
 
 	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
 	InsecureSkipVerify bool
+
+	// XDSSAN is the expected Subject Alternative Name of the XDS server
+	XDSSAN string
 }
 
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
@@ -56,6 +59,8 @@ func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command)
 		"Istiod pod port")
 	cmd.PersistentFlags().DurationVar(&o.Timeout, "timeout", time.Second*30,
 		"the duration to wait before failing")
+	cmd.PersistentFlags().StringVar(&o.XDSSAN, "xds-san", "",
+		"XDS Subject Alternative Name (for example istiod.istio-system.svc)")
 	cmd.PersistentFlags().BoolVar(&o.InsecureSkipVerify, "insecure", false,
 		"Skip server certificate and domain verification. (NOT SECURE!)")
 }
