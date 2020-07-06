@@ -20,8 +20,6 @@ import (
 
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
-
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
 // authenticate authenticates the ADS request using the configured authenticators.
@@ -46,12 +44,11 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok {
 		return nil, nil
 	}
-	var authenticatedID *authenticate.Caller
 	for _, authn := range s.Authenticators {
 		u, err := authn.Authenticate(ctx)
 		// If one authenticator passes, return
 		if u != nil && err == nil {
-			return authenticatedID.Identities, nil
+			return u.Identities, nil
 		}
 	}
 
