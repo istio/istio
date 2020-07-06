@@ -89,7 +89,8 @@ func TestStringMatcherRegex(t *testing.T) {
 					},
 				},
 			},
-		},{
+		},
+		{
 			name: "regexExpression",
 			v:    "+?",
 			want: &matcherpb.StringMatcher{
