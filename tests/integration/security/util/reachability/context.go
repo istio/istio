@@ -168,7 +168,7 @@ func (rc *Context) Run(testCases []TestCase) {
 			time.Sleep(10 * time.Second)
 			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
 
-			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
+			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked, rc.VM} {
 				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked, rc.VM} {
 					copts := &callOptions
 					// If test case specified service call options, use that instead.
