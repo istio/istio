@@ -21,8 +21,6 @@ helm3/canary:
 		-f manifests/charts/global.yaml  \
 		--set global.tag=${TAG} --set global.hub=${HUB} \
         --set revision=canary \
-        --set istiodGateway=1 \
-		--set global.imagePullPolicy=Always \
 		--set meshConfig.enablePrometheusMerge=true \
         --set meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_CAPTURE=ALL
 
