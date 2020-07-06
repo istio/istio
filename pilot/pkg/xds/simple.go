@@ -203,7 +203,10 @@ func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mode
 	//
 	// TODO: Envoy (or client) may send multiple requests without waiting for the ack.
 	// Need to change the signature of Generator to take Request as parameter.
-	_ = p.adsc.Send(w.LastRequest)
+	err := p.adsc.Send(w.LastRequest)
+	if err != nil {
+		log.Debuga("Failed to send, connection probably closed ", err)
+	}
 
 	return nil
 }

@@ -79,7 +79,6 @@ func (sa *Agent) initXDS() {
 	// TODO: forward any unknown request to the ADSC client, as a default
 	// -
 	g := s.DiscoveryServer.Generators
-	// To allow gRPC clients to connect to localhost, avoiding TLS complexity
 	g["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	epGen := &xds.EdsGenerator{Server: s.DiscoveryServer}
 	g["grpc/"+envoyv2.EndpointType] = epGen

@@ -406,6 +406,7 @@ func (a *ADSC) hasSynced() bool {
 		t := a.sync[s.Resource().GroupVersionKind().String()]
 		a.m.RUnlock()
 		if t.IsZero() {
+			log.Warn("NOT SYNCE" + s.Resource().GroupVersionKind().String())
 			return false
 		}
 	}
@@ -546,6 +547,10 @@ func (a *ADSC) handleRecv() {
 		// TODO: add hook to inject nacks
 
 		a.mutex.Lock()
+		if len(gvk) == 3 {
+			gt := resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
+			a.sync[gt.String()] = time.Now()
+		}
 		a.Received[msg.TypeUrl] = msg
 		// TODO: add hook to inject nacks
 		a.ack(msg)
@@ -1081,46 +1086,44 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 		return nil // Not MCP
 	}
 	// Generic - fill up the store
-	if a.Store != nil {
-		m := &mcp.Resource{}
-		err := types.UnmarshalAny(&types.Any{
-			TypeUrl: rsc.TypeUrl,
-			Value:   rsc.Value,
-		}, m)
+	if a.Store == nil {
+		return nil
+	}
+	m := &mcp.Resource{}
+	err := types.UnmarshalAny(&types.Any{
+		TypeUrl: rsc.TypeUrl,
+		Value:   rsc.Value,
+	}, m)
+	if err != nil {
+		return err
+	}
+	val, err := mcpToPilot(m)
+	if err != nil {
+		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
+		return err
+	}
+	val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
+	cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
+	if cfg == nil {
+		_, err = a.Store.Create(*val)
 		if err != nil {
 			return err
 		}
-		val, err := mcpToPilot(m)
+	} else {
+		_, err = a.Store.Update(*val)
 		if err != nil {
 			return err
 		}
-		val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
+	}
+	if a.LocalCacheDir != "" {
+		strResponse, err := json.MarshalIndent(val, "  ", "  ")
 		if err != nil {
-			adscLog.Warna("Invalid data ", err, " ", string(valBytes))
-		} else {
-			cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
-			if cfg == nil {
-				_, err = a.Store.Create(*val)
-				if err != nil {
-					return err
-				}
-			} else {
-				_, err = a.Store.Update(*val)
-				if err != nil {
-					return err
-				}
-			}
+			return err
 		}
-		if a.LocalCacheDir != "" {
-			strResponse, err := json.MarshalIndent(val, "  ", "  ")
-			if err != nil {
-				return err
-			}
-			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
-			if err != nil {
-				return err
-			}
+		err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
+			val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+		if err != nil {
+			return err
 		}
 	}
 
