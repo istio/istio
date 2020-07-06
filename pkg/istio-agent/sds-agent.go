@@ -64,7 +64,7 @@ var (
 
 	pluginNamesEnv             = env.RegisterStringVar(pluginNames, "", "").Get()
 	enableIngressGatewaySDSEnv = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
-	enableEgressGatewaySDSEnv = env.RegisterBoolVar(enableEgressGatewaySDS, false, "").Get()
+	enableEgressGatewaySDSEnv  = env.RegisterBoolVar(enableEgressGatewaySDS, false, "").Get()
 
 	trustDomainEnv = env.RegisterStringVar(trustDomain, "", "").Get()
 	secretTTLEnv   = env.RegisterDurationVar(secretTTL, 24*time.Hour,

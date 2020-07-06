@@ -168,6 +168,7 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	stsclient.SecureTokenEndpoint = mockSTSServer.URL + "/v1/identitybindingtoken"
 	arg := Options{
 		EnableIngressGatewaySDS: false,
+		EnableEgressGatewaySDS:  false,
 		EnableWorkloadSDS:       true,
 		RecycleInterval:         100 * time.Millisecond,
 		WorkloadUDSPath:         socket,
