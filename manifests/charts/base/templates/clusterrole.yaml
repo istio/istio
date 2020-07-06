@@ -54,8 +54,9 @@ rules:
     resources: ["*"]
 {{- if .Values.global.istiod.enableAnalysis }}
   - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-    verbs: ["get", "watch", "list"]
-    resources: ["*/status"]
+    verbs: ["update"]
+    # TODO: should be on just */status but wildcard is not supported
+    resources: ["*"]
 {{- end }}
 
   # auto-detect installed CRD definitions
