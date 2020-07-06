@@ -31,9 +31,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/status"
 
-	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -121,13 +119,12 @@ type Server struct {
 	clusterID   string
 	environment *model.Environment
 
-	kubeConfig   *rest.Config
-	kubeClient   kubernetes.Interface
-	kubeRegistry *kubecontroller.Controller
-	multicluster *kubecontroller.Multicluster
+	kubeRestConfig *rest.Config
+	kubeClient     kubelib.Client
+	kubeRegistry   *kubecontroller.Controller
+	multicluster   *kubecontroller.Multicluster
 
 	configController  model.ConfigStoreCache
-	metadataClient    metadata.Interface
 	ConfigStores      []model.ConfigStoreCache
 	serviceEntryStore *serviceentry.ServiceEntryStore
 
@@ -152,7 +149,7 @@ type Server struct {
 	fileWatcher filewatcher.FileWatcher
 
 	certController *chiron.WebhookController
-	ca             *ca.IstioCA
+	CA             *ca.IstioCA
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
 	certMu       sync.Mutex
@@ -261,8 +258,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 	}
-
-	// Only operates if /var/lib/istio/validation exists
 	if err := s.initConfigValidation(args); err != nil {
 		return nil, fmt.Errorf("error initializing config validator: %v", err)
 	}
@@ -281,7 +276,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// TODO(irisdingbj):add integration test after centralIstiod finished
 	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
 	args.RegistryOptions.KubeOptions.CABundlePath = s.caBundlePath
-	if features.CentralIstioD && s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
+	if features.CentralIstioD && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
 		args.RegistryOptions.KubeOptions.FetchCaRoot = s.fetchCARoot
 	}
 
@@ -299,6 +294,14 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
 		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
+	}
+
+	// This must be last, otherwise we will not know which informers to register
+	if s.kubeClient != nil {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			s.kubeClient.RunAndWait(stop)
+			return nil
+		})
 	}
 
 	return s, nil
@@ -390,21 +393,17 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.RegistryOptions.Registries) {
 		var err error
 		// Used by validation
-		s.kubeConfig, err = kubelib.BuildClientConfig(args.RegistryOptions.KubeConfig, "")
-		if err != nil {
-			return fmt.Errorf("failed creating kube config: %v", err)
-		}
-		s.kubeClient, err = kubelib.CreateClientset(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
+		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
 			config.QPS = 20
 			config.Burst = 40
 		})
 		if err != nil {
-			return fmt.Errorf("failed creating kube client: %v", err)
+			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.metadataClient, err = kubelib.CreateMetadataClient(args.RegistryOptions.KubeConfig, "")
+		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
 		if err != nil {
-			return fmt.Errorf("failed creating kube metadata client: %v", err)
+			return fmt.Errorf("failed creating kube client: %v", err)
 		}
 	}
 
@@ -555,7 +554,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 		return nil
 	}
 	// Mainly for tests.
-	if !hasCustomTLSCerts(tlsOptions) && s.ca == nil {
+	if !hasCustomTLSCerts(tlsOptions) && s.CA == nil {
 		return nil
 	}
 
@@ -588,10 +587,16 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error 
 	log.Info("initializing secure discovery service")
 
 	cfg := &tls.Config{
-		GetCertificate:        s.getIstiodCertificate,
-		ClientAuth:            tls.VerifyClientCertIfGiven,
-		ClientCAs:             s.peerCertVerifier.GetGeneralCertPool(),
-		VerifyPeerCertificate: s.peerCertVerifier.VerifyPeerCert,
+		GetCertificate: s.getIstiodCertificate,
+		ClientAuth:     tls.VerifyClientCertIfGiven,
+		ClientCAs:      s.peerCertVerifier.GetGeneralCertPool(),
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			err := s.peerCertVerifier.VerifyPeerCert(rawCerts, verifiedChains)
+			if err != nil {
+				log.Infof("Could not verify certificate: %v", err)
+			}
+			return err
+		},
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
@@ -906,7 +911,7 @@ func (s *Server) getCertKeyPaths(tlsOptions TLSOptions) (string, string) {
 
 // setPeerCertVerifier sets up a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
-	if tlsOptions.CaCertFile == "" && s.ca == nil && features.SpiffeBundleEndpoints == "" {
+	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" {
 		// Running locally without configured certs - no TLS mode
 		return nil
 	}
@@ -917,8 +922,8 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
 			return err
 		}
-	} else if s.ca != nil {
-		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	} else if s.CA != nil {
+		rootCertBytes = s.CA.GetCAKeyCertBundle().GetRootCertPem()
 	}
 
 	if len(rootCertBytes) != 0 {
@@ -976,7 +981,7 @@ func (s *Server) initControllers(args *PilotArgs) error {
 
 // initNamespaceController initializes namespace controller to sync config map.
 func (s *Server) initNamespaceController(args *PilotArgs) {
-	if s.ca != nil && s.kubeClient != nil {
+	if s.CA != nil && s.kubeClient != nil {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient).
@@ -1032,7 +1037,7 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 			corev1 = s.kubeClient.CoreV1()
 		}
 		// May return nil, if the CA is missing required configs - This is not an error.
-		if s.ca, err = s.createIstioCA(corev1, caOpts); err != nil {
+		if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
 			return fmt.Errorf("failed to create CA: %v", err)
 		}
 		if err = s.initPublicKey(); err != nil {
@@ -1044,10 +1049,10 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 
 // startCA starts the CA server if configured.
 func (s *Server) startCA(caOpts *CAOptions) {
-	if s.ca != nil {
+	if s.CA != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			log.Infof("staring CA")
-			s.RunCA(s.secureGrpcServer, s.ca, caOpts)
+			s.RunCA(s.secureGrpcServer, s.CA, caOpts)
 			return nil
 		})
 	}
@@ -1055,7 +1060,7 @@ func (s *Server) startCA(caOpts *CAOptions) {
 
 func (s *Server) fetchCARoot() map[string]string {
 	return map[string]string{
-		constants.CACertNamespaceConfigMapDataName: string(s.ca.GetCAKeyCertBundle().GetRootCertPem()),
+		constants.CACertNamespaceConfigMapDataName: string(s.CA.GetCAKeyCertBundle().GetRootCertPem()),
 	}
 }
 

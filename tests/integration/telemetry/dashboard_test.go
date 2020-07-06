@@ -41,9 +41,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 var (
@@ -323,14 +323,14 @@ func setupDashboardTest(t framework.TestContext, useVM bool) {
 		Prefix: "dashboard",
 		Inject: true,
 	})
-	t.ApplyConfigOrFail(t, ns.Name(), fmt.Sprintf(gatewayConfig, ns.Name()))
+	t.Config().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(gatewayConfig, ns.Name()))
 
 	// Apply just the grafana dashboards
 	cfg, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.ApplyConfigOrFail(t, "istio-system", kubetest.SplitYamlByKind(string(cfg))["ConfigMap"])
+	t.Config().ApplyYAMLOrFail(t, "istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"])
 
 	var instance echo.Instance
 	echoboot.

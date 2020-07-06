@@ -12,23 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package qualification
+package authz
 
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
+	"github.com/stretchr/testify/assert"
 )
 
-var (
-	ist istio.Instance
-)
+func TestNamespaceMatch(t *testing.T) {
+	assert := assert.New(t)
 
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite(m).
-		RequireSingleCluster().
-		Setup(istio.Setup(&ist, nil)).
-		Run()
+	assert.True(namespaceMatch("test-login", "*"))
+
+	assert.True(namespaceMatch("test-login", "test-*"))
+	assert.False(namespaceMatch("test-login", "*-test"))
+
+	assert.False(namespaceMatch("test-login", "login-*"))
+	assert.True(namespaceMatch("test-login", "*-login"))
 }

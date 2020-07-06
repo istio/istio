@@ -15,17 +15,13 @@
 package controller
 
 import (
-	"context"
 	"reflect"
-	"strings"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers/discovery/v1alpha1"
 	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
@@ -35,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/listwatch"
 )
 
 type endpointSliceController struct {
@@ -45,33 +40,17 @@ type endpointSliceController struct {
 
 var _ kubeEndpointsController = &endpointSliceController{}
 
-func newEndpointSliceController(c *Controller, options Options) *endpointSliceController {
-	namespaces := strings.Split(options.WatchedNamespaces, ",")
-
-	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return c.client.DiscoveryV1alpha1().EndpointSlices(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return c.client.DiscoveryV1alpha1().EndpointSlices(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	informer := cache.NewSharedIndexInformer(mlw, &discoveryv1alpha1.EndpointSlice{}, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-
+func newEndpointSliceController(c *Controller, informer v1alpha1.EndpointSliceInformer) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
-			informer: informer,
+			informer: informer.Informer(),
 		},
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers(informer, c.queue, "EndpointSlice", reflect.DeepEqual, out.onEvent)
+	registerHandlers(informer.Informer(), c.queue, "EndpointSlice", reflect.DeepEqual, out.onEvent)
 	return out
 }
 

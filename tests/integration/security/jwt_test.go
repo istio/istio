@@ -60,8 +60,8 @@ func TestRequestAuthentication(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/e-authn.yaml.tmpl"),
 			)
-			ctx.ApplyConfigOrFail(t, ns.Name(), jwtPolicies...)
-			defer ctx.DeleteConfigOrFail(t, ns.Name(), jwtPolicies...)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), jwtPolicies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtPolicies...)
 
 			var a, b, c, d, e echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
@@ -296,15 +296,15 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
-				ctx.ApplyConfigOrFail(t, ns.Name(), policy...)
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
 
 			securityPolicies := applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
 			ingressCfgs := applyPolicy("testdata/requestauthn/ingress.yaml.tmpl", ns)
 
-			defer ctx.DeleteConfigOrFail(t, rootNS{}.Name(), securityPolicies...)
-			defer ctx.DeleteConfigOrFail(t, ns.Name(), ingressCfgs...)
+			defer ctx.Config().DeleteYAMLOrFail(t, rootNS{}.Name(), securityPolicies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), ingressCfgs...)
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).

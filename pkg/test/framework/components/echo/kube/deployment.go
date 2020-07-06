@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -190,16 +191,19 @@ data:
 	// connecting, etc we run it inside a pod. The pod has pretty much all Kubernetes features disabled (DNS and SA token mount)
 	// such that we can adequately simulate a VM and DIY the bootstrapping.
 	vmDeploymentYaml = `
+{{- $subsets := .Subsets }}
 {{- $cluster := .Cluster }}
+{{- range $i, $subset := $subsets }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Service }}
+  name: {{ $.Service }}-{{ $subset.Version }}
 spec:
   replicas: 1
   selector:
     matchLabels:
       istio.io/test-vm: {{ $.Service }}
+      istio.io/test-vm-version: {{ $subset.Version }}
   template:
     metadata:
       annotations:
@@ -208,6 +212,7 @@ spec:
       labels:
         # Label should not be selected. We will create a workload entry instead
         istio.io/test-vm: {{ $.Service }}
+        istio.io/test-vm-version: {{ $subset.Version }}
     spec:
       # Disable kube-dns, to mirror VM
       dnsPolicy: Default
@@ -231,11 +236,10 @@ spec:
           sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
-          sudo sh -c 'echo "1.1.1.1 pod.{{$.Namespace}}.svc.cluster.local" >> /etc/hosts'
 
           # TODO: run with systemctl?
           sudo -E /usr/local/bin/istio-start.sh&
-          /usr/local/bin/server --cluster "{{ $cluster }}" \
+          /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
              --grpc \
@@ -256,6 +260,11 @@ spec:
         # Block standard inbound ports
         - name: ISTIO_LOCAL_EXCLUDE_PORTS
           value: "15090,15021,15020"
+        # Capture all DNS traffic in the VM and forward to Envoy
+        - name: ISTIO_META_DNS_CAPTURE
+          value: "ALL"
+        - name: ISTIO_NAMESPACE # start.sh reads this and converts to POD_NAMESPACE
+          value: {{ $.Namespace }}
         readinessProbe:
           httpGet:
             path: /healthz/ready
@@ -274,7 +283,9 @@ spec:
         name: {{ $.Service }}-istio-token
       - configMap:
           name: istio-ca-root-cert
-        name: istio-ca-root-cert`
+        name: istio-ca-root-cert
+{{- end}}
+`
 )
 
 var (
@@ -300,7 +311,7 @@ func init() {
 	}
 }
 
-func generateYAML(cfg echo.Config, cluster kube.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Create the parameters for the YAML template.
 	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -309,7 +320,8 @@ func generateYAML(cfg echo.Config, cluster kube.Cluster) (serviceYAML string, de
 	return generateYAMLWithSettings(cfg, settings, cluster)
 }
 
-func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster kube.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
+	cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -365,7 +377,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings, cluster
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
-		"Cluster":             cfg.ClusterIndex(),
+		"Cluster":             cfg.Cluster.Name(),
 		"Namespace":           namespace,
 		"VM": map[string]interface{}{
 			"Image":      vmImage,

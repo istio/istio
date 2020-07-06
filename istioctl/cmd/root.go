@@ -68,7 +68,7 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("analysis", log.WarnLevel)
 	o.SetOutputLevel("installer", log.WarnLevel)
 	o.SetOutputLevel("translator", log.WarnLevel)
-	o.SetOutputLevel("kube", log.ErrorLevel)
+	o.SetOutputLevel("adsc", log.WarnLevel)
 	o.SetOutputLevel("default", log.WarnLevel)
 
 	return o
@@ -149,6 +149,8 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(softGraduatedCmd(Analyze()))
 	experimentalCmd.AddCommand(vmBootstrapCommand())
 	experimentalCmd.AddCommand(waitCmd())
+
+	experimentalCmd.AddCommand(xdsVersionCommand())
 
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)

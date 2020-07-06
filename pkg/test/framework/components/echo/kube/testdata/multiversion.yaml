@@ -45,7 +45,7 @@ spec:
         args:
           - --metrics=15014
           - --cluster
-          - "0"
+          - "cluster-0"
           - --port
           - "8090"
           - --tcp
@@ -106,7 +106,7 @@ spec:
         args:
           - --metrics=15014
           - --cluster
-          - "0"
+          - "cluster-0"
           - --port
           - "8090"
           - --tcp

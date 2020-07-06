@@ -51,13 +51,13 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 		Run(func(ctx framework.TestContext) {
 			addr := ing.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
-			ctx.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
 				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
-			defer ctx.DeleteConfig(
+			defer ctx.Config().DeleteYAML(
 				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
@@ -69,12 +69,12 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 				t.Errorf("unable to load config %s, err:%v", cleanupFilterConfig, err)
 			}
 
-			ctx.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
 				systemNM.Name(),
 				cleanup,
 			)
-			defer ctx.DeleteConfig(
+			defer ctx.Config().DeleteYAML(
 				systemNM.Name(),
 				cleanup,
 			)
@@ -133,7 +133,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	err = ctx.ApplyConfig(bookinfoNs.Name(), yamlText)
+	err = ctx.Config().ApplyYAML(bookinfoNs.Name(), yamlText)
 	if err != nil {
 		return err
 	}

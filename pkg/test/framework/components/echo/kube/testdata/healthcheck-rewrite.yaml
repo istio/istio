@@ -40,7 +40,7 @@ spec:
         args:
           - --metrics=15014
           - --cluster
-          - "0"
+          - "cluster-0"
           - --port
           - "8080"
           - --port

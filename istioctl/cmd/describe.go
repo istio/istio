@@ -34,6 +34,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/pkg/log"
 
 	v1 "k8s.io/api/core/v1"
@@ -57,7 +59,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 )
@@ -138,7 +139,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return err
 			}
 
-			var configClient model.ConfigStore
+			var configClient istioclient.Interface
 			if configClient, err = configStoreFactory(); err != nil {
 				return err
 			}
@@ -223,15 +224,10 @@ func extendFQDN(host string) string {
 }
 
 // getDestRuleSubsets gets names of subsets that match any pod labels (also, ones that don't match).
-func getDestRuleSubsets(destRule model.Config, podsLabels []k8s_labels.Set) ([]string, []string) {
-	drSpec, ok := destRule.Spec.(*v1alpha3.DestinationRule)
-	if !ok {
-		return []string{}, []string{}
-	}
-
+func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []k8s_labels.Set) ([]string, []string) {
 	matchingSubsets := []string{}
 	nonmatchingSubsets := []string{}
-	for _, subset := range drSpec.Subsets {
+	for _, subset := range subsets {
 		subsetSelector := k8s_labels.SelectorFromSet(subset.Labels)
 		if matchesAnyPod(subsetSelector, podsLabels) {
 			matchingSubsets = append(matchingSubsets, subset.Name)
@@ -252,15 +248,10 @@ func matchesAnyPod(subsetSelector k8s_labels.Selector, podsLabels []k8s_labels.S
 	return false
 }
 
-func printDestinationRule(writer io.Writer, destRule model.Config, podsLabels []k8s_labels.Set) {
-	drSpec, ok := destRule.Spec.(*v1alpha3.DestinationRule)
-	if !ok {
-		return
-	}
+func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule, podsLabels []k8s_labels.Set) {
+	fmt.Fprintf(writer, "DestinationRule: %s for %q\n", kname(dr.ObjectMeta), dr.Spec.Host)
 
-	fmt.Fprintf(writer, "DestinationRule: %s for %q\n", name(destRule), drSpec.Host)
-
-	matchingSubsets, nonmatchingSubsets := getDestRuleSubsets(destRule, podsLabels)
+	matchingSubsets, nonmatchingSubsets := getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
 
 	if len(matchingSubsets) != 0 || len(nonmatchingSubsets) != 0 {
 		if len(matchingSubsets) == 0 {
@@ -274,12 +265,12 @@ func printDestinationRule(writer io.Writer, destRule model.Config, podsLabels []
 	}
 
 	// Ignore LoadBalancer, ConnectionPool, OutlierDetection, and PortLevelSettings
-	trafficPolicy := drSpec.TrafficPolicy
+	trafficPolicy := dr.Spec.TrafficPolicy
 	if trafficPolicy == nil {
 		fmt.Fprintf(writer, "   No Traffic Policy\n")
 	} else {
 		if trafficPolicy.Tls != nil {
-			fmt.Fprintf(writer, "   Traffic Policy TLS Mode: %s\n", drSpec.TrafficPolicy.Tls.Mode.String())
+			fmt.Fprintf(writer, "   Traffic Policy TLS Mode: %s\n", dr.Spec.TrafficPolicy.Tls.Mode.String())
 		}
 		extra := []string{}
 		if trafficPolicy.LoadBalancer != nil {
@@ -301,13 +292,13 @@ func printDestinationRule(writer io.Writer, destRule model.Config, podsLabels []
 }
 
 // httpRouteMatchSvc returns true if it matches and a slice of facts about the match
-func httpRouteMatchSvc(virtualSvc model.Config, route *v1alpha3.HTTPRoute, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *model.Config) (bool, []string) { // nolint: lll
+func httpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.HTTPRoute, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) (bool, []string) { // nolint: lll
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	facts := []string{}
 	mismatchNotes := []string{}
 	match := false
 	for _, dest := range route.Route {
-		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, virtualSvc.ConfigMeta))
+		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, model.ConfigMeta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			if dest.Destination.Subset != "" {
 				if contains(nonmatchingSubsets, dest.Destination.Subset) {
@@ -322,7 +313,8 @@ func httpRouteMatchSvc(virtualSvc model.Config, route *v1alpha3.HTTPRoute, svc v
 						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to subset %s but NO DESTINATION RULE defining subsets!", dest.Destination.Subset))
 					} else {
 						// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
-						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to UNKNOWN subset %s; check DestinationRule %s", dest.Destination.Subset, name(*dr)))
+						mismatchNotes = append(mismatchNotes,
+							fmt.Sprintf("Warning: Route to UNKNOWN subset %s; check DestinationRule %s", dest.Destination.Subset, kname(dr.ObjectMeta)))
 					}
 					continue
 				}
@@ -362,12 +354,12 @@ func httpRouteMatchSvc(virtualSvc model.Config, route *v1alpha3.HTTPRoute, svc v
 	return match, facts
 }
 
-func tcpRouteMatchSvc(virtualSvc model.Config, route *v1alpha3.TCPRoute, svc v1.Service) (bool, []string) {
+func tcpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.TCPRoute, svc v1.Service) (bool, []string) {
 	match := false
 	facts := []string{}
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	for _, dest := range route.Route {
-		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, virtualSvc.ConfigMeta))
+		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, model.ConfigMeta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			match = true
 		}
@@ -482,16 +474,6 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 	if !ok || version == "" {
 		fmt.Fprintf(writer, "Suggestion: add 'version' label to pod for Istio telemetry.\n")
 	}
-}
-
-func name(config model.Config) string {
-	ns := handlers.HandleNamespace(namespace, defaultNamespace)
-	if config.ConfigMeta.Namespace == ns {
-		return config.ConfigMeta.Name
-	}
-
-	// Use the Istio convention pod-name[.namespace]
-	return fmt.Sprintf("%s.%s", config.ConfigMeta.Name, config.ConfigMeta.Namespace)
 }
 
 func kname(meta metav1.ObjectMeta) string {
@@ -841,13 +823,8 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 // TODO simplify this by showing for each matching Destination the negation of the previous HttpMatchRequest
 // and showing the non-matching Destinations.  (The current code is ad-hoc, and usually shows most of that information.)
-func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *model.Config) {
-	fmt.Fprintf(writer, "VirtualService: %s\n", name(virtualSvc))
-
-	vsSpec, ok := virtualSvc.Spec.(*v1alpha3.VirtualService)
-	if !ok {
-		return
-	}
+func printVirtualService(writer io.Writer, vs clientnetworking.VirtualService, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { //nolint: lll
+	fmt.Fprintf(writer, "VirtualService: %s\n", kname(vs.ObjectMeta))
 
 	// There is no point in checking that 'port' uses HTTP (for HTTP route matches)
 	// or uses TCP (for TCP route matches) because if the port has the wrong name
@@ -856,8 +833,8 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 	matches := 0
 	facts := 0
 	mismatchNotes := []string{}
-	for _, httpRoute := range vsSpec.Http {
-		routeMatch, newfacts := httpRouteMatchSvc(virtualSvc, httpRoute, svc, matchingSubsets, nonmatchingSubsets, dr)
+	for _, httpRoute := range vs.Spec.Http {
+		routeMatch, newfacts := httpRouteMatchSvc(vs, httpRoute, svc, matchingSubsets, nonmatchingSubsets, dr)
 		if routeMatch {
 			matches++
 			for _, newfact := range newfacts {
@@ -871,8 +848,8 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 
 	// TODO vsSpec.Tls if I can find examples in the wild
 
-	for _, tcpRoute := range vsSpec.Tcp {
-		routeMatch, newfacts := tcpRouteMatchSvc(virtualSvc, tcpRoute, svc)
+	for _, tcpRoute := range vs.Spec.Tcp {
+		routeMatch, newfacts := tcpRouteMatchSvc(vs, tcpRoute, svc)
 		if routeMatch {
 			matches++
 			for _, newfact := range newfacts {
@@ -885,11 +862,11 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 	}
 
 	if matches == 0 {
-		if len(vsSpec.Http) > 0 {
-			fmt.Fprintf(writer, "   WARNING: No destinations match pod subsets (checked %d HTTP routes)\n", len(vsSpec.Http))
+		if len(vs.Spec.Http) > 0 {
+			fmt.Fprintf(writer, "   WARNING: No destinations match pod subsets (checked %d HTTP routes)\n", len(vs.Spec.Http))
 		}
-		if len(vsSpec.Tcp) > 0 {
-			fmt.Fprintf(writer, "   WARNING: No destinations match pod subsets (checked %d TCP routes)\n", len(vsSpec.Tcp))
+		if len(vs.Spec.Tcp) > 0 {
+			fmt.Fprintf(writer, "   WARNING: No destinations match pod subsets (checked %d TCP routes)\n", len(vs.Spec.Tcp))
 		}
 		for _, mismatch := range mismatchNotes {
 			fmt.Fprintf(writer, "      %s\n", mismatch)
@@ -897,7 +874,7 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 		return
 	}
 
-	possibleDests := len(vsSpec.Http) + len(vsSpec.Tls) + len(vsSpec.Tcp)
+	possibleDests := len(vs.Spec.Http) + len(vs.Spec.Tls) + len(vs.Spec.Tcp)
 	if matches < possibleDests {
 		// We've printed the match conditions.  We can't say for sure that matching
 		// traffic will reach this pod, because an earlier match condition could have captured it.
@@ -914,16 +891,16 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 
 	if facts == 0 {
 		// We printed nothing other than the name.  Print something.
-		if len(vsSpec.Http) > 0 {
-			fmt.Fprintf(writer, "   %d HTTP route(s)\n", len(vsSpec.Http))
+		if len(vs.Spec.Http) > 0 {
+			fmt.Fprintf(writer, "   %d HTTP route(s)\n", len(vs.Spec.Http))
 		}
-		if len(vsSpec.Tcp) > 0 {
-			fmt.Fprintf(writer, "   %d TCP route(s)\n", len(vsSpec.Tcp))
+		if len(vs.Spec.Tcp) > 0 {
+			fmt.Fprintf(writer, "   %d TCP route(s)\n", len(vs.Spec.Tcp))
 		}
 	}
 }
 
-func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, client kube.Client) error { // nolint: lll
+func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient istioclient.Interface, client kube.ExtendedClient) error { // nolint: lll
 
 	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
@@ -966,11 +943,11 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 			matchingSubsets := []string{}
 			nonmatchingSubsets := []string{}
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
-			var dr *model.Config
+			var dr *clientnetworking.DestinationRule
 			if err == nil && drName != "" && drNamespace != "" {
-				dr = configClient.Get(gvk.DestinationRule, drName, drNamespace)
+				dr, _ = configClient.NetworkingV1alpha3().DestinationRules(drNamespace).Get(context.Background(), drName, metav1.GetOptions{})
 				if dr != nil {
-					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
+					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
 				} else {
 					fmt.Fprintf(writer,
 						"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
@@ -980,7 +957,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs := configClient.Get(gvk.VirtualService, vsName, vsNamespace)
+				vs, _ := configClient.NetworkingV1alpha3().VirtualServices(vsNamespace).Get(context.Background(), vsName, metav1.GetOptions{})
 				if vs != nil {
 					if row == 0 {
 						fmt.Fprintf(writer, "\n")
@@ -1134,7 +1111,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return err
 			}
 
-			var configClient model.ConfigStore
+			var configClient istioclient.Interface
 			if configClient, err = configStoreFactory(); err != nil {
 				return err
 			}
@@ -1168,7 +1145,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.Client, configClient model.ConfigStore, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
+func describePodServices(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
 	var err error
 
 	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump", nil)
@@ -1199,16 +1176,16 @@ func describePodServices(writer io.Writer, kubeClient kube.Client, configClient 
 			if err != nil {
 				log.Errorf("fetch destination rule for %v: %v", svc.Name, err)
 			}
-			var dr *model.Config
+			var dr *clientnetworking.DestinationRule
 			if err == nil && drName != "" && drNamespace != "" {
-				dr = configClient.Get(gvk.DestinationRule, drName, drNamespace)
+				dr, _ = configClient.NetworkingV1alpha3().DestinationRules(drNamespace).Get(context.Background(), drName, metav1.GetOptions{})
 				if dr != nil {
 					if len(svc.Spec.Ports) > 1 {
 						// If there is more than one port, prefix each DR by the port it applies to
 						fmt.Fprintf(writer, "%d ", port.Port)
 					}
-					printDestinationRule(writer, *dr, podsLabels)
-					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
+					printDestinationRule(writer, dr, podsLabels)
+					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
 				} else {
 					fmt.Fprintf(writer,
 						"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
@@ -1218,7 +1195,7 @@ func describePodServices(writer io.Writer, kubeClient kube.Client, configClient 
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs := configClient.Get(gvk.VirtualService, vsName, vsNamespace)
+				vs, _ := configClient.NetworkingV1alpha3().VirtualServices(vsNamespace).Get(context.Background(), vsName, metav1.GetOptions{})
 				if vs != nil {
 					if len(svc.Spec.Ports) > 1 {
 						// If there is more than one port, prefix each DR by the port it applies to

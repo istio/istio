@@ -15,14 +15,12 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"reflect"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -31,15 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/watch"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/metadata"
-	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -53,7 +45,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/listwatch"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -163,24 +155,28 @@ type kubernetesNode struct {
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client          kubernetes.Interface
-	metadataClient  metadata.Interface
-	queue           queue.Instance
+	client kubernetes.Interface
+
+	queue queue.Instance
+
 	serviceInformer cache.SharedIndexInformer
 	serviceLister   listerv1.ServiceLister
-	endpoints       kubeEndpointsController
 
-	nodeMetadataInformer cache.SharedIndexInformer
+	endpoints kubeEndpointsController
+
 	// Used to watch node accessible from remote cluster.
 	// In multi-cluster(shared control plane multi-networks) scenario, ingress gateway service can be of nodePort type.
 	// With this, we can populate mesh's gateway address with the node ips.
-	filteredNodeInformer cache.SharedIndexInformer
-	pods                 *PodCache
-	metrics              model.Metrics
-	networksWatcher      mesh.NetworksWatcher
-	xdsUpdater           model.XDSUpdater
-	domainSuffix         string
-	clusterID            string
+	nodeInformer cache.SharedIndexInformer
+	nodeLister   listerv1.NodeLister
+
+	pods *PodCache
+
+	metrics         model.Metrics
+	networksWatcher mesh.NetworksWatcher
+	xdsUpdater      model.XDSUpdater
+	domainSuffix    string
+	clusterID       string
 
 	serviceHandlers  []func(*model.Service, model.Event)
 	instanceHandlers []func(*model.ServiceInstance, model.Event)
@@ -197,6 +193,7 @@ type Controller struct {
 	// map of node name and its address+labels - this is the only thing we need from nodes
 	// for vm to k8s or cross cluster. When node port services select specific nodes by labels,
 	// we run through the label selectors here to pick only ones that we need.
+	// Only nodes with ExternalIP addresses are included in this map !
 	nodeInfoMap map[string]kubernetesNode
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
@@ -213,17 +210,13 @@ type Controller struct {
 
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
-func NewController(client kubernetes.Interface, metadataClient metadata.Interface, options Options) *Controller {
-	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
-		options.WatchedNamespaces, options.ResyncPeriod)
-
-	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
+func NewController(kubeClient kubelib.Client, options Options) *Controller {
+	log.Infof("Starting Kubernetes service registry")
 
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
 		domainSuffix:                 options.DomainSuffix,
-		client:                       client,
-		metadataClient:               metadataClient,
+		client:                       kubeClient.Kube(),
 		queue:                        queue.NewQueue(1 * time.Second),
 		clusterID:                    options.ClusterID,
 		xdsUpdater:                   options.XDSUpdater,
@@ -236,40 +229,23 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		metrics:                      options.Metrics,
 	}
 
-	svcMlw := listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return client.CoreV1().Services(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return client.CoreV1().Services(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	c.serviceInformer = cache.NewSharedIndexInformer(svcMlw, &v1.Service{}, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
+	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
+	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
 	registerHandlers(c.serviceInformer, c.queue, "Services", reflect.DeepEqual, c.onServiceEvent)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
-		c.endpoints = newEndpointsController(c, options)
+		c.endpoints = newEndpointsController(c, kubeClient.KubeInformer().Core().V1().Endpoints())
 	case EndpointSliceOnly:
-		c.endpoints = newEndpointSliceController(c, options)
+		c.endpoints = newEndpointSliceController(c, kubeClient.KubeInformer().Discovery().V1alpha1().EndpointSlices())
 	}
 
-	// This is for getting the pod to node mapping, so that we can get the pod's locality.
-	metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
-	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-	c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
 	// This is for getting the node IPs of a selected set of nodes
-	c.filteredNodeInformer = coreinformers.NewFilteredNodeInformer(client, options.ResyncPeriod,
-		cache.Indexers{},
-		func(options *metav1.ListOptions) {})
-	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", reflect.DeepEqual, c.onNodeEvent)
+	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
+	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
+	registerHandlers(c.nodeInformer, c.queue, "Nodes", reflect.DeepEqual, c.onNodeEvent)
 
-	c.pods = newPodCache(c, options)
+	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods())
 	registerHandlers(c.pods.informer, c.queue, "Pods", reflect.DeepEqual, c.pods.onEvent)
 
 	return c
@@ -498,8 +474,7 @@ func (c *Controller) HasSynced() bool {
 	if !c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
-		!c.nodeMetadataInformer.HasSynced() ||
-		!c.filteredNodeInformer.HasSynced() {
+		!c.nodeInformer.HasSynced() {
 		return false
 	}
 	return true
@@ -517,17 +492,10 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 
-	go c.serviceInformer.Run(stop)
-	go c.pods.informer.Run(stop)
-	go c.nodeMetadataInformer.Run(stop)
-	go c.filteredNodeInformer.Run(stop)
-
 	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, c.nodeMetadataInformer.HasSynced, c.filteredNodeInformer.HasSynced,
+	cache.WaitForCacheSync(stop, c.nodeInformer.HasSynced,
 		c.pods.informer.HasSynced,
 		c.serviceInformer.HasSynced)
-
-	go c.endpoints.Run(stop)
 
 	<-stop
 	log.Infof("Controller terminated")
@@ -621,15 +589,10 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
-	raw, exists, err := c.nodeMetadataInformer.GetStore().GetByKey(pod.Spec.NodeName)
-	if !exists || err != nil {
-		log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
-		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-		raw, err = c.metadataClient.Resource(nodeResource).Get(context.TODO(), pod.Spec.NodeName, metav1.GetOptions{})
-		if err != nil {
-			log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
-			return ""
-		}
+	raw, err := c.nodeLister.Get(pod.Spec.NodeName)
+	if err != nil {
+		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+		return ""
 	}
 
 	nodeMeta, err := meta.Accessor(raw)
