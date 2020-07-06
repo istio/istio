@@ -121,6 +121,9 @@ data:
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
+        "ior": {
+          "enabled": false
+        },
         "istioNamespace": "istio-system",
         "istiod": {
           "enableAnalysis": false,
@@ -880,6 +883,8 @@ spec:
           - name: CLUSTER_ID
             value: "Kubernetes"
           - name: CENTRAL_ISTIOD
+            value: "false"
+          - name: ENABLE_IOR
             value: "false"
           resources:
             requests:

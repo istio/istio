@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 96
+number_of_entries: 97
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -1060,6 +1060,30 @@ No
 </tbody>
 </table>
 </section>
+<h2 id="IORConfig">IORConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IORConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="GlobalConfig">GlobalConfig</h2>
 <section>
 <p>Global Configuration for Istio components.</p>
@@ -1711,6 +1735,17 @@ No
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 <p>Controls whether one central istiod is enabled.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-ior">
+<td><code>ior</code></td>
+<td><code><a href="#IORConfig">IORConfig</a></code></td>
+<td>
+<p>IOR</p>
 
 </td>
 <td>
