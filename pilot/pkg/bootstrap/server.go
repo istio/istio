@@ -31,7 +31,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/status"
 
-	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -121,11 +120,9 @@ type Server struct {
 	environment *model.Environment
 
 	kubeRestConfig *rest.Config
-	kubeClients    kubelib.Client
-	// DEPRECATED. Use kubeClients
-	kubeClient   kubernetes.Interface
-	kubeRegistry *kubecontroller.Controller
-	multicluster *kubecontroller.Multicluster
+	kubeClient     kubelib.Client
+	kubeRegistry   *kubecontroller.Controller
+	multicluster   *kubecontroller.Multicluster
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -301,9 +298,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// This must be last, otherwise we will not know which informers to register
-	if s.kubeClients != nil {
+	if s.kubeClient != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
-			s.kubeClients.RunAndWait(stop)
+			s.kubeClient.RunAndWait(stop)
 			return nil
 		})
 	}
@@ -420,12 +417,10 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.kubeClients, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
-		// TODO deprecate kubeClient, replace with kubeClients
+		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
-		s.kubeClient = s.kubeClients.Kube()
 	}
 
 	return nil
@@ -608,10 +603,16 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error 
 	log.Info("initializing secure discovery service")
 
 	cfg := &tls.Config{
-		GetCertificate:        s.getIstiodCertificate,
-		ClientAuth:            tls.VerifyClientCertIfGiven,
-		ClientCAs:             s.peerCertVerifier.GetGeneralCertPool(),
-		VerifyPeerCertificate: s.peerCertVerifier.VerifyPeerCert,
+		GetCertificate: s.getIstiodCertificate,
+		ClientAuth:     tls.VerifyClientCertIfGiven,
+		ClientCAs:      s.peerCertVerifier.GetGeneralCertPool(),
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			err := s.peerCertVerifier.VerifyPeerCert(rawCerts, verifiedChains)
+			if err != nil {
+				log.Infof("Could not verify certificate: %v", err)
+			}
+			return err
+		},
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
