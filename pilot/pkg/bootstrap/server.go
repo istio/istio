@@ -393,7 +393,7 @@ func (s *Server) WaitUntilCompletion() {
 // This is determined by the presence of a kube registry, which
 // uses in-context k8s, or a config source of type k8s.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	hasK8SConfigStore:= false
+	hasK8SConfigStore := false
 	if args.RegistryOptions.FileDir == "" {
 		// If file dir is set - config controller will just use file.
 		meshConfig := s.environment.Mesh()
