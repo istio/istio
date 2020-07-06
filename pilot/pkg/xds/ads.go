@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,20 +28,17 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
-	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 var (
@@ -256,43 +252,6 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 		adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
 	}
 	return nil
-}
-
-// authenticate authenticates the ADS request using the configured authenticators.
-// Returns the validated principals or an error. If no authenticators are configured,
-// or if the request is on a non-secure stream ( 15010 ) - returns an empty list of
-// principals and no errors.
-func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
-	// Authenticate - currently just checks that request has a certificate signed with the our key.
-	// Protected by flag to avoid breaking upgrades - should be enabled in multi-cluster/meshexpansion
-	// where XDS is exposed.
-	if s.Authenticators != nil && len(s.Authenticators) > 0 {
-		peerInfo, ok := peer.FromContext(ctx)
-		if !ok {
-			return nil, errors.New("invalid context")
-		}
-		// Not a TLS connection, we will not authentication
-		// TODO: add a flag to prevent unauthenticated requests ( 15010 )
-		// request not over TLS ( on the insecure port
-		if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok {
-			return nil, nil
-		}
-		var authenticatedID *authenticate.Caller
-		for _, authn := range s.Authenticators {
-			u, err := authn.Authenticate(ctx)
-			if u != nil && err == nil {
-				authenticatedID = u
-			}
-		}
-
-		if authenticatedID == nil {
-			adsLog.Errora("Failed to authenticate client ", peerInfo)
-			return nil, errors.New("authentication failure")
-		}
-
-		return authenticatedID.Identities, nil
-	}
-	return nil, nil
 }
 
 // StreamAggregatedResources implements the ADS interface.
