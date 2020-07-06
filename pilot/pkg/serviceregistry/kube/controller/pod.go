@@ -153,8 +153,8 @@ func (pc *PodCache) update(ip, key string) {
 }
 
 func (pc *PodCache) recordNeedsUpdate(key, ip string) {
-	pc.RLock()
-	defer pc.RUnlock()
+	pc.Lock()
+	defer pc.Unlock()
 	if _, f := pc.needResync[ip]; !f {
 		pc.needResync[ip] = sets.NewSet(key)
 	} else {
@@ -200,8 +200,8 @@ func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
 }
 
 func (pc *PodCache) dropNeedsUpdate(key string, ip string) {
-	pc.RLock()
-	defer pc.RUnlock()
+	pc.Lock()
+	defer pc.Unlock()
 	delete(pc.needResync[ip], key)
 	if len(pc.needResync[ip]) == 0 {
 		delete(pc.needResync, ip)

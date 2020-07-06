@@ -1655,6 +1655,8 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			assertPendingResync := func(expected int) {
 				t.Helper()
 				retry.UntilSuccessOrFail(t, func() error {
+					controller.pods.RLock()
+					defer controller.pods.RUnlock()
 					if len(controller.pods.needResync) != expected {
 						return fmt.Errorf("expected %d pods needing resync, got %d", expected, len(controller.pods.needResync))
 					}
