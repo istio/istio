@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	"istio.io/istio/operator/pkg/name"
 	operator_validate "istio.io/istio/operator/pkg/validate"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -104,7 +105,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	}
 	// TODO(jasonwzm) remove this when multi-version is supported. v1beta1 shares the same
 	// schema as v1lalpha3. Fake conversion and validate against v1alpha3.
-	if gvk.Group == "networking.istio.io" && gvk.Version == "v1beta1" {
+	if gvk.Group == name.NetworkingAPIGroupName && gvk.Version == "v1beta1" {
 		gvk.Version = "v1alpha3"
 	}
 	schema, exists := collections.Pilot.FindByGroupVersionKind(gvk)
@@ -145,13 +146,13 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	if un.IsList() {
 		_ = un.EachListItem(func(item runtime.Object) error {
 			castItem := item.(*unstructured.Unstructured)
-			if castItem.GetKind() == "Service" {
+			if castItem.GetKind() == name.ServiceStr {
 				err := v.validateServicePortPrefix(istioNamespace, castItem)
 				if err != nil {
 					errs = multierror.Append(errs, err)
 				}
 			}
-			if castItem.GetKind() == "Deployment" {
+			if castItem.GetKind() == name.DeploymentStr {
 				v.validateDeploymentLabel(istioNamespace, castItem)
 			}
 			return nil
@@ -161,11 +162,11 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	if errs != nil {
 		return errs
 	}
-	if un.GetKind() == "Service" {
+	if un.GetKind() == name.ServiceStr {
 		return v.validateServicePortPrefix(istioNamespace, un)
 	}
 
-	if un.GetKind() == "Deployment" {
+	if un.GetKind() == name.DeploymentStr {
 		v.validateDeploymentLabel(istioNamespace, un)
 		return nil
 	}
@@ -400,9 +401,7 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schema.Resource().Kind(),
-			Group:             schema.Resource().Group(),
-			Version:           schema.Resource().Version(),
+			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              un.GetName(),
 			Namespace:         un.GetNamespace(),
 			Domain:            domain,
@@ -421,7 +420,7 @@ func fromSchemaAndYAML(schema collection.Schema, yml string) (proto.Message, err
 	if err != nil {
 		return nil, err
 	}
-	if err = gogoprotomarshal.ApplyYAML(yml, pb); err != nil {
+	if err = gogoprotomarshal.ApplyYAMLStrict(yml, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil

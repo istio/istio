@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -172,7 +172,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("stackdriver_filter_test", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(getIstioInstance(), setupConfig)).
@@ -184,10 +184,7 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	// disable mixer telemetry and enable stackdriver filter
-	cfg.Values["telemetry.enabled"] = "true"
-	cfg.Values["telemetry.v1.enabled"] = "false"
-	cfg.Values["telemetry.v2.enabled"] = "true"
+	// enable stackdriver filter
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 }
@@ -217,7 +214,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.ApplyConfig(echoNsInst.Name(), sdBootstrap)
+	err = ctx.Config().ApplyYAML(echoNsInst.Name(), sdBootstrap)
 	if err != nil {
 		return
 	}

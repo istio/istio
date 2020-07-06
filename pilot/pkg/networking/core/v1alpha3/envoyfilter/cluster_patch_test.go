@@ -20,11 +20,12 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
 func Test_clusterMatch(t *testing.T) {
@@ -283,14 +284,14 @@ func TestApplyClusterPatches(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memory.NewServiceDiscovery(nil)
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := ApplyClusterPatches(tc.patchContext, tc.proxy, push, tc.input)
-			if diff := cmp.Diff(tc.output, got); diff != "" {
+			if diff := cmp.Diff(tc.output, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyClusterPatches(): %s mismatch (-want +got):\n%s", tc.name, diff)
 			}
 		})

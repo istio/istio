@@ -62,6 +62,14 @@ webhooks:
         operator: NotIn
         values:
         - "false"
+{{- else if .Values.revision }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: In
+        values:
+        - {{ .Values.revision }}
 {{- else }}
       matchLabels:
         "sidecar.istio.io/inject": "true"

@@ -17,20 +17,17 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/listwatch"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -49,25 +46,9 @@ type PodCache struct {
 	c *Controller
 }
 
-func newPodCache(c *Controller, options Options) *PodCache {
-	namespaces := strings.Split(options.WatchedNamespaces, ",")
-
-	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return c.client.CoreV1().Pods(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return c.client.CoreV1().Pods(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	informer := cache.NewSharedIndexInformer(mlw, &v1.Pod{}, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-
+func newPodCache(c *Controller, informer coreinformers.PodInformer) *PodCache {
 	out := &PodCache{
-		informer: informer,
+		informer: informer.Informer(),
 		c:        c,
 		podsByIP: make(map[string]string),
 		IPByPods: make(map[string]string),

@@ -21,7 +21,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	gogoproto "github.com/gogo/protobuf/proto"
+	golangproto "github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -35,7 +35,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	xdsfilters "istio.io/istio/pilot/pkg/proxy/envoy/filters"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -64,6 +64,8 @@ type ListenerBuilder struct {
 	httpProxyListener       *listener.Listener
 	virtualOutboundListener *listener.Listener
 	virtualInboundListener  *listener.Listener
+	// UDP listener for local dns resolution in Envoy
+	dnsListener *listener.Listener
 }
 
 // Setup the filter chain match so that the match should work under both
@@ -120,7 +122,7 @@ func reduceInboundListenerToFilterChains(listeners []*listener.Listener) ([]*lis
 			continue
 		}
 		for _, c := range l.FilterChains {
-			newChain, needTLSLocal := amendFilterChainMatchFromInboundListener(gogoproto.Clone(c).(*listener.FilterChain), l, needTLS)
+			newChain, needTLSLocal := amendFilterChainMatchFromInboundListener(golangproto.Clone(c).(*listener.FilterChain), l, needTLS)
 			chains = append(chains, newChain)
 			needTLS = needTLS || needTLSLocal
 		}
@@ -133,6 +135,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// 1. filter chains in this listener
 	// 2. explicit original_dst listener filter
 	// UseOriginalDst: proto.BoolTrue,
+	// nolint: staticcheck
 	lb.virtualInboundListener.HiddenEnvoyDeprecatedUseOriginalDst = nil
 	lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters,
 		xdsfilters.OriginalDestination,
@@ -200,6 +203,11 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigGenera
 	return lb
 }
 
+func (lb *ListenerBuilder) buildSidecarDNSListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
+	lb.dnsListener = configgen.buildSidecarDNSListener(lb.node, lb.push)
+	return lb
+}
+
 func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
 	httpProxy := configgen.buildHTTPProxy(lb.node, lb.push)
 	if httpProxy == nil {
@@ -225,7 +233,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
 		Name:                                VirtualOutboundListenerName,
-		Address:                             util.BuildAddressV2(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
+		Address:                             util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
 		Transparent:                         isTransparentProxy,
 		HiddenEnvoyDeprecatedUseOriginalDst: proto.BoolTrue,
 		FilterChains:                        filterChains,
@@ -252,7 +260,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	}
 	lb.virtualInboundListener = &listener.Listener{
 		Name:                                VirtualInboundListenerName,
-		Address:                             util.BuildAddressV2(actualWildcard, ProxyInboundListenPort),
+		Address:                             util.BuildAddress(actualWildcard, ProxyInboundListenPort),
 		Transparent:                         isTransparentProxy,
 		HiddenEnvoyDeprecatedUseOriginalDst: proto.BoolTrue,
 		TrafficDirection:                    core.TrafficDirection_INBOUND,
@@ -282,6 +290,7 @@ func (lb *ListenerBuilder) patchListeners() {
 	}
 
 	lb.virtualOutboundListener = lb.patchOneListener(lb.virtualOutboundListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
+	lb.dnsListener = lb.patchOneListener(lb.dnsListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.virtualInboundListener = lb.patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
 	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node,
 		lb.push, lb.inboundListeners, false)
@@ -292,7 +301,7 @@ func (lb *ListenerBuilder) patchListeners() {
 func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	if lb.node.Type == model.SidecarProxy {
 		nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
-		nHTTPProxy, nVirtual, nVirtualInbound := 0, 0, 0
+		nHTTPProxy, nVirtual, nVirtualInbound, nDNS := 0, 0, 0, 0
 		if lb.httpProxyListener != nil {
 			nHTTPProxy = 1
 		}
@@ -302,8 +311,11 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 		if lb.virtualInboundListener != nil {
 			nVirtualInbound = 1
 		}
+		if lb.dnsListener != nil {
+			nDNS = 1
+		}
 
-		nListener := nInbound + nOutbound + nHTTPProxy + nVirtual + nVirtualInbound
+		nListener := nInbound + nOutbound + nHTTPProxy + nVirtual + nVirtualInbound + nDNS
 
 		listeners := make([]*listener.Listener, 0, nListener)
 		listeners = append(listeners, lb.inboundListeners...)
@@ -317,14 +329,19 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 		if lb.virtualInboundListener != nil {
 			listeners = append(listeners, lb.virtualInboundListener)
 		}
+		if lb.dnsListener != nil {
+			listeners = append(listeners, lb.dnsListener)
+		}
 
-		log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, %d virtual outbound and %d virtual inbound listeners",
+		log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, "+
+			"%d virtual outbound and %d virtual inbound listeners, and %d DNS listener",
 			nListener,
 			lb.node.ID,
 			nOutbound,
 			nHTTPProxy,
 			nVirtual,
-			nVirtualInbound)
+			nVirtualInbound,
+			nDNS)
 		return listeners
 	}
 

@@ -115,10 +115,9 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 
 	virtualService6 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-			Name:      "acme-v3",
-			Namespace: "not-default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
 		},
 		Spec: virtualServiceSpec6,
 	}
@@ -467,46 +466,41 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService1 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-			Name:      "acme2-v1",
-			Namespace: "not-default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme2-v1",
+			Namespace:        "not-default",
 		},
 		Spec: virtualServiceSpec1,
 	}
 	virtualService2 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-			Name:      "acme-v2",
-			Namespace: "not-default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v2",
+			Namespace:        "not-default",
 		},
 		Spec: virtualServiceSpec2,
 	}
 	virtualService3 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-			Name:      "acme-v3",
-			Namespace: "not-default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
 		},
 		Spec: virtualServiceSpec3,
 	}
 	virtualService4 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-			Name:      "acme-v4",
-			Namespace: "not-default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v4",
+			Namespace:        "not-default",
 		},
 		Spec: virtualServiceSpec4,
 	}
 	virtualService5 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-			Name:      "acme-v3",
-			Namespace: "not-default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
 		},
 		Spec: virtualServiceSpec5,
 	}
@@ -908,6 +902,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	if registryOnly {
 		env.Mesh().OutboundTrafficPolicy = &meshapi.MeshConfig_OutboundTrafficPolicy{Mode: meshapi.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
 	}
+	proxy := getProxy()
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -915,7 +910,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 
 	vHostCache := make(map[int][]*route.VirtualHost)
-	routeCfg := configgen.buildSidecarOutboundHTTPRouteConfig(&proxy, env.PushContext, routeName, vHostCache)
+	routeCfg := configgen.buildSidecarOutboundHTTPRouteConfig(proxy, env.PushContext, routeName, vHostCache)
 	if routeCfg == nil {
 		t.Fatalf("got nil route for %s", routeName)
 	}

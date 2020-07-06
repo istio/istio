@@ -29,7 +29,7 @@ BuildRequires:  cmake3
 
 Source0:        istio-proxy.tar.gz
 Source1:        sidecar.env
-Source2:        envoy_bootstrap_v2.json
+Source2:        envoy_bootstrap.json
 
 %description
 The Istio Proxy is a microservice proxy that can be used on the client and server side, and forms a microservice mesh. The Proxy supports a large number of features.

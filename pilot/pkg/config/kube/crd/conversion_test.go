@@ -32,15 +32,13 @@ func TestConvert(t *testing.T) {
 	}
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Group:           "networking.istio.io",
-			Version:         "v1alpha3",
-			Name:            "test",
-			Namespace:       "default",
-			Domain:          "cluster",
-			ResourceVersion: "1234",
-			Labels:          map[string]string{"label": "value"},
-			Annotations:     map[string]string{"annotation": "value"},
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "test",
+			Namespace:        "default",
+			Domain:           "cluster",
+			ResourceVersion:  "1234",
+			Labels:           map[string]string{"label": "value"},
+			Annotations:      map[string]string{"annotation": "value"},
 		},
 		Spec: mock.ExampleVirtualService,
 	}

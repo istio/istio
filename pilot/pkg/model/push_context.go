@@ -27,11 +27,13 @@ import (
 	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -89,13 +91,13 @@ type PushContext struct {
 	QuotaSpecBinding []Config `json:"-"`
 
 	// VirtualService related
-	// this contains all the virtual services with exportTo "." and current namespace
-	privateVirtualServicesByNamespace map[string][]Config
 	// This contains all virtual services visible to this namespace extracted from
-	// exportTos that explicitly contained this namespace.
-	virtualServicesExportedToNamespace map[string][]Config
-	// This contains all virtual services whose exportTo is "*"
-	publicVirtualServices []Config
+	// exportTos that explicitly contained this namespace. The keys are namespace,gateway.
+	virtualServicesExportedToNamespaceByGateway map[string]map[string][]Config
+	// this contains all the virtual services with exportTo "." and current namespace. The keys are namespace,gateway.
+	privateVirtualServicesByNamespaceAndGateway map[string]map[string][]Config
+	// This contains all virtual services whose exportTo is "*", keyed by gateway
+	publicVirtualServicesByGateway map[string][]Config
 
 	// destination rules are of three types:
 	//  namespaceLocalDestRules: all public/private dest rules pertaining to a service defined in a given namespace
@@ -164,13 +166,14 @@ type processedDestRules struct {
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
-// Pilot uses multiple registries - for example each K8S cluster is a registry instance,
-// as well as consul and future EDS or MCP sources. Each registry is responsible for
-// tracking a set of endpoints associated with mesh services, and calling the EDSUpdate
-// on changes. A registry may group endpoints for a service in smaller subsets - for
-// example by deployment, or to deal with very large number of endpoints for a service.
-// We want to avoid passing around large objects - like full list of endpoints for a registry,
-// or the full list of endpoints for a service across registries, since it limits scalability.
+// Pilot uses multiple registries - for example each K8S cluster is a registry
+// instance, as well as consul. Each registry is responsible for tracking a set
+// of endpoints associated with mesh services, and calling the EDSUpdate on changes.
+// A registry may group endpoints for a service in smaller subsets - for example by
+// deployment, or to deal with very large number of endpoints for a service. We want
+// to avoid passing around large objects - like full list of endpoints for a registry,
+// or the full list of endpoints for a service across registries, since it limits
+// scalability.
 //
 // Future optimizations will include grouping the endpoints by labels, gateway or region to
 // reduce the time when subsetting or split-horizon is used. This design assumes pilot
@@ -178,10 +181,10 @@ type processedDestRules struct {
 // It is possible to split the endpoint tracking in future.
 type XDSUpdater interface {
 
-	// EDSUpdate is called when the list of endpoints or labels in a ServiceEntry is
-	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
-	// must be sent. The shard name is used as a key - current implementation is using the registry
-	// name.
+	// EDSUpdate is called when the list of endpoints or labels in a Service is changed.
+	// For each cluster and hostname, the full list of active endpoints (including empty list)
+	// must be sent. The shard name is used as a key - current implementation is using the
+	// registry name.
 	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint) error
 
 	// SvcUpdate is called when a service definition is updated/deleted.
@@ -189,7 +192,6 @@ type XDSUpdater interface {
 
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
-	// This replaces the 'cache invalidation' model.
 	ConfigUpdate(req *PushRequest)
 
 	// ProxyUpdate is called to notify the XDS server to send a push to the specified proxy.
@@ -242,12 +244,6 @@ const (
 	UnknownTrigger TriggerReason = "unknown"
 	// Describes a push triggered for debugging
 	DebugTrigger TriggerReason = "debug"
-)
-
-var (
-	ServiceEntryKind    = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
-	VirtualServiceKind  = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()
-	DestinationRuleKind = collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind()
 )
 
 // Merge two update requests together
@@ -447,21 +443,21 @@ func init() {
 func NewPushContext() *PushContext {
 	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
-		publicServices:                     []*Service{},
-		privateServicesByNamespace:         map[string][]*Service{},
-		servicesExportedToNamespace:        map[string][]*Service{},
-		publicVirtualServices:              []Config{},
-		privateVirtualServicesByNamespace:  map[string][]Config{},
-		virtualServicesExportedToNamespace: map[string][]Config{},
-		namespaceLocalDestRules:            map[string]*processedDestRules{},
-		exportedDestRulesByNamespace:       map[string]*processedDestRules{},
-		sidecarsByNamespace:                map[string][]*SidecarScope{},
-		envoyFiltersByNamespace:            map[string][]*EnvoyFilterWrapper{},
-		gatewaysByNamespace:                map[string][]Config{},
-		allGateways:                        []Config{},
-		ServiceByHostnameAndNamespace:      map[host.Name]map[string]*Service{},
-		ProxyStatus:                        map[string]map[string]ProxyPushStatus{},
-		ServiceAccounts:                    map[host.Name]map[int][]string{},
+		publicServices:                              []*Service{},
+		privateServicesByNamespace:                  map[string][]*Service{},
+		servicesExportedToNamespace:                 map[string][]*Service{},
+		publicVirtualServicesByGateway:              map[string][]Config{},
+		privateVirtualServicesByNamespaceAndGateway: map[string]map[string][]Config{},
+		virtualServicesExportedToNamespaceByGateway: map[string]map[string][]Config{},
+		namespaceLocalDestRules:                     map[string]*processedDestRules{},
+		exportedDestRulesByNamespace:                map[string]*processedDestRules{},
+		sidecarsByNamespace:                         map[string][]*SidecarScope{},
+		envoyFiltersByNamespace:                     map[string][]*EnvoyFilterWrapper{},
+		gatewaysByNamespace:                         map[string][]Config{},
+		allGateways:                                 []Config{},
+		ServiceByHostnameAndNamespace:               map[host.Name]map[string]*Service{},
+		ProxyStatus:                                 map[string]map[string]ProxyPushStatus{},
+		ServiceAccounts:                             map[host.Name]map[int][]string{},
 	}
 }
 
@@ -533,8 +529,6 @@ func virtualServiceDestinations(v *networking.VirtualService) []*networking.Dest
 // GatewayServices returns the set of services which are referred from the proxy gateways.
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := ps.Services(proxy)
-	// gateway set.
-	gateways := map[string]bool{}
 	// host set.
 	hostsFromGateways := map[string]struct{}{}
 
@@ -545,19 +539,16 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	}
 
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		gateways[gw] = true
-	}
-	log.Debugf("GatewayServices: gateway %v has following gw resources:%v", proxy.ID, gateways)
+		for _, vsConfig := range ps.VirtualServicesForGateway(proxy, gw) {
+			vs, ok := vsConfig.Spec.(*networking.VirtualService)
+			if !ok { // should never happen
+				log.Errorf("Failed in getting a virtual service: %v", vsConfig.Labels)
+				return svcs
+			}
 
-	for _, vsConfig := range ps.VirtualServices(proxy, gateways) {
-		vs, ok := vsConfig.Spec.(*networking.VirtualService)
-		if !ok { // should never happen
-			log.Errorf("Failed in getting a virtual service: %v", vsConfig.Labels)
-			return svcs
-		}
-
-		for _, d := range virtualServiceDestinations(vs) {
-			hostsFromGateways[d.Host] = struct{}{}
+			for _, d := range virtualServiceDestinations(vs) {
+				hostsFromGateways[d.Host] = struct{}{}
+			}
 		}
 	}
 
@@ -607,46 +598,11 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
-func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) []Config {
-	configs := make([]Config, 0)
-	out := make([]Config, 0)
-
-	// filter out virtual services not reachable
-	// First add private virtual services and explicitly exportedTo virtual services
-	if proxy == nil {
-		for _, virtualSvcs := range ps.privateVirtualServicesByNamespace {
-			configs = append(configs, virtualSvcs...)
-		}
-	} else {
-		configs = append(configs, ps.privateVirtualServicesByNamespace[proxy.ConfigNamespace]...)
-		configs = append(configs, ps.virtualServicesExportedToNamespace[proxy.ConfigNamespace]...)
-	}
-	// Second add public virtual services.
-	configs = append(configs, ps.publicVirtualServices...)
-
-	for _, cfg := range configs {
-		rule := cfg.Spec.(*networking.VirtualService)
-		if len(rule.Gateways) == 0 {
-			// This rule applies only to IstioMeshGateway
-			if _, ok := gateways[constants.IstioMeshGateway]; ok {
-				out = append(out, cfg)
-			}
-		} else {
-			for _, g := range rule.Gateways {
-				// note: Gateway names do _not_ use wildcard matching, so we do not use Name.Matches here
-				if _, ok := gateways[resolveGatewayName(g, cfg.ConfigMeta)]; ok {
-					out = append(out, cfg)
-					break
-				} else if _, ok := gateways[g]; ok && g == constants.IstioMeshGateway {
-					// "mesh" gateway cannot be expanded into FQDN
-					out = append(out, cfg)
-					break
-				}
-			}
-		}
-	}
-
-	return out
+func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) []Config {
+	res := ps.privateVirtualServicesByNamespaceAndGateway[proxy.ConfigNamespace][gateway]
+	res = append(res, ps.virtualServicesExportedToNamespaceByGateway[proxy.ConfigNamespace][gateway]...)
+	res = append(res, ps.publicVirtualServicesByGateway[gateway]...)
+	return res
 }
 
 // getSidecarScope returns a SidecarScope object associated with the
@@ -797,6 +753,9 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 	rule := cfg.Spec.(*networking.DestinationRule)
 	for _, subset := range rule.Subsets {
 		if subset.Name == subsetName {
+			if len(subset.Labels) == 0 {
+				return nil
+			}
 			return []labels.Instance{subset.Labels}
 		}
 	}
@@ -900,25 +859,25 @@ func (ps *PushContext) updateContext(
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
-		case ServiceEntryKind:
+		case gvk.ServiceEntry:
 			servicesChanged = true
-		case DestinationRuleKind:
+		case gvk.DestinationRule:
 			destinationRulesChanged = true
-		case VirtualServiceKind:
+		case gvk.VirtualService:
 			virtualServicesChanged = true
-		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
+		case gvk.Gateway:
 			gatewayChanged = true
-		case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
+		case gvk.Sidecar:
 			sidecarsChanged = true
-		case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
+		case gvk.EnvoyFilter:
 			envoyFiltersChanged = true
-		case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
+		case gvk.AuthorizationPolicy:
 			authzChanged = true
-		case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
-			collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+		case gvk.RequestAuthentication,
+			gvk.PeerAuthentication:
 			authnChanged = true
-		case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(),
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
+		case gvk.QuotaSpecBinding,
+			gvk.QuotaSpec:
 			quotasChanged = true
 		case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(),
 			collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
@@ -948,9 +907,9 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
-		ps.privateVirtualServicesByNamespace = oldPushContext.privateVirtualServicesByNamespace
-		ps.virtualServicesExportedToNamespace = oldPushContext.virtualServicesExportedToNamespace
-		ps.publicVirtualServices = oldPushContext.publicVirtualServices
+		ps.virtualServicesExportedToNamespaceByGateway = oldPushContext.virtualServicesExportedToNamespaceByGateway
+		ps.privateVirtualServicesByNamespaceAndGateway = oldPushContext.privateVirtualServicesByNamespaceAndGateway
+		ps.publicVirtualServicesByGateway = oldPushContext.publicVirtualServicesByGateway
 	}
 
 	if destinationRulesChanged {
@@ -1107,10 +1066,11 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) error {
-	ps.privateVirtualServicesByNamespace = map[string][]Config{}
-	ps.virtualServicesExportedToNamespace = map[string][]Config{}
-	ps.publicVirtualServices = []Config{}
-	virtualServices, err := env.List(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(), NamespaceAll)
+	ps.virtualServicesExportedToNamespaceByGateway = map[string]map[string][]Config{}
+	ps.privateVirtualServicesByNamespaceAndGateway = map[string]map[string][]Config{}
+	ps.publicVirtualServicesByGateway = map[string][]Config{}
+
+	virtualServices, err := env.List(gvk.VirtualService, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1135,79 +1095,28 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
-		rule := r.Spec.(*networking.VirtualService)
-		// resolve top level hosts
-		for i, h := range rule.Hosts {
-			rule.Hosts[i] = string(ResolveShortnameToFQDN(h, r.ConfigMeta))
-		}
-		// resolve gateways to bind to
-		for i, g := range rule.Gateways {
-			if g != constants.IstioMeshGateway {
-				rule.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
-			}
-		}
-		// resolve host in http route.destination, route.mirror
-		for _, d := range rule.Http {
-			for _, m := range d.Match {
-				for i, g := range m.Gateways {
-					if g != constants.IstioMeshGateway {
-						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
-					}
-				}
-			}
-			for _, w := range d.Route {
-				if w.Destination != nil {
-					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
-				}
-			}
-			if d.Mirror != nil {
-				d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta))
-			}
-		}
-		// resolve host in tcp route.destination
-		for _, d := range rule.Tcp {
-			for _, m := range d.Match {
-				for i, g := range m.Gateways {
-					if g != constants.IstioMeshGateway {
-						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
-					}
-				}
-			}
-			for _, w := range d.Route {
-				if w.Destination != nil {
-					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
-				}
-			}
-		}
-		//resolve host in tls route.destination
-		for _, tls := range rule.Tls {
-			for _, m := range tls.Match {
-				for i, g := range m.Gateways {
-					if g != constants.IstioMeshGateway {
-						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
-					}
-				}
-			}
-			for _, w := range tls.Route {
-				if w.Destination != nil {
-					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
-				}
-			}
-		}
+		resolveVirtualServiceShortnames(r.Spec.(*networking.VirtualService), r.ConfigMeta)
 	}
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
 		rule := virtualService.Spec.(*networking.VirtualService)
+		gwNames := getGatewayNames(rule, virtualService.ConfigMeta)
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in virtualService. Use the global default
 			// We only honor ., *
 			if ps.defaultVirtualServiceExportTo[visibility.Private] {
+				if _, f := ps.privateVirtualServicesByNamespaceAndGateway[ns]; !f {
+					ps.privateVirtualServicesByNamespaceAndGateway[ns] = map[string][]Config{}
+				}
 				// add to local namespace only
-				ps.privateVirtualServicesByNamespace[ns] =
-					append(ps.privateVirtualServicesByNamespace[ns], virtualService)
+				for _, gw := range gwNames {
+					ps.privateVirtualServicesByNamespaceAndGateway[ns][gw] = append(ps.privateVirtualServicesByNamespaceAndGateway[ns][gw], virtualService)
+				}
 			} else if ps.defaultVirtualServiceExportTo[visibility.Public] {
-				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+				for _, gw := range gwNames {
+					ps.publicVirtualServicesByGateway[gw] = append(ps.publicVirtualServicesByGateway[gw], virtualService)
+				}
 			}
 		} else {
 			exportToMap := make(map[visibility.Instance]bool)
@@ -1218,7 +1127,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			// if vs has exportTo *, make public and ignore all other exportTos
 			// if vs has exportTo ., replace with current namespace
 			if exportToMap[visibility.Public] {
-				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+				for _, gw := range gwNames {
+					ps.publicVirtualServicesByGateway[gw] = append(ps.publicVirtualServicesByGateway[gw], virtualService)
+				}
 				continue
 			} else if exportToMap[visibility.None] {
 				// not possible
@@ -1227,13 +1138,22 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				// . or other namespaces
 				for exportTo := range exportToMap {
 					if exportTo == visibility.Private || string(exportTo) == ns {
-						// exportTo with same namespace is effectively private
-						ps.privateVirtualServicesByNamespace[ns] =
-							append(ps.privateVirtualServicesByNamespace[ns], virtualService)
+						if _, f := ps.privateVirtualServicesByNamespaceAndGateway[ns]; !f {
+							ps.privateVirtualServicesByNamespaceAndGateway[ns] = map[string][]Config{}
+						}
+						// add to local namespace only
+						for _, gw := range gwNames {
+							ps.privateVirtualServicesByNamespaceAndGateway[ns][gw] = append(ps.privateVirtualServicesByNamespaceAndGateway[ns][gw], virtualService)
+						}
 					} else {
-						// exportTo is a specific target namespace
-						ps.virtualServicesExportedToNamespace[string(exportTo)] =
-							append(ps.virtualServicesExportedToNamespace[string(exportTo)], virtualService)
+						if _, f := ps.virtualServicesExportedToNamespaceByGateway[string(exportTo)]; !f {
+							ps.virtualServicesExportedToNamespaceByGateway[string(exportTo)] = map[string][]Config{}
+						}
+						// add to local namespace only
+						for _, gw := range gwNames {
+							ps.virtualServicesExportedToNamespaceByGateway[string(exportTo)][gw] =
+								append(ps.virtualServicesExportedToNamespaceByGateway[string(exportTo)][gw], virtualService)
+						}
 					}
 				}
 			}
@@ -1241,6 +1161,24 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	}
 
 	return nil
+}
+
+var meshGateways = []string{constants.IstioMeshGateway}
+
+func getGatewayNames(vs *networking.VirtualService, meta ConfigMeta) []string {
+	if len(vs.Gateways) == 0 {
+		return meshGateways
+	}
+	res := make([]string, 0, len(vs.Gateways))
+	for _, g := range vs.Gateways {
+		if g == constants.IstioMeshGateway {
+			res = append(res, constants.IstioMeshGateway)
+		} else {
+			name := resolveGatewayName(g, meta)
+			res = append(res, name)
+		}
+	}
+	return res
 }
 
 func (ps *PushContext) initDefaultExportMaps() {
@@ -1286,7 +1224,7 @@ func (ps *PushContext) initDefaultExportMaps() {
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
 func (ps *PushContext) initSidecarScopes(env *Environment) error {
-	sidecarConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(), NamespaceAll)
+	sidecarConfigs, err := env.List(gvk.Sidecar, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1335,11 +1273,15 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// build sidecar scopes for namespaces that do not have a non-workloadSelector sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
+	namespaces := sets.NewSet()
 	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
 		for ns := range nsMap {
-			if _, exist := sidecarsWithoutSelectorByNamespace[ns]; !exist {
-				ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
-			}
+			namespaces.Insert(ns)
+		}
+	}
+	for ns := range namespaces {
+		if _, exist := sidecarsWithoutSelectorByNamespace[ns]; !exist {
+			ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
 		}
 	}
 
@@ -1348,7 +1290,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 // Split out of DestinationRule expensive conversions - once per push.
 func (ps *PushContext) initDestinationRules(env *Environment) error {
-	configs, err := env.List(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), NamespaceAll)
+	configs, err := env.List(gvk.DestinationRule, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1448,7 +1390,7 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment) error {
-	envoyFilterConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(), NamespaceAll)
+	envoyFilterConfigs, err := env.List(gvk.EnvoyFilter, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1531,7 +1473,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 
 // pre computes gateways per namespace
 func (ps *PushContext) initGateways(env *Environment) error {
-	gatewayConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(), NamespaceAll)
+	gatewayConfigs, err := env.List(gvk.Gateway, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1665,13 +1607,13 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 
 func (ps *PushContext) initQuotaSpecs(env *Environment) error {
 	var err error
-	ps.QuotaSpec, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
+	ps.QuotaSpec, err = env.List(gvk.QuotaSpec, NamespaceAll)
 	return err
 }
 
 func (ps *PushContext) initQuotaSpecBindings(env *Environment) error {
 	var err error
-	ps.QuotaSpecBinding, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
+	ps.QuotaSpecBinding, err = env.List(gvk.QuotaSpecBinding, NamespaceAll)
 	return err
 }
 

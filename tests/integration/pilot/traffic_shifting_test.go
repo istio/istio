@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pkg/test/util/retry"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -66,6 +65,8 @@ type VirtualServiceConfig struct {
 	Weight2   int32
 }
 
+// Traffic shifting test body. This test will call from client to 3 instances
+// to see if the traffic distribution follows the weights set by the VirtualService
 func TestTrafficShifting(t *testing.T) {
 	// Traffic distribution
 	weights := map[string][]int32{
@@ -108,29 +109,12 @@ func TestTrafficShifting(t *testing.T) {
 					}
 
 					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
-					ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
+					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
 
 					sendTraffic(t, 100, instances[0], instances[1], hosts, v, errorThreshold)
 				})
 			}
 		})
-}
-
-func echoConfig(ns namespace.Instance, name string) echo.Config {
-	return echo.Config{
-		Service:   name,
-		Namespace: ns,
-		Ports: []echo.Port{
-			{
-				Name:     "http",
-				Protocol: protocol.HTTP,
-				// We use a port > 1024 to not require root
-				InstancePort: 8090,
-			},
-		},
-		Subsets: []echo.SubsetConfig{{}},
-		Pilot:   p,
-	}
 }
 
 func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorThreshold float64) {
