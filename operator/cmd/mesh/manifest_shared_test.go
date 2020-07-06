@@ -91,7 +91,8 @@ func init() {
 	}
 }
 
-// recreateTestEnv creates
+// recreateTestEnv (re)creates a kubebuilder fake API server environment. This is required for testing of the
+// controller runtime, which is used in the operator.
 func recreateTestEnv() error {
 	// If kubebuilder is installed, use that test env for apply and controller testing.
 	log.Infof("Recreating kubebuilder test environment\n")
