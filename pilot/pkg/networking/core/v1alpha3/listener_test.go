@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -74,6 +75,10 @@ func getProxy() *model.Proxy {
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
 			Namespace: "not-default",
+		},
+		Active: map[string]*model.CoreWatchedResource{
+			v3.ListenerShortType: {},
+			v3.ClusterShortType:  {},
 		},
 		ConfigNamespace: "not-default",
 	}
