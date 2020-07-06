@@ -17,18 +17,19 @@ package istioctl
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/util/retry"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 	"testing"
 	"time"
+
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -71,7 +72,7 @@ func TestUninstallByRevision(t *testing.T) {
 			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
 
 			retry.UntilSuccessOrFail(t, func() error {
-				for _, gvk := range helmreconciler.NamespacedCPResources {
+				for _, gvk := range append(helmreconciler.NamespacedCPResources, helmreconciler.NonNamespacedCPResources...) {
 					resources := strings.ToLower(gvk.Kind) + "s"
 					gvr := schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: resources}
 					ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
@@ -81,7 +82,8 @@ func TestUninstallByRevision(t *testing.T) {
 						for _, item := range usList.Items {
 							stalelist = append(stalelist, item.GroupVersionKind().String())
 						}
-						return fmt.Errorf("resources expected to be pruned but still exist in the cluster: %s\n", strings.Join(stalelist, " "))
+						return fmt.Errorf("resources expected to be pruned but still exist in the cluster: %s\n",
+							strings.Join(stalelist, " "))
 					}
 				}
 				return nil

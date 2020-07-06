@@ -70,7 +70,6 @@ var (
 		// Cannot currently prune CRDs because this will also wipe out user config.
 		// {Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
 	}
-
 	NonNamespacedCPResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
 	}
@@ -129,7 +128,8 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWrapper(ns, revision string)
 	return nil, h.PruneControlPlaneByRevision(revision)
 }
 
-// PruneControlPlaneByRevision removed resources referenced by specific control plane revision.
+// PruneControlPlaneByRevision removed resources of specific control plane revision.
+// It is used by the operator controller case alone.
 func (h *HelmReconciler) PruneControlPlaneByRevision(revision string) error {
 	labels := map[string]string{
 		label.IstioRev:   revision,
@@ -153,6 +153,31 @@ func (h *HelmReconciler) PruneControlPlaneByRevision(revision string) error {
 		if err != nil {
 			return fmt.Errorf("failed to prune resources: %v", err)
 		}
+	}
+	return nil
+}
+
+// PruneControlPlaneByManifests removed resources by manifests and revision of control plane,
+// It is used by istioctl uninstall command.
+func (h *HelmReconciler) PruneControlPlaneByManifests(manifests, revision string) error {
+	labels := map[string]string{
+		label.IstioRev:   revision,
+		operatorLabelStr: operatorReconcileStr,
+	}
+	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifests)
+	if err != nil {
+		return fmt.Errorf("failed parse k8s objects from yaml: %v", err)
+	}
+	unstructuredObjects := unstructured.UnstructuredList{}
+	for _, obj := range objects {
+		obju := obj.UnstructuredObject()
+		if err := h.applyLabelsAndAnnotations(obju, string(name.PilotComponentName)); err != nil {
+			return fmt.Errorf("failed to apply labels: %v", err)
+		}
+		unstructuredObjects.Items = append(unstructuredObjects.Items, *obju)
+	}
+	if err := h.pruneUnlistedResources(nil, labels, string(name.PilotComponentName), &unstructuredObjects, false); err != nil {
+		return fmt.Errorf("failed to prune control plane resources: %v", err)
 	}
 	return nil
 }

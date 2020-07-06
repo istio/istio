@@ -17,11 +17,7 @@ type sidecarSyncStatus struct {
 }
 
 func GetProxyInfo(kubeconfig, configContext, revision, istioNamespace string) (*[]istioVersion.ProxyInfo, error) {
-	config, err := kube.DefaultRestConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-	kubeClient, err := kube.NewClientWithRevision(config, revision)
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 	if err != nil {
 		return nil, err
 	}

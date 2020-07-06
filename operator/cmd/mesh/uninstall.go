@@ -20,9 +20,12 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
 
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	proxyinfo "istio.io/istio/pkg/proxy"
@@ -41,6 +44,8 @@ type uninstallArgs struct {
 	revision string
 	// istioNamespace is the target namespace of istio control plane.
 	istioNamespace string
+	// filename is the path of input IstioOperator CR.
+	filename string
 }
 
 func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
@@ -50,7 +55,8 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", istioDefaultNamespace,
 		"The namespace of Istio Control Plane")
-	cmd.MarkPersistentFlagRequired("revision")
+	cmd.PersistentFlags().StringVarP(&args.filename, "fileName", "f", "",
+		"The filename of the IstioOperator CR")
 }
 
 func UninstallCmd(logOpts *log.Options) *cobra.Command {
@@ -60,17 +66,90 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 		Use:   "uninstall --revision foo",
 		Short: "uninstall the control plane by revision",
 		Long:  "The uninstall command uninstall the control plane by revision and",
-		Args:  cobra.ExactArgs(0),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if (uiArgs.revision == "" && uiArgs.filename == "") || (uiArgs.revision != "" && uiArgs.filename != "") {
+				return fmt.Errorf("either one of the --revision or --filename flags needed to be set")
+			}
+			if len(args) > 0 {
+				return fmt.Errorf("too many positional arguments")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return uninstallRev(cmd, rootArgs, uiArgs, logOpts)
+			return uninstall(cmd, rootArgs, uiArgs, logOpts)
 		}}
 	addUninstallFlags(uicmd, uiArgs)
 	return uicmd
 }
 
-func uninstallRev(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, logOpts *log.Options) error {
+func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-	pids, err := getStaleProxies(uiArgs)
+	if err := configLogs(logOpts); err != nil {
+		return fmt.Errorf("could not configure logs: %s", err)
+	}
+	restConfig, _, clt, err := K8sConfig(uiArgs.kubeConfigPath, uiArgs.context)
+	if err != nil {
+		return err
+	}
+	cache.FlushObjectCaches()
+	opts := &helmreconciler.Options{DryRun: rootArgs.dryRun, Log: l, ProgressLog: progress.NewLog()}
+	h, err := helmreconciler.NewHelmReconciler(clt, restConfig, nil, opts)
+	if err != nil {
+		return fmt.Errorf("failed to create reconciler: %v", err)
+	}
+	if err := uninstallByManifest(cmd, rootArgs, uiArgs, restConfig, h, l); err != nil {
+		return fmt.Errorf("failed to uninstall control plane: %v", err)
+	}
+	opts.ProgressLog.SetState(progress.StateComplete)
+	return nil
+}
+
+// TODO: Do we still need this part? uninstallByRev uninstalls control plane belongs to the target revision.
+//func uninstallByRev(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, h *helmreconciler.HelmReconciler) error {
+//	if err := checkStaleProxies(cmd, rootArgs, uiArgs, uiArgs.revision); err != nil {
+//		return err
+//	}
+//
+//	if err := h.PruneControlPlaneByRevision(uiArgs.revision); err != nil {
+//		return fmt.Errorf("failed to prune control plane by revision: %v", err)
+//	}
+//	return nil
+//}
+
+// uninstallByManifest uninstalls control plane by target manifests and revision.
+func uninstallByManifest(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs,
+	restConfig *rest.Config, h *helmreconciler.HelmReconciler, l clog.Logger) error {
+	var (
+		manifestMap name.ManifestMap
+		err         error
+		iop         *v1alpha1.IstioOperatorSpec
+	)
+	if uiArgs.revision != "" {
+		setFlag := fmt.Sprintf("revision=%s", uiArgs.revision)
+		manifestMap, iop, err = GenManifests([]string{}, []string{setFlag}, true, restConfig, l)
+	} else if uiArgs.filename != "" {
+		manifestMap, iop, err = GenManifests([]string{uiArgs.filename}, []string{}, true, restConfig, l)
+	}
+	if err != nil {
+		return err
+	}
+	if iop.Revision == "" {
+		return fmt.Errorf("revision is not expecified")
+	}
+	if err := checkStaleProxies(cmd, rootArgs, uiArgs, iop.Revision); err != nil {
+		return err
+	}
+
+	cpManifests := manifestMap[name.PilotComponentName]
+	if err := h.PruneControlPlaneByManifests(strings.Join(cpManifests, "---"), iop.Revision); err != nil {
+		return fmt.Errorf("failed to prune control plane by manifests: %v", err)
+	}
+	return nil
+}
+
+// checkStaleProxies checks proxies still pointing to the target control plane revision.
+func checkStaleProxies(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, rev string) error {
+	pids, err := proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, rev, uiArgs.istioNamespace)
 	if err != nil {
 		return err
 	}
@@ -83,39 +162,5 @@ func uninstallRev(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs,
 			os.Exit(1)
 		}
 	}
-	if err := configLogs(logOpts); err != nil {
-		return fmt.Errorf("could not configure logs: %s", err)
-	}
-	if err := pruneManifests(uiArgs.revision, rootArgs.dryRun,
-		uiArgs.kubeConfigPath, uiArgs.context, l); err != nil {
-		return fmt.Errorf("failed to apply manifests: %v", err)
-	}
-
-	return nil
-}
-
-// getStaleProxies get proxies still pointing to the target control plane revision.
-func getStaleProxies(uiArgs *uninstallArgs) ([]string, error) {
-	return proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, uiArgs.revision, uiArgs.istioNamespace)
-}
-
-// pruneManifests prunes manifests in the cluster that belongs to the target control plane revision.
-func pruneManifests(revision string, dryRun bool, kubeConfigPath string, context string, l clog.Logger) error {
-	restConfig, _, client, err := K8sConfig(kubeConfigPath, context)
-	if err != nil {
-		return err
-	}
-	cache.FlushObjectCaches()
-	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, ProgressLog: progress.NewLog()}
-	h, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, opts)
-	if err != nil {
-		return fmt.Errorf("failed to create reconciler: %v", err)
-	}
-	if err := h.PruneControlPlaneByRevision(revision); err != nil {
-		return fmt.Errorf("failed to prune control plane by revision: %v", err)
-	}
-	opts.ProgressLog.SetState(progress.StateComplete)
-
-	// TODO(richardwxn): remove installed state CR
 	return nil
 }
