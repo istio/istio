@@ -347,13 +347,14 @@ func (h *IstioDNS) ServeDNSTLS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	to := time.After(2 * time.Second)
+	to := time.NewTimer(2 * time.Second)
 	select {
 	case m := <-ch:
+		to.Stop()
 		m.MsgHdr.Id = origID
 		response = m
 		_ = w.WriteMsg(m)
-	case <-to:
+	case <-to.C:
 		return
 	}
 	if false {
