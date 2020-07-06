@@ -49,10 +49,6 @@ var (
 	// installerScope is the scope for all commands in the mesh package.
 	installerScope = log.RegisterScope("installer", "installer", 0)
 
-	// Path to the operator install base dir in the snapshot. This symbol is required here because it's referenced
-	// in "operator dump" e2e command tests and there's no other way to inject a path into the snapshot into the command.
-	snapshotInstallPackageDir string
-
 	// testK8Interface is used if it is set. Not possible to inject due to cobra command boundary.
 	testK8Interface *kubernetes.Clientset
 	testRestConfig  *rest.Config
@@ -291,13 +287,4 @@ func saveIOPToCluster(reconciler *helmreconciler.HelmReconciler, iop string) err
 		return err
 	}
 	return reconciler.ApplyObject(obj.UnstructuredObject())
-}
-
-// checkExit exits and prints err it if it not nil.
-func checkExit(err error) {
-	if err == nil {
-		return
-	}
-	fmt.Print(err)
-	os.Exit(1)
 }

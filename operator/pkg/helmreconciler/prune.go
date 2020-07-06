@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	// ordered by which types should be deleted, first to last
+	// NamespacedResources are resource types the operator prunes, ordered by which types should be deleted, first to last.
 	NamespacedResources = []schema.GroupVersionKind{
 		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
 		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
@@ -52,7 +52,7 @@ var (
 		{Group: name.SecurityAPIGroupName, Version: "v1beta1", Kind: name.PeerAuthenticationStr},
 	}
 
-	// ordered by which types should be deleted, first to last
+	// ClusterResources are resource types the operator prunes, ordered by which types should be deleted, first to last.
 	ClusterResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.ValidatingWebhookConfigurationStr},
