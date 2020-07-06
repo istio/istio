@@ -217,7 +217,7 @@ func TestGolden(t *testing.T) {
 									},
 								},
 								CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-									&core.GrpcService_GoogleGrpc_CallCredentials{
+									{
 										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_StsService_{
 											StsService: &core.GrpcService_GoogleGrpc_CallCredentials_StsService{
 												TokenExchangeServiceUri: "http://localhost:15463/token",
@@ -231,11 +231,11 @@ func TestGolden(t *testing.T) {
 							},
 						},
 						InitialMetadata: []*core.HeaderValue{
-
-							&core.HeaderValue{
+							{
 								Key:   "x-goog-user-project",
 								Value: "my-sd-project",
-							}},
+							},
+						},
 					},
 					IncomingTraceContext: []trace.OpenCensusConfig_TraceContext{
 						trace.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
