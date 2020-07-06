@@ -334,4 +334,7 @@ var (
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
+
+	EnableIOR = env.RegisterBoolVar("ENABLE_IOR", false,
+		"Whether to enable IOR component, which provides integration between Istio Gateways and OpenShift Routes").Get()
 )

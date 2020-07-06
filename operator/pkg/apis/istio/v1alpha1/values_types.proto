@@ -305,6 +305,10 @@ message GatewaysConfig {
   IngressGatewayConfig istio_ingressgateway = 4;
 }
 
+message IORConfig {
+  google.protobuf.BoolValue enabled = 1;
+}
+
 // Global Configuration for Istio components.
 message GlobalConfig {
   // Specifies pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
@@ -538,7 +542,11 @@ message GlobalConfig {
 
   // Controls whether one central istiod is enabled.
   google.protobuf.BoolValue centralIstiod = 62;
-  // The next available key is 63
+
+  // IOR
+  IORConfig ior = 63;
+
+  // The next available key is 64
 }
 
 // Configuration for Security Token Service (STS) server.

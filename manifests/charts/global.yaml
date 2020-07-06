@@ -549,6 +549,11 @@ global:
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   jwtPolicy: "third-party-jwt"
 
+  # Controls whether to activate pilot's IOR component. IOR automatically manages OpenShift Routes
+  # based on Istio Gateways
+  ior:
+    enabled: false
+
 # Internal setting - used when generating helm templates for kustomize.
 # clusterResources controls the inclusion of cluster-wide resources when generating the charts/installing.
 # For backward compat, it is set to 'true', resulting in the old-style installation.

@@ -150,6 +150,10 @@ spec:
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           - name: CENTRAL_ISTIOD
             value: "{{ $.Values.global.centralIstiod | default "false" }}"
+{{- if .Values.global.ior }}
+          - name: ENABLE_IOR
+            value: "{{ .Values.global.ior.enabled | default "false" }}"
+{{- end }}
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}

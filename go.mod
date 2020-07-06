@@ -97,7 +97,6 @@ require (
 	github.com/hashicorp/serf v0.8.5 // indirect
 	github.com/hashicorp/vault/api v1.0.3
 	github.com/howeyc/fsnotify v0.9.0
-	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kr/pretty v0.1.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v0.9.0
@@ -111,7 +110,8 @@ require (
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/onsi/gomega v1.9.0
 	github.com/open-policy-agent/opa v0.8.2
-	github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible
+	github.com/openshift/api v0.0.0-20200701144905-de5b010b2b38
+	github.com/openshift/client-go v0.0.0-20200623090625-83993cebb5ae
 	github.com/opentracing/opentracing-go v1.0.2
 	github.com/openzipkin/zipkin-go v0.1.7
 	github.com/pelletier/go-toml v1.3.0 // indirect
@@ -145,26 +145,26 @@ require (
 	go.uber.org/atomic v1.4.0
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
-	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582
+	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
-	golang.org/x/tools v0.0.0-20191216173652-a0e659d51361
+	golang.org/x/tools v0.0.0-20200115044656-831fdb1e1868
 	google.golang.org/api v0.15.0
 	google.golang.org/genproto v0.0.0-20191223191004-3caeed10a8bf
 	google.golang.org/grpc v1.28.1
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.3.0
 	helm.sh/helm/v3 v3.2.0
 	istio.io/api v0.0.0-20200630235056-b0ac5eceb6e8
 	istio.io/gogo-genproto v0.0.0-20200511213158-02f1fd1746e5
 	istio.io/pkg v0.0.0-20200511212725-7bfbbf968c23
-	k8s.io/api v0.18.1
+	k8s.io/api v0.18.4
 	k8s.io/apiextensions-apiserver v0.18.0
-	k8s.io/apimachinery v0.18.1
+	k8s.io/apimachinery v0.18.4
 	k8s.io/cli-runtime v0.18.0
-	k8s.io/client-go v0.18.0
+	k8s.io/client-go v0.18.3
 	k8s.io/kubectl v0.18.0
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	sigs.k8s.io/controller-runtime v0.5.1-0.20200327213554-2d4c4877f906
