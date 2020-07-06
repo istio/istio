@@ -15,6 +15,7 @@
 package matcher
 
 import (
+	"reflect"
 	"testing"
 
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
