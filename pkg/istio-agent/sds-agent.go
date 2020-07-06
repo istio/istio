@@ -64,6 +64,7 @@ var (
 
 	pluginNamesEnv             = env.RegisterStringVar(pluginNames, "", "").Get()
 	enableIngressGatewaySDSEnv = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
+	enableEgressGatewaySDSEnv = env.RegisterBoolVar(enableEgressGatewaySDS, false, "").Get()
 
 	trustDomainEnv = env.RegisterStringVar(trustDomain, "", "").Get()
 	secretTTLEnv   = env.RegisterDurationVar(secretTTL, 24*time.Hour,
@@ -107,6 +108,10 @@ const (
 	// The ingress gateway SDS mode allows node agent to provision credentials to ingress gateway
 	// proxy by watching kubernetes secrets.
 	enableIngressGatewaySDS = "ENABLE_INGRESS_GATEWAY_SDS"
+
+	// The ingress gateway SDS mode allows node agent to provision credentials to ingress gateway
+	// proxy by watching kubernetes secrets.
+	enableEgressGatewaySDS = "ENABLE_EGRESS_GATEWAY_SDS"
 
 	// The environmental variable name for secret TTL, node agent decides whether a secret
 	// is expired if time.now - secret.createtime >= secretTTL.
@@ -345,13 +350,23 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
 		if ingressSdsExists() {
-			log.Infof("Starting gateway SDS")
+			log.Infof("Starting ingress gateway SDS")
 			serverOptions.EnableIngressGatewaySDS = true
 			// TODO: what is the setting for ingress ?
 			serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
-			gatewaySecretCache = newIngressSecretCache(podNamespace)
+			gatewaySecretCache = newGatewaySecretCache(podNamespace)
 		} else {
-			log.Infof("Skipping gateway SDS")
+			log.Infof("Skipping ingress gateway SDS")
+		}
+
+		if egressSdsExists() {
+			log.Infof("Starting egress gateway SDS")
+			serverOptions.EnableEgressGatewaySDS = true
+			// TODO: what is the setting for egress ?
+			serverOptions.EgressGatewayUDSPath = strings.TrimPrefix(model.EgressGatewaySdsUdsPath, "unix:")
+			gatewaySecretCache = newGatewaySecretCache(podNamespace)
+		} else {
+			log.Infof("Skipping egress gateway SDS")
 		}
 	}
 
@@ -365,6 +380,13 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 
 func ingressSdsExists() bool {
 	p := strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
+	dir := path.Dir(p)
+	_, err := os.Stat(dir)
+	return !os.IsNotExist(err)
+}
+
+func egressSdsExists() bool {
+	p := strings.TrimPrefix(model.EgressGatewaySdsUdsPath, "unix:")
 	dir := path.Dir(p)
 	_, err := os.Stat(dir)
 	return !os.IsNotExist(err)
@@ -516,7 +538,7 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 }
 
 // TODO: use existing 'sidecar/router' config to enable loading Secrets
-func newIngressSecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
+func newGatewaySecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
 	gSecretFetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
@@ -545,6 +567,8 @@ func applyEnvVars() {
 	serverOptions.EnableWorkloadSDS = true
 
 	serverOptions.EnableIngressGatewaySDS = enableIngressGatewaySDSEnv
+	serverOptions.EnableEgressGatewaySDS = enableEgressGatewaySDSEnv
+
 	serverOptions.CAProviderName = caProviderEnv
 
 	// TODO: extract from ProxyConfig
