@@ -22,6 +22,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
+
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -29,7 +31,7 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -144,8 +146,12 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.manifestsPath, maArgs.revision), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
-		maArgs.kubeConfigPath, maArgs.context, maArgs.readinessTimeout, l); err != nil {
+	client, err := k8sClient(maArgs.kubeConfigPath, maArgs.context)
+	if err != nil {
+		return err
+	}
+	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.manifestsPath, maArgs.revision), maArgs.inFilenames,
+		maArgs.force, rootArgs.dryRun, client, maArgs.readinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
 
@@ -156,14 +162,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
-func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
-	kubeConfigPath string, context string, waitTimeout time.Duration, l clog.Logger) error {
+func ApplyManifests(inFilenames, setOverlay []string, force bool, dryRun bool,
+	client kube.Client, waitTimeout time.Duration, l clog.Logger) error {
 
-	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
-	if err != nil {
-		return err
-	}
-	_, iops, err := GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
+	_, iops, err := GenerateConfig(inFilenames, setOverlay, force, client.RESTConfig(), l)
 	if err != nil {
 		return err
 	}
@@ -177,7 +179,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return err
 	}
 
-	if err := createNamespace(clientset, iop.Namespace); err != nil {
+	if err := createNamespace(client.Kube(), iop.Namespace); err != nil {
 		return err
 	}
 
@@ -185,7 +187,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
 		Force: force}
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
+	reconciler, err := helmreconciler.NewHelmReconciler(client.Controller(), client.RESTConfig(), iop, opts)
 	if err != nil {
 		return err
 	}
