@@ -510,7 +510,6 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 
 	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
 	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
-	workloadSdsCacheOptions.ECCSigAlg = serverOptions.ECCSigAlg
 	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 
 	return
@@ -553,6 +552,7 @@ func applyEnvVars() {
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
 	serverOptions.ECCSigAlg = eccSigAlgEnv
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
+	workloadSdsCacheOptions.ECCSigAlg = eccSigAlgEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
