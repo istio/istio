@@ -43,6 +43,7 @@ var BuiltInChainsMap = map[string]struct{}{
 // Constants used for generating iptables commands
 const (
 	TCP = "tcp"
+	UDP = "udp"
 
 	TPROXY   = "TPROXY"
 	RETURN   = "RETURN"
