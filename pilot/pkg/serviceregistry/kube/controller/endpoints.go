@@ -156,6 +156,10 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	return out, nil
 }
 
+func (e *endpointsController) getInformer() cache.SharedIndexInformer {
+	return e.informer
+}
+
 func (e *endpointsController) onEvent(curr interface{}, event model.Event) error {
 	if err := e.c.checkReadyForEvents(); err != nil {
 		return err
@@ -178,6 +182,16 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, curr)
 }
 
+func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
+	ep := endpoint.(*v1.Endpoints)
+	key := kube.KeyFunc(ep.Name, ep.Namespace)
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			e.c.pods.dropNeedsUpdate(key, ea.IP)
+		}
+	}
+}
+
 func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {
 	endpoints := make([]*model.IstioEndpoint, 0)
 	ep := endpoint.(*v1.Endpoints)
@@ -189,6 +203,8 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 				// This means, the endpoint event has arrived before pod event. This might happen because
 				// PodCache is eventually consistent. We should try to get the pod from kube-api server.
 				if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
+					// There is a small chance getInformer may have the pod, but it hasn't made its way to the PodCache yet
+					// This is due to the shared queue. Try the getInformer store first
 					podFromInformer, f, err := e.c.pods.informer.GetStore().GetByKey(key)
 					if err != nil || !f {
 						// If pod is still not available, this an unusual case.
@@ -197,7 +213,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 						if e.c.metrics != nil {
 							e.c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, ea.IP)
 						}
-						// Tell pod cache
+						// Tell pod cache we want to get an update when this pod arrives
 						e.c.pods.recordNeedsUpdate(key, ea.IP)
 						continue
 					} else {
@@ -205,7 +221,6 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 					}
 				}
 			}
-			e.c.pods.dropNeedsUpdate(key, ea.IP)
 
 			builder := NewEndpointBuilder(e.c, pod)
 

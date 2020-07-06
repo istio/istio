@@ -87,7 +87,6 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	// via UpdateStatus.
 
 	if len(ip) > 0 {
-		log.Infof("howardjohn: Handling event %s for pod %s (%v) in namespace %s -> %v", ev, pod.Name, pod.Status.Phase, pod.Namespace, ip)
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
 		switch ev {
 		case model.EventAdd:
@@ -146,7 +145,6 @@ func (pc *PodCache) update(ip, key string) {
 	if endpointsToUpdate, f := pc.needResync[ip]; f {
 		delete(pc.needResync, ip)
 		for ep := range endpointsToUpdate {
-			log.Errorf("howardjohn: triggering update for %v", ep)
 			pc.endpointUpdate(ep)
 		}
 	}

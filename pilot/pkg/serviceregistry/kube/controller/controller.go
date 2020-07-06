@@ -245,19 +245,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	registerHandlers(c.nodeInformer, c.queue, "Nodes", reflect.DeepEqual, c.onNodeEvent)
 
 	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods(), func(key string) {
-		// todo endpoint slice
-		epc := c.endpoints.(*endpointsController)
-		item, exists, err := epc.informer.GetStore().GetByKey(key)
-		if err != nil {
-			log.Errorf("got error on endpoint update: %v", err)
-		}
-		if !exists {
-			log.Errorf("howardjohn: looked up %v, does not exist", key)
-			// must be stale, do nothing
+		item, exists, err := c.endpoints.getInformer().GetStore().GetByKey(key)
+		if err != nil || !exists {
+			log.Debugf("Endpoint %v lookup failed, skipping stale endpoint", key)
 			return
 		}
 		c.queue.Push(func() error {
-			return epc.onEvent(item, model.EventUpdate)
+			return c.endpoints.onEvent(item, model.EventUpdate)
 		})
 	})
 	registerHandlers(c.pods.informer, c.queue, "Pods", reflect.DeepEqual, c.pods.onEvent)
