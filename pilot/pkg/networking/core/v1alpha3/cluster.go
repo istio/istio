@@ -872,7 +872,6 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 	proxy := opts.proxy
 	certValidationContext := &auth.CertificateValidationContext{}
 	var trustedCa *core.DataSource
-	tlsContext := &auth.UpstreamTlsContext{}
 
 	// Configure root cert for UpstreamTLSContext
 	if len(tls.CaCertificates) != 0 {
@@ -889,16 +888,59 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		}
 	}
 
+	tlsContext, err := buildUpstreamClusterTLSContext(opts, tls, node, certValidationContext)
+	if err != nil {
+		log.Errorf("failed to build Upstream TLSContext: %s", err.Error())
+		return
+	}
+
+	if tlsContext != nil {
+		c.TransportSocket = &core.TransportSocket{
+			Name:       util.EnvoyTLSSocketName,
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+		}
+	}
+
+	// For headless service, discover type will be `Cluster_ORIGINAL_DST`
+	// Apply auto mtls to clusters excluding these kind of headless service
+	if c.GetType() != cluster.Cluster_ORIGINAL_DST {
+		// convert to transport socket matcher if the mode was auto detected
+		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
+			transportSocket := c.TransportSocket
+			c.TransportSocket = nil
+			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name: "tlsMode-" + model.IstioMutualTLSModeLabel,
+					Match: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
+						},
+					},
+					TransportSocket: transportSocket,
+				},
+				defaultTransportSocketMatch,
+			}
+		}
+	}
+}
+
+func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings,
+	node *model.Proxy, certValidationContext *auth.CertificateValidationContext) (*auth.UpstreamTlsContext, error) {
+	c := opts.cluster
+	proxy := opts.proxy
+
+	tlsContext := &auth.UpstreamTlsContext{}
+
 	switch tls.Mode {
 	case networking.ClientTLSSettings_DISABLE:
 		tlsContext = nil
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
-		// conditiallyConvertToIstioMutual populates ClientCertificate and PrivateKey for tls
+		// conditionallyConvertToIstioMtls populates ClientCertificate and PrivateKey for tls
 		// Following condition will never be true in case of ISTIO_MUTUAL and only exists for safeguard
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
-			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
+			err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
 				c.Name)
-			return
+			return nil, err
 		}
 
 		tlsContext = &auth.UpstreamTlsContext{
@@ -971,8 +1013,12 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		}
 
 		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
-			Sni:              tls.Sni,
+			CommonTlsContext: &auth.CommonTlsContext{
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: certValidationContext,
+				},
+			},
+			Sni: tls.Sni,
 		}
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
@@ -980,17 +1026,17 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
 			},
 		}
-
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	case networking.ClientTLSSettings_MUTUAL:
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
-			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
+			err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
 				c.Name)
-			return
+			return nil, err
 		}
+
 		tlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
@@ -1038,37 +1084,8 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
-
 	}
-
-	if tlsContext != nil {
-		c.TransportSocket = &core.TransportSocket{
-			Name:       util.EnvoyTLSSocketName,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
-		}
-	}
-
-	// For headless service, discover type will be `Cluster_ORIGINAL_DST`
-	// Apply auto mtls to clusters excluding these kind of headless service
-	if c.GetType() != cluster.Cluster_ORIGINAL_DST {
-		// convert to transport socket matcher if the mode was auto detected
-		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
-			transportSocket := c.TransportSocket
-			c.TransportSocket = nil
-			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-				{
-					Name: "tlsMode-" + model.IstioMutualTLSModeLabel,
-					Match: &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
-						},
-					},
-					TransportSocket: transportSocket,
-				},
-				defaultTransportSocketMatch,
-			}
-		}
-	}
+	return tlsContext, nil
 }
 
 func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port, direction model.TrafficDirection) {
