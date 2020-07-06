@@ -77,35 +77,9 @@ var (
 	testClient            client.Client
 	testReconcileOperator *istiocontrolplane.ReconcileIstioOperator
 
-	allNamespacedGVKs = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
-		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
-		{Group: "apps", Version: "v1", Kind: "Deployment"},
-		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "", Version: "v1", Kind: "Service"},
-		{Group: "", Version: "v1", Kind: "ConfigMap"},
-		{Group: "", Version: "v1", Kind: "Endpoints"},
-		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
-		{Group: "", Version: "v1", Kind: "Pod"},
-		{Group: "", Version: "v1", Kind: "Secret"},
-		{Group: "", Version: "v1", Kind: "ServiceAccount"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "DestinationRule"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "EnvoyFilter"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Gateway"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "VirtualService"},
-		{Group: "security.istio.io", Version: "v1beta1", Kind: "PeerAuthentication"},
-	}
-
-	// ordered by which types should be deleted, first to last
-	allClusterGVKs = []schema.GroupVersionKind{
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
-		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
-	}
+	allNamespacedGVKs = append(helmreconciler.NamespacedResources, schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"})
+	// CRDs are not in the prune list, but must be considered for tests.
+	allClusterGVKs = append(helmreconciler.ClusterResources, schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"})
 )
 
 func init() {
@@ -117,10 +91,8 @@ func init() {
 	}
 }
 
-func createTestEnv() error {
-	if !kubeBuilderInstalled() {
-		return nil
-	}
+// recreateTestEnv creates
+func recreateTestEnv() error {
 	// If kubebuilder is installed, use that test env for apply and controller testing.
 	log.Infof("Recreating kubebuilder test environment\n")
 
@@ -155,8 +127,8 @@ func createTestEnv() error {
 	return nil
 }
 
-// runManifestCommands runs all given commands with the given input IOP file, flags and chartSource. It returns
-// an objectSet for each cmd type.
+// runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
+// It returns an objectSet for each cmd type.
 func runManifestCommands(inFile, flags string, chartSource chartSourceType) (map[cmdType]*objectSet, error) {
 	out := make(map[cmdType]*objectSet)
 	for _, cmd := range testedManifestCmds {
@@ -331,7 +303,10 @@ func runCommand(command string) (string, error) {
 func cleanTestCluster() error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	return createTestEnv()
+	if !kubeBuilderInstalled() {
+		return nil
+	}
+	return recreateTestEnv()
 }
 
 // getAllIstioObjects lists all Istio GVK resources from the testClient.

@@ -32,7 +32,7 @@ import (
 
 var (
 	// ordered by which types should be deleted, first to last
-	namespacedResources = []schema.GroupVersionKind{
+	NamespacedResources = []schema.GroupVersionKind{
 		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
 		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
 		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
@@ -53,7 +53,7 @@ var (
 	}
 
 	// ordered by which types should be deleted, first to last
-	nonNamespacedResources = []schema.GroupVersionKind{
+	ClusterResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.ValidatingWebhookConfigurationStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
@@ -93,7 +93,7 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		return err
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	for _, gvk := range append(namespacedResources, nonNamespacedResources...) {
+	for _, gvk := range append(NamespacedResources, ClusterResources...) {
 		// First, we collect all objects for the provided GVK
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)

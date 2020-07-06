@@ -78,10 +78,12 @@ type testGroup []struct {
 
 func TestManifestGeneratePrometheus(t *testing.T) {
 	g := NewGomegaWithT(t)
-	_, objs, err := generateManifest("prometheus", "", liveCharts)
+
+	objs, err := runManifestCommands("component_hub_tag", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	want := []string{
 		"ClusterRole::prometheus-istio-system",
 		"ClusterRoleBinding::prometheus-istio-system",
@@ -90,7 +92,9 @@ func TestManifestGeneratePrometheus(t *testing.T) {
 		"Service:istio-system:prometheus",
 		"ServiceAccount:istio-system:prometheus",
 	}
-	g.Expect(objectHashesOrdered(objs)).Should(ContainElements(want))
+	for _, os := range objs {
+		g.Expect(objectHashesOrdered(objs)).Should(ContainElements(want))
+	}
 }
 
 func TestManifestGenerateComponentHubTag(t *testing.T) {
