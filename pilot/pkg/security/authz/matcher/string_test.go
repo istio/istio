@@ -115,3 +115,44 @@ func TestStringMatcherRegex(t *testing.T) {
 		})
 	}
 }
+
+func TestStringMatcherRegex(t *testing.T) {
+	testCases := []testCase{
+		{
+			name: "wildcardAsRequired",
+			v:    "*",
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+					SafeRegex: &matcherpb.RegexMatcher{
+						Regex: "*",
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "regexExpression",
+			v:    "+?",
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+					SafeRegex: &matcherpb.RegexMatcher{
+						Regex: "+?",
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if actual := StringMatcherRegex(tc.v); !reflect.DeepEqual(*actual, *tc.want) {
+				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
+			}
+		})
+	}
+}
