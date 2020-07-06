@@ -35,6 +35,7 @@ import (
 	"istio.io/api/label"
 
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -70,7 +71,20 @@ type Service struct {
 	Hostname host.Name `json:"hostname"`
 
 	// Address specifies the service IPv4 address of the load balancer
+	// Do not access directly. Use GetServiceAddressForProxy
 	Address string `json:"address,omitempty"`
+
+	// AutoAllocatedAddress specifies the automatically allocated
+	// IPv4 address out of the reserved Class E subnet
+	// (240.240.0.0/16) for service entries with non-wildcard
+	// hostnames. The IPs assigned to services are not
+	// synchronized across istiod replicas as the DNS resolution
+	// for these service entries happens completely inside a pod
+	// whose proxy is managed by one istiod. That said, the algorithm
+	// to allocate IPs is pretty deterministic that at stable state, two
+	// istiods will allocate the exact same set of IPs for a given set of
+	// service entries.
+	AutoAllocatedAddress string `json:"autoAllocatedAddress,omitempty"`
 
 	// Protect concurrent ClusterVIPs read/write
 	Mutex sync.RWMutex
@@ -525,10 +539,15 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
+	// todo reduce unnecessary locking
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
 	if node.Metadata != nil && node.Metadata.ClusterID != "" && s.ClusterVIPs[node.Metadata.ClusterID] != "" {
 		return s.ClusterVIPs[node.Metadata.ClusterID]
+	}
+	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
+		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
+		return s.AutoAllocatedAddress
 	}
 	return s.Address
 }

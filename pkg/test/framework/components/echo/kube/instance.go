@@ -127,31 +127,33 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	if cfg.DeployAsVM {
-		var pod kubeCore.Pod
+		var pods *kubeCore.PodList
 		if err := retry.UntilSuccess(func() error {
-			pods, err := c.cluster.PodsForSelector(context.TODO(), cfg.Namespace.Name(),
+			pods, err = c.cluster.PodsForSelector(context.TODO(), cfg.Namespace.Name(),
 				fmt.Sprintf("istio.io/test-vm=%s", cfg.Service))
 			if err != nil {
 				return err
 			}
-			if len(pods.Items) != 1 {
-				return fmt.Errorf("expected 1 pod, found %v", len(pods.Items))
+			if len(pods.Items) == 0 {
+				return fmt.Errorf("0 pods found for istio.io/test-vm:%s", cfg.Service)
 			}
-			pod = pods.Items[0]
-			if pod.Status.PodIP == "" {
-				return fmt.Errorf("empty pod ip")
+			for _, vmPod := range pods.Items {
+				if vmPod.Status.PodIP == "" {
+					return fmt.Errorf("empty pod ip")
+				}
 			}
 			return nil
 		}); err != nil {
 			return nil, err
 		}
-		ip := pod.Status.PodIP
-
 		serviceAccount := cfg.Service
 		if !cfg.ServiceAccount {
 			serviceAccount = "default"
 		}
-		wle := fmt.Sprintf(`
+
+		// One workload entry for each VM pod
+		for _, vmPod := range pods.Items {
+			wle := fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadEntry
 metadata:
@@ -161,10 +163,12 @@ spec:
   serviceAccount: %s
   labels:
     app: %s
-`, pod.Name, ip, serviceAccount, cfg.Service)
-		// Deploy the workload entry.
-		if err = ctx.Config(c.cluster).ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
-			return nil, fmt.Errorf("failed deploying workload entry: %v", err)
+    version: %s
+`, vmPod.Name, vmPod.Status.PodIP, serviceAccount, cfg.Service, vmPod.Labels["istio.io/test-vm-version"])
+			// Deploy the workload entry.
+			if err = ctx.Config(c.cluster).ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
+				return nil, fmt.Errorf("failed deploying workload entry: %v", err)
+			}
 		}
 	}
 
