@@ -1159,7 +1159,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
 		proxyGateway.DiscoverIPVersions()
 		proxyGateway.Active = map[string]*pilot_model.CoreWatchedResource{
-			v3.ListenerShortType: &pilot_model.CoreWatchedResource{},
+			v3.ListenerShortType: {},
 		}
 		builder := configgen.buildGatewayListeners(&proxyGateway, env.PushContext, &ListenerBuilder{})
 		var listeners []string
