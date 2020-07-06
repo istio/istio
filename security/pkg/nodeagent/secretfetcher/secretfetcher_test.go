@@ -307,7 +307,7 @@ func TestSecretFetcher(t *testing.T) {
 	gSecretFetcher.Run(ch)
 
 	// Searching a non-existing secret should return false.
-	if _, ok := gSecretFetcher.FindIngressGatewaySecret("non-existing-secret"); ok {
+	if _, ok := gSecretFetcher.FindGatewaySecret("non-existing-secret"); ok {
 		t.Error("secretFetcher returns a secret non-existing-secret that should not exist")
 	}
 
@@ -325,7 +325,7 @@ func TestSecretFetcher(t *testing.T) {
 		{
 			exist: true,
 			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
+				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertA,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
@@ -342,7 +342,7 @@ func TestSecretFetcher(t *testing.T) {
 		},
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix},
+			secret: &model.SecretItem{ResourceName: k8sSecretNameA + GatewaySdsCaSuffix},
 		},
 	}
 	testDeleteSecret(t, gSecretFetcher, k8sTestGenericSecretA, expectedDeletedSecrets)
@@ -368,7 +368,7 @@ func TestSecretFetcher(t *testing.T) {
 		{
 			exist: true,
 			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
+				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
@@ -434,7 +434,7 @@ func TestSecretFetcher(t *testing.T) {
 		{
 			exist: true,
 			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameG + IngressGatewaySdsCaSuffix,
+				ResourceName: k8sSecretNameG + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
@@ -450,7 +450,7 @@ func TestSecretFetcher(t *testing.T) {
 		},
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameG + IngressGatewaySdsCaSuffix},
+			secret: &model.SecretItem{ResourceName: k8sSecretNameG + GatewaySdsCaSuffix},
 		},
 	}
 	testDeleteSecret(t, gSecretFetcher, k8sTestKubernetesSecretG, expectedDeletedSecrets)
@@ -473,7 +473,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 	gSecretFetcher.Run(ch)
 
 	gSecretFetcher.scrtAdded(k8sInvalidTestGenericSecretA)
-	if _, ok := gSecretFetcher.FindIngressGatewaySecret(k8sInvalidTestGenericSecretA.GetName()); ok {
+	if _, ok := gSecretFetcher.FindGatewaySecret(k8sInvalidTestGenericSecretA.GetName()); ok {
 		t.Errorf("invalid secret should not be added into secret fetcher.")
 	}
 
@@ -492,7 +492,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 		{
 			exist: true,
 			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
+				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
@@ -502,7 +502,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 	// Try to update with an invalid secret, and verify that the invalid secret is not added.
 	// Secret fetcher still owns old secret k8sTestGenericSecretB.
 	gSecretFetcher.scrtUpdated(k8sTestGenericSecretB, k8sInvalidTestGenericSecretA)
-	secret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA)
+	secret, ok := gSecretFetcher.FindGatewaySecret(k8sSecretNameA)
 	if !ok {
 		t.Errorf("secretFetcher failed to find secret %s", k8sSecretNameA)
 	}
@@ -515,7 +515,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 	if !bytes.Equal(k8sKeyB, secret.PrivateKey) {
 		t.Errorf("private key verification error: expected %v but got %v", k8sKeyB, secret.PrivateKey)
 	}
-	casecret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA + IngressGatewaySdsCaSuffix)
+	casecret, ok := gSecretFetcher.FindGatewaySecret(k8sSecretNameA + GatewaySdsCaSuffix)
 	if !ok || !bytes.Equal(k8sCaCertB, casecret.RootCert) {
 		t.Errorf("root cert verification error: expected %v but got %v", k8sCaCertB, secret.RootCert)
 	}
@@ -550,7 +550,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 	}
 
 	gSecretFetcher.scrtAdded(istioPrefixSecret)
-	if _, ok := gSecretFetcher.FindIngressGatewaySecret(istioPrefixSecret.GetName()); ok {
+	if _, ok := gSecretFetcher.FindGatewaySecret(istioPrefixSecret.GetName()); ok {
 		t.Errorf("istio secret should not be added into secret fetcher.")
 	}
 
@@ -568,7 +568,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 	}
 
 	gSecretFetcher.scrtAdded(prometheusPrefixSecret)
-	if _, ok := gSecretFetcher.FindIngressGatewaySecret(prometheusPrefixSecret.GetName()); ok {
+	if _, ok := gSecretFetcher.FindGatewaySecret(prometheusPrefixSecret.GetName()); ok {
 		t.Errorf("prometheus secret should not be added into secret fetcher.")
 	}
 
@@ -587,7 +587,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 		{
 			exist: true,
 			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
+				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
@@ -610,7 +610,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 		Type: "test-secret",
 	}
 	gSecretFetcher.scrtUpdated(k8sTestGenericSecretB, tokenSecretB)
-	secret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA)
+	secret, ok := gSecretFetcher.FindGatewaySecret(k8sSecretNameA)
 	if !ok {
 		t.Errorf("secretFetcher failed to find secret %s", k8sSecretNameA)
 	}
@@ -623,7 +623,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 	if !bytes.Equal(k8sKeyB, secret.PrivateKey) {
 		t.Errorf("private key verification error: expected %v but got %v", k8sKeyB, secret.PrivateKey)
 	}
-	casecret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA + IngressGatewaySdsCaSuffix)
+	casecret, ok := gSecretFetcher.FindGatewaySecret(k8sSecretNameA + GatewaySdsCaSuffix)
 	if !ok || !bytes.Equal(k8sCaCertB, casecret.RootCert) {
 		t.Errorf("root cert verification error: expected %v but got %v", k8sCaCertB, secret.RootCert)
 	}
@@ -645,7 +645,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 	gSecretFetcher.Run(ch)
 
 	// Searching a non-existing secret should return false.
-	if _, ok := gSecretFetcher.FindIngressGatewaySecret("non-existing-secret"); ok {
+	if _, ok := gSecretFetcher.FindGatewaySecret("non-existing-secret"); ok {
 		t.Error("secretFetcher returns a secret non-existing-secret that should not exist")
 	}
 
@@ -663,7 +663,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		{
 			exist: false,
 			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameC + IngressGatewaySdsCaSuffix,
+				ResourceName: k8sSecretNameC + GatewaySdsCaSuffix,
 			},
 		},
 	}
@@ -678,7 +678,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		},
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameC + IngressGatewaySdsCaSuffix},
+			secret: &model.SecretItem{ResourceName: k8sSecretNameC + GatewaySdsCaSuffix},
 		},
 	}
 	testDeleteSecret(t, gSecretFetcher, k8sTestTLSSecretC, expectedDeletedSecret)
@@ -699,7 +699,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		},
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameC + IngressGatewaySdsCaSuffix},
+			secret: &model.SecretItem{ResourceName: k8sSecretNameC + GatewaySdsCaSuffix},
 		},
 	}
 	var newSecretVersion string
@@ -728,7 +728,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 	gSecretFetcher.scrtAdded(k8sTestTLSFallbackSecret)
 
 	// Since we have enabled fallback secret, searching a non-existing secret should return true now.
-	fallbackSecret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA)
+	fallbackSecret, ok := gSecretFetcher.FindGatewaySecret(k8sSecretNameA)
 	if !ok {
 		t.Error("secretFetcher should return fallback secret for non-existing-secret")
 	}
@@ -759,7 +759,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 		{
 			exist: true,
 			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
+				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertA,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
@@ -768,9 +768,9 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 	var secretVersionOne string
 	testAddSecret(t, gSecretFetcher, k8sTestGenericSecretA, expectedAddedSecrets, &secretVersionOne)
 
-	// Delete k8sSecretNameA and verify that FindIngressGatewaySecret returns fall back secret.
+	// Delete k8sSecretNameA and verify that FindGatewaySecret returns fall back secret.
 	gSecretFetcher.scrtDeleted(k8sTestGenericSecretA)
-	fallbackSecret, ok = gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA)
+	fallbackSecret, ok = gSecretFetcher.FindGatewaySecret(k8sSecretNameA)
 	if !ok {
 		t.Errorf("secretFetcher should return fallback secret for secret %v", k8sSecretNameA)
 	}
@@ -808,7 +808,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 		{
 			exist: true,
 			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
+				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
@@ -842,7 +842,7 @@ func testAddSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expect
 	// Add a test secret and find the secret.
 	sf.scrtAdded(k8ssecret)
 	for _, es := range expectedSecrets {
-		secret, ok := sf.FindIngressGatewaySecret(es.secret.ResourceName)
+		secret, ok := sf.FindGatewaySecret(es.secret.ResourceName)
 		if es.exist != ok {
 			t.Errorf("Unexpected secret %s, expected to exist: %v but got: %v", es.secret.ResourceName, es.exist, ok)
 		}
@@ -857,7 +857,7 @@ func testDeleteSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, exp
 	// Delete a test secret and find the secret.
 	sf.scrtDeleted(k8ssecret)
 	for _, es := range expectedSecrets {
-		_, ok := sf.FindIngressGatewaySecret(es.secret.ResourceName)
+		_, ok := sf.FindGatewaySecret(es.secret.ResourceName)
 		if ok {
 			t.Errorf("secretFetcher found a deleted secret %v", es.secret.ResourceName)
 		}
@@ -868,7 +868,7 @@ func testUpdateSecret(t *testing.T, sf *SecretFetcher, k8sOldsecret, k8sNewsecre
 	// Add a test secret and find the secret.
 	sf.scrtUpdated(k8sOldsecret, k8sNewsecret)
 	for _, es := range expectedSecrets {
-		secret, ok := sf.FindIngressGatewaySecret(es.secret.ResourceName)
+		secret, ok := sf.FindGatewaySecret(es.secret.ResourceName)
 		if es.exist != ok {
 			t.Errorf("secretFetcher failed to find secret %s, expected to exist: %v but got: %v", es.secret.ResourceName, es.exist, ok)
 		}

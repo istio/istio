@@ -1017,7 +1017,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
-			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, authn_model.EressGatewaySdsUdsPath)
+			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, authn_model.EgressGatewaySdsUdsPath)
 
 			if c.Http2ProtocolOptions != nil {
 				// This is HTTP/2 cluster, advertise it with ALPN.
@@ -1030,12 +1030,8 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				}
 
 				tlsContext = &auth.UpstreamTlsContext{
-					CommonTlsContext: &auth.CommonTlsContext{
-						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-							ValidationContext: certValidationContext,
-						},
-					},
-					Sni: tls.Sni,
+					CommonTlsContext: &auth.CommonTlsContext{},
+					Sni:              tls.Sni,
 				}
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
@@ -1094,13 +1090,13 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 						},
 					}
 				}
-				}
-				if c.Http2ProtocolOptions != nil {
-					// This is HTTP/2 cluster, advertise it with ALPN.
-					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
-				}
+			}
+			if c.Http2ProtocolOptions != nil {
+				// This is HTTP/2 cluster, advertise it with ALPN.
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		}
+	}
 	return tlsContext, nil
 }
 

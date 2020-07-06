@@ -964,6 +964,18 @@ func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 		return
 	}
 
+	if (settings.Mode == networking.ClientTLSSettings_SIMPLE || settings.Mode == networking.ClientTLSSettings_MUTUAL) &&
+		settings.CredentialName != "" {
+		if settings.ClientCertificate != "" || settings.CaCertificates != "" || settings.PrivateKey != "" {
+			errs = appendErrors(errs,
+				fmt.Errorf("cannot specify client certificates or CA certificate If credentialName is set"))
+		}
+
+		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
+		// remotely. ServerCertificate and CaCertificates fields are not required.
+		return
+	}
+
 	if settings.Mode == networking.ClientTLSSettings_MUTUAL {
 		if settings.ClientCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("client certificate required for mutual tls"))
