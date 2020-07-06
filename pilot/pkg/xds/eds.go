@@ -100,10 +100,15 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endp
 // it with a model where DiscoveryServer keeps track of all endpoint registries
 // directly, and calls them one by one.
 func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
+	registries := s.getNonK8sRegistries()
+	// Short circuit now to avoid the call to Services
+	if len(registries) == 0 {
+		return nil
+	}
 	// Each registry acts as a shard - we don't want to combine them because some
 	// may individually update their endpoints incrementally
 	for _, svc := range push.Services(nil) {
-		for _, registry := range s.getNonK8sRegistries() {
+		for _, registry := range registries {
 			// skip the service in case this svc does not belong to the registry.
 			if svc.Attributes.ServiceRegistry != string(registry.Provider()) {
 				continue
