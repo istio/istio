@@ -124,6 +124,7 @@ type DiscoveryServer struct {
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
 	Authenticators []authenticate.Authenticator
 
+	// InternalGen is notified of connect/disconnect/nack on all connections
 	InternalGen *InternalGen
 }
 
@@ -210,7 +211,7 @@ func (s *DiscoveryServer) getNonK8sRegistries() []serviceregistry.Instance {
 	}
 
 	for _, registry := range registries {
-		if registry.Provider() != serviceregistry.Kubernetes || registry.Provider() != serviceregistry.External {
+		if registry.Provider() != serviceregistry.Kubernetes {
 			nonK8sRegistries = append(nonK8sRegistries, registry)
 		}
 	}

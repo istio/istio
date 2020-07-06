@@ -53,8 +53,9 @@ type Context interface {
 
 	// GetResource accepts either a *T or *[]*T where T implements Resource.
 	// For a non-slice pointer, the value will be assigned to the first matching resource.
-	// For a slice pointer, the matching resources will be appended.
+	// For a slice pointer, the matching resources from this scope and its parent(s) will be appended.
 	// If ref is not a pointer, an error will be returned.
+	// If there is no match for a non-slice pointer, an error will be returned.
 	GetResource(ref interface{}) error
 
 	// The Environment in which the tests run

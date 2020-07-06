@@ -35,8 +35,12 @@ func newConfigStore() (model.ConfigStore, error) {
 	if err != nil {
 		return nil, err
 	}
+	kclient, err := kubecfg.NewClient(kubecfg.NewClientConfigForRestConfig(cfg))
+	if err != nil {
+		return nil, err
+	}
 
-	client, err := crdclient.NewForConfig(cfg, &model.DisabledLedger{}, "", controller2.Options{DomainSuffix: ""})
+	client, err := crdclient.New(kclient, &model.DisabledLedger{}, "", controller2.Options{DomainSuffix: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +48,7 @@ func newConfigStore() (model.ConfigStore, error) {
 	stop := make(chan struct{})
 	// TODO: replace with direct istio/client-go usage so we don't have to do this part
 	go client.Run(stop)
+	kclient.RunAndWait(stop)
 	cache.WaitForCacheSync(stop, client.HasSynced)
 
 	return client, nil
