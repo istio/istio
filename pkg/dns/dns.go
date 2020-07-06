@@ -310,7 +310,7 @@ func (h *IstioDNS) ServeDNSTLS(w dns.ResponseWriter, r *dns.Msg) {
 	// By using this code, the latency is around 800us - with ~400 us in istiod
 	origID := r.MsgHdr.Id
 	var key uint16
-	ch := make(chan *dns.Msg)
+	ch := make(chan *dns.Msg, 1)
 	h.m.Lock()
 	h.outID++
 	key = h.outID
@@ -347,13 +347,14 @@ func (h *IstioDNS) ServeDNSTLS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	to := time.After(2 * time.Second)
+	to := time.NewTimer(2 * time.Second)
 	select {
 	case m := <-ch:
+		to.Stop()
 		m.MsgHdr.Id = origID
 		response = m
 		_ = w.WriteMsg(m)
-	case <-to:
+	case <-to.C:
 		return
 	}
 	if false {
