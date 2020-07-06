@@ -201,7 +201,6 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 	}
 
 	for _, objs := range objss {
-
 		// check core CRDs exists
 		g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))

@@ -49,6 +49,9 @@ type HelmReconciler struct {
 	opts       *Options
 	// copy of the last generated manifests.
 	manifests name.ManifestMap
+	// dependencyWaitCh is a map of signaling channels. A parent with children ch1...chN will signal
+	// dependencyWaitCh[ch1]...dependencyWaitCh[chN] when it's completely installed.
+	dependencyWaitCh map[name.ComponentName]chan struct{}
 }
 
 // Options are options for HelmReconciler.
@@ -107,12 +110,24 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		return nil, err
 	}
 	return &HelmReconciler{
-		client:     client,
-		restConfig: restConfig,
-		clientSet:  cs,
-		iop:        iop,
-		opts:       opts,
+		client:           client,
+		restConfig:       restConfig,
+		clientSet:        cs,
+		iop:              iop,
+		opts:             opts,
+		dependencyWaitCh: initDependencies(),
 	}, nil
+}
+
+// initDependencies initializes the dependencies channel tree.
+func initDependencies() map[name.ComponentName]chan struct{} {
+	ret := make(map[name.ComponentName]chan struct{})
+	for _, parent := range ComponentDependencies {
+		for _, child := range parent {
+			ret[child] = make(chan struct{}, 1)
+		}
+	}
+	return ret
 }
 
 // Reconcile reconciles the associated resources.
@@ -146,7 +161,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 			var processedObjs object.K8sObjects
 			var deployedObjects int
 			defer wg.Done()
-			if s := DependencyWaitCh[c]; s != nil {
+			if s := h.dependencyWaitCh[c]; s != nil {
 				scope.Infof("%s is waiting on dependency...", c)
 				<-s
 				scope.Infof("Dependency for %s has completed, proceeding.", c)
@@ -180,7 +195,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 			// Signal all the components that depend on us.
 			for _, ch := range ComponentDependencies[c] {
 				scope.Infof("Unblocking dependency %s.", ch)
-				DependencyWaitCh[ch] <- struct{}{}
+				h.dependencyWaitCh[ch] <- struct{}{}
 			}
 		}()
 	}

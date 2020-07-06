@@ -17,13 +17,10 @@ package mesh
 import (
 	"bytes"
 	"context"
-	"flag"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,15 +42,15 @@ import (
 )
 
 // cmdType is one of the commands used to generate and optionally apply a manifest.
-type cmdType int
+type cmdType string
 
 const (
 	// istioctl manifest generate
-	cmdGenerate cmdType = iota
+	cmdGenerate cmdType = "istioctl manifest generate"
 	// istioctl manifest apply or istioctl install
-	cmdApply
+	cmdApply cmdType = "istioctl install"
 	// in-cluster controller
-	cmdController
+	cmdController cmdType = "operator controller"
 )
 
 // Golden output files add a lot of noise to pull requests. Use a unique suffix so
@@ -111,44 +108,51 @@ var (
 	}
 )
 
-// TestMain is required to create a local release package in /tmp from manifests and operator/data in the format that
-// istioctl expects. It also brings up and tears down the kubebuilder test environment if it is installed.
-func TestMain(m *testing.M) {
-	var err error
-
-	// If kubebuilder is installed, use that test env for apply and controller testing.
-	//if kubeBuilderInstalled() {
-	if true { // XXX
-		testenv = &envtest.Environment{}
-		testRestConfig, err = testenv.Start()
-		checkExit(err)
-
-		testK8Interface, err = kubernetes.NewForConfig(testRestConfig)
-		testRestConfig.QPS = 50
-		testRestConfig.Burst = 100
-		checkExit(err)
-		s := scheme.Scheme
-		s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
-
-		testClient, err = client.New(testRestConfig, client.Options{Scheme: s})
-
-		checkExit(err)
+func init() {
+	if kubeBuilderInstalled() {
 		// TestMode is required to not wait in the go client for resources that will never be created in the test server.
 		helmreconciler.TestMode = true
-		testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testRestConfig, s)
-
 		// Add manifest apply and controller to the list of commands to run tests against.
 		testedManifestCmds = append(testedManifestCmds, cmdApply, cmdController)
 	}
-	defer func() {
-		if kubeBuilderInstalled() {
-			testenv.Stop()
-		}
-	}()
+}
 
-	flag.Parse()
-	code := m.Run()
-	os.Exit(code)
+func createTestEnv() error {
+	if !kubeBuilderInstalled() {
+		return nil
+	}
+	// If kubebuilder is installed, use that test env for apply and controller testing.
+	log.Infof("Recreating kubebuilder test environment\n")
+
+	if testenv != nil {
+		testenv.Stop()
+	}
+
+	var err error
+	testenv = &envtest.Environment{}
+	testRestConfig, err = testenv.Start()
+	if err != nil {
+		return err
+	}
+
+	testK8Interface, err = kubernetes.NewForConfig(testRestConfig)
+	testRestConfig.QPS = 50
+	testRestConfig.Burst = 100
+	if err != nil {
+		return err
+	}
+
+	s := scheme.Scheme
+	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
+
+	testClient, err = client.New(testRestConfig, client.Options{Scheme: s})
+	if err != nil {
+		return err
+	}
+
+	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testRestConfig, s)
+
+	return nil
 }
 
 // runManifestCommands runs all given commands with the given input IOP file, flags and chartSource. It returns
@@ -156,6 +160,7 @@ func TestMain(m *testing.M) {
 func runManifestCommands(inFile, flags string, chartSource chartSourceType) (map[cmdType]*objectSet, error) {
 	out := make(map[cmdType]*objectSet)
 	for _, cmd := range testedManifestCmds {
+		log.Infof("\nRunning test command using %s\n", cmd)
 		switch cmd {
 		case cmdApply, cmdController:
 			if err := cleanTestCluster(); err != nil {
@@ -322,14 +327,11 @@ func runCommand(command string) (string, error) {
 	return out.String(), err
 }
 
+// cleanTestCluster resets the test cluster.
 func cleanTestCluster() error {
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testRestConfig, nil, nil)
-	if err != nil {
-		return err
-	}
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	return reconciler.DeleteAll()
+	return createTestEnv()
 }
 
 // getAllIstioObjects lists all Istio GVK resources from the testClient.
