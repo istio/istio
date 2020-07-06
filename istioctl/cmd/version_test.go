@@ -19,7 +19,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	testKube "istio.io/istio/pkg/test/kube"
 
@@ -37,30 +36,25 @@ func TestVersion(t *testing.T) {
 
 	cases := []testCase{
 		{ // case 0 client-side only, normal output
-			configs: []model.Config{},
-			args:    strings.Split("version --remote=false --short=false", " "),
+			args: strings.Split("version --remote=false --short=false", " "),
 			// ignore the output, all output checks are now in istio/pkg
 		},
 		{ // case 1 remote, normal output
-			configs: []model.Config{},
-			args:    strings.Split("version --remote=true --short=false --output=", " "),
+			args: strings.Split("version --remote=true --short=false --output=", " "),
 			// ignore the output, all output checks are now in istio/pkg
 		},
 		{ // case 2 bogus arg
-			configs:        []model.Config{},
 			args:           strings.Split("version --typo", " "),
 			expectedOutput: "Error: unknown flag: --typo\n",
 			wantException:  true,
 		},
 		{ // case 3 bogus output arg
-			configs:        []model.Config{},
 			args:           strings.Split("version --output xyz", " "),
 			expectedOutput: "Error: --output must be 'yaml' or 'json'\n",
 			wantException:  true,
 		},
 		{ // case 4 remote, --revision flag
-			configs: []model.Config{},
-			args:    strings.Split("version --remote=true --short=false --revision canary", " "),
+			args: strings.Split("version --remote=true --short=false --revision canary", " "),
 			// ignore the output, all output checks are now in istio/pkg
 		},
 	}
