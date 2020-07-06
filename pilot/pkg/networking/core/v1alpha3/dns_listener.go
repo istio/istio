@@ -42,7 +42,7 @@ var knownSuffixes = []*stringmatcher.StringMatcher{
 	},
 }
 
-const resolverTimeout = 10 * time.Second
+const resolverTimeout = 20 * time.Second
 
 // This is a UDP listener is on port 15013.  It has a DNS listener filter containing the
 // cluster IPs of all services visible to the proxy (those that have one anyway).  The
@@ -73,7 +73,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		ClientConfig: &dnsfilter.DnsFilterConfig_ClientContextConfig{
 			ResolverTimeout: ptypes.DurationProto(resolverTimeout),
 			// no upstream resolves. Envoy will use the ambient ones
-			MaxPendingLookups: 64, // arbitrary
+			MaxPendingLookups: 256, // arbitrary
 		},
 	}
 	dnsFilter := &listener.ListenerFilter{
