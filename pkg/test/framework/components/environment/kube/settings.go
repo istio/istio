@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 
+	v1 "k8s.io/api/core/v1"
+
 	"k8s.io/client-go/rest"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -119,7 +121,7 @@ func newClients(kubeConfigs []string) ([]istioKube.ExtendedClient, error) {
 			if err != nil {
 				return nil, err
 			}
-			a, err := istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), "")
+			a, err := istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), v1.NamespaceAll, "")
 			if err != nil {
 				return nil, fmt.Errorf("client setup: %v", err)
 			}

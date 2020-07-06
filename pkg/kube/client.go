@@ -193,11 +193,10 @@ func NewFakeClient(objects ...runtime.Object) Client {
 	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
 
 	c.istio = istiofake.NewSimpleClientset()
-	c.istioInformer = istioinformer.NewSharedInformerFactoryWithOptions(c.istio, resyncInterval)
+	c.istioInformer = istioinformer.NewSharedInformerFactory(c.istio, resyncInterval)
 
 	c.serviceapis = serviceapisfake.NewSimpleClientset()
 	c.serviceapisInformers = serviceapisinformer.NewSharedInformerFactory(c.serviceapis, resyncInterval)
-
 	c.extSet = extfake.NewSimpleClientset()
 
 	return &c
@@ -234,7 +233,7 @@ type client struct {
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
-func newClientInternal(clientFactory util.Factory, revision string) (*client, error) {
+func newClientInternal(clientFactory util.Factory, namespace, revision string) (*client, error) {
 	var c client
 	var err error
 
@@ -256,13 +255,13 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	if err != nil {
 		return nil, err
 	}
-	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
+	c.kubeInformer = informers.NewSharedInformerFactoryWithOptions(c.Interface, resyncInterval, informers.WithNamespace(namespace))
 
 	c.metadata, err = metadata.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
+	c.metadataInformer = metadatainformer.NewFilteredSharedInformerFactory(c.metadata, resyncInterval, namespace, nil)
 
 	c.dynamic, err = dynamic.NewForConfig(c.config)
 	if err != nil {
@@ -274,13 +273,13 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	if err != nil {
 		return nil, err
 	}
-	c.istioInformer = istioinformer.NewSharedInformerFactory(c.istio, resyncInterval)
+	c.istioInformer = istioinformer.NewSharedInformerFactoryWithOptions(c.istio, resyncInterval, istioinformer.WithNamespace(namespace))
 
 	c.serviceapis, err = serviceapisclient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.serviceapisInformers = serviceapisinformer.NewSharedInformerFactory(c.serviceapis, resyncInterval)
+	c.serviceapisInformers = serviceapisinformer.NewSharedInformerFactoryWithOptions(c.serviceapis, resyncInterval, serviceapisinformer.WithNamespace(namespace))
 
 	ext, err := kubeExtClient.NewForConfig(c.config)
 	if err != nil {
@@ -294,13 +293,13 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 
 // NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
-func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
-	return newClientInternal(newClientFactory(clientConfig), revision)
+func NewExtendedClient(clientConfig clientcmd.ClientConfig, namespace, revision string) (ExtendedClient, error) {
+	return newClientInternal(newClientFactory(clientConfig), namespace, revision)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
-func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
-	return newClientInternal(newClientFactory(clientConfig), "")
+func NewClient(clientConfig clientcmd.ClientConfig, namespace string) (Client, error) {
+	return newClientInternal(newClientFactory(clientConfig), namespace, "")
 }
 
 func (c *client) RESTConfig() *rest.Config {

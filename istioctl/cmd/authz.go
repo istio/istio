@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -111,7 +112,7 @@ func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
 }
 
 func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, error) {
-	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), v1.NamespaceAll, "")
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,8 @@
 package cmd
 
 import (
+	v1 "k8s.io/api/core/v1"
+
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 
 	kubecfg "istio.io/istio/pkg/kube"
@@ -32,7 +34,7 @@ func newConfigStore() (istioclient.Interface, error) {
 	if err != nil {
 		return nil, err
 	}
-	kclient, err := kubecfg.NewClient(kubecfg.NewClientConfigForRestConfig(cfg))
+	kclient, err := kubecfg.NewClient(kubecfg.NewClientConfigForRestConfig(cfg), v1.NamespaceAll)
 	if err != nil {
 		return nil, err
 	}

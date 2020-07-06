@@ -25,6 +25,7 @@ import (
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
@@ -131,7 +132,7 @@ func readConfigFile(filename string) ([]byte, error) {
 }
 
 func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
-	return kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+	return kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), v1.NamespaceAll, revision)
 }
 
 func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {

@@ -414,7 +414,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
+		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig), args.RegistryOptions.KubeOptions.WatchedNamespaces)
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
