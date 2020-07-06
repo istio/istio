@@ -131,8 +131,9 @@ func TestReachability(t *testing.T) {
 							return false
 						}
 
-						// Exclude calls from naked->VM since VM is not injected with sidecar
-						// The call from naked will timeout
+						// Exclude calls from naked->VM since naked has no Envoy
+						// so k8s is responsible for DNS resolution
+						// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail
 						if src == rctx.Naked && opts.Target == rctx.VM {
 							return false
 						}
