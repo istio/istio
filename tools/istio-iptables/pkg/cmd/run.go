@@ -455,6 +455,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	iptConfigurator.handleInboundIpv4Rules(ipv4RangesInclude)
 	if iptConfigurator.cfg.EnableInboundIPv6 {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
+		if redirectDNS {
+			iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.NAT, "-p", constants.UDP, "--dport", "53", "-j", constants.ISTIOOUTPUT)
+		}
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
