@@ -138,6 +138,7 @@ endif
 
 export ISTIO_ENVOY_BASE_URL ?= https://storage.googleapis.com/istio-build/proxy
 
+# Use envoy as the sidecar by default
 export SIDECAR ?= envoy
 
 # OS-neutral vars. These currently only work for linux.
