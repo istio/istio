@@ -231,7 +231,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			xdsMCP.Store = model.MakeIstioStore(configController)
 
 			if err != nil {
-				return fmt.Errorf("Failed to dial XDS %s %v", configSource.Address, err)
+				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
 			go xdsMCP.WatchConfig()
 			s.ConfigStores = append(s.ConfigStores, configController)
