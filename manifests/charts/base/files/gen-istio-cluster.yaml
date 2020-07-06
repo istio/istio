@@ -4740,13 +4740,8 @@ rules:
 # For storing CA secret
 - apiGroups: [""]
   resources: ["secrets"]
-  resourceNames:
-    - "istio-ca-secret"
+  # TODO lock this down to istio-ca-cert if not using the DNS cert mesh config
   verbs: ["create", "get", "watch", "list", "update", "delete"]
-# Cannot use resource name with create, so split it off
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create"]
 ---
 # Source: base/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
