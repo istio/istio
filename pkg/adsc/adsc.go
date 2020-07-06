@@ -26,29 +26,34 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/resource"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/any"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/security/pkg/nodeagent/cache"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -74,9 +79,19 @@ type Config struct {
 	IP string
 
 	// CertDir is the directory where mTLS certs are configured.
-	// If empty, an insecure connection will be used.
-	// TODO: also allow passing in-memory certs.
+	// If CertDir and Secret are empty, an insecure connection will be used.
+	// TODO: implement SecretManager for cert dir
 	CertDir string
+
+	// Secrets is the interface used for getting keys and rootCA.
+	Secrets cache.SecretManager
+
+	// For getting the certificate, using same code as SDS server.
+	// Either the JWTPath or the certs must be present.
+	JWTPath string
+
+	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
+	XDSSAN string
 
 	// Watch is a list of resources to watch, represented as URLs (for new XDS resource naming)
 	// or type URLs.
@@ -86,6 +101,13 @@ type Config struct {
 	// If empty reconnect will not be attempted.
 	// TODO: client will use exponential backoff to reconnect.
 	InitialReconnectDelay time.Duration
+
+	// backoffPolicy determines the reconnect policy. Based on MCP client.
+	BackoffPolicy backoff.BackOff
+
+	// ResponseHandler will be called on each DiscoveryResponse.
+	// TODO: mirror Generator, allow adding handler per type
+	ResponseHandler ResponseHandler
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -93,15 +115,14 @@ type Config struct {
 type ADSC struct {
 	// Stream is the GRPC connection stream, allowing direct GRPC send operations.
 	// Set after Dial is called.
-	stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
 	conn *grpc.ClientConn
 
 	// NodeID is the node identity sent to Pilot.
 	nodeID string
 
-	certDir string
-	url     string
+	url string
 
 	watchTime time.Time
 
@@ -145,6 +166,9 @@ type ADSC struct {
 	// Retrieved configurations can be stored using the common istio model interface.
 	Store model.IstioConfigStore
 
+	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
+	Registry *memory.ServiceDiscovery
+
 	// LocalCacheDir is set to a base name used to save fetched resources.
 	// If set, each update will be saved.
 	// TODO: also load at startup - so we can support warm up in init-container, and survive
@@ -158,6 +182,14 @@ type ADSC struct {
 
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
 	sendNodeMeta bool
+
+	sync   map[string]time.Time
+	syncCh chan string
+	m      sync.RWMutex
+}
+
+type ResponseHandler interface {
+	HandleResponse(con *ADSC, response *xdsapi.DiscoveryResponse)
 }
 
 const (
@@ -173,6 +205,24 @@ var (
 	adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 )
 
+// New creates a new ADSC, maintaining a connection to an XDS server.
+// Will:
+// - get certificate using the Secret provider, if CertRequired
+// - connect to the XDS server specified in ProxyConfig
+// - send initial request for watched resources
+// - wait for respose from XDS server
+// - on success, start a background thread to maintain the connection, with exp. backoff.
+func New(proxyConfig *v1alpha1.ProxyConfig, opts *Config) (*ADSC, error) {
+	// We want to reconnect
+	if opts.BackoffPolicy == nil {
+		opts.BackoffPolicy = backoff.NewExponentialBackOff()
+	}
+
+	adsc, err := Dial(proxyConfig.DiscoveryAddress, "", opts)
+
+	return adsc, err
+}
+
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	if opts == nil {
@@ -182,11 +232,12 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		Updates:     make(chan string, 100),
 		XDSUpdates:  make(chan *xdsapi.DiscoveryResponse, 100),
 		VersionInfo: map[string]string{},
-		certDir:     certDir,
 		url:         url,
 		Received:    map[string]*xdsapi.DiscoveryResponse{},
 		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
+		syncCh:      make(chan string, len(collections.Pilot.All())),
+		sync:        map[string]time.Time{},
 	}
 	if certDir != "" {
 		opts.CertDir = certDir
@@ -235,26 +286,60 @@ func getPrivateIPIfAvailable() net.IP {
 	return net.IPv4zero
 }
 
-func tlsConfig(certDir string) (*tls.Config, error) {
-	clientCert, err := tls.LoadX509KeyPair(certDir+"/cert-chain.pem",
-		certDir+"/key.pem")
-	if err != nil {
-		return nil, err
+func (a *ADSC) tlsConfig() (*tls.Config, error) {
+	var clientCert tls.Certificate
+	var serverCABytes []byte
+	var err error
+
+	if a.cfg.Secrets != nil {
+		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
+		if err != nil {
+			log.Infof("Failed to get credential token: %v", err)
+			tok = []byte("")
+		}
+
+		key, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
+			cache.WorkloadKeyCertResourceName, string(tok))
+		if err != nil {
+			return nil, err
+		}
+		clientCert, err = tls.X509KeyPair(key.CertificateChain, key.PrivateKey)
+		if err != nil {
+			return nil, err
+		}
+		// This is a bit crazy - we could just use the file
+		rootCA, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
+			cache.RootCertReqResourceName, string(tok))
+		if err != nil {
+			return nil, err
+		}
+
+		serverCABytes = rootCA.RootCert
+	} else {
+		clientCert, err = tls.LoadX509KeyPair(a.cfg.CertDir+"/cert-chain.pem",
+			a.cfg.CertDir+"/key.pem")
+		if err != nil {
+			return nil, err
+		}
+		serverCABytes, err = ioutil.ReadFile(a.cfg.CertDir + "/root-cert.pem")
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	serverCABytes, err := ioutil.ReadFile(certDir + "/root-cert.pem")
-	if err != nil {
-		return nil, err
-	}
 	serverCAs := x509.NewCertPool()
 	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
 		return nil, err
 	}
 
+	shost, _, _ := net.SplitHostPort(a.url)
+	if a.cfg.XDSSAN != "" {
+		shost = a.cfg.XDSSAN
+	}
 	return &tls.Config{
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      serverCAs,
-		ServerName:   "istio-pilot.istio-system",
+		ServerName:   shost,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			return nil
 		},
@@ -273,8 +358,8 @@ func (a *ADSC) Run() error {
 
 	// TODO: pass version info, nonce properly
 	var err error
-	if len(a.certDir) > 0 {
-		tlsCfg, err := tlsConfig(a.certDir)
+	if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
+		tlsCfg, err := a.tlsConfig()
 		if err != nil {
 			return err
 		}
@@ -295,7 +380,7 @@ func (a *ADSC) Run() error {
 		}
 	}
 
-	xds := ads.NewAggregatedDiscoveryServiceClient(a.conn)
+	xds := xdsapi.NewAggregatedDiscoveryServiceClient(a.conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return err
@@ -314,22 +399,55 @@ func (a *ADSC) Run() error {
 	return nil
 }
 
+// HasSyncedConfig returns true if MCP configs have synced
+func (a *ADSC) hasSynced() bool {
+	for _, s := range collections.Pilot.All() {
+		a.m.RLock()
+		t := a.sync[s.Resource().GroupVersionKind().String()]
+		a.m.RUnlock()
+		if t.IsZero() {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *ADSC) reconnect() {
+	err := a.Run()
+	if err == nil {
+		a.cfg.BackoffPolicy.Reset()
+	} else {
+		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
+	}
+}
+
 func (a *ADSC) handleRecv() {
 	for {
 		var err error
 		msg, err := a.stream.Recv()
 		if err != nil {
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
-			a.RecvWg.Done()
-			a.Close()
-			a.WaitClear()
-			a.Updates <- ""
-			a.XDSUpdates <- nil
+			// if 'reconnect' enabled - schedule a new Run
+			if a.cfg.BackoffPolicy != nil {
+				time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
+			} else {
+				a.RecvWg.Done()
+				a.Close()
+				a.WaitClear()
+				a.Updates <- ""
+				a.XDSUpdates <- nil
+			}
 			return
 		}
 
 		// Group-value-kind - used for high level api generator.
 		gvk := strings.SplitN(msg.TypeUrl, "/", 3)
+
+		adscLog.Infoa("Received ", a.url, " type ", msg.TypeUrl,
+			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
+		if a.cfg.ResponseHandler != nil {
+			a.cfg.ResponseHandler.HandleResponse(a, msg)
+		}
 
 		if msg.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&
 			len(msg.Resources) > 0 {
@@ -341,6 +459,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
+				// TODO: use jsonpb
 				strResponse, err := json.MarshalIndent(m, "  ", "  ")
 				if err != nil {
 					continue
@@ -353,6 +472,7 @@ func (a *ADSC) handleRecv() {
 			continue
 		}
 
+		// Process the resources.
 		listeners := []*listener.Listener{}
 		clusters := []*cluster.Cluster{}
 		routes := []*route.RouteConfiguration{}
@@ -366,6 +486,18 @@ func (a *ADSC) handleRecv() {
 					ll := &listener.Listener{}
 					_ = proto.Unmarshal(valBytes, ll)
 					listeners = append(listeners, ll)
+				}
+			case v3.ListenerType:
+				{
+					ll := &listener.Listener{}
+					_ = proto.Unmarshal(valBytes, ll)
+					listeners = append(listeners, ll)
+				}
+			case v2.ClusterType:
+				{
+					cl := &cluster.Cluster{}
+					_ = proto.Unmarshal(valBytes, cl)
+					clusters = append(clusters, cl)
 				}
 
 			case v3.ClusterType:
@@ -381,7 +513,18 @@ func (a *ADSC) handleRecv() {
 					_ = proto.Unmarshal(valBytes, el)
 					eds = append(eds, el)
 				}
-
+			case v2.EndpointType:
+				{
+					el := &endpoint.ClusterLoadAssignment{}
+					_ = proto.Unmarshal(valBytes, el)
+					eds = append(eds, el)
+				}
+			case v3.RouteType:
+				{
+					rl := &route.RouteConfiguration{}
+					_ = proto.Unmarshal(valBytes, rl)
+					routes = append(routes, rl)
+				}
 			case v2.RouteType:
 				{
 					rl := &route.RouteConfiguration{}
@@ -390,57 +533,17 @@ func (a *ADSC) handleRecv() {
 				}
 
 			default:
-				if len(gvk) != 3 {
-					continue
-				}
-				// Generic - fill up the store
-				if a.Store != nil {
-					m := &mcp.Resource{}
-					err = types.UnmarshalAny(&types.Any{
-						TypeUrl: rsc.TypeUrl,
-						Value:   rsc.Value,
-					}, m)
-					if err != nil {
-						continue
-					}
-					val, err := mcpToPilot(m)
-					if err != nil {
-						continue
-					}
-					val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
-					if err != nil {
-						adscLog.Warna("Invalid data ", err, " ", string(valBytes))
-					} else {
-						cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
-						if cfg == nil {
-							_, err = a.Store.Create(*val)
-							if err != nil {
-								continue
-							}
-						} else {
-							_, err = a.Store.Update(*val)
-							if err != nil {
-								continue
-							}
-						}
-					}
-					if a.LocalCacheDir != "" {
-						strResponse, err := json.MarshalIndent(val, "  ", "  ")
-						if err != nil {
-							continue
-						}
-						err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-							val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
-						if err != nil {
-							continue
-						}
-					}
+				err = a.handleMCP(gvk, rsc, valBytes)
+				if err != nil {
+					log.Warnf("Error handling received MCP config %v", err)
 				}
 			}
 		}
 
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
 		// This scheme also allows us to chunk large responses !
+
+		// TODO: add hook to inject nacks
 
 		a.mutex.Lock()
 		a.Received[msg.TypeUrl] = msg
@@ -893,6 +996,26 @@ func (a *ADSC) WatchConfig() {
 	}
 }
 
+// WaitConfigSync will wait for the memory controller to sync.
+func (a *ADSC) WaitConfigSync(max time.Duration) bool {
+	// TODO: when adding support for multiple config controllers (matching MCP), make sure the
+	// new stores support reporting sync events on the syncCh, to avoid the sleep loop from MCP.
+	if a.hasSynced() {
+		return true
+	}
+	maxCh := time.After(max)
+	for {
+		select {
+		case <-a.syncCh:
+			if a.hasSynced() {
+				return true
+			}
+		case <-maxCh:
+			return a.hasSynced()
+		}
+	}
+}
+
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: "",
@@ -951,4 +1074,55 @@ func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	return a.eds
+}
+
+func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
+	if len(gvk) != 3 {
+		return nil // Not MCP
+	}
+	// Generic - fill up the store
+	if a.Store != nil {
+		m := &mcp.Resource{}
+		err := types.UnmarshalAny(&types.Any{
+			TypeUrl: rsc.TypeUrl,
+			Value:   rsc.Value,
+		}, m)
+		if err != nil {
+			return err
+		}
+		val, err := mcpToPilot(m)
+		if err != nil {
+			return err
+		}
+		val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
+		if err != nil {
+			adscLog.Warna("Invalid data ", err, " ", string(valBytes))
+		} else {
+			cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
+			if cfg == nil {
+				_, err = a.Store.Create(*val)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = a.Store.Update(*val)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if a.LocalCacheDir != "" {
+			strResponse, err := json.MarshalIndent(val, "  ", "  ")
+			if err != nil {
+				return err
+			}
+			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
+				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

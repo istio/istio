@@ -44,6 +44,9 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 		c.Domain = defaultDomain
 	}
 
+	// Fill in the default cluster.
+	c.Cluster = resource.ClusterOrDefault(c.Cluster, ctx.Environment())
+
 	// If no namespace was provided, use the default.
 	if c.Namespace == nil {
 		nsConfig := namespace.Config{

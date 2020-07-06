@@ -41,9 +41,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/util/gogo"
 )
@@ -106,7 +106,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	cb := NewClusterBuilder(proxy, push)
 	instances := proxy.ServiceInstances
 
-	outboundClusters := configgen.buildOutboundClusters(proxy, push)
+	outboundClusters := configgen.buildOutboundClusters(cb)
 
 	switch proxy.Type {
 	case model.SidecarProxy:
@@ -114,7 +114,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		// DO NOT CALL PLUGINS for these two clusters.
 		outboundClusters = append(outboundClusters, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
-		inboundClusters := configgen.buildInboundClusters(proxy, push, instances)
+		inboundClusters := configgen.buildInboundClusters(cb, instances)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		inboundClusters = append(inboundClusters, cb.buildInboundPassthroughClusters()...)
 		inboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_INBOUND, proxy, push, inboundClusters)
@@ -139,34 +139,33 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 // resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
 // for any clusters that share the same name the first cluster is kept and the others are discarded.
 func normalizeClusters(metrics model.Metrics, proxy *model.Proxy, clusters []*cluster.Cluster) []*cluster.Cluster {
-	have := make(map[string]bool)
+	have := sets.Set{}
 	out := make([]*cluster.Cluster, 0, len(clusters))
 	for _, cluster := range clusters {
-		if !have[cluster.Name] {
+		if !have.Contains(cluster.Name) {
 			out = append(out, cluster)
 		} else {
 			metrics.AddMetric(model.DuplicatedClusters, cluster.Name, proxy,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", cluster.Name))
 		}
-		have[cluster.Name] = true
+		have.Insert(cluster.Name)
 	}
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	cb := NewClusterBuilder(proxy, push)
 	inputParams := &plugin.InputParams{
-		Push: push,
-		Node: proxy,
+		Push: cb.push,
+		Node: cb.proxy,
 	}
-	networkView := model.GetNetworkView(proxy)
+	networkView := model.GetNetworkView(cb.proxy)
 
 	var services []*model.Service
-	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		services = push.GatewayServices(proxy)
+	if features.FilterGatewayClusterConfig && cb.proxy.Type == model.Router {
+		services = cb.push.GatewayServices(cb.proxy)
 	} else {
-		services = push.Services(proxy)
+		services = cb.push.Services(cb.proxy)
 	}
 	for _, service := range services {
 		for _, port := range service.Ports {
@@ -176,23 +175,23 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			inputParams.Service = service
 			inputParams.Port = port
 
-			lbEndpoints := buildLocalityLbEndpoints(proxy, push, networkView, service, port.Port, nil)
+			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(proxy, service)
+			discoveryType := convertResolution(cb.proxy, service)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service.MeshExternal)
 			if defaultCluster == nil {
 				continue
 			}
 			// If stat name is configured, build the alternate stats name.
-			if len(push.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.AltStatName = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
+			if len(cb.push.Mesh.OutboundClusterStatName) != 0 {
+				defaultCluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
 			}
 
-			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
+			setUpstreamProtocol(cb.proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 			clusters = append(clusters, defaultCluster)
-			subsetClusters := cb.applyDestinationRule(proxy, defaultCluster, DefaultClusterMode, service, port, networkView)
+			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
 
 			// call plugins for subset clusters.
 			for _, subsetCluster := range subsetClusters {
@@ -228,7 +227,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			lbEndpoints := buildLocalityLbEndpoints(proxy, push, networkView, service, port.Port, nil)
+			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(proxy, service)
@@ -239,79 +238,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				continue
 			}
 			clusters = append(clusters, defaultCluster)
-			clusters = append(clusters, cb.applyDestinationRule(proxy, defaultCluster, SniDnatClusterMode, service, port, networkView)...)
+			clusters = append(clusters, cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView)...)
 		}
 	}
 
 	return clusters
-}
-
-func buildLocalityLbEndpoints(proxy *model.Proxy, push *model.PushContext, proxyNetworkView map[string]bool, service *model.Service,
-	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
-	if service.Resolution != model.DNSLB {
-		return nil
-	}
-
-	instances, err := push.InstancesByPort(service, port, labels)
-	if err != nil {
-		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
-		return nil
-	}
-
-	// Determine whether or not the target service is considered local to the cluster
-	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := push.IsClusterLocal(service)
-
-	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
-	for _, instance := range instances {
-		// Only send endpoints from the networks in the network view requested by the proxy.
-		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
-		// the default network assigned to endpoints that don't have an explicit network
-		if !proxyNetworkView[instance.Endpoint.Network] {
-			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
-			continue
-		}
-		// If the downstream service is configured as cluster-local, only include endpoints that
-		// reside in the same cluster.
-		if isClusterLocal && (proxy.Metadata.ClusterID != instance.Endpoint.Locality.ClusterID) {
-			continue
-		}
-		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
-		ep := &endpoint.LbEndpoint{
-			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-				Endpoint: &endpoint.Endpoint{
-					Address: addr,
-				},
-			},
-			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: 1,
-			},
-		}
-		if instance.Endpoint.LbWeight > 0 {
-			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
-		}
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.Endpoint.TLSMode, push)
-		locality := instance.Endpoint.Locality.Label
-		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
-	}
-
-	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
-
-	for locality, eps := range lbEndpoints {
-		var weight uint32
-		for _, ep := range eps {
-			weight += ep.LoadBalancingWeight.GetValue()
-		}
-		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
-			Locality:    util.ConvertLocality(locality),
-			LbEndpoints: eps,
-			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: weight,
-			},
-		})
-	}
-
-	return localityLbEndpoints
 }
 
 func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.LocalityLbEndpoints {
@@ -330,8 +261,7 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 	}
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
-	push *model.PushContext, instances []*model.ServiceInstance) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance) []*cluster.Cluster {
 
 	clusters := make([]*cluster.Cluster, 0)
 
@@ -340,10 +270,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 	// to those listeners i.e. clusters made out of the defaultEndpoint field.
 	// If the node has no sidecarScope and has interception mode set to NONE, then we should skip the inbound
 	// clusters, because there would be no corresponding inbound listeners
-	sidecarScope := proxy.SidecarScope
-	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
+	sidecarScope := cb.proxy.SidecarScope
+	noneMode := cb.proxy.GetInterceptionMode() == model.InterceptionNone
 
-	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
+	_, actualLocalHost := getActualWildcardAndLocalHost(cb.proxy)
 
 	if !sidecarScope.HasCustomIngressListeners {
 		// No user supplied sidecar scope or the user supplied one has no ingress listeners
@@ -361,10 +291,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 			// in normalizeClusters method.
 			if !have[instance.ServicePort] {
 				pluginParams := &plugin.InputParams{
-					Node:            proxy,
+					Node:            cb.proxy,
 					ServiceInstance: instance,
 					Port:            instance.ServicePort,
-					Push:            push,
+					Push:            cb.push,
 					Bind:            actualLocalHost,
 				}
 				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
@@ -413,10 +343,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 			instance.Endpoint.EndpointPort = uint32(port)
 
 			pluginParams := &plugin.InputParams{
-				Node:            proxy,
+				Node:            cb.proxy,
 				ServiceInstance: instance,
 				Port:            listenPort,
-				Push:            push,
+				Push:            cb.push,
 				Bind:            endpointAddress,
 			}
 			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
@@ -527,8 +457,7 @@ func conditionallyConvertToIstioMtls(
 	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
-	serviceMTLSMode model.MutualTLSMode,
-) (*networking.ClientTLSSettings, mtlsContextType) {
+	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
 	mtlsCtx := userSupplied
 	if tls == nil {
 		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
@@ -922,11 +851,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	}
 }
 
-func applyLocalityLBSetting(
-	locality *core.Locality,
-	cluster *cluster.Cluster,
-	localityLB *networking.LocalityLoadBalancerSetting,
-) {
+func applyLocalityLBSetting(locality *core.Locality, cluster *cluster.Cluster, localityLB *networking.LocalityLoadBalancerSetting) {
 	if locality == nil || localityLB == nil {
 		return
 	}
@@ -1054,6 +979,11 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
 			},
+		}
+
+		if c.Http2ProtocolOptions != nil {
+			// This is HTTP/2 cluster, advertise it with ALPN.
+			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	case networking.ClientTLSSettings_MUTUAL:
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {

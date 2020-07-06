@@ -54,7 +54,8 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 		"The namespace Istio is installed into. Deprecated, use '--watchedNamespaces' instead.")
 	cmd.PersistentFlags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", istioDefaultNamespace,
 		"The namespaces the operator controller watches, could be namespace list separated by comma, eg. 'ns1,ns2'")
-	cmd.PersistentFlags().StringVarP(&args.common.charts, "charts", "d", "", ChartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
 func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Command {

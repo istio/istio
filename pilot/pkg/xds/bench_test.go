@@ -17,30 +17,28 @@ package xds
 import (
 	"bytes"
 	"fmt"
-	"html/template"
-	"net"
 	"path"
 	"testing"
+	"text/template"
 	"time"
 
+	"github.com/Masterminds/sprig"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
-	"istio.io/istio/pkg/test"
+	"istio.io/pkg/env"
 
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/serviceregistry/mock"
-	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/protocol"
-
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/plugin"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
@@ -49,7 +47,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -72,12 +69,7 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	serviceControllers := aggregate.NewController()
 	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, istioConfigStore, s)
 	go configController.Run(make(chan struct{}))
-	serviceEntryRegistry := serviceregistry.Simple{
-		ProviderID:       "External",
-		Controller:       serviceEntryStore,
-		ServiceDiscovery: serviceEntryStore,
-	}
-	serviceControllers.AddRegistry(serviceEntryRegistry)
+	serviceControllers.AddRegistry(serviceEntryStore)
 
 	env.IstioConfigStore = istioConfigStore
 	env.ServiceDiscovery = serviceControllers
@@ -123,59 +115,24 @@ func createEndpoints(numEndpoints int, numServices int) []model.Config {
 	return result
 }
 
-func getNextIP(current string) string {
-	i := net.ParseIP(current).To4()
-	v := uint(i[0])<<24 + uint(i[1])<<16 + uint(i[2])<<8 + uint(i[3])
-	v++
-	v3 := byte(v & 0xFF)
-	v2 := byte((v >> 8) & 0xFF)
-	v1 := byte((v >> 16) & 0xFF)
-	v0 := byte((v >> 24) & 0xFF)
-	ret := net.IPv4(v0, v1, v2, v3)
-	return ret.String()
-}
-
-func buildTestEnv(t test.Failer, cfg []model.Config, input ConfigInput) model.Environment {
-	svcs := map[host.Name]*model.Service{}
-	ip := "1.1.1.1"
-	for _, svc := range input.Services {
-		hn := host.Name(svc)
-		s := &model.Service{
-			Ports: []*model.Port{{
-				Name:     "http",
-				Port:     80,
-				Protocol: protocol.HTTP,
-			}, {
-				Name:     "tcp",
-				Port:     81,
-				Protocol: protocol.TCP,
-			}, {
-				Name:     "https",
-				Port:     443,
-				Protocol: protocol.HTTPS,
-			}, {
-				Name:     "auto",
-				Port:     83,
-				Protocol: protocol.Unsupported,
-			}},
-			Hostname: hn,
-			Address:  ip,
-		}
-		svcs[hn] = s
-		ip = getNextIP(ip)
-	}
-	serviceDiscovery := mock.NewDiscovery(svcs, 1)
-
-	configStore := memory.Make(collections.Pilot)
-	for _, cfg := range cfg {
+func buildTestEnv(t testing.TB, cfgs []model.Config) *model.Environment {
+	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
+	for _, cfg := range cfgs {
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
 		}
-
 	}
 
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	configController := memory.NewController(configStore)
+	go configController.Run(stop)
+	serviceDiscovery := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), &FakeXdsUpdater{})
+
 	m := mesh.DefaultMeshConfig()
-	env := model.Environment{
+	env := &model.Environment{
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: model.MakeIstioStore(configStore),
@@ -185,53 +142,96 @@ func buildTestEnv(t test.Failer, cfg []model.Config, input ConfigInput) model.En
 	return env
 }
 
+type FakeXdsUpdater struct {
+}
+
+func (fx *FakeXdsUpdater) EDSUpdate(_, _ string, _ string, _ []*model.IstioEndpoint) error {
+	return nil
+}
+
+func (fx *FakeXdsUpdater) ConfigUpdate(_ *model.PushRequest) {
+}
+
+func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
+}
+
+func (fx *FakeXdsUpdater) SvcUpdate(_, _ string, _ string, _ model.Event) {
+}
+
 // ConfigInput defines inputs passed to the test config templates
 // This allows tests to do things like create a virtual service for each service, for example
 type ConfigInput struct {
-	// A list of hostname of allservices
-	Services []string
+	// Name of the test
+	Name string
+	// Name of the test config file to use. If not set, <Name> is used
+	ConfigName string
+	// Number of services to make
+	Services int
+	// Type of proxy to generate configs for
+	ProxyType model.NodeType
 }
 
-// Setup test builds a mock test environment.
-// TODO make this configurable with Istio config, different service setups, etc
-func setupTest(t test.Failer, testName string) (model.Environment, core.ConfigGenerator, model.Proxy) {
-	proxy := model.Proxy{
-		Type:        model.SidecarProxy,
+// Setup test builds a mock test environment. Note: push context is not initialized, to be able to benchmark separately
+// most should just call setupAndInitializeTest
+func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.ConfigGenerator, *model.Proxy) {
+	proxyType := config.ProxyType
+	if proxyType == "" {
+		proxyType = model.SidecarProxy
+	}
+	proxy := &model.Proxy{
+		Type:        proxyType,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			Namespace: "not-default",
+			Namespace: "default",
+			Labels: map[string]string{
+				"istio.io/benchmark": "true",
+			},
+			IstioVersion: "1.6.0",
 		},
+		// TODO: if you update this, make sure telemetry.yaml is also updated
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},
-		ConfigNamespace: "not-default",
+		ConfigNamespace: "default",
 	}
 
-	numServices := 100
-	services := []string{}
-	for i := 0; i < numServices; i++ {
-		hn := fmt.Sprintf("service-%d.namespace.svc.cluster.local", i)
-		services = append(services, hn)
+	configName := config.ConfigName
+	if configName == "" {
+		configName = config.Name
 	}
-	tmpl, err := template.ParseFiles(path.Join("testdata", "benchmarks", testName+".yaml"))
-	if err != nil {
-		t.Fatalf("failed to read config: %v", err)
-	}
+	tmpl := template.Must(template.New("").Funcs(sprig.TxtFuncMap()).ParseFiles(path.Join("testdata", "benchmarks", configName+".yaml")))
 	var buf bytes.Buffer
-	input := ConfigInput{Services: services}
-	if err := tmpl.Execute(&buf, input); err != nil {
+	if err := tmpl.ExecuteTemplate(&buf, configName+".yaml", config); err != nil {
 		t.Fatalf("failed to execute template: %v", err)
 	}
 	configs, _, err := crd.ParseInputs(buf.String())
 	if err != nil {
 		t.Fatalf("failed to read config: %v", err)
 	}
+	// setup default namespace if not defined
+	for i, c := range configs {
+		if c.Namespace == "" {
+			c.Namespace = "default"
+		}
+		configs[i] = c
+	}
+	env := buildTestEnv(t, configs)
 
-	env := buildTestEnv(t, configs, input)
-	env.PushContext.InitContext(&env, nil, nil)
-	proxy.SetSidecarScope(env.PushContext)
 	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
 	return env, configgen, proxy
+}
+
+func setupAndInitializeTest(t testing.TB, config ConfigInput) (*model.Environment, core.ConfigGenerator, *model.Proxy) {
+	env, configggen, proxy := setupTest(t, config)
+	initPushContext(env, proxy)
+	return env, configggen, proxy
+}
+
+func initPushContext(env *model.Environment, proxy *model.Proxy) {
+	env.PushContext.InitContext(env, nil, nil)
+	proxy.SetSidecarScope(env.PushContext)
+	proxy.SetGatewaysForProxy(env.PushContext)
+	proxy.SetServiceInstances(env.ServiceDiscovery)
 }
 
 func routesFromListeners(ll []*listener.Listener) []string {
@@ -256,71 +256,134 @@ func routesFromListeners(ll []*listener.Listener) []string {
 	return routes
 }
 
-var testCases = []string{
-	"empty",
-	"telemetry",
-	"virtualservice",
+var testCases = []ConfigInput{
+	{
+		// Gateways provides an example config for a large Ingress deployment. This will create N
+		// virtual services and gateways, where routing is determined by hostname, meaning we generate N routes for HTTPS.
+		Name:      "gateways",
+		Services:  1000,
+		ProxyType: model.Router,
+	},
+	{
+		// Gateways-shared provides an example config for a large Ingress deployment. This will create N
+		// virtual services and gateways, where routing is determined by path. This means there will be a single large route.
+		Name:      "gateways-shared",
+		Services:  1000,
+		ProxyType: model.Router,
+	},
+	{
+		Name:     "empty",
+		Services: 100,
+	},
+	{
+		Name:     "telemetry",
+		Services: 100,
+	},
+	{
+		Name:     "virtualservice",
+		Services: 100,
+	},
+}
+
+var debugGeneration = env.RegisterBoolVar("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
+
+// Add additional debug info for a test
+func logDebug(b *testing.B, m *discovery.DiscoveryResponse) {
+	b.Helper()
+	b.StopTimer()
+
+	if debugGeneration.Get() {
+		s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(m)
+		if err != nil {
+			b.Fatal(err)
+		}
+		// Cannot use b.Logf, it truncates
+		log.Infof("Generated: %s", s)
+	}
+	bytes, err := proto.Marshal(m)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportMetric(float64(len(bytes))/1000, "kb/msg")
+	b.ReportMetric(float64(len(m.Resources)), "resources/msg")
+	b.StartTimer()
+}
+
+func BenchmarkInitPushContext(b *testing.B) {
+	for _, tt := range testCases {
+		b.Run(tt.Name, func(b *testing.B) {
+			env, _, proxy := setupTest(b, tt)
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				initPushContext(env, proxy)
+			}
+		})
+	}
 }
 
 func BenchmarkRouteGeneration(b *testing.B) {
 	for _, tt := range testCases {
-		b.Run(tt, func(b *testing.B) {
-			env, configgen, proxy := setupTest(b, tt)
+		b.Run(tt.Name, func(b *testing.B) {
+			env, configgen, proxy := setupAndInitializeTest(b, tt)
 			// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
-			l := configgen.BuildListeners(&proxy, env.PushContext)
+			l := configgen.BuildListeners(proxy, env.PushContext)
 			routeNames := routesFromListeners(l)
 			if len(routeNames) == 0 {
-				b.Fatal("Got no route names! ")
+				b.Fatal("Got no route names!")
 			}
 			b.ResetTimer()
 			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				r := configgen.BuildHTTPRoutes(&proxy, env.PushContext, routeNames)
+				r := configgen.BuildHTTPRoutes(proxy, env.PushContext, routeNames)
+				if len(r) == 0 {
+					b.Fatal("Got no routes!")
+				}
 				response = routeDiscoveryResponse(r, "", "", v2.RouteType)
 			}
-			_ = response
+			logDebug(b, response)
 		})
 	}
 }
 
 func BenchmarkClusterGeneration(b *testing.B) {
 	for _, tt := range testCases {
-		b.Run(tt, func(b *testing.B) {
-			env, configgen, proxy := setupTest(b, tt)
+		b.Run(tt.Name, func(b *testing.B) {
+			env, configgen, proxy := setupAndInitializeTest(b, tt)
 			b.ResetTimer()
-			var response interface{}
+			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				c := configgen.BuildClusters(&proxy, env.PushContext)
+				c := configgen.BuildClusters(proxy, env.PushContext)
 				if len(c) == 0 {
-					b.Fatal("Got no clusters! ")
+					b.Fatal("Got no clusters!")
 				}
 				response = cdsDiscoveryResponse(c, "", v3.ClusterType)
 			}
-			_ = response
+			logDebug(b, response)
 		})
 	}
 }
 
 func BenchmarkListenerGeneration(b *testing.B) {
 	for _, tt := range testCases {
-		b.Run(tt, func(b *testing.B) {
-			env, configgen, proxy := setupTest(b, tt)
+		b.Run(tt.Name, func(b *testing.B) {
+			env, configgen, proxy := setupAndInitializeTest(b, tt)
 			b.ResetTimer()
-			var response interface{}
+			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				l := configgen.BuildListeners(&proxy, env.PushContext)
+				l := configgen.BuildListeners(proxy, env.PushContext)
 				if len(l) == 0 {
-					b.Fatal("Got no clusters! ")
+					b.Fatal("Got no listeners!")
 				}
 				response = ldsDiscoveryResponse(l, "", "", v3.ListenerType)
 			}
-			_ = response
+			logDebug(b, response)
 		})
 	}
 }
 
 // BenchmarkEDS measures performance of EDS config generation
 // TODO Add more variables, such as different services
+// TODO make this align more with the other generation tests
 func BenchmarkEndpointGeneration(b *testing.B) {
 	tests := []struct {
 		endpoints int

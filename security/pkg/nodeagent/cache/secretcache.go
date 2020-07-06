@@ -135,6 +135,9 @@ type Options struct {
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
 	// GenerateSecret generates new secret and cache the secret.
+	// Current implementation constructs the SAN based on the token's 'sub'
+	// claim, expected to be in the K8S format. No other JWTs are currently supported
+	// due to client logic. If JWT is missing/invalid, the resourceName is used.
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error)
 
 	// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.

@@ -29,7 +29,7 @@ require (
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.12.9
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
-	fortio.org/fortio v1.3.1
+	fortio.org/fortio v1.4.1
 	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.3 // indirect
 	github.com/DataDog/datadog-go v2.2.0+incompatible
@@ -148,20 +148,20 @@ require (
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
-	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
+	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
 	golang.org/x/tools v0.0.0-20191216173652-a0e659d51361
 	google.golang.org/api v0.15.0
-	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
-	google.golang.org/grpc v1.28.1
+	google.golang.org/genproto v0.0.0-20200619004808-3e7fca5c55db
+	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.3.0
 	helm.sh/helm/v3 v3.2.0
-	istio.io/api v0.0.0-20200626203124-c07d1d63dab7
+	istio.io/api v0.0.0-20200630182154-19d61f093aab
 	istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26
 	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
 	istio.io/pkg v0.0.0-20200504224939-261164cc57da

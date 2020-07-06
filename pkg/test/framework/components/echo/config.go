@@ -114,11 +114,3 @@ func (c Config) FQDN() string {
 	}
 	return out
 }
-
-// ClusterIndex returns the index of the cluster or 0 (the default) if none specified.
-func (c Config) ClusterIndex() resource.ClusterIndex {
-	if c.Cluster != nil {
-		return c.Cluster.Index()
-	}
-	return 0
-}
