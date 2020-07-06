@@ -17,11 +17,8 @@
 package cmd
 
 import (
-	"k8s.io/client-go/tools/cache"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
 
-	"istio.io/istio/pilot/pkg/config/kube/crdclient"
-	"istio.io/istio/pilot/pkg/model"
-	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	kubecfg "istio.io/istio/pkg/kube"
 )
 
@@ -30,7 +27,7 @@ var (
 	configStoreFactory = newConfigStore
 )
 
-func newConfigStore() (model.ConfigStore, error) {
+func newConfigStore() (istioclient.Interface, error) {
 	cfg, err := kubecfg.BuildClientConfig(kubeconfig, configContext)
 	if err != nil {
 		return nil, err
@@ -39,17 +36,5 @@ func newConfigStore() (model.ConfigStore, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	client, err := crdclient.New(kclient, &model.DisabledLedger{}, "", controller2.Options{DomainSuffix: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	stop := make(chan struct{})
-	// TODO: replace with direct istio/client-go usage so we don't have to do this part
-	go client.Run(stop)
-	kclient.RunAndWait(stop)
-	cache.WaitForCacheSync(stop, client.HasSynced)
-
-	return client, nil
+	return kclient.Istio(), nil
 }

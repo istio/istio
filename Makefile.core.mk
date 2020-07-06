@@ -427,132 +427,14 @@ ${ISTIO_BIN}/go-junit-report:
 	@echo "go-junit-report not found. Installing it now..."
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
-with_junit_report: | $(JUNIT_REPORT)
-	$(MAKE) -e $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+# This is just an alias for racetest now
+test: racetest
 
-# Run coverage tests
-ifeq ($(WHAT),)
-       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test operator-test cni-test
-else
-       TEST_OBJ = selected-pkg-test
-endif
-test: | $(JUNIT_REPORT)
-	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
-	$(MAKE) -e -f Makefile.core.mk --keep-going $(TEST_OBJ) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-# TODO: remove the racetest targets and just have *-test targets that call race
-
-.PHONY: pilot-test
-pilot-test: pilot-racetest
-
-.PHONY: istioctl-test
-istioctl-test: istioctl-racetest
-
-.PHONY: operator-test
-operator-test:
-	go test ${GOBUILDFLAGS} ${T} ./operator/...
-
-.PHONY: mixer-test
-mixer-test: mixer-racetest
-
-.PHONY: galley-test
-galley-test: galley-racetest
-
-.PHONY: security-test
-security-test: security-racetest
-
-.PHONY: cni-test cni.cmd-test cni.install-test
-cni-test: cni.cmd-test cni.install-test
-cni.cmd-test:
-	go test ${GOBUILDFLAGS} ${T} ./cni/cmd/...
-# May want to make this depend on push but it will always push at the moment:  install-test: docker.push
-cni.install-test: docker.install-cni
-	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} ${T} ./cni/test/...
-
-.PHONY: common-test
-common-test: common-racetest
-
-.PHONY: selected-pkg-test
-selected-pkg-test:
-	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${GOBUILDFLAGS} ${T} -race ./{}
-
-#-----------------------------------------------------------------------------
-# Target: coverage
-#-----------------------------------------------------------------------------
-
-.PHONY: coverage
-
-# Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage galley-coverage common-coverage istioctl-coverage
-
-coverage-diff:
-	./bin/codecov_diff.sh
-
-.PHONY: pilot-coverage
-pilot-coverage:
-	bin/codecov.sh pilot
-
-.PHONY: istioctl-coverage
-istioctl-coverage:
-	bin/codecov.sh istioctl
-
-.PHONY: mixer-coverage
-mixer-coverage:
-	bin/codecov.sh mixer
-
-.PHONY: galley-coverage
-galley-coverage:
-	bin/codecov.sh galley
-
-.PHONY: security-coverage
-security-coverage:
-	bin/codecov.sh security/pkg
-	bin/codecov.sh security/cmd
-
-.PHONY: common-coverage
-common-coverage:
-	bin/codecov.sh pkg
-
-#-----------------------------------------------------------------------------
-# Target: go test -race
-#-----------------------------------------------------------------------------
+TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./mixer/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/...
 
 .PHONY: racetest
-
-RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest operator-racetest
-
 racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
-	$(MAKE) -e -f Makefile.core.mk --keep-going $(RACE_TESTS) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-.PHONY: pilot-racetest
-pilot-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./pilot/...
-
-.PHONY: istioctl-racetest
-istioctl-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./istioctl/...
-
-.PHONY: operator-racetest
-operator-racetest:
-	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./operator/...
-
-.PHONY: mixer-racetest
-mixer-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./mixer/...
-
-.PHONY: galley-racetest
-galley-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./galley/...
-
-.PHONY: security-racetest
-security-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./security/pkg/... ./security/cmd/...
-
-.PHONY: common-racetest
-common-racetest: ${BUILD_DEPS}
-	go test ${GOBUILDFLAGS} ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
+	go test ${GOBUILDFLAGS} ${T} -race $(TEST_TARGETS) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 #-----------------------------------------------------------------------------
 # Target: clean
