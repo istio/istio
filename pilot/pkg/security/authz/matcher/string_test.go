@@ -15,7 +15,6 @@
 package matcher
 
 import (
-	"reflect"
 	"testing"
 
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
@@ -109,7 +108,7 @@ func TestStringMatcherRegex(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if actual := StringMatcherRegex(tc.v); !reflect.DeepEqual(*actual, *tc.want) {
+			if actual := StringMatcherRegex(tc.v); !cmp.Equal(actual, tc.want, protocmp.Transform()) {
 				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
 			}
 		})
