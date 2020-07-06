@@ -159,7 +159,7 @@ type ADSC struct {
 	// Last received message, by type
 	Received map[string]*discovery.DiscoveryResponse
 
-	mutex sync.Mutex
+	mutex sync.RWMutex
 
 	Mesh *v1alpha1.MeshConfig
 
@@ -185,7 +185,6 @@ type ADSC struct {
 
 	sync   map[string]time.Time
 	syncCh chan string
-	m      sync.RWMutex
 }
 
 type ResponseHandler interface {
@@ -402,9 +401,9 @@ func (a *ADSC) Run() error {
 // HasSyncedConfig returns true if MCP configs have synced
 func (a *ADSC) hasSynced() bool {
 	for _, s := range collections.Pilot.All() {
-		a.m.RLock()
+		a.mutex.RLock()
 		t := a.sync[s.Resource().GroupVersionKind().String()]
-		a.m.RUnlock()
+		a.mutex.RUnlock()
 		if t.IsZero() {
 			log.Warn("NOT SYNCE" + s.Resource().GroupVersionKind().String())
 			return false
