@@ -23,6 +23,13 @@ import (
 // EnvironmentFactory creates an Environment.
 type EnvironmentFactory func(ctx Context) (Environment, error)
 
+var _ EnvironmentFactory = NilEnvironmentFactory
+
+// NilEnvironmentFactory is an EnvironmentFactory that returns nil.
+func NilEnvironmentFactory(Context) (Environment, error) {
+	return nil, nil
+}
+
 // Environment is the ambient environment that the test runs in.
 type Environment interface {
 	Resource
@@ -42,4 +49,42 @@ type Environment interface {
 // UnsupportedEnvironment generates an error indicating that the given environment is not supported.
 func UnsupportedEnvironment(env Environment) error {
 	return fmt.Errorf("unsupported environment: %q", string(env.EnvironmentName()))
+}
+
+var _ Environment = FakeEnvironment{}
+
+// FakeEnvironment for testing.
+type FakeEnvironment struct {
+	Name        string
+	NumClusters int
+	IDValue     string
+}
+
+func (f FakeEnvironment) IsMulticluster() bool {
+	return f.NumClusters > 1
+}
+
+func (f FakeEnvironment) ID() ID {
+	return FakeID(f.IDValue)
+}
+
+func (f FakeEnvironment) EnvironmentName() environment.Name {
+	if len(f.Name) == 0 {
+		return "fake"
+	}
+	return environment.Name(f.Name)
+}
+
+func (f FakeEnvironment) Clusters() []Cluster {
+	out := make([]Cluster, f.NumClusters)
+	for i := 0; i < f.NumClusters; i++ {
+		out[i] = FakeCluster{
+			IndexValue: i,
+		}
+	}
+	return out
+}
+
+func (f FakeEnvironment) Case(environment.Name, func()) {
+	panic("not implemented")
 }

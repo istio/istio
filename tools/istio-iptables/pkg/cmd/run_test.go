@@ -84,7 +84,8 @@ func TestRulesWithIpRange(t *testing.T) {
 	cfg.OutboundIPRangesExclude = "1.1.0.0/16"
 	cfg.OutboundIPRangesInclude = "9.9.0.0/16"
 	cfg.DryRun = true
-	dnsVar.DefaultValue = "ALL"
+	dnsCaptureByEnvoy.DefaultValue = "ALL"
+	dnsCaptureByAgent.DefaultValue = ""
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -203,7 +204,7 @@ func TestHandleInboundIpv6RulesWithWildcardRanges(t *testing.T) {
 func TestHandleInboundIpv6RulesWithIpNets(t *testing.T) {
 	cfg := constructTestConfig()
 	cfg.InboundPortsInclude = "4000,5000"
-	cfg.InboundPortsExclude = "6000,7000"
+	cfg.InboundPortsExclude = "6000,7000,"
 	cfg.KubevirtInterfaces = "eth0,eth1"
 	cfg.EnableInboundIPv6 = true
 
@@ -568,7 +569,8 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 	cfg := constructConfig()
 	cfg.DryRun = true
-	dnsVar.DefaultValue = "ALL"
+	dnsCaptureByEnvoy.DefaultValue = ""
+	dnsCaptureByAgent.DefaultValue = "ALL"
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -598,7 +600,7 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 15013",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 15053",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -632,7 +634,8 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 	cfg := constructTestConfig()
 	cfg.OutboundIPRangesInclude = "127.1.2.3/32"
 	cfg.DryRun = true
-	dnsVar.DefaultValue = "ALL"
+	dnsCaptureByEnvoy.DefaultValue = "ALL"
+	dnsCaptureByAgent.DefaultValue = ""
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"

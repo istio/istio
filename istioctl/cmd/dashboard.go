@@ -312,10 +312,20 @@ func controlZDashCmd() *cobra.Command {
 
 // portForward first tries to forward localhost:remotePort to podName:remotePort, falls back to dynamic local port
 func portForward(podName, namespace, flavor, urlFormat, localAddress string, remotePort int,
-	client kube.Client, writer io.Writer) error {
+	client kube.ExtendedClient, writer io.Writer) error {
+
+	// port preference:
+	// - If --listenPort is specified, use it
+	// - without --listenPort, prefer the remotePort but fall back to a random port
+	var portPrefs []int
+	if listenPort != 0 {
+		portPrefs = []int{listenPort}
+	} else {
+		portPrefs = []int{remotePort, 0}
+	}
 
 	var err error
-	for _, localPort := range []int{listenPort, remotePort} {
+	for _, localPort := range portPrefs {
 		fw, err := client.NewPortForwarder(podName, namespace, localAddress, localPort, remotePort)
 		if err != nil {
 			return fmt.Errorf("could not build port forwarder for %s: %v", flavor, err)
@@ -331,6 +341,10 @@ func portForward(podName, namespace, flavor, urlFormat, localAddress string, rem
 
 		log.Debugf(fmt.Sprintf("port-forward to %s pod ready", flavor))
 		openBrowser(fmt.Sprintf(urlFormat, fw.Address()), writer)
+
+		// Wait for stop
+		fw.WaitForStop()
+
 		return nil
 	}
 

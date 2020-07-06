@@ -281,10 +281,9 @@ func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMet
 		headerKey:     headerKey,
 	}
 	if v, found := fileBasedMetadataConfigAnyMap.Load(key); found {
-		marshalAny := v.(any.Any)
-		return &marshalAny
+		return v.(*any.Any)
 	}
 	any, _ := ptypes.MarshalAny(fbMetadata)
-	fileBasedMetadataConfigAnyMap.Store(key, *any)
+	fileBasedMetadataConfigAnyMap.Store(key, any)
 	return any
 }

@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	istioTestVersion = "istio-1.5.0"
+	istioTestVersion = "istio-1.6.0"
 	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
 )
 
@@ -400,7 +400,7 @@ func TestManifestGenerateFlagAliases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --charts="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
+	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --manifests="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
 	if err != nil {
 		t.Fatal(err)
 	}

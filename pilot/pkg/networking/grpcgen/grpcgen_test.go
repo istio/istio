@@ -32,8 +32,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	"istio.io/istio/pilot/pkg/xds"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/config/schema/collections"
 
 	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
@@ -49,8 +49,8 @@ var (
 func TestGRPC(t *testing.T) {
 	ds := xds.NewXDS()
 	ds.DiscoveryServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &envoyv2.EdsGenerator{ds.DiscoveryServer}
-	ds.DiscoveryServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
+	epGen := &xds.EdsGenerator{Server: ds.DiscoveryServer}
+	ds.DiscoveryServer.Generators["grpc/"+v2.EndpointType] = epGen
 
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
@@ -68,11 +68,9 @@ func TestGRPC(t *testing.T) {
 
 	store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      se.Kind(),
-			Group:     se.Group(),
-			Version:   se.Version(),
-			Name:      "fortio",
-			Namespace: "fortio",
+			GroupVersionKind: se.GroupVersionKind(),
+			Name:             "fortio",
+			Namespace:        "fortio",
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{

@@ -2,7 +2,7 @@ cni:
   hub: ""
   tag: ""
   image: install-cni
-  pullPolicy: Always
+  pullPolicy: ""
 
   logLevel: info
 

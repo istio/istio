@@ -17,9 +17,10 @@ package model
 import (
 	authpb "istio.io/api/security/v1beta1"
 
+	istiolog "istio.io/pkg/log"
+
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
-	istiolog "istio.io/pkg/log"
 )
 
 var (

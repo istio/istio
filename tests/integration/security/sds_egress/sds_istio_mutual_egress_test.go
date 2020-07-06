@@ -91,8 +91,8 @@ func doIstioMutualTest(
 	echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&client, util.EchoConfig("client", ns, false, nil, p)).
 		BuildOrFail(ctx)
-	ctx.ApplyConfigOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
-	defer ctx.DeleteConfigOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
+	ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
+	defer ctx.Config().DeleteYAMLOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
 
 	// give the configuration a moment to kick in
 	time.Sleep(time.Second * 20)
@@ -138,7 +138,7 @@ func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
 	}
 
 	for _, c := range configFiles {
-		if err := ctx.ApplyConfig(ns.Name(), file.AsStringOrFail(ctx, c)); err != nil {
+		if err := ctx.Config().ApplyYAML(ns.Name(), file.AsStringOrFail(ctx, c)); err != nil {
 			ctx.Fatalf("failed to apply configuration file %s; err: %v", c, err)
 		}
 	}

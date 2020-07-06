@@ -27,15 +27,16 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestApplyDestinationRule(t *testing.T) {
@@ -188,8 +189,6 @@ func TestApplyDestinationRule(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 
-			serviceDiscovery := &fakes.ServiceDiscovery{}
-
 			instances := []*model.ServiceInstance{
 				{
 					Service:     tt.service,
@@ -206,29 +205,22 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			}
 
-			serviceDiscovery.ServicesReturns([]*model.Service{tt.service}, nil)
-			serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
-			serviceDiscovery.InstancesByPortReturns(instances, nil)
+			serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{tt.service})
+			serviceDiscovery.WantGetProxyServiceInstances = instances
 
-			configStore := &fakes.IstioConfigStore{
-				ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-					if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
-						if tt.destRule != nil {
-							return []model.Config{
-								{ConfigMeta: model.ConfigMeta{
-									Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-									Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-									Name:    "acme",
-								},
-									Spec: tt.destRule,
-								}}, nil
-						}
-					}
-					return nil, nil
-				},
+			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+			if tt.destRule != nil {
+				configStore.Create(model.Config{
+					ConfigMeta: model.ConfigMeta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "acme",
+					},
+					Spec: tt.destRule,
+				})
 			}
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
+			proxy := getProxy()
 			proxy.SetSidecarScope(env.PushContext)
 
 			cb := NewClusterBuilder(tt.proxy, env.PushContext)
@@ -415,10 +407,11 @@ func TestBuildDefaultCluster(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			serviceDiscovery := &fakes.ServiceDiscovery{}
-			configStore := &fakes.IstioConfigStore{}
+			serviceDiscovery := memregistry.NewServiceDiscovery(nil)
+			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
+			proxy := getProxy()
 			proxy.SetSidecarScope(env.PushContext)
 
 			cb := NewClusterBuilder(&model.Proxy{}, env.PushContext)
@@ -461,8 +454,8 @@ func TestBuildPassthroughClusters(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			serviceDiscovery := &fakes.ServiceDiscovery{}
-			configStore := &fakes.IstioConfigStore{}
+			serviceDiscovery := memregistry.NewServiceDiscovery(nil)
+			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 			proxy := &model.Proxy{IPAddresses: tt.ips}

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	kube2 "istio.io/istio/pkg/test/kube"
 
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/tests/integration/security/util/secret"
@@ -104,8 +105,8 @@ func TestDNSCertificate(t *testing.T) {
 			ctx.NewSubTest("generateDNSCertificates").
 				Run(func(ctx framework.TestContext) {
 					ctx.Log("check that DNS certificates have been generated ...")
-					galleySecret = cluster.WaitForSecretToExistOrFail(ctx, istioNs, galleySecretName, secretWaitTime)
-					sidecarInjectorSecret = cluster.WaitForSecretToExistOrFail(ctx, istioNs, sidecarInjectorSecretName, secretWaitTime)
+					galleySecret = kube2.WaitForSecretToExistOrFail(ctx, cluster, istioNs, galleySecretName, secretWaitTime)
+					sidecarInjectorSecret = kube2.WaitForSecretToExistOrFail(ctx, cluster, istioNs, sidecarInjectorSecretName, secretWaitTime)
 					ctx.Log(`checking Galley DNS certificate is valid`)
 					secret.ExamineDNSSecretOrFail(ctx, galleySecret, galleyDNSName)
 					ctx.Log(`checking Sidecar Injector DNS certificate is valid`)
@@ -120,8 +121,8 @@ func TestDNSCertificate(t *testing.T) {
 					// Sleep 5 seconds for the certificate regeneration to take place.
 					ctx.Log(`sleep 5 seconds for the certificate regeneration to take place ...`)
 					time.Sleep(5 * time.Second)
-					galleySecret = cluster.WaitForSecretToExistOrFail(ctx, istioNs, galleySecretName, secretWaitTime)
-					sidecarInjectorSecret = cluster.WaitForSecretToExistOrFail(ctx, istioNs, sidecarInjectorSecretName, secretWaitTime)
+					galleySecret = kube2.WaitForSecretToExistOrFail(ctx, cluster, istioNs, galleySecretName, secretWaitTime)
+					sidecarInjectorSecret = kube2.WaitForSecretToExistOrFail(ctx, cluster, istioNs, sidecarInjectorSecretName, secretWaitTime)
 					ctx.Log(`checking regenerated Galley DNS certificate is valid`)
 					secret.ExamineDNSSecretOrFail(ctx, galleySecret, galleyDNSName)
 					ctx.Log(`checking regenerated Sidecar Injector DNS certificate is valid`)
@@ -138,7 +139,7 @@ func TestDNSCertificate(t *testing.T) {
 					// Sleep 5 seconds for the certificate rotation to take place.
 					ctx.Log(`sleep 5 seconds for certificate rotation to take place ...`)
 					time.Sleep(5 * time.Second)
-					galleySecret2 = cluster.WaitForSecretToExistOrFail(ctx, istioNs, galleySecretName, secretWaitTime)
+					galleySecret2 = kube2.WaitForSecretToExistOrFail(ctx, cluster, istioNs, galleySecretName, secretWaitTime)
 					ctx.Log(`checking rotated Galley DNS certificate is valid`)
 					secret.ExamineDNSSecretOrFail(ctx, galleySecret2, galleyDNSName)
 					if bytes.Equal(galleySecret2.Data[controller.CertChainID], galleySecret.Data[controller.CertChainID]) {
@@ -157,7 +158,7 @@ func TestDNSCertificate(t *testing.T) {
 					// Sleep 5 seconds for the certificate rotation to take place.
 					ctx.Log(`sleep 5 seconds for expired certificate rotation to take place ...`)
 					time.Sleep(5 * time.Second)
-					sidecarInjectorSecret2 = cluster.WaitForSecretToExistOrFail(ctx, istioNs, sidecarInjectorSecretName, secretWaitTime)
+					sidecarInjectorSecret2 = kube2.WaitForSecretToExistOrFail(ctx, cluster, istioNs, sidecarInjectorSecretName, secretWaitTime)
 					ctx.Log(`checking rotated Sidecar Injector DNS certificate is valid`)
 					secret.ExamineDNSSecretOrFail(ctx, sidecarInjectorSecret2, sidecarInjectorDNSName)
 					if bytes.Equal(sidecarInjectorSecret2.Data[controller.CertChainID],

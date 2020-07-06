@@ -28,11 +28,11 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -109,7 +109,7 @@ func createConfig(t *testing.T, ctx resource.Context, config Config, yaml string
 	if err := tmpl.Execute(&buf, config); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := ctx.ApplyConfig(namespace.Name(), buf.String()); err != nil {
+	if err := ctx.Config().ApplyYAML(namespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply config: %v. Config: %v", err, buf.String())
 	}
 }

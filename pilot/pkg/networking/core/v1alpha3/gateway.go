@@ -160,11 +160,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			continue
 		}
 
-		if err := mutable.Listener.Validate(); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
-			continue
-		}
-
 		if log.DebugEnabled() {
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
 				len(mutable.Listener.FilterChains), mutable.Listener)
@@ -183,16 +178,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		return builder
 	}
 
-	validatedListeners := make([]*listener.Listener, 0, len(mergedGateway.Servers))
-	for _, l := range listeners {
-		if err := l.Validate(); err != nil {
-			log.Warnf("buildGatewayListeners: error validating listener %s: %v.. Skipping.", l.Name, err)
-			continue
-		}
-		validatedListeners = append(validatedListeners, l)
-	}
-
-	builder.gatewayListeners = validatedListeners
+	builder.gatewayListeners = listeners
 	return builder
 }
 
@@ -211,7 +197,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	// make sure that there is some server listening on this port
 	if _, ok := merged.ServersByRouteName[routeName]; !ok {
-		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted. Have %v", routeName, merged.ServersByRouteName)
+		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted.", routeName)
 
 		// This can happen when a gateway has recently been deleted. Envoy will still request route
 		// information due to the draining of listeners, so we should not return an error.
@@ -253,9 +239,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:    domainName(string(hostname), port),
-						Domains: buildGatewayVirtualHostDomains(string(hostname)),
-						Routes:  routes,
+						Name:                       domainName(string(hostname), port),
+						Domains:                    buildGatewayVirtualHostDomains(string(hostname)),
+						Routes:                     routes,
+						IncludeRequestAttemptCount: true,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
 						newVHost.RequireTls = route.VirtualHost_ALL
@@ -268,7 +255,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
-		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
+		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
 		virtualHosts = []*route.VirtualHost{{
 			Name:    domainName("blackhole", port),
 			Domains: []string{"*"},

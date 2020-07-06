@@ -416,18 +416,12 @@ spec:
         zvpn: {}
         env: {}
         meshExpansionPorts:
-          - port: 15011
-            targetPort: 15011
-            name: tcp-pilot-grpc-tls
-          - port: 15012
-            targetPort: 15012
-            name: tcp-istiod
-          - port: 8060
-            targetPort: 8060
-            name: tcp-citadel-grpc-tls
-          - port: 853
-            targetPort: 8853
-            name: tcp-dns-tls
+        - port: 15012
+          targetPort: 15012
+          name: tcp-istiod
+        - port: 853
+          targetPort: 8853
+          name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs
             secretName: istio-ingressgateway-certs

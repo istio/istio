@@ -107,9 +107,6 @@ type Options struct {
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
 
-	// PilotCertProvider is the provider of the Pilot certificate.
-	PilotCertProvider string
-
 	// JWTPath is the path for the JWT token
 	JWTPath string
 
