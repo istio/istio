@@ -313,7 +313,8 @@ func httpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.HTTPR
 						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to subset %s but NO DESTINATION RULE defining subsets!", dest.Destination.Subset))
 					} else {
 						// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
-						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to UNKNOWN subset %s; check DestinationRule %s", dest.Destination.Subset, kname(dr.ObjectMeta)))
+						mismatchNotes = append(mismatchNotes,
+							fmt.Sprintf("Warning: Route to UNKNOWN subset %s; check DestinationRule %s", dest.Destination.Subset, kname(dr.ObjectMeta)))
 					}
 					continue
 				}
@@ -473,16 +474,6 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 	if !ok || version == "" {
 		fmt.Fprintf(writer, "Suggestion: add 'version' label to pod for Istio telemetry.\n")
 	}
-}
-
-func name(config model.Config) string {
-	ns := handlers.HandleNamespace(namespace, defaultNamespace)
-	if config.ConfigMeta.Namespace == ns {
-		return config.ConfigMeta.Name
-	}
-
-	// Use the Istio convention pod-name[.namespace]
-	return fmt.Sprintf("%s.%s", config.ConfigMeta.Name, config.ConfigMeta.Namespace)
 }
 
 func kname(meta metav1.ObjectMeta) string {
