@@ -233,11 +233,11 @@ func (b *KeyCertBundleImpl) ExtractCACertExpiryTimestamp() (float64, error) {
 	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
 }
 
-// MinTTL returns min TTL between certificate and default value.
-func MinTTL(certBytes []byte, defaultTTL time.Duration, now time.Time) (time.Duration, error) {
-	// returns defaultTTL if there is no certificate
+// TimeBeforeCertExpires time duration before cert get expired,
+// it can return a negative time duration meaning how long cert has been expired.
+func TimeBeforeCertExpires(certBytes []byte, now time.Time) (time.Duration, error) {
 	if len(certBytes) == 0 {
-		return defaultTTL, nil
+		return 0, fmt.Errorf("no certificate found")
 	}
 
 	certExpiryTimestamp, err := extractCertExpiryTimestamp("cert", certBytes)
@@ -245,11 +245,8 @@ func MinTTL(certBytes []byte, defaultTTL time.Duration, now time.Time) (time.Dur
 		return 0, fmt.Errorf("failed to extract cert expiration timestamp: %v", err)
 	}
 
-	certExpirySeconds := certExpiryTimestamp - float64(now.Unix())
-	if defaultTTL.Seconds() > certExpirySeconds {
-		return time.Duration(certExpirySeconds) * time.Second, nil
-	}
-	return defaultTTL, nil
+	certExpirySeconds := time.Duration(certExpiryTimestamp-float64(now.Unix())) * time.Second
+	return certExpirySeconds, nil
 }
 
 // Verify that the cert chain, root cert and key/cert match.
