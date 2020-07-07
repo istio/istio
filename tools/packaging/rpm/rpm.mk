@@ -19,7 +19,7 @@ rpm/proxy:
         -v ${GO_TOP}:${GO_TOP} \
 				-w /builder \
         -e USER=${USER} \
-				-e ISTIO_SIDECAR_VERSION=${ISTIO_SIDECAR_VERSION} \
+				-e ISTIO_ENVOY_VERSION=${ISTIO_ENVOY_VERSION} \
 				-e ISTIO_GO=${ISTIO_GO} \
 				-e ISTIO_OUT=${ISTIO_OUT} \
 				-e PACKAGE_VERSION=${PACKAGE_VERSION} \

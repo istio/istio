@@ -134,130 +134,58 @@ ifeq ($(PROXY_REPO_SHA),)
   export PROXY_REPO_SHA:=$(shell grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
 endif
 
-# Sidecar binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
+# Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
 
-ISTIO_SIDECAR_BASE_URL ?= https://storage.googleapis.com/istio-build/proxy
-ifdef ISTIO_ENVOY_BASE_URL
-# Compatible with XXX_ENVOY_XXX variables
-ISTIO_SIDECAR_BASE_URL=$(ISTIO_ENVOY_BASE_URL)
-endif
-export ISTIO_SIDECAR_BASE_URL
+export ISTIO_ENVOY_BASE_URL ?= https://storage.googleapis.com/istio-build/proxy
 
 # Use envoy as the sidecar by default
 export SIDECAR ?= envoy
 
 # OS-neutral vars. These currently only work for linux.
-ISTIO_SIDECAR_VERSION ?= ${PROXY_REPO_SHA}
-ifdef ISTIO_ENVOY_VERSION
-ISTIO_SIDECAR_VERSION=$(ISTIO_ENVOY_VERSION)
-endif
-export ISTIO_SIDECAR_VERSION
+export ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
+export ISTIO_ENVOY_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
+export ISTIO_ENVOY_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
 
-ISTIO_SIDECAR_DEBUG_URL ?= $(ISTIO_SIDECAR_BASE_URL)/envoy-debug-$(ISTIO_SIDECAR_VERSION).tar.gz
-ifdef ISTIO_ENVOY_DEBUG_URL
-ISTIO_SIDECAR_DEBUG_URL=$(ISTIO_ENVOY_DEBUG_URL)
-endif
-export ISTIO_SIDECAR_DEBUG_URL
-
-ISTIO_SIDECAR_RELEASE_URL ?= $(ISTIO_SIDECAR_BASE_URL)/envoy-alpha-$(ISTIO_SIDECAR_VERSION).tar.gz
-ifdef ISTIO_ENVOY_RELEASE_URL
-ISTIO_SIDECAR_RELEASE_URL=$(ISTIO_ENVOY_RELEASE_URL)
-endif
-export ISTIO_SIDECAR_RELEASE_URL
-
-# Sidecar Linux vars.
-ISTIO_SIDECAR_LINUX_VERSION ?= ${ISTIO_SIDECAR_VERSION}
-ifdef ISTIO_ENVOY_LINUX_VERSION
-ISTIO_SIDECAR_LINUX_VERSION=$(ISTIO_ENVOY_LINUX_VERSION)
-endif
-export ISTIO_SIDECAR_LINUX_VERSION
-
-ISTIO_SIDECAR_LINUX_DEBUG_URL ?= ${ISTIO_SIDECAR_DEBUG_URL}
-ifdef ISTIO_ENVOY_LINUX_DEBUG_URL
-ISTIO_SIDECAR_LINUX_DEBUG_URL=$(ISTIO_ENVOY_LINUX_DEBUG_URL)
-endif
-export ISTIO_SIDECAR_LINUX_DEBUG_URL
-
-ISTIO_SIDECAR_LINUX_RELEASE_URL ?= ${ISTIO_SIDECAR_RELEASE_URL}
-ifdef ISTIO_ENVOY_LINUX_RELEASE_URL
-ISTIO_SIDECAR_LINUX_RELEASE_URL=$(ISTIO_ENVOY_LINUX_RELEASE_URL)
-endif
-export ISTIO_SIDECAR_LINUX_RELEASE_URL
-
-# Variables for the extracted debug/release Sidecar artifacts.
-ISTIO_SIDECAR_LINUX_DEBUG_DIR ?= ${TARGET_OUT_LINUX}/debug
-ifdef ISTIO_ENVOY_LINUX_DEBUG_DIR
-ISTIO_SIDECAR_LINUX_DEBUG_DIR=$(ISTIO_ENVOY_LINUX_DEBUG_DIR)
-endif
-export ISTIO_SIDECAR_LINUX_DEBUG_DIR
-
-ISTIO_SIDECAR_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_SIDECAR_LINUX_VERSION}
-ifdef ISTIO_ENVOY_LINUX_DEBUG_NAME
-ISTIO_SIDECAR_LINUX_DEBUG_NAME=$(ISTIO_ENVOY_LINUX_DEBUG_NAME)
-endif
-export ISTIO_SIDECAR_LINUX_DEBUG_NAME
-
-ISTIO_SIDECAR_LINUX_DEBUG_PATH ?= ${ISTIO_SIDECAR_LINUX_DEBUG_DIR}/${ISTIO_SIDECAR_LINUX_DEBUG_NAME}
-ifdef ISTIO_ENVOY_LINUX_DEBUG_PATH
-ISTIO_SIDECAR_LINUX_DEBUG_PATH=$(ISTIO_ENVOY_LINUX_DEBUG_NAME)
-endif
-export ISTIO_SIDECAR_LINUX_DEBUG_PATH
-
-ISTIO_SIDECAR_LINUX_RELEASE_DIR ?= ${TARGET_OUT_LINUX}/release
-ifdef ISTIO_ENVOY_LINUX_RELEASE_DIR
-ISTIO_SIDECAR_LINUX_RELEASE_DIR=$(ISTIO_ENVOY_LINUX_RELEASE_DIR)
-endif
-export ISTIO_SIDECAR_LINUX_RELEASE_DIR
-
-ISTIO_SIDECAR_LINUX_RELEASE_NAME ?= ${SIDECAR}-${ISTIO_SIDECAR_VERSION}
-ifdef ISTIO_ENVOY_LINUX_RELEASE_NAME
-ISTIO_SIDECAR_LINUX_RELEASE_NAME=$(ISTIO_ENVOY_LINUX_RELEASE_NAME)
-endif
-export ISTIO_SIDECAR_LINUX_RELEASE_NAME
-
-ISTIO_SIDECAR_LINUX_RELEASE_PATH ?= ${ISTIO_SIDECAR_LINUX_RELEASE_DIR}/${ISTIO_SIDECAR_LINUX_RELEASE_NAME}
-ifdef ISTIO_ENVOY_LINUX_RELEASE_PATH
-ISTIO_SIDECAR_LINUX_RELEASE_PATH=$(ISTIO_ENVOY_LINUX_RELEASE_PATH)
-endif
-export ISTIO_SIDECAR_LINUX_RELEASE_PATH
-
-# Sidecar macOS vars.
-# TODO Change url when official envoy release for macOS is available
-export ISTIO_SIDECAR_MACOS_VERSION ?= 1.0.2
-export ISTIO_SIDECAR_MACOS_RELEASE_URL ?= https://github.com/istio/proxy/releases/download/${ISTIO_SIDECAR_MACOS_VERSION}/istio-proxy-${ISTIO_SIDECAR_MACOS_VERSION}-macos.tar.gz
+# Envoy Linux vars.
+export ISTIO_ENVOY_LINUX_VERSION ?= ${ISTIO_ENVOY_VERSION}
+export ISTIO_ENVOY_LINUX_DEBUG_URL ?= ${ISTIO_ENVOY_DEBUG_URL}
+export ISTIO_ENVOY_LINUX_RELEASE_URL ?= ${ISTIO_ENVOY_RELEASE_URL}
 # Variables for the extracted debug/release Envoy artifacts.
-export ISTIO_SIDECAR_MACOS_RELEASE_DIR ?= ${TARGET_OUT}/release
-export ISTIO_SIDECAR_MACOS_RELEASE_NAME ?= envoy-${ISTIO_SIDECAR_MACOS_VERSION}
-export ISTIO_SIDECAR_MACOS_RELEASE_PATH ?= ${ISTIO_SIDECAR_MACOS_RELEASE_DIR}/${ISTIO_SIDECAR_MACOS_RELEASE_NAME}
+export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT_LINUX}/debug
+export ISTIO_ENVOY_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}
+export ISTIO_ENVOY_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}
+export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT_LINUX}/release
+export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= ${SIDECAR}-${ISTIO_ENVOY_VERSION}
+export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}
 
-# Allow user-override for a local Sidecar build.
+# Envoy macOS vars.
+# TODO Change url when official envoy release for macOS is available
+export ISTIO_ENVOY_MACOS_VERSION ?= 1.0.2
+export ISTIO_ENVOY_MACOS_RELEASE_URL ?= https://github.com/istio/proxy/releases/download/${ISTIO_ENVOY_MACOS_VERSION}/istio-proxy-${ISTIO_ENVOY_MACOS_VERSION}-macos.tar.gz
+# Variables for the extracted debug/release Envoy artifacts.
+export ISTIO_ENVOY_MACOS_RELEASE_DIR ?= ${TARGET_OUT}/release
+export ISTIO_ENVOY_MACOS_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_MACOS_VERSION}
+export ISTIO_ENVOY_MACOS_RELEASE_PATH ?= ${ISTIO_ENVOY_MACOS_RELEASE_DIR}/${ISTIO_ENVOY_MACOS_RELEASE_NAME}
+
+# Allow user-override for a local Envoy build.
 export USE_LOCAL_PROXY ?= 0
 ifeq ($(USE_LOCAL_PROXY),1)
-  export ISTIO_SIDECAR_LOCAL ?= $(realpath ${ISTIO_GO}/../proxy/bazel-bin/src/envoy/envoy)
-  # Point the native paths to the local sidecar build.
+  export ISTIO_ENVOY_LOCAL ?= $(realpath ${ISTIO_GO}/../proxy/bazel-bin/src/envoy/envoy)
+  # Point the native paths to the local envoy build.
   ifeq ($(GOOS_LOCAL), Darwin)
-    export ISTIO_SIDECAR_MACOS_RELEASE_DIR = $(dir ${ISTIO_SIDECAR_LOCAL})
-    export ISTIO_SIDECAR_MACOS_RELEASE_PATH = ${ISTIO_SIDECAR_LOCAL}
+    export ISTIO_ENVOY_MACOS_RELEASE_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_MACOS_RELEASE_PATH = ${ISTIO_ENVOY_LOCAL}
   else
-    export ISTIO_SIDECAR_LINUX_DEBUG_DIR = $(dir ${ISTIO_SIDECAR_LOCAL})
-    export ISTIO_SIDECAR_LINUX_RELEASE_DIR = $(dir ${ISTIO_SIDECAR_LOCAL})
-    export ISTIO_SIDECAR_LINUX_DEBUG_PATH = ${ISTIO_SIDECAR_LOCAL}
-    export ISTIO_SIDECAR_LINUX_RELEASE_PATH = ${ISTIO_SIDECAR_LOCAL}
+    export ISTIO_ENVOY_LINUX_DEBUG_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_LINUX_RELEASE_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_LINUX_DEBUG_PATH = ${ISTIO_ENVOY_LOCAL}
+    export ISTIO_ENVOY_LINUX_RELEASE_PATH = ${ISTIO_ENVOY_LOCAL}
   endif
 endif
 
-# Allow user-override sidecar bootstrap config path.
-ISTIO_SIDECAR_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap.json
-ifdef ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH
-ISTIO_SIDECAR_BOOTSTRAP_CONFIG_PATH=$(ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH)
-endif
-export ISTIO_SIDECAR_BOOTSTRAP_CONFIG_PATH
-
-ISTIO_SIDECAR_BOOTSTRAP_CONFIG_DIR = $(dir ${ISTIO_SIDECAR_BOOTSTRAP_CONFIG_PATH})
-ifdef ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR
-ISTIO_SIDECAR_BOOTSTRAP_CONFIG_DIR=$(ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR)
-endif
-export ISTIO_SIDECAR_BOOTSTRAP_CONFIG_DIR
+# Allow user-override envoy bootstrap config path.
+export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap.json
+export ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR = $(dir ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH})
 
 GO_VERSION_REQUIRED:=1.10
 
@@ -293,7 +221,7 @@ include operator/operator.mk
 default: init build test
 
 .PHONY: init
-# Downloads sidecar, based on the SHA defined in the base pilot Dockerfile
+# Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${TARGET_OUT}/logs
 	mkdir -p ${TARGET_OUT}/release
@@ -306,10 +234,10 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
 	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy and webassembly plugins
-${ISTIO_OUT}/envoy: init
-${ISTIO_SIDECAR_LINUX_DEBUG_PATH}: init
-${ISTIO_SIDECAR_LINUX_RELEASE_PATH}: init
-${ISTIO_SIDECAR_MACOS_RELEASE_PATH}: init
+${ISTIO_OUT}/${SIDECAR}: init
+${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
+${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
+${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 
 # Pull dependencies, based on the checked in Gopkg.lock file.
 # Developers must manually run `dep ensure` if adding new deps

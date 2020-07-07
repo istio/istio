@@ -15,6 +15,7 @@
 package serviceentry
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -23,6 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -346,12 +348,13 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 		services = append(services, convertServices(cfg)...)
 	}
 
-	return services, nil
+	return autoAllocateIPs(services), nil
 }
 
 // GetService retrieves a service by host name if it exists
 // THIS IS A LINEAR SEARCH WHICH CAUSES ALL SERVICE ENTRIES TO BE RECONVERTED -
 // DO NOT USE
+// NOTE: This does not auto allocate IPs. The service entry implementation is used only for tests.
 func (s *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, error) {
 	for _, service := range s.getServices() {
 		if service.Hostname == hostname {
@@ -595,6 +598,7 @@ func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
+// NOTE: The service objects in these instances do not have the auto allocated IP set.
 func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	s.maybeRefreshIndexes()
 
@@ -676,4 +680,64 @@ func selectorChanged(old, curr model.Config) bool {
 	o := old.Spec.(*networking.ServiceEntry)
 	n := curr.Spec.(*networking.ServiceEntry)
 	return !reflect.DeepEqual(o.WorkloadSelector, n.WorkloadSelector)
+}
+
+// Automatically allocates IPs for service entry services WITHOUT an
+// address field if the hostname is not a wildcard, or when resolution
+// is not NONE. The IPs are allocated from the reserved Class E subnet
+// (240.240.0.0/16) that is not reachable outside the pod. When DNS
+// capture is enabled, Envoy will resolve the DNS to these IPs. The
+// listeners for TCP services will also be set up on these IPs. The
+// IPs allocated to a service entry may differ from istiod to istiod
+// but it does not matter because these IPs only affect the listener
+// IPs on a given proxy managed by a given istiod.
+//
+// NOTE: If DNS capture is not enabled by the proxy, the automatically
+// allocated IP addresses do not take effect.
+//
+// The current algorithm to allocate IPs is deterministic across all istiods.
+// At stable state, given two istiods with exact same set of services, there should
+// be no change in XDS as the algorithm is just a dumb iterative one that allocates sequentially.
+//
+// TODO: Rather than sequentially allocate IPs, switch to a hash based allocation mechanism so that
+// deletion of the oldest service entry does not cause change of IPs for all other service entries.
+// Currently, the sequential allocation will result in unnecessary XDS reloads (lds/rds) when a
+// service entry with auto allocated IP is deleted. We are trading off a perf problem (xds reload)
+// for a usability problem (e.g., multiple cloud SQL or AWS RDS tcp services with no VIPs end up having
+// the same port, causing traffic to go to the wrong place). Once we move to a deterministic hash-based
+// allocation with deterministic collision resolution, the perf problem will go away. If the collision guarantee
+// cannot be made within the IP address space we have (which is about 64K services), then we may need to
+// have the sequential allocation algorithm as a fallback when too many collisions take place.
+func autoAllocateIPs(services []*model.Service) []*model.Service {
+	// i is everything from 240.240.0.(j) to 240.240.255.(j)
+	// j is everything from 240.240.(i).1 to 240.240.(i).254
+	// we can capture this in one integer variable.
+	// given X, we can compute i by X/255, and j is X%255
+	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
+	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
+	// So we bump X to 511, so that the resulting IP is 240.240.2.1
+	maxIPs := 255 * 255 // are we going to exceeed this limit by processing 64K services?
+	x := 0
+	for _, svc := range services {
+		// we can allocate IPs only if
+		// 1. the service has resolution set to static/dns. We cannot allocate
+		//   for NONE because we will not know the original DST IP that the application requested.
+		// 2. the address is not set (0.0.0.0)
+		// 3. the hostname is not a wildcard
+		if svc.Address == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
+			svc.Resolution != model.Passthrough {
+			x++
+			if x%255 == 0 {
+				x++
+			}
+			if x >= maxIPs {
+				log.Errorf("out of IPs to allocate for service entries")
+				return services
+			}
+			thirdOctet := x / 255
+			fourthOctet := x % 255
+			svc.AutoAllocatedAddress = fmt.Sprintf("240.240.%d.%d", thirdOctet, fourthOctet)
+		}
+	}
+	return services
 }
