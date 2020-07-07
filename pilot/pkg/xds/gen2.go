@@ -23,7 +23,6 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/pkg/env"
 	istioversion "istio.io/pkg/version"
 )
@@ -55,13 +54,12 @@ func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.Disco
 
 	t := discReq.TypeUrl
 	con.mu.Lock()
-	stype := v3.GetShortType(t)
-	w := con.node.Active[stype]
+	w := con.node.ActiveExperimental[t]
 	if w == nil {
 		w = &model.WatchedResource{
 			TypeUrl: t,
 		}
-		con.node.Active[stype] = w
+		con.node.ActiveExperimental[t] = w
 		isAck = false // newly watched resource
 	}
 	con.mu.Unlock()

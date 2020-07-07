@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 const (
@@ -90,9 +89,8 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 	s.adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
 	pending := []*Connection{}
-	stype := v3.GetShortType(res.TypeUrl)
 	for _, v := range s.adsClients {
-		if v.node.Active[stype] != nil {
+		if v.node.ActiveExperimental[res.TypeUrl] != nil {
 			pending = append(pending, v)
 		}
 	}

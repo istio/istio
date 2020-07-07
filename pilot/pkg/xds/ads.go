@@ -499,6 +499,8 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	// Based on node metadata and version, we can associate a different generator.
 	// TODO: use a map of generators, so it's easily customizable and to avoid deps
 	proxy.Active = map[string]*model.WatchedResource{}
+	proxy.ActiveExperimental = map[string]*model.WatchedResource{}
+
 	if proxy.Metadata.Generator != "" {
 		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
 	}
