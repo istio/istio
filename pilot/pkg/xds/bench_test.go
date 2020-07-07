@@ -195,13 +195,28 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 		ConfigNamespace: "default",
 	}
 
-	configName := config.ConfigName
+	configs := getConfigs(t, config)
+	env := buildTestEnv(t, configs)
+
+	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
+	return env, configgen, proxy
+}
+
+var configCache = map[ConfigInput][]model.Config{}
+
+func getConfigs(t testing.TB, input ConfigInput) []model.Config {
+	// Config setup is slow for large tests. Cache this and return from cache.
+	// This improves even running a single test, as go will run the full test (including setup) at least twice.
+	if cached, f := configCache[input]; f {
+		return cached
+	}
+	configName := input.ConfigName
 	if configName == "" {
-		configName = config.Name
+		configName = input.Name
 	}
 	tmpl := template.Must(template.New("").Funcs(sprig.TxtFuncMap()).ParseFiles(path.Join("testdata", "benchmarks", configName+".yaml")))
 	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, configName+".yaml", config); err != nil {
+	if err := tmpl.ExecuteTemplate(&buf, configName+".yaml", input); err != nil {
 		t.Fatalf("failed to execute template: %v", err)
 	}
 	configs, _, err := crd.ParseInputs(buf.String())
@@ -215,10 +230,8 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 		}
 		configs[i] = c
 	}
-	env := buildTestEnv(t, configs)
-
-	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
-	return env, configgen, proxy
+	configCache[input] = configs
+	return configs
 }
 
 func setupAndInitializeTest(t testing.TB, config ConfigInput) (*model.Environment, core.ConfigGenerator, *model.Proxy) {
