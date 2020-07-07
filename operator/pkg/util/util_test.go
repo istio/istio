@@ -240,9 +240,13 @@ func TestRenderTemplate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			got, err := RenderTemplate(tt.template, tt.in)
+			if got != tt.want {
+				t.Errorf("%s: got :%v, wanted output: %v", tt.desc, got, tt.want)
 
-			if want, wantErr := tt.want, tt.err; !(got == want) || ((err == nil && wantErr != nil) || (err != nil && wantErr == nil)) {
-				t.Errorf("%s: got :%v, wanted output: %v, got error: %v, wanted error: %v", tt.desc, got, want, err, wantErr)
+			}
+
+			if (err == nil && tt.err != nil) || (err != nil && tt.err == nil) {
+				t.Errorf("%s: got error :%v, wanted error: %v", tt.desc, err, tt.err)
 			}
 		})
 	}
