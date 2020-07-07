@@ -109,8 +109,8 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 	//citadelClientLog.Infof("ssssssssmmmm\n")
 	//citadelClientLog.Infof("%+v\n",peer.AuthInfo.AuthType())
 	// add Bearer prefix, which is required by Citadel.
+	token = bearerTokenPrefix + token
 	if withToken {
-		token = bearerTokenPrefix + token
 		//fmt.Printf("ppppppppppppp",ctx)
 		//fmt.Printf("%+v\n",ctx)
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
