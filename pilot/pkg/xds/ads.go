@@ -802,21 +802,20 @@ func (s *DiscoveryServer) addCon(conID string, con *Connection) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
 	s.adsClients[conID] = con
-	xdsClients.Record(float64(len(s.adsClients)))
+	recordXDSClients(con.node.Metadata.IstioVersion, 1)
 }
 
 func (s *DiscoveryServer) removeCon(conID string) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
 
-	if _, exist := s.adsClients[conID]; !exist {
+	if con, exist := s.adsClients[conID]; !exist {
 		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)
 		totalXDSInternalErrors.Increment()
 	} else {
 		delete(s.adsClients, conID)
+		recordXDSClients(con.node.Metadata.IstioVersion, -1)
 	}
-
-	xdsClients.Record(float64(len(s.adsClients)))
 	if s.StatusReporter != nil {
 		go s.StatusReporter.RegisterDisconnect(conID, AllEventTypes)
 	}

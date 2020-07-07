@@ -14,6 +14,8 @@
 package xds
 
 import (
+	"sync"
+
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -28,6 +30,7 @@ var (
 	clusterTag = monitoring.MustCreateLabel("cluster")
 	nodeTag    = monitoring.MustCreateLabel("node")
 	typeTag    = monitoring.MustCreateLabel("type")
+	versionTag = monitoring.MustCreateLabel("version")
 
 	cdsReject = monitoring.NewGauge(
 		"pilot_xds_cds_reject",
@@ -85,7 +88,10 @@ var (
 	xdsClients = monitoring.NewGauge(
 		"pilot_xds",
 		"Number of endpoints connected to this pilot using XDS.",
+		monitoring.WithLabels(versionTag),
 	)
+	xdsClientTrackerMutex                    = &sync.Mutex{}
+	xdsClientTracker      map[string]float64 = make(map[string]float64)
 
 	xdsResponseWriteTimeouts = monitoring.NewSum(
 		"pilot_xds_write_timeout",
@@ -164,6 +170,13 @@ var (
 	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
 	inboundServiceDeletes = inboundUpdates.With(typeTag.Value("svcdelete"))
 )
+
+func recordXDSClients(version string, delta float64) {
+	xdsClientTrackerMutex.Lock()
+	defer xdsClientTrackerMutex.Unlock()
+	xdsClientTracker[version] += delta
+	xdsClients.With(versionTag.Value(version)).Record(xdsClientTracker[version])
+}
 
 func recordPushTriggers(reasons ...model.TriggerReason) {
 	for _, r := range reasons {
