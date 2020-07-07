@@ -245,8 +245,8 @@ func TimeBeforeCertExpires(certBytes []byte, now time.Time) (time.Duration, erro
 		return 0, fmt.Errorf("failed to extract cert expiration timestamp: %v", err)
 	}
 
-	certExpirySeconds := time.Duration(certExpiryTimestamp-float64(now.Unix())) * time.Second
-	return certExpirySeconds, nil
+	certExpiry := time.Duration(certExpiryTimestamp-float64(now.Unix())) * time.Second
+	return certExpiry, nil
 }
 
 // Verify that the cert chain, root cert and key/cert match.
