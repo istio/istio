@@ -24,6 +24,8 @@ import (
 )
 
 func main() {
+	_ = cmd.ConfigAndEnvProcessing() // Using ~/.istioctl/config.yaml is optional
+
 	rootCmd := cmd.GetRootCmd(os.Args[1:])
 
 	if err := rootCmd.Execute(); err != nil {

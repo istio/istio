@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -74,6 +75,18 @@ func defaultLogOptions() *log.Options {
 	return o
 }
 
+// ConfigAndEnvProcessing uses spf13/viper for overriding CLI parameters
+func ConfigAndEnvProcessing() error {
+	// Allow users to override some variables through $HOME/.istioctl/config.yaml
+	// and environment variables.
+	viper.SetEnvPrefix("ISTIOCTL")
+	viper.AutomaticEnv()
+	viper.SetConfigName("config") // name of config file (without extension)
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("$HOME/.istioctl")
+	return viper.ReadInConfig()
+}
+
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -95,7 +108,8 @@ debug and diagnose their Istio mesh.
 	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
 		"The name of the kubeconfig context to use")
 
-	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", controller.IstioNamespace,
+	viper.SetDefault("istioNamespace", controller.IstioNamespace)
+	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", viper.GetString("istioNamespace"),
 		"Istio system namespace")
 
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", v1.NamespaceAll,

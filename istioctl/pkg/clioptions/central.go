@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // CentralControlPlaneOptions holds options common to all subcommands
@@ -49,9 +50,9 @@ type CentralControlPlaneOptions struct {
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
 // (Currently just --endpoint)
 func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVar(&o.Xds, "xds-address", "",
+	cmd.PersistentFlags().StringVar(&o.Xds, "xds-address", viper.GetString("XDS_ADDRESS"),
 		"XDS Endpoint")
-	cmd.PersistentFlags().StringVar(&o.CertDir, "cert-dir", "",
+	cmd.PersistentFlags().StringVar(&o.CertDir, "cert-dir", viper.GetString("CERT_DIR"),
 		"XDS Endpoint certificate directory")
 	cmd.PersistentFlags().StringVar(&o.XdsPodLabel, "xds-label", "",
 		"Istiod pod label selector")
