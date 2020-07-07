@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
@@ -161,14 +162,14 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:       con.node.ID,
 				IstioVersion:  con.node.Metadata.IstioVersion,
-				ClusterSent:   con.ClusterNonceSent,
-				ClusterAcked:  con.ClusterNonceAcked,
-				ListenerSent:  con.ListenerNonceSent,
-				ListenerAcked: con.ListenerNonceAcked,
-				RouteSent:     con.RouteNonceSent,
-				RouteAcked:    con.RouteNonceAcked,
-				EndpointSent:  con.EndpointNonceSent,
-				EndpointAcked: con.EndpointNonceAcked,
+				ClusterSent:   con.NonceSent(v3.ClusterShortType),
+				ClusterAcked:  con.NonceAcked(v3.ClusterShortType),
+				ListenerSent:  con.NonceSent(v3.ListenerShortType),
+				ListenerAcked: con.NonceAcked(v3.ListenerShortType),
+				RouteSent:     con.NonceSent(v3.RouteShortType),
+				RouteAcked:    con.NonceAcked(v3.RouteShortType),
+				EndpointSent:  con.NonceSent(v3.EndpointShortType),
+				EndpointAcked: con.NonceAcked(v3.EndpointShortType),
 			})
 		}
 		con.mu.RUnlock()

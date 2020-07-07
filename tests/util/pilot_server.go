@@ -97,8 +97,9 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 	meshFile.Write([]byte(data))
 
+	// Use namespace istio-system, as used in production.
 	additionalArgs = append([]func(p *bootstrap.PilotArgs){func(p *bootstrap.PilotArgs) {
-		p.Namespace = "testing"
+		p.Namespace = "istio-system"
 		p.ServerOptions = bootstrap.DiscoveryServerOptions{
 			HTTPAddr:        httpAddr,
 			GRPCAddr:        ":0",
