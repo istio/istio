@@ -56,7 +56,7 @@ func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
 		IsWildcard: false,
 		IPNets:     nil,
 	}
-	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range, RedirectDNS{})
+	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
 	expected := []string{
 		"ip6tables -t nat -N ISTIO_REDIRECT",
@@ -134,7 +134,7 @@ func TestHandleInboundIpv6RulesWithInboundPorts(t *testing.T) {
 		IsWildcard: false,
 		IPNets:     nil,
 	}
-	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range, RedirectDNS{})
+	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
 	expected := []string{
 		"ip6tables -t nat -N ISTIO_REDIRECT", "ip6tables -t nat -N ISTIO_IN_REDIRECT",
@@ -170,7 +170,7 @@ func TestHandleInboundIpv6RulesWithWildcardRanges(t *testing.T) {
 		IsWildcard: true,
 		IPNets:     nil,
 	}
-	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range, RedirectDNS{})
+	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
 	expected := []string{
 		"ip6tables -t nat -N ISTIO_REDIRECT",
@@ -213,7 +213,7 @@ func TestHandleInboundIpv6RulesWithIpNets(t *testing.T) {
 		IsWildcard: false,
 		IPNets:     []*net.IPNet{ipnet},
 	}
-	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range, RedirectDNS{})
+	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
 	expected := []string{
 		"ip6tables -t nat -N ISTIO_REDIRECT", "ip6tables -t nat -N ISTIO_IN_REDIRECT",
@@ -258,7 +258,7 @@ func TestHandleInboundIpv6RulesWithUidGid(t *testing.T) {
 		IsWildcard: false,
 		IPNets:     []*net.IPNet{ipnet},
 	}
-	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range, RedirectDNS{})
+	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
 	expected := []string{
 		"ip6tables -t nat -N ISTIO_REDIRECT", "ip6tables -t nat -N ISTIO_IN_REDIRECT",

@@ -49,11 +49,6 @@ type NetworkRange struct {
 	HasLoopBackIP bool
 }
 
-type RedirectDNS struct {
-	Redirect bool
-	DNSTargetPort string
-}
-
 func filterEmpty(strs []string) []string {
 	filtered := make([]string, 0, len(strs))
 	for _, s := range strs {
@@ -199,17 +194,13 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 	}
 }
 
-func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesExclude NetworkRange, ipv6RangesInclude NetworkRange, redirectDNS RedirectDNS) {
+func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesExclude NetworkRange, ipv6RangesInclude NetworkRange) {
 	var table string
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV6(
 		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
-	if redirectDNS.Redirect {
-		iptConfigurator.iptables.AppendRuleV6(
-			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", redirectDNS.DNSTargetPort)
-	}
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
@@ -242,9 +233,6 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesEx
 	// Create a new chain for selectively redirecting outbound packets to Envoy.
 	// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all tcp traffic.
 	iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
-	if redirectDNS.Redirect {
-		iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.NAT, "-p", constants.UDP, "--dport", "53", "-j", constants.ISTIOOUTPUT)
-	}
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if iptConfigurator.cfg.OutboundPortsExclude != "" {
 		for _, port := range split(iptConfigurator.cfg.OutboundPortsExclude) {
@@ -364,15 +352,12 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		panic(err)
 	}
 
-	redirectDNS := RedirectDNS{
-		Redirect: false,
-		DNSTargetPort: constants.EnvoyDNSListenerPort,
-	}
-
+	redirectDNS := false
+	dnsTargetPort := constants.EnvoyDNSListenerPort
 	if dnsCaptureByAgent.Get() != "" || dnsCaptureByEnvoy.Get() != "" {
-		redirectDNS.Redirect = true
+		redirectDNS = true
 		if dnsCaptureByAgent.Get() != "" {
-			redirectDNS.DNSTargetPort = constants.IstioAgentDNSListenerPort
+			dnsTargetPort = constants.IstioAgentDNSListenerPort
 		}
 	}
 	iptConfigurator.logConfig()
@@ -387,9 +372,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV4(
 		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
-	if redirectDNS.Redirect {
+	if redirectDNS {
 		iptConfigurator.iptables.AppendRuleV4(
-			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", redirectDNS.DNSTargetPort)
+			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
 	}
 
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
@@ -404,7 +389,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// iptablesOrFail wrapper (like ufw). Current default is similar with 0.1
 	// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all tcp traffic, and UDP dns (if enabled)
 	iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
-	if redirectDNS.Redirect {
+	if redirectDNS {
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-p", constants.UDP, "--dport", "53", "-j", constants.ISTIOOUTPUT)
 	}
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
@@ -469,7 +454,12 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	iptConfigurator.handleInboundIpv4Rules(ipv4RangesInclude)
 	if iptConfigurator.cfg.EnableInboundIPv6 {
-		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude, redirectDNS)
+		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
+		if redirectDNS {
+			iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.NAT, "-p", constants.UDP, "--dport", "53", "-j", constants.ISTIOOUTPUT)
+			iptConfigurator.iptables.AppendRuleV6(
+				constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
+		}
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
