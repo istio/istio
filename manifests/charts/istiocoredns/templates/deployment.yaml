@@ -7,7 +7,11 @@ metadata:
     app: istiocoredns
     release: {{ .Release.Name }}
 spec:
+{{- if not .Values.istiocoredns.autoscaleEnabled }}
+{{- if .Values.istiocoredns.replicaCount }}
   replicas: {{ .Values.istiocoredns.replicaCount }}
+{{- end }}
+{{- end }}
   selector:
     matchLabels:
       app: istiocoredns

@@ -88,7 +88,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	c.RUnlock()
 
 	if svc == nil {
-		log.Infof("Handle EDS endpoint: skip updating, service %s/%s has mot been populated", svcName, ns)
+		log.Infof("Handle EDS endpoint: skip updating, service %s/%s has not been populated", svcName, ns)
 		return
 	}
 

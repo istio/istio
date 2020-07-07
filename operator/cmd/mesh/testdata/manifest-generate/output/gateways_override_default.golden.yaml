@@ -1,40 +1,13 @@
-# AddonComponents istiocoredns component is disabled.
-
-# Base component is disabled.
-
-# Cni component is disabled.
-
-# EgressGateways istio-egressgateway component is disabled.
-
-# IngressGateways istio-ingressgateway component is disabled.
-
----
-# Resources for IngressGateways component
-
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
+apiVersion: v1
+kind: ServiceAccount
 metadata:
-  name: istio-ingress-1
+  name: istio-ingress-1-service-account
   namespace: istio-ingress-ns
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
     release: istio
-spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-ingress-1
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
 ---
-
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -265,10 +238,7 @@ spec:
         secret:
           optional: true
           secretName: istio-ingressgateway-ca-certs
-
 ---
-
-
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -285,8 +255,6 @@ spec:
       app: istio-ingressgateway
       istio: ingressgateway
 ---
-
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -299,8 +267,6 @@ rules:
   resources: ["secrets"]
   verbs: ["get", "watch", "list"]
 ---
-
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -316,8 +282,28 @@ subjects:
 - kind: ServiceAccount
   name: istio-ingress-1-service-account
 ---
-
-
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: istio-ingress-1
+  namespace: istio-ingress-ns
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    release: istio
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istio-ingress-1
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -351,24 +337,3 @@ spec:
       port: 15443
       targetPort: 15443
 ---
-
-
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-ingress-1-service-account
-  namespace: istio-ingress-ns
-  labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
-    release: istio
----
-
-# IstiodRemote component is disabled.
-
-# Pilot istiod component is disabled.
-
-# Policy component is disabled.
-
-# Telemetry component is disabled.
-
