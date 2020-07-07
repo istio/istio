@@ -50,7 +50,7 @@ type NetworkRange struct {
 }
 
 type RedirectDNS struct {
-	Redirect      bool
+	Redirect bool
 	DNSTargetPort string
 }
 
@@ -365,7 +365,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	redirectDNS := RedirectDNS{
-		Redirect:      false,
+		Redirect: false,
 		DNSTargetPort: constants.EnvoyDNSListenerPort,
 	}
 
