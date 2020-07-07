@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 const (
@@ -90,8 +91,9 @@ func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 	sg.Server.adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
 	pending := []*Connection{}
+	stype := v3.GetShortType(typeURL)
 	for _, v := range sg.Server.adsClients {
-		if v.node.Active[typeURL] != nil {
+		if v.node.Active[stype] != nil {
 			pending = append(pending, v)
 		}
 	}

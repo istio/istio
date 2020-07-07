@@ -81,9 +81,6 @@ type Connection struct {
 	RouteConfigs map[string]*route.RouteConfiguration `json:"-"`
 	CDSClusters  []*cluster.Cluster
 
-	// Active contains the list of watched resources for the connection, keyed by the TypeUrl.
-	Active map[string]*model.WatchedResource
-
 	// TODO(ramaraochavali): Remove Clusters and Routes - use resource names in WatchedResource instead.
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -131,7 +128,6 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		Clusters:     []string{},
 		Connect:      time.Now(),
 		stream:       stream,
-		Active:       map[string]*model.WatchedResource{},
 		LDSListeners: []*listener.Listener{},
 		RouteConfigs: map[string]*route.RouteConfiguration{},
 	}
@@ -428,9 +424,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 		return false
 	}
 
-	previousInfo := con.Active[request.TypeUrl]
+	previousInfo := con.node.Active[request.TypeUrl]
 
-	// This is not a first request, we should see if it is a ACK/NACK.
+	// This is not a first request, we should see if it is a ACK.
 	if request.ResponseNonce != "" {
 		// If there is mismatch in the nonce, that is a case of expired/stale nonce.
 		// A nonce becomes stale following a newer nonce being sent to Envoy.
@@ -441,14 +437,14 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 			return false
 		}
 
-		// If it comes here, that means nonce and version match. This an ACK. We should
-		// record the ack details and respond if there is a change in resource names.
+		// If it comes here, that means nonce match. This an ACK. We should record
+		// the ack details and respond if there is a change in resource names.
 		con.mu.Lock()
-		if con.Active[request.TypeUrl] == nil {
-			con.Active[request.TypeUrl] = &model.WatchedResource{}
+		if con.node.Active[stype] == nil {
+			con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl}
 		}
-		con.Active[request.TypeUrl].VersionAcked = request.VersionInfo
-		con.Active[request.TypeUrl].NonceAcked = request.ResponseNonce
+		con.node.Active[stype].VersionAcked = request.VersionInfo
+		con.node.Active[stype].NonceAcked = request.ResponseNonce
 		con.mu.Unlock()
 
 		// Envoy can send two DiscoveryRequests with same version and nonce when it detects
@@ -826,13 +822,14 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	t := time.NewTimer(SendTimeout)
 	go func() {
 		err := conn.stream.Send(res)
+		stype := v3.GetShortType(res.TypeUrl)
 		conn.mu.Lock()
 		if res.Nonce != "" {
-			if conn.Active[res.TypeUrl] == nil {
-				conn.Active[res.TypeUrl] = &model.WatchedResource{}
+			if conn.node.Active[stype] == nil {
+				conn.node.Active[stype] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
-			conn.Active[res.TypeUrl].NonceSent = res.Nonce
-			conn.Active[res.TypeUrl].VersionSent = res.VersionInfo
+			conn.node.Active[stype].NonceSent = res.Nonce
+			conn.node.Active[stype].VersionSent = res.VersionInfo
 		}
 		conn.mu.Unlock()
 		done <- err
@@ -851,16 +848,18 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 
 // nolint
 func (conn *Connection) NonceAcked(typeUrl string) string {
-	if conn.Active != nil && conn.Active[typeUrl] != nil {
-		return conn.Active[typeUrl].NonceAcked
+	stype := v3.GetShortType(typeUrl)
+	if conn.node.Active != nil && conn.node.Active[stype] != nil {
+		return conn.node.Active[stype].NonceAcked
 	}
 	return ""
 }
 
 // nolint
 func (conn *Connection) NonceSent(typeUrl string) string {
-	if conn.Active != nil && conn.Active[typeUrl] != nil {
-		return conn.Active[typeUrl].NonceSent
+	stype := v3.GetShortType(typeUrl)
+	if conn.node.Active != nil && conn.node.Active[stype] != nil {
+		return conn.node.Active[stype].NonceSent
 	}
 	return ""
 }

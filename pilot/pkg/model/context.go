@@ -210,8 +210,7 @@ type Proxy struct {
 	// of configuration.
 	XdsResourceGenerator XdsResourceGenerator
 
-	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
-	// It is nil if the Proxy uses the default generator
+	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest short type.
 	Active map[string]*WatchedResource
 
 	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
