@@ -664,7 +664,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				}
 				cacheLog.Infof("kkkkjjkjkjkjkjkjkjkjkkllllloooo\n")
 				cacheLog.Infof("%+v", sc.configOptions.OutputKeyCertToDir)
-				cacheLog.Infof("%ggggggggggggg")
+				cacheLog.Infof("ggggggggggggg")
 				// Output the key and cert to dir to make sure key and cert are rotated.
 				if err = nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, ns.PrivateKey,
 					ns.CertificateChain, ns.RootCert); err != nil {
