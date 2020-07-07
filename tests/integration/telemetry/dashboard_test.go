@@ -135,9 +135,9 @@ func TestDashboard(t *testing.T) {
 	dashboardTestBody(t, false)
 }
 
-func TestVMDashboard(t *testing.T) {
-	dashboardTestBody(t, true)
-}
+//func TestVMDashboard(t *testing.T) {
+//	dashboardTestBody(t, true)
+//}
 
 func dashboardTestBody(t *testing.T, useVM bool) {
 	framework.NewTest(t).
