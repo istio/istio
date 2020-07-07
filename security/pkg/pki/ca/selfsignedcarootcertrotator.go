@@ -43,6 +43,7 @@ type SelfSignedCARootCertRotatorConfig struct {
 	CheckInterval      time.Duration
 	caCertTTL          time.Duration
 	retryInterval      time.Duration
+	retryMax           time.Duration
 	dualUse            bool
 	enableJitter       bool
 }
@@ -115,7 +116,7 @@ func (rotator *SelfSignedCARootCertRotator) Run(stopCh chan struct{}) {
 // root cert for self-signed Citadel.
 func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCert() {
 	caSecret, scrtErr := rotator.caSecretController.LoadCASecretWithRetry(CASecret,
-		rotator.config.caStorageNamespace, rotator.config.retryInterval, 30*time.Second)
+		rotator.config.caStorageNamespace, rotator.config.retryInterval, rotator.config.retryMax)
 
 	if scrtErr != nil {
 		rootCertRotatorLog.Errorf("Fail to load CA secret %s:%s (error: %s), skip cert rotation job",
@@ -160,7 +161,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 			certEncoded := base64.StdEncoding.EncodeToString(rotator.ca.GetCAKeyCertBundle().GetRootCertPem())
 			// Keep root certificate in configmap in sync with the root certificate in istio-ca-secret.
 			if err = rotator.configMapController.InsertCATLSRootCertWithRetry(
-				certEncoded, rotator.config.retryInterval, 30*time.Second); err != nil {
+				certEncoded, rotator.config.retryInterval, rotator.config.retryMax); err != nil {
 				rootCertRotatorLog.Errorf("Failed to write self-signed Citadel's root cert "+
 					"to configmap (%s). Citadel agents will not be able to connect.",
 					err.Error())
@@ -231,7 +232,7 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 	var err error
 	if caSecret == nil {
 		caSecret, err = rotator.caSecretController.LoadCASecretWithRetry(CASecret,
-			rotator.config.caStorageNamespace, rotator.config.retryInterval, 30*time.Second)
+			rotator.config.caStorageNamespace, rotator.config.retryInterval, rotator.config.retryMax)
 		if err != nil {
 			return false, fmt.Errorf("failed to load CA secret %s:%s (error: %s)", rotator.config.caStorageNamespace, CASecret,
 				err.Error())
@@ -239,7 +240,7 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 	}
 	caSecret.Data[caCertID] = cert
 	caSecret.Data[caPrivateKeyID] = key
-	if err = rotator.caSecretController.UpdateCASecretWithRetry(caSecret, rotator.config.retryInterval, 30*time.Second); err != nil {
+	if err = rotator.caSecretController.UpdateCASecretWithRetry(caSecret, rotator.config.retryInterval, rotator.config.retryMax); err != nil {
 		return false, fmt.Errorf("failed to update CA secret (error: %s)", err.Error())
 	}
 	rootCertRotatorLog.Infof("Root certificate is written into CA secret: %v", string(cert))
@@ -253,7 +254,7 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 	rootCertRotatorLog.Infof("Root certificate is updated in CA KeyCertBundle: %v", string(cert))
 	certEncoded := base64.StdEncoding.EncodeToString(rotator.ca.GetCAKeyCertBundle().GetRootCertPem())
 	if err = rotator.configMapController.InsertCATLSRootCertWithRetry(
-		certEncoded, rotator.config.retryInterval, 30*time.Second); err != nil {
+		certEncoded, rotator.config.retryInterval, rotator.config.retryMax); err != nil {
 		if rollForward {
 			// Rolling forward root certificate fails at configmap update, notify caller to roll back.
 			return true, fmt.Errorf("failed to write root certificate into configmap (%s)", err.Error())
