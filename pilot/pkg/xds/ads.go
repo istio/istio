@@ -245,7 +245,12 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 			return err
 		}
 	default:
-		adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
+		// Allow custom generators to work without 'generator' metadata.
+		// It would be an error/warn for normal XDS - so nothing to lose.
+		err = s.handleCustomGenerator(con, discReq)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -846,18 +851,14 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	}
 }
 
-// nolint
-func (conn *Connection) NonceAcked(typeUrl string) string {
-	stype := v3.GetShortType(typeUrl)
+func (conn *Connection) NonceAcked(stype string) string {
 	if conn.node.Active != nil && conn.node.Active[stype] != nil {
 		return conn.node.Active[stype].NonceAcked
 	}
 	return ""
 }
 
-// nolint
-func (conn *Connection) NonceSent(typeUrl string) string {
-	stype := v3.GetShortType(typeUrl)
+func (conn *Connection) NonceSent(stype string) string {
 	if conn.node.Active != nil && conn.node.Active[stype] != nil {
 		return conn.node.Active[stype].NonceSent
 	}

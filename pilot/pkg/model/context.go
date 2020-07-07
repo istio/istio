@@ -26,6 +26,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
@@ -226,7 +227,7 @@ type Proxy struct {
 	}
 }
 
-// WatchedResource tracks an active DiscoveryRequest type.
+// WatchedResource tracks an active DiscoveryRequest subscription.
 type WatchedResource struct {
 	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
 	// nolint
@@ -261,6 +262,13 @@ type WatchedResource struct {
 
 	// LastSize tracks the size of the last update
 	LastSize int
+
+	// Last request contains the last DiscoveryRequest received for
+	// this type. Generators are called immediately after each request,
+	// and may use the information in DiscoveryRequest.
+	// Note that Envoy may send multiple requests for the same type, for
+	// example to update the set of watched resources or to ACK/NACK.
+	LastRequest *discovery.DiscoveryRequest
 }
 
 var (
