@@ -1,5 +1,5 @@
 kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 metadata:
   name: adapters.config.istio.io
   labels:
@@ -21,12 +21,18 @@ spec:
       - istio-io
       - policy-istio-io
   scope: Namespaced
-  subresources:
-    status: {}
   versions:
     - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              type: object
+          type: object
       served: true
       storage: true
+      subresources:
+        status: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -46,11 +52,11 @@ spec:
   names:
     categories:
       - istio-io
-      - apim-istio-io
-    kind: HTTPAPISpec
-    listKind: HTTPAPISpecList
-    plural: httpapispecs
-    singular: httpapispec
+      - policy-istio-io
+    kind: attributemanifest
+    listKind: attributemanifestList
+    plural: attributemanifests
+    singular: attributemanifest
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -58,239 +64,48 @@ spec:
         openAPIV3Schema:
           properties:
             spec:
+              description:
+                "Describes the rules used to configure Mixer's policy and
+                telemetry features. See more details at: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html"
               properties:
-                api_keys:
-                  items:
-                    oneOf:
-                      - not:
-                          anyOf:
-                            - required:
-                                - query
-                            - required:
-                                - header
-                            - required:
-                                - cookie
-                      - required:
-                          - query
-                      - required:
-                          - header
-                      - required:
-                          - cookie
-                    properties:
-                      cookie:
-                        format: string
-                        type: string
-                      header:
-                        description: API key is sent in a request header.
-                        format: string
-                        type: string
-                      query:
-                        description: API Key is sent as a query parameter.
-                        format: string
-                        type: string
-                    type: object
-                  type: array
-                apiKeys:
-                  items:
-                    oneOf:
-                      - not:
-                          anyOf:
-                            - required:
-                                - query
-                            - required:
-                                - header
-                            - required:
-                                - cookie
-                      - required:
-                          - query
-                      - required:
-                          - header
-                      - required:
-                          - cookie
-                    properties:
-                      cookie:
-                        format: string
-                        type: string
-                      header:
-                        description: API key is sent in a request header.
-                        format: string
-                        type: string
-                      query:
-                        description: API Key is sent as a query parameter.
-                        format: string
-                        type: string
-                    type: object
-                  type: array
                 attributes:
-                  properties:
-                    attributes:
-                      additionalProperties:
-                        oneOf:
-                          - not:
-                              anyOf:
-                                - required:
-                                    - stringValue
-                                - required:
-                                    - int64Value
-                                - required:
-                                    - doubleValue
-                                - required:
-                                    - boolValue
-                                - required:
-                                    - bytesValue
-                                - required:
-                                    - timestampValue
-                                - required:
-                                    - durationValue
-                                - required:
-                                    - stringMapValue
-                          - required:
-                              - stringValue
-                          - required:
-                              - int64Value
-                          - required:
-                              - doubleValue
-                          - required:
-                              - boolValue
-                          - required:
-                              - bytesValue
-                          - required:
-                              - timestampValue
-                          - required:
-                              - durationValue
-                          - required:
-                              - stringMapValue
-                        properties:
-                          boolValue:
-                            type: boolean
-                          bytesValue:
-                            format: binary
-                            type: string
-                          doubleValue:
-                            format: double
-                            type: number
-                          durationValue:
-                            type: string
-                          int64Value:
-                            format: int64
-                            type: integer
-                          stringMapValue:
-                            properties:
-                              entries:
-                                additionalProperties:
-                                  format: string
-                                  type: string
-                                description: Holds a set of name/value pairs.
-                                type: object
-                            type: object
-                          stringValue:
-                            format: string
-                            type: string
-                          timestampValue:
-                            format: dateTime
-                            type: string
-                        type: object
-                      description: A map of attribute name to its value.
-                      type: object
-                  type: object
-                patterns:
-                  description: List of HTTP patterns to match.
-                  items:
-                    oneOf:
-                      - not:
-                          anyOf:
-                            - required:
-                                - uriTemplate
-                            - required:
-                                - regex
-                      - required:
-                          - uriTemplate
-                      - required:
-                          - regex
+                  additionalProperties:
                     properties:
-                      attributes:
-                        properties:
-                          attributes:
-                            additionalProperties:
-                              oneOf:
-                                - not:
-                                    anyOf:
-                                      - required:
-                                          - stringValue
-                                      - required:
-                                          - int64Value
-                                      - required:
-                                          - doubleValue
-                                      - required:
-                                          - boolValue
-                                      - required:
-                                          - bytesValue
-                                      - required:
-                                          - timestampValue
-                                      - required:
-                                          - durationValue
-                                      - required:
-                                          - stringMapValue
-                                - required:
-                                    - stringValue
-                                - required:
-                                    - int64Value
-                                - required:
-                                    - doubleValue
-                                - required:
-                                    - boolValue
-                                - required:
-                                    - bytesValue
-                                - required:
-                                    - timestampValue
-                                - required:
-                                    - durationValue
-                                - required:
-                                    - stringMapValue
-                              properties:
-                                boolValue:
-                                  type: boolean
-                                bytesValue:
-                                  format: binary
-                                  type: string
-                                doubleValue:
-                                  format: double
-                                  type: number
-                                durationValue:
-                                  type: string
-                                int64Value:
-                                  format: int64
-                                  type: integer
-                                stringMapValue:
-                                  properties:
-                                    entries:
-                                      additionalProperties:
-                                        format: string
-                                        type: string
-                                      description: Holds a set of name/value pairs.
-                                      type: object
-                                  type: object
-                                stringValue:
-                                  format: string
-                                  type: string
-                                timestampValue:
-                                  format: dateTime
-                                  type: string
-                              type: object
-                            description: A map of attribute name to its value.
-                            type: object
-                        type: object
-                      httpMethod:
+                      description:
+                        description:
+                          A human-readable description of the attribute's
+                          purpose.
                         format: string
                         type: string
-                      regex:
-                        format: string
-                        type: string
-                      uriTemplate:
-                        format: string
+                      valueType:
+                        description: The type of data carried by this attribute.
+                        enum:
+                          - VALUE_TYPE_UNSPECIFIED
+                          - STRING
+                          - INT64
+                          - DOUBLE
+                          - BOOL
+                          - TIMESTAMP
+                          - IP_ADDRESS
+                          - EMAIL_ADDRESS
+                          - URI
+                          - DNS_NAME
+                          - DURATION
+                          - STRING_MAP
                         type: string
                     type: object
-                  type: array
+                  description:
+                    The set of attributes this Istio component will be responsible
+                    for producing at runtime.
+                  type: object
+                name:
+                  description: Name of the component producing these attributes.
+                  format: string
+                  type: string
+                revision:
+                  description: The revision of this document.
+                  format: string
+                  type: string
               type: object
             status:
               type: object
@@ -318,256 +133,181 @@ spec:
   names:
     categories:
       - istio-io
-      - apim-istio-io
-    kind: HTTPAPISpecBinding
-    listKind: HTTPAPISpecBindingList
-    plural: httpapispecbindings
-    singular: httpapispecbinding
+      - security-istio-io
+    kind: AuthorizationPolicy
+    listKind: AuthorizationPolicyList
+    plural: authorizationpolicies
+    singular: authorizationpolicy
   scope: Namespaced
   versions:
-    - name: v1alpha2
+    - name: v1beta1
       schema:
         openAPIV3Schema:
           properties:
             spec:
+              description:
+                "Configuration for access control on workloads. See more
+                details at: https://istio.io/docs/reference/config/security/authorization-policy.html"
               properties:
-                api_specs:
-                  items:
-                    properties:
-                      name:
-                        description: The short name of the HTTPAPISpec.
-                        format: string
-                        type: string
-                      namespace:
-                        description: Optional namespace of the HTTPAPISpec.
-                        format: string
-                        type: string
-                    type: object
-                  type: array
-                apiSpecs:
-                  items:
-                    properties:
-                      name:
-                        description: The short name of the HTTPAPISpec.
-                        format: string
-                        type: string
-                      namespace:
-                        description: Optional namespace of the HTTPAPISpec.
-                        format: string
-                        type: string
-                    type: object
-                  type: array
-                services:
-                  description: One or more services to map the listed HTTPAPISpec onto.
-                  items:
-                    properties:
-                      domain:
-                        description:
-                          Domain suffix used to construct the service FQDN
-                          in implementations that support such specification.
-                        format: string
-                        type: string
-                      labels:
-                        additionalProperties:
-                          format: string
-                          type: string
-                        description:
-                          Optional one or more labels that uniquely identify
-                          the service version.
-                        type: object
-                      name:
-                        description: The short name of the service such as "foo".
-                        format: string
-                        type: string
-                      namespace:
-                        description: Optional namespace of the service.
-                        format: string
-                        type: string
-                      service:
-                        description: The service FQDN.
-                        format: string
-                        type: string
-                    type: object
-                  type: array
-              type: object
-            status:
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-  name: destinationrules.networking.istio.io
-spec:
-  group: config.istio.io
-  names:
-    categories:
-      - istio-io
-      - apim-istio-io
-    kind: QuotaSpec
-    listKind: QuotaSpecList
-    plural: quotaspecs
-    singular: quotaspec
-  scope: Namespaced
-  versions:
-    - name: v1alpha2
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              description: Determines the quotas used for individual requests.
-              properties:
+                action:
+                  description: Optional.
+                  enum:
+                    - ALLOW
+                    - DENY
+                  type: string
                 rules:
-                  description: A list of Quota rules.
+                  description: Optional.
                   items:
                     properties:
-                      match:
-                        description: If empty, match all request.
+                      from:
+                        description: Optional.
                         items:
                           properties:
-                            clause:
-                              additionalProperties:
-                                oneOf:
-                                  - not:
-                                      anyOf:
-                                        - required:
-                                            - exact
-                                        - required:
-                                            - prefix
-                                        - required:
-                                            - regex
-                                  - required:
-                                      - exact
-                                  - required:
-                                      - prefix
-                                  - required:
-                                      - regex
-                                properties:
-                                  exact:
+                            source:
+                              description: Source specifies the source of a request.
+                              properties:
+                                ipBlocks:
+                                  description: Optional.
+                                  items:
                                     format: string
                                     type: string
-                                  prefix:
+                                  type: array
+                                namespaces:
+                                  description: Optional.
+                                  items:
                                     format: string
                                     type: string
-                                  regex:
-                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                  type: array
+                                notIpBlocks:
+                                  description: Optional.
+                                  items:
                                     format: string
                                     type: string
-                                type: object
-                              description: Map of attribute names to StringMatch type.
+                                  type: array
+                                notNamespaces:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                notPrincipals:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                notRequestPrincipals:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                principals:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                requestPrincipals:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
                               type: object
                           type: object
                         type: array
-                      quotas:
-                        description: The list of quotas to charge.
+                      to:
+                        description: Optional.
                         items:
                           properties:
-                            charge:
-                              format: int32
-                              type: integer
-                            quota:
+                            operation:
+                              description: Operation specifies the operation of a request.
+                              properties:
+                                hosts:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                methods:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                notHosts:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                notMethods:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                notPaths:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                notPorts:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                paths:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                ports:
+                                  description: Optional.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                              type: object
+                          type: object
+                        type: array
+                      when:
+                        description: Optional.
+                        items:
+                          properties:
+                            key:
+                              description: The name of an Istio attribute.
                               format: string
                               type: string
+                            notValues:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            values:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
                           type: object
                         type: array
                     type: object
                   type: array
-              type: object
-            status:
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
-  name: quotaspecbindings.config.istio.io
-spec:
-  group: config.istio.io
-  names:
-    categories:
-      - istio-io
-      - apim-istio-io
-    kind: QuotaSpecBinding
-    listKind: QuotaSpecBindingList
-    plural: quotaspecbindings
-    singular: quotaspecbinding
-  scope: Namespaced
-  versions:
-    - name: v1alpha2
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              properties:
-                quotaSpecs:
-                  items:
-                    properties:
-                      name:
-                        description: The short name of the QuotaSpec.
+                selector:
+                  description: Optional.
+                  properties:
+                    matchLabels:
+                      additionalProperties:
                         format: string
                         type: string
-                      namespace:
-                        description: Optional namespace of the QuotaSpec.
-                        format: string
-                        type: string
-                    type: object
-                  type: array
-                services:
-                  description: One or more services to map the listed QuotaSpec onto.
-                  items:
-                    properties:
-                      domain:
-                        description:
-                          Domain suffix used to construct the service FQDN
-                          in implementations that support such specification.
-                        format: string
-                        type: string
-                      labels:
-                        additionalProperties:
-                          format: string
-                          type: string
-                        description:
-                          Optional one or more labels that uniquely identify
-                          the service version.
-                        type: object
-                      name:
-                        description: The short name of the service such as "foo".
-                        format: string
-                        type: string
-                      namespace:
-                        description: Optional namespace of the service.
-                        format: string
-                        type: string
-                      service:
-                        description: The service FQDN.
-                        format: string
-                        type: string
-                    type: object
-                  type: array
+                      type: object
+                  type: object
               type: object
             status:
               type: object
@@ -3580,6 +3320,1270 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    app: mixer
+    chart: istio
+    heritage: Tiller
+    istio: mixer-handler
+    package: handler
+    release: istio
+  name: handlers.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+      - istio-io
+      - policy-istio-io
+    kind: handler
+    listKind: handlerList
+    plural: handlers
+    singular: handler
+  scope: Namespaced
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              description:
+                Handler allows the operator to configure a specific adapter
+                implementation.
+              properties:
+                adapter:
+                  description: The name of a specific adapter implementation.
+                  format: string
+                  type: string
+                compiledAdapter:
+                  description: The name of the compiled in adapter this handler instantiates.
+                  format: string
+                  type: string
+                connection:
+                  description: Information on how to connect to the out-of-process adapter.
+                  properties:
+                    address:
+                      description: The address of the backend.
+                      format: string
+                      type: string
+                    authentication:
+                      description: Auth config for the connection to the backend.
+                      oneOf:
+                        - not:
+                            anyOf:
+                              - properties:
+                                  tls:
+                                    allOf:
+                                      - oneOf:
+                                          - not:
+                                              anyOf:
+                                                - required:
+                                                    - tokenPath
+                                                - required:
+                                                    - oauth
+                                          - required:
+                                              - tokenPath
+                                          - required:
+                                              - oauth
+                                      - oneOf:
+                                          - not:
+                                              anyOf:
+                                                - required:
+                                                    - authHeader
+                                                - required:
+                                                    - customHeader
+                                          - required:
+                                              - authHeader
+                                          - required:
+                                              - customHeader
+                                required:
+                                  - tls
+                              - required:
+                                  - mutual
+                        - properties:
+                            tls:
+                              allOf:
+                                - oneOf:
+                                    - not:
+                                        anyOf:
+                                          - required:
+                                              - tokenPath
+                                          - required:
+                                              - oauth
+                                    - required:
+                                        - tokenPath
+                                    - required:
+                                        - oauth
+                                - oneOf:
+                                    - not:
+                                        anyOf:
+                                          - required:
+                                              - authHeader
+                                          - required:
+                                              - customHeader
+                                    - required:
+                                        - authHeader
+                                    - required:
+                                        - customHeader
+                          required:
+                            - tls
+                        - required:
+                            - mutual
+                      properties:
+                        mutual:
+                          properties:
+                            caCertificates:
+                              format: string
+                              type: string
+                            clientCertificate:
+                              description:
+                                The path to the file holding client certificate
+                                for mutual TLS.
+                              format: string
+                              type: string
+                            privateKey:
+                              description:
+                                The path to the file holding the private
+                                key for mutual TLS.
+                              format: string
+                              type: string
+                            serverName:
+                              description:
+                                Used to configure mixer mutual TLS client
+                                to supply server name for SNI.
+                              format: string
+                              type: string
+                          type: object
+                        tls:
+                          properties:
+                            authHeader:
+                              description: Access token is passed as authorization header.
+                              enum:
+                                - PLAIN
+                                - BEARER
+                              type: string
+                            caCertificates:
+                              format: string
+                              type: string
+                            customHeader:
+                              description:
+                                Customized header key to hold access token,
+                                e.g.
+                              format: string
+                              type: string
+                            oauth:
+                              description:
+                                Oauth config to fetch access token from auth
+                                provider.
+                              properties:
+                                clientId:
+                                  description: OAuth client id for mixer.
+                                  format: string
+                                  type: string
+                                clientSecret:
+                                  description:
+                                    The path to the file holding the client
+                                    secret for oauth.
+                                  format: string
+                                  type: string
+                                endpointParams:
+                                  additionalProperties:
+                                    format: string
+                                    type: string
+                                  description:
+                                    Additional parameters for requests to
+                                    the token endpoint.
+                                  type: object
+                                scopes:
+                                  description: List of requested permissions.
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                tokenUrl:
+                                  description:
+                                    The Resource server's token endpoint
+                                    URL.
+                                  format: string
+                                  type: string
+                              type: object
+                            serverName:
+                              format: string
+                              type: string
+                            tokenPath:
+                              format: string
+                              type: string
+                          type: object
+                      type: object
+                    timeout:
+                      description: Timeout for remote calls to the backend.
+                      type: string
+                  type: object
+                name:
+                  description: Must be unique in the entire Mixer configuration.
+                  format: string
+                  type: string
+                params:
+                  description: Depends on adapter implementation.
+                  type: object
+              type: object
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: istio-mixer
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: httpapispecbindings.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+      - istio-io
+      - apim-istio-io
+    kind: HTTPAPISpecBinding
+    listKind: HTTPAPISpecBindingList
+    plural: httpapispecbindings
+    singular: httpapispecbinding
+  scope: Namespaced
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              properties:
+                api_specs:
+                  items:
+                    properties:
+                      name:
+                        description: The short name of the HTTPAPISpec.
+                        format: string
+                        type: string
+                      namespace:
+                        description: Optional namespace of the HTTPAPISpec.
+                        format: string
+                        type: string
+                    type: object
+                  type: array
+                apiSpecs:
+                  items:
+                    properties:
+                      name:
+                        description: The short name of the HTTPAPISpec.
+                        format: string
+                        type: string
+                      namespace:
+                        description: Optional namespace of the HTTPAPISpec.
+                        format: string
+                        type: string
+                    type: object
+                  type: array
+                services:
+                  description: One or more services to map the listed HTTPAPISpec onto.
+                  items:
+                    properties:
+                      domain:
+                        description:
+                          Domain suffix used to construct the service FQDN
+                          in implementations that support such specification.
+                        format: string
+                        type: string
+                      labels:
+                        additionalProperties:
+                          format: string
+                          type: string
+                        description:
+                          Optional one or more labels that uniquely identify
+                          the service version.
+                        type: object
+                      name:
+                        description: The short name of the service such as "foo".
+                        format: string
+                        type: string
+                      namespace:
+                        description: Optional namespace of the service.
+                        format: string
+                        type: string
+                      service:
+                        description: The service FQDN.
+                        format: string
+                        type: string
+                    type: object
+                  type: array
+              type: object
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: istio-mixer
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: httpapispecs.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+      - istio-io
+      - apim-istio-io
+    kind: HTTPAPISpec
+    listKind: HTTPAPISpecList
+    plural: httpapispecs
+    singular: httpapispec
+  scope: Namespaced
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              properties:
+                api_keys:
+                  items:
+                    oneOf:
+                      - not:
+                          anyOf:
+                            - required:
+                                - query
+                            - required:
+                                - header
+                            - required:
+                                - cookie
+                      - required:
+                          - query
+                      - required:
+                          - header
+                      - required:
+                          - cookie
+                    properties:
+                      cookie:
+                        format: string
+                        type: string
+                      header:
+                        description: API key is sent in a request header.
+                        format: string
+                        type: string
+                      query:
+                        description: API Key is sent as a query parameter.
+                        format: string
+                        type: string
+                    type: object
+                  type: array
+                apiKeys:
+                  items:
+                    oneOf:
+                      - not:
+                          anyOf:
+                            - required:
+                                - query
+                            - required:
+                                - header
+                            - required:
+                                - cookie
+                      - required:
+                          - query
+                      - required:
+                          - header
+                      - required:
+                          - cookie
+                    properties:
+                      cookie:
+                        format: string
+                        type: string
+                      header:
+                        description: API key is sent in a request header.
+                        format: string
+                        type: string
+                      query:
+                        description: API Key is sent as a query parameter.
+                        format: string
+                        type: string
+                    type: object
+                  type: array
+                attributes:
+                  properties:
+                    attributes:
+                      additionalProperties:
+                        oneOf:
+                          - not:
+                              anyOf:
+                                - required:
+                                    - stringValue
+                                - required:
+                                    - int64Value
+                                - required:
+                                    - doubleValue
+                                - required:
+                                    - boolValue
+                                - required:
+                                    - bytesValue
+                                - required:
+                                    - timestampValue
+                                - required:
+                                    - durationValue
+                                - required:
+                                    - stringMapValue
+                          - required:
+                              - stringValue
+                          - required:
+                              - int64Value
+                          - required:
+                              - doubleValue
+                          - required:
+                              - boolValue
+                          - required:
+                              - bytesValue
+                          - required:
+                              - timestampValue
+                          - required:
+                              - durationValue
+                          - required:
+                              - stringMapValue
+                        properties:
+                          boolValue:
+                            type: boolean
+                          bytesValue:
+                            format: binary
+                            type: string
+                          doubleValue:
+                            format: double
+                            type: number
+                          durationValue:
+                            type: string
+                          int64Value:
+                            format: int64
+                            type: integer
+                          stringMapValue:
+                            properties:
+                              entries:
+                                additionalProperties:
+                                  format: string
+                                  type: string
+                                description: Holds a set of name/value pairs.
+                                type: object
+                            type: object
+                          stringValue:
+                            format: string
+                            type: string
+                          timestampValue:
+                            format: dateTime
+                            type: string
+                        type: object
+                      description: A map of attribute name to its value.
+                      type: object
+                  type: object
+                patterns:
+                  description: List of HTTP patterns to match.
+                  items:
+                    oneOf:
+                      - not:
+                          anyOf:
+                            - required:
+                                - uriTemplate
+                            - required:
+                                - regex
+                      - required:
+                          - uriTemplate
+                      - required:
+                          - regex
+                    properties:
+                      attributes:
+                        properties:
+                          attributes:
+                            additionalProperties:
+                              oneOf:
+                                - not:
+                                    anyOf:
+                                      - required:
+                                          - stringValue
+                                      - required:
+                                          - int64Value
+                                      - required:
+                                          - doubleValue
+                                      - required:
+                                          - boolValue
+                                      - required:
+                                          - bytesValue
+                                      - required:
+                                          - timestampValue
+                                      - required:
+                                          - durationValue
+                                      - required:
+                                          - stringMapValue
+                                - required:
+                                    - stringValue
+                                - required:
+                                    - int64Value
+                                - required:
+                                    - doubleValue
+                                - required:
+                                    - boolValue
+                                - required:
+                                    - bytesValue
+                                - required:
+                                    - timestampValue
+                                - required:
+                                    - durationValue
+                                - required:
+                                    - stringMapValue
+                              properties:
+                                boolValue:
+                                  type: boolean
+                                bytesValue:
+                                  format: binary
+                                  type: string
+                                doubleValue:
+                                  format: double
+                                  type: number
+                                durationValue:
+                                  type: string
+                                int64Value:
+                                  format: int64
+                                  type: integer
+                                stringMapValue:
+                                  properties:
+                                    entries:
+                                      additionalProperties:
+                                        format: string
+                                        type: string
+                                      description: Holds a set of name/value pairs.
+                                      type: object
+                                  type: object
+                                stringValue:
+                                  format: string
+                                  type: string
+                                timestampValue:
+                                  format: dateTime
+                                  type: string
+                              type: object
+                            description: A map of attribute name to its value.
+                            type: object
+                        type: object
+                      httpMethod:
+                        format: string
+                        type: string
+                      regex:
+                        format: string
+                        type: string
+                      uriTemplate:
+                        format: string
+                        type: string
+                    type: object
+                  type: array
+              type: object
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: mixer
+    chart: istio
+    heritage: Tiller
+    istio: mixer-instance
+    package: instance
+    release: istio
+  name: instances.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+      - istio-io
+      - policy-istio-io
+    kind: instance
+    listKind: instanceList
+    plural: instances
+    singular: instance
+  scope: Namespaced
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              description:
+                An Instance tells Mixer how to create instances for particular
+                template.
+              properties:
+                attributeBindings:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+                compiledTemplate:
+                  description:
+                    The name of the compiled in template this instance creates
+                    instances for.
+                  format: string
+                  type: string
+                name:
+                  format: string
+                  type: string
+                params:
+                  description: Depends on referenced template.
+                  type: object
+                template:
+                  description:
+                    The name of the template this instance creates instances
+                    for.
+                  format: string
+                  type: string
+              type: object
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+  labels:
+    release: istio
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+      - iop
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns:
+        - description: Istio control plane revision
+          jsonPath: .spec.revision
+          name: Revision
+          type: string
+        - description: IOP current state
+          jsonPath: .status.status
+          type: string
+          name: Status
+        - jsonPath: .metadata.creationTimestamp
+          description:
+            "CreationTimestamp is a timestamp representing the server time when
+            this object was created. It is not guaranteed to be set in happens-before order
+            across separate operations. Clients may not set this value. It is represented
+            in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+            lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata"
+          name: Age
+          type: date
+      name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description:
+                "APIVersion defines the versioned schema of this representation
+                of an object. Servers should convert recognized schemas to the latest
+                internal value, and may reject unrecognized values.
+                More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources"
+              type: string
+            kind:
+              description:
+                "Kind is a string value representing the REST resource this
+                object represents. Servers may infer this from the endpoint the client
+                submits requests to. Cannot be updated. In CamelCase.
+                More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+              type: string
+            spec:
+              description:
+                "Specification of the desired state of the istio control plane resource.
+                More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
+              type: object
+            status:
+              description:
+                "Status describes each of istio control plane component status at the current time.
+                0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+                More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+                https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    istio: security
+    release: istio
+  name: peerauthentications.security.istio.io
+spec:
+  group: security.istio.io
+  names:
+    categories:
+      - istio-io
+      - security-istio-io
+    kind: PeerAuthentication
+    listKind: PeerAuthenticationList
+    plural: peerauthentications
+    shortNames:
+      - pa
+    singular: peerauthentication
+  scope: Namespaced
+  versions:
+    - name: v1beta1
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              description:
+                PeerAuthentication defines how traffic will be tunneled (or
+                not) to the sidecar.
+              properties:
+                mtls:
+                  description: Mutual TLS settings for workload.
+                  properties:
+                    mode:
+                      description: Defines the mTLS mode used for peer authentication.
+                      enum:
+                        - UNSET
+                        - DISABLE
+                        - PERMISSIVE
+                        - STRICT
+                      type: string
+                  type: object
+                portLevelMtls:
+                  additionalProperties:
+                    properties:
+                      mode:
+                        description: Defines the mTLS mode used for peer authentication.
+                        enum:
+                          - UNSET
+                          - DISABLE
+                          - PERMISSIVE
+                          - STRICT
+                        type: string
+                    type: object
+                  description: Port specific mutual TLS settings.
+                  type: object
+                selector:
+                  description:
+                    The selector determines the workloads to apply the ChannelAuthentication
+                    on.
+                  properties:
+                    matchLabels:
+                      additionalProperties:
+                        format: string
+                        type: string
+                      type: object
+                  type: object
+              type: object
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: istio-mixer
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: quotaspecbindings.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+      - istio-io
+      - apim-istio-io
+    kind: QuotaSpecBinding
+    listKind: QuotaSpecBindingList
+    plural: quotaspecbindings
+    singular: quotaspecbinding
+  scope: Namespaced
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              properties:
+                quotaSpecs:
+                  items:
+                    properties:
+                      name:
+                        description: The short name of the QuotaSpec.
+                        format: string
+                        type: string
+                      namespace:
+                        description: Optional namespace of the QuotaSpec.
+                        format: string
+                        type: string
+                    type: object
+                  type: array
+                services:
+                  description: One or more services to map the listed QuotaSpec onto.
+                  items:
+                    properties:
+                      domain:
+                        description:
+                          Domain suffix used to construct the service FQDN
+                          in implementations that support such specification.
+                        format: string
+                        type: string
+                      labels:
+                        additionalProperties:
+                          format: string
+                          type: string
+                        description:
+                          Optional one or more labels that uniquely identify
+                          the service version.
+                        type: object
+                      name:
+                        description: The short name of the service such as "foo".
+                        format: string
+                        type: string
+                      namespace:
+                        description: Optional namespace of the service.
+                        format: string
+                        type: string
+                      service:
+                        description: The service FQDN.
+                        format: string
+                        type: string
+                    type: object
+                  type: array
+              type: object
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: istio-mixer
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: quotaspecs.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+      - istio-io
+      - apim-istio-io
+    kind: QuotaSpec
+    listKind: QuotaSpecList
+    plural: quotaspecs
+    singular: quotaspec
+  scope: Namespaced
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              description: Determines the quotas used for individual requests.
+              properties:
+                rules:
+                  description: A list of Quota rules.
+                  items:
+                    properties:
+                      match:
+                        description: If empty, match all request.
+                        items:
+                          properties:
+                            clause:
+                              additionalProperties:
+                                oneOf:
+                                  - not:
+                                      anyOf:
+                                        - required:
+                                            - exact
+                                        - required:
+                                            - prefix
+                                        - required:
+                                            - regex
+                                  - required:
+                                      - exact
+                                  - required:
+                                      - prefix
+                                  - required:
+                                      - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                    format: string
+                                    type: string
+                                type: object
+                              description: Map of attribute names to StringMatch type.
+                              type: object
+                          type: object
+                        type: array
+                      quotas:
+                        description: The list of quotas to charge.
+                        items:
+                          properties:
+                            charge:
+                              format: int32
+                              type: integer
+                            quota:
+                              format: string
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  type: array
+              type: object
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    istio: security
+    release: istio
+  name: requestauthentications.security.istio.io
+spec:
+  group: security.istio.io
+  names:
+    categories:
+      - istio-io
+      - security-istio-io
+    kind: RequestAuthentication
+    listKind: RequestAuthenticationList
+    plural: requestauthentications
+    shortNames:
+      - ra
+    singular: requestauthentication
+  scope: Namespaced
+  versions:
+    - name: v1beta1
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              description:
+                RequestAuthentication defines what request authentication
+                methods are supported by a workload.
+              properties:
+                jwtRules:
+                  description:
+                    Define the list of JWTs that can be validated at the
+                    selected workloads' proxy.
+                  items:
+                    properties:
+                      audiences:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      forwardOriginalToken:
+                        description:
+                          If set to true, the orginal token will be kept
+                          for the ustream request.
+                        type: boolean
+                      fromHeaders:
+                        description: List of header locations from which JWT is expected.
+                        items:
+                          properties:
+                            name:
+                              description: The HTTP header name.
+                              format: string
+                              type: string
+                            prefix:
+                              description:
+                                The prefix that should be stripped before
+                                decoding the token.
+                              format: string
+                              type: string
+                          type: object
+                        type: array
+                      fromParams:
+                        description: List of query parameters from which JWT is expected.
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      issuer:
+                        description: Identifies the issuer that issued the JWT.
+                        format: string
+                        type: string
+                      jwks:
+                        description:
+                          JSON Web Key Set of public keys to validate signature
+                          of the JWT.
+                        format: string
+                        type: string
+                      jwks_uri:
+                        format: string
+                        type: string
+                      jwksUri:
+                        format: string
+                        type: string
+                      outputPayloadToHeader:
+                        format: string
+                        type: string
+                    type: object
+                  type: array
+                selector:
+                  description:
+                    The selector determines the workloads to apply the RequestAuthentication
+                    on.
+                  properties:
+                    matchLabels:
+                      additionalProperties:
+                        format: string
+                        type: string
+                      type: object
+                  type: object
+              type: object
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: mixer
+    chart: istio
+    heritage: Tiller
+    istio: core
+    package: istio.io.mixer
+    release: istio
+  name: rules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+      - istio-io
+      - policy-istio-io
+    kind: rule
+    listKind: ruleList
+    plural: rules
+    singular: rule
+  scope: Namespaced
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              description:
+                "Describes the rules used to configure Mixer's policy and
+                telemetry features. See more details at: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html"
+              properties:
+                actions:
+                  description:
+                    The actions that will be executed when match evaluates
+                    to `true`.
+                  items:
+                    properties:
+                      handler:
+                        description: Fully qualified name of the handler to invoke.
+                        format: string
+                        type: string
+                      instances:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      name:
+                        description: A handle to refer to the results of the action.
+                        format: string
+                        type: string
+                    type: object
+                  type: array
+                match:
+                  description: Match is an attribute based predicate.
+                  format: string
+                  type: string
+                requestHeaderOperations:
+                  items:
+                    properties:
+                      name:
+                        description: Header name literal value.
+                        format: string
+                        type: string
+                      operation:
+                        description: Header operation type.
+                        enum:
+                          - REPLACE
+                          - REMOVE
+                          - APPEND
+                        type: string
+                      values:
+                        description: Header value expressions.
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
+                  type: array
+                responseHeaderOperations:
+                  items:
+                    properties:
+                      name:
+                        description: Header name literal value.
+                        format: string
+                        type: string
+                      operation:
+                        description: Header operation type.
+                        enum:
+                          - REPLACE
+                          - REMOVE
+                          - APPEND
+                        type: string
+                      values:
+                        description: Header value expressions.
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
+                  type: array
+                sampling:
+                  properties:
+                    random:
+                      description:
+                        Provides filtering of actions based on random selection
+                        per request.
+                      properties:
+                        attributeExpression:
+                          description:
+                            Specifies an attribute expression to use to override
+                            the numerator in the `percent_sampled` field.
+                          format: string
+                          type: string
+                        percentSampled:
+                          description: The default sampling rate, expressed as a percentage.
+                          properties:
+                            denominator:
+                              description: Specifies the denominator.
+                              enum:
+                                - HUNDRED
+                                - TEN_THOUSAND
+                              type: string
+                            numerator:
+                              description: Specifies the numerator.
+                              type: integer
+                          type: object
+                        useIndependentRandomness:
+                          description:
+                            By default sampling will be based on the value
+                            of the request header `x-request-id`.
+                          type: boolean
+                      type: object
+                    rateLimit:
+                      properties:
+                        maxUnsampledEntries:
+                          description:
+                            Number of entries to allow during the `sampling_duration`
+                            before sampling is enforced.
+                          format: int64
+                          type: integer
+                        samplingDuration:
+                          description: Window in which to enforce the sampling rate.
+                          type: string
+                        samplingRate:
+                          description:
+                            The rate at which to sample entries once the
+                            unsampled limit has been reached.
+                          format: int64
+                          type: integer
+                      type: object
+                  type: object
+              type: object
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -4557,6 +5561,42 @@ spec:
           type: object
       served: true
       storage: false
+      subresources:
+        status: {}
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1
+metadata:
+  name: templates.config.istio.io
+  labels:
+    app: mixer
+    package: template
+    istio: mixer-template
+    chart: istio
+    heritage: Tiller
+    release: istio
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  group: config.istio.io
+  names:
+    kind: template
+    plural: templates
+    singular: template
+    categories:
+      - istio-io
+      - policy-istio-io
+  scope: Namespaced
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              type: object
+          type: object
+      served: true
+      storage: true
       subresources:
         status: {}
 ---
@@ -6264,13 +7304,11 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
-    app: mixer
+    app: istio-pilot
     chart: istio
     heritage: Tiller
-    istio: mixer-instance
-    package: instance
     release: istio
-  name: instances.config.istio.io
+  name: workloadentries.networking.istio.io
 spec:
   group: networking.istio.io
   names:
@@ -6404,1908 +7442,45 @@ spec:
       subresources:
         status: {}
 ---
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
+apiVersion: v1
+kind: ServiceAccount
 metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
+  name: istio-reader-service-account
+  namespace: istio-system
   labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    istio: security
+    app: istio-reader
     release: istio
-  name: peerauthentications.security.istio.io
-spec:
-  group: security.istio.io
-  names:
-    categories:
-      - istio-io
-      - policy-istio-io
-    kind: attributemanifest
-    listKind: attributemanifestList
-    plural: attributemanifests
-    singular: attributemanifest
-  scope: Namespaced
-  versions:
-    - name: v1alpha2
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              description:
-                "Describes the rules used to configure Mixer's policy and
-                telemetry features. See more details at: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html"
-              properties:
-                attributes:
-                  additionalProperties:
-                    properties:
-                      description:
-                        description:
-                          A human-readable description of the attribute's
-                          purpose.
-                        format: string
-                        type: string
-                      valueType:
-                        description: The type of data carried by this attribute.
-                        enum:
-                          - VALUE_TYPE_UNSPECIFIED
-                          - STRING
-                          - INT64
-                          - DOUBLE
-                          - BOOL
-                          - TIMESTAMP
-                          - IP_ADDRESS
-                          - EMAIL_ADDRESS
-                          - URI
-                          - DNS_NAME
-                          - DURATION
-                          - STRING_MAP
-                        type: string
-                    type: object
-                  description:
-                    The set of attributes this Istio component will be responsible
-                    for producing at runtime.
-                  type: object
-                name:
-                  description: Name of the component producing these attributes.
-                  format: string
-                  type: string
-                revision:
-                  description: The revision of this document.
-                  format: string
-                  type: string
-              type: object
-            status:
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
 ---
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
+apiVersion: v1
+kind: ServiceAccount
 metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
-  name: quotaspecbindings.config.istio.io
-spec:
-  group: config.istio.io
-  names:
-    categories:
-      - istio-io
-      - policy-istio-io
-    kind: handler
-    listKind: handlerList
-    plural: handlers
-    singular: handler
-  scope: Namespaced
-  versions:
-    - name: v1alpha2
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              description:
-                Handler allows the operator to configure a specific adapter
-                implementation.
-              properties:
-                adapter:
-                  description: The name of a specific adapter implementation.
-                  format: string
-                  type: string
-                compiledAdapter:
-                  description: The name of the compiled in adapter this handler instantiates.
-                  format: string
-                  type: string
-                connection:
-                  description: Information on how to connect to the out-of-process adapter.
-                  properties:
-                    address:
-                      description: The address of the backend.
-                      format: string
-                      type: string
-                    authentication:
-                      description: Auth config for the connection to the backend.
-                      oneOf:
-                        - not:
-                            anyOf:
-                              - properties:
-                                  tls:
-                                    allOf:
-                                      - oneOf:
-                                          - not:
-                                              anyOf:
-                                                - required:
-                                                    - tokenPath
-                                                - required:
-                                                    - oauth
-                                          - required:
-                                              - tokenPath
-                                          - required:
-                                              - oauth
-                                      - oneOf:
-                                          - not:
-                                              anyOf:
-                                                - required:
-                                                    - authHeader
-                                                - required:
-                                                    - customHeader
-                                          - required:
-                                              - authHeader
-                                          - required:
-                                              - customHeader
-                                required:
-                                  - tls
-                              - required:
-                                  - mutual
-                        - properties:
-                            tls:
-                              allOf:
-                                - oneOf:
-                                    - not:
-                                        anyOf:
-                                          - required:
-                                              - tokenPath
-                                          - required:
-                                              - oauth
-                                    - required:
-                                        - tokenPath
-                                    - required:
-                                        - oauth
-                                - oneOf:
-                                    - not:
-                                        anyOf:
-                                          - required:
-                                              - authHeader
-                                          - required:
-                                              - customHeader
-                                    - required:
-                                        - authHeader
-                                    - required:
-                                        - customHeader
-                          required:
-                            - tls
-                        - required:
-                            - mutual
-                      properties:
-                        mutual:
-                          properties:
-                            caCertificates:
-                              format: string
-                              type: string
-                            clientCertificate:
-                              description:
-                                The path to the file holding client certificate
-                                for mutual TLS.
-                              format: string
-                              type: string
-                            privateKey:
-                              description:
-                                The path to the file holding the private
-                                key for mutual TLS.
-                              format: string
-                              type: string
-                            serverName:
-                              description:
-                                Used to configure mixer mutual TLS client
-                                to supply server name for SNI.
-                              format: string
-                              type: string
-                          type: object
-                        tls:
-                          properties:
-                            authHeader:
-                              description: Access token is passed as authorization header.
-                              enum:
-                                - PLAIN
-                                - BEARER
-                              type: string
-                            caCertificates:
-                              format: string
-                              type: string
-                            customHeader:
-                              description:
-                                Customized header key to hold access token,
-                                e.g.
-                              format: string
-                              type: string
-                            oauth:
-                              description:
-                                Oauth config to fetch access token from auth
-                                provider.
-                              properties:
-                                clientId:
-                                  description: OAuth client id for mixer.
-                                  format: string
-                                  type: string
-                                clientSecret:
-                                  description:
-                                    The path to the file holding the client
-                                    secret for oauth.
-                                  format: string
-                                  type: string
-                                endpointParams:
-                                  additionalProperties:
-                                    format: string
-                                    type: string
-                                  description:
-                                    Additional parameters for requests to
-                                    the token endpoint.
-                                  type: object
-                                scopes:
-                                  description: List of requested permissions.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                tokenUrl:
-                                  description:
-                                    The Resource server's token endpoint
-                                    URL.
-                                  format: string
-                                  type: string
-                              type: object
-                            serverName:
-                              format: string
-                              type: string
-                            tokenPath:
-                              format: string
-                              type: string
-                          type: object
-                      type: object
-                    timeout:
-                      description: Timeout for remote calls to the backend.
-                      type: string
-                  type: object
-                name:
-                  description: Must be unique in the entire Mixer configuration.
-                  format: string
-                  type: string
-                params:
-                  description: Depends on adapter implementation.
-                  type: object
-              type: object
-            status:
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
-  name: quotaspecs.config.istio.io
-spec:
-  group: config.istio.io
-  names:
-    categories:
-      - istio-io
-      - policy-istio-io
-    kind: instance
-    listKind: instanceList
-    plural: instances
-    singular: instance
-  scope: Namespaced
-  versions:
-    - name: v1alpha2
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              description:
-                An Instance tells Mixer how to create instances for particular
-                template.
-              properties:
-                attributeBindings:
-                  additionalProperties:
-                    format: string
-                    type: string
-                  type: object
-                compiledTemplate:
-                  description:
-                    The name of the compiled in template this instance creates
-                    instances for.
-                  format: string
-                  type: string
-                name:
-                  format: string
-                  type: string
-                params:
-                  description: Depends on referenced template.
-                  type: object
-                template:
-                  description:
-                    The name of the template this instance creates instances
-                    for.
-                  format: string
-                  type: string
-              type: object
-            status:
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: mixer
-    chart: istio
-    heritage: Tiller
-    istio: core
-    package: istio.io.mixer
-    release: istio
-  name: rules.config.istio.io
-spec:
-  group: config.istio.io
-  names:
-    categories:
-      - istio-io
-      - policy-istio-io
-    kind: rule
-    listKind: ruleList
-    plural: rules
-    singular: rule
-  scope: Namespaced
-  versions:
-    - name: v1alpha2
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              description:
-                "Describes the rules used to configure Mixer's policy and
-                telemetry features. See more details at: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html"
-              properties:
-                actions:
-                  description:
-                    The actions that will be executed when match evaluates
-                    to `true`.
-                  items:
-                    properties:
-                      handler:
-                        description: Fully qualified name of the handler to invoke.
-                        format: string
-                        type: string
-                      instances:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      name:
-                        description: A handle to refer to the results of the action.
-                        format: string
-                        type: string
-                    type: object
-                  type: array
-                match:
-                  description: Match is an attribute based predicate.
-                  format: string
-                  type: string
-                requestHeaderOperations:
-                  items:
-                    properties:
-                      name:
-                        description: Header name literal value.
-                        format: string
-                        type: string
-                      operation:
-                        description: Header operation type.
-                        enum:
-                          - REPLACE
-                          - REMOVE
-                          - APPEND
-                        type: string
-                      values:
-                        description: Header value expressions.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                    type: object
-                  type: array
-                responseHeaderOperations:
-                  items:
-                    properties:
-                      name:
-                        description: Header name literal value.
-                        format: string
-                        type: string
-                      operation:
-                        description: Header operation type.
-                        enum:
-                          - REPLACE
-                          - REMOVE
-                          - APPEND
-                        type: string
-                      values:
-                        description: Header value expressions.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                    type: object
-                  type: array
-                sampling:
-                  properties:
-                    random:
-                      description:
-                        Provides filtering of actions based on random selection
-                        per request.
-                      properties:
-                        attributeExpression:
-                          description:
-                            Specifies an attribute expression to use to override
-                            the numerator in the `percent_sampled` field.
-                          format: string
-                          type: string
-                        percentSampled:
-                          description: The default sampling rate, expressed as a percentage.
-                          properties:
-                            denominator:
-                              description: Specifies the denominator.
-                              enum:
-                                - HUNDRED
-                                - TEN_THOUSAND
-                              type: string
-                            numerator:
-                              description: Specifies the numerator.
-                              type: integer
-                          type: object
-                        useIndependentRandomness:
-                          description:
-                            By default sampling will be based on the value
-                            of the request header `x-request-id`.
-                          type: boolean
-                      type: object
-                    rateLimit:
-                      properties:
-                        maxUnsampledEntries:
-                          description:
-                            Number of entries to allow during the `sampling_duration`
-                            before sampling is enforced.
-                          format: int64
-                          type: integer
-                        samplingDuration:
-                          description: Window in which to enforce the sampling rate.
-                          type: string
-                        samplingRate:
-                          description:
-                            The rate at which to sample entries once the
-                            unsampled limit has been reached.
-                          format: int64
-                          type: integer
-                      type: object
-                  type: object
-              type: object
-            status:
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-  name: serviceentries.networking.istio.io
-spec:
-  additionalPrinterColumns:
-    - JSONPath: .spec.hosts
-      description: The hosts associated with the ServiceEntry
-      name: Hosts
-      type: string
-    - JSONPath: .spec.location
-      description:
-        Whether the service is external to the mesh or part of the mesh (MESH_EXTERNAL
-        or MESH_INTERNAL)
-      name: Location
-      type: string
-    - JSONPath: .spec.resolution
-      description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
-      name: Resolution
-      type: string
-    - JSONPath: .metadata.creationTimestamp
-      description:
-        "CreationTimestamp is a timestamp representing the server time when
-        this object was created. It is not guaranteed to be set in happens-before order
-        across separate operations. Clients may not set this value. It is represented
-        in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
-        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata"
-      name: Age
-      type: date
-  group: networking.istio.io
-  names:
-    categories:
-      - istio-io
-      - security-istio-io
-    kind: AuthorizationPolicy
-    listKind: AuthorizationPolicyList
-    plural: authorizationpolicies
-    singular: authorizationpolicy
-  scope: Namespaced
-  versions:
-    - name: v1beta1
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              description:
-                "Configuration for access control on workloads. See more
-                details at: https://istio.io/docs/reference/config/security/authorization-policy.html"
-              properties:
-                action:
-                  description: Optional.
-                  enum:
-                    - ALLOW
-                    - DENY
-                  type: string
-                rules:
-                  description: Optional.
-                  items:
-                    properties:
-                      from:
-                        description: Optional.
-                        items:
-                          properties:
-                            source:
-                              description: Source specifies the source of a request.
-                              properties:
-                                ipBlocks:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                namespaces:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                notIpBlocks:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                notNamespaces:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                notPrincipals:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                notRequestPrincipals:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                principals:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                requestPrincipals:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                              type: object
-                          type: object
-                        type: array
-                      to:
-                        description: Optional.
-                        items:
-                          properties:
-                            operation:
-                              description: Operation specifies the operation of a request.
-                              properties:
-                                hosts:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                methods:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                notHosts:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                notMethods:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                notPaths:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                notPorts:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                paths:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                                ports:
-                                  description: Optional.
-                                  items:
-                                    format: string
-                                    type: string
-                                  type: array
-                              type: object
-                          type: object
-                        type: array
-                      when:
-                        description: Optional.
-                        items:
-                          properties:
-                            key:
-                              description: The name of an Istio attribute.
-                              format: string
-                              type: string
-                            notValues:
-                              description: Optional.
-                              items:
-                                format: string
-                                type: string
-                              type: array
-                            values:
-                              description: Optional.
-                              items:
-                                format: string
-                                type: string
-                              type: array
-                          type: object
-                        type: array
-                    type: object
-                  type: array
-                selector:
-                  description: Optional.
-                  properties:
-                    matchLabels:
-                      additionalProperties:
-                        format: string
-                        type: string
-                      type: object
-                  type: object
-              type: object
-            status:
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-  name: sidecars.networking.istio.io
-spec:
-  group: networking.istio.io
-  names:
-    categories:
-      - istio-io
-      - security-istio-io
-    kind: PeerAuthentication
-    listKind: PeerAuthenticationList
-    plural: peerauthentications
-    shortNames:
-      - pa
-    singular: peerauthentication
-  scope: Namespaced
-  versions:
-    - name: v1beta1
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              description:
-                PeerAuthentication defines how traffic will be tunneled (or
-                not) to the sidecar.
-              properties:
-                mtls:
-                  description: Mutual TLS settings for workload.
-                  properties:
-                    mode:
-                      description: Defines the mTLS mode used for peer authentication.
-                      enum:
-                        - UNSET
-                        - DISABLE
-                        - PERMISSIVE
-                        - STRICT
-                      type: string
-                  type: object
-                portLevelMtls:
-                  additionalProperties:
-                    properties:
-                      mode:
-                        description: Defines the mTLS mode used for peer authentication.
-                        enum:
-                          - UNSET
-                          - DISABLE
-                          - PERMISSIVE
-                          - STRICT
-                        type: string
-                    type: object
-                  description: Port specific mutual TLS settings.
-                  type: object
-                selector:
-                  description:
-                    The selector determines the workloads to apply the ChannelAuthentication
-                    on.
-                  properties:
-                    matchLabels:
-                      additionalProperties:
-                        format: string
-                        type: string
-                      type: object
-                  type: object
-              type: object
-            status:
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    istio: security
-    release: istio
-  name: requestauthentications.security.istio.io
-spec:
-  group: security.istio.io
-  names:
-    categories:
-      - istio-io
-      - security-istio-io
-    kind: RequestAuthentication
-    listKind: RequestAuthenticationList
-    plural: requestauthentications
-    shortNames:
-      - ra
-    singular: requestauthentication
-  scope: Namespaced
-  versions:
-    - name: v1beta1
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              description:
-                RequestAuthentication defines what request authentication
-                methods are supported by a workload.
-              properties:
-                jwtRules:
-                  description:
-                    Define the list of JWTs that can be validated at the
-                    selected workloads' proxy.
-                  items:
-                    properties:
-                      audiences:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      forwardOriginalToken:
-                        description:
-                          If set to true, the orginal token will be kept
-                          for the ustream request.
-                        type: boolean
-                      fromHeaders:
-                        description: List of header locations from which JWT is expected.
-                        items:
-                          properties:
-                            name:
-                              description: The HTTP header name.
-                              format: string
-                              type: string
-                            prefix:
-                              description:
-                                The prefix that should be stripped before
-                                decoding the token.
-                              format: string
-                              type: string
-                          type: object
-                        type: array
-                      fromParams:
-                        description: List of query parameters from which JWT is expected.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      issuer:
-                        description: Identifies the issuer that issued the JWT.
-                        format: string
-                        type: string
-                      jwks:
-                        description:
-                          JSON Web Key Set of public keys to validate signature
-                          of the JWT.
-                        format: string
-                        type: string
-                      jwks_uri:
-                        format: string
-                        type: string
-                      jwksUri:
-                        format: string
-                        type: string
-                      outputPayloadToHeader:
-                        format: string
-                        type: string
-                    type: object
-                  type: array
-                selector:
-                  description:
-                    The selector determines the workloads to apply the RequestAuthentication
-                    on.
-                  properties:
-                    matchLabels:
-                      additionalProperties:
-                        format: string
-                        type: string
-                      type: object
-                  type: object
-              type: object
-            status:
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1
-metadata:
-  name: adapters.config.istio.io
-  labels:
-    app: mixer
-    package: adapter
-    istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: adapter
-    plural: adapters
-    singular: adapter
-    categories:
-      - istio-io
-      - policy-istio-io
-  scope: Namespaced
-  versions:
-    - name: v1alpha2
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              type: object
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1
-metadata:
-  name: templates.config.istio.io
-  labels:
-    app: mixer
-    package: template
-    istio: mixer-template
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: template
-    plural: templates
-    singular: template
-    categories:
-      - istio-io
-      - policy-istio-io
-  scope: Namespaced
-  versions:
-    - name: v1alpha2
-      schema:
-        openAPIV3Schema:
-          properties:
-            spec:
-              type: object
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-  name: virtualservices.networking.istio.io
-spec:
-  group: install.istio.io
-  names:
-    categories:
-      - istio-io
-      - networking-istio-io
-    kind: VirtualService
-    listKind: VirtualServiceList
-    plural: virtualservices
-    shortNames:
-      - iop
-  scope: Namespaced
-  versions:
-    - additionalPrinterColumns:
-        - description: Istio control plane revision
-          jsonPath: .spec.revision
-          name: Revision
-          type: string
-        - description: IOP current state
-          jsonPath: .status.status
-          type: string
-          name: Status
-        - jsonPath: .metadata.creationTimestamp
-          description:
-            "CreationTimestamp is a timestamp representing the server time when
-            this object was created. It is not guaranteed to be set in happens-before order
-            across separate operations. Clients may not set this value. It is represented
-            in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
-            lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata"
-          name: Age
-          type: date
-      name: v1alpha1
-      schema:
-        openAPIV3Schema:
-          properties:
-            apiVersion:
-              description:
-                "APIVersion defines the versioned schema of this representation
-                of an object. Servers should convert recognized schemas to the latest
-                internal value, and may reject unrecognized values.
-                More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources"
-              type: string
-            kind:
-              description:
-                "Kind is a string value representing the REST resource this
-                object represents. Servers may infer this from the endpoint the client
-                submits requests to. Cannot be updated. In CamelCase.
-                More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-              type: string
-            spec:
-              description:
-                "Specification of the desired state of the istio control plane resource.
-                More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
-              type: object
-            status:
-              description:
-                "Status describes each of istio control plane component status at the current time.
-                0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
-                More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
-                https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
-              type: object
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-# Cni component is disabled.
-
-# EgressGateways istio-egressgateway component is disabled.
-
-# IstiodRemote component is disabled.
-
-# Resources for Pilot component
-
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: istiod
+  name: istiod-service-account
   namespace: istio-system
   labels:
     app: istiod
     release: istio
-    istio.io/rev: default
-spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istiod
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
 ---
-apiVersion: v1
-kind: ConfigMap
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
-  name: istio
-  namespace: istio-system
+  name: istio-reader-istio-system
   labels:
-    istio.io/rev: default
+    app: istio-reader
     release: istio
-data:
-  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
-  meshNetworks: |-
-    networks: {}
-
-  mesh: |-
-    defaultConfig:
-      discoveryAddress: istiod.istio-system.svc:15012
-      proxyMetadata:
-        DNS_AGENT: ""
-      tracing:
-        zipkin:
-          address: zipkin.istio-system:9411
-    disableMixerHttpReports: true
-    enablePrometheusMerge: true
-    rootNamespace: istio-system
-    trustDomain: cluster.local
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: istiod
-    istio: pilot
-    istio.io/rev: default
-    release: istio
-  name: istiod
-  namespace: istio-system
-spec:
-  selector:
-    matchLabels:
-      istio: pilot
-  strategy:
-    rollingUpdate:
-      maxSurge: 100%
-      maxUnavailable: 25%
-  template:
-    metadata:
-      annotations:
-        prometheus.io/port: "15014"
-        prometheus.io/scrape: "true"
-        sidecar.istio.io/inject: "false"
-      labels:
-        app: istiod
-        istio: pilot
-        istio.io/rev: default
-    spec:
-      containers:
-        - args:
-            - discovery
-            - --monitoringAddr=:15014
-            - --log_output_level=default:info
-            - --domain
-            - cluster.local
-            - --trust-domain=cluster.local
-            - --keepaliveMaxServerConnectionAge
-            - 30m
-          env:
-            - name: REVISION
-              value: default
-            - name: JWT_POLICY
-              value: third-party-jwt
-            - name: PILOT_CERT_PROVIDER
-              value: istiod
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: SERVICE_ACCOUNT
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: spec.serviceAccountName
-            - name: PILOT_TRACE_SAMPLING
-              value: "1"
-            - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
-              value: "true"
-            - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-              value: "true"
-            - name: INJECTION_WEBHOOK_CONFIG_NAME
-              value: istio-sidecar-injector
-            - name: ISTIOD_ADDR
-              value: istiod.istio-system.svc:15012
-            - name: PILOT_ENABLE_ANALYSIS
-              value: "false"
-            - name: CLUSTER_ID
-              value: Kubernetes
-            - name: CENTRAL_ISTIOD
-              value: "false"
-          image: gcr.io/istio-testing/pilot:latest
-          name: discovery
-          ports:
-            - containerPort: 8080
-            - containerPort: 15010
-            - containerPort: 15017
-            - containerPort: 15053
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8080
-            initialDelaySeconds: 1
-            periodSeconds: 3
-            timeoutSeconds: 5
-          resources:
-            requests:
-              cpu: 500m
-              memory: 2048Mi
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-            runAsGroup: 1337
-            runAsNonRoot: true
-            runAsUser: 1337
-          volumeMounts:
-            - mountPath: /etc/istio/config
-              name: config-volume
-            - mountPath: /var/run/secrets/tokens
-              name: istio-token
-              readOnly: true
-            - mountPath: /var/run/secrets/istio-dns
-              name: local-certs
-            - mountPath: /etc/cacerts
-              name: cacerts
-              readOnly: true
-            - mountPath: /var/lib/istio/inject
-              name: inject
-              readOnly: true
-      securityContext:
-        fsGroup: 1337
-      serviceAccountName: istiod-service-account
-      volumes:
-        - emptyDir:
-            medium: Memory
-          name: local-certs
-        - name: istio-token
-          projected:
-            sources:
-              - serviceAccountToken:
-                  audience: istio-ca
-                  expirationSeconds: 43200
-                  path: istio-token
-        - name: cacerts
-          secret:
-            optional: true
-            secretName: cacerts
-        - configMap:
-            name: istio-sidecar-injector
-          name: inject
-        - configMap:
-            name: istio
-          name: config-volume
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-sidecar-injector
-  namespace: istio-system
-  labels:
-    istio.io/rev: default
-    release: istio
-data:
-  values: |-
-    {
-      "global": {
-        "arch": {
-          "amd64": 2,
-          "ppc64le": 2,
-          "s390x": 2
-        },
-        "configValidation": true,
-        "controlPlaneSecurityEnabled": true,
-        "defaultNodeSelector": {},
-        "defaultPodDisruptionBudget": {
-          "enabled": true
-        },
-        "defaultResources": {
-          "requests": {
-            "cpu": "10m"
-          }
-        },
-        "enableHelmTest": false,
-        "enabled": true,
-        "hub": "gcr.io/istio-testing",
-        "imagePullPolicy": "",
-        "imagePullSecrets": [],
-        "istioNamespace": "istio-system",
-        "istiod": {
-          "enableAnalysis": false
-        },
-        "jwtPolicy": "third-party-jwt",
-        "logAsJson": false,
-        "logging": {
-          "level": "default:info"
-        },
-        "meshExpansion": {
-          "enabled": false,
-          "useILB": false
-        },
-        "meshNetworks": {},
-        "mountMtlsCerts": false,
-        "multiCluster": {
-          "clusterName": "",
-          "enabled": false
-        },
-        "namespace": "istio-system",
-        "network": "",
-        "omitSidecarInjectorConfigMap": false,
-        "oneNamespace": false,
-        "operatorManageWebhooks": false,
-        "pilotCertProvider": "istiod",
-        "policyNamespace": "istio-system",
-        "priorityClassName": "",
-        "proxy": {
-          "autoInject": "enabled",
-          "clusterDomain": "cluster.local",
-          "componentLogLevel": "misc:error",
-          "enableCoreDump": false,
-          "excludeIPRanges": "",
-          "excludeInboundPorts": "",
-          "excludeOutboundPorts": "",
-          "image": "proxyv2",
-          "includeIPRanges": "*",
-          "logLevel": "warning",
-          "privileged": false,
-          "readinessFailureThreshold": 30,
-          "readinessInitialDelaySeconds": 1,
-          "readinessPeriodSeconds": 2,
-          "resources": {
-            "limits": {
-              "cpu": "2000m",
-              "memory": "1024Mi"
-            },
-            "requests": {
-              "cpu": "100m",
-              "memory": "128Mi"
-            }
-          },
-          "statusPort": 15020,
-          "tracer": "zipkin"
-        },
-        "proxy_init": {
-          "image": "proxyv2",
-          "resources": {
-            "limits": {
-              "cpu": "2000m",
-              "memory": "1024Mi"
-            },
-            "requests": {
-              "cpu": "10m",
-              "memory": "10Mi"
-            }
-          }
-        },
-        "sds": {
-          "token": {
-            "aud": "istio-ca"
-          }
-        },
-        "sts": {
-          "servicePort": 0
-        },
-        "tag": "latest",
-        "telemetryNamespace": "istio-system",
-        "tracer": {
-          "datadog": {
-            "address": "$(HOST_IP):8126"
-          },
-          "lightstep": {
-            "accessToken": "",
-            "address": ""
-          },
-          "stackdriver": {
-            "debug": false,
-            "maxNumberOfAnnotations": 200,
-            "maxNumberOfAttributes": 200,
-            "maxNumberOfMessageEvents": 200
-          },
-          "zipkin": {
-            "address": ""
-          }
-        },
-        "trustDomain": "cluster.local",
-        "useMCP": false
-      },
-      "istio_cni": {
-        "enabled": false
-      },
-      "revision": "",
-      "sidecarInjectorWebhook": {
-        "alwaysInjectSelector": [],
-        "enableNamespacesByDefault": false,
-        "injectLabel": "istio-injection",
-        "injectedAnnotations": {},
-        "neverInjectSelector": [],
-        "objectSelector": {
-          "autoInject": true,
-          "enabled": false
-        },
-        "rewriteAppHTTPProbe": true
-      }
-    }
-
-  # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
-  # and istiod webhook functionality.
-  #
-  # New fields should not use Values - it is a 'primary' config object, users should be able
-  # to fine tune it or use it with kube-inject.
-  config: |-
-    policy: enabled
-    alwaysInjectSelector:
-      []
-    neverInjectSelector:
-      []
-    injectedAnnotations:
-
-    template: |
-      rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
-      initContainers:
-      {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-      {{ if .Values.istio_cni.enabled -}}
-      - name: istio-validation
-      {{ else -}}
-      - name: istio-init
-      {{ end -}}
-      {{- if contains "/" .Values.global.proxy_init.image }}
-        image: "{{ .Values.global.proxy_init.image }}"
-      {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
-      {{- end }}
-        args:
-        - istio-iptables
-        - "-p"
-        - 15001
-        - "-z"
-        - "15006"
-        - "-u"
-        - 1337
-        - "-m"
-        - "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
-        - "-i"
-        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
-        - "-x"
-        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
-        - "-b"
-        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
-        - "-d"
-        - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
-        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") -}}
-        - "-q"
-        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
-        {{ end -}}
-        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
-        - "-o"
-        - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
-        {{ end -}}
-        {{ if (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces`) -}}
-        - "-k"
-        - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
-        {{ end -}}
-        {{ if .Values.istio_cni.enabled -}}
-        - "--run-validation"
-        - "--skip-rule-apply"
-        {{ end -}}
-        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
-      {{- if .Values.global.proxy_init.resources }}
-        env:
-        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
-        - name: {{ $key }}
-          value: "{{ $value }}"
-        {{- end }}
-        resources:
-          {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
-      {{- else }}
-        resources: {}
-      {{- end }}
-        securityContext:
-          allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
-          privileged: {{ .Values.global.proxy.privileged }}
-          capabilities:
-        {{- if not .Values.istio_cni.enabled }}
-            add:
-            - NET_ADMIN
-            - NET_RAW
-        {{- end }}
-            drop:
-            - ALL
-        {{- if not .Values.istio_cni.enabled }}
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
-        {{- else }}
-          readOnlyRootFilesystem: true
-          runAsGroup: 1337
-          runAsUser: 1337
-          runAsNonRoot: true
-        {{- end }}
-        restartPolicy: Always
-      {{ end -}}
-      {{- if eq .Values.global.proxy.enableCoreDump true }}
-      - name: enable-core-dump
-        args:
-        - -c
-        - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
-        command:
-          - /bin/sh
-      {{- if contains "/" .Values.global.proxy_init.image }}
-        image: "{{ .Values.global.proxy_init.image }}"
-      {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
-      {{- end }}
-        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
-        resources: {}
-        securityContext:
-          allowPrivilegeEscalation: true
-          capabilities:
-            add:
-            - SYS_ADMIN
-            drop:
-            - ALL
-          privileged: true
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
-      {{ end }}
-      containers:
-      - name: istio-proxy
-      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
-      {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
-      {{- end }}
-        ports:
-        - containerPort: 15090
-          protocol: TCP
-          name: http-envoy-prom
-        args:
-        - proxy
-        - sidecar
-        - --domain
-        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-        - --serviceCluster
-        {{ if ne "" (index .ObjectMeta.Labels "app") -}}
-        - "{{ index .ObjectMeta.Labels `app` }}.$(POD_NAMESPACE)"
-        {{ else -}}
-        - "{{ valueOrDefault .DeploymentMeta.Name `istio-proxy` }}.{{ valueOrDefault .DeploymentMeta.Namespace `default` }}"
-        {{ end -}}
-        - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
-        - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
-      {{- if .Values.global.sts.servicePort }}
-        - --stsPort={{ .Values.global.sts.servicePort }}
-      {{- end }}
-      {{- if .Values.global.trustDomain }}
-        - --trust-domain={{ .Values.global.trustDomain }}
-      {{- end }}
-      {{- if .Values.global.logAsJson }}
-        - --log_as_json
-      {{- end }}
-      {{- if gt .ProxyConfig.Concurrency.GetValue 0 }}
-        - --concurrency
-        - "{{ .ProxyConfig.Concurrency.GetValue }}"
-      {{- end -}}
-      {{- if .Values.global.proxy.lifecycle }}
-        lifecycle:
-          {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
-        {{- end }}
-        env:
-        - name: JWT_POLICY
-          value: {{ .Values.global.jwtPolicy }}
-        - name: PILOT_CERT_PROVIDER
-          value: {{ .Values.global.pilotCertProvider }}
-        {{- if .Values.global.caAddress }}
-        - name: CA_ADDR
-          value: {{ .Values.global.caAddress }}
-        {{- end }}
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        - name: SERVICE_ACCOUNT
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.serviceAccountName
-        - name: HOST_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        - name: CANONICAL_SERVICE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.labels['service.istio.io/canonical-name']
-        - name: CANONICAL_REVISION
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.labels['service.istio.io/canonical-revision']
-        - name: PROXY_CONFIG
-          value: |
-                 {{ protoToJSON .ProxyConfig }}
-        - name: ISTIO_META_POD_PORTS
-          value: |-
-            [
-            {{- $first := true }}
-            {{- range $index1, $c := .Spec.Containers }}
-              {{- range $index2, $p := $c.Ports }}
-                {{- if (structToJSON $p) }}
-                {{if not $first}},{{end}}{{ structToJSON $p }}
-                {{- $first = false }}
-                {{- end }}
-              {{- end}}
-            {{- end}}
-            ]
-        - name: ISTIO_META_APP_CONTAINERS
-          value: |-
-            [
-              {{- range $index, $container := .Spec.Containers }}
-                {{- if ne $index 0}},{{- end}}
-                {{ $container.Name }}
-              {{- end}}
-            ]
-        - name: ISTIO_META_CLUSTER_ID
-          value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
-        - name: ISTIO_META_INTERCEPTION_MODE
-          value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
-        {{- if .Values.global.network }}
-        - name: ISTIO_META_NETWORK
-          value: "{{ .Values.global.network }}"
-        {{- end }}
-        {{ if .ObjectMeta.Annotations }}
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-                 {{ toJSON .ObjectMeta.Annotations }}
-        {{ end }}
-        {{- if .DeploymentMeta.Name }}
-        - name: ISTIO_META_WORKLOAD_NAME
-          value: {{ .DeploymentMeta.Name }}
-        {{ end }}
-        {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
-        - name: ISTIO_META_OWNER
-          value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
-        {{- end}}
-        {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
-        - name: ISTIO_BOOTSTRAP_OVERRIDE
-          value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
-        {{- end }}
-        {{- if .Values.global.meshID }}
-        - name: ISTIO_META_MESH_ID
-          value: "{{ .Values.global.meshID }}"
-        {{- else if .Values.global.trustDomain }}
-        - name: ISTIO_META_MESH_ID
-          value: "{{ .Values.global.trustDomain }}"
-        {{- end }}
-        {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
-        {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
-        - name: {{ $key }}
-          value: "{{ $value }}"
-        {{- end }}
-        {{- end }}
-        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
-        - name: {{ $key }}
-          value: "{{ $value }}"
-        {{- end }}
-        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
-        {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
-        readinessProbe:
-          httpGet:
-            path: /healthz/ready
-            port: 15021
-          initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
-          periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
-          failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
-        {{ end -}}
-        securityContext:
-          allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
-          capabilities:
-            {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
-            add:
-            {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
-            - NET_ADMIN
-            {{- end }}
-            {{ if eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true` -}}
-            - NET_BIND_SERVICE
-            {{- end }}
-            {{- end }}
-            drop:
-            - ALL
-          privileged: {{ .Values.global.proxy.privileged }}
-          readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
-          runAsGroup: 1337
-          fsGroup: 1337
-          {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
-          runAsNonRoot: false
-          runAsUser: 0
-          {{- else -}}
-          runAsNonRoot: true
-          runAsUser: 1337
-          {{- end }}
-        resources:
-      {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
-        {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
-          requests:
-            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
-            cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` }}"
-            {{ end }}
-            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
-            memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` }}"
-            {{ end }}
-        {{- end }}
-        {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
-          limits:
-            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) -}}
-            cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit` }}"
-            {{ end }}
-            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) -}}
-            memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit` }}"
-            {{ end }}
-        {{- end }}
-      {{- else }}
-        {{- if .Values.global.proxy.resources }}
-          {{ toYaml .Values.global.proxy.resources | indent 4 }}
-        {{- end }}
-      {{- end }}
-        volumeMounts:
-        {{- if eq .Values.global.pilotCertProvider "istiod" }}
-        - mountPath: /var/run/secrets/istio
-          name: istiod-ca-cert
-        {{- end }}
-        - mountPath: /var/lib/istio/data
-          name: istio-data
-        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
-        - mountPath: /etc/istio/custom-bootstrap
-          name: custom-bootstrap-volume
-        {{- end }}
-        # SDS channel between istioagent and Envoy
-        - mountPath: /etc/istio/proxy
-          name: istio-envoy
-        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-        - mountPath: /var/run/secrets/tokens
-          name: istio-token
-        {{- end }}
-        {{- if .Values.global.mountMtlsCerts }}
-        # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
-        {{- end }}
-        - name: istio-podinfo
-          mountPath: /etc/istio/pod
-         {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
-        - mountPath: {{ directory .ProxyConfig.GetTracing.GetTlsSettings.GetCaCertificates }}
-          name: lightstep-certs
-          readOnly: true
-        {{- end }}
-          {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolumeMount` }}
-          {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolumeMount`) }}
-        - name: "{{  $index }}"
-          {{ toYaml $value | indent 4 }}
-          {{ end }}
-          {{- end }}
-      volumes:
-      {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
-      - name: custom-bootstrap-volume
-        configMap:
-          name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
-      {{- end }}
-      # SDS channel between istioagent and Envoy
-      - emptyDir:
-          medium: Memory
-        name: istio-envoy
-      - name: istio-data
-        emptyDir: {}
-      - name: istio-podinfo
-        downwardAPI:
-          items:
-            - path: "labels"
-              fieldRef:
-                fieldPath: metadata.labels
-            - path: "annotations"
-              fieldRef:
-                fieldPath: metadata.annotations
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: istio-token
-              expirationSeconds: 43200
-              audience: {{ .Values.global.sds.token.aud }}
-      {{- end }}
-      {{- if eq .Values.global.pilotCertProvider "istiod" }}
-      - name: istiod-ca-cert
-        configMap:
-          name: istio-ca-root-cert
-      {{- end }}
-      {{- if .Values.global.mountMtlsCerts }}
-      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
-      - name: istio-certs
-        secret:
-          optional: true
-          {{ if eq .Spec.ServiceAccountName "" }}
-          secretName: istio.default
-          {{ else -}}
-          secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
-          {{  end -}}
-      {{- end }}
-        {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` }}
-        {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) }}
-      - name: "{{ $index }}"
-        {{ toYaml $value | indent 2 }}
-        {{ end }}
-        {{ end }}
-      {{- if and (eq .Values.global.proxy.tracer "lightstep") .ProxyConfig.GetTracing.GetTlsSettings }}
-      - name: lightstep-certs
-        secret:
-          optional: true
-          secretName: lightstep.cacert
-      {{- end }}
-      {{- if .Values.global.podDNSSearchNamespaces }}
-      dnsConfig:
-        searches:
-          {{- range .Values.global.podDNSSearchNamespaces }}
-          - {{ render . }}
-          {{- end }}
-      {{- end }}
-      podRedirectAnnot:
-      {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}
-      {{ if isset .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks` }}
-        k8s.v1.cni.cncf.io/networks: "{{ index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`}}, istio-cni"
-      {{- else }}
-        k8s.v1.cni.cncf.io/networks: "istio-cni"
-      {{- end }}
-      {{- end }}
-        sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
-        traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
-        traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
-        traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) }}"
-        traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
-      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") }}
-        traffic.sidecar.istio.io/includeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
-      {{- end }}
-      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
-        traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
-      {{- end }}
-        traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
-      {{- if .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-        {{- range .Values.global.imagePullSecrets }}
-        - name: {{ . }}
-        {{- end }}
-      {{- end }}
+rules:
+  - apiGroups:
+      - "config.istio.io"
+      - "security.istio.io"
+      - "networking.istio.io"
+      - "authentication.istio.io"
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -8332,13 +7507,7 @@ rules:
     resources: ["gateways"]
 
   # istio configuration
-  - apiGroups:
-      [
-        "config.istio.io",
-        "security.istio.io",
-        "networking.istio.io",
-        "authentication.istio.io",
-      ]
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
     verbs: ["get", "watch", "list"]
     resources: ["*"]
 
@@ -8348,7 +7517,7 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # discovery and routing
-  - apiGroups: ["extensions", "apps"]
+  - apiGroups: ["extensions","apps"]
     resources: ["deployments"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
@@ -8382,7 +7551,7 @@ rules:
     resources:
       - "signers"
     resourceNames:
-      - "kubernetes.io/legacy-unknown"
+    - "kubernetes.io/legacy-unknown"
     verbs: ["approve"]
 
   # Used by Istiod to verify the JWT tokens
@@ -8453,17 +7622,17 @@ webhooks:
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:
-          - CREATE
-          - UPDATE
+        - CREATE
+        - UPDATE
         apiGroups:
-          - config.istio.io
-          - security.istio.io
-          - authentication.istio.io
-          - networking.istio.io
+        - config.istio.io
+        - security.istio.io
+        - authentication.istio.io
+        - networking.istio.io
         apiVersions:
-          - "*"
+        - "*"
         resources:
-          - "*"
+        - "*"
     # Fail open until the validation webhook is ready. The webhook controller
     # will update this to `Fail` and patch in the `caBundle` when the webhook
     # endpoint is ready.
@@ -9051,12 +8220,12 @@ spec:
         operation: MERGE
         value:
           filters:
-            - name: envoy.filters.network.upstream.metadata_exchange
-              typed_config:
-                "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-                type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-                value:
-                  protocol: istio-peer-exchange
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
     - applyTo: CLUSTER
       match:
         context: GATEWAY
@@ -9067,12 +8236,12 @@ spec:
         operation: MERGE
         value:
           filters:
-            - name: envoy.filters.network.upstream.metadata_exchange
-              typed_config:
-                "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-                type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-                value:
-                  protocol: istio-peer-exchange
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -9108,12 +8277,12 @@ spec:
         operation: MERGE
         value:
           filters:
-            - name: istio.metadata_exchange
-              typed_config:
-                "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-                type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-                value:
-                  protocol: istio-peer-exchange
+          - name: istio.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
     - applyTo: CLUSTER
       match:
         context: GATEWAY
@@ -9124,12 +8293,12 @@ spec:
         operation: MERGE
         value:
           filters:
-            - name: istio.metadata_exchange
-              typed_config:
-                "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-                type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-                value:
-                  protocol: istio-peer-exchange
+          - name: istio.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -9165,12 +8334,12 @@ spec:
         operation: MERGE
         value:
           filters:
-            - name: istio.metadata_exchange
-              typed_config:
-                "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-                type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-                value:
-                  protocol: istio-peer-exchange
+          - name: istio.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
     - applyTo: CLUSTER
       match:
         context: GATEWAY
@@ -9181,12 +8350,12 @@ spec:
         operation: MERGE
         value:
           filters:
-            - name: istio.metadata_exchange
-              typed_config:
-                "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-                type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-                value:
-                  protocol: istio-peer-exchange
+          - name: istio.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -9497,6 +8666,7 @@ metadata:
     istio.io/rev: default
     release: istio
 data:
+
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.
   meshNetworks: |-
     networks: {}
@@ -9523,6 +8693,7 @@ metadata:
     istio.io/rev: default
     release: istio
 data:
+
   values: |-
     {
       "global": {
@@ -10140,7 +9311,7 @@ webhooks:
       caBundle: ""
     sideEffects: None
     rules:
-      - operations: ["CREATE"]
+      - operations: [ "CREATE" ]
         apiGroups: [""]
         apiVersions: ["v1"]
         resources: ["pods"]
@@ -10179,116 +9350,116 @@ spec:
         istio.io/rev: default
     spec:
       containers:
-        - args:
-            - discovery
-            - --monitoringAddr=:15014
-            - --log_output_level=default:info
-            - --domain
-            - cluster.local
-            - --trust-domain=cluster.local
-            - --keepaliveMaxServerConnectionAge
-            - 30m
-          env:
-            - name: REVISION
-              value: default
-            - name: JWT_POLICY
-              value: third-party-jwt
-            - name: PILOT_CERT_PROVIDER
-              value: istiod
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: SERVICE_ACCOUNT
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: spec.serviceAccountName
-            - name: PILOT_TRACE_SAMPLING
-              value: "1"
-            - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
-              value: "true"
-            - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-              value: "true"
-            - name: INJECTION_WEBHOOK_CONFIG_NAME
-              value: istio-sidecar-injector
-            - name: ISTIOD_ADDR
-              value: istiod.istio-system.svc:15012
-            - name: PILOT_ENABLE_ANALYSIS
-              value: "false"
-            - name: CLUSTER_ID
-              value: Kubernetes
-            - name: CENTRAL_ISTIOD
-              value: "false"
-          image: gcr.io/istio-testing/pilot:latest
-          name: discovery
-          ports:
-            - containerPort: 8080
-            - containerPort: 15010
-            - containerPort: 15017
-            - containerPort: 15053
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8080
-            initialDelaySeconds: 1
-            periodSeconds: 3
-            timeoutSeconds: 5
-          resources:
-            requests:
-              cpu: 500m
-              memory: 2048Mi
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-            runAsGroup: 1337
-            runAsNonRoot: true
-            runAsUser: 1337
-          volumeMounts:
-            - mountPath: /etc/istio/config
-              name: config-volume
-            - mountPath: /var/run/secrets/tokens
-              name: istio-token
-              readOnly: true
-            - mountPath: /var/run/secrets/istio-dns
-              name: local-certs
-            - mountPath: /etc/cacerts
-              name: cacerts
-              readOnly: true
-            - mountPath: /var/lib/istio/inject
-              name: inject
-              readOnly: true
+      - args:
+        - discovery
+        - --monitoringAddr=:15014
+        - --log_output_level=default:info
+        - --domain
+        - cluster.local
+        - --trust-domain=cluster.local
+        - --keepaliveMaxServerConnectionAge
+        - 30m
+        env:
+        - name: REVISION
+          value: default
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: istiod
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.serviceAccountName
+        - name: PILOT_TRACE_SAMPLING
+          value: "1"
+        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+          value: "true"
+        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+          value: "true"
+        - name: INJECTION_WEBHOOK_CONFIG_NAME
+          value: istio-sidecar-injector
+        - name: ISTIOD_ADDR
+          value: istiod.istio-system.svc:15012
+        - name: PILOT_ENABLE_ANALYSIS
+          value: "false"
+        - name: CLUSTER_ID
+          value: Kubernetes
+        - name: CENTRAL_ISTIOD
+          value: "false"
+        image: gcr.io/istio-testing/pilot:latest
+        name: discovery
+        ports:
+        - containerPort: 8080
+        - containerPort: 15010
+        - containerPort: 15017
+        - containerPort: 15053
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 3
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2048Mi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+          readOnly: true
+        - mountPath: /var/run/secrets/istio-dns
+          name: local-certs
+        - mountPath: /etc/cacerts
+          name: cacerts
+          readOnly: true
+        - mountPath: /var/lib/istio/inject
+          name: inject
+          readOnly: true
       securityContext:
         fsGroup: 1337
       serviceAccountName: istiod-service-account
       volumes:
-        - emptyDir:
-            medium: Memory
-          name: local-certs
-        - name: istio-token
-          projected:
-            sources:
-              - serviceAccountToken:
-                  audience: istio-ca
-                  expirationSeconds: 43200
-                  path: istio-token
-        - name: cacerts
-          secret:
-            optional: true
-            secretName: cacerts
-        - configMap:
-            name: istio-sidecar-injector
-          name: inject
-        - configMap:
-            name: istio
-          name: config-volume
+      - emptyDir:
+          medium: Memory
+        name: local-certs
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - name: cacerts
+        secret:
+          optional: true
+          secretName: cacerts
+      - configMap:
+          name: istio-sidecar-injector
+        name: inject
+      - configMap:
+          name: istio
+        name: config-volume
 ---
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
@@ -10324,10 +9495,10 @@ spec:
     kind: Deployment
     name: istiod
   metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
 ---
 apiVersion: v1
 kind: Service
@@ -10364,4 +9535,3 @@ spec:
     # This avoids default deployment picking the canary
     istio: pilot
 ---
-
