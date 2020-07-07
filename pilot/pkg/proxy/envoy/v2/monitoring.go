@@ -27,6 +27,7 @@ var (
 	clusterTag = monitoring.MustCreateLabel("cluster")
 	nodeTag    = monitoring.MustCreateLabel("node")
 	typeTag    = monitoring.MustCreateLabel("type")
+	versionTag = monitoring.MustCreateLabel("version")
 
 	cdsReject = monitoring.NewGauge(
 		"pilot_xds_cds_reject",
@@ -81,9 +82,10 @@ var (
 
 	// TODO: Update all the resource stats in separate routine
 	// virtual services, destination rules, gateways, etc.
-	xdsClients = monitoring.NewGauge(
+	xdsClients = monitoring.NewSum(
 		"pilot_xds",
 		"Number of endpoints connected to this pilot using XDS.",
+		monitoring.WithLabels(versionTag),
 	)
 
 	xdsResponseWriteTimeouts = monitoring.NewSum(
