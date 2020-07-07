@@ -212,11 +212,14 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	}
 
 	ep.mutex.Lock()
-	if !serviceAccounts.Equals(ep.ServiceAccounts) {
-		adsLog.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
-			serviceName, ep.ServiceAccounts, serviceAccounts)
-		adsLog.Infof("Full push, service accounts changed, %v", serviceName)
-		fullPush = true
+	// For existing endpoints, we need to do full push if service accounts change.
+	if !created {
+		if !serviceAccounts.Equals(ep.ServiceAccounts) {
+			adsLog.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
+				serviceName, ep.ServiceAccounts, serviceAccounts)
+			adsLog.Infof("Full push, service accounts changed, %v", serviceName)
+			fullPush = true
+		}
 	}
 	ep.Shards[clusterID] = istioEndpoints
 	ep.ServiceAccounts = serviceAccounts
