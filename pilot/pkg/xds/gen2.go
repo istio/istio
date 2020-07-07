@@ -54,12 +54,12 @@ func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.Disco
 
 	t := discReq.TypeUrl
 	con.mu.Lock()
-	w := con.node.Active[t]
+	w := con.node.ActiveExperimental[t]
 	if w == nil {
 		w = &model.WatchedResource{
 			TypeUrl: t,
 		}
-		con.node.Active[t] = w
+		con.node.ActiveExperimental[t] = w
 		isAck = false // newly watched resource
 	}
 	con.mu.Unlock()
@@ -89,9 +89,9 @@ func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.Disco
 	}
 
 	if nonceSent != discReq.ResponseNonce {
-		adsLog.Debugf("ADS:RDS: Expired nonce received %s, sent %s, received %s",
+		adsLog.Debugf("ADS: Expired nonce received %s, sent %s, received %s",
 			con.ConID, nonceSent, discReq.ResponseNonce)
-		rdsExpiredNonce.Increment()
+		xdsExpiredNonce.Increment()
 		// This is an ACK for a resource sent on an older stream, or out of sync.
 		// Send a response back.
 		isAck = false

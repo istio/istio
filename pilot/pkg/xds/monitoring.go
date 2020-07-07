@@ -65,9 +65,9 @@ var (
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
-	rdsExpiredNonce = monitoring.NewSum(
-		"pilot_rds_expired_nonce",
-		"Total number of RDS messages with an expired nonce.",
+	xdsExpiredNonce = monitoring.NewSum(
+		"pilot_xds_expired_nonce",
+		"Total number of XDS requests with an expired nonce.",
 	)
 
 	totalXDSRejects = monitoring.NewSum(
@@ -195,7 +195,7 @@ func init() {
 		rdsReject,
 		edsInstances,
 		edsAllLocalityEndpoints,
-		rdsExpiredNonce,
+		xdsExpiredNonce,
 		totalXDSRejects,
 		monServices,
 		xdsClients,
