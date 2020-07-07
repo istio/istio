@@ -65,7 +65,9 @@ func (b *builder) Build() (echo.Instances, error) {
 
 	// Success... update the caller's references.
 	for i, inst := range instances {
-		*b.references[i] = inst
+		if b.references[i] != nil {
+			*b.references[i] = inst
+		}
 	}
 	return instances, nil
 }
