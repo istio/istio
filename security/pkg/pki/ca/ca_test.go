@@ -315,13 +315,14 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 }
 
 func TestCreatePluggedCertCA(t *testing.T) {
+	t0 := time.Now()
 	rootCertFile := "../testdata/multilevelpki/root-cert.pem"
 	certChainFile := "../testdata/multilevelpki/int2-cert-chain.pem"
 	signingCertFile := "../testdata/multilevelpki/int2-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int2-key.pem"
 	caNamespace := "default"
 
-	defaultWorkloadCertTTL := 30 * time.Minute
+	defaultWorkloadCertTTL := 99999 * time.Hour
 	maxWorkloadCertTTL := time.Hour
 
 	client := fake.NewSimpleClientset()
@@ -352,6 +353,20 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	}
 	if !comparePem(rootCertBytes, rootCertFile) {
 		t.Errorf("Failed to verify loading of root cert pem.")
+	}
+
+	certChain, err := util.ParsePemEncodedCertificate(certChainBytes)
+	if err != nil {
+		t.Errorf("Failed to parse cert chain pem.")
+	}
+
+	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
+	// however citatel won't rotate if that happens, this function will prevent that using cert chain TTL as
+	// the workload TTL
+	if certChain.NotAfter.Unix() != t0.Add(ca.defaultCertTTL).Unix() {
+		t.Errorf("Invalid default cert TTL, should be the same as cert chain: %v VS (expected) %v",
+			t0.Add(ca.defaultCertTTL),
+			certChain.NotAfter)
 	}
 
 	// Check the siging cert stored in K8s configmap.
