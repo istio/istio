@@ -361,8 +361,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	}
 
 	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
-	// however citatel won't rotate if that happens, this function will prevent that using cert chain TTL as
-	// the workload TTL
+	// however citatel won't rotate if that happens
 	if certChain.NotAfter.Unix() != t0.Add(ca.defaultCertTTL).Unix() {
 		t.Errorf("Invalid default cert TTL, should be the same as cert chain: %v VS (expected) %v",
 			t0.Add(ca.defaultCertTTL),
