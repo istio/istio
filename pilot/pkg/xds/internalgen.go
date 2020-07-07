@@ -80,35 +80,25 @@ func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest)
 	sg.startPush(TypeURLNACK, []proto.Message{dr})
 }
 
-// startPush is similar with DiscoveryServer.startPush() - but called directly,
-// since status discovery is not driven by config change events.
-// We also want connection events to be dispatched as soon as possible,
-// they may be consumed by other instances of Istiod to update internal state.
-func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
+// PushAll will immediately send a response to all connections that
+// are watching for the specific type.
+// TODO: additional filters can be added, for example namespace.
+func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
-	sg.Server.adsClientsMutex.RLock()
+	s.adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
 	pending := []*Connection{}
-	for _, v := range sg.Server.adsClients {
-		if v.node.Active[typeURL] != nil {
+	for _, v := range s.adsClients {
+		if v.node.Active[res.TypeUrl] != nil {
 			pending = append(pending, v)
 		}
 	}
-	sg.Server.adsClientsMutex.RUnlock()
+	s.adsClientsMutex.RUnlock()
 
 	// only marshal resources if there are connected clients
 	if len(pending) == 0 {
 		return
-	}
-
-	resources := make([]*any.Any, 0, len(data))
-	for _, v := range data {
-		resources = append(resources, util.MessageToAny(v))
-	}
-	dr := &discovery.DiscoveryResponse{
-		TypeUrl:   typeURL,
-		Resources: resources,
 	}
 
 	for _, p := range pending {
@@ -119,12 +109,30 @@ func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 		// push expects 1000s of envoy connections.
 		con := p
 		go func() {
-			err := con.stream.Send(dr)
+			err := con.stream.Send(res)
 			if err != nil {
 				adsLog.Infoa("Failed to send internal event ", con.ConID, " ", err)
 			}
 		}()
 	}
+}
+
+// startPush is similar with DiscoveryServer.startPush() - but called directly,
+// since status discovery is not driven by config change events.
+// We also want connection events to be dispatched as soon as possible,
+// they may be consumed by other instances of Istiod to update internal state.
+func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
+
+	resources := make([]*any.Any, 0, len(data))
+	for _, v := range data {
+		resources = append(resources, util.MessageToAny(v))
+	}
+	dr := &discovery.DiscoveryResponse{
+		TypeUrl:   typeURL,
+		Resources: resources,
+	}
+
+	sg.Server.PushAll(dr)
 }
 
 // Generate XDS responses about internal events:
