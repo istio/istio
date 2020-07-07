@@ -82,13 +82,11 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 			Namespace: ns,
 			Ports:     ports,
 			Subsets:   []echo.SubsetConfig{{}},
-			Pilot:     p,
 		}).
 		With(&fromWithoutSidecar, echo.Config{
 			Service:   "from-without-sidecar",
 			Namespace: ns,
 			Ports:     ports,
-			Pilot:     p,
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -103,7 +101,6 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 			Namespace: ns,
 			Subsets:   []echo.SubsetConfig{{}},
 			Ports:     ports,
-			Pilot:     p,
 		}).
 		BuildOrFail(ctx)
 

@@ -62,7 +62,6 @@ values:
 
 func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster, pilots []pilot.Instance) echo.Config {
 	return echo.Config{
-		Pilot:          pilots[cluster.Index()],
 		Service:        service,
 		Namespace:      ns,
 		Cluster:        cluster,

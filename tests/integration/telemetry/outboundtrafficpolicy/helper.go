@@ -320,13 +320,11 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 			Service:   "client",
 			Namespace: appsNamespace,
 			Subsets:   []echo.SubsetConfig{{}},
-			Pilot:     p,
 		}).
 		With(&dest, echo.Config{
 			Service:   "destination",
 			Namespace: appsNamespace,
 			Subsets:   []echo.SubsetConfig{{Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false)}},
-			Pilot:     p,
 			Ports: []echo.Port{
 				{
 					// Plain HTTP port, will match no listeners and fall through

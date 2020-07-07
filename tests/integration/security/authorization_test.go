@@ -531,7 +531,6 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							ServicePort: 8090,
 						},
 					},
-					Pilot: p,
 				}).
 				BuildOrFail(t)
 
@@ -638,7 +637,6 @@ func TestAuthorization_TCP(t *testing.T) {
 				With(&a, echo.Config{
 					Subsets:        []echo.SubsetConfig{{}},
 					Namespace:      ns,
-					Pilot:          p,
 					Service:        "a",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -646,7 +644,6 @@ func TestAuthorization_TCP(t *testing.T) {
 				With(&b, echo.Config{
 					Namespace:      ns,
 					Subsets:        []echo.SubsetConfig{{}},
-					Pilot:          p,
 					Service:        "b",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -654,7 +651,6 @@ func TestAuthorization_TCP(t *testing.T) {
 				With(&c, echo.Config{
 					Namespace:      ns,
 					Subsets:        []echo.SubsetConfig{{}},
-					Pilot:          p,
 					Service:        "c",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -662,14 +658,12 @@ func TestAuthorization_TCP(t *testing.T) {
 				With(&d, echo.Config{
 					Namespace:      ns,
 					Subsets:        []echo.SubsetConfig{{}},
-					Pilot:          p,
 					Service:        "d",
 					Ports:          ports,
 					ServiceAccount: true,
 				}).
 				With(&e, echo.Config{
 					Namespace:      ns,
-					Pilot:          p,
 					Service:        "e",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -766,7 +760,6 @@ func TestAuthorization_Conditions(t *testing.T) {
 							InstancePort: portC,
 						},
 					},
-					Pilot: p,
 				}).
 				BuildOrFail(t)
 
@@ -933,14 +926,12 @@ func TestAuthorization_Path(t *testing.T) {
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
-					Pilot:     p,
 				}).
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
-					Pilot:     p,
 				}).
 				BuildOrFail(t)
 

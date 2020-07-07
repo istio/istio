@@ -268,7 +268,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,
-			Pilot:     p,
 			Ports:     []echo.Port{},
 			Subsets: []echo.SubsetConfig{{
 				Version: "v1",
@@ -294,7 +293,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 					TLS:          true,
 				},
 			},
-			Pilot: p,
 			// Set up TLS certs on the server. This will make the server listen with these credentials.
 			TLSSettings: &common.TLSSettings{
 				// Echo has these test certs baked into the docker image

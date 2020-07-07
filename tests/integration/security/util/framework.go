@@ -49,7 +49,6 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Protocol: protocol.GRPC,
 			},
 		},
-		Pilot: p,
 	}
 
 	// for headless service with selector, the port and target port must be equal
