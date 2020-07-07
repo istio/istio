@@ -281,12 +281,7 @@ func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 	}
 	un := &unstructured.Unstructured{Object: mapIOP}
 	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-	byIOP, err := yaml.Marshal(un)
-	if err != nil {
-		return nil, err
-	}
-	iopYAML = string(byIOP)
-
+	iopYAML = util.ToYAML(un)
 	iop := &v1alpha1.IstioOperator{}
 	if err := util.UnmarshalWithJSONPB(iopYAML, iop, false); err != nil {
 		return nil, fmt.Errorf("%s:\n\nYAML:\n%s", err, iopYAML)
