@@ -769,7 +769,7 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
 	s.adsClients[conID] = con
-	xdsClients.With(versionTag.Value(con.node.Metadata.IstioVersion)).Increment()
+	recordXDSClients(con.node.Metadata.IstioVersion, 1)
 }
 
 func (s *DiscoveryServer) removeCon(conID string) {
@@ -781,7 +781,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 		totalXDSInternalErrors.Increment()
 	} else {
 		delete(s.adsClients, conID)
-		xdsClients.With(versionTag.Value(con.node.Metadata.IstioVersion)).Decrement()
+		recordXDSClients(con.node.Metadata.IstioVersion, -1)
 	}
 	if s.StatusReporter != nil {
 		go s.StatusReporter.RegisterDisconnect(conID, []string{ClusterType, ListenerType, RouteType, EndpointType})
