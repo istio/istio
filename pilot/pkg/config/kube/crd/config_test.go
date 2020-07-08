@@ -24,7 +24,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	fuzz "github.com/google/gofuzz"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
-	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 
 	authentication "istio.io/api/authentication/v1alpha1"
 	mixer "istio.io/api/mixer/v1"
@@ -48,7 +47,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 )
 
-// This test exercises round tripping of marshalling/unmarshalling of all of our CRDs, based on fuzzing
+// This test exercises round tripping of marshaling/unmarshaling of all of our CRDs, based on fuzzing
 // This approach is heavily adopted from Kubernetes own fuzzing of their resources.
 func TestRoundtripFuzzing(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -72,13 +71,13 @@ func TestRoundtripFuzzing(t *testing.T) {
 				Version: gvk.Version,
 				Kind:    gvk.Kind,
 			}
-			roundtrip.RoundTripSpecificKind(t, kgvk, scheme, fz)
+			roundtrip.SpecificKind(t, kgvk, scheme, fz)
 		})
 	}
 }
 
 // Some proto types cause issues with the fuzzing. These custom fuzzers basically just skip anything with issues
-func fixProtoFuzzer(codecs runtimeserializer.CodecFactory) []interface{} {
+func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 	return []interface{}{
 		// This will generate invalid durations - the ranges on the seconds/nanoseconds is bounded
 		func(pb *types.Duration, c fuzz.Continue) {

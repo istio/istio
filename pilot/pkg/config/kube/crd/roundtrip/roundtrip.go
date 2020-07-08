@@ -34,51 +34,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // This is heavily inspired/copied from https://github.com/kubernetes/apimachinery/blob/master/pkg/api/apitesting/roundtrip/roundtrip.go
 // A fork was required to support Istio types. Unlike Kubernetes, which has "normal" go structs, Istio types are protobufs
 // Part of this means that each field has a bunch of internal proto stuff, like XXX_sizecache. This does not get roundtripped properly,
-// and we do not care that it doesn't. As a result, we switch the comparisions to use go-cmp/cmp which can handle this.
-
-/*
-Copyright 2017 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// and we do not care that it doesn't. As a result, we switch the comparision to use go-cmp/cmp which can handle this.
 
 type InstallFunc func(scheme *runtime.Scheme)
 
 var FuzzIters = flag.Int("fuzz-iters", 100, "How many fuzzing iterations to do.")
 
-// globalNonRoundTrippableTypes are kinds that are effectively reserved across all GroupVersions
-// They don't roundtrip
-var globalNonRoundTrippableTypes = sets.NewString(
-	"ExportOptions",
-	"GetOptions",
-	// WatchEvent does not include kind and version and can only be deserialized
-	// implicitly (if the caller expects the specific object). The watch call defines
-	// the schema by content type, rather than via kind/version included in each
-	// object.
-	"WatchEvent",
-	// ListOptions is now part of the meta group
-	"ListOptions",
-	// Delete options is only read in metav1
-	"DeleteOptions",
-)
-
-func RoundTripSpecificKind(t *testing.T, gvk schema.GroupVersionKind, scheme *runtime.Scheme, fuzzer *fuzz.Fuzzer) {
+func SpecificKind(t *testing.T, gvk schema.GroupVersionKind, scheme *runtime.Scheme, fuzzer *fuzz.Fuzzer) {
 	// Try a few times, since runTest uses random values.
 	for i := 0; i < *FuzzIters; i++ {
 		roundTripOfExternalType(t, scheme, fuzzer, gvk)
@@ -120,24 +87,8 @@ func roundTripOfExternalType(t *testing.T, scheme *runtime.Scheme, fuzzer *fuzz.
 
 	roundTrip(t, scheme, json.NewSerializer(json.DefaultMetaFactory, scheme, scheme, false), object)
 }
-func equateAlways(_, _ interface{}) bool { return true }
 
 var cmpOptions = []cmp.Option{
-	//cmp.Comparer(func(a, b resource.Quantity) bool {
-	//	return a.Cmp(b) == 0
-	//}),
-	//cmp.Comparer(func(a, b metav1.MicroTime) bool {
-	//	return a.UTC() == b.UTC()
-	//}),
-	//cmp.Comparer(func(a, b metav1.Time) bool {
-	//	return a.UTC() == b.UTC()
-	//}),
-	//cmp.Comparer(func(a, b labels.Selector) bool {
-	//	return a.String() == b.String()
-	//}),
-	//cmp.Comparer(func(a, b fields.Selector) bool {
-	//	return a.String() == b.String()
-	//}),
 	// Kubernetes will fuzz this for us
 	cmp.Comparer(func(a, b metav1.ObjectMeta) bool {
 		return true
@@ -219,7 +170,8 @@ func roundTrip(t *testing.T, scheme *runtime.Scheme, codec runtime.Codec, object
 	// ensure that the object produced from decoding the encoded data is equal
 	// to the original object
 	if diff := cmp.Diff(original, obj2, cmpOptions...); diff != "" {
-		t.Errorf("%v: diff: %v\nCodec: %#v\nSource:\n\n%#v\n\nEncoded:\n\n%s\n\nFinal:\n\n%#v", name, diff, codec, printer.Sprintf("%#v", original), dataAsString(data), printer.Sprintf("%#v", obj2))
+		t.Errorf("%v: diff: %v\nCodec: %#v\nSource:\n\n%#v\n\nEncoded:\n\n%s\n\nFinal:\n\n%#v",
+			name, diff, codec, printer.Sprintf("%#v", original), dataAsString(data), printer.Sprintf("%#v", obj2))
 		return
 	}
 
