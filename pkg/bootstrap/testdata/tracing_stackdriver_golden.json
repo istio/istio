@@ -524,7 +524,7 @@
         "max_number_of_annotations": 201,
         "max_number_of_attributes": 200,
         "max_number_of_message_events": 201,
-        "max_number_of_links": 200,
+        "max_number_of_links": 200
        }
      }
   }}
@@ -534,7 +534,7 @@
   ,
   "cluster_manager": {
     "outlier_detection": {
-      "event_log_path": /dev/stdout
+      "event_log_path": "/dev/stdout"
     }
   }
   

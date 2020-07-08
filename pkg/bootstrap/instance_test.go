@@ -382,13 +382,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid golden %s: %v", c.base, err)
 			}
 
-			jreal, err := yaml.YAMLToJSON(read)
-
-			if err != nil {
-				t.Fatalf("unable to convert: %s (%s) %v", c.base, fn, err)
-			}
-
-			if err = jsonpb.UnmarshalString(string(jreal), realM); err != nil {
+			if err = jsonpb.UnmarshalString(string(read), realM); err != nil {
 				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 
@@ -407,7 +401,7 @@ func TestGolden(t *testing.T) {
 			if !reflect.DeepEqual(realM, goldenM) {
 				s, _ := diff.PrettyDiff(goldenM, realM)
 				t.Logf("difference: %s", s)
-				t.Fatalf("\n got: %s\nwant: %s", prettyPrint(jreal), prettyPrint(jgolden))
+				t.Fatalf("\n got: %s\nwant: %s", prettyPrint(read), prettyPrint(jgolden))
 			}
 
 			// Check if the LightStep access token file exists
