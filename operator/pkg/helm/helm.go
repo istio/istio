@@ -306,8 +306,8 @@ func GetProfileYAML(installPackagePath, profileOrPath string) (string, error) {
 		return "", fmt.Errorf("failed to read profiles: %v", err)
 	}
 	// If charts are a file path and profile is a name like default, transform it to the file path.
-	if profiles[profileOrPath] {
-		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
+	if profiles[profileOrPath] && installPackagePath != "" {
+		profileOrPath = filepath.Join(installPackagePath, profileOrPath+".yaml")
 	}
 	// This contains the IstioOperator CR.
 	baseCRYAML, err := ReadProfileYAML(profileOrPath, installPackagePath)
