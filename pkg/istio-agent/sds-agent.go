@@ -109,7 +109,7 @@ const (
 	// proxy by watching kubernetes secrets.
 	enableIngressGatewaySDS = "ENABLE_INGRESS_GATEWAY_SDS"
 
-	// The ingress gateway SDS mode allows node agent to provision credentials to ingress gateway
+	// The egress gateway SDS mode allows node agent to provision credentials to egress gateway
 	// proxy by watching kubernetes secrets.
 	enableEgressGatewaySDS = "ENABLE_EGRESS_GATEWAY_SDS"
 
