@@ -28,6 +28,8 @@ func copyBinaries(updateBinaries bool, skipBinaries []string) error {
 	srcDir := constants.CNIBinDir
 	targetDirs := []string{constants.HostCNIBinDir, constants.SecondaryBinDir}
 
+	skipBinariesSet := arrToSet(skipBinaries)
+
 	for _, targetDir := range targetDirs {
 		if fileutil.IsDirWriteable(targetDir) != nil {
 			log.Infof("Directory %s is not writable, skipping.", targetDir)
@@ -41,7 +43,7 @@ func copyBinaries(updateBinaries bool, skipBinaries []string) error {
 
 		for _, file := range files {
 			filename := file.Name()
-			if contains(skipBinaries, filename) {
+			if skipBinariesSet[filename] {
 				log.Infof("%s is in SKIP_CNI_BINARIES, skipping.", filename)
 				continue
 			}
@@ -64,13 +66,12 @@ func copyBinaries(updateBinaries bool, skipBinaries []string) error {
 	return nil
 }
 
-func contains(array []string, value string) bool {
-	for _, s := range array {
-		if s == value {
-			return true
-		}
+func arrToSet(array []string) map[string]bool {
+	set := make(map[string]bool)
+	for _, v := range array {
+		set[v] = true
 	}
-	return false
+	return set
 }
 
 // Copy files atomically by first copying into the same directory then renaming.
