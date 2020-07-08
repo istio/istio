@@ -17,6 +17,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -31,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/pkg/collateral"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -43,7 +47,16 @@ func (c CommandParseError) Error() string {
 	return c.e.Error()
 }
 
+const (
+	// Location to read istioctl defaults from
+	defaultIstioctlConfig = "$HOME/.istioctl/config.yaml"
+)
+
 var (
+	// IstioConfig is the name of the istioctl config file (if any)
+	IstioConfig = env.RegisterStringVar("ISTIOCONFIG", defaultIstioctlConfig,
+		"Default values for istioctl flags").Get()
+
 	kubeconfig       string
 	configContext    string
 	namespace        string
@@ -77,13 +90,28 @@ func defaultLogOptions() *log.Options {
 
 // ConfigAndEnvProcessing uses spf13/viper for overriding CLI parameters
 func ConfigAndEnvProcessing() error {
+	if IstioConfig != defaultIstioctlConfig {
+		// Warn if user incorrectly customized $ISTIOCONFIG
+		if _, err := os.Stat(IstioConfig); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Warning: Configuration file %q does not exist\n", IstioConfig)
+		}
+	}
+	configPath := filepath.Dir(IstioConfig)
+	baseName := filepath.Base(IstioConfig)
+	configType := filepath.Ext(IstioConfig)
+	configName := baseName[0 : len(baseName)-len(configType)]
+	if configType != "" {
+		configType = configType[1:]
+	}
+
 	// Allow users to override some variables through $HOME/.istioctl/config.yaml
 	// and environment variables.
 	viper.SetEnvPrefix("ISTIOCTL")
 	viper.AutomaticEnv()
-	viper.SetConfigName("config") // name of config file (without extension)
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("$HOME/.istioctl")
+	viper.SetConfigName(configName)
+	viper.SetConfigType(configType)
+	viper.AddConfigPath(configPath)
+	viper.SetEnvKeyReplacer(strings.NewReplacer("_", "-"))
 	return viper.ReadInConfig()
 }
 
