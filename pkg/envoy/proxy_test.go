@@ -60,6 +60,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(proxyConfig.StatNameLength),
 		"--local-address-ip-version", "v4",
+		"--bootstrap-version", "3",
 		"--log-format-prefix-with-location", "0",
 		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
 		"-l", "trace",
