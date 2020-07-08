@@ -77,6 +77,10 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 		opts = grpc.WithInsecure()
 	}
 
+	citadelClientLog.Infof("3333333333\n")
+	citadelClientLog.Infof("%+v\n", ProvCert)
+	citadelClientLog.Infof("4444444444\n")
+
 	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
 	//  need a way to reconnect.
 	conn, err := grpc.Dial(endpoint, opts)

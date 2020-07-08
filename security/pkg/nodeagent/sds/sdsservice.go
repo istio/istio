@@ -347,7 +347,9 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					"secret cache: %v", conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
-
+			sdsServiceLog.Infof("1111111111\n")
+			sdsServiceLog.Infof("%+v\n", s.outputKeyCertToDir)
+			sdsServiceLog.Infof("2222222222\n")
 			// Output the key and cert to a directory, if some applications need to read them from local file system.
 			if err = util.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {
