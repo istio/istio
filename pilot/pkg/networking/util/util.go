@@ -409,24 +409,6 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 	}
 }
 
-func BuildConfigInfoMetadataV2(config model.ConfigMeta) *core.Metadata {
-	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
-	return &core.Metadata{
-		FilterMetadata: map[string]*pstruct.Struct{
-			IstioMetadataKey: {
-				Fields: map[string]*pstruct.Value{
-					"config": {
-						Kind: &pstruct.Value_StringValue{
-							StringValue: s,
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 // AddSubsetToMetadata will build a new core.Metadata struct containing the
 // subset name supplied. This is used for telemetry reporting. A new core.Metadata
 // is created to prevent modification to shared base Metadata across subsets, etc.
