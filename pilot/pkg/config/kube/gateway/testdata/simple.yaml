@@ -33,12 +33,12 @@ metadata:
     selected: "yes"
 spec:
   hosts:
-  - hostname: "first.domain.example"
+  - hostnames: ["first.domain.example", "another.domain.example"]
     rules:
     - match:
         pathType: Prefix
         path: /get
-        header:
+        headers:
           my-header: some-value
       filter:
         headers:
@@ -51,7 +51,7 @@ spec:
             name: httpbin
             group: ""
             resource: ""
-  - hostname: "second.domain.example"
+  - hostnames: ["second.domain.example"]
     rules:
     - match:
         pathType: Prefix
@@ -72,7 +72,7 @@ metadata:
     selected: "nope"
 spec:
   hosts:
-  - hostname: "should.not.select"
+  - hostnames: ["should.not.select"]
     rules:
     - match:
         pathType: Prefix

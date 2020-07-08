@@ -21,6 +21,7 @@ import (
 	golangany "github.com/golang/protobuf/ptypes/any"
 
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -65,42 +66,74 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	// The actual type in the Any should be a real proto - which is based on the generated package name.
 	// For example: type is for Any is 'type.googlepis.com/istio.networking.v1alpha3.EnvoyFilter
 	// We use: networking.istio.io/v1alpha3/EnvoyFilter
-	gvk := strings.SplitN(w.TypeUrl, "/", 3)
-	if len(gvk) == 3 {
-		// TODO: extra validation may be needed - at least logging that a resource
-		// of unknown type was requested. This should not be an error - maybe client asks
-		// for a valid CRD we just don't know about. An empty set indicates we have no such config.
-		rgvk := resource.GroupVersionKind{
-			Group:   gvk[0],
-			Version: gvk[1],
-			Kind:    gvk[2],
+	kind := strings.SplitN(w.TypeUrl, "/", 3)
+	if len(kind) != 3 {
+		log.Warnf("ADS: Unknown watched resources %s", w.TypeUrl)
+		// Still return an empty response - to not break waiting code. It is fine to not know about some resource.
+		return resp
+	}
+	// TODO: extra validation may be needed - at least logging that a resource
+	// of unknown type was requested. This should not be an error - maybe client asks
+	// for a valid CRD we just don't know about. An empty set indicates we have no such config.
+	rgvk := resource.GroupVersionKind{
+		Group:   kind[0],
+		Version: kind[1],
+		Kind:    kind[2],
+	}
+	if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
+		meshAny, err := gogotypes.MarshalAny(push.Mesh)
+		if err == nil {
+			resp = append(resp, &golangany.Any{
+				TypeUrl: meshAny.TypeUrl,
+				Value:   meshAny.Value,
+			})
 		}
-		if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
-			meshAny, err := gogotypes.MarshalAny(push.Mesh)
-			if err == nil {
-				resp = append(resp, &golangany.Any{
-					TypeUrl: meshAny.TypeUrl,
-					Value:   meshAny.Value,
-				})
-			}
-			return resp
-		}
+		return resp
+	}
 
-		// TODO: what is the proper way to handle errors ?
-		// Normally once istio is 'ready' List can't return errors on a valid config -
-		// even if k8s is disconnected, we still cache all previous results.
-		// This needs further consideration - I don't think XDS or MCP transports
-		// have a clear recommendation.
-		cfg, err := push.IstioConfigStore.List(rgvk, "")
+	// TODO: what is the proper way to handle errors ?
+	// Normally once istio is 'ready' List can't return errors on a valid config -
+	// even if k8s is disconnected, we still cache all previous results.
+	// This needs further consideration - I don't think XDS or MCP transports
+	// have a clear recommendation.
+	cfg, err := push.IstioConfigStore.List(rgvk, "")
+	if err != nil {
+		log.Warnf("ADS: Error reading resource %s %v", w.TypeUrl, err)
+		return resp
+	}
+	for _, c := range cfg {
+		// Right now model.Config is not a proto - until we change it, mcp.Resource.
+		// This also helps migrating MCP users.
+
+		b, err := configToResource(&c)
 		if err != nil {
-			log.Warnf("ADS: Error reading resource %s %v", w.TypeUrl, err)
-			return resp
+			log.Warna("Resource error ", err, " ", c.Namespace, "/", c.Name)
+			continue
 		}
-		for _, c := range cfg {
-			// Right now model.Config is not a proto - until we change it, mcp.Resource.
-			// This also helps migrating MCP users.
+		bany, err := gogotypes.MarshalAny(b)
+		if err == nil {
+			resp = append(resp, &golangany.Any{
+				TypeUrl: bany.TypeUrl,
+				Value:   bany.Value,
+			})
+		} else {
+			log.Warna("Any ", err)
+		}
+	}
 
-			b, err := configToResource(&c)
+	// TODO: MeshConfig, current dynamic ProxyConfig (for this proxy), Networks
+
+	if w.TypeUrl == gvk.ServiceEntry.String() {
+		// Include 'synthetic' SE - but without the endpoints. Used to generate CDS, LDS.
+		// EDS is pass-through.
+		svcs := push.Services(proxy)
+		for _, s := range svcs {
+			// Ignore services that are result of conversion from ServiceEntry.
+			if s.Attributes.ServiceRegistry == serviceregistry.External {
+				continue
+			}
+			c := serviceentry.ServiceToServiceEntry(s)
+			b, err := configToResource(c)
 			if err != nil {
 				log.Warna("Resource error ", err, " ", c.Namespace, "/", c.Name)
 				continue
@@ -113,35 +146,6 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 				})
 			} else {
 				log.Warna("Any ", err)
-			}
-		}
-
-		// TODO: MeshConfig, current dynamic ProxyConfig (for this proxy), Networks
-
-		if w.TypeUrl == collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String() {
-			// Include 'synthetic' SE - but without the endpoints. Used to generate CDS, LDS.
-			// EDS is pass-through.
-			svcs := push.Services(proxy)
-			for _, s := range svcs {
-				// Ignore services that are result of conversion from ServiceEntry.
-				if s.Attributes.ServiceRegistry == serviceregistry.External {
-					continue
-				}
-				c := serviceentry.ServiceToServiceEntry(s)
-				b, err := configToResource(c)
-				if err != nil {
-					log.Warna("Resource error ", err, " ", c.Namespace, "/", c.Name)
-					continue
-				}
-				bany, err := gogotypes.MarshalAny(b)
-				if err == nil {
-					resp = append(resp, &golangany.Any{
-						TypeUrl: bany.TypeUrl,
-						Value:   bany.Value,
-					})
-				} else {
-					log.Warna("Any ", err)
-				}
 			}
 		}
 	}

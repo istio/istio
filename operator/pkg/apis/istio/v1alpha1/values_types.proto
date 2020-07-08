@@ -17,11 +17,16 @@ syntax = 'proto3';
 
 import "google/protobuf/duration.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
+import "gogoproto/gogo.proto";
 
 package v1alpha1;
 
 // Package-wide variables from generator "generated".
 option go_package = "v1alpha1";
+
+option (gogoproto.marshaler_all) = false;
+option (gogoproto.unmarshaler_all) = false;
+option (gogoproto.sizer_all) = false;
 
 // ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.
 message ArchConfig {
@@ -146,6 +151,20 @@ message CoreDNSConfig {
   TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 12 [deprecated=true];
 
   TypeSliceOfMapStringInterface tolerations = 13 [deprecated=true];
+
+  // Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.
+  google.protobuf.BoolValue autoscaleEnabled = 14;
+
+  // maxReplicas setting for HorizontalPodAutoscaler.
+  uint32 autoscaleMax = 15;
+
+  // minReplicas setting for HorizontalPodAutoscaler.
+  uint32 autoscaleMin = 16;
+
+  // K8s utilization setting for HorizontalPodAutoscaler target.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  CPUTargetUtilizationConfig cpu = 17 [deprecated=true];
 }
 
 // DefaultPodDisruptionBudgetConfig specifies the default pod disruption budget configuration.

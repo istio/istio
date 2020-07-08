@@ -24,15 +24,17 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // TelemetryTest validates that source and destination labels are collected
 // for multicluster traffic.
-func TelemetryTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance) {
+func TelemetryTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance, feature features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
+		Features(feature).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("telemetry").
 				Run(func(ctx framework.TestContext) {

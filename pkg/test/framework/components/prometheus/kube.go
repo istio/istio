@@ -28,9 +28,9 @@ import (
 	"github.com/prometheus/common/model"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -56,8 +56,8 @@ type kubeComponent struct {
 	id resource.ID
 
 	api       prometheusApiV1.API
-	forwarder testKube.PortForwarder
-	cluster   kube.Cluster
+	forwarder istioKube.PortForwarder
+	cluster   resource.Cluster
 	cleanup   func() error
 }
 
@@ -78,7 +78,7 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.ApplyConfig(ns, yaml)
+	return ctx.Config().ApplyYAML(ns, yaml)
 }
 
 func removePrometheus(ctx resource.Context, ns string) error {
@@ -86,12 +86,12 @@ func removePrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.DeleteConfig(ns, yaml)
+	return ctx.Config().DeleteYAML(ns, yaml)
 }
 
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: kube.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
+		cluster: resource.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 	// Find the Prometheus pod and service, and start forwarding a local port.
@@ -109,8 +109,8 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 			return removePrometheus(ctx, cfg.TelemetryNamespace)
 		}
 	}
-	fetchFn := testKube.NewSinglePodFetch(c.cluster.Accessor, cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
-	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := testKube.NewSinglePodFetch(c.cluster, cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
+	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	}
 	port := uint16(svc.Spec.Ports[0].Port)
 
-	forwarder, err := c.cluster.NewPortForwarder(pod, 0, port)
+	forwarder, err := c.cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(port))
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func (c *kubeComponent) SumOrFail(t test.Failer, val model.Value, labels map[str
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	_ = c.forwarder.Close()
+	c.forwarder.Close()
 	if c.cleanup != nil {
 		return c.cleanup()
 	}

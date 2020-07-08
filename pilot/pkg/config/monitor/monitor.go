@@ -171,13 +171,13 @@ func (m *Monitor) checkAndUpdate() {
 
 func (m *Monitor) createConfig(c *model.Config) {
 	if _, err := m.store.Create(*c); err != nil {
-		log.Warnf("Failed to create config %s %s/%s: %v (%+v)", c.Type, c.Namespace, c.Name, err, *c)
+		log.Warnf("Failed to create config %s %s/%s: %v (%+v)", c.GroupVersionKind, c.Namespace, c.Name, err, *c)
 	}
 }
 
 func (m *Monitor) updateConfig(c *model.Config) {
 	// Set the resource version based on the existing config.
-	if prev := m.store.Get(c.GroupVersionKind(), c.Name, c.Namespace); prev != nil {
+	if prev := m.store.Get(c.GroupVersionKind, c.Name, c.Namespace); prev != nil {
 		c.ResourceVersion = prev.ResourceVersion
 	}
 
@@ -187,12 +187,12 @@ func (m *Monitor) updateConfig(c *model.Config) {
 }
 
 func (m *Monitor) deleteConfig(c *model.Config) {
-	if err := m.store.Delete(c.GroupVersionKind(), c.Name, c.Namespace); err != nil {
+	if err := m.store.Delete(c.GroupVersionKind, c.Name, c.Namespace); err != nil {
 		log.Warnf("Failed to delete config (%+v): %v ", *c, err)
 	}
 }
 
-// compareIds compares the IDs (i.e. Namespace, Type, and Name) of the two configs and returns
+// compareIds compares the IDs (i.e. Namespace, GroupVersionKind, and Name) of the two configs and returns
 // 0 if a == b, -1 if a < b, and 1 if a > b. Used for sorting config arrays.
 func compareIds(a, b *model.Config) int {
 	return strings.Compare(a.Key(), b.Key())

@@ -34,7 +34,7 @@ func TestOperatorDump(t *testing.T) {
 			hub:               "foo.io/istio",
 			tag:               "1.2.3",
 			operatorNamespace: "operator-test-namespace",
-			istioNamespace:    "istio-test-namespace",
+			watchedNamespaces: "istio-test-namespace1,istio-test-namespace2",
 		},
 	}
 
@@ -42,7 +42,7 @@ func TestOperatorDump(t *testing.T) {
 	cmd += " --tag " + odArgs.common.tag
 	cmd += " --operatorNamespace " + odArgs.common.operatorNamespace
 	cmd += " --istioNamespace " + odArgs.common.istioNamespace
-	cmd += " --charts=" + string(snapshotCharts)
+	cmd += " --manifests=" + string(snapshotCharts)
 
 	gotYAML, err := runCommand(cmd)
 	if err != nil {
@@ -75,8 +75,8 @@ func TestOperatorInit(t *testing.T) {
 			hub:               "foo.io/istio",
 			tag:               "1.2.3",
 			operatorNamespace: "operator-test-namespace",
-			istioNamespace:    "istio-test-namespace",
-			charts:            string(snapshotCharts),
+			watchedNamespaces: "istio-test-namespace1,istio-test-namespace2",
+			manifestsPath:     string(snapshotCharts),
 		},
 	}
 

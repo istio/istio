@@ -22,10 +22,10 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -118,7 +118,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 				Inject: true,
 			})
 			// First setup the VM service and its endpoints
-			if err := ctx.ApplyConfig(ns.Name(), VMService); err != nil {
+			if err := ctx.Config().ApplyYAML(ns.Name(), VMService); err != nil {
 				t.Fatal(err)
 			}
 			// Now setup a K8S service

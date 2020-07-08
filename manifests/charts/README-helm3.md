@@ -2,8 +2,14 @@
 
 ## Install
 
-The install templates support both helm2 and helm3. Please do not introduce helm3-specific changes, many
+The manifests/ templates support both helm2 and helm3. Please do not introduce helm3-specific changes, many
 users are still using helm2 and the operator is currently using the helm2 code to generate.
+
+To install in helm3 you must first create a namespace that you wish to install the following charts to:
+
+```shell script
+ kubectl create namespace istio-system
+```
 
 We have few charts:
 
@@ -11,16 +17,14 @@ We have few charts:
   It is possible to customize the namespace, but not recommended.
 
 ```shell script
- helm3 install  istio-base manifests/charts/base
+ helm3 install istio-base -n istio-system manifests/charts/base
 ```
 
-- 'istiod' installs a revision of istiod.  You can install it multiple times, with different revision.
-TODO: get rid of global.yaml, anything still used should be in values.yaml for istio-discovery
+- 'istio-control/istio-discovery' installs a revision of istiod.  You can install it multiple times, with different revisions.
 TODO: remove the need to pass -n istio-system
 
 ```shell script
- helm3 install -n istio-system istio-16 manifests/charts/istio-control/istio-discovery \
-    -f manifests/charts/global.yaml
+ helm3 install -n istio-system istio-17 manifests/charts/istio-control/istio-discovery
 
  helm3 install -n istio-system istio-canary manifests/charts/istio-control/istio-discovery \
     -f manifests/charts/global.yaml  --set revision=canary --set clusterResources=false

@@ -22,6 +22,8 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	protoV2 "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"istio.io/pkg/log"
 )
@@ -91,4 +93,24 @@ func ApplyYAML(yml string, pb proto.Message) error {
 		return err
 	}
 	return ApplyJSON(string(js), pb)
+}
+
+// TODO(https://github.com/golang/protobuf/issues/1155) switch to upstream implementation
+func ShallowCopy(src protoV2.Message) protoV2.Message {
+	if src == nil {
+		return nil
+	}
+	srcm := src.ProtoReflect()
+	if !srcm.IsValid() {
+		return srcm.Type().Zero().Interface()
+	}
+	dstm := srcm.New()
+	if dstm.Type() != srcm.Type() {
+		panic("mismatching message types")
+	}
+	srcm.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		dstm.Set(fd, v)
+		return true
+	})
+	return dstm.Interface()
 }
