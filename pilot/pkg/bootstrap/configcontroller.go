@@ -24,19 +24,16 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/config/kube/crdclient"
-	"istio.io/istio/pilot/pkg/status"
-	kubecfg "istio.io/istio/pkg/kube"
-
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/leaderelection"
+	"istio.io/istio/pilot/pkg/status"
+
+	"google.golang.org/grpc/keepalive"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/schema/collection"
-
-	"google.golang.org/grpc/keepalive"
 
 	"google.golang.org/grpc"
 
@@ -111,22 +108,22 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if hasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
 		s.ConfigStores = append(s.ConfigStores,
-			ingress.NewController(s.kubeClients, s.environment.Watcher, args.RegistryOptions.KubeOptions))
+			ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
 
-		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClients)
+		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClient)
 		if err != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", err)
 		} else {
 			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 				leaderelection.
-					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClients.Kube()).
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube()).
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// Start informers again. This fixes the case where informers for namespace do not start,
 						// as we create them only after acquiring the leader lock
 						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
 						// basically lazy loading the informer, if we stop it when we lose the lock we will never
 						// recreate it again.
-						s.kubeClients.RunAndWait(stop)
+						s.kubeClient.RunAndWait(stop)
 						log.Infof("Starting ingress controller")
 						ingressSyncer.Run(leaderStop)
 					}).
@@ -378,28 +375,7 @@ func (s *Server) mcpController(
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
-	// TODO(howardjohn) allow the collection here to be configurable to allow running with only
-	// Kubernetes APIs.
-	schemas := collection.NewSchemasBuilder()
-	if features.EnableServiceApis {
-		schemas = schemas.
-			MustAdd(collections.K8SServiceApisV1Alpha1Tcproutes).
-			MustAdd(collections.K8SServiceApisV1Alpha1Gatewayclasses).
-			MustAdd(collections.K8SServiceApisV1Alpha1Gateways).
-			MustAdd(collections.K8SServiceApisV1Alpha1Httproutes).
-			MustAdd(collections.K8SServiceApisV1Alpha1Trafficsplits)
-	}
-	for _, schema := range collections.Pilot.All() {
-		if err := schemas.Add(schema); err != nil {
-			return nil, err
-		}
-	}
-	// TODO use schemas
-	cfg, err := kubecfg.BuildClientConfig(args.RegistryOptions.KubeConfig, "")
-	if err != nil {
-		return nil, err
-	}
-	c, err := crdclient.NewForConfig(cfg, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
+	c, err := crdclient.New(s.kubeClient, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
 	if err != nil {
 		return nil, err
 	}
