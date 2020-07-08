@@ -429,43 +429,42 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 		return false
 	}
 
-	previousInfo := con.node.Active[request.TypeUrl]
-
-	// This is not a first request, we should see if it is a ACK.
-	if request.ResponseNonce != "" {
-		// If there is mismatch in the nonce, that is a case of expired/stale nonce.
-		// A nonce becomes stale following a newer nonce being sent to Envoy.
-		if previousInfo != nil && request.ResponseNonce != previousInfo.NonceSent {
-			adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
-				con.ConID, request.ResponseNonce, previousInfo.NonceSent)
-			xdsExpiredNonce.Increment()
-			return false
-		}
-
-		// If it comes here, that means nonce match. This an ACK. We should record
-		// the ack details and respond if there is a change in resource names.
+	// This is first request - initialize typeUrl watches.
+	if request.ResponseNonce == "" {
 		con.mu.Lock()
-		if con.node.Active[stype] == nil {
-			con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl}
-		}
-		con.node.Active[stype].VersionAcked = request.VersionInfo
-		con.node.Active[stype].NonceAcked = request.ResponseNonce
+		con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
 		con.mu.Unlock()
+		return true
+	}
 
-		// Envoy can send two DiscoveryRequests with same version and nonce when it detects
-		// a new resource. We should respond if they change.
-		var previousResources []string
-		switch request.TypeUrl {
-		case v2.EndpointType, v3.EndpointType:
-			previousResources = con.Clusters
-		case v2.RouteType, v3.RouteType:
-			previousResources = con.Routes
-		}
+	previousInfo := con.node.Active[stype]
 
-		if listEqualUnordered(previousResources, request.ResourceNames) {
-			adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
-			return false
-		}
+	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
+	// A nonce becomes stale following a newer nonce being sent to Envoy.
+	if previousInfo != nil && request.ResponseNonce != previousInfo.NonceSent {
+		adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
+			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
+		xdsExpiredNonce.Increment()
+		return false
+	}
+
+	// If it comes here, that means nonce match. This an ACK. We should record
+	// the ack details and respond if there is a change in resource names.
+	con.mu.Lock()
+	if con.node.Active[stype] == nil {
+		con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+	}
+	previousResources := con.node.Active[stype].ResourceNames
+	con.node.Active[stype].VersionAcked = request.VersionInfo
+	con.node.Active[stype].NonceAcked = request.ResponseNonce
+	con.node.Active[stype].ResourceNames = request.ResourceNames
+	con.mu.Unlock()
+
+	// Envoy can send two DiscoveryRequests with same version and nonce when it detects
+	// a new resource. We should respond if they change.
+	if listEqualUnordered(previousResources, request.ResourceNames) {
+		adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		return false
 	}
 	return true
 }
