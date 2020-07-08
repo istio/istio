@@ -287,7 +287,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
 	// however citatel won't rotate if that happens, this function will prevent that using cert chain TTL as
 	// the workload TTL
-	defaultCertTTL, err := ca.getDefaultCertTTL(opts.DefaultCertTTL)
+	defaultCertTTL, err := ca.minTTL(opts.DefaultCertTTL)
 	if err != nil {
 		return ca, fmt.Errorf("failed to get default cert TTL %s", err.Error())
 	}
@@ -393,7 +393,7 @@ func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte
 	return certPEM, privPEM, nil
 }
 
-func (ca *IstioCA) getDefaultCertTTL(defaultCertTTL time.Duration) (time.Duration, error) {
+func (ca *IstioCA) minTTL(defaultCertTTL time.Duration) (time.Duration, error) {
 	certChainPem := ca.keyCertBundle.GetCertChainPem()
 	if len(certChainPem) == 0 {
 		return defaultCertTTL, nil
