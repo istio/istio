@@ -39,7 +39,7 @@ import (
 // This is heavily inspired/copied from https://github.com/kubernetes/apimachinery/blob/master/pkg/api/apitesting/roundtrip/roundtrip.go
 // A fork was required to support Istio types. Unlike Kubernetes, which has "normal" go structs, Istio types are protobufs
 // Part of this means that each field has a bunch of internal proto stuff, like XXX_sizecache. This does not get roundtripped properly,
-// and we do not care that it doesn't. As a result, we switch the comparision to use go-cmp/cmp which can handle this.
+// and we do not care that it doesn't. As a result, we switch the comparison to use go-cmp/cmp which can handle this.
 
 type InstallFunc func(scheme *runtime.Scheme)
 
