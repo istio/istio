@@ -527,7 +527,7 @@ func applyEnvVars() {
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 	// Disable the secret eviction for istio agent.
 	workloadSdsCacheOptions.EvictionDuration = 0
-	if citadel.ProvCert != "" {
+	if citadel.ProvCert != "" && citadel.ProvCert != "/etc/certs" {
 		workloadSdsCacheOptions.AlwaysValidTokenFlag = true
 	}
 	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
