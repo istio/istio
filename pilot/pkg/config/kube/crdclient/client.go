@@ -29,23 +29,18 @@ import (
 	"time"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/cache"
-	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
-	serviceapisinformers "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
-
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
 
 	"istio.io/api/label"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
-	istioinformers "istio.io/client-go/pkg/informers/externalversions"
-
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 
@@ -55,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -96,7 +92,7 @@ func (cl *Client) checkReadyForEvents(curr interface{}) error {
 	}
 	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
 	if err != nil {
-		log.Infof("Error retrieving key: %v", err)
+		scope.Infof("Error retrieving key: %v", err)
 	}
 	return nil
 }
@@ -112,57 +108,28 @@ func (cl *Client) RegisterEventHandler(kind resource.GroupVersionKind, handler f
 
 // Start the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
-	log.Infoa("Starting Pilot K8S CRD controller")
+	scope.Infoa("Starting Pilot K8S CRD controller")
 
 	go func() {
 		cache.WaitForCacheSync(stop, cl.HasSynced)
 		cl.queue.Run(stop)
 	}()
 
-	for _, ctl := range cl.kinds {
-		go ctl.informer.Run(stop)
-	}
-
 	<-stop
-	log.Info("controller terminated")
+	scope.Info("controller terminated")
 }
 
 func (cl *Client) HasSynced() bool {
 	for kind, ctl := range cl.kinds {
 		if !ctl.informer.HasSynced() {
-			log.Infof("controller %q is syncing...", kind)
+			scope.Infof("controller %q is syncing...", kind)
 			return false
 		}
 	}
 	return true
 }
 
-// NewForConfig creates a client to the Kubernetes API using a rest config.
-func NewForConfig(cfg *rest.Config, configLedger ledger.Ledger,
-	revision string, options controller2.Options) (model.ConfigStoreCache, error) {
-	ic, err := istioclient.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	crdClient, err := apiextensionsclient.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	sc, err := serviceapisclient.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return New(ic, sc, crdClient, configLedger, revision, options)
-}
-
-func New(istioClient istioclient.Interface, serviceApisClient serviceapisclient.Interface, crdClient apiextensionsclient.Interface, configLedger ledger.Ledger,
-	revision string, options controller2.Options) (model.ConfigStoreCache, error) {
-
-	istioInformers := istioinformers.NewSharedInformerFactory(istioClient, options.ResyncPeriod)
-	serviceAPIInformers := serviceapisinformers.NewSharedInformerFactory(serviceApisClient, options.ResyncPeriod)
-
+func New(client kube.Client, configLedger ledger.Ledger, revision string, options controller2.Options) (model.ConfigStoreCache, error) {
 	out := &Client{
 		domainSuffix:      options.DomainSuffix,
 		configLedger:      configLedger,
@@ -170,10 +137,10 @@ func New(istioClient istioclient.Interface, serviceApisClient serviceapisclient.
 		revision:          revision,
 		queue:             queue.NewQueue(1 * time.Second),
 		kinds:             map[resource.GroupVersionKind]*cacheHandler{},
-		istioClient:       istioClient,
-		serviceApisClient: serviceApisClient,
+		istioClient:       client.Istio(),
+		serviceApisClient: client.ServiceApis(),
 	}
-	known := knownCRDs(crdClient)
+	known := knownCRDs(client.Ext())
 	for _, s := range out.schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
@@ -181,16 +148,16 @@ func New(istioClient istioclient.Interface, serviceApisClient serviceapisclient.
 			var i informers.GenericInformer
 			var err error
 			if s.Resource().Group() == "networking.x-k8s.io" {
-				i, err = serviceAPIInformers.ForResource(s.Resource().GroupVersionResource())
+				i, err = client.ServiceApisInformer().ForResource(s.Resource().GroupVersionResource())
 			} else {
-				i, err = istioInformers.ForResource(s.Resource().GroupVersionResource())
+				i, err = client.IstioInformer().ForResource(s.Resource().GroupVersionResource())
 			}
 			if err != nil {
 				return nil, err
 			}
 			out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
 		} else {
-			log.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
 		}
 	}
 
@@ -317,7 +284,7 @@ func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
 		if err == nil {
 			break
 		}
-		log.Errorf("failed to list CRDs: %v", err)
+		scope.Errorf("failed to list CRDs: %v", err)
 		time.Sleep(delay)
 		delay *= 2
 		if delay > maxDelay {
@@ -335,7 +302,7 @@ func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
 func TranslateObject(r runtime.Object, gvk resource.GroupVersionKind, domainSuffix string) *model.Config {
 	translateFunc, f := translationMap[gvk]
 	if !f {
-		log.Errorf("unknown type %v", gvk)
+		scope.Errorf("unknown type %v", gvk)
 		return nil
 	}
 	c := translateFunc(r)

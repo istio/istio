@@ -31,6 +31,9 @@ const (
 	// ReadSigningCertRetryInterval specifies the time to wait between retries on reading the signing key and cert.
 	ReadSigningCertRetryInterval = time.Second * 5
 
+	// ReadSigningCertRetryMax specifies the total max time to wait between retries on reading the signing key and cert.
+	ReadSigningCertRetryMax = time.Second * 30
+
 	// DefaultMaxWorkloadCertTTL is the default max TTL of issued workload certificates.
 	DefaultMaxWorkloadCertTTL = 90 * 24 * time.Hour
 

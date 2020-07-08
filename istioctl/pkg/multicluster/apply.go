@@ -45,8 +45,8 @@ func updateRemoteSecret(prev, curr *v1.Secret) (changed bool) {
 		}
 	}
 
-	if prev.Annotations[clusterContextAnnotationKey] != curr.Annotations[clusterContextAnnotationKey] {
-		prev.Annotations[clusterContextAnnotationKey] = curr.Annotations[clusterContextAnnotationKey]
+	if prev.Annotations[clusterNameAnnotationKey] != curr.Annotations[clusterNameAnnotationKey] {
+		prev.Annotations[clusterNameAnnotationKey] = curr.Annotations[clusterNameAnnotationKey]
 		changed = true
 	}
 

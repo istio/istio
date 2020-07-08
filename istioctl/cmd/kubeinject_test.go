@@ -18,26 +18,21 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-
-	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestKubeInject(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
-			configs:        []model.Config{},
 			args:           strings.Split("kube-inject", " "),
 			expectedRegexp: regexp.MustCompile(`filename not specified \(see --filename or -f\)`),
 			wantException:  true,
 		},
 		{ // case 1
-			configs:        []model.Config{},
 			args:           strings.Split("kube-inject -f missing.yaml", " "),
 			expectedRegexp: regexp.MustCompile(`open missing.yaml: no such file or directory`),
 			wantException:  true,
 		},
 		{ // case 2
-			configs: []model.Config{},
 			args: strings.Split(
 				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
 					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello.yaml"+
