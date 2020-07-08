@@ -3044,29 +3044,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
-						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
-							{
-								Name: credentialName,
-								SdsConfig: &core.ConfigSource{
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  authn_model.EgressGatewaySdsUdsPath,
-															StatPrefix: authn_model.SDSStatPrefix,
-														},
-													},
-												},
-											},
-										},
-									},
-									InitialFetchTimeout: features.InitialFetchTimeout,
-								},
-							},
-						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{
@@ -3131,29 +3108,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
-						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
-							{
-								Name: credentialName,
-								SdsConfig: &core.ConfigSource{
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  authn_model.EgressGatewaySdsUdsPath,
-															StatPrefix: authn_model.SDSStatPrefix,
-														},
-													},
-												},
-											},
-										},
-									},
-									InitialFetchTimeout: features.InitialFetchTimeout,
-								},
-							},
-						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{},
