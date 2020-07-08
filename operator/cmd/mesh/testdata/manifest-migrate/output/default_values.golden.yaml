@@ -47,7 +47,7 @@ spec:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-istio-egressgateway
+            name: istio-egressgateway
         nodeSelector: {}
         podAnnotations: {}
         resources:
@@ -81,7 +81,7 @@ spec:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-istio-ingressgateway
+            name: istio-ingressgateway
         nodeSelector: {}
         podAnnotations: {}
         resources:
@@ -115,7 +115,7 @@ spec:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-pilot
+            name: istiod
         nodeSelector: {}
         replicaCount: 1
         resources:
@@ -144,7 +144,7 @@ spec:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-policy
+            name: policy
         nodeSelector: {}
         podAnnotations: {}
         replicaCount: 1
@@ -167,7 +167,7 @@ spec:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-telemetry
+            name: telemetry
         nodeSelector: {}
         replicaCount: 1
         resources:
