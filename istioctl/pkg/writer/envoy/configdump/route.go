@@ -25,7 +25,6 @@ import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
-	any "github.com/golang/protobuf/ptypes/any"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	pilot_util "istio.io/istio/pilot/pkg/networking/util"
@@ -54,7 +53,7 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 	}
 	fmt.Fprintln(c.Stdout, "NOTE: This output only contains routes loaded via RDS.")
 	if filter.Verbose {
-		fmt.Fprintln(w, "NAME\tDOMAINS\tMATCH\tCONFIG\tVIRTUAL SERVICE")
+		fmt.Fprintln(w, "NAME\tDOMAINS\tMATCH\tVIRTUAL SERVICE")
 	} else {
 		fmt.Fprintln(w, "NAME\tVIRTUAL HOSTS")
 	}
@@ -64,11 +63,10 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 				for _, vhosts := range route.GetVirtualHosts() {
 					for _, r := range vhosts.Routes {
 						if !isPassthrough(r.GetAction()) {
-							fmt.Fprintf(w, "%v\t%s\t%s\t%s\t%s\n",
+							fmt.Fprintf(w, "%v\t%s\t%s\t%s\n",
 								route.Name,
 								describeRouteDomains(vhosts.GetDomains()),
 								describeMatch(r.GetMatch()),
-								describeConfig(r.GetTypedPerFilterConfig()),
 								describeManagement(r.GetMetadata()))
 						}
 					}
@@ -79,14 +77,6 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 		}
 	}
 	return w.Flush()
-}
-
-func describeConfig(config map[string]*any.Any) string {
-	keys := []string{}
-	for key := range config {
-		keys = append(keys, key)
-	}
-	return strings.Join(keys, "/")
 }
 
 func describeRouteDomains(domains []string) string {
