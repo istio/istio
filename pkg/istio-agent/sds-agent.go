@@ -229,7 +229,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 		log.Fatalf("Invalid discovery address %v %v", discAddr, err)
 	}
 
-	if _, err := os.Stat(jwtPath); err == nil && citadel.ProvCert == "" {
+	if _, err := os.Stat(jwtPath); err == nil {
 		// If the JWT file exists, and explicit 'prov cert' is not - use the JWT
 		a.JWTPath = jwtPath
 	} else {
