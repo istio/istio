@@ -20,14 +20,12 @@ import (
 	"path/filepath"
 
 	"github.com/coreos/etcd/pkg/fileutil"
-	"github.com/spf13/viper"
-
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/pkg/log"
 )
 
-func copyBinaries() error {
-	srcDir := "/opt/cni/bin"
+func copyBinaries(updateBinaries bool, skipBinaries []string) error {
+	srcDir := constants.CNIBinDir
 	targetDirs := []string{constants.HostCNIBinDir, constants.SecondaryBinDir}
 
 	for _, targetDir := range targetDirs {
@@ -41,7 +39,6 @@ func copyBinaries() error {
 			return err
 		}
 
-		skipBinaries := viper.GetStringSlice(constants.SkipCNIBinaries)
 		for _, file := range files {
 			filename := file.Name()
 			if contains(skipBinaries, filename) {
@@ -50,7 +47,7 @@ func copyBinaries() error {
 			}
 
 			targetFilename := filepath.Join(targetDir, filename)
-			if _, err := os.Stat(targetFilename); err == nil && !viper.GetBool(constants.UpdateCNIBinaries) {
+			if _, err := os.Stat(targetFilename); err == nil && !updateBinaries {
 				log.Infof("%s is already here and UPDATE_CNI_BINARIES isn't true, skipping", targetFilename)
 				continue
 			}

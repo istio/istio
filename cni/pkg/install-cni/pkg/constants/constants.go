@@ -16,22 +16,24 @@ package constants
 
 // Command line arguments
 const (
-	CNINetDir            = "cni-net-dir"
 	MountedCNINetDir     = "mounted-cni-net-dir"
+	CNINetDir            = "cni-net-dir"
 	CNIConfName          = "cni-conf-name"
-	KubeCfgFilename      = "kubecfg-file-name"
 	ChainedCNIPlugin     = "chained-cni-plugin"
-	SkipCNIBinaries      = "skip-cni-binaries"
-	UpdateCNIBinaries    = "update-cni-binaries"
-	CNINetworkConfig     = "cni-network-config"
 	CNINetworkConfigFile = "cni-network-config-file"
+	CNINetworkConfig     = "cni-network-config"
+	LogLevel             = "log-level"
+	KubecfgFilename      = "kubecfg-file-name"
 	KubeCAFile           = "kube-ca-file"
 	SkipTLSVerify        = "skip-tls-verify"
-	LogLevel             = "log-level"
+	SkipCNIBinaries      = "skip-cni-binaries"
+	UpdateCNIBinaries    = "update-cni-binaries"
 )
 
 // Internal constants
 const (
-	HostCNIBinDir   = "/host/opt/cni/bin"
-	SecondaryBinDir = "/host/secondary-bin-dir"
+	CNIBinDir          = "/opt/cni/bin"
+	HostCNIBinDir      = "/host/opt/cni/bin"
+	SecondaryBinDir    = "/host/secondary-bin-dir"
+	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
 )

@@ -107,7 +107,7 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 	}
 }
 
-func TestTransformCNIPluginIntoList(t *testing.T) {
+func TestInsertCNIConfig(t *testing.T) {
 	cases := []struct {
 		name   string
 		inFile string
@@ -129,7 +129,7 @@ func TestTransformCNIPluginIntoList(t *testing.T) {
 			existingConfFilename := "testdata/" + c.inFile
 			existingConf := testutils.ReadFile(existingConfFilename, t)
 
-			output, err := transformCNIPluginIntoList(istioConf, existingConf)
+			output, err := insertCNIConfig(istioConf, existingConf)
 			if err != nil {
 				t.Fatal(err)
 			}

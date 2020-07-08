@@ -17,19 +17,17 @@ package install
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io/ioutil"
+	"istio.io/istio/cni/pkg/install-cni/pkg/config"
+	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"os"
 	"path/filepath"
 	"text/template"
 
 	"github.com/coreos/etcd/pkg/fileutil"
-	"github.com/spf13/viper"
-
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 )
 
-const kubeConfigTemplate = `# Kubeconfig file for Istio CNI plugin.
+const kubeconfigTemplate = `# Kubeconfig file for Istio CNI plugin.
 apiVersion: v1
 kind: Config
 clusters:
@@ -49,9 +47,7 @@ contexts:
 current-context: istio-cni-context
 `
 
-const serviceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
-
-type kubeConfigFields struct {
+type kubeconfigFields struct {
 	KubernetesServiceProtocol string
 	KubernetesServiceHost     string
 	KubernetesServicePort     string
@@ -59,39 +55,32 @@ type kubeConfigFields struct {
 	TLSConfig                 string
 }
 
-func createKubeConfigFile() error {
-	host := os.Getenv("KUBERNETES_SERVICE_HOST")
-	if len(host) == 0 {
+func createKubeconfigFile(cfg *config.Config, saToken string) error {
+	if len(cfg.K8sServiceHost) == 0 {
 		return errors.New("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
 	}
 
-	port := os.Getenv("KUBERNETES_SERVICE_PORT")
-	if len(port) == 0 {
+	if len(cfg.K8sServicePort) == 0 {
 		return errors.New("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
 	}
 
-	token, err := readServiceAccountToken()
+	tpl, err := template.New("kubeconfig").Parse(kubeconfigTemplate)
 	if err != nil {
 		return err
 	}
 
-	tpl, err := template.New("kubeconfig").Parse(kubeConfigTemplate)
-	if err != nil {
-		return err
-	}
-
-	protocol := os.Getenv("KUBERNETES_SERVICE_PROTOCOL")
+	protocol := cfg.K8sServiceProtocol
 	if len(protocol) == 0 {
 		protocol = "https"
 	}
 
-	caFile := viper.GetString(constants.KubeCAFile)
+	caFile := cfg.KubeCAFile
 	if len(caFile) == 0 {
-		caFile = serviceAccountPath + "/ca.crt"
+		caFile = constants.ServiceAccountPath + "/ca.crt"
 	}
 
 	var tlsConfig string
-	if viper.GetBool(constants.SkipTLSVerify) {
+	if cfg.SkipTLSVerify {
 		tlsConfig = "insecure-skip-tls-verify: true"
 	} else if fileutil.Exist(caFile) {
 		caContents, err := ioutil.ReadFile(caFile)
@@ -102,18 +91,19 @@ func createKubeConfigFile() error {
 		tlsConfig = "certificate-authority-data: " + caBase64
 	}
 
-	fields := kubeConfigFields{
+	fields := kubeconfigFields{
 		KubernetesServiceProtocol: protocol,
-		KubernetesServiceHost:     host,
-		KubernetesServicePort:     port,
-		ServiceAccountToken:       token,
+		KubernetesServiceHost:     cfg.K8sServiceHost,
+		KubernetesServicePort:     cfg.K8sServicePort,
+		ServiceAccountToken:       saToken,
 		TLSConfig:                 tlsConfig,
 	}
 
-	tmpFile, err := ioutil.TempFile(viper.GetString(constants.MountedCNINetDir), "CNI_TEMP_")
+	tmpFile, err := ioutil.TempFile(cfg.MountedCNINetDir, cfg.KubeconfigFilename+".tmp")
 	if err != nil {
 		return err
 	}
+	defer os.Remove(tmpFile.Name())
 
 	if err = tpl.Execute(tmpFile, fields); err != nil {
 		_ = tmpFile.Close()
@@ -124,26 +114,10 @@ func createKubeConfigFile() error {
 		return err
 	}
 
-	tmpFile.Close()
-
-	filename := filepath.Join(viper.GetString(constants.MountedCNINetDir), viper.GetString(constants.KubeCfgFilename))
+	filename := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
 	if err = os.Rename(tmpFile.Name(), filename); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func readServiceAccountToken() (string, error) {
-	saToken := serviceAccountPath + "/token"
-	if !fileutil.Exist(saToken) {
-		return "", fmt.Errorf("SA Token file %s does not exist. Is this not running within a pod?", saToken)
-	}
-
-	token, err := ioutil.ReadFile(saToken)
-	if err != nil {
-		return "", err
-	}
-
-	return string(token), nil
 }

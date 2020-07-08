@@ -14,19 +14,46 @@
 
 package install
 
-// Run starts the installation process
-func Run() (err error) {
-	if err = copyBinaries(); err != nil {
+import (
+	"fmt"
+	"github.com/coreos/etcd/pkg/fileutil"
+	"io/ioutil"
+	"istio.io/istio/cni/pkg/install-cni/pkg/config"
+	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
+)
+
+// Run starts the installation process with given configuration
+func Run(cfg *config.Config) (err error) {
+	if err = copyBinaries(cfg.UpdateCNIBinaries, cfg.SkipCNIBinaries); err != nil {
 		return
 	}
 
-	if err = createKubeConfigFile(); err != nil {
+	saToken, err := readServiceAccountToken()
+	if err != nil {
+		return err
+	}
+
+	if err = createKubeconfigFile(cfg, saToken); err != nil {
 		return
 	}
 
-	if err = createCNIConfigFile(); err != nil {
+	if err = createCNIConfigFile(cfg, saToken); err != nil {
 		return
 	}
 
 	return
+}
+
+func readServiceAccountToken() (string, error) {
+	saToken := constants.ServiceAccountPath + "/token"
+	if !fileutil.Exist(saToken) {
+		return "", fmt.Errorf("SA Token file %s does not exist. Is this not running within a pod?", saToken)
+	}
+
+	token, err := ioutil.ReadFile(saToken)
+	if err != nil {
+		return "", err
+	}
+
+	return string(token), nil
 }

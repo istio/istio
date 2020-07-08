@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"os"
 	"path/filepath"
 	"sort"
@@ -26,145 +27,185 @@ import (
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/coreos/etcd/pkg/fileutil"
-	"github.com/spf13/viper"
-
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/pkg/log"
 )
 
-func createCNIConfigFile() error {
-	contents, err := readCNITemplate()
-	if err != nil {
-		return err
-	}
-
-	contents, err = replaceVariables(contents)
-	if err != nil {
-		return err
-	}
-
-	return saveFile(contents)
+type pluginConfig struct {
+	mountedCNINetDir string
+	cniConfName      string
+	chainedCNIPlugin bool
 }
 
-func readCNITemplate() ([]byte, error) {
-	if configFile := viper.GetString(constants.CNINetworkConfigFile); fileutil.Exist(configFile) {
-		contents, err := ioutil.ReadFile(configFile)
+type cniConfigTemplate struct {
+	cniNetworkConfigFile string
+	cniNetworkConfig     string
+}
+
+type cniConfigVars struct {
+	cniNetDir          string
+	kubeconfigFilename string
+	logLevel           string
+	k8sServiceHost     string
+	k8sServicePort     string
+	k8sNodeName        string
+}
+
+func getPluginConfig(cfg *config.Config) pluginConfig {
+	return pluginConfig{
+		mountedCNINetDir: cfg.MountedCNINetDir,
+		cniConfName:      cfg.CNIConfName,
+		chainedCNIPlugin: cfg.ChainedCNIPlugin,
+	}
+}
+
+func getCNIConfigTemplate(cfg *config.Config) cniConfigTemplate {
+	return cniConfigTemplate{
+		cniNetworkConfigFile: cfg.CNINetworkConfigFile,
+		cniNetworkConfig:     cfg.CNINetworkConfig,
+	}
+}
+
+func getCNIConfigVars(cfg *config.Config) cniConfigVars {
+	return cniConfigVars{
+		cniNetDir:          cfg.CNINetDir,
+		kubeconfigFilename: cfg.KubeconfigFilename,
+		logLevel:           cfg.LogLevel,
+		k8sServiceHost:     cfg.K8sServiceHost,
+		k8sServicePort:     cfg.K8sServicePort,
+		k8sNodeName:        cfg.K8sNodeName,
+	}
+}
+
+func createCNIConfigFile(cfg *config.Config, saToken string) error {
+	cniConfig, err := readCNIConfigTemplate(getCNIConfigTemplate(cfg))
+	if err != nil {
+		return err
+	}
+
+	cniConfig, err = replaceCNIConfigVars(cniConfig, getCNIConfigVars(cfg), saToken)
+	if err != nil {
+		return err
+	}
+
+	return writeCNIConfig(cniConfig, getPluginConfig(cfg))
+}
+
+func readCNIConfigTemplate(template cniConfigTemplate) ([]byte, error) {
+	if fileutil.Exist(template.cniNetworkConfigFile) {
+		cniConfig, err := ioutil.ReadFile(template.cniNetworkConfigFile)
 		if err != nil {
 			return nil, err
 		}
-		log.Infof("Using CNI config template from %s", configFile)
-		return contents, nil
+		log.Infof("Using CNI config template from %s", template.cniNetworkConfigFile)
+		return cniConfig, nil
 	}
 
-	if config := viper.GetString(constants.CNINetworkConfig); len(config) > 0 {
+	if len(template.cniNetworkConfig) > 0 {
 		log.Infof("Using CNI config template from CNI_NETWORK_CONFIG environment variable.")
-		return []byte(config), nil
+		return []byte(template.cniNetworkConfig), nil
 	}
 
 	return nil, errors.New("need CNI_NETWORK_CONFIG or CNI_NETWORK_CONFIG_FILE to be set")
 }
 
-func replaceVariables(input []byte) ([]byte, error) {
-	var err error
-	out := string(input)
+func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) ([]byte, error) {
+	cniConfigStr := string(cniConfig)
 
-	out = strings.ReplaceAll(out, "__KUBERNETES_SERVICE_HOST__", os.Getenv("KUBERNETES_SERVICE_HOST"))
-	out = strings.ReplaceAll(out, "__KUBERNETES_SERVICE_PORT__", os.Getenv("KUBERNETES_SERVICE_PORT"))
-
-	node := os.Getenv("KUBERNETES_NODE_NAME")
-	if len(node) == 0 {
-		node, err = os.Hostname()
-		if err != nil {
-			return nil, err
-		}
-	}
-	out = strings.ReplaceAll(out, "__KUBERNETES_NODE_NAME__", node)
-
-	out = strings.ReplaceAll(out, "__KUBECONFIG_FILENAME__", viper.GetString(constants.KubeCfgFilename))
-	out = strings.ReplaceAll(out, "__KUBECONFIG_FILEPATH__", filepath.Join(viper.GetString(constants.CNINetDir), viper.GetString(constants.KubeCfgFilename)))
-	out = strings.ReplaceAll(out, "__LOG_LEVEL__", viper.GetString(constants.LogLevel))
+	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__LOG_LEVEL__", vars.logLevel)
+	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBECONFIG_FILENAME__", vars.kubeconfigFilename)
+	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBECONFIG_FILEPATH__", filepath.Join(vars.cniNetDir, vars.kubeconfigFilename))
+	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBERNETES_SERVICE_HOST__", vars.k8sServiceHost)
+	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBERNETES_SERVICE_PORT__", vars.k8sServicePort)
+	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBERNETES_NODE_NAME__", vars.k8sNodeName)
 
 	// Log the config file before inserting service account token.
 	// This way auth token is not visible in the logs.
-	log.Infof("CNI config: %s", out)
+	log.Infof("CNI config: %s", cniConfigStr)
 
-	token, err := readServiceAccountToken()
-	if err != nil {
-		return nil, err
-	}
-	out = strings.ReplaceAll(out, "__SERVICEACCOUNT_TOKEN__", token)
+	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__SERVICEACCOUNT_TOKEN__", saToken)
 
-	return []byte(out), nil
+	return []byte(cniConfigStr), nil
 }
 
-func saveFile(contents []byte) error {
-	finalFilename := getCNIConfFilename()
+func writeCNIConfig(cniConfig []byte, cfg pluginConfig) error {
+	cniConfigFilepath := getCNIConfigFilepath(cfg)
 
-	if viper.GetBool(constants.ChainedCNIPlugin) && fileutil.Exist(finalFilename) {
-		// This section overwrites an existing plugins list entry to for istio-cni
-		existingContent, err := ioutil.ReadFile(finalFilename)
+	if cfg.chainedCNIPlugin && fileutil.Exist(cniConfigFilepath) {
+		// This section overwrites an existing plugins list entry for istio-cni
+		existingCNIConfig, err := ioutil.ReadFile(cniConfigFilepath)
 		if err != nil {
 			return err
 		}
-		contents, err = transformCNIPluginIntoList(contents, existingContent)
+		cniConfig, err = insertCNIConfig(cniConfig, existingCNIConfig)
 		if err != nil {
 			return err
 		}
 
-		if strings.HasSuffix(finalFilename, ".conf") {
-			// If the old config filename ends with .conf, rename it to .conflist, because it has changed to be a list
+		if strings.HasSuffix(cniConfigFilepath, ".conf") {
+			// If the old CNI config filename ends with .conf, rename it to .conflist, because it has changed to be a list
 			// Also remove the old file
-			err = os.Remove(finalFilename)
+			err = os.Remove(cniConfigFilepath)
 			if err != nil {
 				return err
 			}
-			log.Infof("Renaming %s extension to .conflist", finalFilename)
-			finalFilename += "list"
+			log.Infof("Renaming %s extension to .conflist", cniConfigFilepath)
+			cniConfigFilepath += "list"
 		}
 	}
 
-	tmpFilename := filepath.Join(viper.GetString(constants.MountedCNINetDir), "istio-cni.conf.tmp")
-	err := ioutil.WriteFile(tmpFilename, contents, 0644)
+	tmpFile, err := ioutil.TempFile(filepath.Dir(cniConfigFilepath), filepath.Base(cniConfigFilepath)+".tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpFile.Name())
+	err = os.Chmod(tmpFile.Name(), 0644)
 	if err != nil {
 		return err
 	}
 
-	err = os.Rename(tmpFilename, finalFilename)
+	_, err = tmpFile.Write(cniConfig)
+	if err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+
+	if err = tmpFile.Close(); err != nil {
+		return err
+	}
+
+	err = os.Rename(tmpFile.Name(), cniConfigFilepath)
 	if err != nil {
 		return err
 	}
 
-	log.Infof("Created CNI config %s", finalFilename)
+	log.Infof("Created CNI config %s", cniConfigFilepath)
 	return nil
 }
 
-func getCNIConfFilename() string {
-	mountedCNINetDir := viper.GetString(constants.MountedCNINetDir)
-
-	filename := viper.GetString(constants.CNIConfName)
-	if filename == "" {
+func getCNIConfigFilepath(cfg pluginConfig) string {
+	filename := cfg.cniConfName
+	if len(filename) == 0 {
 		var err error
-		filename, err = getDefaultCNINetwork(mountedCNINetDir)
+		filename, err = getDefaultCNINetwork(cfg.mountedCNINetDir)
 		if err != nil {
 			log.Infoa(err)
 			filename = "YYY-istio-cni.conf"
 		}
 	}
+	cniConfigFilepath := filepath.Join(cfg.mountedCNINetDir, filename)
 
-	filename = filepath.Join(mountedCNINetDir, filename)
-
-	if !viper.GetBool(constants.ChainedCNIPlugin) {
-		return filename
+	if !cfg.chainedCNIPlugin {
+		return cniConfigFilepath
 	}
 
-	if !fileutil.Exist(filename) &&
-		strings.HasSuffix(filename, ".conf") &&
-		fileutil.Exist(filename+"list") {
-		log.Infof("%s doesn't exist, but %[1]slist does; Using it instead", filename)
-		filename += "list"
+	if !fileutil.Exist(cniConfigFilepath) &&
+		strings.HasSuffix(cniConfigFilepath, ".conf") &&
+		fileutil.Exist(cniConfigFilepath+"list") {
+		log.Infof("%s doesn't exist, but %[1]slist does; Using it instead", cniConfigFilepath)
+		cniConfigFilepath += "list"
 	}
 
-	return filename
+	return cniConfigFilepath
 }
 
 func getDefaultCNINetwork(confDir string) (string, error) {
@@ -215,11 +256,10 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 	return "", fmt.Errorf("no valid networks found in %s", confDir)
 }
 
-// newContent = istio-cni content, that should be merged into existingContent
-// existingContent = contents of the file that is already present
-func transformCNIPluginIntoList(newContent, existingContent []byte) ([]byte, error) {
+// newCNIConfig = istio-cni config, that should be inserted into existingCNIConfig
+func insertCNIConfig(newCNIConfig, existingCNIConfig []byte) ([]byte, error) {
 	var rawIstio interface{}
-	err := json.Unmarshal(newContent, &rawIstio)
+	err := json.Unmarshal(newCNIConfig, &rawIstio)
 	if err != nil {
 		return nil, fmt.Errorf("error loading Istio CNI config (JSON error): %v", err)
 	}
@@ -227,7 +267,7 @@ func transformCNIPluginIntoList(newContent, existingContent []byte) ([]byte, err
 	delete(istioMap, "cniVersion")
 
 	var rawExisting interface{}
-	err = json.Unmarshal(existingContent, &rawExisting)
+	err = json.Unmarshal(existingCNIConfig, &rawExisting)
 	if err != nil {
 		return nil, fmt.Errorf("error loading existing CNI config (JSON error): %v", err)
 	}
