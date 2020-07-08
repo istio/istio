@@ -15,15 +15,12 @@
 package gcemetadata
 
 import (
-	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeApiCore "k8s.io/api/core/v1"
 
 	environ "istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -41,15 +38,15 @@ var (
 )
 
 type kubeComponent struct {
-	id        resource.ID
-	ns        namespace.Instance
-	cluster   kube.Cluster
-	clusterIP string
+	id      resource.ID
+	ns      namespace.Instance
+	cluster resource.Cluster
+	address string
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: resource.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
@@ -72,27 +69,18 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	// apply YAML
-	yamlContent, err := ioutil.ReadFile(environ.GCEMetadataServerInstallFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read %q, err: %v", environ.GCEMetadataServerInstallFilePath, err)
+	if err := c.cluster.ApplyYAMLFiles(c.ns.Name(), environ.GCEMetadataServerInstallFilePath); err != nil {
+		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.GCEMetadataServerInstallFilePath, err)
 	}
 
-	if _, err := c.cluster.ApplyContents(c.ns.Name(), string(yamlContent)); err != nil {
-		return nil, fmt.Errorf("failed to apply rendered %q, err: %v", environ.GCEMetadataServerInstallFilePath, err)
-	}
-
-	fetchFn := testKube.NewSinglePodFetch(c.cluster.Accessor, c.ns.Name(), "app=gce-metadata")
-	_, err = c.cluster.WaitUntilPodsAreReady(fetchFn)
-	if err != nil {
+	var svc *kubeApiCore.Service
+	if svc, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster, c.ns.Name(), "gce-metadata-server"); err != nil {
+		scopes.Framework.Infof("Error waiting for GCE Metadata service to be available: %v", err)
 		return nil, err
 	}
 
-	// Now retrieve the service information to find the ClusterIP
-	s, err := c.cluster.CoreV1().Services(c.ns.Name()).Get(context.TODO(), "gce-metadata-server", metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	c.clusterIP = s.Spec.ClusterIP
+	c.address = fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
+	scopes.Framework.Infof("GCE Metadata Server in-cluster address: %s", c.address)
 
 	return c, nil
 }
@@ -107,5 +95,5 @@ func (c *kubeComponent) Close() error {
 }
 
 func (c *kubeComponent) Address() string {
-	return c.clusterIP
+	return c.address
 }
