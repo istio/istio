@@ -382,7 +382,7 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 		return nil
 	}
 	con.node.Active[v3.EndpointShortType].ResourceNames = discReq.ResourceNames
-	adsLog.Infof("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters()))
+	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters()))
 	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
 	if err != nil {
 		return err
