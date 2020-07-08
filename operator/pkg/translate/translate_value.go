@@ -453,14 +453,17 @@ func translateHPASpec(inPath string, outPath string, valueTree map[string]interf
 		stVal := `
 apiVersion: apps/v1
 kind: Deployment
-name: istio-%s`
+name: %s`
 
 		// need to do special handling for gateways and mixer
 		// ex. because deployment name should be istio-telemetry instead of istio-mixer.telemetry, we need to get rid of the prefix mixer part.
 		if specialComponentPath[newPS] && len(newP) > 2 {
 			newPS = newP[1 : len(newP)-1].String()
 		}
-
+		// convert from values component name to correct deployment target
+		if newPS == "pilot" {
+			newPS = "istiod"
+		}
 		stString := fmt.Sprintf(stVal, newPS)
 		if err := yaml.Unmarshal([]byte(stString), &st); err != nil {
 			return err
