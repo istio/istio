@@ -1044,6 +1044,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 				}
 			} else {
+				// tls.Mode == networking.ClientTLSSettings_MUTUAL
 				if tls.ClientCertificate == "" || tls.PrivateKey == "" {
 					err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
 						c.Name)

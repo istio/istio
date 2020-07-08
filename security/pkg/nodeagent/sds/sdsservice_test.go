@@ -1102,7 +1102,7 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 	ms.secrets.Delete(key)
 }
 
-func (ms *mockSecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
+func (ms *mockSecretStore) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
 	return false
 }
 

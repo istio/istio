@@ -334,7 +334,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// we should skip waiting for it in that mode.
 			// File mounted certs for gateways is used in scenarios where an existing PKI infrastuctures delivers certificates
 			// to pods/VMs via files.
-			if s.st.ShouldWaitForIngressGatewaySecret(conID, resourceName, token, s.fileMountedCertsOnly) {
+			if s.st.ShouldWaitForGatewaySecret(conID, resourceName, token, s.fileMountedCertsOnly) {
 				sdsServiceLog.Warnf("%s waiting for ingress gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
 				continue
 			} else {

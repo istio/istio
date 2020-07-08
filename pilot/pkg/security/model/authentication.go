@@ -207,9 +207,11 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
 // Used for building upstream TLS context for egress gateway's TLS/mTLS origination
 func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ClientTLSSettings, sdsUdsPath string) {
-	// create SDS config for gateway to fetch key/cert from agent.
-	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
+	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
+		// create SDS config for gateway to fetch key/cert from agent.
+		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
+			ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
+		}
 	}
 	// create SDS config for gateway to fetch certificate validation context
 	// at gateway agent.
