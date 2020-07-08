@@ -251,6 +251,9 @@ func GogoDurationToDuration(d *types.Duration) *duration.Duration {
 // Envoy computes a hash of RDS to see if things have changed - hash is affected by order of elements in the filter. Therefore
 // we sort virtual hosts by name before handing them back so the ordering is stable across HTTP Route Configs.
 func SortVirtualHosts(hosts []*route.VirtualHost) {
+	if len(hosts) < 2 {
+		return
+	}
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
