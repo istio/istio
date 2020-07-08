@@ -131,9 +131,9 @@ var (
 	}
 )
 
-func TestDashboard(t *testing.T) {
-	dashboardTestBody(t, false)
-}
+// func TestDashboard(t *testing.T) {
+// 	dashboardTestBody(t, false)
+// }
 
 func TestVMDashboard(t *testing.T) {
 	dashboardTestBody(t, true)
