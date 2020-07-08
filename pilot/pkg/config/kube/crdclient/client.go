@@ -92,7 +92,7 @@ func (cl *Client) checkReadyForEvents(curr interface{}) error {
 	}
 	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
 	if err != nil {
-		log.Infof("Error retrieving key: %v", err)
+		scope.Infof("Error retrieving key: %v", err)
 	}
 	return nil
 }
@@ -108,7 +108,7 @@ func (cl *Client) RegisterEventHandler(kind resource.GroupVersionKind, handler f
 
 // Start the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
-	log.Infoa("Starting Pilot K8S CRD controller")
+	scope.Infoa("Starting Pilot K8S CRD controller")
 
 	go func() {
 		cache.WaitForCacheSync(stop, cl.HasSynced)
@@ -116,13 +116,13 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	}()
 
 	<-stop
-	log.Info("controller terminated")
+	scope.Info("controller terminated")
 }
 
 func (cl *Client) HasSynced() bool {
 	for kind, ctl := range cl.kinds {
 		if !ctl.informer.HasSynced() {
-			log.Infof("controller %q is syncing...", kind)
+			scope.Infof("controller %q is syncing...", kind)
 			return false
 		}
 	}
@@ -157,7 +157,7 @@ func New(client kube.Client, configLedger ledger.Ledger, revision string, option
 			}
 			out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
 		} else {
-			log.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
 		}
 	}
 
@@ -284,7 +284,7 @@ func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
 		if err == nil {
 			break
 		}
-		log.Errorf("failed to list CRDs: %v", err)
+		scope.Errorf("failed to list CRDs: %v", err)
 		time.Sleep(delay)
 		delay *= 2
 		if delay > maxDelay {
@@ -302,7 +302,7 @@ func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
 func TranslateObject(r runtime.Object, gvk resource.GroupVersionKind, domainSuffix string) *model.Config {
 	translateFunc, f := translationMap[gvk]
 	if !f {
-		log.Errorf("unknown type %v", gvk)
+		scope.Errorf("unknown type %v", gvk)
 		return nil
 	}
 	c := translateFunc(r)
