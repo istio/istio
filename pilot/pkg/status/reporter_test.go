@@ -42,7 +42,7 @@ func TestStatusMaps(t *testing.T) {
 	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conA": x, "conB": x}, "c": {"conC": x}, "d": {"conD": x}}))
 	r.processEvent("conA", typ, "d")
 	Expect(r.status).To(Equal(map[string]string{"conA": "d", "conB": "a", "conC": "c", "conD": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string][]string{"a": {"conB"}, "c": {"conC"}, "d": {"conD", "conA"}}))
+	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB": x}, "c": {"conC": x}, "d": {"conD": x, "conA": x}}))
 	r.RegisterDisconnect("conA", []xds.EventType{typ})
 	Expect(r.status).To(Equal(map[string]string{"conB": "a", "conC": "c", "conD": "d"}))
 	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB": x}, "c": {"conC": x}, "d": {"conD": x}}))
