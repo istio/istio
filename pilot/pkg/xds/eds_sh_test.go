@@ -324,7 +324,6 @@ func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr disco
 func sendEDSReqWithMetadata(clusters []string, node string, metadata *structpb.Struct,
 	edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
 			Id:       node,
 			Metadata: metadata,
