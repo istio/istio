@@ -272,6 +272,8 @@ spec:
     route:
     - destination:
         host: server
+	port:
+          number: 8090
   tcp:
   - match:
     - port: 31400
