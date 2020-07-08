@@ -394,6 +394,7 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 	if !s.shouldRespond(con, rdsReject, discReq) {
 		return nil
 	}
+	con.node.Active[v3.RouteShortType].ResourceNames = discReq.ResourceNames
 	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes()))
 	err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 	if err != nil {
@@ -423,7 +424,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	// This is first request - initialize typeUrl watches.
 	if request.ResponseNonce == "" {
 		con.mu.Lock()
-		con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl}
 		con.mu.Unlock()
 		return true
 	}
@@ -449,10 +450,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	previousResources := con.node.Active[stype].ResourceNames
 	con.node.Active[stype].VersionAcked = request.VersionInfo
 	con.node.Active[stype].NonceAcked = request.ResponseNonce
-	// This does not typically happen but needed till adsc responds with proper resource names.
-	if con.node.Active[stype].ResourceNames != nil {
-		con.node.Active[stype].ResourceNames = request.ResourceNames
-	}
 	con.mu.Unlock()
 
 	// Envoy can send two DiscoveryRequests with same version and nonce when it detects
