@@ -82,7 +82,7 @@ var (
 	eccSigAlgEnv                = env.RegisterStringVar(eccSigAlg, "", "The type of ECC signature algorithm to use when generating private keys").Get()
 
 	// Location of K8S CA root.
-	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 
 	// CitadelCACertPath is the directory for Citadel CA certificate.
 	// This is mounted from config map 'istio-ca-root-cert'. Part of startup,
