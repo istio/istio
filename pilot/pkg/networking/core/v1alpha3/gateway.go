@@ -117,7 +117,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 				} else {
 					// passthrough or tcp, yields multiple filter chains
 					tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(node, push,
-						server, mergedGateway.GatewayNameForServer[server])
+						server, mergedGateway.GatewayNameForServer[server], node.RequestedTypes.LDS)
 					filterChainOpts = append(filterChainOpts, tcpChainOpts...)
 					for i := 0; i < len(tcpChainOpts); i++ {
 						filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolTCP})
@@ -381,7 +381,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// and that no two non-HTTPS servers can be on same port or share port names.
 		// Validation is done per gateway and also during merging
 		sniHosts:   getSNIHostsForServer(server),
-		tlsContext: buildGatewayListenerTLSContext(server, sdsPath, node.Metadata),
+		tlsContext: buildGatewayListenerTLSContext(server, sdsPath, node.Metadata, node.RequestedTypes.LDS),
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
@@ -416,7 +416,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 //
 // Note that ISTIO_MUTUAL TLS mode and ingressSds should not be used simultaneously on the same ingress gateway.
 func buildGatewayListenerTLSContext(
-	server *networking.Server, sdsPath string, metadata *model.NodeMetadata) *tls.DownstreamTlsContext {
+	server *networking.Server, sdsPath string, metadata *model.NodeMetadata, requestedType string) *tls.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || gateway.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
@@ -431,9 +431,9 @@ func buildGatewayListenerTLSContext(
 	if server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
-		authn_model.ApplyCustomSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls, authn_model.GatewaySdsUdsPath)
+		authn_model.ApplyCustomSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls, authn_model.GatewaySdsUdsPath, requestedType)
 	} else if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames, requestedType)
 	} else {
 		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
 		ctx.CommonTlsContext.TlsCertificates = []*tls.TlsCertificate{
@@ -500,7 +500,7 @@ func convertTLSProtocol(in networking.ServerTLSSettings_TLSProtocol) tls.TlsPara
 
 func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 	node *model.Proxy, push *model.PushContext, server *networking.Server,
-	gatewayName string) []*filterChainOpts {
+	gatewayName string, requestedType string) []*filterChainOpts {
 
 	// We have a TCP/TLS server. This could be TLS termination (user specifies server.TLS with simple/mutual)
 	// or opaque TCP (server.TLS is nil). or it could be a TLS passthrough with SNI based routing.
@@ -526,7 +526,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			return []*filterChainOpts{
 				{
 					sniHosts:       getSNIHostsForServer(server),
-					tlsContext:     buildGatewayListenerTLSContext(server, push.Mesh.SdsUdsPath, node.Metadata),
+					tlsContext:     buildGatewayListenerTLSContext(server, push.Mesh.SdsUdsPath, node.Metadata, requestedType),
 					networkFilters: filters,
 				},
 			}
