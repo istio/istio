@@ -26,6 +26,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
@@ -210,9 +211,13 @@ type Proxy struct {
 	// of configuration.
 	XdsResourceGenerator XdsResourceGenerator
 
-	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
-	// It is nil if the Proxy uses the default generator
+	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest short type.
 	Active map[string]*WatchedResource
+
+	// ActiveExperimental contains the list of watched resources for the proxy, keyed by the canonical DiscoveryRequest type.
+	// Note that the key may not be equal to the proper TypeUrl. For example, Envoy types like Cluster will share a single
+	// key for multiple versions.
+	ActiveExperimental map[string]*WatchedResource
 
 	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
 	// only generate one version or the other, because the protos are wire compatible we can cast to the
@@ -227,7 +232,7 @@ type Proxy struct {
 	}
 }
 
-// WatchedResource tracks an active DiscoveryRequest type.
+// WatchedResource tracks an active DiscoveryRequest subscription.
 type WatchedResource struct {
 	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
 	// nolint
@@ -262,6 +267,13 @@ type WatchedResource struct {
 
 	// LastSize tracks the size of the last update
 	LastSize int
+
+	// Last request contains the last DiscoveryRequest received for
+	// this type. Generators are called immediately after each request,
+	// and may use the information in DiscoveryRequest.
+	// Note that Envoy may send multiple requests for the same type, for
+	// example to update the set of watched resources or to ACK/NACK.
+	LastRequest *discovery.DiscoveryRequest
 }
 
 var (

@@ -203,12 +203,13 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	prometheus.EnableHandlingTimeHistogram()
 
+	s.initMeshConfiguration(args, s.fileWatcher)
+
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
 
-	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
 
@@ -389,8 +390,23 @@ func (s *Server) WaitUntilCompletion() {
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
+// This is determined by the presence of a kube registry, which
+// uses in-context k8s, or a config source of type k8s.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	if hasKubeRegistry(args.RegistryOptions.Registries) {
+	hasK8SConfigStore := false
+	if args.RegistryOptions.FileDir == "" {
+		// If file dir is set - config controller will just use file.
+		meshConfig := s.environment.Mesh()
+		if meshConfig != nil && len(meshConfig.ConfigSources) > 0 {
+			for _, cs := range meshConfig.ConfigSources {
+				if cs.Address == "k8s://" {
+					hasK8SConfigStore = true
+				}
+			}
+		}
+	}
+
+	if hasK8SConfigStore || hasKubeRegistry(args.RegistryOptions.Registries) {
 		var err error
 		// Used by validation
 		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {

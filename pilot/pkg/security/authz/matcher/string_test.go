@@ -22,12 +22,14 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+type testCase struct {
+	name string
+	v    string
+	want *matcherpb.StringMatcher
+}
+
 func TestStringMatcherWithPrefix(t *testing.T) {
-	testCases := []struct {
-		name string
-		v    string
-		want *matcherpb.StringMatcher
-	}{
+	testCases := []testCase{
 		{
 			name: "wildcardAsRequired",
 			v:    "*",
@@ -66,6 +68,47 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := StringMatcherWithPrefix(tc.v, "abc")
 			if !cmp.Equal(actual, tc.want, protocmp.Transform()) {
+				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
+			}
+		})
+	}
+}
+
+func TestStringMatcherRegex(t *testing.T) {
+	testCases := []testCase{
+		{
+			name: "wildcardAsRequired",
+			v:    "*",
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+					SafeRegex: &matcherpb.RegexMatcher{
+						Regex: "*",
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "regexExpression",
+			v:    "+?",
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+					SafeRegex: &matcherpb.RegexMatcher{
+						Regex: "+?",
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if actual := StringMatcherRegex(tc.v); !cmp.Equal(actual, tc.want, protocmp.Transform()) {
 				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
 			}
 		})
