@@ -233,8 +233,9 @@ func (b *KeyCertBundleImpl) ExtractCACertExpiryTimestamp() (float64, error) {
 	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
 }
 
-// TimeBeforeCertExpires time duration before cert get expired,
-// it can return a negative time duration meaning how long cert has been expired.
+// TimeBeforeCertExpires returns the time duration before the cert gets expired.
+// It returns an error if it failed to extract the cert expiration timestamp.
+// The returned time duration could be a negative value indicating the cert has already been expired.
 func TimeBeforeCertExpires(certBytes []byte, now time.Time) (time.Duration, error) {
 	if len(certBytes) == 0 {
 		return 0, fmt.Errorf("no certificate found")

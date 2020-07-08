@@ -284,6 +284,9 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
 	}
 
+	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
+	// however citatel won't rotate if that happens, this function will prevent that using cert chain TTL as
+	// the workload TTL
 	defaultCertTTL, err := ca.getDefaultCertTTL(opts.DefaultCertTTL)
 	if err != nil {
 		return ca, fmt.Errorf("failed to get default cert TTL %s", err.Error())
@@ -390,9 +393,6 @@ func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte
 	return certPEM, privPEM, nil
 }
 
-// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
-// however citatel won't rotate if that happens, this function will prevent that using cert chain TTL as
-// the workload TTL
 func (ca *IstioCA) getDefaultCertTTL(defaultCertTTL time.Duration) (time.Duration, error) {
 	certChainPem := ca.keyCertBundle.GetCertChainPem()
 	if len(certChainPem) == 0 {
@@ -401,11 +401,11 @@ func (ca *IstioCA) getDefaultCertTTL(defaultCertTTL time.Duration) (time.Duratio
 
 	certChainExpiration, err := util.TimeBeforeCertExpires(certChainPem, time.Now())
 	if err != nil {
-		return defaultCertTTL, fmt.Errorf("failed to get cert chain TTL %s", err.Error())
+		return 0, fmt.Errorf("failed to get cert chain TTL %s", err.Error())
 	}
 
 	if certChainExpiration.Seconds() <= 0 {
-		return defaultCertTTL, fmt.Errorf("cert chain has expired")
+		return 0, fmt.Errorf("cert chain has expired")
 	}
 
 	if defaultCertTTL.Seconds() > certChainExpiration.Seconds() {
