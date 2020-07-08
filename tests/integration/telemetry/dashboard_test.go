@@ -307,7 +307,7 @@ spec:
     - destination:
         host: server
         port:
-          number: 80
+          number: 8090
   tcp:
   - match:
     - port: 31400
