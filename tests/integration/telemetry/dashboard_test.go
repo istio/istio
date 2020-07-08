@@ -312,7 +312,7 @@ func setupDashboardTest(t framework.TestContext) {
 					Protocol: protocol.HTTP,
 					// We use a port > 1024 to not require root
 					InstancePort: 8090,
-					ServicePort:  8090,
+// 					ServicePort:  8090,
 				},
 				{
 					Name:         "tcp",
