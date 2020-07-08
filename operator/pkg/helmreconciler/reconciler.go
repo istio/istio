@@ -140,10 +140,7 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 	status := h.processRecursive(manifestMap)
 
 	h.opts.ProgressLog.SetState(progress.StatePruning)
-	pruneStatus, pruneErr := h.Prune(manifestMap, false)
-	if pruneStatus != nil {
-		status = pruneStatus
-	}
+	pruneErr := h.Prune(manifestMap, false)
 	return status, pruneErr
 }
 

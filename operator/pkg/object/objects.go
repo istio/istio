@@ -153,6 +153,11 @@ func (o *K8sObject) GroupVersionKind() schema.GroupVersionKind {
 	return o.object.GroupVersionKind()
 }
 
+// Version returns the APIVersion of the K8sObject
+func (o *K8sObject) Version() string {
+	return o.object.GetAPIVersion()
+}
+
 // Hash returns a unique hash for the K8sObject
 func (o *K8sObject) Hash() string {
 	return Hash(o.Kind, o.Namespace, o.Name)

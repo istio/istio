@@ -21,8 +21,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
@@ -41,23 +41,33 @@ type uninstallArgs struct {
 	// skipConfirmation determines whether the user is prompted for confirmation.
 	// If set to true, the user is not prompted and a Yes response is assumed in all cases.
 	skipConfirmation bool
+	// force proceeds even if there are validation errors
+	force bool
 	// revision is the Istio control plane revision the command targets.
 	revision string
 	// istioNamespace is the target namespace of istio control plane.
 	istioNamespace string
 	// filename is the path of input IstioOperator CR.
 	filename string
+	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
+	// value to set the node at that path to.
+	set []string
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	manifestsPath string
 }
 
 func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use.")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", istioDefaultNamespace,
 		"The namespace of Istio Control Plane")
 	cmd.PersistentFlags().StringVarP(&args.filename, "fileName", "f", "",
 		"The filename of the IstioOperator CR")
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 }
 
 func UninstallCmd(logOpts *log.Options) *cobra.Command {
@@ -68,7 +78,7 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 		Short: "uninstall the control plane by revision",
 		Long:  "The uninstall command uninstall the control plane by revision and",
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (uiArgs.revision == "" && uiArgs.filename == "") || (uiArgs.revision != "" && uiArgs.filename != "") {
+			if uiArgs.revision == "" && uiArgs.filename == "" {
 				return fmt.Errorf("either one of the --revision or --filename flags needed to be set")
 			}
 			if len(args) > 0 {
@@ -92,76 +102,81 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		return err
 	}
+
+	if err := uninstallWrapper(cmd, rootArgs, uiArgs, restConfig, clt, l); err != nil {
+		return fmt.Errorf("failed to uninstall control plane: %v", err)
+	}
+	return nil
+}
+
+// uninstallWrapper is helper function to uninstalls control plane by either
+// pruning by target revision or deleting specified manifests.
+func uninstallWrapper(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs,
+	restConfig *rest.Config, clt client.Client, l clog.Logger) error {
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: rootArgs.dryRun, Log: l, ProgressLog: progress.NewLog()}
 	h, err := helmreconciler.NewHelmReconciler(clt, restConfig, nil, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
 	}
-	if err := uninstallByManifest(cmd, rootArgs, uiArgs, restConfig, h, l); err != nil {
-		return fmt.Errorf("failed to uninstall control plane: %v", err)
+
+	if uiArgs.revision != "" {
+		objectsList, tp, err := h.GetPrunedResourcesList(uiArgs.revision)
+		if err != nil {
+			return err
+		}
+		if err := preCheckWarnings(cmd, rootArgs, uiArgs, uiArgs.revision, tp); err != nil {
+			return fmt.Errorf("failed to do preuninstall check: %v", err)
+		}
+
+		if err := h.PruneControlPlaneByRevision(uiArgs.revision, objectsList); err != nil {
+			return fmt.Errorf("failed to prune control plane resources by revision: %v", err)
+		}
+	} else if uiArgs.filename != "" {
+		manifestMap, iops, err := manifest.GenManifests([]string{uiArgs.filename}, applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, restConfig, l)
+		if err != nil {
+			return err
+		}
+		if iops == nil {
+			return fmt.Errorf("istioOperatorSpec is nil")
+		}
+		if err := preCheckWarnings(cmd, rootArgs, uiArgs, iops.Revision, nil); err != nil {
+			return fmt.Errorf("failed to do preuninstall check: %v", err)
+		}
+		cpManifests := manifestMap[name.PilotComponentName]
+		if err := h.DeleteControlPlaneByManifests(strings.Join(cpManifests, "---"), iops.Revision); err != nil {
+			return fmt.Errorf("failed to delete control plane by manifests: %v", err)
+		}
 	}
 	opts.ProgressLog.SetState(progress.StateComplete)
 	return nil
 }
 
-// TODO: Do we still need this part? uninstallByRev uninstalls control plane belongs to the target revision.
-//func uninstallByRev(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, h *helmreconciler.HelmReconciler) error {
-//	if err := checkStaleProxies(cmd, rootArgs, uiArgs, uiArgs.revision); err != nil {
-//		return err
-//	}
-//
-//	if err := h.PruneControlPlaneByRevision(uiArgs.revision); err != nil {
-//		return fmt.Errorf("failed to prune control plane by revision: %v", err)
-//	}
-//	return nil
-//}
-
-// uninstallByManifest uninstalls control plane by target manifests and revision.
-func uninstallByManifest(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs,
-	restConfig *rest.Config, h *helmreconciler.HelmReconciler, l clog.Logger) error {
-	var (
-		manifestMap name.ManifestMap
-		err         error
-		iop         *v1alpha1.IstioOperatorSpec
-	)
-	if uiArgs.revision != "" {
-		setFlag := fmt.Sprintf("revision=%s", uiArgs.revision)
-		manifestMap, iop, err = manifest.GenManifests([]string{}, []string{setFlag}, true, restConfig, l)
-	} else if uiArgs.filename != "" {
-		manifestMap, iop, err = manifest.GenManifests([]string{uiArgs.filename}, []string{}, true, restConfig, l)
-	}
-	if err != nil {
-		return err
-	}
-	if iop.Revision == "" {
-		return fmt.Errorf("revision is not expecified")
-	}
-	if err := checkStaleProxies(cmd, rootArgs, uiArgs, iop.Revision); err != nil {
-		return err
-	}
-
-	cpManifests := manifestMap[name.PilotComponentName]
-	if err := h.PruneControlPlaneByManifests(strings.Join(cpManifests, "---"), iop.Revision); err != nil {
-		return fmt.Errorf("failed to prune control plane by manifests: %v", err)
-	}
-	return nil
-}
-
-// checkStaleProxies checks proxies still pointing to the target control plane revision.
-func checkStaleProxies(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, rev string) error {
+// preCheckWarnings checks possible breaking changes and issue warnings to users, it checks the following:
+// 1. checks proxies still pointing to the target control plane revision.
+// 2. lists to be pruned resources if user uninstall by --revision flag.
+func preCheckWarnings(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, rev string, resourcesList []string) error {
 	pids, err := proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, rev, uiArgs.istioNamespace)
 	if err != nil {
 		return err
 	}
-	if len(pids) != 0 && !rootArgs.dryRun && !uiArgs.skipConfirmation {
-		if !confirm(fmt.Sprintf("There are still proxies pointing to the control plane revision %s:\n%s."+
+	if uiArgs.skipConfirmation || uiArgs.force || rootArgs.dryRun {
+		return nil
+	}
+	var message strings.Builder
+	if resourcesList != nil {
+		message.WriteString(fmt.Sprintf("To be pruned resources from the cluster: %s\n",
+			strings.Join(resourcesList, ",")))
+	}
+	if len(pids) != 0 {
+		message.WriteString(fmt.Sprintf("There are still proxies pointing to the control plane revision %s:\n%s."+
 			" If you proceed with the uninstall, these proxies will become detached from any control plane"+
 			" and will not function correctly.. Proceed? (y/N)",
-			uiArgs.revision, strings.Join(pids, " \n")), cmd.OutOrStdout()) {
-			cmd.Print("Cancelled.\n")
-			os.Exit(1)
-		}
+			uiArgs.revision, strings.Join(pids, " \n")))
+	}
+	if ms := message.String(); ms != "" && !confirm(ms, cmd.OutOrStdout()) {
+		cmd.Print("Cancelled.\n")
+		os.Exit(1)
 	}
 	return nil
 }
