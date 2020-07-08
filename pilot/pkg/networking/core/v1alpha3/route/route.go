@@ -576,6 +576,9 @@ func (b SortHeaderValueOption) Swap(i, j int) {
 
 // translateAppendHeaders translates headers
 func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.HeaderValueOption {
+	if len(headers) == 0 {
+		return nil
+	}
 	headerValueOptionList := make([]*core.HeaderValueOption, 0, len(headers))
 	for key, value := range headers {
 		headerValueOptionList = append(headerValueOptionList, &core.HeaderValueOption{
