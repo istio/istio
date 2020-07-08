@@ -292,6 +292,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var clientCert tls.Certificate
 	var serverCABytes []byte
 	var err error
+	var certName string
 
 	if a.cfg.Secrets != nil {
 		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
@@ -300,6 +301,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 			tok = []byte("")
 		}
 
+		certName = fmt.Sprintf("(generated from %s)", a.cfg.JWTPath)
 		key, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
 			cache.WorkloadKeyCertResourceName, string(tok))
 		if err != nil {
@@ -318,7 +320,8 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 
 		serverCABytes = rootCA.RootCert
 	} else {
-		clientCert, err = tls.LoadX509KeyPair(a.cfg.CertDir+"/cert-chain.pem",
+		certName = a.cfg.CertDir + "/cert-chain.pem"
+		clientCert, err = tls.LoadX509KeyPair(certName,
 			a.cfg.CertDir+"/key.pem")
 		if err != nil {
 			return nil, err
@@ -332,6 +335,18 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	serverCAs := x509.NewCertPool()
 	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
 		return nil, err
+	}
+
+	// If we supply an expired cert to the server it will just close the connection
+	// without useful message.  If the cert is obviously bogus, refuse to use it.
+	now := time.Now()
+	for _, cert := range clientCert.Certificate {
+		cert, err := x509.ParseCertificate(cert)
+		if err == nil {
+			if now.After(cert.NotAfter) {
+				return nil, fmt.Errorf("certificate %s expired %v", certName, cert.NotAfter)
+			}
+		}
 	}
 
 	shost, _, _ := net.SplitHostPort(a.url)
