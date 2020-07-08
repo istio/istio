@@ -83,6 +83,11 @@ Example resource specifications include:
 	serviceProtocolUDP = "UDP"
 )
 
+const (
+	// RequirementsURL specifies deployment requirements for pod and services
+	RequirementsURL = "https://istio.io/latest/docs/ops/deployment/requirements/"
+)
+
 type validator struct {
 	mixerValidator mixerstore.BackendValidator
 }
@@ -210,14 +215,12 @@ func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstruc
 			}
 			if p["name"] == nil {
 				errs = multierror.Append(errs, fmt.Errorf("service %q has an unnamed port. This is not recommended,"+
-					" see https://istio.io/docs/setup/kubernetes/prepare/requirements/", fmt.Sprintf("%s/%s/:",
-					un.GetName(), un.GetNamespace())))
+					" See "+RequirementsURL, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace())))
 				continue
 			}
 			if servicePortPrefixed(p["name"].(string)) {
 				errs = multierror.Append(errs, fmt.Errorf("service %q port %q does not follow the Istio naming convention."+
-					" See https://istio.io/docs/setup/kubernetes/prepare/requirements/", fmt.Sprintf("%s/%s/:",
-					un.GetName(), un.GetNamespace()), p["name"].(string)))
+					" See "+RequirementsURL, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace()), p["name"].(string)))
 			}
 		}
 	}
@@ -235,8 +238,7 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 	for _, l := range istioDeploymentLabel {
 		if _, ok := labels[l]; !ok {
 			log.Warnf("deployment %q may not provide Istio metrics and telemetry without label %q."+
-				" See https://istio.io/docs/setup/kubernetes/prepare/requirements/ \n", fmt.Sprintf("%s/%s:",
-				un.GetName(), un.GetNamespace()), l)
+				" See "+RequirementsURL, fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
 		}
 	}
 }
@@ -378,6 +380,7 @@ func servicePortPrefixed(n string) bool {
 	p := protocol.Parse(n)
 	return p == protocol.Unsupported
 }
+
 func handleNamespace(istioNamespace string) string {
 	if istioNamespace == "" {
 		istioNamespace = controller.IstioNamespace
