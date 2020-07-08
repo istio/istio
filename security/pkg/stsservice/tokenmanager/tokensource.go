@@ -17,6 +17,7 @@ package tokenmanager
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -28,9 +29,10 @@ import (
 // TokenSource specifies an oauth token source based on STS token exchange.
 // https://godoc.org/golang.org/x/oauth2#TokenSource
 type TokenSource struct {
-	tm           stsservice.TokenManager
-	subjectToken string
-	authScope    string
+	tm                stsservice.TokenManager
+	subjectToken      string
+	subjectTokenMutex sync.Mutex
+	authScope         string
 }
 
 var _ oauth2.TokenSource = &TokenSource{}
@@ -44,14 +46,23 @@ func NewTokenSource(trustDomain, subjectToken, authScope string) *TokenSource {
 	}
 }
 
+// RefreshSubjectToken sets subject token with new expiry.
+func (ts *TokenSource) RefreshSubjectToken(subjectToken string) {
+	ts.subjectTokenMutex.Lock()
+	defer ts.subjectTokenMutex.Unlock()
+	ts.subjectToken = subjectToken
+}
+
 // Token returns Oauth token received from sts token exchange.
 func (ts *TokenSource) Token() (*oauth2.Token, error) {
+	ts.subjectTokenMutex.Lock()
 	params := stsservice.StsRequestParameters{
 		GrantType:        server.TokenExchangeGrantType,
 		Scope:            ts.authScope,
 		SubjectToken:     ts.subjectToken,
 		SubjectTokenType: server.SubjectTokenType,
 	}
+	ts.subjectTokenMutex.Unlock()
 	body, err := ts.tm.GenerateToken(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange access token: %v", err)
