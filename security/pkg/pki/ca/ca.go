@@ -399,13 +399,17 @@ func (ca *IstioCA) getDefaultCertTTL(defaultCertTTL time.Duration) (time.Duratio
 		return defaultCertTTL, nil
 	}
 
-	certChainTTL, err := util.TimeBeforeCertExpires(certChainPem, time.Now())
+	certChainExpiration, err := util.TimeBeforeCertExpires(certChainPem, time.Now())
 	if err != nil {
 		return defaultCertTTL, fmt.Errorf("failed to get cert chain TTL %s", err.Error())
 	}
 
-	if defaultCertTTL.Seconds() > certChainTTL.Seconds() {
-		return certChainTTL, nil
+	if certChainExpiration.Seconds() <= 0 {
+		return defaultCertTTL, fmt.Errorf("cert chain has expired")
+	}
+
+	if defaultCertTTL.Seconds() > certChainExpiration.Seconds() {
+		return certChainExpiration, nil
 	}
 
 	return defaultCertTTL, nil
