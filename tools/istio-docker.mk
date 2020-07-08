@@ -172,7 +172,7 @@ docker.app_sidecar_centos_8: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_centos_8: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/server
-docker.app_sidecar_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_centos
+docker.app_sidecar_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
