@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -227,7 +228,7 @@ func compareConfResult(testWorkRootDir, result, expected string, t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to read file %v, err: %v", expected, err)
 		}
-		tempFail := mktemp(testWorkRootDir, result+".fail.XXXX", t)
+		tempFail := mktemp(testWorkRootDir, filepath.Base(result)+".fail.XXXX", t)
 		t.Errorf("FAIL: result doesn't match expected: %v v. %v", result, expected)
 		cp(result, tempFail+"/"+"failResult", t)
 		cmd := exec.Command("diff", result, expected)
