@@ -46,14 +46,14 @@ func copyBinaries(updateBinaries bool, skipBinaries []string) error {
 				continue
 			}
 
-			targetFilename := filepath.Join(targetDir, filename)
-			if _, err := os.Stat(targetFilename); err == nil && !updateBinaries {
-				log.Infof("%s is already here and UPDATE_CNI_BINARIES isn't true, skipping", targetFilename)
+			targetFilepath := filepath.Join(targetDir, filename)
+			if _, err := os.Stat(targetFilepath); err == nil && !updateBinaries {
+				log.Infof("%s is already here and UPDATE_CNI_BINARIES isn't true, skipping", targetFilepath)
 				continue
 			}
 
-			srcFilename := filepath.Join(srcDir, filename)
-			err := copy(srcFilename, targetDir, filename)
+			srcFilepath := filepath.Join(srcDir, filename)
+			err := copyAtomically(srcFilepath, targetDir, filename)
 			if err != nil {
 				return err
 			}
@@ -74,21 +74,23 @@ func contains(array []string, value string) bool {
 }
 
 // Copy files atomically by first copying into the same directory then renaming.
-func copy(src, targetDir, targetFilename string) error {
-	info, err := os.Stat(src)
+func copyAtomically(srcFilepath, targetDir, targetFilename string) error {
+	info, err := os.Stat(srcFilepath)
 	if err != nil {
 		return err
 	}
 
-	input, err := ioutil.ReadFile(src)
+	input, err := ioutil.ReadFile(srcFilepath)
 	if err != nil {
 		return err
 	}
 
-	tmpFile, err := ioutil.TempFile(targetDir, "CNI_TEMP_")
+	tmpFile, err := ioutil.TempFile(targetDir, targetFilename+".tmp")
 	if err != nil {
 		return err
 	}
+	defer os.Remove(tmpFile.Name())
+
 	if err = tmpFile.Chmod(info.Mode()); err != nil {
 		return err
 	}
