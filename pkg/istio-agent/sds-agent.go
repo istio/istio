@@ -62,9 +62,8 @@ var (
 	// TODO: default to same as discovery address
 	caEndpointEnv = env.RegisterStringVar(caEndpoint, "", "").Get()
 
-	pluginNamesEnv             = env.RegisterStringVar(pluginNames, "", "").Get()
-	enableIngressGatewaySDSEnv = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
-	enableEgressGatewaySDSEnv  = env.RegisterBoolVar(enableEgressGatewaySDS, false, "").Get()
+	pluginNamesEnv      = env.RegisterStringVar(pluginNames, "", "").Get()
+	enableGatewaySDSEnv = env.RegisterBoolVar(enableGatewaySDS, false, "").Get()
 
 	trustDomainEnv = env.RegisterStringVar(trustDomain, "", "").Get()
 	secretTTLEnv   = env.RegisterDurationVar(secretTTL, 24*time.Hour,
@@ -105,13 +104,9 @@ const (
 	// Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	trustDomain = "TRUST_DOMAIN"
 
-	// The ingress gateway SDS mode allows node agent to provision credentials to ingress gateway
+	// The gateway SDS mode allows node agent to provision credentials to gateway
 	// proxy by watching kubernetes secrets.
-	enableIngressGatewaySDS = "ENABLE_INGRESS_GATEWAY_SDS"
-
-	// The egress gateway SDS mode allows node agent to provision credentials to egress gateway
-	// proxy by watching kubernetes secrets.
-	enableEgressGatewaySDS = "ENABLE_EGRESS_GATEWAY_SDS"
+	enableGatewaySDS = "ENABLE_INGRESS_GATEWAY_SDS"
 
 	// The environmental variable name for secret TTL, node agent decides whether a secret
 	// is expired if time.now - secret.createtime >= secretTTL.
@@ -349,24 +344,14 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
-		if ingressSdsExists() {
-			log.Infof("Starting ingress gateway SDS")
-			serverOptions.EnableIngressGatewaySDS = true
+		if gatewaySdsExists() {
+			log.Infof("Starting gateway SDS")
+			serverOptions.EnableGatewaySDS = true
 			// TODO: what is the setting for ingress ?
-			serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
+			serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.GatewaySdsUdsPath, "unix:")
 			gatewaySecretCache = newGatewaySecretCache(podNamespace)
 		} else {
-			log.Infof("Skipping ingress gateway SDS")
-		}
-
-		if egressSdsExists() {
-			log.Infof("Starting egress gateway SDS")
-			serverOptions.EnableEgressGatewaySDS = true
-			// TODO: what is the setting for egress ?
-			serverOptions.EgressGatewayUDSPath = strings.TrimPrefix(model.EgressGatewaySdsUdsPath, "unix:")
-			gatewaySecretCache = newGatewaySecretCache(podNamespace)
-		} else {
-			log.Infof("Skipping egress gateway SDS")
+			log.Infof("Skipping gateway SDS")
 		}
 	}
 
@@ -378,15 +363,8 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	return server, nil
 }
 
-func ingressSdsExists() bool {
-	p := strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
-	dir := path.Dir(p)
-	_, err := os.Stat(dir)
-	return !os.IsNotExist(err)
-}
-
-func egressSdsExists() bool {
-	p := strings.TrimPrefix(model.EgressGatewaySdsUdsPath, "unix:")
+func gatewaySdsExists() bool {
+	p := strings.TrimPrefix(model.GatewaySdsUdsPath, "unix:")
 	dir := path.Dir(p)
 	_, err := os.Stat(dir)
 	return !os.IsNotExist(err)
@@ -566,8 +544,7 @@ func applyEnvVars() {
 
 	serverOptions.EnableWorkloadSDS = true
 
-	serverOptions.EnableIngressGatewaySDS = enableIngressGatewaySDSEnv
-	serverOptions.EnableEgressGatewaySDS = enableEgressGatewaySDSEnv
+	serverOptions.EnableGatewaySDS = enableGatewaySDSEnv
 
 	serverOptions.CAProviderName = caProviderEnv
 

@@ -57,11 +57,8 @@ const (
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
-	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
-	IngressGatewaySdsUdsPath = "unix:./var/run/ingress_gateway/sds"
-
-	// EgressGatewaySdsUdsPath is the UDS path for egress gateway to get credentials via SDS.
-	EgressGatewaySdsUdsPath = "unix:./var/run/egress_gateway/sds"
+	// GatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
+	GatewaySdsUdsPath = "unix:./var/run/gateway/sds"
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"

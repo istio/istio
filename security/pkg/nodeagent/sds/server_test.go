@@ -167,11 +167,11 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	stsclient.GKEClusterURL = msts.FakeGKEClusterURL
 	stsclient.SecureTokenEndpoint = mockSTSServer.URL + "/v1/identitybindingtoken"
 	arg := Options{
-		EnableIngressGatewaySDS: false,
-		EnableEgressGatewaySDS:  false,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         100 * time.Millisecond,
-		WorkloadUDSPath:         socket,
+		EnableGatewaySDS:       false,
+		EnableEgressGatewaySDS: false,
+		EnableWorkloadSDS:      true,
+		RecycleInterval:        100 * time.Millisecond,
+		WorkloadUDSPath:        socket,
 	}
 	caClient, err := gca.NewGoogleCAClient(mockMeshCAServer.Address, false)
 	if err != nil {
