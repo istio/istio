@@ -358,7 +358,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 		s.caBundlePath = certChainFile
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxCertTTL, opts.Namespace, client)
+			rootCertFile, workloadCertTTL.Get(), maxCertTTL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
