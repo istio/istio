@@ -16,18 +16,17 @@ package ca
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"time"
 
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/istio/security/pkg/k8s/configmap"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 
 	v1 "k8s.io/api/core/v1"
 )
@@ -51,11 +50,10 @@ type SelfSignedCARootCertRotatorConfig struct {
 // SelfSignedCARootCertRotator automatically checks self-signed signing root
 // certificate and rotates root certificate if it is going to expire.
 type SelfSignedCARootCertRotator struct {
-	configMapController *configmap.Controller
-	caSecretController  *controller.CaSecretController
-	config              *SelfSignedCARootCertRotatorConfig
-	backOffTime         time.Duration
-	ca                  *IstioCA
+	caSecretController *controller.CaSecretController
+	config             *SelfSignedCARootCertRotatorConfig
+	backOffTime        time.Duration
+	ca                 *IstioCA
 }
 
 // NewSelfSignedCARootCertRotator returns a new root cert rotator instance that
@@ -63,10 +61,9 @@ type SelfSignedCARootCertRotator struct {
 func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 	ca *IstioCA) *SelfSignedCARootCertRotator {
 	rotator := &SelfSignedCARootCertRotator{
-		configMapController: configmap.NewController(config.caStorageNamespace, config.client),
-		caSecretController:  controller.NewCaSecretController(config.client),
-		config:              config,
-		ca:                  ca,
+		caSecretController: controller.NewCaSecretController(config.client),
+		config:             config,
+		ca:                 ca,
 	}
 	if config.enableJitter {
 		// Select a back off time in seconds, which is in the range of [0, rotator.config.CheckInterval).
@@ -158,16 +155,6 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 			} else {
 				rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
 			}
-			certEncoded := base64.StdEncoding.EncodeToString(rotator.ca.GetCAKeyCertBundle().GetRootCertPem())
-			// Keep root certificate in configmap in sync with the root certificate in istio-ca-secret.
-			if err = rotator.configMapController.InsertCATLSRootCertWithRetry(
-				certEncoded, rotator.config.retryInterval, rotator.config.retryMax); err != nil {
-				rootCertRotatorLog.Errorf("Failed to write self-signed Citadel's root cert "+
-					"to configmap (%s). Citadel agents will not be able to connect.",
-					err.Error())
-			} else {
-				rootCertRotatorLog.Info("Root certificate is updated into configmap.")
-			}
 		}
 		return
 	}
@@ -252,15 +239,6 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 		return false, fmt.Errorf("failed to update CA KeyCertBundle (error: %s)", err.Error())
 	}
 	rootCertRotatorLog.Infof("Root certificate is updated in CA KeyCertBundle: %v", string(cert))
-	certEncoded := base64.StdEncoding.EncodeToString(rotator.ca.GetCAKeyCertBundle().GetRootCertPem())
-	if err = rotator.configMapController.InsertCATLSRootCertWithRetry(
-		certEncoded, rotator.config.retryInterval, rotator.config.retryMax); err != nil {
-		if rollForward {
-			// Rolling forward root certificate fails at configmap update, notify caller to roll back.
-			return true, fmt.Errorf("failed to write root certificate into configmap (%s)", err.Error())
-		}
-		return false, fmt.Errorf("failed to write root certificate into configmap (%s)", err.Error())
-	}
-	rootCertRotatorLog.Info("Root certificate is updated into configmap.")
+
 	return false, nil
 }
