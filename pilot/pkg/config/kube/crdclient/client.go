@@ -234,7 +234,7 @@ func (cl *Client) Delete(typ resource.GroupVersionKind, name, namespace string) 
 func (cl *Client) List(kind resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	h, f := cl.kinds[kind]
 	if !f {
-		return nil, fmt.Errorf("unrecognized type: %s", kind)
+		return nil, nil
 	}
 
 	list, err := h.lister(namespace).List(klabels.Everything())
