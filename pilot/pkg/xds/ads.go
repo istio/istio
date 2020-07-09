@@ -865,10 +865,7 @@ func (conn *Connection) Routes() []string {
 
 func (conn *Connection) Watching(stype string) bool {
 	if conn.node.Active != nil && conn.node.Active[stype] != nil {
-		fmt.Println("Returning true")
 		return true
 	}
-	fmt.Println("Returning false")
-
 	return false
 }
