@@ -339,7 +339,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	applyEnvVars()
 
 	gatewaySdsCacheOptions = workloadSdsCacheOptions
-
+	gatewaySdsCacheOptions.OutputKeyCertToDir = sa.cfg.OutputKeyCertToDir
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
 	serverOptions.CertsDir = sa.CertsPath
@@ -407,6 +407,7 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 	var err error
 
 	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, workloadSdsCacheOptions)
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
@@ -561,6 +562,7 @@ func newIngressSecretCache(namespace string) (gatewaySecretCache *cache.SecretCa
 		gatewaySecretChan = make(chan struct{})
 		gSecretFetcher.Run(gatewaySecretChan)
 	}
+
 	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, gatewaySdsCacheOptions)
 	return gatewaySecretCache
 }
