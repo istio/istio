@@ -28,9 +28,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	cacheutil "istio.io/istio/security/pkg/nodeagent/cache/util"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/env"
 	"istio.io/pkg/filewatcher"
@@ -50,7 +49,6 @@ import (
 	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	istioagent "istio.io/istio/pkg/istio-agent"
 	"github.com/google/uuid"
 )
 
@@ -114,6 +112,9 @@ const (
 	EmptyToken = ""
 	// trustworthy token JWTPath
 	trustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
+
+	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
+	LocalSDS = "./etc/istio/proxy/SDS"
 )
 
 type k8sJwtPayload struct {
@@ -671,14 +672,14 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 				switch _ := sc.fetcher.CaClient.(type) {
 				case *citadel.CitadelClient:
-					sa, err := sc.getNewAgent()
+					sa, err := cacheutil.GetNewAgent()
 					if err != nil {
 						cacheLog.Errorf("%s could not get the new agent error is %v", logPrefix, err)
 						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 						return true
 					}
 					var serverOptions sds.Options
-					serverOptions.WorkloadUDSPath = istioagent.LocalSDS
+					serverOptions.WorkloadUDSPath = LocalSDS
 					serverOptions.CertsDir = sa.CertsPath
 					serverOptions.JWTPath = sa.Cfg.JWTPath
 					serverOptions.OutputKeyCertToDir = sa.Cfg.OutputKeyCertToDir
@@ -1290,27 +1291,3 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 	return exchangedTokens[0], nil
 }
 
-func (sc *SecretCache) getNewAgent() (*istioagent.Agent, error) {
-	var jwtPath string
-	if jwtPolicy.Get() == jwt.PolicyThirdParty {
-		log.Info("JWT policy is third-party-jwt")
-		jwtPath = trustworthyJWTPath
-	} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
-		log.Info("JWT policy is first-party-jwt")
-		jwtPath = securityModel.K8sSAJwtFileName
-	} else {
-		log.Info("Using existing certs")
-	}
-	if out, err := gogoprotomarshal.ToYAML(&ProxyConfig); err != nil {
-		log.Infof("Failed to serialize to YAML: %v", err)
-	} else {
-		log.Infof("Effective config: %s", out)
-	}
-	sa := istioagent.NewAgent(&ProxyConfig, &istioagent.AgentConfig{
-		PilotCertProvider:  pilotCertProvider,
-		JWTPath:            jwtPath,
-		OutputKeyCertToDir: outputKeyCertToDir,
-		ClusterID:          clusterIDVar.Get(),
-	})
-	return sa, nil
-}
