@@ -47,8 +47,10 @@ var (
 	// with extra SAN (labels, etc) in data path.
 	ProvCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
-	//ProvCert = env.RegisterStringVar("PROV_CERT", "",
-	//	"Set to a directory containing provisioned certs, for VMs").Get()
+	// EMPTY_PROV_CERT needs to be set true if the ProvCert path is provided
+	// but cert not exists
+	EmptyProvCert = env.RegisterStringVar("EMPTY_PROV_CERT", "",
+		"Set to a directory containing provisioned certs, for VMs").Get()
 )
 
 type citadelClient struct {
