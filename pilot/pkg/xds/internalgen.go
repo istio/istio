@@ -15,13 +15,17 @@
 package xds
 
 import (
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	pilot_xds_v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -150,6 +154,62 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			res = append(res, util.MessageToAny(v.xdsNode))
 		}
 		sg.Server.adsClientsMutex.RUnlock()
+	case "istio.io/debug/syncz":
+		res = debugSyncz(sg)
+	default:
+		adsLog.Infof("Unknown TypeUrl: %q", w.TypeUrl)
 	}
 	return res
+}
+
+func debugSyncz(sg *InternalGen) []*any.Any {
+	res := []*any.Any{}
+
+	sg.Server.adsClientsMutex.RLock()
+	for _, con := range sg.Server.adsClients {
+		con.mu.RLock()
+		if con.node != nil {
+			xdsConfigs := []*status.PerXdsConfig{}
+			for stype, watchedResource := range con.node.Active {
+				pxc := &status.PerXdsConfig{
+					Status: debugSyncStatus(watchedResource),
+				}
+				switch stype {
+				case pilot_xds_v3.ListenerShortType:
+					pxc.PerXdsConfig = &status.PerXdsConfig_ListenerConfig{}
+				case pilot_xds_v3.RouteShortType:
+					pxc.PerXdsConfig = &status.PerXdsConfig_EndpointConfig{}
+				case pilot_xds_v3.EndpointShortType:
+					pxc.PerXdsConfig = &status.PerXdsConfig_ListenerConfig{}
+				case pilot_xds_v3.ClusterShortType:
+					pxc.PerXdsConfig = &status.PerXdsConfig_ClusterConfig{}
+				default:
+					adsLog.Warnf("Unknown watchedResource type: %q", stype)
+				}
+				xdsConfigs = append(xdsConfigs, pxc)
+			}
+			clientConfig := &status.ClientConfig{
+				Node: &core.Node{
+					Id: con.node.ID,
+				},
+				XdsConfig: xdsConfigs,
+			}
+			log.Infof("Trying to show status of %#v\n", clientConfig)
+			res = append(res, util.MessageToAny(clientConfig))
+		}
+		con.mu.RUnlock()
+	}
+	sg.Server.adsClientsMutex.RUnlock()
+
+	return res
+}
+
+func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
+	if wr.NonceSent == "" {
+		return status.ConfigStatus_NOT_SENT
+	}
+	if wr.NonceAcked == wr.NonceSent {
+		return status.ConfigStatus_SYNCED
+	}
+	return status.ConfigStatus_STALE
 }
