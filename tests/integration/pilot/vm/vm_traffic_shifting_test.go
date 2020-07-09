@@ -44,9 +44,6 @@ type TrafficShiftConfig struct {
 }
 
 func TestTrafficShifting(t *testing.T) {
-	// now launch another proper k8s pod for the same VM service, such that the VM service is made
-	// of a pod and a VM. Set the subset for this pod to v2 so that we can check traffic shift
-	// Traffic distribution
 	weights := map[string][]int32{
 		"20-80": {20, 80},
 		"50-50": {50, 50},
@@ -86,7 +83,10 @@ func TestTrafficShifting(t *testing.T) {
 					DeployAsVM: true,
 					VMImage:    DefaultVMImage,
 				}).
-				With(&vm, echo.Config{ // add a regular pod to the same service as subset
+				// now launch another proper k8s pod for the same VM service, such that the VM service is made
+				// of a pod and a VM. Set the subset for this pod to v2 so that we can check traffic shift
+				// Traffic distribution
+				With(&vm, echo.Config{
 					Service:    "vm",
 					Namespace:  ns,
 					Ports:      ports,
