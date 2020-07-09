@@ -789,7 +789,7 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
-        - mountPath: /var/run/gateway
+        - mountPath: /var/run/ingress_gateway
           name: gatewaysdsudspath
         - mountPath: /etc/istio/pod
           name: podinfo

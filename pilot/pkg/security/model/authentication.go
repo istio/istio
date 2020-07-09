@@ -58,7 +58,7 @@ const (
 	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
 	// GatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
-	GatewaySdsUdsPath = "unix:./var/run/gateway/sds"
+	GatewaySdsUdsPath = "unix:./var/run/ingress_gateway/sds"
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"

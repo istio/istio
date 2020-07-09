@@ -3059,7 +3059,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.EgressGatewaySdsUdsPath,
+																TargetUri:  authn_model.GatewaySdsUdsPath,
 																StatPrefix: authn_model.SDSStatPrefix,
 															},
 														},
@@ -3121,7 +3121,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.EgressGatewaySdsUdsPath,
+																TargetUri:  authn_model.GatewaySdsUdsPath,
 																StatPrefix: authn_model.SDSStatPrefix,
 															},
 														},
@@ -3182,7 +3182,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  authn_model.EgressGatewaySdsUdsPath,
+															TargetUri:  authn_model.GatewaySdsUdsPath,
 															StatPrefix: authn_model.SDSStatPrefix,
 														},
 													},
@@ -3209,7 +3209,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.EgressGatewaySdsUdsPath,
+																TargetUri:  authn_model.GatewaySdsUdsPath,
 																StatPrefix: authn_model.SDSStatPrefix,
 															},
 														},
@@ -3269,7 +3269,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  authn_model.EgressGatewaySdsUdsPath,
+															TargetUri:  authn_model.GatewaySdsUdsPath,
 															StatPrefix: authn_model.SDSStatPrefix,
 														},
 													},
@@ -3294,7 +3294,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.EgressGatewaySdsUdsPath,
+																TargetUri:  authn_model.GatewaySdsUdsPath,
 																StatPrefix: authn_model.SDSStatPrefix,
 															},
 														},

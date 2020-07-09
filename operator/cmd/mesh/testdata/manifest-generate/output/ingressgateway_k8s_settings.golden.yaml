@@ -151,7 +151,7 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
           - name: gatewaysdsudspath
-            mountPath: /var/run/gateway
+            mountPath: /var/run/ingress_gateway
           - name: podinfo
             mountPath: /etc/istio/pod
           - name: ingressgateway-certs
