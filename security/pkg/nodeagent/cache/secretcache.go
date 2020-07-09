@@ -140,7 +140,7 @@ type SecretManager interface {
 	// due to client logic. If JWT is missing/invalid, the resourceName is used.
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error)
 
-	// ShouldWaitForGatewaySecret indicates whether a valid ingress gateway secret is expected.
+	// ShouldWaitForGatewaySecret indicates whether a valid gateway secret is expected.
 	ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool
 
 	// SecretExist checks if secret already existed.
@@ -406,7 +406,7 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 // ShouldWaitForGatewaySecret returns true if node agent is working in gateway agent mode
 // and needs to wait for gateway secret to be ready.
 func (sc *SecretCache) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
-	// If node agent works as workload agent, node agent does not expect any ingress gateway secret.
+	// If node agent works as workload agent, node agent does not expect any gateway secret.
 	// If workload is using file mounted certs, we should not wait for ingress secret.
 	if sc.fetcher.UseCaClient || fileMountedCertsOnly {
 		return false

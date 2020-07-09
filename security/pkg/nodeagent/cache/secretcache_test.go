@@ -604,7 +604,7 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 				}
 			}
 		}
-		// When secret is deleted, node agent should not wait for ingress gateway secret.
+		// When secret is deleted, node agent should not wait for gateway secret.
 		fetcher.DeleteSecret(c.addSecret)
 		if sc.ShouldWaitForGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "", false) {
 			t.Fatal("When fallback secret is enabled, node agent should not wait for gateway secret")
@@ -664,7 +664,7 @@ func TestShouldWaitForGatewaySecretForFileMountedCerts(t *testing.T) {
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
 	if sc.ShouldWaitForGatewaySecret("", "", "", true) {
-		t.Fatalf("Expected not to wait for ingress gateway secret for file mounted certs, but got true")
+		t.Fatalf("Expected not to wait for gateway secret for file mounted certs, but got true")
 	}
 }
 
