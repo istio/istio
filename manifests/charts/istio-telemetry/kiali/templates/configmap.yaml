@@ -18,7 +18,13 @@ data:
       strategy: {{ .Values.kiali.dashboard.auth.strategy }}
 {{- if eq .Values.kiali.dashboard.auth.strategy "ldap" }}
       ldap:
-{{- with .Values.kiali.dashboard.auth.ldap }}
+{{- with .Values.kiali.dashboard.auth.strategy.ldap }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- end }}
+{{- if eq .Values.kiali.dashboard.auth.strategy "openid" }}
+      openid:
+{{- with .Values.kiali.dashboard.auth.openid }}
 {{ toYaml . | indent 8 }}
 {{- end }}
 {{- end }}
