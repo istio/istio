@@ -48,7 +48,7 @@ type TrafficShiftConfig struct {
 
 // Test wrapper for the VM OS version test. This test will run in pre-submit
 // to avoid building and testing all OS images
-func TestVmOS(t *testing.T) {
+func TestReachability(t *testing.T) {
 	vmImages := []string{DefaultVMImage}
 	VMTestBody(t, vmImages)
 }
@@ -103,8 +103,9 @@ spec:
 
 			clusterServiceHostname := "cluster"
 			headlessServiceHostname := "headless"
-			var k8sClusterIPService echo.Instance
-			var k8sHeadlessService echo.Instance
+			multiVMHostname := "multi-vm"
+			var k8sClusterIPService, k8sHeadlessService echo.Instance
+			var multiVM echo.Instance
 			// builder to build the instances iteratively
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&k8sClusterIPService, echo.Config{
@@ -113,15 +114,20 @@ spec:
 					Ports:     ports,
 					Pilot:     p,
 				}).
-				BuildOrFail(t)
-
-			echoboot.NewBuilderOrFail(t, ctx).
 				With(&k8sHeadlessService, echo.Config{
 					Service:   headlessServiceHostname,
 					Namespace: ns,
 					Ports:     ports,
 					Pilot:     p,
 					Headless:  true,
+				}).
+				With(&multiVM, echo.Config{
+					Service:    multiVMHostname,
+					Namespace:  ns,
+					Ports:      ports,
+					Pilot:      p,
+					DeployAsVM: true,
+					VMImage:    DefaultVMImage,
 				}).
 				BuildOrFail(t)
 
@@ -172,6 +178,16 @@ spec:
 						name: "dns: VM to k8s headless service",
 						from: vm,
 						to:   k8sHeadlessService,
+					},
+					{
+						name: "dns: VM to another VM",
+						from: vm,
+						to:   multiVM,
+					},
+					{
+						name: "dns: another VM to VM",
+						from: multiVM,
+						to:   vm,
 					},
 				}
 
