@@ -26,23 +26,28 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
 // Cluster represents the current state  of a cluster in the mesh.
 type Cluster struct {
+	kube.Client
+
 	ClusterDesc
+
+	// The name of this cluster, generated from the uuid of kube-system Namespace.
+	// Fixed for the lifetime of cluster.
+	Name string
 
 	// Current context referenced by the MeshDesc. This context corresponds to the `context` in
 	// the current kubeconfig file. It is essentially the human friendly display
 	// name. It can be changed by the user with`kubectl config rename-context`.
 	Context string
-	// generated cluster name. The uuid of kube-system Namespace. Fixed for the lifetime of cluster.
-	clusterName string
+
 	// TODO - differentiate NO_INSTALL, REMOTE, and MASTER
-	installed bool
-	client    kubernetes.Interface
+	Installed bool
 }
 
 const (
@@ -59,17 +64,12 @@ func clusterUID(client kubernetes.Interface) (types.UID, error) {
 	return kubeSystem.UID, nil
 }
 
-func NewCluster(context string, desc ClusterDesc, env Environment) (*Cluster, error) {
+func NewCluster(desc ClusterDesc, context string, client kube.Client, printer Printer) (*Cluster, error) {
 	if desc.Namespace == "" {
 		desc.Namespace = defaultIstioNamespace
 	}
 	if desc.ServiceAccountReader == "" {
 		desc.ServiceAccountReader = DefaultServiceAccountName
-	}
-
-	client, err := env.CreateClientSet(context)
-	if err != nil {
-		return nil, err
 	}
 
 	uid, err := clusterUID(client)
@@ -84,22 +84,22 @@ func NewCluster(context string, desc ClusterDesc, env Environment) (*Cluster, er
 	case kerrors.IsNotFound(err):
 		installed = false
 	case err != nil:
-		env.Errorf("an error occurred trying to locate Istio in cluster %v: %v", context, err)
+		printer.Errorf("an error occurred trying to locate Istio in cluster %v: %v", context, err)
 	default:
 		installed = true
 	}
 
 	return &Cluster{
+		Client:      client,
 		ClusterDesc: desc,
 		Context:     context,
-		clusterName: string(uid),
-		client:      client,
-		installed:   installed,
+		Name:        string(uid),
+		Installed:   installed,
 	}, nil
 }
 
 func (c *Cluster) String() string {
-	return fmt.Sprintf("%v (%v)", c.clusterName, c.Context)
+	return fmt.Sprintf("%v (%v)", c.Name, c.Context)
 }
 
 type CACerts struct {
@@ -123,14 +123,14 @@ func extractCert(filename string, secret *v1.Secret) (*x509.Certificate, error) 
 
 type remoteSecrets map[string]*v1.Secret
 
-func (c *Cluster) readRemoteSecrets(env Environment) remoteSecrets {
+func (c *Cluster) readRemoteSecrets(printer Printer) remoteSecrets {
 	secretMap := make(remoteSecrets)
 	listOptions := metav1.ListOptions{
 		LabelSelector: fields.SelectorFromSet(fields.Set{secretcontroller.MultiClusterSecretLabel: "true"}).String(),
 	}
-	secrets, err := c.client.CoreV1().Secrets(c.Namespace).List(context2.TODO(), listOptions)
+	secrets, err := c.CoreV1().Secrets(c.Namespace).List(context2.TODO(), listOptions)
 	if err != nil {
-		env.Errorf("error: could not list secrets in cluster %v: %v\n", c, err)
+		printer.Errorf("error: could not list secrets in cluster %v: %v\n", c, err)
 		return secretMap
 	}
 	for i := range secrets.Items {
@@ -140,21 +140,21 @@ func (c *Cluster) readRemoteSecrets(env Environment) remoteSecrets {
 	return secretMap
 }
 
-func (c *Cluster) readCACerts(env Environment) *CACerts {
+func (c *Cluster) readCACerts(printer Printer) *CACerts {
 	cs := &CACerts{}
-	externalCASecret, err := c.client.CoreV1().Secrets(c.Namespace).Get(context2.TODO(), "cacerts", metav1.GetOptions{})
+	externalCASecret, err := c.CoreV1().Secrets(c.Namespace).Get(context2.TODO(), "cacerts", metav1.GetOptions{})
 	if err == nil {
 		if cs.externalCACert, err = extractCert("ca-cert.pem", externalCASecret); err != nil {
-			env.Errorf("error: %v\n", err)
+			printer.Errorf("error: %v\n", err)
 		}
 		if cs.externalRootCert, err = extractCert("root-cert.pem", externalCASecret); err != nil {
-			env.Errorf("error: %v\n", err)
+			printer.Errorf("error: %v\n", err)
 		}
 	}
-	selfSignedCASecret, err := c.client.CoreV1().Secrets(c.Namespace).Get(context2.TODO(), "istio-ca-secret", metav1.GetOptions{})
+	selfSignedCASecret, err := c.CoreV1().Secrets(c.Namespace).Get(context2.TODO(), "istio-ca-secret", metav1.GetOptions{})
 	if err == nil {
 		if cs.selfSignedCACert, err = extractCert("ca-cert.pem", selfSignedCASecret); err != nil {
-			env.Errorf("error: %v\n", err)
+			printer.Errorf("error: %v\n", err)
 		}
 	}
 	return cs
@@ -184,7 +184,7 @@ const (
 )
 
 func (c *Cluster) readIngressGateways() []*Gateway {
-	ingress, err := c.client.CoreV1().Services(c.Namespace).Get(context2.TODO(), istioIngressGatewayServiceName, metav1.GetOptions{})
+	ingress, err := c.CoreV1().Services(c.Namespace).Get(context2.TODO(), istioIngressGatewayServiceName, metav1.GetOptions{})
 	if err != nil {
 		return nil
 	}
@@ -192,7 +192,7 @@ func (c *Cluster) readIngressGateways() []*Gateway {
 }
 
 func gatewaysFromServiceStatus(status *v1.ServiceStatus, c *Cluster) []*Gateway {
-	gateways := []*Gateway{}
+	gateways := make([]*Gateway, 0)
 	for _, ip := range status.LoadBalancer.Ingress {
 		gateway := &Gateway{
 			Port:    443,

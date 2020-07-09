@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
@@ -105,11 +106,18 @@ istioctl --Kubeconfig=c0.yaml x create-remote-secret --name c0 --auth-type=plugi
 			if err := opts.prepare(c.Flags()); err != nil {
 				return err
 			}
-			env, err := NewEnvironmentFromCobra(opts.Kubeconfig, opts.Context, c)
+			client, err := kube.NewClient(kube.BuildClientCmd(opts.Kubeconfig, opts.Context))
 			if err != nil {
 				return err
 			}
-			out, err := CreateRemoteSecret(opts, env)
+
+			remoteSecret, err := CreateRemoteSecret(opts.ClusterName, opts.Namespace, opts.ServiceAccountName,
+				opts.AuthType, opts.AuthPluginName, opts.AuthPluginConfig, client)
+			if err != nil {
+				_, _ = fmt.Fprintf(c.OutOrStderr(), "error: %v\n", err)
+				return err
+			}
+			out, err := EncodeRemoteSecret(remoteSecret)
 			if err != nil {
 				_, _ = fmt.Fprintf(c.OutOrStderr(), "error: %v\n", err)
 				return err
@@ -351,60 +359,49 @@ func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {
 	return nil
 }
 
-func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, env Environment) (*v1.Secret, error) {
+// CreateRemoteSecret creates a remote secret with credentials of the specified service account.
+// This is useful for providing a cluster access to a remote apiserver.
+func CreateRemoteSecret(clusterName, namespace, serviceAccountName string, authType RemoteSecretAuthType,
+	authPluginName string, authPluginConfig map[string]string, client kube.Client) (*v1.Secret, error) {
 	// generate the clusterName if not specified
-	if opt.ClusterName == "" {
+	if clusterName == "" {
 		uid, err := clusterUID(client)
 		if err != nil {
 			return nil, err
 		}
-		opt.ClusterName = string(uid)
+		clusterName = string(uid)
 	}
 
-	tokenSecret, err := getServiceAccountSecretToken(client, opt.ServiceAccountName, opt.Namespace)
+	tokenSecret, err := getServiceAccountSecretToken(client, serviceAccountName, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
 	}
 
-	server, err := getServerFromKubeconfig(opt.Context, env.GetConfig())
-	if err != nil {
-		return nil, err
-	}
+	server := client.RESTConfig().Host
 
 	var remoteSecret *v1.Secret
-	switch opt.AuthType {
+	switch authType {
 	case RemoteSecretAuthTypeBearerToken:
-		remoteSecret, err = createRemoteSecretFromTokenAndServer(tokenSecret, opt.ClusterName, server)
+		remoteSecret, err = createRemoteSecretFromTokenAndServer(tokenSecret, clusterName, server)
 	case RemoteSecretAuthTypePlugin:
 		authProviderConfig := &api.AuthProviderConfig{
-			Name:   opt.AuthPluginName,
-			Config: opt.AuthPluginConfig,
+			Name:   authPluginName,
+			Config: authPluginConfig,
 		}
-		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, server, opt.ClusterName, authProviderConfig)
+		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, server, clusterName, authProviderConfig)
 	default:
-		err = fmt.Errorf("unsupported authentication type: %v", opt.AuthType)
+		err = fmt.Errorf("unsupported authentication type: %v", authType)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	remoteSecret.Namespace = opt.Namespace
+	remoteSecret.Namespace = namespace
 	return remoteSecret, nil
 }
 
-// CreateRemoteSecret creates a remote secret with credentials of the specified service account.
-// This is useful for providing a cluster access to a remote apiserver.
-func CreateRemoteSecret(opt RemoteSecretOptions, env Environment) (string, error) {
-	client, err := env.CreateClientSet(opt.Context)
-	if err != nil {
-		return "", err
-	}
-
-	remoteSecret, err := createRemoteSecret(opt, client, env)
-	if err != nil {
-		return "", err
-	}
-
+// EncodeRemoteSecret encodes the given secret to a string.
+func EncodeRemoteSecret(remoteSecret *v1.Secret) (string, error) {
 	// convert any binary data to the string equivalent for easier review. The
 	// kube-apiserver will convert this to binary before it persists it to storage.
 	remoteSecret.StringData = make(map[string]string, len(remoteSecret.Data))
