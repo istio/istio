@@ -332,21 +332,6 @@ func TestCreatePluggedCertCA(t *testing.T) {
 			t0.Add(ca.defaultCertTTL),
 			certChain.NotAfter)
 	}
-
-	// Check the siging cert stored in K8s configmap.
-	cmc := configmap.NewController(caNamespace, client.CoreV1())
-	strCertFromConfigMap, err := cmc.GetCATLSRootCert()
-	if err != nil {
-		t.Errorf("Cannot get the CA cert from configmap (%v)", err)
-	}
-	_, _, cert, _ := ca.GetCAKeyCertBundle().GetAllPem()
-	certFromConfigMap, err := base64.StdEncoding.DecodeString(strCertFromConfigMap)
-	if err != nil {
-		t.Errorf("Cannot decode the CA cert from configmap (%v)", err)
-	}
-	if !bytes.Equal(cert, certFromConfigMap) {
-		t.Errorf("The cert in configmap is not equal to the CA signing cert: %v VS (expected) %v", certFromConfigMap, cert)
-	}
 }
 
 // TODO: merge tests for SignCSR.
