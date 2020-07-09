@@ -60,6 +60,22 @@ func (c *ConfigWriter) PrintBootstrapDump() error {
 	return nil
 }
 
+// PrintEndpointDump prints just the endpoint config dump to the ConfigWriter stdout
+func (c *ConfigWriter) PrintEndpointDump() error {
+	if c.configDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	endpointDump, err := c.configDump.GetEndpointConfigDump()
+	if err != nil {
+		return err
+	}
+	jsonm := &jsonpb.Marshaler{Indent: "    "}
+	if err := jsonm.Marshal(c.Stdout, endpointDump); err != nil {
+		return fmt.Errorf("unable to marshal endpoint in Envoy config dump")
+	}
+	return nil
+}
+
 // PrintSecretDump prints just the secret config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintSecretDump() error {
 	if c.configDump == nil {

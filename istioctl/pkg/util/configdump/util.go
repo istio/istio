@@ -25,8 +25,9 @@ type configTypeURL string
 // See https://www.envoyproxy.io/docs/envoy/latest/api-v3/admin/v3/config_dump.proto
 const (
 	bootstrap configTypeURL = "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump"
-	listeners configTypeURL = "type.googleapis.com/envoy.admin.v3.ListenersConfigDump"
 	clusters  configTypeURL = "type.googleapis.com/envoy.admin.v3.ClustersConfigDump"
+	endpoints configTypeURL = "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump"
+	listeners configTypeURL = "type.googleapis.com/envoy.admin.v3.ListenersConfigDump"
 	routes    configTypeURL = "type.googleapis.com/envoy.admin.v3.RoutesConfigDump"
 	secrets   configTypeURL = "type.googleapis.com/envoy.admin.v3.SecretsConfigDump"
 )
