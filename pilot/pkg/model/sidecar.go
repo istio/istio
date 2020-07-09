@@ -192,12 +192,14 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		}
 	}
 
-	for _, sc := range ps.sidecarsByNamespace[configNamespace] {
-		out.AddConfigDependencies(ConfigKey{
-			Kind:      gvk.Sidecar,
-			Name:      sc.Config.Name,
-			Namespace: sc.Config.Namespace,
-		})
+	for _, ns := range []string{ps.Mesh.RootNamespace, configNamespace} {
+		for _, sc := range ps.sidecarsByNamespace[ns] {
+			out.AddConfigDependencies(ConfigKey{
+				Kind:      gvk.Sidecar,
+				Name:      sc.Config.Name,
+				Namespace: sc.Config.Namespace,
+			})
+		}
 	}
 
 	if ps.Mesh.OutboundTrafficPolicy != nil {
@@ -329,12 +331,14 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		}
 	}
 
-	for _, sc := range ps.sidecarsByNamespace[configNamespace] {
-		out.AddConfigDependencies(ConfigKey{
-			Kind:      gvk.Sidecar,
-			Name:      sc.Config.Name,
-			Namespace: sc.Config.Namespace,
-		})
+	for _, ns := range []string{ps.Mesh.RootNamespace, configNamespace} {
+		for _, sc := range ps.sidecarsByNamespace[ns] {
+			out.AddConfigDependencies(ConfigKey{
+				Kind:      gvk.Sidecar,
+				Name:      sc.Config.Name,
+				Namespace: sc.Config.Namespace,
+			})
+		}
 	}
 
 	if r.OutboundTrafficPolicy == nil {
