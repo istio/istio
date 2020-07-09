@@ -112,6 +112,9 @@ type Config struct {
 	// ResponseHandler will be called on each DiscoveryResponse.
 	// TODO: mirror Generator, allow adding handler per type
 	ResponseHandler ResponseHandler
+
+	// TODO: remove the duplication - all security settings belong here.
+	SecOpts *security.Options
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools

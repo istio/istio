@@ -89,7 +89,7 @@ func (sa *Agent) initXDS() {
 	g[v3.ClusterType] = p
 
 	// GrpcServer server over UDS, shared by SDS and XDS
-	serverOptions.GrpcServer = grpc.NewServer()
+	sa.secOpts.GrpcServer = grpc.NewServer()
 
 	var err error
 	sa.localListener, err = net.Listen("tcp", sa.cfg.LocalXDSAddr)
@@ -127,7 +127,7 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 	}
 	if sa.RequireCerts {
 		cfg.Secrets = secrets
-		cfg.JWTPath = sa.cfg.JWTPath
+		cfg.JWTPath = sa.secOpts.JWTPath
 	}
 	ads, err := adsc.New(proxyConfig, cfg)
 	if err != nil {
