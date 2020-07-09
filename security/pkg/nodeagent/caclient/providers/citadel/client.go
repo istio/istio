@@ -47,6 +47,12 @@ var (
 	// with extra SAN (labels, etc) in data path.
 	ProvCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
+
+	// TOKEN_ENABLED is the environment variable to decide if the prov cert is not valid
+	// whether use the token expired way to authenticate client
+	// When set to "true" means we will use the token, otherwise it will return
+	EnableTokenWhenCertFail = env.RegisterStringVar("TOKEN_ENABLED", "",
+		"Set to a directory containing provisioned certs, for VMs").Get()
 )
 
 type citadelClient struct {
@@ -153,6 +159,9 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 				// Load the certificate from disk
 				certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
 				if err != nil {
+					if EnableTokenWhenCertFail == "true" {
+						return &certificate, nil
+					}
 					return nil, fmt.Errorf("cannot load key pair: %s", err)
 				}
 			}
