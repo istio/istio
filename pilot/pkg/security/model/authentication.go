@@ -16,6 +16,7 @@ package model
 
 import (
 	"sync"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_grpc_credential "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v3"
@@ -125,7 +126,7 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string) *tls.SdsSecretConfig {
 					},
 				},
 			},
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 }
