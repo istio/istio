@@ -215,6 +215,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 	}
 
 	fullPush := len(configsUpdated) > 0
+
 	// Recomputing the index here is too expensive - lazy build when it is needed.
 	s.changeMutex.Lock()
 	s.refreshIndexes = fullPush // Only recompute indexes if services have changed.
@@ -238,11 +239,21 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 	}
 
 	if fullPush {
+		// When doing a full push, for the added and updated services trigger an eds update so that
+		// endpoint shards are updated.
+		var instances []*model.ServiceInstance
+		for _, svcs := range [][]*model.Service{addedSvcs, updatedSvcs} {
+			instances = append(instances, convertInstances(curr, svcs)...)
+		}
+
+		s.edsUpdate(instances)
+
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: configsUpdated,
 			Reason:         []model.TriggerReason{model.ServiceUpdate},
 		}
+
 		s.XdsUpdater.ConfigUpdate(pushReq)
 	}
 }
@@ -474,7 +485,10 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	dip := map[string][]*model.ServiceInstance{}
 
 	seWithSelectorByNamespace := map[string][]servicesWithEntry{}
-	for _, cfg := range s.store.ServiceEntries() {
+	s.storeMutex.RLock()
+	servicentries := s.store.ServiceEntries()
+	s.storeMutex.RUnlock()
+	for _, cfg := range servicentries {
 		key := configKey{
 			kind:      serviceEntryConfigType,
 			name:      cfg.Name,
