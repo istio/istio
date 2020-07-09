@@ -1,0 +1,13 @@
+{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $gateway.name | default "istio-egressgateway" }}-sds
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "watch", "list"]
+---

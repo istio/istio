@@ -57,8 +57,8 @@ const (
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
-	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
-	IngressGatewaySdsUdsPath = "unix:./var/run/ingress_gateway/sds"
+	// GatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
+	GatewaySdsUdsPath = "unix:./var/run/ingress_gateway/sds"
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"
@@ -201,9 +201,32 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 	}
 }
 
-// ApplyCustomSDSToCommonTLSContext applies the customized sds to CommonTlsContext
+// ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
+// Used for building upstream TLS context for egress gateway's TLS/mTLS origination
+func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ClientTLSSettings, sdsUdsPath string) {
+	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
+		// create SDS config for gateway to fetch key/cert from agent.
+		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
+			ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
+		}
+	}
+	// create SDS config for gateway to fetch certificate validation context
+	// at gateway agent.
+	defaultValidationContext := &tls.CertificateValidationContext{
+		MatchSubjectAltNames: util.StringToExactMatch(tlsOpts.SubjectAltNames),
+	}
+	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+			DefaultValidationContext: defaultValidationContext,
+			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigWithCustomUds(
+				tlsOpts.CredentialName+SdsCaSuffix, sdsUdsPath),
+		},
+	}
+}
+
+// ApplyCustomSDSToServerCommonTLSContext applies the customized sds to CommonTlsContext
 // Used for building both gateway/sidecar TLS context
-func ApplyCustomSDSToCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath string) {
+func ApplyCustomSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath string) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 		ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
