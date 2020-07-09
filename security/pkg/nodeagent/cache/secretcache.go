@@ -28,6 +28,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	securityModel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/security/pkg/nodeagent/sds"
+	"istio.io/pkg/env"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
@@ -40,18 +45,31 @@ import (
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
 
-	//citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
-	//google "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
-	//vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
+	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
+	google "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	istioagent "istio.io/istio/pkg/istio-agent"
 	"github.com/google/uuid"
 )
 
 var (
+	ProxyConfig meshconfig.ProxyConfig
+
 	cacheLog       = log.RegisterScope("cache", "cache debugging", 0)
 	newFileWatcher = filewatcher.NewWatcher
 	// The total timeout for any credential retrieval process, default value of 10s is used.
 	totalTimeout = time.Second * 10
+
+	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
+		"The JWT validation policy.")
+	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
+		"the provider of Pilot DNS certificate.").Get()
+	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
+		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
+				"Must be set for VMs using provisioning certificates.").Get()
+	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 )
 
 const (
@@ -94,6 +112,8 @@ const (
 
 	// CSR empty token, will be applied when the CSR request doesn't contain a token
 	EmptyToken = ""
+	// trustworthy token JWTPath
+	trustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
 )
 
 type k8sJwtPayload struct {
@@ -649,22 +669,43 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 
-				//switch _ := sc.fetcher.CaClient.(type) {
-				//case *citadel.CitadelClient:
-				//	sc.fetcher.CaClient =
-				//case *google.GoogleCAClient:
-				//	// TODO(myidpt): re create the google CA client to do mtls verification
-				//	sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				//	return true
-				//case *vault.VaultClient:
-				//	// TODO(myidpt): re create the vault CA client to do mtls verification
-				//	sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				//	return true
-				//default:
-				//	// requiring the client to send another SDS request. no citadel client meet return the client
-				//	sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				//	return true
-				//}
+				switch _ := sc.fetcher.CaClient.(type) {
+				case *citadel.CitadelClient:
+					sa, err := sc.getNewAgent()
+					if err != nil {
+						cacheLog.Errorf("%s could not get the new agent error is %v", logPrefix, err)
+						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+						return true
+					}
+					var serverOptions sds.Options
+					serverOptions.WorkloadUDSPath = istioagent.LocalSDS
+					serverOptions.CertsDir = sa.CertsPath
+					serverOptions.JWTPath = sa.Cfg.JWTPath
+					serverOptions.OutputKeyCertToDir = sa.Cfg.OutputKeyCertToDir
+					serverOptions.CAEndpoint = sa.CAEndpoint
+					serverOptions.TLSEnabled = sa.RequireCerts
+					serverOptions.ClusterID = sa.Cfg.ClusterID
+					serverOptions.FileMountedCerts = sa.FileMountedCerts
+					// If proxy is using file mounted certs, JWT token is not needed.
+					if sa.FileMountedCerts {
+						serverOptions.UseLocalJWT = false
+					} else {
+						serverOptions.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
+					}
+					_, sc.fetcher.CaClient = sa.NewSecretCache(serverOptions, true)
+				case *google.GoogleCAClient:
+					// TODO(myidpt): re create the google CA client to do mtls verification
+					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+					return true
+				case *vault.VaultClient:
+					// TODO(myidpt): re create the vault CA client to do mtls verification
+					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+					return true
+				default:
+					// requiring the client to send another SDS request. no citadel client meet return the client
+					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+					return true
+				}
 			}
 
 			wg.Add(1)
@@ -679,7 +720,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				var err error
 				if isTokenExpired {
 					//ns, err = sc.generateSecretUsingCaClientWithoutToken(context.Background(), connKey, now)
-					ns, err = sc.generateSecret(context.Background(), secret.Token, connKey, now)
+					ns, err = sc.generateSecretUsingCaClientWithoutToken(context.Background(), connKey, now)
 				} else {
 					ns, err = sc.generateSecret(context.Background(), secret.Token, connKey, now)
 				}
@@ -1247,4 +1288,29 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 	}
 	cacheLog.Debugf("Token exchange succeeded for %s", logPrefix)
 	return exchangedTokens[0], nil
+}
+
+func (sc *SecretCache) getNewAgent() (*istioagent.Agent, error) {
+	var jwtPath string
+	if jwtPolicy.Get() == jwt.PolicyThirdParty {
+		log.Info("JWT policy is third-party-jwt")
+		jwtPath = trustworthyJWTPath
+	} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
+		log.Info("JWT policy is first-party-jwt")
+		jwtPath = securityModel.K8sSAJwtFileName
+	} else {
+		log.Info("Using existing certs")
+	}
+	if out, err := gogoprotomarshal.ToYAML(&ProxyConfig); err != nil {
+		log.Infof("Failed to serialize to YAML: %v", err)
+	} else {
+		log.Infof("Effective config: %s", out)
+	}
+	sa := istioagent.NewAgent(&ProxyConfig, &istioagent.AgentConfig{
+		PilotCertProvider:  pilotCertProvider,
+		JWTPath:            jwtPath,
+		OutputKeyCertToDir: outputKeyCertToDir,
+		ClusterID:          clusterIDVar.Get(),
+	})
+	return sa, nil
 }

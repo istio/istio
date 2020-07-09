@@ -51,8 +51,9 @@ var (
 		"Set to a directory containing provisioned certs, for VMs").Get()
 	// EMPTY_PROV_CERT needs to be set true if the ProvCert path is provided
 	// but cert not exists
-	EmptyProvCert = env.RegisterStringVar("EMPTY_PROV_CERT", "",
-		"Set to a directory containing provisioned certs, for VMs").Get()
+	OutputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
+		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
+				"Must be set for VMs using provisioning certificates.").Get()
 )
 
 type CitadelClient struct {
@@ -64,7 +65,7 @@ type CitadelClient struct {
 }
 
 // NewCitadelClient create a CA client for Citadel.
-func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (caClientInterface.Client, error) {
+func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string, isRotate bool) (caClientInterface.Client, error) {
 	c := &CitadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,
@@ -75,7 +76,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 	var opts grpc.DialOption
 	var err error
 	if tls {
-		opts, err = c.getTLSDialOption()
+		opts, err = c.getTLSDialOption(isRotate)
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +134,7 @@ func (c *CitadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 	return resp.CertChain, nil
 }
 
-func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
+func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error) {
 	// Load the TLS root certificate from the specified file.
 	// Create a certificate pool
 	var certPool *x509.CertPool
@@ -156,16 +157,27 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	config := tls.Config{
 		Certificates: []tls.Certificate{certificate},
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			if ProvCert != "" && EmptyProvCert != "exists" {
-				// Load the certificate from disk
-				citadelClientLog.Infof("999999999")
-				certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
-				if err != nil {
-					return nil, fmt.Errorf("cannot load key pair: %s", err)
+			if isRotate {
+				if OutputKeyCertToDir != "" {
+					// Load the certificate from disk
+					citadelClientLog.Infof("151515151515")
+					certificate, err = tls.LoadX509KeyPair(OutputKeyCertToDir+"/cert-chain.pem", OutputKeyCertToDir+"/key.pem")
+					if err != nil {
+						return nil, fmt.Errorf("cannot load key pair: %s", err)
+					}
 				}
+				return &certificate, nil
+			} else {
+				if ProvCert != "" {
+					// Load the certificate from disk
+					citadelClientLog.Infof("999999999")
+					certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
+					if err != nil {
+						return nil, fmt.Errorf("cannot load key pair: %s", err)
+					}
+				}
+				return &certificate, nil
 			}
-			EmptyProvCert = ""
-			return &certificate, nil
 		},
 	}
 	config.RootCAs = certPool

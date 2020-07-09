@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"google.golang.org/grpc/grpclog"
+	"istio.io/istio/security/pkg/nodeagent/cache"
 
 	"istio.io/istio/pkg/dns"
 
@@ -187,6 +188,7 @@ var (
 			}
 
 			proxyConfig, err := constructProxyConfig()
+			cache.ProxyConfig = proxyConfig
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
@@ -324,7 +326,7 @@ var (
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
-				ProvCert:            citadel.EnvoyProvCert,
+				ProvCert:            citadel.ProvCert,
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
@@ -346,6 +348,8 @@ var (
 		},
 	}
 )
+
+
 
 // explicitly set the trustdomain so the pilot and mixer SAN will have same trustdomain
 // and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first

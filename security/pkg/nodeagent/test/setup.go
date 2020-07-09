@@ -163,7 +163,7 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		RecycleInterval:   5 * time.Minute,
 	}
 
-	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil, "")
+	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil, "",false)
 	if err != nil {
 		t.Fatalf("failed to create CA client: %+v", err)
 	}
