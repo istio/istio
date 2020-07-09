@@ -82,8 +82,18 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 		if subjectToken, err := ioutil.ReadFile(model.K8sSATrustworthyJwtFileName); err == nil {
 			ts := tokenmanager.NewTokenSource(trustDomain, string(subjectToken), authScope)
 			clientOptions = append(clientOptions, option.WithTokenSource(ts), option.WithQuotaProject(gcpMetadata[platform.GCPProject]))
+			// Set up goroutine to read token file periodically and refresh subject token with new expiry.
+			go func() {
+				for range time.Tick(5 * time.Minute) {
+					if subjectToken, err := ioutil.ReadFile(model.K8sSATrustworthyJwtFileName); err == nil {
+						ts.RefreshSubjectToken(string(subjectToken))
+					} else {
+						log.Debugf("Cannot refresh subject token for sts token source: %v", err)
+					}
+				}
+			}()
 		} else {
-			log.Errorf("Cannot read third party jwt token file")
+			log.Errorf("Cannot read third party jwt token file: %v", err)
 		}
 	}
 	se, err := stackdriver.NewExporter(stackdriver.Options{
