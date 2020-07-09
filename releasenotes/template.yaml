@@ -8,7 +8,7 @@
 # - Feature -- Used to specify a new feature that has been added. 
 # - Test -- Used to describe additional testing added. This file is optional for
 # tests, but included for completeness.
-Kind: BugFix
+Kind: 
 
 # Area describes the area that this change affects. 
 # Valid values are:
@@ -20,7 +20,7 @@ Kind: BugFix
 # - Documentation
 Area:
 
-# Issue is a (potentially comma separated list) of GitHub issues resolved by this issue.
+# Issue is a (potentially comma separated list) of GitHub issues resolved in this note.
 Issue: 
 
 # ReleaseNotes is a markdown listing of any user facing changes. This will appear in the
