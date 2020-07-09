@@ -15,6 +15,9 @@ base:
   # Used for helm2 to add the CRDs to templates.
   enableCRDTemplates: false
 
+  # enable validation webhook configuration
+  enableValidation: true
+
   # Validation webhook configuration url
   # For example: https://$remotePilotAddress:15017/validate
   validationURL: ""
