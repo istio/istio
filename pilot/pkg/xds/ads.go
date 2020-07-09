@@ -84,12 +84,6 @@ type Connection struct {
 	// Both ADS and EDS streams implement this interface
 	stream DiscoveryStream
 
-	// TODO(ramaraochavali): Remove LDSWatch and CDSWatch. Dervice it from Active map.
-	// LDSWatch is set if the remote server is watching Listeners
-	LDSWatch bool
-	// CDSWatch is set if the remote server is watching Clusters
-	CDSWatch bool
-
 	// Original node metadata, to avoid unmarshall/marshall. This is included
 	// in internal events.
 	xdsNode *core.Node
@@ -343,12 +337,11 @@ func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) e
 }
 
 func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if con.LDSWatch {
+	if con.Watching(v3.ListenerShortType) {
 		if !s.shouldRespond(con, ldsReject, discReq) {
 			return nil
 		}
 	}
-	con.LDSWatch = true
 	adsLog.Debugf("ADS:LDS: REQ %s", con.ConID)
 	err := s.pushLds(con, s.globalPushContext(), versionInfo())
 	if err != nil {
@@ -358,12 +351,11 @@ func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.Discover
 }
 
 func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if con.CDSWatch {
+	if con.Watching(v3.ClusterShortType) {
 		if !s.shouldRespond(con, cdsReject, discReq) {
 			return nil
 		}
 	}
-	con.CDSWatch = true
 	adsLog.Infof("ADS:CDS: REQ %v version:%s", con.ConID, discReq.VersionInfo)
 	err := s.pushCds(con, s.globalPushContext(), versionInfo())
 	if err != nil {
@@ -659,7 +651,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	pushTypes := PushTypeFor(con.node, pushEv)
 
-	if con.CDSWatch && pushTypes[CDS] {
+	if con.Watching(v3.ClusterShortType) && pushTypes[CDS] {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
@@ -676,7 +668,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	} else if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, EndpointEventType, pushEv.noncePrefix)
 	}
-	if con.LDSWatch && pushTypes[LDS] {
+	if con.Watching(v3.ListenerShortType) && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
@@ -869,4 +861,11 @@ func (conn *Connection) Routes() []string {
 		return conn.node.Active[v3.RouteShortType].ResourceNames
 	}
 	return []string{}
+}
+
+func (conn *Connection) Watching(stype string) bool {
+	if conn.node.Active != nil && conn.node.Active[stype] != nil {
+		return true
+	}
+	return false
 }
