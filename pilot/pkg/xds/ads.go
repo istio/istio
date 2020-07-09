@@ -81,15 +81,8 @@ type Connection struct {
 	RouteConfigs map[string]*route.RouteConfiguration `json:"-"`
 	CDSClusters  []*cluster.Cluster
 
-	// TODO(ramaraochavali): Remove Clusters and Routes - use resource names in WatchedResource instead.
-	// current list of clusters monitored by the client
-	Clusters []string
-
 	// Both ADS and EDS streams implement this interface
 	stream DiscoveryStream
-
-	// Routes is the list of watched Routes.
-	Routes []string
 
 	// TODO(ramaraochavali): Remove LDSWatch and CDSWatch. Dervice it from Active map.
 	// LDSWatch is set if the remote server is watching Listeners
@@ -125,7 +118,6 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	return &Connection{
 		pushChannel:  make(chan *Event),
 		PeerAddr:     peerAddr,
-		Clusters:     []string{},
 		Connect:      time.Now(),
 		stream:       stream,
 		LDSListeners: []*listener.Listener{},
@@ -389,8 +381,8 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 	if discReq.ResourceNames == nil && discReq.ResponseNonce != "" {
 		return nil
 	}
-	con.Clusters = discReq.ResourceNames
-	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters))
+	con.node.Active[v3.EndpointShortType].ResourceNames = discReq.ResourceNames
+	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters()))
 	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
 	if err != nil {
 		return err
@@ -402,8 +394,8 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 	if !s.shouldRespond(con, rdsReject, discReq) {
 		return nil
 	}
-	con.Routes = discReq.ResourceNames
-	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes))
+	con.node.Active[v3.RouteShortType].ResourceNames = discReq.ResourceNames
+	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes()))
 	err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 	if err != nil {
 		return err
@@ -429,43 +421,42 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 		return false
 	}
 
-	previousInfo := con.node.Active[request.TypeUrl]
-
-	// This is not a first request, we should see if it is a ACK.
-	if request.ResponseNonce != "" {
-		// If there is mismatch in the nonce, that is a case of expired/stale nonce.
-		// A nonce becomes stale following a newer nonce being sent to Envoy.
-		if previousInfo != nil && request.ResponseNonce != previousInfo.NonceSent {
-			adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
-				con.ConID, request.ResponseNonce, previousInfo.NonceSent)
-			xdsExpiredNonce.Increment()
-			return false
-		}
-
-		// If it comes here, that means nonce match. This an ACK. We should record
-		// the ack details and respond if there is a change in resource names.
+	// This is first request - initialize typeUrl watches.
+	if request.ResponseNonce == "" {
 		con.mu.Lock()
-		if con.node.Active[stype] == nil {
-			con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl}
-		}
-		con.node.Active[stype].VersionAcked = request.VersionInfo
-		con.node.Active[stype].NonceAcked = request.ResponseNonce
+		con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl}
 		con.mu.Unlock()
+		return true
+	}
 
-		// Envoy can send two DiscoveryRequests with same version and nonce when it detects
-		// a new resource. We should respond if they change.
-		var previousResources []string
-		switch request.TypeUrl {
-		case v2.EndpointType, v3.EndpointType:
-			previousResources = con.Clusters
-		case v2.RouteType, v3.RouteType:
-			previousResources = con.Routes
-		}
+	previousInfo := con.node.Active[stype]
 
-		if listEqualUnordered(previousResources, request.ResourceNames) {
-			adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
-			return false
-		}
+	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
+	// A nonce becomes stale following a newer nonce being sent to Envoy.
+	if previousInfo != nil && request.ResponseNonce != previousInfo.NonceSent {
+		adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
+			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
+		xdsExpiredNonce.Increment()
+		return false
+	}
+
+	// If it comes here, that means nonce match. This an ACK. We should record
+	// the ack details and respond if there is a change in resource names.
+	con.mu.Lock()
+	// This will be the case, if Envoy disconnects from a pilot instance and connects to another instance.
+	if previousInfo == nil {
+		con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+	}
+	previousResources := con.node.Active[stype].ResourceNames
+	con.node.Active[stype].VersionAcked = request.VersionInfo
+	con.node.Active[stype].NonceAcked = request.ResponseNonce
+	con.mu.Unlock()
+
+	// Envoy can send two DiscoveryRequests with same version and nonce when it detects
+	// a new resource. We should respond if they change.
+	if listEqualUnordered(previousResources, request.ResourceNames) {
+		adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		return false
 	}
 	return true
 }
@@ -616,7 +607,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		edsUpdatedServices := model.ConfigNamesOfKind(pushEv.configsUpdated, gvk.ServiceEntry)
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
-		if len(con.Clusters) > 0 && len(edsUpdatedServices) > 0 {
+		if len(con.Clusters()) > 0 && len(edsUpdatedServices) > 0 {
 			if err := s.pushEds(pushEv.push, con, versionInfo(), edsUpdatedServices); err != nil {
 				return err
 			}
@@ -677,7 +668,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		s.StatusReporter.RegisterEvent(con.ConID, ClusterEventType, pushEv.noncePrefix)
 	}
 
-	if len(con.Clusters) > 0 && pushTypes[EDS] {
+	if len(con.Clusters()) > 0 && pushTypes[EDS] {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
 			return err
@@ -693,7 +684,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	} else if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, ListenerEventType, pushEv.noncePrefix)
 	}
-	if len(con.Routes) > 0 && pushTypes[RDS] {
+	if len(con.Routes()) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
@@ -864,4 +855,18 @@ func (conn *Connection) NonceSent(stype string) string {
 		return conn.node.Active[stype].NonceSent
 	}
 	return ""
+}
+
+func (conn *Connection) Clusters() []string {
+	if conn.node.Active != nil && conn.node.Active[v3.EndpointShortType] != nil {
+		return conn.node.Active[v3.EndpointShortType].ResourceNames
+	}
+	return []string{}
+}
+
+func (conn *Connection) Routes() []string {
+	if conn.node.Active != nil && conn.node.Active[v3.RouteShortType] != nil {
+		return conn.node.Active[v3.RouteShortType].ResourceNames
+	}
+	return []string{}
 }

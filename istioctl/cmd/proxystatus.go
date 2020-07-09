@@ -34,13 +34,13 @@ func statusCommand() *cobra.Command {
 		Use:   "proxy-status [<pod-name[.namespace]>]",
 		Short: "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
 		Long: `
-Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in the mesh
+Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
 
 `,
 		Example: `# Retrieve sync status for all Envoys in a mesh
 	istioctl proxy-status
 
-# Retrieve sync diff for a single Envoy and Pilot
+# Retrieve sync diff for a single Envoy and Istiod
 	istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
 `,
 		Aliases: []string{"ps"},
@@ -58,11 +58,11 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 				}
 
 				path = fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
-				pilotDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
+				istiodDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
 				if err != nil {
 					return err
 				}
-				c, err := compare.NewComparator(c.OutOrStdout(), pilotDumps, envoyDump)
+				c, err := compare.NewComparator(c.OutOrStdout(), istiodDumps, envoyDump)
 				if err != nil {
 					return err
 				}
