@@ -173,8 +173,6 @@ require (
 	k8s.io/kubectl v0.18.3
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	sigs.k8s.io/controller-runtime v0.6.0
-	sigs.k8s.io/service-apis v0.0.0-20200625154238-3290dca43e1e
+	sigs.k8s.io/service-apis v0.0.0-20200708220836-10c7cb28ed93
 	sigs.k8s.io/yaml v1.2.0
 )
-
-replace sigs.k8s.io/service-apis => github.com/howardjohn/service-apis v0.0.0-20200625215450-120bc372d5a7
