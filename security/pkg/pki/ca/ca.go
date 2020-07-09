@@ -17,7 +17,6 @@ package ca
 import (
 	"context"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -29,13 +28,13 @@ import (
 
 	"istio.io/istio/security/pkg/cmd"
 
-	"istio.io/istio/security/pkg/k8s/configmap"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
+
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
-	"istio.io/pkg/probe"
 )
 
 const (
@@ -127,6 +126,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			CheckInterval:      rootCertCheckInverval,
 			caCertTTL:          caCertTTL,
 			retryInterval:      cmd.ReadSigningCertRetryInterval,
+			retryMax:           cmd.ReadSigningCertRetryMax,
 			certInspector:      certutil.NewCertUtil(rootCertGracePeriodPercentile),
 			caStorageNamespace: namespace,
 			dualUse:            dualUse,
@@ -180,18 +180,12 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		}
 		pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
 	}
-
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
-		pkiCaLog.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
-	} else {
-		pkiCaLog.Infof("The Citadel's public key is successfully written into configmap istio-security in namespace %s.", namespace)
-	}
 	return caOpts, nil
 }
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
-	defaultCertTTL, maxCertTTL time.Duration, namespace string, client corev1.CoreV1Interface) (caOpts *IstioCAOptions, err error) {
+	defaultCertTTL, maxCertTTL time.Duration) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         pluggedCertCA,
 		DefaultCertTTL: defaultCertTTL,
@@ -248,13 +242,6 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		return nil, fmt.Errorf("certificate is not authorized to sign other certificates")
 	}
 
-	crt := caOpts.KeyCertBundle.GetCertChainPem()
-	if len(crt) == 0 {
-		crt = caOpts.KeyCertBundle.GetRootCertPem()
-	}
-	if err = updateCertInConfigmap(namespace, client, crt); err != nil {
-		pkiCaLog.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
-	}
 	return caOpts, nil
 }
 
@@ -358,12 +345,6 @@ func (ca *IstioCA) SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl tim
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
 func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	return ca.keyCertBundle
-}
-
-func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {
-	certEncoded := base64.StdEncoding.EncodeToString(cert)
-	cmc := configmap.NewController(namespace, client)
-	return cmc.InsertCATLSRootCert(certEncoded)
 }
 
 // GenKeyCert() generates a certificate signed by the CA and

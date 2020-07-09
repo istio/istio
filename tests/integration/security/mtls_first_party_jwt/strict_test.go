@@ -35,7 +35,9 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 		Features("security.control-plane.k8s-certs").
 		Run(func(ctx framework.TestContext) {
 
-			rctx := reachability.CreateContext(ctx, p)
+			// TODO: due to issue https://github.com/istio/istio/issues/25286,
+			// currently VM does not work in this test
+			rctx := reachability.CreateContext(ctx, p, false)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{

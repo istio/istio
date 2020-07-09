@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -28,15 +29,16 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/collections"
 )
 
 type vmBootstrapTestcase struct {
 	address           string
 	args              []string
-	cannedIstioConfig []model.Config
+	cannedIstioConfig []clientnetworking.WorkloadEntry
 	cannedK8sConfig   []runtime.Object
 	expectedString    string
 	shouldFail        bool
@@ -45,17 +47,16 @@ type vmBootstrapTestcase struct {
 }
 
 var (
-	emptyIstioConfig = make([]model.Config, 0)
+	emptyIstioConfig = make([]clientnetworking.WorkloadEntry, 0)
 	emptyK8sConfig   = make([]runtime.Object, 0)
 
-	istioStaticWorkspace = []model.Config{
+	istioStaticWorkspace = []clientnetworking.WorkloadEntry{
 		{
-			ConfigMeta: model.ConfigMeta{
-				Name:             "workload",
-				Namespace:        "NS",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind(),
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "workload",
+				Namespace: "NS",
 			},
-			Spec: &networking.WorkloadEntry{
+			Spec: networking.WorkloadEntry{
 				Address:        "127.0.0.1",
 				ServiceAccount: "test",
 			},
@@ -221,7 +222,14 @@ func TestVmBootstrap(t *testing.T) {
 func verifyVMCommandCaseOutput(t *testing.T, c vmBootstrapTestcase) {
 	t.Helper()
 
-	configStoreFactory = mockClientFactoryGenerator(c.cannedIstioConfig)
+	configStoreFactory = mockClientFactoryGenerator(func(client istioclient.Interface) {
+		for _, cfg := range c.cannedIstioConfig {
+			_, err := client.NetworkingV1alpha3().WorkloadEntries(cfg.Namespace).Create(context.TODO(), &cfg, metaV1.CreateOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
 	interfaceFactory = mockInterfaceFactoryGenerator(c.cannedK8sConfig)
 
 	var out bytes.Buffer

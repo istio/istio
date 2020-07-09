@@ -22,7 +22,7 @@ import (
 )
 
 // TODO(ayj) - add to istio.io/api/annotations
-const clusterContextAnnotationKey = "istio.io/clusterContext"
+const clusterNameAnnotationKey = "networking.istio.io/cluster"
 
 // KubeOptions contains kubernetes options common to all commands.
 type KubeOptions struct {

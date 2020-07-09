@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/common/expfmt"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -136,16 +137,12 @@ func TestNewServer(t *testing.T) {
 
 func TestStats(t *testing.T) {
 	cases := []struct {
-		name   string
-		envoy  string
-		app    string
-		output string
+		name             string
+		envoy            string
+		app              string
+		output           string
+		expectParseError bool
 	}{
-		{
-			name:   "simple string",
-			envoy:  "foo",
-			output: "foo",
-		},
 		{
 			name: "envoy metric only",
 			envoy: `# TYPE my_metric counter
@@ -186,6 +183,42 @@ my_metric{} 0
 my_other_metric{} 0
 `,
 		},
+		// When the application and envoy share a metric, Prometheus will fail. This negative check validates this
+		// assumption.
+		{
+			name: "conflict metric",
+			envoy: `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+`,
+			app: `# TYPE my_metric counter
+my_metric{} 0
+`,
+			output: `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+# TYPE my_metric counter
+my_metric{} 0
+`,
+			expectParseError: true,
+		},
+		{
+			name: "conflict metric labeled",
+			envoy: `# TYPE my_metric counter
+my_metric{app="foo"} 0
+`,
+			app: `# TYPE my_metric counter
+my_metric{app="bar"} 0
+`,
+			output: `# TYPE my_metric counter
+my_metric{app="foo"} 0
+# TYPE my_metric counter
+my_metric{app="bar"} 0
+`,
+			expectParseError: true,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -219,6 +252,14 @@ my_other_metric{} 0
 			}
 			if rec.Body.String() != tt.output {
 				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
+			}
+
+			parser := expfmt.TextParser{}
+			mfMap, err := parser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
+			if err != nil && !tt.expectParseError {
+				t.Fatalf("failed to parse metrics: %v", err)
+			} else if err == nil && tt.expectParseError {
+				t.Fatalf("expected a prse error, got %+v", mfMap)
 			}
 		})
 	}

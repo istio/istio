@@ -22,7 +22,10 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
+
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/constants"
 
 	"istio.io/istio/pilot/pkg/security/model"
@@ -79,7 +82,7 @@ var (
 	eccSigAlgEnv                = env.RegisterStringVar(eccSigAlg, "", "The type of ECC signature algorithm to use when generating private keys").Get()
 
 	// Location of K8S CA root.
-	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 
 	// CitadelCACertPath is the directory for Citadel CA certificate.
 	// This is mounted from config map 'istio-ca-root-cert'. Part of startup,
@@ -192,6 +195,19 @@ type Agent struct {
 
 	proxyConfig *mesh.ProxyConfig
 
+	// Listener for the XDS proxy
+	LocalXDSListener net.Listener
+
+	// ProxyGen is a generator for proxied types - will 'generate' XDS by using
+	// an adsc connection.
+	proxyGen *xds.ProxyGen
+
+	// used for XDS portion.
+	localListener   net.Listener
+	localGrpcServer *grpc.Server
+
+	xdsServer *xds.SimpleServer
+
 	cfg *AgentConfig
 }
 
@@ -301,6 +317,10 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig) *Agent {
 	if discPort == "15012" {
 		a.RequireCerts = true
 	}
+
+	// Init the XDS proxy part of the agent.
+	a.initXDS()
+
 	return a
 }
 
@@ -356,6 +376,12 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	}
 
 	server, err := sds.NewServer(serverOptions, sa.WorkloadSecrets, gatewaySecretCache)
+	if err != nil {
+		return nil, err
+	}
+
+	// Start the XDS client and proxy.
+	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -510,7 +536,6 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 
 	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
 	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
-	workloadSdsCacheOptions.ECCSigAlg = serverOptions.ECCSigAlg
 	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 
 	return
@@ -553,6 +578,7 @@ func applyEnvVars() {
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
 	serverOptions.ECCSigAlg = eccSigAlgEnv
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
+	workloadSdsCacheOptions.ECCSigAlg = eccSigAlgEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv

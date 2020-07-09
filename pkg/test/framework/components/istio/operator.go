@@ -205,16 +205,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 				}
 				return nil
 			})
-		}
-	}
-
-	// patch istiod deployment with ISTIOD_CUSTOM_HOST
-	if isCentralIstio(env, cfg) {
-		for _, cluster := range env.KubeClusters {
-			if env.IsControlPlaneCluster(cluster) {
-				if err := patchIstiodCustomHost(cfg, cluster); err != nil {
-					return nil, err
-				}
+			if isCentralIstio(env, cfg) && env.IsControlPlaneCluster(cluster) {
+				errG.Go(func() error {
+					return patchIstiodCustomHost(cfg, cluster)
+				})
 			}
 		}
 	}
@@ -286,7 +280,7 @@ func patchIstiodCustomHost(cfg Config, cluster resource.Cluster) error {
 		var err error
 		remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, cluster, false)
 		return err
-	}, retry.Timeout(1*time.Minute)); err != nil {
+	}, retry.Timeout(90*time.Second)); err != nil {
 		return fmt.Errorf("failed getting the istiod address for cluster %s: %v", cluster.Name(), err)
 	}
 

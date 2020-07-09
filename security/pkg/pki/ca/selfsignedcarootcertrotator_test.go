@@ -75,7 +75,6 @@ func TestRootCertRotatorWithoutRootCertSecret(t *testing.T) {
 type rootCertItem struct {
 	caSecret                *v1.Secret
 	rootCertInKeyCertBundle []byte
-	rootCertInConfigMap     string
 }
 
 func verifyRootCertAndPrivateKey(t *testing.T, shouldMatch bool, itemA, itemB rootCertItem) {
@@ -86,10 +85,6 @@ func verifyRootCertAndPrivateKey(t *testing.T, shouldMatch bool, itemA, itemB ro
 	isMatched = bytes.Equal(itemA.rootCertInKeyCertBundle, itemB.rootCertInKeyCertBundle)
 	if isMatched != shouldMatch {
 		t.Errorf("Verification of root cert in key cert bundle failed. Want %v got %v", shouldMatch, isMatched)
-	}
-	isMatched = (itemA.rootCertInConfigMap == itemB.rootCertInConfigMap)
-	if isMatched != shouldMatch {
-		t.Errorf("Verification of root cert in config map failed. Want %v got %v", shouldMatch, isMatched)
 	}
 
 	// Root cert rotation does not change root private key. Root private key should
@@ -104,9 +99,7 @@ func loadCert(rotator *SelfSignedCARootCertRotator) rootCertItem {
 	client := rotator.config.client
 	caSecret, _ := client.Secrets(rotator.config.caStorageNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
 	rootCert := rotator.ca.keyCertBundle.GetRootCertPem()
-	rootCertInConfigMap, _ := rotator.configMapController.GetCATLSRootCert()
-	return rootCertItem{caSecret: caSecret, rootCertInKeyCertBundle: rootCert,
-		rootCertInConfigMap: rootCertInConfigMap}
+	return rootCertItem{caSecret: caSecret, rootCertInKeyCertBundle: rootCert}
 }
 
 // TestRootCertRotatorForSigningCitadel verifies that rotator rotates root cert,
@@ -289,8 +282,8 @@ func TestRollbackAtRootCertRotatorForSigningCitadel(t *testing.T) {
 
 	// Change grace period percentage to 100, so that root cert is guarantee to rotate.
 	rotator.config.certInspector = certutil.NewCertUtil(100)
-	fakeClient.PrependReactor("update", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, &v1.ConfigMap{}, errors.NewUnauthorized("no permission to update configmap")
+	fakeClient.PrependReactor("update", "secrets", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, &v1.Secret{}, errors.NewUnauthorized("no permission to update secret")
 	})
 	rotator.checkAndRotateRootCert()
 	certItem1 := loadCert(rotator)
@@ -346,5 +339,7 @@ func getDefaultSelfSignedIstioCAOptions(fclient *fake.Clientset) *IstioCAOptions
 
 func getRootCertRotator(opts *IstioCAOptions) *SelfSignedCARootCertRotator {
 	ca, _ := NewIstioCA(opts)
+	ca.rootCertRotator.config.retryMax = time.Millisecond * 50
+	ca.rootCertRotator.config.retryInterval = time.Millisecond * 5
 	return ca.rootCertRotator
 }
