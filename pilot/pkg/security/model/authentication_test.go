@@ -214,7 +214,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 		name       string
 		sdsUdsPath string
 		node       *model.Proxy
-		expected     *auth.CommonTlsContext
+		expected   *auth.CommonTlsContext
 	}{
 		{
 			name:       "MTLSStrict using SDS",
@@ -409,12 +409,12 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 	}
 }
 
-func TestApplyCustomSDSToCommonTLSContext(t *testing.T) {
+func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 	testCases := []struct {
 		name       string
 		sdsUdsPath string
 		tlsOpts    *networking.ServerTLSSettings
-		expected     *auth.CommonTlsContext
+		expected   *auth.CommonTlsContext
 	}{
 		{
 			name:       "static certificate validation without SubjectAltNames",
@@ -625,7 +625,7 @@ func TestApplyCustomSDSToCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyCustomSDSToCommonTLSContext(tlsContext, test.tlsOpts, test.sdsUdsPath)
+			ApplyCustomSDSToServerCommonTLSContext(tlsContext, test.tlsOpts, test.sdsUdsPath)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
