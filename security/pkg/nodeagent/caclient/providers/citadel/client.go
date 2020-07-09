@@ -159,7 +159,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	config := tls.Config{
 		Certificates: []tls.Certificate{certificate},
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			if ProvCert != "" && EmptyProvCert != "true" {
+			if ProvCert != "" && EmptyProvCert != "exists" {
 				// Load the certificate from disk
 				citadelClientLog.Infof("999999999")
 				certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
