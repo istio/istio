@@ -233,10 +233,10 @@ func checkMetric(p prometheus.Instance, query string, excluded []string, useVM b
 		if numSamples == 0 {
 			// With VMs, the destination info is unknown
 			// Filtered to not throw an error
-			if useVM && strings.Contains(query, "destination") {
-				scopes.Framework.Infof("Filtered VM queries reported by destination '%v'", query)
-				return nil
-			}
+			//if useVM && strings.Contains(query, "destination") {
+			//	scopes.Framework.Infof("Filtered VM queries reported by destination '%v'", query)
+			//	return nil
+			//}
 			return fmt.Errorf("expected a metric value for '%s', found no samples: %#v", query, value)
 		}
 	} else {
