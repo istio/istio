@@ -102,7 +102,7 @@ func readProfiles(chartsDir string) (map[string]bool, error) {
 		if err := CheckCompiledInCharts(); err != nil {
 			return nil, err
 		}
-		profilePaths, err := vfs.ReadDir(chartsDir)
+		profilePaths, err := vfs.ReadDir(filepath.Join(chartsDir, profilesRoot))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read profiles: %v", err)
 		}
