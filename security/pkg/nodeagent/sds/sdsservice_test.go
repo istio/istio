@@ -27,17 +27,17 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/genproto/googleapis/rpc/status"
-	"google.golang.org/protobuf/testing/protocmp"
-
-	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"golang.org/x/net/context"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/testing/protocmp"
+	ca2 "istio.io/istio/pkg/security"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
@@ -62,7 +62,7 @@ var (
 )
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
 		RecycleInterval:         30 * time.Second,
@@ -74,7 +74,7 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
 func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableWorkloadSDS:     true,
 		RecycleInterval:       30 * time.Second,
 		IngressGatewayUDSPath: "",
@@ -102,7 +102,7 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 }
 
 func TestStreamSecretsForGatewaySds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableIngressGatewaySDS: true,
 		EnableWorkloadSDS:       false,
 		RecycleInterval:         30 * time.Second,
@@ -113,7 +113,7 @@ func TestStreamSecretsForGatewaySds(t *testing.T) {
 }
 
 func TestStreamSecretsForBothSds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableIngressGatewaySDS: true,
 		EnableWorkloadSDS:       true,
 		RecycleInterval:         30 * time.Second,
@@ -124,7 +124,7 @@ func TestStreamSecretsForBothSds(t *testing.T) {
 }
 
 func TestFetchSecretsForWorkloadSds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
 		RecycleInterval:         30 * time.Second,
@@ -135,7 +135,7 @@ func TestFetchSecretsForWorkloadSds(t *testing.T) {
 }
 
 func TestFetchSecretsForGatewaySds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableIngressGatewaySDS: true,
 		EnableWorkloadSDS:       false,
 		RecycleInterval:         30 * time.Second,
@@ -146,7 +146,7 @@ func TestFetchSecretsForGatewaySds(t *testing.T) {
 }
 
 func TestFetchSecretsForBothSds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableIngressGatewaySDS: true,
 		EnableWorkloadSDS:       true,
 		RecycleInterval:         30 * time.Second,
@@ -157,7 +157,7 @@ func TestFetchSecretsForBothSds(t *testing.T) {
 }
 
 func TestStreamSecretsInvalidResourceName(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
 		RecycleInterval:         30 * time.Second,
@@ -169,8 +169,8 @@ func TestStreamSecretsInvalidResourceName(t *testing.T) {
 
 type secretCallback func(string, *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error)
 
-func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourceNames bool) {
-	var wst, gst cache.SecretManager
+func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidResourceNames bool) {
+	var wst, gst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
 		wst = &mockSecretStore{
 			checkToken: true,
@@ -294,7 +294,7 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 }
 
 func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
 		RecycleInterval:         100 * time.Second,
@@ -1047,7 +1047,7 @@ func TestDebugEndpoints(t *testing.T) {
 
 	for _, tc := range tests {
 		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
-		arg := Options{
+		arg := ca2.Options{
 			EnableIngressGatewaySDS: false,
 			EnableWorkloadSDS:       true,
 			RecycleInterval:         30 * time.Second,

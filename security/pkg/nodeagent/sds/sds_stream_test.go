@@ -27,6 +27,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"istio.io/istio/pkg/security"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -346,7 +347,7 @@ func StartStreamTest(t *testing.T) *StreamSetup {
 }
 
 func createStreamSDSServer(t *testing.T, socket string) (*Server, *mockIngressGatewaySecretStore) {
-	arg := Options{
+	arg := security.Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
 		RecycleInterval:         100 * time.Second,

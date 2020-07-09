@@ -28,8 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache/mock"
-	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/pkg/filewatcher"
 
 	v1 "k8s.io/api/core/v1"
@@ -207,7 +207,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	if isUsingPluginProvider {
 		// The mocked token exchanger server returns 3 errors before returning a valid response.
 		fakePlugin := mock.NewMockTokenExchangeServer(3)
-		opt.Plugins = []plugin.Plugin{fakePlugin}
+		opt.Plugins = []security.TokenExchanger{fakePlugin}
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{

@@ -25,6 +25,7 @@ import (
 	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"istio.io/istio/pkg/security"
 
 	tlsv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -166,7 +167,7 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	// Create a SDS server talking to the fake servers
 	stsclient.GKEClusterURL = msts.FakeGKEClusterURL
 	stsclient.SecureTokenEndpoint = mockSTSServer.URL + "/v1/identitybindingtoken"
-	arg := Options{
+	arg := security.Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
 		RecycleInterval:         100 * time.Millisecond,

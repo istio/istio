@@ -20,12 +20,10 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/security/pkg/nodeagent/cache"
-
 	mesh "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	istioagent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/security"
 	secretmodel "istio.io/istio/security/pkg/nodeagent/model"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -96,16 +94,17 @@ func TestAgent(t *testing.T) {
 
 	t.Run("agentProxy", func(t *testing.T) {
 		// Start the istio-agent (proxy and SDS part) - will connect to XDS
-		sa := istioagent.NewAgent(
-			&mesh.ProxyConfig{
-				DiscoveryAddress:       util.MockPilotSGrpcAddr,
-				ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
-			}, &istioagent.AgentConfig{
-				PilotCertProvider: "custom",
-				ClusterID:         "kubernetes",
-				// Enable proxy - off by default, will be XDS_LOCAL env in install.
-				LocalXDSAddr: "127.0.0.1:15002",
-			})
+		sa := istioagent.NewAgent(&mesh.ProxyConfig{
+			DiscoveryAddress:       util.MockPilotSGrpcAddr,
+			ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
+		}, &istioagent.AgentConfig{
+			PilotCertProvider: "custom",
+			ClusterID:         "kubernetes",
+			// Enable proxy - off by default, will be XDS_LOCAL env in install.
+			LocalXDSAddr: "127.0.0.1:15002",
+		}, &security.Options{
+
+		})
 
 		// Override agent auth - start will use this instead of a gRPC
 		// TODO: add a test for cert-based config.
@@ -144,7 +143,7 @@ func TestAgent(t *testing.T) {
 }
 
 // testAdscTLS tests that ADSC helper can connect using TLS to Istiod
-func testAdscTLS(t *testing.T, creds cache.SecretManager) {
+func testAdscTLS(t *testing.T, creds security.SecretManager) {
 	// connect to the local XDS proxy - it's using a transient port.
 	ldsr, err := adsc.Dial(util.MockPilotSGrpcAddr, "",
 		&adsc.Config{

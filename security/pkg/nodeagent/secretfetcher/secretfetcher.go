@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/security"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -32,7 +33,6 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
-	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -81,7 +81,7 @@ var (
 type SecretFetcher struct {
 	// If UseCaClient is true, use caClient to send CSR to CA.
 	UseCaClient bool
-	CaClient    caClientInterface.Client
+	CaClient    security.Client
 
 	// Controller and store for secret objects.
 	scrtController cache.Controller

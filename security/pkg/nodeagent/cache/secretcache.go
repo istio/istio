@@ -28,13 +28,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
 	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/security/pkg/nodeagent/model"
-	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -93,45 +93,6 @@ type k8sJwtPayload struct {
 	Sub string `json:"sub"`
 }
 
-// Options provides all of the configuration parameters for secret cache.
-type Options struct {
-	// secret TTL.
-	SecretTTL time.Duration
-
-	// The initial backoff time in millisecond to avoid the thundering herd problem.
-	InitialBackoffInMilliSec int64
-
-	// secret should be rotated if:
-	// time.Now.After(<secret ExpireTime> - <secret TTL> * SecretRotationGracePeriodRatio)
-	SecretRotationGracePeriodRatio float64
-
-	// Key rotation job running interval.
-	RotationInterval time.Duration
-
-	// Cached secret will be removed from cache if (time.now - secretItem.CreatedTime >= evictionDuration), this prevents cache growing indefinitely.
-	EvictionDuration time.Duration
-
-	// TrustDomain corresponds to the trust root of a system.
-	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-	TrustDomain string
-
-	// authentication provider specific plugins.
-	Plugins []plugin.Plugin
-
-	// Set this flag to true for if token used is always valid(ex, normal k8s JWT)
-	AlwaysValidTokenFlag bool
-
-	// Whether to generate PKCS#8 private keys.
-	Pkcs8Keys bool
-
-	// OutputKeyCertToDir is the directory for output the key and certificate
-	OutputKeyCertToDir string
-
-	// The type of Elliptical Signature algorithm to use
-	// when generating private keys. Currently only ECDSA is supported.
-	ECCSigAlg string
-}
-
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
 	// GenerateSecret generates new secret and cache the secret.
@@ -169,7 +130,7 @@ type SecretCache struct {
 	fetcher        *secretfetcher.SecretFetcher
 
 	// configOptions includes all configurable params for the cache.
-	configOptions Options
+	configOptions *security.Options
 
 	// How may times that key rotation job has detected normal key/cert change happened, used in unit test.
 	secretChangedCount uint64
@@ -207,7 +168,7 @@ type SecretCache struct {
 
 // NewSecretCache creates a new secret cache.
 func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
-	notifyCb func(ConnKey, *model.SecretItem) error, options Options) *SecretCache {
+	notifyCb func(ConnKey, *model.SecretItem) error, options *security.Options) *SecretCache {
 	ret := &SecretCache{
 		fetcher:               fetcher,
 		closing:               make(chan bool),
@@ -1018,7 +979,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
-			p := sc.configOptions.Plugins[0]
+			p := sc.configOptions.TokenExchangers[0]
 			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
 		}
 		cacheLog.Debugf("%s", requestErrorString)
@@ -1061,11 +1022,11 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string, connKey ConnKey) (string, error) {
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	cacheLog.Debugf("Start token exchange process for %s", logPrefix)
-	if sc.configOptions.Plugins == nil || len(sc.configOptions.Plugins) == 0 {
+	if sc.configOptions.TokenExchangers == nil || len(sc.configOptions.TokenExchangers) == 0 {
 		cacheLog.Debugf("Return k8s token for %s", logPrefix)
 		return k8sJwtToken, nil
 	}
-	if len(sc.configOptions.Plugins) > 1 {
+	if len(sc.configOptions.TokenExchangers) > 1 {
 		cacheLog.Errorf("Found more than one plugin for %s", logPrefix)
 		return "", fmt.Errorf("found more than one plugin")
 	}

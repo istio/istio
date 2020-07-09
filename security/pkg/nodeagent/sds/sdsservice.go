@@ -29,8 +29,8 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/util"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -114,7 +114,7 @@ type sdsConnection struct {
 }
 
 type sdsservice struct {
-	st cache.SecretManager
+	st security.SecretManager
 
 	ticker         *time.Ticker
 	tickerInterval time.Duration
@@ -153,7 +153,7 @@ type Debug struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT, fileMountedCertsOnly bool,
+func newSDSService(st security.SecretManager, skipTokenVerification, localJWT, fileMountedCertsOnly bool,
 	recycleInterval time.Duration, jwtPath, outputKeyCertToDir string) *sdsservice {
 	if st == nil {
 		return nil

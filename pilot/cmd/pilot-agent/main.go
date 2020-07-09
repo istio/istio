@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"google.golang.org/grpc/grpclog"
+	"istio.io/istio/pkg/security"
 
 	"istio.io/istio/pkg/dns"
 
@@ -212,12 +213,19 @@ var (
 				log.Info("Using existing certs")
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{
+			sopts := &security.Options{
 				PilotCertProvider:  pilotCertProvider,
-				JWTPath:            jwtPath,
 				OutputKeyCertToDir: outputKeyCertToDir,
+				JWTPath:            jwtPath,
 				ClusterID:          clusterIDVar.Get(),
-			})
+				FileMountedCerts:   fileMountedCertsEnv,
+
+			}
+			// TODO: move env variables here, no env in pkg.
+			istio_agent.ApplyEnvVars(sopts)
+			sa := istio_agent.NewAgent(&proxyConfig,
+				&istio_agent.AgentConfig{
+			}, sopts)
 
 			// Connection to Istiod secure port
 			if sa.RequireCerts {
