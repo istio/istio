@@ -18,6 +18,7 @@ features:
   # features that relate to measuring or exploring your service mesh or the services which comprise it.
   observability:
     telemetry:
+      stackdriver:
       stats:
         prometheus:
           customize-metric:

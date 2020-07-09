@@ -37,7 +37,7 @@ import (
 func TestVMTelemetry(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.reachability"). // use stackdriver vm telemetry feature
+		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.
