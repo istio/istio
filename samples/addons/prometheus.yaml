@@ -7,7 +7,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.3.0
+    chart: prometheus-11.7.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -22,7 +22,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.3.0
+    chart: prometheus-11.7.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -289,7 +289,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.3.0
+    chart: prometheus-11.7.0
     heritage: Helm
   name: prometheus
 rules:
@@ -310,6 +310,7 @@ rules:
       - watch
   - apiGroups:
       - "extensions"
+      - "networking.k8s.io"
     resources:
       - ingresses/status
       - ingresses
@@ -330,7 +331,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.3.0
+    chart: prometheus-11.7.0
     heritage: Helm
   name: prometheus
 subjects:
@@ -350,7 +351,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.3.0
+    chart: prometheus-11.7.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -375,7 +376,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.3.0
+    chart: prometheus-11.7.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -392,7 +393,7 @@ spec:
         component: "server"
         app: prometheus
         release: prometheus
-        chart: prometheus-11.3.0
+        chart: prometheus-11.7.0
         heritage: Helm
     spec:
       serviceAccountName: prometheus
@@ -411,7 +412,7 @@ spec:
               readOnly: true
 
         - name: prometheus-server
-          image: "prom/prometheus:v2.18.1"
+          image: "prom/prometheus:v2.19.0"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d
@@ -427,6 +428,7 @@ spec:
               path: /-/ready
               port: 9090
             initialDelaySeconds: 0
+            periodSeconds: 5
             timeoutSeconds: 30
             failureThreshold: 3
             successThreshold: 1
@@ -435,6 +437,7 @@ spec:
               path: /-/healthy
               port: 9090
             initialDelaySeconds: 30
+            periodSeconds: 15
             timeoutSeconds: 30
             failureThreshold: 3
             successThreshold: 1
