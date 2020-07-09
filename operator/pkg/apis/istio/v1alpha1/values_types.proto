@@ -1815,7 +1815,7 @@ message BaseConfig {
   string validationURL = 2;
 
    // boolean to enable validation webhook configuration.
-  google.protobuf.BoolValue enableCRDTemplates = 3;
+  google.protobuf.BoolValue enableValidation = 3;
 }
 
 message IstiodRemoteConfig {
