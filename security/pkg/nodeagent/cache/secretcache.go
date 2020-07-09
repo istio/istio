@@ -87,6 +87,9 @@ const (
 
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
+
+	// CSR empty token, will be applied when the CSR request doesn't contain a token
+	EmptyToken = ""
 )
 
 type k8sJwtPayload struct {
@@ -876,6 +879,77 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	return sdsFromFile, nil, nil
 }
 
+func (sc *SecretCache) generateSecretUsingCaClientWithoutToken(ctx context.Context, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
+	logPrefix := cacheLogPrefix(connKey.ResourceName)
+	csrHostName := connKey.ResourceName
+	options := pkiutil.CertOptions{
+		Host:       csrHostName,
+		RSAKeySize: keySize,
+		PKCS8Key:   sc.configOptions.Pkcs8Keys,
+		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
+	}
+	// Generate the cert/key, send CSR to CA.
+	csrPEM, keyPEM, err := pkiutil.GenCSR(options)
+	if err != nil {
+		cacheLog.Errorf("%s failed to generate key and certificate for CSR: %v", logPrefix, err)
+		return nil, err
+	}
+	numOutgoingRequests.With(RequestType.Value(CSR)).Increment()
+	timeBeforeCSR := time.Now()
+	certChainPEM, err := sc.sendRetriableCSRRequestWithoutToken(ctx, csrPEM, connKey, true)
+	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
+	outgoingLatency.With(RequestType.Value(CSR)).Record(csrLatency)
+	if err != nil {
+		numFailedOutgoingRequests.With(RequestType.Value(CSR)).Increment()
+		return nil, err
+	}
+	cacheLog.Debugf("%s received CSR response with certificate chain %+v \n",
+		logPrefix, certChainPEM)
+
+	certChain := []byte{}
+	for _, c := range certChainPEM {
+		certChain = append(certChain, []byte(c)...)
+	}
+
+	var expireTime time.Time
+	// Cert expire time by default is createTime + sc.configOptions.SecretTTL.
+	// Istiod respects SecretTTL that passed to it and use it decide TTL of cert it issued.
+	// Some customer CA may override TTL param that's passed to it.
+	if expireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain); err != nil {
+		cacheLog.Errorf("%s failed to extract expire time from server certificate in CSR response %+v: %v",
+			logPrefix, certChainPEM, err)
+		return nil, fmt.Errorf("failed to extract expire time from server certificate in CSR response: %v", err)
+	}
+
+	length := len(certChainPEM)
+	rootCert, _ := sc.getRootCert()
+	// Leaf cert is element '0'. Root cert is element 'n'.
+	rootCertChanged := !bytes.Equal(rootCert, []byte(certChainPEM[length-1]))
+	if rootCert == nil || rootCertChanged {
+		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp([]byte(certChainPEM[length-1]))
+		if err == nil {
+			sc.setRootCert([]byte(certChainPEM[length-1]), rootCertExpireTime)
+		} else {
+			cacheLog.Errorf("%s failed to parse root certificate in CSR response: %v", logPrefix, err)
+			rootCertChanged = false
+		}
+	}
+
+	if rootCertChanged {
+		cacheLog.Info("Root cert has changed, start rotating root cert for SDS clients")
+		sc.rotate(true /*updateRootFlag*/)
+	}
+
+	return &model.SecretItem{
+		CertificateChain: certChain,
+		PrivateKey:       keyPEM,
+		ResourceName:     connKey.ResourceName,
+		CreatedTime:      t,
+		ExpireTime:       expireTime,
+		Version:          t.Format("01-02 15:04:05.000"), // Precise enough version based on creation time.
+	}, nil
+}
+
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
@@ -1075,6 +1149,61 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		return certChainPEM, nil
 	}
 	return []string{exchangedToken}, nil
+}
+
+func (sc *SecretCache) sendRetriableCSRRequestWithoutToken(ctx context.Context, csrPEM []byte, connKey ConnKey, isCSR bool) ([]string, error) {
+	if sc.configOptions.InitialBackoffInMilliSec > 0 {
+		sc.randMutex.Lock()
+		randomizedInitialBackOffInMS := sc.rand.Int63n(sc.configOptions.InitialBackoffInMilliSec)
+		sc.randMutex.Unlock()
+		cacheLog.Debugf("Wait for %d millisec for jitter", randomizedInitialBackOffInMS)
+		// Add a jitter to initial CSR to avoid thundering herd problem.
+		time.Sleep(time.Duration(randomizedInitialBackOffInMS) * time.Millisecond)
+	}
+	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
+
+	// Assign a unique request ID for all the retries.
+	reqID := uuid.New().String()
+
+	logPrefix := cacheLogPrefixWithReqID(connKey.ResourceName, reqID)
+	startTime := time.Now()
+	var certChainPEM []string
+	var requestErrorString string
+	var err error
+	// Keep trying until no error or timeout.
+	for {
+		var httpRespCode int
+		requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
+		//certChainPEM, err = sc.fetcher.CaClient.CSRSign(
+		//	ctx, reqID, csrPEM, EmptyToken, int64(sc.configOptions.SecretTTL.Seconds()), false)
+		certChainPEM, err = sc.fetcher.CaClient.CSRSign(
+			ctx, reqID, csrPEM, EmptyToken, int64(sc.configOptions.SecretTTL.Seconds()))
+		cacheLog.Debugf("%s", requestErrorString)
+
+		if err == nil {
+			break
+		}
+
+		// If non-retryable error, fail the request by returning err
+		if !isRetryableErr(status.Code(err), httpRespCode, isCSR) {
+			cacheLog.Errorf("%s hit non-retryable error (HTTP code: %d). Error: %v", requestErrorString, httpRespCode, err)
+			return nil, err
+		}
+
+		// If reach envoy timeout, fail the request by returning err
+		if startTime.Add(totalTimeout).Before(time.Now()) {
+			cacheLog.Errorf("%s retrial timed out: %v", requestErrorString, err)
+			return nil, err
+		}
+		time.Sleep(time.Duration(retryBackoffInMS) * time.Millisecond)
+		cacheLog.Warnf("%s failed with error: %v, retry in %d millisec", requestErrorString, err, retryBackoffInMS)
+		retryBackoffInMS *= 2 // Exponentially increase the retry backoff time.
+
+		// Record retry metrics.
+		numOutgoingRetries.With(RequestType.Value(CSR)).Increment()
+	}
+
+	return certChainPEM, nil
 }
 
 // getExchangedToken gets the exchanged token for the CSR. The token is either the k8s jwt token of the
