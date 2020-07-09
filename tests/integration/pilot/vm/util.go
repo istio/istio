@@ -17,8 +17,7 @@
 package vm
 
 const (
-	// TODO do not merge until I revert back to debian
-	DefaultVMImage = "app_sidecar_centos_8"
+	DefaultVMImage = "app_sidecar_ubuntu_bionic"
 )
 
 func GetSupportedOSVersion() []string {
