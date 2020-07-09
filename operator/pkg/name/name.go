@@ -99,6 +99,9 @@ const (
 	// istiod remote component
 	IstiodRemoteComponentName ComponentName = "IstiodRemote"
 
+	// istiod central component
+	IstiodCentralComponentName ComponentName = "IstiodCentral"
+
 	// Gateway components
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
@@ -124,6 +127,7 @@ var (
 		TelemetryComponentName,
 		CNIComponentName,
 		IstiodRemoteComponentName,
+		IstiodCentralComponentName,
 	}
 	allComponentNamesMap = map[ComponentName]bool{
 		IstioBaseComponentName:    true,
@@ -132,6 +136,7 @@ var (
 		TelemetryComponentName:    true,
 		CNIComponentName:          true,
 		IstiodRemoteComponentName: true,
+		IstiodCentralComponentName: true,
 	}
 
 	// BundledAddonComponentNamesMap is a map of component names of addons which have helm charts bundled with Istio
@@ -159,6 +164,7 @@ var (
 		IstioOperatorComponentName:      "Istio operator",
 		IstioOperatorCustomResourceName: "Istio operator CRDs",
 		IstiodRemoteComponentName:       "Istiod remote",
+		IstiodCentralComponentName:       "Istiod central",
 	}
 	scanAddons sync.Once
 )

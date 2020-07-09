@@ -346,7 +346,7 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
+gen: go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod sync-configs-from-istiod-and-base gen-kustomize update-golden ## Update all generated code.
 
 check-no-modify:
 	@bin/check_no_modify.sh
@@ -357,6 +357,25 @@ gen-check: check-no-modify gen check-clean-repo
 sync-configs-from-istiod:
 	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files/
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/configmap-jwks.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.7.yaml manifests/charts/istiod-remote/templates/
+
+# Copy the files from istiod and base chart into istiod-central chart
+sync-configs-from-istiod-and-base:
+	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-central/files/
+	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/autoscale.yaml manifests/charts/istiod-central/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-central/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/configmap-jwks.yaml manifests/charts/istiod-central/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/deployment.yaml manifests/charts/istiod-central/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/service.yaml manifests/charts/istiod-central/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml manifests/charts/istiod-central/templates/
+	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-central/
+	cp manifests/charts/base/templates/clusterrolebinding.yaml manifests/charts/istiod-central/templates/
+	cp manifests/charts/base/templates/clusterrole.yaml manifests/charts/istiod-central/templates/
+	cp manifests/charts/base/templates/serviceaccount.yaml manifests/charts/istiod-central/templates/
 
 # Generate kustomize templates.
 gen-kustomize:

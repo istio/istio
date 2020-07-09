@@ -121,6 +121,12 @@ func TestNewIstioOperator(t *testing.T) {
 							Options:       coreComponentOptions,
 						},
 					},
+					&component.IstiodCentralComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							ComponentName: name.IstiodCentralComponentName,
+							Options:       coreComponentOptions,
+						},
+					},
 				},
 			},
 		},
