@@ -348,7 +348,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 			log.Infof("Starting gateway SDS")
 			serverOptions.EnableGatewaySDS = true
 			// TODO: what is the setting for ingress ?
-			serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.GatewaySdsUdsPath, "unix:")
+			serverOptions.GatewayUDSPath = strings.TrimPrefix(model.GatewaySdsUdsPath, "unix:")
 			gatewaySecretCache = newGatewaySecretCache(podNamespace)
 		} else {
 			log.Infof("Skipping gateway SDS")

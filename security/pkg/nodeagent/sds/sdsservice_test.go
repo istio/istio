@@ -63,12 +63,11 @@ var (
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
 	arg := Options{
-		EnableGatewaySDS:       false,
-		EnableEgressGatewaySDS: false,
-		EnableWorkloadSDS:      true,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  "",
-		WorkloadUDSPath:        fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
@@ -76,13 +75,12 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
 func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 	arg := Options{
-		EnableWorkloadSDS:     true,
-		RecycleInterval:       30 * time.Second,
-		IngressGatewayUDSPath: "",
-		EgressGatewayUDSPath:  "",
-		WorkloadUDSPath:       fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
-		FileMountedCerts:      true,
-		UseLocalJWT:           false,
+		EnableWorkloadSDS:    true,
+		RecycleInterval:      30 * time.Second,
+		GatewayUDSPath:       "",
+		WorkloadUDSPath:      fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		FileMountedCerts:     true,
+		UseLocalJWT:          false,
 	}
 	wst := &mockSecretStore{
 		checkToken: false,
@@ -103,131 +101,68 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 	checkStaledConnCount(t)
 }
 
-func TestStreamSecretsForIngressGatewaySds(t *testing.T) {
+func TestStreamSecretsForGatewaySds(t *testing.T) {
 	arg := Options{
-		EnableGatewaySDS:       true,
-		EnableEgressGatewaySDS: false,
-		EnableWorkloadSDS:      false,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  fmt.Sprintf("/tmp/ingress_gateway_gotest%q.sock", string(uuid.NewUUID())),
-		EgressGatewayUDSPath:   "",
-		WorkloadUDSPath:        "",
+		EnableGatewaySDS:     true,
+		EnableWorkloadSDS:    false,
+		RecycleInterval:      30 * time.Second,
+		GatewayUDSPath:       fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:      "",
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
 
-func TestStreamSecretsForEgressGatewaySds(t *testing.T) {
+func TestStreamSecretsForBothSds(t *testing.T) {
 	arg := Options{
-		EnableGatewaySDS:       false,
-		EnableEgressGatewaySDS: true,
-		EnableWorkloadSDS:      false,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  "",
-		EgressGatewayUDSPath:   fmt.Sprintf("/tmp/egress_gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:        "",
-	}
-	testHelper(t, arg, sdsRequestStream, false)
-}
-
-func TestStreamSecretsForIngressAndWorkloadSds(t *testing.T) {
-	arg := Options{
-		EnableGatewaySDS:       true,
-		EnableEgressGatewaySDS: false,
-		EnableWorkloadSDS:      true,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  fmt.Sprintf("/tmp/ingress_gateway_gotest%q.sock", string(uuid.NewUUID())),
-		EgressGatewayUDSPath:   "",
-		WorkloadUDSPath:        fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
-	}
-	testHelper(t, arg, sdsRequestStream, false)
-}
-
-func TestStreamSecretsForEgressAndWorkloadSds(t *testing.T) {
-	arg := Options{
-		EnableGatewaySDS:       false,
-		EnableEgressGatewaySDS: true,
-		EnableWorkloadSDS:      true,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  "",
-		EgressGatewayUDSPath:   fmt.Sprintf("/tmp/egress_gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:        fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:     true,
+		EnableWorkloadSDS:    true,
+		RecycleInterval:      30 * time.Second,
+		GatewayUDSPath:       fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:      fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
 
 func TestFetchSecretsForWorkloadSds(t *testing.T) {
 	arg := Options{
-		EnableGatewaySDS:       false,
-		EnableEgressGatewaySDS: false,
-		EnableWorkloadSDS:      true,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  "",
-		EgressGatewayUDSPath:   "",
-		WorkloadUDSPath:        fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:     false,
+		EnableWorkloadSDS:    true,
+		RecycleInterval:      30 * time.Second,
+		GatewayUDSPath:       "",
+		WorkloadUDSPath:      fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
-func TestFetchSecretsForIngressGatewaySds(t *testing.T) {
+func TestFetchSecretsForGatewaySds(t *testing.T) {
 	arg := Options{
-		EnableGatewaySDS:       true,
-		EnableEgressGatewaySDS: false,
-		EnableWorkloadSDS:      false,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  fmt.Sprintf("/tmp/ingress_gateway_gotest%q.sock", string(uuid.NewUUID())),
-		EgressGatewayUDSPath:   "",
-		WorkloadUDSPath:        "",
+		EnableGatewaySDS:     true,
+		EnableWorkloadSDS:    false,
+		RecycleInterval:      30 * time.Second,
+		GatewayUDSPath:       fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:      "",
 	}
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
-func TestFetchSecretsForEgressGatewaySds(t *testing.T) {
+func TestFetchSecretsForBothSds(t *testing.T) {
 	arg := Options{
-		EnableGatewaySDS:       false,
-		EnableEgressGatewaySDS: true,
-		EnableWorkloadSDS:      false,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  "",
-		EgressGatewayUDSPath:   fmt.Sprintf("/tmp/egress_gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:        "",
-	}
-	testHelper(t, arg, sdsRequestFetch, false)
-}
-
-func TestFetchSecretsForIngressAndWorkloadSds(t *testing.T) {
-	arg := Options{
-		EnableGatewaySDS:       true,
-		EnableEgressGatewaySDS: false,
-		EnableWorkloadSDS:      true,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  fmt.Sprintf("/tmp/ingress_gateway_gotest%q.sock", string(uuid.NewUUID())),
-		EgressGatewayUDSPath:   "",
-		WorkloadUDSPath:        fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
-	}
-	testHelper(t, arg, sdsRequestFetch, false)
-}
-
-func TestFetchSecretsForEgressAndWorkloadSds(t *testing.T) {
-	arg := Options{
-		EnableGatewaySDS:       false,
-		EnableEgressGatewaySDS: true,
-		EnableWorkloadSDS:      true,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  "",
-		EgressGatewayUDSPath:   fmt.Sprintf("/tmp/egress_gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:        fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:     true,
+		EnableWorkloadSDS:    true,
+		RecycleInterval:      30 * time.Second,
+		GatewayUDSPath:       fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:      fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestStreamSecretsInvalidResourceName(t *testing.T) {
 	arg := Options{
-		EnableGatewaySDS:       false,
-		EnableEgressGatewaySDS: false,
-		EnableWorkloadSDS:      true,
-		RecycleInterval:        30 * time.Second,
-		IngressGatewayUDSPath:  "",
-		WorkloadUDSPath:        fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, true)
 }
@@ -243,7 +178,7 @@ func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourc
 	} else {
 		wst = nil
 	}
-	if arg.EnableGatewaySDS || arg.EnableEgressGatewaySDS {
+	if arg.EnableGatewaySDS {
 		gst = &mockSecretStore{
 			checkToken: false,
 		}
@@ -272,11 +207,7 @@ func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourc
 		recycleConnection(getClientConID(proxyID), "ROOTCA")
 	}
 	if arg.EnableGatewaySDS {
-		sendRequestAndVerifyResponse(t, cb, arg.IngressGatewayUDSPath, proxyID, testInvalidResourceNames)
-		recycleConnection(getClientConID(proxyID), testResourceName)
-	}
-	if arg.EnableEgressGatewaySDS {
-		sendRequestAndVerifyResponse(t, cb, arg.EgressGatewayUDSPath, proxyID, testInvalidResourceNames)
+		sendRequestAndVerifyResponse(t, cb, arg.GatewayUDSPath, proxyID, testInvalidResourceNames)
 		recycleConnection(getClientConID(proxyID), testResourceName)
 	}
 	// Check to make sure number of staled connections is 0.
@@ -366,7 +297,6 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	arg := Options{
 		EnableGatewaySDS:       false,
-		EnableEgressGatewaySDS: false,
 		EnableWorkloadSDS:      true,
 		RecycleInterval:        100 * time.Second,
 		WorkloadUDSPath:        socket,
@@ -1120,7 +1050,6 @@ func TestDebugEndpoints(t *testing.T) {
 		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 		arg := Options{
 			EnableGatewaySDS:       false,
-			EnableEgressGatewaySDS: false,
 			EnableWorkloadSDS:      true,
 			RecycleInterval:        30 * time.Second,
 			WorkloadUDSPath:        socket,
