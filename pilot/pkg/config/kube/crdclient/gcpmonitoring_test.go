@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package crdclient
 
 import (
 	"errors"
@@ -43,16 +43,19 @@ func TestGCPMonitoringPilotK8sCfgEvents(t *testing.T) {
 		if len(exp.Rows["config_event_count"]) < 1 {
 			return errors.New("wanted metrics not received")
 		}
-		r := exp.Rows["config_event_count"][0]
-		if findTagWithValue("operation", "bar", r.Tags) && findTagWithValue("type", "foo", r.Tags) {
-			if sd, ok := r.Data.(*view.SumData); ok {
-				got = sd.Value
+		for _, r := range exp.Rows["config_event_count"] {
+			if findTagWithValue("operation", "bar", r.Tags) && findTagWithValue("type", "foo", r.Tags) {
+				if sd, ok := r.Data.(*view.SumData); ok {
+					got = sd.Value
+				}
 			}
+			if got != 1.0 {
+				t.Logf("find config_event_count for {operation: bar, type: bar}, got %v want 1.0", got)
+				continue
+			}
+			return nil
 		}
-		if got != 1.0 {
-			return fmt.Errorf("bad value for config_event_count: %f, want 1.0", got)
-		}
-		return nil
+		return fmt.Errorf("cannot find config_event_count for {operation: bar, type: bar}, want 1.0")
 	}); err != nil {
 		t.Fatalf("failed to get expected metric: %v", err)
 	}
