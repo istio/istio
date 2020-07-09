@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/grpc/peer"
 	"istio.io/pkg/env"
 
 	"google.golang.org/grpc"
@@ -46,6 +47,8 @@ var (
 	// with extra SAN (labels, etc) in data path.
 	ProvCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
+	//ProvCert = env.RegisterStringVar("PROV_CERT", "",
+	//	"Set to a directory containing provisioned certs, for VMs").Get()
 )
 
 type citadelClient struct {
@@ -76,6 +79,10 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 		opts = grpc.WithInsecure()
 	}
 
+	citadelClientLog.Infof("3333333333\n")
+	citadelClientLog.Infof("%+v\n", ProvCert)
+	citadelClientLog.Infof("4444444444\n")
+
 	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
 	//  need a way to reconnect.
 	conn, err := grpc.Dial(endpoint, opts)
@@ -95,6 +102,15 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
 	}
+
+	citadelClientLog.Infof("CSRSign========\n")
+	citadelClientLog.Infof("%+v\n",ctx)
+	peer, _ := peer.FromContext(ctx)
+	citadelClientLog.Infof("ssssssppppoooooo\n")
+	citadelClientLog.Infof("%+v\n",ctx)
+	citadelClientLog.Infof("pppppkkkkkkkkk\n")
+	citadelClientLog.Infof("%+v\n",peer)
+	citadelClientLog.Infof("nnnnnnnnnnnnnnnnn\n")
 
 	// add Bearer prefix, which is required by Citadel.
 	token = bearerTokenPrefix + token
