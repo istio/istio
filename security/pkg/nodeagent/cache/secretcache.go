@@ -77,15 +77,6 @@ const (
 	// notifySecretRetrievalTimeout is the timeout for another round of secret retrieval. This is to make sure to
 	// unblock the secret watch main thread in case those child threads got stuck due to any reason.
 	notifySecretRetrievalTimeout = 30 * time.Second
-
-	// The well-known path for an existing certificate chain file
-	defaultCertChainFilePath = "./etc/certs/cert-chain.pem"
-
-	// The well-known path for an existing key file
-	defaultKeyFilePath = "./etc/certs/key.pem"
-
-	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
-	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
@@ -163,6 +154,8 @@ type SecretCache struct {
 	// unique certs being watched with file watcher.
 	fileCerts map[string]map[ConnKey]struct{}
 	certMutex *sync.RWMutex
+
+	secOpts *security.Options
 }
 
 // NewSecretCache creates a new secret cache.
@@ -175,12 +168,13 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
 		rootCertMutex:         &sync.RWMutex{},
 		configOptions:         options,
 		randMutex:             &sync.Mutex{},
-		existingCertChainFile: defaultCertChainFilePath,
-		existingKeyFile:       defaultKeyFilePath,
-		existingRootCertFile:  DefaultRootCertFilePath,
+		existingCertChainFile: security.DefaultCertChainFilePath,
+		existingKeyFile:       security.DefaultKeyFilePath,
+		existingRootCertFile:  security.DefaultRootCertFilePath,
 		certWatcher:           newFileWatcher(),
 		fileCerts:             make(map[string]map[ConnKey]struct{}),
 		certMutex:             &sync.RWMutex{},
+		secOpts:               options,
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)

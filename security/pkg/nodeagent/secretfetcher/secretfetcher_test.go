@@ -18,10 +18,11 @@ import (
 	"bytes"
 	"testing"
 
-	"istio.io/istio/pkg/security"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/pkg/security"
 
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 )

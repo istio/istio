@@ -31,10 +31,10 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/kube"
 
+	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
-	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 
@@ -69,7 +69,6 @@ var (
 	// this may be replaced with ./etc/certs, if a root-cert.pem is found, to
 	// handle secrets mounted from non-citadel CAs.
 	CitadelCACertPath = "./var/run/secrets/istio"
-
 )
 
 var (
@@ -345,8 +344,8 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 				}
 			} else if sa.secOpts.PilotCertProvider == "custom" {
 				log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
-					cache.DefaultRootCertFilePath)
-				if rootCert, err = ioutil.ReadFile(cache.DefaultRootCertFilePath); err != nil {
+					security.DefaultRootCertFilePath)
+				if rootCert, err = ioutil.ReadFile(security.DefaultRootCertFilePath); err != nil {
 					certReadErr = true
 				}
 			} else {
@@ -380,8 +379,8 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 					}
 				} else if sa.secOpts.PilotCertProvider == "custom" {
 					log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
-						cache.DefaultRootCertFilePath)
-					if rootCert, err = ioutil.ReadFile(cache.DefaultRootCertFilePath); err != nil {
+						security.DefaultRootCertFilePath)
+					if rootCert, err = ioutil.ReadFile(security.DefaultRootCertFilePath); err != nil {
 						certReadErr = true
 					}
 				} else {

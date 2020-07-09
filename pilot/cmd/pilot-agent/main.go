@@ -114,7 +114,7 @@ var (
 
 	// TODO: this is a horribly named env, it's really TOKEN_EXCHANGE_PLUGINS - but to avoid breaking
 	// it's left unchanged. It may not be needed because we autodetect.
-	pluginNamesEnv             = env.RegisterStringVar("PLUGINS", "", "Token exchange plugins").Get()
+	pluginNamesEnv = env.RegisterStringVar("PLUGINS", "", "Token exchange plugins").Get()
 
 	// This is also disabled by presence of the SDS socket directory
 	enableIngressGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
@@ -124,7 +124,7 @@ var (
 	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "",
 		"The trust domain for spiffe certificates").Get()
 
-	secretTTLEnv   = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
+	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
 
 	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
@@ -136,7 +136,7 @@ var (
 	initialBackoffInMilliSecEnv = env.RegisterIntVar("INITIAL_BACKOFF_MSEC", 0, "").Get()
 	pkcs8KeysEnv                = env.RegisterBoolVar("PKCS8_KEY", false, "Whether to generate PKCS#8 private keys").Get()
 	eccSigAlgEnv                = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
-	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
+	fileMountedCertsEnv         = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
