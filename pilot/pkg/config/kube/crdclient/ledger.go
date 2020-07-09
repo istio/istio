@@ -17,9 +17,10 @@ package crdclient
 import (
 	"fmt"
 
-	"istio.io/pkg/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/pkg/log"
 
 	"istio.io/pkg/ledger"
 
