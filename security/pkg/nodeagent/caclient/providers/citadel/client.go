@@ -151,6 +151,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 			return nil, fmt.Errorf("failed to append certificates")
 		}
 	}
+	citadelClientLog.Infof("101010101010")
 	var certificate tls.Certificate
 	config := tls.Config{
 		Certificates: []tls.Certificate{certificate},
@@ -163,6 +164,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 					return nil, fmt.Errorf("cannot load key pair: %s", err)
 				}
 			}
+			EmptyProvCert = ""
 			return &certificate, nil
 		},
 	}
