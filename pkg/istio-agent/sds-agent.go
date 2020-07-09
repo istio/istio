@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/constants"
@@ -146,7 +147,7 @@ var (
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	LocalSDS = "./etc/istio/proxy/SDS"
 
-	gatewaySecretChan       chan struct{}
+	gatewaySecretChan chan struct{}
 )
 
 // Agent contains the configuration of the agent, based on the injected
@@ -204,8 +205,8 @@ type Agent struct {
 
 	xdsServer *xds.SimpleServer
 
-	cfg *AgentConfig
-	serverOptions  *security.Options
+	cfg           *AgentConfig
+	serverOptions *security.Options
 }
 
 // AgentConfig contains additional config for the agent, not included in ProxyConfig.
@@ -229,8 +230,8 @@ type AgentConfig struct {
 //
 func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.Options) *Agent {
 	sa := &Agent{
-		proxyConfig: proxyConfig,
-		cfg:         cfg,
+		proxyConfig:   proxyConfig,
+		cfg:           cfg,
 		serverOptions: sopts,
 	}
 
@@ -306,7 +307,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 	} else {
 		sa.serverOptions.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
 	}
-
 
 	// Init the XDS proxy part of the agent.
 	sa.initXDS()
@@ -515,15 +515,15 @@ func (sa *Agent) newIngressSecretCache(namespace string) (gatewaySecretCache *ca
 		UseCaClient: false,
 	}
 	// If gateway is using file mounted certs, we do not have to setup secret fetcher.
-		cs, err := kube.CreateClientset("", "")
+	cs, err := kube.CreateClientset("", "")
 
-		if err != nil {
-			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-			os.Exit(1)
-		}
-		gSecretFetcher.FallbackSecretName = "gateway-fallback"
+	if err != nil {
+		log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+		os.Exit(1)
+	}
+	gSecretFetcher.FallbackSecretName = "gateway-fallback"
 
-		gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
+	gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
 
 	gatewaySecretChan = make(chan struct{})
 	gSecretFetcher.Run(gatewaySecretChan)
@@ -556,4 +556,3 @@ func ApplyEnvVars(serverOptions *security.Options) {
 	}
 	serverOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 }
-

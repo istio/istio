@@ -37,13 +37,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/testing/protocmp"
-	ca2 "istio.io/istio/pkg/security"
 	"k8s.io/apimachinery/pkg/util/uuid"
+
+	ca2 "istio.io/istio/pkg/security"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
 
@@ -804,8 +804,8 @@ func (s *Setup) verifyTotalPushes(expected int64) {
 	}
 }
 
-func (s *Setup) generatePushSecret(conID, token string) *model.SecretItem {
-	pushSecret := &model.SecretItem{
+func (s *Setup) generatePushSecret(conID, token string) *ca2.SecretItem {
+	pushSecret := &ca2.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
 		ResourceName:     testResourceName,
@@ -951,7 +951,7 @@ func (ms *mockSecretStore) SecretCacheMiss() int {
 	return ms.secretCacheMiss
 }
 
-func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceName, token string) (*model.SecretItem, error) {
+func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceName, token string) (*ca2.SecretItem, error) {
 	if ms.checkToken && token != fakeToken1 && token != fakeToken2 {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
@@ -961,7 +961,7 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceNa
 		ResourceName: resourceName,
 	}
 	if resourceName == testResourceName {
-		s := &model.SecretItem{
+		s := &ca2.SecretItem{
 			CertificateChain: fakeCertificateChain,
 			PrivateKey:       fakePrivateKey,
 			ResourceName:     testResourceName,
@@ -974,7 +974,7 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceNa
 	}
 
 	if resourceName == cache.RootCertReqResourceName || strings.HasPrefix(resourceName, "file-root:") {
-		s := &model.SecretItem{
+		s := &ca2.SecretItem{
 			RootCert:     fakeRootCert,
 			ResourceName: cache.RootCertReqResourceName,
 			Version:      time.Now().Format("01-02 15:04:05.000"),
@@ -1001,7 +1001,7 @@ func (ms *mockSecretStore) SecretExist(conID, spiffeID, token, version string) b
 		ms.secretCacheMiss++
 		return false
 	}
-	cs := val.(*model.SecretItem)
+	cs := val.(*ca2.SecretItem)
 	fmt.Println("key is: ", key, ". Token: ", cs.Token)
 	if spiffeID != cs.ResourceName {
 		fmt.Printf("resource name not match: %s vs %s\n", spiffeID, cs.ResourceName)

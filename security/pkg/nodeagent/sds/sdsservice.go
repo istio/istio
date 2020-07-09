@@ -29,6 +29,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/util"
@@ -42,7 +43,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/pkg/log"
 )
 
@@ -91,7 +91,7 @@ type sdsConnection struct {
 	stream xds.DiscoveryStream
 
 	// The secret associated with the proxy.
-	secret *model.SecretItem
+	secret *security.SecretItem
 
 	// Mutex to protect read/write to this connection
 	// TODO(JimmyCYJ): Move all read/write into member function with lock protection to avoid race condition.
@@ -472,7 +472,7 @@ func clearStaledClients() {
 
 // NotifyProxy sends notification to proxy about secret update,
 // SDS will close streaming connection if secret is nil.
-func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
+func NotifyProxy(connKey cache.ConnKey, secret *security.SecretItem) error {
 	conIDresourceNamePrefix := sdsLogPrefix(connKey.ResourceName)
 	sdsClientsMutex.Lock()
 	conn := sdsClients[connKey]
@@ -621,7 +621,7 @@ func pushSDS(con *sdsConnection) error {
 	return nil
 }
 
-func sdsDiscoveryResponse(s *model.SecretItem, resourceName, typeURL string) (*discovery.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *security.SecretItem, resourceName, typeURL string) (*discovery.DiscoveryResponse, error) {
 	resp := &discovery.DiscoveryResponse{
 		TypeUrl: typeURL,
 	}
