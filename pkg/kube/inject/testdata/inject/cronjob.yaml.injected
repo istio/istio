@@ -22,13 +22,6 @@ spec:
         spec:
           containers:
           - args:
-            - /bin/sh
-            - -c
-            - date; echo Hello from the Kubernetes cluster
-            image: busybox
-            name: hello
-            resources: {}
-          - args:
             - proxy
             - sidecar
             - --domain
@@ -140,6 +133,13 @@ spec:
               name: istio-token
             - mountPath: /etc/istio/pod
               name: istio-podinfo
+          - args:
+            - /bin/sh
+            - -c
+            - date; echo Hello from the Kubernetes cluster
+            image: busybox
+            name: hello
+            resources: {}
           initContainers:
           - args:
             - istio-iptables

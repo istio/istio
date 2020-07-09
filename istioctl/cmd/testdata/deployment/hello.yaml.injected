@@ -24,14 +24,14 @@ spec:
         track: stable
     spec:
       containers:
+      - image: docker.io/istio/proxy_debug:unittest
+        name: istio-proxy
+        resources: {}
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         name: hello
         ports:
         - containerPort: 80
           name: http
-        resources: {}
-      - image: docker.io/istio/proxy_debug:unittest
-        name: istio-proxy
         resources: {}
       initContainers:
       - image: docker.io/istio/proxy_init:unittest-test

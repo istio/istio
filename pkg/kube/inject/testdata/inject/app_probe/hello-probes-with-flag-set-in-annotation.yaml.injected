@@ -29,35 +29,6 @@ spec:
         track: stable
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-go-gke:1.0
-        livenessProbe:
-          httpGet:
-            path: /app-health/hello/livez
-            port: 15020
-        name: hello
-        ports:
-        - containerPort: 80
-          name: http
-        readinessProbe:
-          httpGet:
-            path: /app-health/hello/readyz
-            port: 15020
-        resources: {}
-      - image: fake.docker.io/google-samples/hello-go-gke:1.0
-        livenessProbe:
-          httpGet:
-            path: /app-health/world/livez
-            port: 15020
-        name: world
-        ports:
-        - containerPort: 90
-          name: http
-        readinessProbe:
-          exec:
-            command:
-            - cat
-            - /tmp/healthy
-        resources: {}
       - args:
         - proxy
         - sidecar
@@ -176,6 +147,35 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        livenessProbe:
+          httpGet:
+            path: /app-health/hello/livez
+            port: 15020
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /app-health/hello/readyz
+            port: 15020
+        resources: {}
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        livenessProbe:
+          httpGet:
+            path: /app-health/world/livez
+            port: 15020
+        name: world
+        ports:
+        - containerPort: 90
+          name: http
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /tmp/healthy
+        resources: {}
       initContainers:
       - args:
         - istio-iptables

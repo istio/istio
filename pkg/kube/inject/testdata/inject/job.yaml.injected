@@ -18,14 +18,6 @@ spec:
       name: pi
     spec:
       containers:
-      - command:
-        - perl
-        - -Mbignum=bpi
-        - -wle
-        - print bpi(2000)
-        image: perl
-        name: pi
-        resources: {}
       - args:
         - proxy
         - sidecar
@@ -138,6 +130,14 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      - command:
+        - perl
+        - -Mbignum=bpi
+        - -wle
+        - print bpi(2000)
+        image: perl
+        name: pi
+        resources: {}
       initContainers:
       - args:
         - istio-iptables

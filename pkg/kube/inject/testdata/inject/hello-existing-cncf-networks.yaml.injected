@@ -29,12 +29,6 @@ spec:
         track: stable
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-go-gke:1.0
-        name: hello
-        ports:
-        - containerPort: 80
-          name: http
-        resources: {}
       - args:
         - proxy
         - sidecar
@@ -151,6 +145,12 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
       initContainers:
       - args:
         - istio-iptables

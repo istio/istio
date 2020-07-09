@@ -143,6 +143,10 @@ const (
 const (
 	// ProxyContainerName is used by e2e integration tests for fetching logs
 	ProxyContainerName = "istio-proxy"
+
+	// ValidationContainerName is the name of the init container that validates
+	// if CNI has made the necessary changes to iptables
+	ValidationContainerName = "istio-validation"
 )
 
 // SidecarInjectionSpec collects all container types and volumes for
@@ -757,7 +761,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 
 	podSpec.InitContainers = append(podSpec.InitContainers, spec.InitContainers...)
 
-	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
+	podSpec.Containers = injectContainers(podSpec.Containers, spec.Containers)
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
 
 	podSpec.DNSConfig = spec.DNSConfig
@@ -802,6 +806,27 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	}
 
 	return out, nil
+}
+
+func injectContainers(target []corev1.Container, containersToInject []corev1.Container) []corev1.Container {
+	// inject sidecar at start of spec.containers
+	proxyIndex := -1
+	for i, c := range containersToInject {
+		if c.Name == ProxyContainerName {
+			proxyIndex = i
+			break
+		}
+	}
+	if proxyIndex != -1 {
+		result := make([]corev1.Container, 1, len(target)+len(containersToInject))
+		result[0] = containersToInject[proxyIndex]
+		result = append(result, target...)
+		result = append(result, containersToInject[:proxyIndex]...)
+		result = append(result, containersToInject[proxyIndex+1:]...)
+		return result
+	}
+
+	return append(target, containersToInject...)
 }
 
 func getPortsForContainer(container corev1.Container) []string {

@@ -18,7 +18,7 @@
   },
   {
     "op": "add",
-    "path": "/spec/containers/-",
+    "path": "/spec/containers/0",
     "value": {
       "name": "istio-proxy",
       "image": "example.com/proxy:latest",

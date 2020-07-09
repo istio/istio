@@ -42,16 +42,6 @@ items:
           track: stable
       spec:
         containers:
-        - image: fake.docker.io/google-samples/hello-frontend:1.0
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                - /usr/sbin/nginx
-                - -s
-                - quit
-          name: nginx
-          resources: {}
         - args:
           - proxy
           - sidecar
@@ -164,6 +154,16 @@ items:
             name: istio-token
           - mountPath: /etc/istio/pod
             name: istio-podinfo
+        - image: fake.docker.io/google-samples/hello-frontend:1.0
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /usr/sbin/nginx
+                - -s
+                - quit
+          name: nginx
+          resources: {}
         initContainers:
         - args:
           - istio-iptables

@@ -23,11 +23,6 @@ spec:
       name: nginx
     spec:
       containers:
-      - image: nginx
-        name: nginx
-        ports:
-        - containerPort: 80
-        resources: {}
       - args:
         - proxy
         - sidecar
@@ -141,6 +136,11 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      - image: nginx
+        name: nginx
+        ports:
+        - containerPort: 80
+        resources: {}
       initContainers:
       - args:
         - istio-iptables

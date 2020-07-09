@@ -340,7 +340,7 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 		if first {
 			first = false
 			value = []corev1.Container{add}
-		} else if add.Name == "istio-validation" {
+		} else if shouldBeInjectedInFront(add) {
 			path += "/0"
 		} else {
 			path += "/-"
@@ -352,6 +352,17 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 		})
 	}
 	return patch
+}
+
+func shouldBeInjectedInFront(container corev1.Container) bool {
+	switch container.Name {
+	case ValidationContainerName:
+		return true
+	case ProxyContainerName:
+		return true
+	default:
+		return false
+	}
 }
 
 func addSecurityContext(target *corev1.PodSecurityContext, basePath string) (patch []rfc6902PatchOperation) {

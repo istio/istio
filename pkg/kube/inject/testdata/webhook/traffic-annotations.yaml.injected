@@ -30,12 +30,6 @@ spec:
         service.istio.io/canonical-revision: latest
     spec:
       containers:
-      - image: fake.docker.io/google-samples/traffic-go-gke:1.0
-        name: traffic
-        ports:
-        - containerPort: 80
-          name: http
-        resources: {}
       - args:
         - proxy
         - sidecar
@@ -144,6 +138,12 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      - image: fake.docker.io/google-samples/traffic-go-gke:1.0
+        name: traffic
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
       initContainers:
       - args:
         - istio-iptables

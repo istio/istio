@@ -1226,7 +1226,7 @@ func TestRunAndServe(t *testing.T) {
    },
    {
       "op":"add",
-      "path":"/spec/containers/-",
+      "path":"/spec/containers/0",
       "value":{
          "name":"istio-proxy",
          "resources":{

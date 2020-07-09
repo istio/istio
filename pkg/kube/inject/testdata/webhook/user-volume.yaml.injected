@@ -31,12 +31,6 @@ spec:
         track: stable
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-go-gke:1.0
-        name: user-volume
-        ports:
-        - containerPort: 80
-          name: http
-        resources: {}
       - args:
         - proxy
         - sidecar
@@ -150,6 +144,12 @@ spec:
           readOnly: true
         - mountPath: /mnt/volume-2
           name: user-volume-2
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: user-volume
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
       initContainers:
       - args:
         - istio-iptables

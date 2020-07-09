@@ -24,18 +24,6 @@ spec:
         security.istio.io/tlsMode: istio
     spec:
       containers:
-      - image: image
-        name: name1
-        resources: {}
-      - image: alpine
-        name: name2
-        ports:
-        - containerPort: 123
-          name: foo
-        resources: {}
-      - image: alpine
-        name: name3
-        resources: {}
       - args:
         - proxy
         - sidecar
@@ -151,6 +139,18 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      - image: image
+        name: name1
+        resources: {}
+      - image: alpine
+        name: name2
+        ports:
+        - containerPort: 123
+          name: foo
+        resources: {}
+      - image: alpine
+        name: name3
+        resources: {}
       initContainers:
       - args:
         - istio-iptables
