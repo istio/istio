@@ -48,6 +48,10 @@ func Setup(controlPlaneValues *string, clusterLocalNS, mcReachabilityNS *namespa
 		// Set the cluster-local namespaces in the mesh config.
 		*controlPlaneValues = fmt.Sprintf(`
 values:
+  global:
+    meshExpansion:
+      enabled: true:
+values:
   meshConfig:
     serviceSettings: 
       - settings:
