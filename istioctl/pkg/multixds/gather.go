@@ -74,6 +74,7 @@ func queryEachShard(dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClie
 		defer fw.Close()
 		response, err := xds.GetXdsResponse(dr, &clioptions.CentralControlPlaneOptions{
 			Xds:     fw.Address(),
+			XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
 			CertDir: centralOpts.CertDir,
 			Timeout: centralOpts.Timeout,
 		})
@@ -100,4 +101,11 @@ func mergeShards(responses []*xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryRespon
 	}
 
 	return &retval, nil
+}
+
+func makeSan(istioNamespace, revision string) string {
+	if revision == "" {
+		return fmt.Sprintf("istiod.%s.svc", istioNamespace)
+	}
+	return fmt.Sprintf("istiod-%s.%s.svc", revision, istioNamespace)
 }

@@ -442,7 +442,7 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance) {
 		endpoints[key] = append(endpoints[key],
 			&model.IstioEndpoint{
 				Address:         instance.Endpoint.Address,
-				EndpointPort:    uint32(port.Port),
+				EndpointPort:    instance.Endpoint.EndpointPort,
 				ServicePortName: port.Name,
 				Labels:          instance.Endpoint.Labels,
 				UID:             instance.Endpoint.UID,

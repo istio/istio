@@ -32,10 +32,8 @@ func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControl
 		Meta: model.NodeMetadata{
 			Generator: "event",
 		}.ToStruct(),
-
-		// TODO I tried and failed to add DialOptions here and have ADSC
-		// pass them down so that I could add gRPC Interceptors for logging
-		// and debugging.
+		InsecureSkipVerify: opts.InsecureSkipVerify,
+		XDSSAN:             opts.XDSSAN,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not dial: %w", err)

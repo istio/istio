@@ -212,11 +212,14 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	}
 
 	ep.mutex.Lock()
-	if !serviceAccounts.Equals(ep.ServiceAccounts) {
-		adsLog.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
-			serviceName, ep.ServiceAccounts, serviceAccounts)
-		adsLog.Infof("Full push, service accounts changed, %v", serviceName)
-		fullPush = true
+	// For existing endpoints, we need to do full push if service accounts change.
+	if !created {
+		if !serviceAccounts.Equals(ep.ServiceAccounts) {
+			adsLog.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
+				serviceName, ep.ServiceAccounts, serviceAccounts)
+			adsLog.Infof("Full push, service accounts changed, %v", serviceName)
+			fullPush = true
+		}
 	}
 	ep.Shards[clusterID] = istioEndpoints
 	ep.ServiceAccounts = serviceAccounts
@@ -431,7 +434,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
-	for _, clusterName := range con.Clusters {
+	for _, clusterName := range con.Clusters() {
 
 		l := s.generateEndpoints(clusterName, con.node, push, edsUpdatedServices)
 		if l == nil {
@@ -459,10 +462,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 
 	if edsUpdatedServices == nil {
 		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
-			con.node.ID, len(con.Clusters), endpoints, empty)
+			con.node.ID, len(con.Clusters()), endpoints, empty)
 	} else {
 		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
-			con.node.ID, len(con.Clusters), endpoints, empty)
+			con.node.ID, len(con.Clusters()), endpoints, empty)
 	}
 	return nil
 }
