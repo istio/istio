@@ -28,8 +28,7 @@ import (
 )
 
 const (
-	ns   = "gce-metadata"
-	port = 8080
+	ns = "gce-metadata"
 )
 
 var (
