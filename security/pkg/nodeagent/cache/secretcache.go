@@ -991,7 +991,10 @@ func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 func (sc *SecretCache) isTokenExpired(secret *model.SecretItem) bool {
 	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
 	if sc.configOptions.AlwaysValidTokenFlag {
+		sc.configOptions.AlwaysValidTokenFlag = false
 		return false
+	} else {
+		return true
 	}
 
 	expired, err := util.IsJwtExpired(secret.Token, time.Now())
