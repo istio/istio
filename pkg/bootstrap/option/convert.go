@@ -96,7 +96,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 	}
 
 	// We always set v3, since we know this is a new proxy that supports v3
-	requestedType := v3.ListenerType
+	requestedType := v3.ClusterType
 
 	switch tls.Mode {
 	case networkingAPI.ClientTLSSettings_SIMPLE:

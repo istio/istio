@@ -720,9 +720,6 @@ func TestOptions(t *testing.T) {
 					g.Expect(ok).To(BeFalse())
 				} else {
 					g.Expect(ok).To(BeTrue())
-					if c.key == "envoy_metrics_service_tls" && actual != c.expected {
-						t.Fatalf("got  %v\nwant %v", actual, c.expected)
-					}
 					g.Expect(actual).To(Equal(c.expected))
 				}
 			}
