@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/pilot/vm"
 )
 
 func TestVMTelemetry(t *testing.T) {
@@ -95,7 +96,7 @@ spec:
 					Ports:         ports,
 					Pilot:         p,
 					DeployAsVM:    true,
-					VMImage:       "app_sidecar_ubuntu_bionic",
+					VMImage:       vm.DefaultVMImage,
 					VMEnvironment: vmEnv,
 				}).
 				BuildOrFail(t)
