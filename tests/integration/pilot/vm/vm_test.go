@@ -34,7 +34,7 @@ import (
 
 // Test wrapper for the VM OS version test. This test will run in pre-submit
 // to avoid building and testing all OS images
-func TestVmOS(t *testing.T) {
+func TestReachability(t *testing.T) {
 	vmImages := []string{DefaultVMImage}
 	VMTestBody(t, vmImages)
 }
@@ -89,8 +89,9 @@ spec:
 
 			clusterServiceHostname := "cluster"
 			headlessServiceHostname := "headless"
-			var k8sClusterIPService echo.Instance
-			var k8sHeadlessService echo.Instance
+			vmAHostname := "vm-a"
+			var k8sClusterIPService, k8sHeadlessService echo.Instance
+			var vmA echo.Instance
 			// builder to build the instances iteratively
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&k8sClusterIPService, echo.Config{
@@ -99,9 +100,6 @@ spec:
 					Ports:     ports,
 					Pilot:     p,
 				}).
-				BuildOrFail(t)
-
-			echoboot.NewBuilderOrFail(t, ctx).
 				With(&k8sHeadlessService, echo.Config{
 					Service:   headlessServiceHostname,
 					Namespace: ns,
@@ -109,13 +107,21 @@ spec:
 					Pilot:     p,
 					Headless:  true,
 				}).
+				With(&vmA, echo.Config{
+					Service:    vmAHostname,
+					Namespace:  ns,
+					Ports:      ports,
+					Pilot:      p,
+					DeployAsVM: true,
+					VMImage:    DefaultVMImage,
+				}).
 				BuildOrFail(t)
 
 			// build the VM instances in the array
 			for i, vmImage := range vmImages {
-				var vm echo.Instance
+				var vmB echo.Instance
 				echoboot.NewBuilderOrFail(t, ctx).
-					With(&vm, echo.Config{
+					With(&vmB, echo.Config{
 						Service:    fmt.Sprintf("vm-%v", i),
 						Namespace:  ns,
 						Ports:      ports,
@@ -134,30 +140,40 @@ spec:
 					{
 						name: "k8s to vm",
 						from: k8sClusterIPService,
-						to:   vm,
+						to:   vmB,
 					},
 					{
 						name: "dns: VM to k8s cluster IP service fqdn host",
-						from: vm,
+						from: vmB,
 						to:   k8sClusterIPService,
 						host: k8sClusterIPService.Config().FQDN(),
 					},
 					{
 						name: "dns: VM to k8s cluster IP service name.namespace host",
-						from: vm,
+						from: vmB,
 						to:   k8sClusterIPService,
 						host: clusterServiceHostname + "." + ns.Name(),
 					},
 					{
 						name: "dns: VM to k8s cluster IP service short name host",
-						from: vm,
+						from: vmB,
 						to:   k8sClusterIPService,
 						host: clusterServiceHostname,
 					},
 					{
 						name: "dns: VM to k8s headless service",
-						from: vm,
+						from: vmB,
 						to:   k8sHeadlessService,
+					},
+					{
+						name: "dns: vmA to vmB",
+						from: vmA,
+						to:   vmB,
+					},
+					{
+						name: "dns: vmB to vmA",
+						from: vmB,
+						to:   vmA,
 					},
 				}
 
@@ -180,7 +196,7 @@ spec:
 
 				ctx.NewSubTest(fmt.Sprintf("dns: VM proxy resolves unknown hosts using system resolver using %v",
 					vmImages[i])).Run(func(ctx framework.TestContext) {
-					w := vm.WorkloadsOrFail(ctx)[0]
+					w := vmB.WorkloadsOrFail(ctx)[0]
 					externalURL := "http://www.bing.com"
 					responses, err := w.ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
 						Url:   externalURL,
