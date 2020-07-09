@@ -291,7 +291,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	} else {
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
-			v.Routes = istio_route.SortVHostRoutes(v.Routes)
+			v.Routes = istio_route.CombineVHostRoutes(v.Routes)
 			virtualHosts = append(virtualHosts, v)
 		}
 	}
