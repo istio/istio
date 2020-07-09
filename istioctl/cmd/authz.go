@@ -135,8 +135,7 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 	if len(pods) != 1 {
 		return nil, fmt.Errorf("expecting only 1 pod for %s.%s, found: %d", podName, podNamespace, len(pods))
 	}
-
-	data, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", "config_dump?include_eds", nil)
+	data, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", ConigDumpPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get proxy config for %s.%s: %s", podName, podNamespace, err)
 	}
