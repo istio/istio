@@ -178,9 +178,9 @@ func debugSyncz(sg *InternalGen) []*any.Any {
 				case pilot_xds_v3.ListenerShortType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_ListenerConfig{}
 				case pilot_xds_v3.RouteShortType:
-					pxc.PerXdsConfig = &status.PerXdsConfig_EndpointConfig{}
+					pxc.PerXdsConfig = &status.PerXdsConfig_RouteConfig{}
 				case pilot_xds_v3.EndpointShortType:
-					pxc.PerXdsConfig = &status.PerXdsConfig_ListenerConfig{}
+					pxc.PerXdsConfig = &status.PerXdsConfig_EndpointConfig{}
 				case pilot_xds_v3.ClusterShortType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_ClusterConfig{}
 				default:

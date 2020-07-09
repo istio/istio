@@ -151,6 +151,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(waitCmd())
 
 	experimentalCmd.AddCommand(xdsVersionCommand())
+	experimentalCmd.AddCommand(xdsStatusCommand())
 
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)
