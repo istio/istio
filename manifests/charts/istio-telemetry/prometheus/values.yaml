@@ -223,3 +223,6 @@ global:
   #   kubernetes: cluster.local
   #   else:  default dns domain
   trustDomain: "cluster.local"
+
+meshConfig:
+  enablePrometheusMerge: true
