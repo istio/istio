@@ -208,7 +208,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	nameToServiceMap := push.ServiceByHostname
 
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
-	routesForHost := map[host.Name][][]*route.Route{}
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -250,17 +249,19 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 
 			for _, hostname := range intersectingHosts {
-				if _, exists := vHostDedupMap[hostname]; !exists {
+				if vHost, exists := vHostDedupMap[hostname]; exists {
+					// before merging this virtual service's routes, make sure that the existing one is not a tls redirect host
+					if vHost.RequireTls == route.VirtualHost_NONE {
+						vHost.Routes = append(vHost.Routes, routes...)
+					}
+				} else {
 					newVHost := &route.VirtualHost{
 						Name:                       domainName(string(hostname), port),
 						Domains:                    buildGatewayVirtualHostDomains(string(hostname)),
+						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
 					}
 					vHostDedupMap[hostname] = newVHost
-				}
-				// before merging this virtual service's routes, make sure that the existing one is not a tls redirect host
-				if vHostDedupMap[hostname].RequireTls == route.VirtualHost_NONE {
-					routesForHost[hostname] = append(routesForHost[hostname], routes)
 				}
 			}
 		}
@@ -289,8 +290,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		virtualHosts[0].Routes[0].Name = istio_route.DefaultRouteName
 	} else {
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
-		for k, v := range vHostDedupMap {
-			v.Routes = istio_route.CombineVHostRoutes(routesForHost[k]...)
+		for _, v := range vHostDedupMap {
+			v.Routes = istio_route.SortVHostRoutes(v.Routes)
 			virtualHosts = append(virtualHosts, v)
 		}
 	}
