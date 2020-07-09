@@ -48,10 +48,9 @@ var (
 	ProvCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
 
-	// TOKEN_ENABLED is the environment variable to decide if the prov cert is not valid
-	// whether use the token expired way to authenticate client
-	// When set to "true" means we will use the token, otherwise it will return
-	EnableTokenWhenCertFail = env.RegisterStringVar("TOKEN_ENABLED", "",
+	// EMPTY_PROV_CERT needs to be set true if the ProvCert path is provided
+	// but cert not exists
+	EmptyProvCert = env.RegisterStringVar("EMPTY_PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
 )
 
@@ -138,6 +137,10 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	// Create a certificate pool
 	var certPool *x509.CertPool
 	var err error
+	citadelClientLog.Infof("666666666\n")
+	citadelClientLog.Infof("%+v", EmptyProvCert)
+	citadelClientLog.Infof("777777777\n")
+	citadelClientLog.Infof("%+v", ProvCert)
 	if c.caTLSRootCert == nil {
 		// No explicit certificate - assume the citadel-compatible server uses a public cert
 		certPool, err = x509.SystemCertPool()
@@ -151,17 +154,15 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 			return nil, fmt.Errorf("failed to append certificates")
 		}
 	}
+
 	var certificate tls.Certificate
 	config := tls.Config{
 		Certificates: []tls.Certificate{certificate},
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			if ProvCert != "" {
+			if ProvCert != "" && EmptyProvCert != "true" {
 				// Load the certificate from disk
 				certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
 				if err != nil {
-					if EnableTokenWhenCertFail == "true" {
-						return &certificate, nil
-					}
 					return nil, fmt.Errorf("cannot load key pair: %s", err)
 				}
 			}
