@@ -180,12 +180,12 @@ spec:
 						to:   k8sHeadlessService,
 					},
 					{
-						name: "dns: VM to another VM",
+						name: "dns: vmA to vmB",
 						from: vmA,
 						to:   vmB,
 					},
 					{
-						name: "dns: another VM to VM",
+						name: "dns: vmB to vmA",
 						from: vmB,
 						to:   vmA,
 					},
