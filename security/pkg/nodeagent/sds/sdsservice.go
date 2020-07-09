@@ -348,6 +348,10 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return err
 			}
 
+			sdsServiceLog.Infof("1313131313")
+			sdsServiceLog.Infof("%+v", s.outputKeyCertToDir)
+			sdsServiceLog.Infof("1313131313")
+
 			// Output the key and cert to a directory, if some applications need to read them from local file system.
 			if err = util.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {

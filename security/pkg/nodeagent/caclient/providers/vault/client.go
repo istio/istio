@@ -74,7 +74,7 @@ func NewVaultClient(tls bool, tlsRootCert []byte,
 
 // CSR Sign calls Vault to sign a CSR.
 func (c *vaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, saToken string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+	certValidTTLInSec int64, withToken bool) ([]string /*PEM-encoded certificate chain*/, error) {
 	token, err := loginVaultK8sAuthMethod(c.client, c.vaultLoginPath, c.vaultLoginRole, saToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)

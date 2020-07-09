@@ -1110,7 +1110,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
 			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()), true)
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
 			p := sc.configOptions.Plugins[0]
@@ -1174,10 +1174,8 @@ func (sc *SecretCache) sendRetriableCSRRequestWithoutToken(ctx context.Context, 
 	for {
 		var httpRespCode int
 		requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
-		//certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-		//	ctx, reqID, csrPEM, EmptyToken, int64(sc.configOptions.SecretTTL.Seconds()), false)
 		certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-			ctx, reqID, csrPEM, EmptyToken, int64(sc.configOptions.SecretTTL.Seconds()))
+			ctx, reqID, csrPEM, EmptyToken, int64(sc.configOptions.SecretTTL.Seconds()), false)
 		cacheLog.Debugf("%s", requestErrorString)
 
 		if err == nil {
