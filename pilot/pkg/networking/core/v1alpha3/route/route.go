@@ -1098,6 +1098,21 @@ func CombineVHostRoutes(first []*route.Route, second []*route.Route) []*route.Ro
 	return allroutes
 }
 
+// SortVHostRoutes moves catchAllRoutes to the end while retaining
+// the relative order of other routes.
+func SortVHostRoutes(routes []*route.Route) []*route.Route {
+	allroutes := make([]*route.Route, 0, len(routes))
+	catchAllRoutes := make([]*route.Route, 0)
+	for _, r := range routes {
+		if isCatchAllRoute(r) {
+			catchAllRoutes = append(catchAllRoutes, r)
+		} else {
+			allroutes = append(allroutes, r)
+		}
+	}
+	return append(allroutes, catchAllRoutes...)
+}
+
 // isCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
 func isCatchAllRoute(r *route.Route) bool {
 	catchall := false
