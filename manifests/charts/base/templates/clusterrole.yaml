@@ -13,11 +13,6 @@ rules:
   verbs: ["create"]
   resources: ["gateways"]
 
-# Needed for multicluster secret reading
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get", "watch", "list"]
-
 # For storing CA secret
 - apiGroups: [""]
   resources: ["secrets"]
@@ -110,6 +105,12 @@ rules:
   - apiGroups: ["networking.x-k8s.io"]
     resources: ["*"]
     verbs: ["get", "watch", "list"]
+
+  # Needed for multicluster secret reading, possibly ingress certs in the future
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "watch", "list"]
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
