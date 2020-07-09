@@ -1,36 +1,36 @@
 # This YAML file describes the format for specifying a release notes entry for Istio.
 # This should be filled in for all user facing changes.
 
-# Kind describes the type of change that this represents. 
+# kind describes the type of change that this represents. 
 # Valid Values are:
-# - BugFix -- Describes a bug fixed
-# - SecurityFix -- Used to specify that this change represents a security fix. 
-# - Feature -- Used to specify a new feature that has been added. 
-# - Test -- Used to describe additional testing added. This file is optional for
+# - bug-fix -- Used to specify that this change represents a bug fix. 
+# - security-fix -- Used to specify that this change represents a security fix. 
+# - feature -- Used to specify a new feature that has been added. 
+# - test -- Used to describe additional testing added. This file is optional for
 # tests, but included for completeness.
-Kind: 
+kind: 
 
-# Area describes the area that this change affects. 
+# area describes the area that this change affects. 
 # Valid values are:
-# - TrafficManagement
-# - Security
-# - Telemetry
-# - Installation
+# - traffic-management
+# - security
+# - telemetry
+# - installation
 # - istioctl
-# - Documentation
-Area:
+# - documentation
+area:
 
-# Issue is a (potentially comma separated list) of GitHub issues resolved in this note.
-Issue: 
+# issue is a (potentially comma separated list) of GitHub issues resolved in this note.
+issue: 
 
-# ReleaseNotes is a markdown listing of any user facing changes. This will appear in the
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
-ReleaseNotes:
+releaseNotes:
 
-# UpgradeNotes is a markdown listing of any changes that will affect the upgrade
+# upgradeNotes is a markdown listing of any changes that will affect the upgrade
 # process. This will appear in the release notes. 
-UpgradeNotes:
+upgradeNotes:
 
-# SecurityNotes is a markdown listing of any changes related to the security of
+# securityNotes is a markdown listing of any changes related to the security of
 # Istio.
-SecurityNotes:
+securityNotes:
