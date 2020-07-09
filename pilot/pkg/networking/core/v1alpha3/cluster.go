@@ -1008,6 +1008,24 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		}
 
 	case networking.ClientTLSSettings_SIMPLE:
+		if tls.CredentialName != "" {
+			tlsContext = &auth.UpstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{},
+				Sni:              tls.Sni,
+			}
+
+			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
+			// SDS config for egress gateway to fetch key/cert at gateway agent.
+			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, authn_model.GatewaySdsUdsPath)
+
+			if c.Http2ProtocolOptions != nil {
+				// This is HTTP/2 cluster, advertise it with ALPN.
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+			}
+			return tlsContext, nil
+		}
+
+		// If CredentialName is not set fallback to file based approach
 		res := model.SdsCertificateConfig{
 			CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
 		}
@@ -1026,7 +1044,26 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
+
 	case networking.ClientTLSSettings_MUTUAL:
+		if tls.CredentialName != "" {
+			tlsContext = &auth.UpstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{},
+				Sni:              tls.Sni,
+			}
+
+			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
+			// SDS config for egress gateway to fetch key/cert at gateway agent.
+			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, authn_model.GatewaySdsUdsPath)
+
+			if c.Http2ProtocolOptions != nil {
+				// This is HTTP/2 cluster, advertise it with ALPN.
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+			}
+			return tlsContext, nil
+		}
+
+		// If CredentialName is not set fallback to file based approach
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
 			err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
 				c.Name)
@@ -1037,7 +1074,6 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or SDS is disabled
 		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
@@ -1067,7 +1103,6 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), opts.push.Mesh.SdsUdsPath))
-
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
@@ -1075,7 +1110,6 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				},
 			}
 		}
-
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only

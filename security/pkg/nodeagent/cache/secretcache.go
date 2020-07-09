@@ -91,8 +91,8 @@ type SecretManager interface {
 	// due to client logic. If JWT is missing/invalid, the resourceName is used.
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*security.SecretItem, error)
 
-	// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
-	ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool
+	// ShouldWaitForGatewaySecret indicates whether a valid gateway secret is expected.
+	ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool
 
 	// SecretExist checks if secret already existed.
 	// This API is used for sds server to check if coming request is ack request.
@@ -357,10 +357,10 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 	return secret.ResourceName == resourceName && secret.Token == token && secret.Version == version
 }
 
-// ShouldWaitForIngressGatewaySecret returns true if node agent is working in ingress gateway agent mode
-// and needs to wait for ingress gateway secret to be ready.
-func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
-	// If node agent works as workload agent, node agent does not expect any ingress gateway secret.
+// ShouldWaitForGatewaySecret returns true if node agent is working in gateway agent mode
+// and needs to wait for gateway secret to be ready.
+func (sc *SecretCache) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
+	// If node agent works as workload agent, node agent does not expect any gateway secret.
 	// If workload is using file mounted certs, we should not wait for ingress secret.
 	if sc.fetcher.UseCaClient || fileMountedCertsOnly {
 		return false
@@ -370,8 +370,8 @@ func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceN
 		ConnectionID: connectionID,
 		ResourceName: resourceName,
 	}
-	// Add an entry into cache, so that when ingress gateway secret is ready, gateway agent is able to
-	// notify the ingress gateway and push the secret to via connect ID.
+	// Add an entry into cache, so that when gateway secret is ready, gateway agent is able to
+	// notify the gateway and push the secret to via connect ID.
 	if _, found := sc.secrets.Load(connKey); !found {
 		t := time.Now()
 		dummySecret := &security.SecretItem{
@@ -384,11 +384,11 @@ func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceN
 	}
 
 	logPrefix := cacheLogPrefix(resourceName)
-	// If node agent works as ingress gateway agent, searches for kubernetes secret and verify secret
+	// If node agent works as gateway agent, searches for kubernetes secret and verify secret
 	// is not empty.
 	cacheLog.Debugf("%s calling SecretFetcher to search for secret %s",
 		logPrefix, resourceName)
-	_, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
+	_, exist := sc.fetcher.FindGatewaySecret(resourceName)
 	// If kubernetes secret does not exist, need to wait for secret.
 	if !exist {
 		cacheLog.Warnf("%s SecretFetcher cannot find secret %s from cache",
@@ -452,7 +452,7 @@ func (sc *SecretCache) keyCertRotationJob() {
 }
 
 // DeleteK8sSecret deletes all entries that match secretName. This is called when a K8s secret
-// for ingress gateway is deleted.
+// for gateway is deleted.
 func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
@@ -465,7 +465,7 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 				defer wg.Done()
 				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 			}()
-			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
+			// Currently only one gateway is running, therefore there is at most one cache entry.
 			// Stop the iteration once we have deleted that cache entry.
 			return false
 		}
@@ -475,7 +475,7 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 }
 
 // UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
-// for ingress gateway is updated.
+// for gateway is updated.
 func (sc *SecretCache) UpdateK8sSecret(secretName string, ns security.SecretItem) {
 	var secretMap sync.Map
 	wg := sync.WaitGroup{}
@@ -487,8 +487,8 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns security.SecretItem
 			go func() {
 				defer wg.Done()
 				var newSecret *security.SecretItem
-				if strings.HasSuffix(secretName, secretfetcher.IngressGatewaySdsCaSuffix) {
-					newSecret = &security.SecretItem{
+				if strings.HasSuffix(secretName, secretfetcher.GatewaySdsCaSuffix) {
+					newSecret = &model.SecretItem{
 						ResourceName: secretName,
 						RootCert:     ns.RootCert,
 						ExpireTime:   ns.ExpireTime,
@@ -511,7 +511,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns security.SecretItem
 				cacheLog.Debugf("%s secret cache is updated", cacheLogPrefix(secretName))
 				sc.callbackWithTimeout(connKey, newSecret)
 			}()
-			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
+			// Currently only one gateway is running, therefore there is at most one cache entry.
 			// Stop the iteration once we have updated that cache entry.
 			return false
 		}
@@ -633,14 +633,14 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 	})
 }
 
-// generateGatewaySecret returns secret for ingress gateway proxy.
+// generateGatewaySecret returns secret for gateway proxy.
 func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, now time.Time) (*security.SecretItem, error) {
-	secretItem, exist := sc.fetcher.FindIngressGatewaySecret(connKey.ResourceName)
+	secretItem, exist := sc.fetcher.FindGatewaySecret(connKey.ResourceName)
 	if !exist {
-		return nil, fmt.Errorf("cannot find secret for ingress gateway SDS request %+v", connKey)
+		return nil, fmt.Errorf("cannot find secret for gateway SDS request %+v", connKey)
 	}
 
-	if strings.HasSuffix(connKey.ResourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
+	if strings.HasSuffix(connKey.ResourceName, secretfetcher.GatewaySdsCaSuffix) {
 		return &security.SecretItem{
 			ResourceName: connKey.ResourceName,
 			RootCert:     secretItem.RootCert,
@@ -816,7 +816,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 }
 
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*security.SecretItem, error) {
-	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
+	// If node agent works as gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
 		return sc.generateGatewaySecret(token, connKey, t)

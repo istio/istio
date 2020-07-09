@@ -346,7 +346,7 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
+gen: mod-download-go go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
 
 check-no-modify:
 	@bin/check_no_modify.sh

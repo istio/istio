@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
@@ -88,13 +87,12 @@ var (
 
 func TestNewCluster(t *testing.T) {
 	cases := []struct {
-		name                    string
-		objs                    []runtime.Object
-		context                 string
-		desc                    ClusterDesc
-		injectClientCreateError error
-		want                    *Cluster
-		wantErrStr              string
+		name       string
+		objs       []runtime.Object
+		context    string
+		desc       ClusterDesc
+		want       *Cluster
+		wantErrStr string
 	}{
 		{
 			name: "missing defaults",
@@ -107,20 +105,9 @@ func TestNewCluster(t *testing.T) {
 			want: &Cluster{
 				ClusterDesc: clusterDescWithDefaults,
 				Context:     testContext,
-				clusterName: string(kubeSystemNamespaceUID),
-				installed:   true,
+				Name:        string(kubeSystemNamespaceUID),
+				Installed:   true,
 			},
-		},
-		{
-			name: "create client failure",
-			objs: []runtime.Object{
-				kubeSystemNamespace,
-				makeNamespace(goodClusterDesc.Namespace),
-			},
-			injectClientCreateError: errors.New("failed to create client"),
-			context:                 testContext,
-			desc:                    goodClusterDesc,
-			wantErrStr:              "failed to create client",
 		},
 		{
 			name: "clusterName lookup failed",
@@ -141,8 +128,8 @@ func TestNewCluster(t *testing.T) {
 			want: &Cluster{
 				ClusterDesc: goodClusterDesc,
 				Context:     testContext,
-				clusterName: string(kubeSystemNamespaceUID),
-				installed:   false,
+				Name:        string(kubeSystemNamespaceUID),
+				Installed:   false,
 			},
 		},
 		{
@@ -156,8 +143,8 @@ func TestNewCluster(t *testing.T) {
 			want: &Cluster{
 				ClusterDesc: goodClusterDesc,
 				Context:     testContext,
-				clusterName: string(kubeSystemNamespaceUID),
-				installed:   true,
+				Name:        string(kubeSystemNamespaceUID),
+				Installed:   true,
 			},
 		},
 	}
@@ -165,10 +152,10 @@ func TestNewCluster(t *testing.T) {
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			env := newFakeEnvironmentOrDie(tt, api.NewConfig(), c.objs...)
-			env.injectClientCreateError = c.injectClientCreateError
+			client := newFakeKubeClient("server", c.objs...)
+			printer := newFakePrinter()
 
-			got, err := NewCluster(c.context, c.desc, env)
+			got, err := NewCluster(c.desc, c.context, client, printer)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -178,7 +165,7 @@ func TestNewCluster(t *testing.T) {
 			} else if c.wantErrStr == "" && err != nil {
 				tt.Fatalf("wanted non-error but got %q", err)
 			} else {
-				c.want.client = env.client
+				c.want.Client = client
 				if !reflect.DeepEqual(got, c.want) {
 					tt.Fatalf("\n got %#v\nwant %#v", got, c.want)
 				}
@@ -187,20 +174,20 @@ func TestNewCluster(t *testing.T) {
 	}
 }
 
-func createTestClusterAndEnvOrDie(t *testing.T,
+func createTestClusterAndPrinterOrDie(t *testing.T,
 	context string,
-	config *api.Config,
 	desc ClusterDesc,
 	objs ...runtime.Object,
-) (*fakeEnvironment, *Cluster) {
+) (*fakePrinter, *Cluster) {
 	t.Helper()
 
-	env := newFakeEnvironmentOrDie(t, config, objs...)
-	c, err := NewCluster(context, desc, env)
+	printer := newFakePrinter()
+	client := newFakeKubeClient("server", objs...)
+	c, err := NewCluster(desc, context, client, printer)
 	if err != nil {
 		t.Fatalf("could not create test cluster: %v", err)
 	}
-	return env, c
+	return printer, c
 }
 
 var (
@@ -283,14 +270,14 @@ func TestReadRemoteSecrets(t *testing.T) {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
 			g := NewWithT(tt)
 
-			env, cluster := createTestClusterAndEnvOrDie(tt, c.context, nil, c.desc, c.objs...)
+			printer, cluster := createTestClusterAndPrinterOrDie(tt, c.context, c.desc, c.objs...)
 			if c.injectListFailure != nil {
 				reaction := func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 					return true, nil, c.injectListFailure
 				}
-				env.client.PrependReactor("list", "secrets", reaction)
+				fakeClientset(cluster).PrependReactor("list", "secrets", reaction)
 			}
-			got := cluster.readRemoteSecrets(env)
+			got := cluster.readRemoteSecrets(printer)
 			g.Expect(got).To(Equal(c.want))
 		})
 	}
@@ -493,20 +480,20 @@ func TestReadCACerts(t *testing.T) {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
 			g := NewWithT(tt)
 
-			env, cluster := createTestClusterAndEnvOrDie(t, "context0", nil, goodClusterDesc, c.objs...)
+			env, cluster := createTestClusterAndPrinterOrDie(t, "context0", goodClusterDesc, c.objs...)
 
 			if c.listFailure != nil {
 				reaction := func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 					return true, nil, c.listFailure
 				}
-				env.client.PrependReactor("list", "secrets", reaction)
+				fakeClientset(cluster).PrependReactor("list", "secrets", reaction)
 			}
 
 			if c.getFailure != nil {
 				reaction := func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 					return true, nil, c.getFailure
 				}
-				env.client.PrependReactor("get", "secrets", reaction)
+				fakeClientset(cluster).PrependReactor("get", "secrets", reaction)
 			}
 
 			got := cluster.readCACerts(env)

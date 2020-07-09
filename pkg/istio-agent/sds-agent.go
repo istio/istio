@@ -60,7 +60,6 @@ import (
 // Or disable the jwt validation while debugging SDS problems.
 
 var (
-
 	// Location of K8S CA root.
 	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 
@@ -250,11 +249,11 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
-		if ingressSdsExists() {
+		if gatewaySdsExists() {
 			log.Infof("Starting gateway SDS")
-			sa.secOpts.EnableIngressGatewaySDS = true
+			sa.secOpts.EnableGatewaySDS = true
 			// TODO: what is the setting for ingress ?
-			sa.secOpts.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
+			sa.secOpts.GatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
 			gatewaySecretCache = sa.newIngressSecretCache(podNamespace)
 		} else {
 			log.Infof("Skipping gateway SDS")
@@ -275,8 +274,8 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	return server, nil
 }
 
-func ingressSdsExists() bool {
-	p := strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
+func gatewaySdsExists() bool {
+	p := strings.TrimPrefix(model.GatewaySdsUdsPath, "unix:")
 	dir := path.Dir(p)
 	_, err := os.Stat(dir)
 	return !os.IsNotExist(err)
@@ -426,7 +425,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 }
 
 // TODO: use existing 'sidecar/router' config to enable loading Secrets
-func (sa *Agent) newIngressSecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
+func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
 	gSecretFetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}

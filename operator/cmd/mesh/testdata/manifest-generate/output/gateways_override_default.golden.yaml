@@ -187,7 +187,7 @@ spec:
           name: istio-token
           readOnly: true
         - mountPath: /var/run/ingress_gateway
-          name: ingressgatewaysdsudspath
+          name: gatewaysdsudspath
         - mountPath: /etc/istio/pod
           name: podinfo
         - mountPath: /etc/istio/ingressgateway-certs
@@ -218,7 +218,7 @@ spec:
       - emptyDir: {}
         name: istio-envoy
       - emptyDir: {}
-        name: ingressgatewaysdsudspath
+        name: gatewaysdsudspath
       - name: istio-token
         projected:
           sources:

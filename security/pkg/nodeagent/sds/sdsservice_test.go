@@ -27,19 +27,19 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/net/context"
 	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
+	ca2 "istio.io/istio/pkg/security"
+
+	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/testing/protocmp"
 	"k8s.io/apimachinery/pkg/util/uuid"
-
-	ca2 "istio.io/istio/pkg/security"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
@@ -63,11 +63,11 @@ var (
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
 	arg := ca2.Options{
-		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   "",
-		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
@@ -75,17 +75,17 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
 func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 	arg := ca2.Options{
-		EnableWorkloadSDS:     true,
-		RecycleInterval:       30 * time.Second,
-		IngressGatewayUDSPath: "",
-		WorkloadUDSPath:       fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
-		FileMountedCerts:      true,
-		UseLocalJWT:           false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		FileMountedCerts:  true,
+		UseLocalJWT:       false,
 	}
 	wst := &mockSecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(arg, wst, nil)
+	server, err := NewServer(&arg, wst, nil)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -103,66 +103,66 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 
 func TestStreamSecretsForGatewaySds(t *testing.T) {
 	arg := ca2.Options{
-		EnableIngressGatewaySDS: true,
-		EnableWorkloadSDS:       false,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:         "",
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: false,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   "",
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
 
 func TestStreamSecretsForBothSds(t *testing.T) {
 	arg := ca2.Options{
-		EnableIngressGatewaySDS: true,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
 
 func TestFetchSecretsForWorkloadSds(t *testing.T) {
 	arg := ca2.Options{
-		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   "",
-		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestFetchSecretsForGatewaySds(t *testing.T) {
 	arg := ca2.Options{
-		EnableIngressGatewaySDS: true,
-		EnableWorkloadSDS:       false,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:         "",
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: false,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   "",
 	}
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestFetchSecretsForBothSds(t *testing.T) {
 	arg := ca2.Options{
-		EnableIngressGatewaySDS: true,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestStreamSecretsInvalidResourceName(t *testing.T) {
 	arg := ca2.Options{
-		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   "",
-		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, true)
 }
@@ -178,14 +178,15 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 	} else {
 		wst = nil
 	}
-	if arg.EnableIngressGatewaySDS {
+	if arg.EnableGatewaySDS {
 		gst = &mockSecretStore{
 			checkToken: false,
 		}
 	} else {
 		gst = nil
 	}
-	server, err := NewServer(arg, wst, gst)
+
+	server, err := NewServer(&arg, wst, gst)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -205,8 +206,8 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 		recycleConnection(getClientConID(proxyID), testResourceName)
 		recycleConnection(getClientConID(proxyID), "ROOTCA")
 	}
-	if arg.EnableIngressGatewaySDS {
-		sendRequestAndVerifyResponse(t, cb, arg.IngressGatewayUDSPath, proxyID, testInvalidResourceNames)
+	if arg.EnableGatewaySDS {
+		sendRequestAndVerifyResponse(t, cb, arg.GatewayUDSPath, proxyID, testInvalidResourceNames)
 		recycleConnection(getClientConID(proxyID), testResourceName)
 	}
 	// Check to make sure number of staled connections is 0.
@@ -295,15 +296,15 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 
 func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	arg := ca2.Options{
-		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         100 * time.Second,
-		WorkloadUDSPath:         socket,
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   100 * time.Second,
+		WorkloadUDSPath:   socket,
 	}
 	st := &mockSecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(arg, st, nil)
+	server, err := NewServer(&arg, st, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}
@@ -1031,7 +1032,7 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 	ms.secrets.Delete(key)
 }
 
-func (ms *mockSecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
+func (ms *mockSecretStore) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
 	return false
 }
 
@@ -1048,10 +1049,10 @@ func TestDebugEndpoints(t *testing.T) {
 	for _, tc := range tests {
 		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 		arg := ca2.Options{
-			EnableIngressGatewaySDS: false,
-			EnableWorkloadSDS:       true,
-			RecycleInterval:         30 * time.Second,
-			WorkloadUDSPath:         socket,
+			EnableGatewaySDS:  false,
+			EnableWorkloadSDS: true,
+			RecycleInterval:   30 * time.Second,
+			WorkloadUDSPath:   socket,
 		}
 		st := &mockSecretStore{
 			checkToken: true,
@@ -1060,7 +1061,7 @@ func TestDebugEndpoints(t *testing.T) {
 		sdsClients = map[cache.ConnKey]*sdsConnection{}
 		sdsClientsMutex.Unlock()
 
-		server, err := NewServer(arg, st, nil)
+		server, err := NewServer(&arg, st, nil)
 		if err != nil {
 			t.Fatalf("failed to start grpc server for sds: %v", err)
 		}

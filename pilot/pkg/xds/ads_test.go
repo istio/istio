@@ -56,8 +56,8 @@ func (sc *clientSecrets) GenerateSecret(ctx context.Context, connectionID, resou
 	return &sc.SecretItem, nil
 }
 
-// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
-func (sc *clientSecrets) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
+// ShouldWaitForGatewaySecret indicates whether a valid gateway secret is expected.
+func (sc *clientSecrets) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
 	return false
 }
 
