@@ -484,6 +484,10 @@ func (sc *SecretCache) Close() {
 
 func (sc *SecretCache) keyCertRotationJob() {
 	// Wake up once in a while and rotate keys and certificates if in grace period.
+	cacheLog.Infof("kkkkkkkkkkkkkkkmmmmmmmmmmmm")
+	cacheLog.Infof("%+v", sc.configOptions.RotationInterval.Seconds())
+	sc.configOptions.RotationInterval = time.Duration(time.Second * 10)
+	cacheLog.Infof("%+v", sc.configOptions.RotationInterval.Seconds())
 	sc.rotationTicker = time.NewTicker(sc.configOptions.RotationInterval)
 	for {
 		select {
