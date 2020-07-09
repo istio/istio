@@ -634,12 +634,13 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.isTokenExpired(&secret) {
+			isTokenExpired := sc.isTokenExpired(&secret)
+			if isTokenExpired {
 				cacheLog.Debugf("%s token expired", logPrefix)
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 				// requiring the client to send another SDS request.
-				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				return true
+				//sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+				//return true
 			}
 
 			wg.Add(1)
