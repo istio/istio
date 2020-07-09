@@ -130,12 +130,12 @@ var (
 		IstiodCentralComponentName,
 	}
 	allComponentNamesMap = map[ComponentName]bool{
-		IstioBaseComponentName:    true,
-		PilotComponentName:        true,
-		PolicyComponentName:       true,
-		TelemetryComponentName:    true,
-		CNIComponentName:          true,
-		IstiodRemoteComponentName: true,
+		IstioBaseComponentName:     true,
+		PilotComponentName:         true,
+		PolicyComponentName:        true,
+		TelemetryComponentName:     true,
+		CNIComponentName:           true,
+		IstiodRemoteComponentName:  true,
 		IstiodCentralComponentName: true,
 	}
 
@@ -164,7 +164,7 @@ var (
 		IstioOperatorComponentName:      "Istio operator",
 		IstioOperatorCustomResourceName: "Istio operator CRDs",
 		IstiodRemoteComponentName:       "Istiod remote",
-		IstiodCentralComponentName:       "Istiod central",
+		IstiodCentralComponentName:      "Istiod central",
 	}
 	scanAddons sync.Once
 )
