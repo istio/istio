@@ -347,10 +347,10 @@ func StartStreamTest(t *testing.T) *StreamSetup {
 
 func createStreamSDSServer(t *testing.T, socket string) (*Server, *mockIngressGatewaySecretStore) {
 	arg := Options{
-		EnableGatewaySDS:       false,
-		EnableWorkloadSDS:      true,
-		RecycleInterval:        100 * time.Second,
-		WorkloadUDSPath:        socket,
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   100 * time.Second,
+		WorkloadUDSPath:   socket,
 	}
 	st := &mockIngressGatewaySecretStore{
 		checkToken: false,
