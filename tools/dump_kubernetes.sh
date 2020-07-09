@@ -258,7 +258,7 @@ dump_kubernetes_resources() {
 
   echo -e "---\nkind: Secret\n---\n" >> "${RESOURCES_FILE}"
   kubectl get --all-namespaces \
-      secrets ${FULLSECRETS} >> "${RESOURCES_FILE}"
+      secrets "${FULLSECRETS}" >> "${RESOURCES_FILE}"
 }
 
 dump_istio_custom_resource_definitions() {
