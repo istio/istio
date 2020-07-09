@@ -50,7 +50,7 @@ func Setup(controlPlaneValues *string, clusterLocalNS, mcReachabilityNS *namespa
 values:
   global:
     meshExpansion:
-      enabled: true:
+      enabled: true
 values:
   meshConfig:
     serviceSettings: 
