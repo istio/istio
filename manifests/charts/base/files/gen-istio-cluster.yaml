@@ -1095,6 +1095,9 @@ spec:
                                   description: REQUIRED if mode is `MUTUAL`.
                                   format: string
                                   type: string
+                                credentialName:
+                                  format: string
+                                  type: string
                                 mode:
                                   enum:
                                   - DISABLE
@@ -1128,6 +1131,9 @@ spec:
                             type: string
                           clientCertificate:
                             description: REQUIRED if mode is `MUTUAL`.
+                            format: string
+                            type: string
+                          credentialName:
                             format: string
                             type: string
                           mode:
@@ -1620,6 +1626,9 @@ spec:
                             description: REQUIRED if mode is `MUTUAL`.
                             format: string
                             type: string
+                          credentialName:
+                            format: string
+                            type: string
                           mode:
                             enum:
                             - DISABLE
@@ -1653,6 +1662,9 @@ spec:
                       type: string
                     clientCertificate:
                       description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    credentialName:
                       format: string
                       type: string
                     mode:
@@ -1984,6 +1996,11 @@ spec:
                       format: string
                       type: string
                     type: array
+                  name:
+                    description: An optional name of the server, when set must be
+                      unique across all servers.
+                    format: string
+                    type: string
                   port:
                     properties:
                       name:
@@ -2407,6 +2424,9 @@ spec:
                         description: REQUIRED if mode is `MUTUAL`.
                         format: string
                         type: string
+                      credentialName:
+                        format: string
+                        type: string
                       mode:
                         enum:
                         - DISABLE
@@ -2455,6 +2475,9 @@ spec:
                       type: string
                     clientCertificate:
                       description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    credentialName:
                       format: string
                       type: string
                     mode:
@@ -4488,6 +4511,10 @@ spec:
     description: Istio control plane revision
     name: Revision
     type: string
+  - JSONPath: .status.status
+    description: IOP current state
+    type: string
+    name: Status
   - JSONPath: .metadata.creationTimestamp
     description: 'CreationTimestamp is a timestamp representing the server time when
       this object was created. It is not guaranteed to be set in happens-before order
@@ -4559,8 +4586,6 @@ metadata:
     release: istio
 ---
 # Source: base/templates/clusterrole.yaml
-# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
-# TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -4579,12 +4604,6 @@ rules:
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
 
-  # permissions to verify the webhook is ready and rejecting
-  # invalid config. We use --server-dry-run so no config is persisted.
-  - apiGroups: ["networking.istio.io"]
-    verbs: ["create"]
-    resources: ["gateways"]
-
   # istio configuration
   - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
     verbs: ["get", "watch", "list"]
@@ -4596,9 +4615,6 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # discovery and routing
-  - apiGroups: ["extensions","apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
     verbs: ["get", "list", "watch"]
@@ -4638,16 +4654,8 @@ rules:
     resources: ["tokenreviews"]
     verbs: ["create"]
 
-  # TODO: remove, no longer needed at cluster
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["create", "get", "watch", "list", "update", "delete"]
-  - apiGroups: [""]
-    resources: ["serviceaccounts"]
-    verbs: ["get", "watch", "list"]
-
   # Use for Kubernetes Service APIs
-  - apiGroups: ["networking.x.k8s.io"]
+  - apiGroups: ["networking.x-k8s.io"]
     resources: ["*"]
     verbs: ["get", "watch", "list"]
 ---
@@ -4702,6 +4710,51 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
+  name: istiod-istio-system
+subjects:
+  - kind: ServiceAccount
+    name: istiod-service-account
+    namespace: istio-system
+---
+# Source: base/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: istiod-istio-system
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+rules:
+# permissions to verify the webhook is ready and rejecting
+# invalid config. We use --server-dry-run so no config is persisted.
+- apiGroups: ["networking.istio.io"]
+  verbs: ["create"]
+  resources: ["gateways"]
+
+# Needed for multicluster secret reading
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
+
+# For storing CA secret
+- apiGroups: [""]
+  resources: ["secrets"]
+  # TODO lock this down to istio-ca-cert if not using the DNS cert mesh config
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
+---
+# Source: base/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: istiod-istio-system
+  namespace: istio-system
+  labels:
+    app: pilot
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
   name: istiod-istio-system
 subjects:
   - kind: ServiceAccount

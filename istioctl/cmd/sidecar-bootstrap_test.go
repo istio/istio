@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -28,15 +29,16 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/collections"
 )
 
 type vmBootstrapTestcase struct {
 	address           string
 	args              []string
-	cannedIstioConfig []model.Config
+	cannedIstioConfig []clientnetworking.WorkloadEntry
 	cannedK8sConfig   []runtime.Object
 	expectedString    string
 	shouldFail        bool
@@ -45,19 +47,16 @@ type vmBootstrapTestcase struct {
 }
 
 var (
-	emptyIstioConfig = make([]model.Config, 0)
+	emptyIstioConfig = make([]clientnetworking.WorkloadEntry, 0)
 	emptyK8sConfig   = make([]runtime.Object, 0)
 
-	istioStaticWorkspace = []model.Config{
+	istioStaticWorkspace = []clientnetworking.WorkloadEntry{
 		{
-			ConfigMeta: model.ConfigMeta{
+			ObjectMeta: metaV1.ObjectMeta{
 				Name:      "workload",
 				Namespace: "NS",
-				Type:      collections.IstioNetworkingV1Alpha3Workloadentries.Resource().Kind(),
-				Group:     collections.IstioNetworkingV1Alpha3Workloadentries.Resource().Group(),
-				Version:   collections.IstioNetworkingV1Alpha3Workloadentries.Resource().Version(),
 			},
-			Spec: &networking.WorkloadEntry{
+			Spec: networking.WorkloadEntry{
 				Address:        "127.0.0.1",
 				ServiceAccount: "test",
 			},
@@ -223,12 +222,20 @@ func TestVmBootstrap(t *testing.T) {
 func verifyVMCommandCaseOutput(t *testing.T, c vmBootstrapTestcase) {
 	t.Helper()
 
-	clientFactory = mockClientFactoryGenerator(c.cannedIstioConfig)
+	configStoreFactory = mockClientFactoryGenerator(func(client istioclient.Interface) {
+		for _, cfg := range c.cannedIstioConfig {
+			_, err := client.NetworkingV1alpha3().WorkloadEntries(cfg.Namespace).Create(context.TODO(), &cfg, metaV1.CreateOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
 	interfaceFactory = mockInterfaceFactoryGenerator(c.cannedK8sConfig)
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
-	rootCmd.SetOutput(&out)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
 
 	fErr := rootCmd.Execute()
 	output := out.String()

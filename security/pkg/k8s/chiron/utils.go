@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, d
 
 	// 4. Read the signed certificate
 	certChain, caCert, err := readSignedCertificate(certClient,
-		csrName, certReadInterval, maxNumCertRead, caFilePath)
+		csrName, certReadInterval, certWatchTimeout, maxNumCertRead, caFilePath)
 	if err != nil {
 		log.Errorf("failed to read signed cert. (%v): %v", csrName, err)
 		errCsr := cleanUpCertGen(certClient, csrName)
@@ -239,14 +239,12 @@ func submitCSR(certClient certclient.CertificateSigningRequestInterface, csrName
 
 // Read the signed certificate
 func readSignedCertificate(certClient certclient.CertificateSigningRequestInterface, csrName string,
-	readInterval time.Duration, maxNumRead int, caCertPath string) ([]byte, []byte, error) {
+	readInterval, watchTimeout time.Duration, maxNumRead int, caCertPath string) ([]byte, []byte, error) {
 	// First try to read the signed CSR through a watching mechanism
-	reqSigned := readSignedCsr(certClient, csrName, timeoutForReadingCSR)
+	reqSigned := readSignedCsr(certClient, csrName, watchTimeout)
 	if reqSigned == nil {
 		// If watching fails, retry reading the signed CSR a few times after waiting.
 		for i := 0; i < maxNumRead; i++ {
-			// It takes some time for certificate to be ready, so wait first.
-			time.Sleep(readInterval)
 			r, err := certClient.Get(context.TODO(), csrName, metav1.GetOptions{})
 			if err != nil {
 				log.Errorf("failed to get the CSR (%v): %v", csrName, err)
@@ -261,6 +259,7 @@ func readSignedCertificate(certClient certclient.CertificateSigningRequestInterf
 				reqSigned = r
 				break
 			}
+			time.Sleep(readInterval)
 		}
 	}
 	// If still failed to read signed CSR, return error.

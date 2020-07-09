@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ func CheckOutboundConfig(source echo.Instance, target echo.Instance, port echo.P
 			Check()
 	}
 
-	if !target.Config().Headless && source.Config().ClusterIndex() == target.Config().ClusterIndex() {
+	if !target.Config().Headless && source.Config().Cluster.Name() == target.Config().Cluster.Name() {
 		// TCP case: Make sure we have an outbound listener configured.
 		listenerName := listenerName(target.Address(), port)
 		return validator.

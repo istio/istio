@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -321,7 +321,7 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 		labels[label.IstioRev] = revision
 	}
 
-	labels[istioComponentLabelStr] = componentName
+	labels[IstioComponentLabelStr] = componentName
 
 	return labels
 }
@@ -374,7 +374,7 @@ func (h *HelmReconciler) getCRHash(componentName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.Join([]string{crName, crNamespace, componentName}, "-"), nil
+	return strings.Join([]string{crName, crNamespace, componentName, h.restConfig.Host}, "-"), nil
 }
 
 // getCRNamespace returns the namespace of the CR associated with h.

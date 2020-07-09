@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -30,10 +29,10 @@ var (
 func TestMain(m *testing.M) {
 	// Integration test for provisioning DNS certificates.
 	// TODO (lei-tang): investigate whether this test can be moved to integration/security.
-	framework.NewSuite("dns_certificate_test", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 }
 
@@ -44,7 +43,7 @@ func setupConfig(cfg *istio.Config) {
 
 	cfg.ControlPlaneValues = `
 values:
-  global:
+  meshConfig:
     certificates:
       - dnsNames: [istio-pilot.istio-system.svc, istio-pilot.istio-system]
       - secretName: dns.istio-galley-service-account

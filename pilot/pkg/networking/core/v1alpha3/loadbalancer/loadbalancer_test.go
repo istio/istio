@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
@@ -27,15 +27,16 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
-	locality := &corev3.Locality{
+	locality := &core.Locality{
 		Region:  "region1",
 		Zone:    "zone1",
 		SubZone: "subzone1",
@@ -231,9 +232,7 @@ func TestGetLocalityLbSetting(t *testing.T) {
 }
 
 func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-
-	serviceDiscovery.ServicesReturns([]*model.Service{
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
 		{
 			Hostname:    "test.example.org",
 			Address:     "1.1.1.1",
@@ -246,7 +245,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 				},
 			},
 		},
-	}, nil)
+	})
 
 	meshConfig := &meshconfig.MeshConfig{
 		ConnectTimeout: &types.Duration{
@@ -258,7 +257,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 		},
 	}
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
@@ -270,9 +269,8 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-			Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-			Name:    "acme",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			Name:             "acme",
 		},
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
@@ -286,9 +284,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 }
 
 func buildEnvForClustersWithFailover() *model.Environment {
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-
-	serviceDiscovery.ServicesReturns([]*model.Service{
+	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
 		{
 			Hostname:    "test.example.org",
 			Address:     "1.1.1.1",
@@ -301,7 +297,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 				},
 			},
 		},
-	}, nil)
+	})
 
 	meshConfig := &meshconfig.MeshConfig{
 		ConnectTimeout: &types.Duration{
@@ -318,7 +314,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 		},
 	}
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
@@ -330,9 +326,8 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-			Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-			Name:    "acme",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			Name:             "acme",
 		},
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
@@ -352,49 +347,49 @@ func buildFakeCluster() *cluster.Cluster {
 			ClusterName: "outbound|8080||test.example.org",
 			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone3",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone2",
 						SubZone: "",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region2",
 						Zone:    "",
 						SubZone: "",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region3",
 						Zone:    "",
 						SubZone: "",
@@ -413,21 +408,21 @@ func buildSmallCluster() *cluster.Cluster {
 			ClusterName: "outbound|8080||test.example.org",
 			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region2",
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
 				},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region2",
 						Zone:    "zone1",
 						SubZone: "subzone2",
@@ -445,7 +440,7 @@ func buildSmallClusterWithNilLocalities() *cluster.Cluster {
 			ClusterName: "outbound|8080||test.example.org",
 			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone2",
@@ -453,7 +448,7 @@ func buildSmallClusterWithNilLocalities() *cluster.Cluster {
 				},
 				{},
 				{
-					Locality: &corev3.Locality{
+					Locality: &core.Locality{
 						Region:  "region2",
 						Zone:    "zone1",
 						SubZone: "subzone2",

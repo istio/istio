@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,20 +20,21 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 
-	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -166,7 +167,7 @@ func TestStreamSecretsInvalidResourceName(t *testing.T) {
 	testHelper(t, arg, sdsRequestStream, true)
 }
 
-type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse, error)
+type secretCallback func(string, *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error)
 
 func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourceNames bool) {
 	var wst, gst cache.SecretManager
@@ -213,7 +214,8 @@ func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourc
 }
 
 func sendRequestForRootCertAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string) {
-	rootCertReq := &api.DiscoveryRequest{
+	rootCertReq := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{"ROOTCA"},
 		Node: &core.Node{
 			Id: proxyID,
@@ -230,7 +232,8 @@ func sendRequestForFileRootCertAndVerifyResponse(t *testing.T, cb secretCallback
 	rootCertPath, _ := filepath.Abs("./testdata/root-cert.pem")
 	rootResource := "file-root:" + rootCertPath
 
-	rootCertReq := &api.DiscoveryRequest{
+	rootCertReq := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{rootResource},
 		Node: &core.Node{
 			Id: proxyID,
@@ -250,8 +253,9 @@ func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxy
 	if testInvalidResourceNames {
 		rn = append(rn, extraResourceName)
 	}
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
 		ResourceNames: rn,
+		TypeUrl:       SecretTypeV3,
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -329,7 +333,8 @@ func createSDSStream(t *testing.T, socket, token string) (*grpc.ClientConn, sds.
 // "close stream" -----------> (close stream)
 func testSDSStreamTwo(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
@@ -369,7 +374,8 @@ func testSDSStreamTwo(stream sds.SecretDiscoveryService_StreamSecretsClient, pro
 // "close stream" -----------> (close stream)
 func testSDSStreamOne(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
@@ -567,7 +573,8 @@ func TestStreamSecretsPush(t *testing.T) {
 
 func testSDSStreamMultiplePush(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
@@ -627,7 +634,8 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 
 func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
@@ -808,16 +816,16 @@ func (s *Setup) generatePushSecret(conID, token string) *model.SecretItem {
 	return pushSecret
 }
 
-func verifySDSSResponse(resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) error {
-	var pb authapi.Secret
+func verifySDSSResponse(resp *discovery.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) error {
+	pb := &authapi.Secret{}
 	if resp == nil {
 		return fmt.Errorf("response is nil")
 	}
-	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
+	if err := ptypes.UnmarshalAny(resp.Resources[0], pb); err != nil {
 		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
 	}
 
-	expectedResponseSecret := authapi.Secret{
+	expectedResponseSecret := &authapi.Secret{
 		Name: testResourceName,
 		Type: &authapi.Secret_TlsCertificate{
 			TlsCertificate: &authapi.TlsCertificate{
@@ -834,20 +842,20 @@ func verifySDSSResponse(resp *api.DiscoveryResponse, expectedPrivateKey []byte, 
 			},
 		},
 	}
-	if !reflect.DeepEqual(pb, expectedResponseSecret) {
+	if !cmp.Equal(pb, expectedResponseSecret, protocmp.Transform()) {
 		return fmt.Errorf("verification of SDS response failed: secret key: got %+v, want %+v",
 			pb, expectedResponseSecret)
 	}
 	return nil
 }
 
-func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, expectedRootCert []byte) {
-	var pb authapi.Secret
-	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
+func verifySDSSResponseForRootCert(t *testing.T, resp *discovery.DiscoveryResponse, expectedRootCert []byte) {
+	pb := &authapi.Secret{}
+	if err := ptypes.UnmarshalAny(resp.Resources[0], pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
 	}
 
-	expectedResponseSecret := authapi.Secret{
+	expectedResponseSecret := &authapi.Secret{
 		Name: "ROOTCA",
 		Type: &authapi.Secret_ValidationContext{
 			ValidationContext: &authapi.CertificateValidationContext{
@@ -859,12 +867,12 @@ func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, ex
 			},
 		},
 	}
-	if !reflect.DeepEqual(pb, expectedResponseSecret) {
+	if !cmp.Equal(pb, expectedResponseSecret, protocmp.Transform()) {
 		t.Errorf("secret key: got %+v, want %+v", pb, expectedResponseSecret)
 	}
 }
 
-func sdsRequestStream(socket string, req *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
+func sdsRequestStream(socket string, req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
 	conn, err := setupConnection(socket)
 	if err != nil {
 		return nil, err
@@ -889,7 +897,7 @@ func sdsRequestStream(socket string, req *api.DiscoveryRequest) (*api.DiscoveryR
 	return res, nil
 }
 
-func sdsRequestFetch(socket string, req *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
+func sdsRequestFetch(socket string, req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
 	conn, err := setupConnection(socket)
 	if err != nil {
 		return nil, err

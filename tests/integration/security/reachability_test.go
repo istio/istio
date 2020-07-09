@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
@@ -37,18 +36,14 @@ func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 
-			rctx := reachability.CreateContext(ctx, p)
+			rctx := reachability.CreateContext(ctx, p, true)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "beta-mtls-on.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-mtls-on.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						if src == rctx.HeadlessNaked || opts.Target == rctx.HeadlessNaked {
-							return false
-						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -62,32 +57,32 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "beta-mtls-permissive.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-mtls-permissive.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the naked app.
-						return !rctx.IsNaked(opts.Target)
+						// Exclude calls from naked->VM since naked has no Envoy
+						// so k8s is responsible for DNS resolution
+						// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail
+						return opts.Target != rctx.Naked && !(src == rctx.Naked && opts.Target == rctx.VM)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
 				},
 				{
-					ConfigFile:          "beta-mtls-off.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-mtls-off.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						// Exclude calls from naked->VM.
+						return !(src == rctx.Naked && opts.Target == rctx.VM)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
 				},
 				{
-					ConfigFile:          "beta-per-port-mtls.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-per-port-mtls.yaml",
+					Namespace:  rctx.Namespace,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Include all tests that target app B, which has the single-port config.
 						return opts.Target == rctx.B
@@ -97,43 +92,32 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "beta-mtls-automtls.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-mtls-automtls.yaml",
+					Namespace:  rctx.Namespace,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
 						// have proxy neither.
-						if rctx.IsNaked(src) {
-							return rctx.IsNaked(opts.Target)
-						}
-						// headless service with sidecar injected, global mTLS enabled,
-						// no client side transport socket or transport_socket_matches since it's headless service.
-						if src != rctx.Headless && opts.Target == rctx.Headless {
-							return false
+						if src == rctx.Naked {
+							return opts.Target == rctx.Naked
 						}
 						return true
 					},
 				},
 				{
-					ConfigFile:          "beta-mtls-partial-automtls.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "beta-mtls-partial-automtls.yaml",
+					Namespace:  rctx.Namespace,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
 						// have proxy or have mTLS disabled
-						if rctx.IsNaked(src) {
-							return rctx.IsNaked(opts.Target) || (opts.Target == rctx.B && opts.PortName != "http")
+						if src == rctx.Naked {
+							return opts.Target == rctx.Naked || (opts.Target == rctx.B && opts.PortName != "http")
 
-						}
-						// headless with sidecar injected, global mTLS enabled, no client side transport socket or transport_socket_matches since it's headless service.
-						if src != rctx.Headless && opts.Target == rctx.Headless {
-							return false
 						}
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
 						// will fail on all ports on b, except http port.
@@ -141,24 +125,18 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					// test access headless service with mTLS off to simulate without sidecar.
-					ConfigFile:          "beta-mtls-off-headless.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return rctx.IsHeadless(opts.Target)
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-				},
-				{
-					ConfigFile:          "global-plaintext.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "global-plaintext.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
-						if rctx.IsHeadless(opts.Target) && opts.PortName == "tcp" {
+						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
+							return false
+						}
+
+						// Exclude calls from naked->VM since naked has no Envoy
+						// so k8s is responsible for DNS resolution
+						// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail
+						if src == rctx.Naked && opts.Target == rctx.VM {
 							return false
 						}
 
@@ -173,9 +151,8 @@ func TestReachability(t *testing.T) {
 				// The follow three consecutive test together ensures the auto mtls works as intended
 				// for sidecar migration scenario.
 				{
-					ConfigFile:          "automtls-partial-sidecar-dr-no-tls.yaml",
-					RequiredEnvironment: environment.Kube,
-					Namespace:           rctx.Namespace,
+					ConfigFile: "automtls-partial-sidecar-dr-no-tls.yaml",
+					Namespace:  rctx.Namespace,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
@@ -197,9 +174,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "automtls-partial-sidecar-dr-disable.yaml",
-					RequiredEnvironment: environment.Kube,
-					Namespace:           rctx.Namespace,
+					ConfigFile: "automtls-partial-sidecar-dr-disable.yaml",
+					Namespace:  rctx.Namespace,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
@@ -222,9 +198,8 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "automtls-partial-sidecar-dr-mutual.yaml",
-					RequiredEnvironment: environment.Kube,
-					Namespace:           rctx.Namespace,
+					ConfigFile: "automtls-partial-sidecar-dr-mutual.yaml",
+					Namespace:  rctx.Namespace,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -194,6 +194,29 @@ a:
     - v3_regex
   c:
     d: n3
+`,
+		},
+		{
+			desc:  "AppendToListEntry",
+			path:  `a.b.[name:n2].list.[3]`,
+			value: `v4`,
+			want: `
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: istio-system
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v2
+    - v3_regex
+    - v4
+    name: n2
+  c:
 `,
 		},
 	}

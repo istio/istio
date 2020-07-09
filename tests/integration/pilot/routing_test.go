@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -104,8 +104,8 @@ spec:
 			}
 			for _, tt := range cases {
 				ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
-					ctx.ApplyConfigOrFail(ctx, ns.Name(), tt.vs)
-					defer ctx.DeleteConfigOrFail(ctx, ns.Name(), tt.vs)
+					ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tt.vs)
+					defer ctx.Config().DeleteYAMLOrFail(ctx, ns.Name(), tt.vs)
 					retry.UntilSuccessOrFail(ctx, func() error {
 						resp, err := client.Call(echo.CallOptions{
 							Target:   server,

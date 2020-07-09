@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -50,7 +49,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	params := server.Options{
 		MixerValidator: validate.NewDefaultValidator(false),
 		Schemas:        collections.Istio,
-		DomainSuffix:   args.Config.ControllerOptions.DomainSuffix,
+		DomainSuffix:   args.RegistryOptions.KubeOptions.DomainSuffix,
 		Mux:            s.httpsMux,
 	}
 	whServer, err := server.New(params)
@@ -64,26 +63,9 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	})
 
 	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" {
-		var dynamicInterface dynamic.Interface
-		if s.kubeClient == nil || s.kubeConfig == nil {
-			iface, err := kube.NewInterfacesFromConfigFile(args.Config.KubeConfig)
-			if err != nil {
-				return err
-			}
-			client, err := iface.KubeClient()
-			if err != nil {
-				return err
-			}
-			s.kubeClient = client
-			dynamicInterface, err = iface.DynamicInterface()
-			if err != nil {
-				return err
-			}
-		} else {
-			dynamicInterface, err = dynamic.NewForConfig(s.kubeConfig)
-			if err != nil {
-				return err
-			}
+		dynamicInterface, err := dynamic.NewForConfig(s.kubeRestConfig)
+		if err != nil {
+			return err
 		}
 
 		if webhookConfigName == validationWebhookConfigNameTemplate {
@@ -91,8 +73,8 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		}
 
 		caBundlePath := s.caBundlePath
-		if hasCustomTLSCerts(args.TLSOptions) {
-			caBundlePath = args.TLSOptions.CaCertFile
+		if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
+			caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
 		}
 		o := controller.Options{
 			WatchedNamespace:  args.Namespace,

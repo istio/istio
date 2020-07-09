@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,7 +88,6 @@ func ReadProfileYAML(profile, chartsDir string) (string, error) {
 			return "", err
 		}
 	case util.IsFilePath(profile):
-		scope.Infof("Loading values from local filesystem at path %s", profile)
 		if globalValues, err = readFile(profile); err != nil {
 			return "", err
 		}
@@ -307,7 +306,7 @@ func GetProfileYAML(installPackagePath, profileOrPath string) (string, error) {
 		return "", fmt.Errorf("failed to read profiles: %v", err)
 	}
 	// If charts are a file path and profile is a name like default, transform it to the file path.
-	if profiles[profileOrPath] {
+	if profiles[profileOrPath] && installPackagePath != "" {
 		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
 	}
 	// This contains the IstioOperator CR.

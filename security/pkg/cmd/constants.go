@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,9 @@ const (
 
 	// ReadSigningCertRetryInterval specifies the time to wait between retries on reading the signing key and cert.
 	ReadSigningCertRetryInterval = time.Second * 5
+
+	// ReadSigningCertRetryMax specifies the total max time to wait between retries on reading the signing key and cert.
+	ReadSigningCertRetryMax = time.Second * 30
 
 	// DefaultMaxWorkloadCertTTL is the default max TTL of issued workload certificates.
 	DefaultMaxWorkloadCertTTL = 90 * 24 * time.Hour

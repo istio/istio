@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -86,7 +87,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 
 	// Collect the list of namespaces that have istio injection enabled.
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.Labels[InjectionLabelName] == InjectionLabelEnableValue {
+		if r.Metadata.Labels[util.InjectionLabelName] == util.InjectionLabelEnableValue {
 			injectedNamespaces[r.Metadata.FullName.String()] = struct{}{}
 		}
 
@@ -107,7 +108,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		}
 
 		for _, container := range pod.Spec.Containers {
-			if container.Name != istioProxyName {
+			if container.Name != util.IstioProxyName {
 				continue
 			}
 

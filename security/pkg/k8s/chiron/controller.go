@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,12 +62,15 @@ const (
 	// The number of retries when requesting to create secret.
 	secretCreationRetry = 3
 
-	// The interval for reading a certificate
-	certReadInterval = 500 * time.Millisecond
 	// The number of tries for reading a certificate
 	maxNumCertRead = 10
-	// timeout for reading signed CSR
-	timeoutForReadingCSR = 5 * time.Second
+
+	// The interval for reading a certificate
+	certReadInterval = 500 * time.Millisecond
+)
+
+var (
+	certWatchTimeout = 5 * time.Second
 )
 
 // WebhookController manages the service accounts' secrets that contains Istio keys and certificates.

@@ -32,9 +32,9 @@ ifneq ($(TAG),)
     _INTEGRATION_TEST_FLAGS += --istio.test.tag=$(TAG)
 endif
 
-_INTEGRATION_TEST_SELECT_FLAG = --istio.test.select=-postsubmit,-flaky,-multicluster
-ifneq ($(TEST_SELECT),)
-    _INTEGRATION_TEST_SELECT_FLAGS += --istio.test.select=$(TEST_SELECT)
+_INTEGRATION_TEST_SELECT_FLAGS ?= --istio.test.select=$(TEST_SELECT)
+ifeq ($(TEST_SELECT),)
+    _INTEGRATION_TEST_SELECT_FLAGS = --istio.test.select=-postsubmit,-flaky,-multicluster
 endif
 
 # $(INTEGRATION_TEST_KUBECONFIG) overrides all kube config settings.
@@ -58,39 +58,31 @@ ifneq ($(_INTEGRATION_TEST_NETWORKS),)
     _INTEGRATION_TEST_FLAGS += --istio.test.kube.networkTopology=$(_INTEGRATION_TEST_NETWORKS)
 endif
 
+test.integration.analyze: | $(JUNIT_REPORT)
+	$(GO) test -p 1 ${T} ./tests/integration/... -timeout 30m \
+	--istio.test.analyze \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-# filter out non-standard test directories
-TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
-
-# Generate integration test targets for local environment.
-test.integration.%.local: | $(JUNIT_REPORT)
-	$(GO) test -p 1 ${T} -race ./tests/integration/$(subst .,/,$*)/... \
-	--istio.test.env native \
-	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+test.integration...local:
+	echo "legacy target. This can be removed once the CI job is removed."
 
 # Generate presubmit integration test targets for each component in kubernetes environment
 test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-# Dummy target - can be removed once the job is deleted
-test.integration.conformance.kube.presubmit:
-	echo "skipped"
 
 # Presubmit integration tests targeting Kubernetes environment.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT)
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ${TEST_PACKAGES} -timeout 30m \
- 	--istio.test.env kube \
+	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples) -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
@@ -98,7 +90,6 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT)
 .PHONY: test.integration.kube.reachability
 test.integration.kube.reachability: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/security/ -timeout 30m \
-	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} \
 	--test.run=TestReachability \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))

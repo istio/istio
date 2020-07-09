@@ -18,13 +18,11 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("operator_controller", m).
-		RequireEnvironment(environment.Kube).
+		NewSuite(m).
 		RequireSingleCluster().
 		Run()
 }

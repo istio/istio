@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,40 +15,26 @@
 package components
 
 import (
-	"io/ioutil"
-	"net"
-
-	"istio.io/pkg/filewatcher"
-
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
-	"istio.io/istio/galley/pkg/config/source/kube/fs"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/mcp/monitoring"
 )
 
 // The patch table for external dependencies for code in components.
 var (
-	netListen         = net.Listen
 	newInterfaces     = kube.NewInterfacesFromConfigFile
 	mcpMetricReporter = func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) }
-	newFileWatcher    = filewatcher.NewWatcher
-	readFile          = ioutil.ReadFile
 
 	meshcfgNewFS        = func(path string) (event.Source, error) { return mesh.NewMeshConfigFS(path) }
 	processorInitialize = processor.Initialize
-	fsNew               = fs.New
 )
 
 func resetPatchTable() {
-	netListen = net.Listen
 	newInterfaces = kube.NewInterfacesFromConfigFile
 	mcpMetricReporter = func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) }
-	newFileWatcher = filewatcher.NewWatcher
-	readFile = ioutil.ReadFile
 
 	meshcfgNewFS = func(path string) (event.Source, error) { return mesh.NewMeshConfigFS(path) }
 	processorInitialize = processor.Initialize
-	fsNew = fs.New
 }

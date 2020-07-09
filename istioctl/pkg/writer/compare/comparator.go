@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,28 +22,28 @@ import (
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )
 
-// Comparator diffs between a config dump from Pilot and one from Envoy
+// Comparator diffs between a config dump from Istiod and one from Envoy
 type Comparator struct {
-	envoy, pilot *configdump.Wrapper
-	w            io.Writer
-	context      int
-	location     string
+	envoy, istiod *configdump.Wrapper
+	w             io.Writer
+	context       int
+	location      string
 }
 
 // NewComparator is a comparator constructor
-func NewComparator(w io.Writer, pilotResponses map[string][]byte, envoyResponse []byte) (*Comparator, error) {
+func NewComparator(w io.Writer, istiodResponses map[string][]byte, envoyResponse []byte) (*Comparator, error) {
 	c := &Comparator{}
-	for _, resp := range pilotResponses {
-		pilotDump := &configdump.Wrapper{}
-		err := json.Unmarshal(resp, pilotDump)
+	for _, resp := range istiodResponses {
+		istiodDump := &configdump.Wrapper{}
+		err := json.Unmarshal(resp, istiodDump)
 		if err != nil {
 			continue
 		}
-		c.pilot = pilotDump
+		c.istiod = istiodDump
 		break
 	}
-	if c.pilot == nil {
-		return nil, fmt.Errorf("unable to find config dump in Pilot responses")
+	if c.istiod == nil {
+		return nil, fmt.Errorf("unable to find config dump in Istiod responses")
 	}
 	envoyDump := &configdump.Wrapper{}
 	err := json.Unmarshal(envoyResponse, envoyDump)
@@ -57,7 +57,7 @@ func NewComparator(w io.Writer, pilotResponses map[string][]byte, envoyResponse 
 	return c, nil
 }
 
-// Diff prints a diff between Pilot and Envoy to the passed writer
+// Diff prints a diff between Istiod and Envoy to the passed writer
 func (c *Comparator) Diff() error {
 	if err := c.ClusterDiff(); err != nil {
 		return err

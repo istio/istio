@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,12 +18,37 @@ import "fmt"
 
 // Resource of a resource.
 type Resource interface {
-
-	// Debugging ID for the resource instance.
+	// ID used for debugging the resource instance.
 	ID() ID
 }
 
 // ID for the resource instance. This is allocated by the framework and passed here.
 type ID interface {
 	fmt.Stringer
+}
+
+var _ ID = FakeID("")
+
+// FakeID used for testing.
+type FakeID string
+
+func (id FakeID) String() string {
+	return string(id)
+}
+
+var _ Resource = &FakeResource{}
+
+// FakeResource used for testing.
+type FakeResource struct {
+	IDValue    string
+	OtherValue string
+}
+
+func (f *FakeResource) ID() ID {
+	return FakeID(f.IDValue)
+}
+
+// GetOtherValue is an additional method used to distinguish this resource API from others.
+func (f *FakeResource) GetOtherValue() string {
+	return f.OtherValue
 }

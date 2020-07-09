@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,21 +34,20 @@ var (
 type remoteSecretStatus string
 
 const (
-	rsStatusNotFound           remoteSecretStatus = "notFound"
-	rsStatusConfigMissing      remoteSecretStatus = "configMissing"
-	rsStatusConfigDecodeError  remoteSecretStatus = "configDecodeError"
-	rsStatusConfigInvalid      remoteSecretStatus = "configInvalid"
-	rsStatusServerNotFound     remoteSecretStatus = "serverNotFound"
-	seStatusServerAddrMismatch remoteSecretStatus = "serverAddrMismatch"
-	rsStatusOk                 remoteSecretStatus = "ok"
+	rsStatusNotFound          remoteSecretStatus = "notFound"
+	rsStatusConfigMissing     remoteSecretStatus = "configMissing"
+	rsStatusConfigDecodeError remoteSecretStatus = "configDecodeError"
+	rsStatusConfigInvalid     remoteSecretStatus = "configInvalid"
+	rsStatusServerNotFound    remoteSecretStatus = "serverNotFound"
+	rsStatusOk                remoteSecretStatus = "ok"
 )
 
-func secretStateAndServer(env Environment, srs remoteSecrets, c *Cluster) (remoteSecretStatus, string) {
-	remoteSecret, ok := srs[c.clusterName]
+func secretStateAndServer(srs remoteSecrets, c *Cluster) (remoteSecretStatus, string) {
+	remoteSecret, ok := srs[c.Name]
 	if !ok {
 		return rsStatusNotFound, ""
 	}
-	key := c.clusterName
+	key := c.Name
 	kubeconfig, ok := remoteSecret.Data[key]
 	if !ok {
 		return rsStatusConfigMissing, ""
@@ -66,20 +65,13 @@ func secretStateAndServer(env Environment, srs remoteSecrets, c *Cluster) (remot
 		return rsStatusServerNotFound, ""
 	}
 
-	server := cluster.Server
-	if configCluster, ok := env.GetConfig().Clusters[c.Context]; ok {
-		if server != configCluster.Server {
-			return seStatusServerAddrMismatch, fmt.Sprintf("%v (%v from local kubeconfig)", server, configCluster.Server)
-		}
-	}
-
 	return rsStatusOk, cluster.Server
 }
 
-func describeCACerts(env Environment, c *Cluster, indent string) {
-	secrets := c.readCACerts(env)
+func describeCACerts(printer Printer, c *Cluster, indent string) {
+	secrets := c.readCACerts(printer)
 
-	tw := tabwriter.NewWriter(env.Stdout(), 0, 8, 2, '\t', 0)
+	tw := tabwriter.NewWriter(printer.Stdout(), 0, 8, 2, '\t', 0)
 	_, _ = fmt.Fprintf(tw, "%vNAME\tISSUER\tSUBJECT\tNOTAFTER\n", indent)
 
 	for _, info := range []struct {
@@ -103,22 +95,22 @@ func describeCACerts(env Environment, c *Cluster, indent string) {
 	_ = tw.Flush()
 }
 
-func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent string) {
-	serviceRegistrySecrets := c.readRemoteSecrets(env)
+func describeRemoteSecrets(printer Printer, mesh *Mesh, c *Cluster, indent string) {
+	serviceRegistrySecrets := c.readRemoteSecrets(printer)
 
-	tw := tabwriter.NewWriter(env.Stdout(), 0, 8, 2, '\t', 0)
+	tw := tabwriter.NewWriter(printer.Stdout(), 0, 8, 2, '\t', 0)
 	_, _ = fmt.Fprintf(tw, "%vCONTEXT\tUID\tREGISTERED\tMASTER\t\n", indent)
 	for _, other := range mesh.SortedClusters() {
-		if other.clusterName == c.clusterName {
+		if other.Name == c.Name {
 			continue
 		}
 
-		secretState, server := secretStateAndServer(env, serviceRegistrySecrets, other)
+		secretState, server := secretStateAndServer(serviceRegistrySecrets, other)
 
 		_, _ = fmt.Fprintf(tw, "%v%v\t%v\t%v\t%v\n",
 			indent,
 			other.Context,
-			other.clusterName,
+			other.Name,
 			secretState,
 			server,
 		)
@@ -126,74 +118,61 @@ func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent strin
 	_ = tw.Flush()
 }
 
-func describeIngressGateways(env Environment, c *Cluster, indent string) { // nolint: interfacer
+func describeIngressGateways(printer Printer, c *Cluster, indent string) { // nolint: interfacer
 	gateways := c.readIngressGateways()
 
-	env.Printf("%vgateways: ", indent)
+	printer.Printf("%vgateways: ", indent)
 	if len(gateways) == 0 {
-		env.Printf("<none>")
+		printer.Printf("<none>")
 	} else {
 		for i, gateway := range gateways {
-			env.Printf("%v", gateway)
+			printer.Printf("%v", gateway)
 			if i < len(gateways)-1 {
-				env.Printf(", ")
+				printer.Printf(", ")
 			}
 		}
 	}
-	env.Printf("\n")
+	printer.Printf("\n")
 }
 
-func describeCluster(env Environment, mesh *Mesh, c *Cluster) error {
-	env.Printf("%v Context=%v clusterName=%v network=%v istio=%v %v\n",
+func describeCluster(printer Printer, mesh *Mesh, c *Cluster) error {
+	printer.Printf("%v Context=%v clusterName=%v network=%v istio=%v %v\n",
 		strings.Repeat("-", 10),
 		c.Context,
-		c.clusterName,
+		c.Name,
 		c.Network,
-		c.installed,
+		c.Installed,
 		strings.Repeat("-", 10))
 
 	indent := strings.Repeat(" ", 4)
 
-	env.Printf("\n")
-	describeCACerts(env, c, indent)
+	printer.Printf("\n")
+	describeCACerts(printer, c, indent)
 
-	env.Printf("\n")
-	describeRemoteSecrets(env, mesh, c, indent)
+	printer.Printf("\n")
+	describeRemoteSecrets(printer, mesh, c, indent)
 
-	env.Printf("\n")
-	describeIngressGateways(env, c, indent)
+	printer.Printf("\n")
+	describeIngressGateways(printer, c, indent)
 
 	// TODO verify all clustersByContext have common trust
 
 	return nil
 }
 
-func Describe(opt describeOptions, env Environment) error {
-	mesh, err := meshFromFileDesc(opt.filename, env)
-	if err != nil {
-		return err
-	}
-
-	if opt.all {
+// Describe status of the multi-cluster mesh's control plane.
+func Describe(all bool, mesh *Mesh, printer Printer) error {
+	if all {
 		for _, cluster := range mesh.SortedClusters() {
-			if err := describeCluster(env, mesh, cluster); err != nil {
-				env.Errorf("could not describe cluster %v: %v\n", cluster, err)
+			if err := describeCluster(printer, mesh, cluster); err != nil {
+				printer.Errorf("could not describe cluster %v: %v\n", cluster, err)
 			}
-			env.Printf("%v\n", clusterDisplaySeparator)
+			printer.Printf("%v\n", clusterDisplaySeparator)
 		}
-	} else {
-		context := opt.Context
-		if context == "" {
-			context = env.GetConfig().CurrentContext
-		}
-		cluster, ok := mesh.clustersByContext[context]
-		if !ok {
-			return fmt.Errorf("cluster %v not found", context)
-		}
-		return describeCluster(env, mesh, cluster)
+		return nil
 	}
 
-	return nil
+	return describeCluster(printer, mesh, mesh.Subject())
 }
 
 type describeOptions struct {
@@ -225,11 +204,21 @@ func NewDescribeCommand() *cobra.Command {
 			if err := opt.prepare(c.Flags()); err != nil {
 				return err
 			}
-			env, err := NewEnvironmentFromCobra(opt.Kubeconfig, opt.Context, c)
+
+			printer := NewPrinterFromCobra(c)
+			clientFactory := NewClientFactory()
+
+			kubeContext, err := contextOrDefault(opt.Kubeconfig, opt.Context)
 			if err != nil {
 				return err
 			}
-			return Describe(opt, env)
+
+			mesh, err := meshFromFileDesc(opt.filename, opt.Kubeconfig, kubeContext, clientFactory, printer)
+			if err != nil {
+				return err
+			}
+
+			return Describe(opt.all, mesh, printer)
 		},
 	}
 	opt.addFlags(c.PersistentFlags())

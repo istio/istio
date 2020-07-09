@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,22 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-)
-
-// To avoid a recoursive depenency to v2.
-const (
-	typePrefix = "type.googleapis.com/envoy.api.v2."
-
-	// Constants used for XDS
-
-	// ClusterType is used for cluster discovery. Typically first request received
-	ClusterType = typePrefix + "Cluster"
-	// ListenerType is sent after clusters and endpoints.
-	ListenerType = typePrefix + "Listener"
-	// RouteType is sent after listeners.
-	RouteType = typePrefix + "RouteConfiguration"
-	// RouteType is sent after listeners.
-	EndpointType = typePrefix + "ClusterLoadAssignment"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 )
 
 type ConfigGeneratorImpl struct {
@@ -58,17 +43,17 @@ func (configgen *ConfigGeneratorImpl) MeshConfigChanged(mesh *meshconfig.MeshCon
 func (configgen *ConfigGeneratorImpl) Generate(node *model.Proxy, push *model.PushContext, w *model.WatchedResource) []*any.Any {
 	resp := []*any.Any{}
 	switch w.TypeUrl {
-	case ListenerType:
+	case v2.ListenerType:
 		ll := configgen.BuildListeners(node, push)
 		for _, l := range ll {
 			resp = append(resp, util.MessageToAny(l))
 		}
-	case ClusterType:
+	case v2.ClusterType:
 		cl := configgen.BuildClusters(node, push)
 		for _, l := range cl {
 			resp = append(resp, util.MessageToAny(l))
 		}
-	case RouteType:
+	case v2.RouteType:
 		rl := configgen.BuildHTTPRoutes(node, push, w.ResourceNames)
 		for _, l := range rl {
 			resp = append(resp, util.MessageToAny(l))

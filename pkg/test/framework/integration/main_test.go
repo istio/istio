@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,11 +18,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("framework_test", m).
-		RequireEnvironment(environment.Native).
-		Run()
+	framework.NewSuite(m).EnvironmentFactory(resource.NilEnvironmentFactory).Run()
 }

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@ func TestProxyStatus(t *testing.T) {
 	cases := []execTestCase{
 		{ // case 0
 			args:           strings.Split("proxy-status", " "),
-			expectedString: "NAME     CDS     LDS     EDS     RDS     PILOT",
+			expectedString: "NAME     CDS     LDS     EDS     RDS     ISTIOD",
 		},
 		{ // case 1 short name "ps"
 			args:           strings.Split("ps", " "),
-			expectedString: "NAME     CDS     LDS     EDS     RDS     PILOT",
+			expectedString: "NAME     CDS     LDS     EDS     RDS     ISTIOD",
 		},
 		{ // case 5: supplying nonexistent pod name should result in error with --sds flag
 			args:          strings.Split("proxy-status random-gibberish-podname-61789237418234", " "),
@@ -36,7 +36,7 @@ func TestProxyStatus(t *testing.T) {
 		},
 		{ // case 6: new --revision argument
 			args:           strings.Split("proxy-status --revision canary", " "),
-			expectedString: "NAME     CDS     LDS     EDS     RDS     PILOT",
+			expectedString: "NAME     CDS     LDS     EDS     RDS     ISTIOD",
 		},
 	}
 

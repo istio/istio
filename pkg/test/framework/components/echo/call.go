@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,9 @@ type CallOptions struct {
 	// Scheme to be used when making the call. If not provided, an appropriate default for the
 	// port will be used (if feasible).
 	Scheme scheme.Instance
+
+	// If true, h2c will be used in HTTP requests
+	HTTP2 bool
 
 	// Host specifies the host to be used on the request. If not provided, an appropriate
 	// default is chosen for the target Instance.

@@ -4,7 +4,21 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/authsds","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap_v2.json","discoveryAddress":"istio-pilot:15011","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy"},"SDS":"true","TRUSTJWT":"true"}
+    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/authsds","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15011","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy"},"SDS":"true"}
+  },
+  "layered_runtime": {
+    "layers": [
+      {
+        "name": "deprecation",
+        "static_layer": {
+          "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+        }
+      },
+      {
+        "admin_layer": {},
+        "name": "admin"
+      }
+    ]
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -228,13 +242,16 @@
   },
   "dynamic_resources": {
     "lds_config": {
-      "ads": {}
+      "ads": {},
+      "resource_api_version": "V3"
     },
     "cds_config": {
-      "ads": {}
+      "ads": {},
+      "resource_api_version": "V3"
     },
     "ads_config": {
       "api_type": "GRPC",
+      "transport_api_version": "V3",
       "grpc_services": [
         {
           "envoy_grpc": {
@@ -321,7 +338,7 @@
         "transport_socket": {
           "name": "envoy.transport_sockets.tls",
           "typed_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext",
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
             "common_tls_context": {
               "alpn_protocols": [
                 "h2"
@@ -332,6 +349,7 @@
                   "sds_config": {
                     "api_config_source": {
                       "api_type": "GRPC",
+                      "transport_api_version": "V3",
                       "grpc_services": [
                         {
                           "envoy_grpc": { "cluster_name": "sds-grpc" }
@@ -405,7 +423,7 @@
               {
                 "name": "envoy.http_connection_manager",
                 "typed_config": {
-                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "stats",
                   "route_config": {
@@ -431,7 +449,7 @@
                   "http_filters": [{
                     "name": "envoy.router",
                     "typed_config": {
-                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
                   }]
                 }
@@ -454,7 +472,7 @@
               {
                 "name": "envoy.http_connection_manager",
                 "typed_config": {
-                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "agent",
                   "route_config": {
@@ -480,7 +498,7 @@
                   "http_filters": [{
                     "name": "envoy.router",
                     "typed_config": {
-                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
                   }]
                 }

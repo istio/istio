@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,42 +24,13 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/metadata"
-	metafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/tools/cache"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	dynamicfake "k8s.io/client-go/dynamic/fake"
+	"istio.io/istio/pkg/kube"
 )
 
 const secretNamespace string = "istio-system"
-
-func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
-	return &clientcmdapi.Config{}, nil
-}
-
-func mockValidateClientConfig(_ clientcmdapi.Config) error {
-	return nil
-}
-
-func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
-	return fake.NewSimpleClientset(), nil
-}
-
-func mockCreateMetadataInterfaceFromClusterConfig(_ *clientcmdapi.Config) (metadata.Interface, error) {
-	scheme := runtime.NewScheme()
-	metav1.AddMetaToScheme(scheme)
-	return metafake.NewSimpleMetadataClient(scheme), nil
-}
-
-func mockCreateDynamicInterfaceFromClusterConfig(_ *clientcmdapi.Config) (dynamic.Interface, error) {
-	scheme := runtime.NewScheme()
-	return dynamicfake.NewSimpleDynamicClient(scheme), nil
-}
 
 func makeSecret(secret, clusterID string, kubeconfig []byte) *v1.Secret {
 	return &v1.Secret{
@@ -83,14 +54,14 @@ var (
 	deleted string
 )
 
-func addCallback(_ kubernetes.Interface, _ metadata.Interface, _ dynamic.Interface, id string) error {
+func addCallback(_ kube.Client, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = id
 	return nil
 }
 
-func updateCallback(_ kubernetes.Interface, _ metadata.Interface, _ dynamic.Interface, id string) error {
+func updateCallback(_ kube.Client, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = id
@@ -110,12 +81,9 @@ func resetCallbackData() {
 }
 
 func Test_SecretController(t *testing.T) {
-	LoadKubeConfig = mockLoadKubeConfig
-	ValidateClientConfig = mockValidateClientConfig
-	CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
-	CreateMetadataInterfaceFromClusterConfig = mockCreateMetadataInterfaceFromClusterConfig
-	CreateDynamicInterfaceFromClusterConfig = mockCreateDynamicInterfaceFromClusterConfig
-
+	BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+		return kube.NewFakeClient(), nil
+	}
 	clientset := fake.NewSimpleClientset()
 
 	var (

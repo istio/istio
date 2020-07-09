@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,13 +38,12 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/crypto/ssh/terminal"
 
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	networking "istio.io/api/networking/v1alpha3"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/pki/util"
@@ -67,8 +66,6 @@ var (
 	sshPort           int
 	sshUser           string
 	startIstio        bool
-
-	workloadKind = collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind()
 )
 
 type workloadEntryAddressKeys struct {
@@ -90,23 +87,23 @@ type remoteResponse struct {
 	message string
 }
 
-func fetchSingleWorkloadEntry(workloadName string, client model.ConfigStore) ([]model.Config, string, error) {
+func fetchSingleWorkloadEntry(workloadName string, client istioclient.Interface) ([]clientnetworking.WorkloadEntry, string, error) {
 	workloadSplit := strings.Split(workloadName, ".")
 	if len(workloadSplit) != 2 {
 		return nil, "", fmt.Errorf("workload name: %s is not in the format: workloadName.Namespace", workloadName)
 	}
 
-	we := client.Get(workloadKind, workloadSplit[0], workloadSplit[1])
-	if we == nil {
+	we, err := client.NetworkingV1alpha3().WorkloadEntries(workloadSplit[1]).Get(context.Background(), workloadSplit[0], metav1.GetOptions{})
+	if we == nil || err != nil {
 		return nil, "", fmt.Errorf("workload entry: %s in namespace: %s was not found", workloadSplit[0], workloadSplit[1])
 	}
 
-	return []model.Config{*we}, workloadSplit[1], nil
+	return []clientnetworking.WorkloadEntry{*we}, workloadSplit[1], nil
 }
 
-func fetchAllWorkloadEntries(client model.ConfigStore) ([]model.Config, string, error) {
-	list, err := client.List(workloadKind, namespace)
-	return list, namespace, err
+func fetchAllWorkloadEntries(client istioclient.Interface) ([]clientnetworking.WorkloadEntry, string, error) {
+	list, err := client.NetworkingV1alpha3().WorkloadEntries(namespace).List(context.Background(), metav1.ListOptions{})
+	return list.Items, namespace, err
 }
 
 func getCertificate(kubeClient kubernetes.Interface) (describedCert, error) {
@@ -137,7 +134,7 @@ func extractOrgName(cert *x509.Certificate) string {
 }
 
 func getCertificatesForEachAddress(
-	workloadEntries []model.Config,
+	workloadEntries []clientnetworking.WorkloadEntry,
 	namespace string,
 	root describedCert) (map[string]workloadEntryAddressKeys, error) {
 	seenIps := make(map[string]workloadEntryAddressKeys)
@@ -151,7 +148,7 @@ func getCertificatesForEachAddress(
 	}
 
 	for _, entryCfg := range workloadEntries {
-		wle := entryCfg.Spec.(*networking.WorkloadEntry)
+		wle := entryCfg.Spec
 		// Only generate one certificate per address.
 		if _, ok := seenIps[wle.Address]; ok {
 			continue
@@ -586,14 +583,14 @@ Istio will be started on the host network as a docker container in capture mode.
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			var configClient model.ConfigStore
+			var configClient istioclient.Interface
 			var err error
 
-			if configClient, err = clientFactory(); err != nil {
+			if configClient, err = configStoreFactory(); err != nil {
 				return err
 			}
 
-			var entries []model.Config
+			var entries []clientnetworking.WorkloadEntry
 			var chosenNS string
 			if all {
 				entries, chosenNS, err = fetchAllWorkloadEntries(configClient)

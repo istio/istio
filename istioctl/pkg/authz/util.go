@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,12 +18,7 @@ import (
 	"strings"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-
-	"istio.io/istio/pilot/pkg/model"
 )
-
-// PolicyTypeToConfigs maps policy type (e.g. service-role) to a list of its config.
-type PolicyTypeToConfigs map[string][]model.Config
 
 func getCertificate(ctx *tls.CommonTlsContext) string {
 	cert := "none"

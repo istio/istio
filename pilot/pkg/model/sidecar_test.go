@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,9 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -347,6 +349,23 @@ var (
 		},
 	}
 
+	configs13 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name: "sidecar-scope-with-illegal-host",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   7443,
+						Protocol: "http_proxy",
+						Name:     "grpc-tls",
+					},
+					Hosts: []string{"foo", "foo/bar"},
+				},
+			},
+		},
+	}
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -581,12 +600,23 @@ var (
 		},
 	}
 
+	services14 = []*Service{
+		{
+			Hostname: "bar",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "foo",
+			},
+		},
+	}
+
 	virtualServices1 = []Config{
 		{
-			ConfigMeta: ConfigMeta{Type: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-				Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-				Name:      "virtualbar",
-				Namespace: "foo",
+			ConfigMeta: ConfigMeta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "virtualbar",
+				Namespace:        "foo",
 			},
 			Spec: &networking.VirtualService{
 				Hosts: []string{"virtualbar"},
@@ -952,6 +982,18 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 		},
+		{
+			"sidecar-scope-with-illegal-host",
+			configs13,
+			services14,
+			nil,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    port7443,
+				},
+			},
+		},
 	}
 
 	for idx, tt := range tests {
@@ -971,7 +1013,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 			if tt.virtualServices != nil {
-				ps.publicVirtualServices = append(ps.publicVirtualServices, tt.virtualServices...)
+				ps.publicVirtualServicesByGateway[constants.IstioMeshGateway] = append(ps.publicVirtualServicesByGateway[constants.IstioMeshGateway], tt.virtualServices...)
 			}
 
 			sidecarConfig := tt.sidecarConfig
@@ -992,6 +1034,9 @@ func TestCreateSidecarScope(t *testing.T) {
 				for _, egress := range a.Egress {
 					for _, egressHost := range egress.Hosts {
 						parts := strings.SplitN(egressHost, "/", 2)
+						if len(parts) < 2 {
+							continue
+						}
 						found = false
 						for _, listeners := range sidecarScope.EgressListeners {
 							if sidecarScopeHosts, ok := listeners.listenerHosts[parts[0]]; ok {
@@ -1168,9 +1213,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 
 	allContains := func(ns string, contains bool) map[ConfigKey]bool {
 		return map[ConfigKey]bool{
-			{ServiceEntryKind, svcName, ns}:   contains,
-			{VirtualServiceKind, vsName, ns}:  contains,
-			{DestinationRuleKind, drName, ns}: contains,
+			{gvk.ServiceEntry, svcName, ns}:   contains,
+			{gvk.VirtualService, vsName, ns}:  contains,
+			{gvk.DestinationRule, drName, ns}: contains,
 		}
 	}
 
@@ -1234,7 +1279,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 				},
 			}
 			ps.publicServices = append(ps.publicServices, services...)
-			ps.publicVirtualServices = append(ps.publicVirtualServices, virtualServices...)
+			ps.publicVirtualServicesByGateway[constants.IstioMeshGateway] = append(ps.publicVirtualServicesByGateway[constants.IstioMeshGateway], virtualServices...)
 			ps.SetDestinationRules(destinationRules)
 			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {

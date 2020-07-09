@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -231,6 +231,23 @@ func (b *KeyCertBundleImpl) ExtractRootCertExpiryTimestamp() (float64, error) {
 // ExtractCACertExpiryTimestamp returns the unix timestamp when the cert chain becomes expires.
 func (b *KeyCertBundleImpl) ExtractCACertExpiryTimestamp() (float64, error) {
 	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
+}
+
+// TimeBeforeCertExpires returns the time duration before the cert gets expired.
+// It returns an error if it failed to extract the cert expiration timestamp.
+// The returned time duration could be a negative value indicating the cert has already been expired.
+func TimeBeforeCertExpires(certBytes []byte, now time.Time) (time.Duration, error) {
+	if len(certBytes) == 0 {
+		return 0, fmt.Errorf("no certificate found")
+	}
+
+	certExpiryTimestamp, err := extractCertExpiryTimestamp("cert", certBytes)
+	if err != nil {
+		return 0, fmt.Errorf("failed to extract cert expiration timestamp: %v", err)
+	}
+
+	certExpiry := time.Duration(certExpiryTimestamp-float64(now.Unix())) * time.Second
+	return certExpiry, nil
 }
 
 // Verify that the cert chain, root cert and key/cert match.

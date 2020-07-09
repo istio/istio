@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import (
 	"math"
 	"sort"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -59,7 +59,7 @@ func GetLocalityLbSetting(
 }
 
 func ApplyLocalityLBSetting(
-	locality *corev3.Locality,
+	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	localityLB *v1alpha3.LocalityLoadBalancerSetting,
 	enableFailover bool,
@@ -80,7 +80,7 @@ func ApplyLocalityLBSetting(
 
 // set locality loadbalancing weight
 func applyLocalityWeight(
-	locality *corev3.Locality,
+	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	distribute []*v1alpha3.LocalityLoadBalancerSetting_Distribute) {
 	if distribute == nil {
@@ -139,7 +139,7 @@ func applyLocalityWeight(
 
 // set locality loadbalancing priority
 func applyLocalityFailover(
-	locality *corev3.Locality,
+	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	failover []*v1alpha3.LocalityLoadBalancerSetting_Failover) {
 	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment

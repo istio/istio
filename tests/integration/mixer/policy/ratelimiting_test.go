@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ package policy
 import (
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/redis"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -56,9 +56,6 @@ func TestRateLimiting_RedisQuotaRollingWindow(t *testing.T) {
 func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 	framework.
 		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/15686) deflake and remove label
-		Label(label.Flaky).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			destinationService := "productpage"
 			bookInfoNameSpaceStr := bookinfoNs.Name()
@@ -68,55 +65,28 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 			util.AllowRuleSync(t)
 
 			res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
-			totalReqs := float64(res.DurationHistogram.Count)
-			succReqs := float64(res.RetCodes[http.StatusOK])
 			got429s := float64(res.RetCodes[http.StatusTooManyRequests])
-			actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
 
-			// Sending 600 requests at 10qps, and limit allowed is 50 for 30s, so we should see approx 100 requests go
-			// through.
-			want200s := 50.0
-			// everything in excess of 200s should be 429s (ideally)
-			want429s := totalReqs - want200s
-			t.Logf("Expected Totals: 200s: %f (%f rps), 429s: %f (%f rps)", want200s, want200s/actualDuration,
-				want429s, want429s/actualDuration)
-
-			// As rate limit is applied at ingressgateway itself, fortio should see the limits too.
-			want := math.Floor(want200s * 0.90)
-			if succReqs < want {
-				attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
-					util.Fqdn(destinationService, bookInfoNameSpaceStr)),
-					fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 200),
-					fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
-				t.Logf("prometheus values for istio_requests_total for 200's:\n%s",
-					util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-				t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", succReqs, want)
-			}
-
-			// check resource exhausted
-			// TODO: until https://github.com/istio/istio/issues/3028 is fixed, use 50% - should be only 5% or so
-			want429s = math.Floor(want429s * 0.50)
-			if got429s < want429s {
+			if got429s == 0 {
 				attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
 					util.Fqdn(destinationService, bookInfoNameSpaceStr)),
 					fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 429),
 					fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
 				t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
 					util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-				t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got429s,
-					want429s)
+				t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want more than 1", got429s)
 			}
 		})
 }
 
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
-	framework.NewTest(t).Label(label.Flaky).Run(func(ctx framework.TestContext) {
-		ctx.ApplyConfigOrFail(
+	framework.NewTest(t).Run(func(ctx framework.TestContext) {
+		ctx.Config().ApplyYAMLOrFail(
 			t,
 			bookinfoNs.Name(),
 			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		)
-		defer ctx.DeleteConfigOrFail(t,
+		defer ctx.Config().DeleteYAMLOrFail(t,
 			bookinfoNs.Name(),
 			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 		bookInfoNameSpaceStr := bookinfoNs.Name()
@@ -124,102 +94,32 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 		defer deleteConfigOrFail(t, config, ctx)
 		util.AllowRuleSync(t)
 
-		// This is the number of requests we allow to be missing to be reported, so as to make test stable.
-		errorInRequestReportingAllowed := 5.0
-		_ = util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
-		prior429s, prior200s := util.FetchRequestCount(t, prom, destinationService, "",
-			bookInfoNameSpaceStr, 300)
+		retry.UntilSuccessOrFail(t, func() error {
+			res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
+			totalReqs := res.DurationHistogram.Count
+			succReqs := float64(res.RetCodes[http.StatusOK])
+			badReqs := res.RetCodes[http.StatusBadRequest]
+			actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
 
-		res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
-		totalReqs := res.DurationHistogram.Count
-		succReqs := float64(res.RetCodes[http.StatusOK])
-		badReqs := res.RetCodes[http.StatusBadRequest]
-		actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
+			t.Log("Successfully sent request(s) to /productpage; checking metrics...")
+			t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s - %+v)",
+				totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs, res.RetCodes)
 
-		t.Log("Successfully sent request(s) to /productpage; checking metrics...")
-		t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s - %+v)",
-			totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs, res.RetCodes)
-
-		// consider only successful requests (as recorded at productpage service)
-		callsToRatings := succReqs
-		want200s := 50.0
-		// everything in excess of 200s should be 429s (ideally)
-		want429s := callsToRatings - want200s
-		t.Logf("Expected Totals: 200s: %f (%f rps), 429s: %f (%f rps)", want200s, want200s/actualDuration,
-			want429s, want429s/actualDuration)
-		// if we received less traffic than the expected enforced limit to ratings
-		// then there is no way to determine if the rate limit was applied at all
-		// and for how much traffic. log all metrics and abort test.
-		if callsToRatings < want200s {
-			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
-				util.Fqdn(destinationService, bookInfoNameSpaceStr))}
-			t.Logf("full set of prometheus metrics for ratings:\n%s",
-				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-			t.Fatalf("Not enough traffic generated to exercise rate limit: %s_reqs=%f, want200s=%f",
-				destinationService, callsToRatings, want200s)
-		}
-
-		got429s, got200s := util.FetchRequestCount(t, prom, destinationService, "", bookInfoNameSpaceStr,
-			prior429s+prior200s+300-errorInRequestReportingAllowed)
-		if got429s == 0 {
-			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
-				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
-				fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 429),
-				fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
-			t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
-				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-			t.Errorf("Could not find 429s")
-		}
-		want429s = math.Floor(want429s * 0.90)
-		got429s -= prior429s
-		t.Logf("Actual 429s: %f (%f rps)", got429s, got429s/actualDuration)
-		// check resource exhausted
-		if got429s < want429s {
-			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
-				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
-				fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 429),
-				fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
-			t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
-				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-			t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got429s,
-				want429s)
-		}
-		if got200s == 0 {
-			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
-				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
-				fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 200),
-				fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
-			t.Logf("prometheus values for istio_requests_total for 200's:\n%s",
-				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-			t.Errorf("Could not find successes value")
-		}
-		got200s -= prior200s
-		t.Logf("Actual 200s: %f (%f rps), expecting ~1.666rps", got200s, got200s/actualDuration)
-		// establish some baseline to protect against flakiness due to randomness in routing
-		// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
-		// less than 10, don't fail this test).
-		want := math.Floor(want200s * 0.90)
-		// check successes
-		if got200s < want {
-			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
-				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
-				fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 200),
-				fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
-			t.Logf("prometheus values for istio_requests_total for 200's:\n%s",
-				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-			t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got200s, want)
-		}
-		want200s = math.Ceil(want200s * 1.05)
-		if got200s > want200s {
-			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
-				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
-				fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 200),
-				fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
-			t.Logf("prometheus values for istio_requests_total for 200's:\n%s",
-				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-			t.Errorf("Bad metric value for successful requests (200s): got %f, want at most %f", got200s,
-				want200s)
-		}
+			// We expect to receive 250 429's as the rate limit is set to allow 50 requests in 30s.
+			// Waiting to receive 50 requests.
+			got429s, _ := util.FetchRequestCount(t, prom, destinationService, "", bookInfoNameSpaceStr,
+				50)
+			if got429s == 0 {
+				attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
+					util.Fqdn(destinationService, bookInfoNameSpaceStr)),
+					fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 429),
+					fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
+				t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
+					util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
+				return fmt.Errorf("could not find 429s")
+			}
+			return nil
+		}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 	})
 }
 
@@ -238,29 +138,27 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 		"namespace: "+bookInfoNameSpaceStr, -1)
 
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-	ctx.ApplyConfigOrFail(t, ns.Name(), con)
+	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), con)
 	return con
 }
 
 func deleteConfigOrFail(t *testing.T, config string, ctx resource.Context) {
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-	ctx.DeleteConfigOrFail(t, ns.Name(), config)
+	ctx.Config().DeleteYAMLOrFail(t, ns.Name(), config)
 }
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mixer_policy_ratelimit", m).
-		Skip("https://github.com/istio/istio/issues/15686").
+		NewSuite(m).
 		Label(label.CustomSetup).
-		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
+  meshConfig:
+    disablePolicyChecks: false
   prometheus:
     enabled: true
-  global:
-    disablePolicyChecks: false
   telemetry:
     v1:
       enabled: true
@@ -295,7 +193,9 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	prom, err = prometheus.New(ctx, prometheus.Config{})
+	prom, err = prometheus.New(ctx, prometheus.Config{
+		SkipDeploy: true, // Use istioctl prometheus; sample prometheus does not support mixer.
+	})
 	if err != nil {
 		return
 	}
@@ -316,7 +216,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	err = ctx.ApplyConfig(bookinfoNs.Name(),
+	err = ctx.Config().ApplyYAML(bookinfoNs.Name(),
 		bookinfoGatewayFile,
 		destinationRuleFile,
 		virtualServiceFile)

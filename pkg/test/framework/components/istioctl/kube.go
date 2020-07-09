@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ type kubeComponent struct {
 func newKube(ctx resource.Context, config Config) Instance {
 	n := &kubeComponent{
 		config:  config,
-		cluster: kube.ClusterOrDefault(config.Cluster, ctx.Environment()),
+		cluster: resource.ClusterOrDefault(config.Cluster, ctx.Environment()).(kube.Cluster),
 	}
 	n.id = ctx.TrackResource(n)
 

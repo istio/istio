@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,15 +41,17 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 	val := reflect.ValueOf(node)
 	kind := reflect.TypeOf(node).Kind()
 	var structElems reflect.Value
-	if len(path) == 0 {
-		return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported leaf type %T", path, node)
-	}
+
 	switch kind {
 	case reflect.Map:
 		if path[0] == "" {
 			return nil, false, fmt.Errorf("getFromStructPath path %s, empty map key value", path)
 		}
-		return getFromStructPath(val.MapIndex(reflect.ValueOf(path[0])).Interface(), path[1:])
+		mapVal := val.MapIndex(reflect.ValueOf(path[0]))
+		if !mapVal.IsValid() {
+			return nil, false, fmt.Errorf("getFromStructPath path %s, path does not exist", path)
+		}
+		return getFromStructPath(mapVal.Interface(), path[1:])
 	case reflect.Slice:
 		idx, err := strconv.Atoi(path[0])
 		if err != nil {

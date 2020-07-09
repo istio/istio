@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/xds"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Pilot responses
@@ -32,7 +32,7 @@ type StatusWriter struct {
 
 type writerStatus struct {
 	pilot string
-	v2.SyncStatus
+	xds.SyncStatus
 }
 
 // PrintAll takes a slice of Pilot syncz responses and outputs them using a tabwriter
@@ -67,7 +67,7 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string)
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
 	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tPILOT\tVERSION")
+	_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tISTIOD\tVERSION")
 	var fullStatus []*writerStatus
 	for pilot, status := range statuses {
 		var ss []*writerStatus

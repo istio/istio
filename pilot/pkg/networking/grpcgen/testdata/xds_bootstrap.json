@@ -1,7 +1,7 @@
 {
   "xds_servers": [
     {
-    "server_uri": "localhost:14056"
+    "server_uri": "localhost:14057"
     }
   ],
   "node": {

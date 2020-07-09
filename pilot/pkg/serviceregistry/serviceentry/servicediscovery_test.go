@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -61,7 +62,7 @@ func callInstanceHandlers(instances []*model.ServiceInstance, sd *ServiceEntrySt
 func deleteConfigs(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
 	t.Helper()
 	for _, cfg := range configs {
-		err := store.Delete(cfg.GroupVersionKind(), cfg.Name, cfg.Namespace)
+		err := store.Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace)
 		if err != nil {
 			t.Errorf("error occurred crearting ServiceEntry config: %v", err)
 		}
@@ -242,7 +243,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		createConfigs([]*model.Config{httpStatic}, store, t)
 		instances := baseInstances
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
-		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStatic.Namespace}: {}}}})
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStatic.Namespace}: {}}}})
 	})
 
 	t.Run("add entry", func(t *testing.T) {
@@ -251,7 +252,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		instances := append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
-		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: httpStaticOverlay.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStaticOverlay.Namespace}: {}}}})
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: httpStaticOverlay.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStaticOverlay.Namespace}: {}}}})
 	})
 
 	t.Run("add endpoint", func(t *testing.T) {
@@ -318,7 +319,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// This lookup is per-namespace, so we should only see the objects in the same namespace
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNs, 0, instances)
 		// Expect a full push, as the Service has changed
-		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStaticOverlayUpdatedNs.Namespace}: {}}}})
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStaticOverlayUpdatedNs.Namespace}: {}}}})
 	})
 
 	t.Run("delete entry", func(t *testing.T) {
@@ -334,7 +335,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// svc update is only triggered on deletion. Also expect a full push as the service has changed
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}})
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}})
 
 		// Add back the ServiceEntry, expect these instances to get added
 		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
@@ -343,7 +344,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		// Service change, so we need a full push
-		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}})
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}})
 	})
 
 	t.Run("change host", func(t *testing.T) {
@@ -371,11 +372,11 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		}
 		expectServiceInstances(t, sd, httpStaticHost, 0, instances, instances2)
 		// Service change, so we need a full push
-		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}}) // service added
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}}) // service added
 
 		// restore this config and remove the added host.
 		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
-		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}}) // service deleted
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}}) // service deleted
 	})
 
 	t.Run("change dns endpoints", func(t *testing.T) {
@@ -409,13 +410,13 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, tcpDNS, 0, instances1)
 		// Service change, so we need a full push
 		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.
-			ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "tcpdns.com",
+			ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "tcpdns.com",
 			Namespace: tcpDNS.Namespace}: {}}}}) // service added
 
 		// now update the config
 		createConfigs([]*model.Config{tcpDNSUpdated}, store, t)
 		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.
-			ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "tcpdns.com",
+			ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "tcpdns.com",
 			Namespace: tcpDNSUpdated.Namespace}: {}}}}) // service deleted
 		expectServiceInstances(t, sd, tcpDNS, 0, instances2)
 	})
@@ -435,8 +436,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		createConfigs([]*model.Config{selector1}, store, t)
 		// Service change, so we need a full push
 		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: serviceEntryKind, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
-			{Kind: serviceEntryKind, Name: "selector1.com", Namespace: selector1.Namespace}: {},
+			{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
+			{Kind: gvk.ServiceEntry, Name: "selector1.com", Namespace: selector1.Namespace}: {},
 		}}}) // service added
 
 		selector1Updated := func() *model.Config {
@@ -449,8 +450,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		}()
 		createConfigs([]*model.Config{selector1Updated}, store, t)
 		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: serviceEntryKind, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
-			{Kind: serviceEntryKind, Name: "selector1.com", Namespace: selector1.Namespace}: {},
+			{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
+			{Kind: gvk.ServiceEntry, Name: "selector1.com", Namespace: selector1.Namespace}: {},
 		}}}) // service updated
 	})
 }
@@ -791,9 +792,7 @@ func TestNonServiceConfig(t *testing.T) {
 	// Create a non-service configuration element. This should not affect the service registry at all.
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-			Group:             collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
-			Version:           collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",
@@ -821,7 +820,7 @@ func TestNonServiceConfig(t *testing.T) {
 func TestServicesDiff(t *testing.T) {
 	var updatedHTTPDNS = &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,
@@ -1035,4 +1034,153 @@ func sortPorts(ports []*model.Port) {
 		}
 		return ports[i].Port < ports[j].Port
 	})
+}
+
+func Test_autoAllocateIP_conditions(t *testing.T) {
+
+	tests := []struct {
+		name         string
+		inServices   []*model.Service
+		wantServices []*model.Service
+	}{
+		{
+			name: "no allocation for passthrough",
+			inServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.Passthrough,
+					Address:    "0.0.0.0",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.Passthrough,
+					Address:    "0.0.0.0",
+				},
+			},
+		},
+		{
+			name: "no allocation if address exists",
+			inServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.ClientSideLB,
+					Address:    "1.1.1.1",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.ClientSideLB,
+					Address:    "1.1.1.1",
+				},
+			},
+		},
+		{
+			name: "no allocation if hostname is wildcard",
+			inServices: []*model.Service{
+				{
+					Hostname:   "*.foo.com",
+					Resolution: model.ClientSideLB,
+					Address:    "1.1.1.1",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:   "*.foo.com",
+					Resolution: model.ClientSideLB,
+					Address:    "1.1.1.1",
+				},
+			},
+		},
+		{
+			name: "allocate IP for clientside lb",
+			inServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.ClientSideLB,
+					Address:    "0.0.0.0",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:             "foo.com",
+					Resolution:           model.ClientSideLB,
+					Address:              "0.0.0.0",
+					AutoAllocatedAddress: "240.240.0.1",
+				},
+			},
+		},
+		{
+			name: "allocate IP for dns lb",
+			inServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.DNSLB,
+					Address:    "0.0.0.0",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:             "foo.com",
+					Resolution:           model.DNSLB,
+					Address:              "0.0.0.0",
+					AutoAllocatedAddress: "240.240.0.1",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := autoAllocateIPs(tt.inServices); !reflect.DeepEqual(got, tt.wantServices) {
+				t.Errorf("autoAllocateIPs() = %v, want %v", got, tt.wantServices)
+			}
+		})
+	}
+}
+
+func Test_autoAllocateIP_values(t *testing.T) {
+	inServices := make([]*model.Service, 512)
+	for i := 0; i < 512; i++ {
+		temp := model.Service{
+			Hostname:   "foo.com",
+			Resolution: model.ClientSideLB,
+			Address:    constants.UnspecifiedIP,
+		}
+		inServices[i] = &temp
+	}
+	gotServices := autoAllocateIPs(inServices)
+
+	// out of the 512 IPs, we dont expect the following IPs
+	// 240.240.0.0
+	// 240.240.0.255
+	// 240.240.1.0
+	// 240.240.1.255
+	// 240.240.2.0
+	// 240.240.2.255
+	// The last IP should be 240.240.2.4
+	doNotWant := map[string]bool{
+		"240.240.0.0":   true,
+		"240.240.0.255": true,
+		"240.240.1.0":   true,
+		"240.240.1.255": true,
+		"240.240.2.0":   true,
+		"240.240.2.255": true,
+	}
+	expectedLastIP := "240.240.2.4"
+	if gotServices[len(gotServices)-1].AutoAllocatedAddress != expectedLastIP {
+		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedAddress)
+	}
+
+	gotIPMap := make(map[string]bool)
+	for _, svc := range gotServices {
+		if svc.AutoAllocatedAddress == "" || doNotWant[svc.AutoAllocatedAddress] {
+			t.Errorf("unexpected value for auto allocated IP address %s", svc.AutoAllocatedAddress)
+		}
+		if gotIPMap[svc.AutoAllocatedAddress] {
+			t.Errorf("multiple allocations of same IP address to different services: %s", svc.AutoAllocatedAddress)
+		}
+		gotIPMap[svc.AutoAllocatedAddress] = true
+	}
 }

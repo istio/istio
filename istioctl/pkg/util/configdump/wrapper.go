@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ func (m *nonstrictResolver) Resolve(typeURL string) (proto.Message, error) {
 	if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
 		mname = mname[slash+1:]
 	}
+	// nolint: staticcheck
 	mt := proto.MessageType(mname)
 	if mt == nil {
 		// istioctl should keep going if it encounters new Envoy versions; ignore unknown types

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,25 +22,25 @@ import (
 	"github.com/pmezard/go-difflib/difflib"
 )
 
-// ListenerDiff prints a diff between Pilot and Envoy listeners to the passed writer
+// ListenerDiff prints a diff between Istiod and Envoy listeners to the passed writer
 func (c *Comparator) ListenerDiff() error {
 	jsonm := &jsonpb.Marshaler{Indent: "   "}
-	envoyBytes, pilotBytes := &bytes.Buffer{}, &bytes.Buffer{}
+	envoyBytes, istiodBytes := &bytes.Buffer{}, &bytes.Buffer{}
 	envoyListenerDump, err := c.envoy.GetDynamicListenerDump(true)
 	if err != nil {
 		envoyBytes.WriteString(err.Error())
 	} else if err := jsonm.Marshal(envoyBytes, envoyListenerDump); err != nil {
 		return err
 	}
-	pilotListenerDump, err := c.pilot.GetDynamicListenerDump(true)
+	istiodListenerDump, err := c.istiod.GetDynamicListenerDump(true)
 	if err != nil {
-		pilotBytes.WriteString(err.Error())
-	} else if err := jsonm.Marshal(pilotBytes, pilotListenerDump); err != nil {
+		istiodBytes.WriteString(err.Error())
+	} else if err := jsonm.Marshal(istiodBytes, istiodListenerDump); err != nil {
 		return err
 	}
 	diff := difflib.UnifiedDiff{
-		FromFile: "Pilot Listeners",
-		A:        difflib.SplitLines(pilotBytes.String()),
+		FromFile: "Istiod Listeners",
+		A:        difflib.SplitLines(istiodBytes.String()),
 		ToFile:   "Envoy Listeners",
 		B:        difflib.SplitLines(envoyBytes.String()),
 		Context:  c.context,

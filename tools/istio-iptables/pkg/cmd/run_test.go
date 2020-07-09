@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,7 +84,8 @@ func TestRulesWithIpRange(t *testing.T) {
 	cfg.OutboundIPRangesExclude = "1.1.0.0/16"
 	cfg.OutboundIPRangesInclude = "9.9.0.0/16"
 	cfg.DryRun = true
-	dnsVar.DefaultValue = "ALL"
+	dnsCaptureByEnvoy.DefaultValue = "ALL"
+	dnsCaptureByAgent.DefaultValue = ""
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -96,8 +97,10 @@ func TestRulesWithIpRange(t *testing.T) {
 		"iptables -t nat -N ISTIO_IN_REDIRECT",
 		"iptables -t nat -N ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"iptables -t nat -A ISTIO_REDIRECT -p udp -j REDIRECT --to-ports 15013",
 		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 3 -j RETURN",
@@ -115,9 +118,6 @@ func TestRulesWithIpRange(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 15013",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)
@@ -203,7 +203,7 @@ func TestHandleInboundIpv6RulesWithWildcardRanges(t *testing.T) {
 func TestHandleInboundIpv6RulesWithIpNets(t *testing.T) {
 	cfg := constructTestConfig()
 	cfg.InboundPortsInclude = "4000,5000"
-	cfg.InboundPortsExclude = "6000,7000"
+	cfg.InboundPortsExclude = "6000,7000,"
 	cfg.KubevirtInterfaces = "eth0,eth1"
 	cfg.EnableInboundIPv6 = true
 
@@ -568,7 +568,8 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 	cfg := constructConfig()
 	cfg.DryRun = true
-	dnsVar.DefaultValue = "ALL"
+	dnsCaptureByEnvoy.DefaultValue = ""
+	dnsCaptureByAgent.DefaultValue = "ALL"
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -580,8 +581,10 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -N ISTIO_IN_REDIRECT",
 		"iptables -t nat -N ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"iptables -t nat -A ISTIO_REDIRECT -p udp -j REDIRECT --to-ports 15053",
 		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 3 -j RETURN",
@@ -596,9 +599,6 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 15013",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -632,7 +632,8 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 	cfg := constructTestConfig()
 	cfg.OutboundIPRangesInclude = "127.1.2.3/32"
 	cfg.DryRun = true
-	dnsVar.DefaultValue = "ALL"
+	dnsCaptureByEnvoy.DefaultValue = "ALL"
+	dnsCaptureByAgent.DefaultValue = ""
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -644,8 +645,10 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 		"iptables -t nat -N ISTIO_IN_REDIRECT",
 		"iptables -t nat -N ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"iptables -t nat -A ISTIO_REDIRECT -p udp -j REDIRECT --to-ports 15013",
 		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 3 -j RETURN",
@@ -658,9 +661,6 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.1.2.3/32 -j ISTIO_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 15013",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)

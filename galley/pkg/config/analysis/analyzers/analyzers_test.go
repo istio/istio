@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/authz"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
@@ -86,6 +87,10 @@ var testGrid = []testCase{
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
 			{msg.Deprecated, "VirtualService productpage.foo"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
 		},
 	},
 	{
@@ -292,6 +297,22 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
+		},
+	},
+	{
+		name: "authorizationpolicies",
+		inputFiles: []string{
+			"testdata/authorizationpolicies.yaml",
+		},
+		analyzer: &authz.AuthorizationPoliciesAnalyzer{},
+		expected: []message{
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy meshwide-httpbin-v1.istio-system"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-empty-namespace-wide.httpbin-empty"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-nopods.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
 		},
 	},
 }

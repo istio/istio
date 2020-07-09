@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,6 +45,9 @@ type Instance interface {
 type Config struct {
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
+
+	// If true, connect to an existing prometheus rather than creating a new one
+	SkipDeploy bool
 }
 
 // New returns a new instance of echo.
