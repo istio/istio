@@ -115,7 +115,7 @@ func TestStsTokenSource(t *testing.T) {
 			defer tearDownTest(t, stsServer, mockBackend)
 
 			st := mock.FakeSubjectToken
-			if refreshToken {
+			if tt.refreshToken {
 				// if refreshing token is enabled. set dummy token initially and refresh it to desired subject token later.
 				st = "initial dummy token"
 			}
@@ -128,7 +128,7 @@ func TestStsTokenSource(t *testing.T) {
 			tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
 			ts.tm = tokenManager
 
-			if refreshToken {
+			if tt.refreshToken {
 				// If refreshing token is enabled, set the correct subject token.
 				ts.RefreshSubjectToken(mock.FakeSubjectToken)
 			}
