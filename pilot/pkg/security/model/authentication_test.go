@@ -16,10 +16,11 @@ package model
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/ptypes"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
