@@ -6,10 +6,6 @@ spec:
       enabled: true
     pilot:
       enabled: true
-    policy:
-      enabled: true
-    telemetry:
-      enabled: true
     cni:
       enabled: false
     ingressGateways:
@@ -22,7 +18,5 @@ spec:
         enabled: true
 
   addonComponents:
-    prometheus:
-      enabled: true
     istiocoredns:
       enabled: true

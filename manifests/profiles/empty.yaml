@@ -10,6 +10,3 @@ spec:
       enabled: false
     ingressGateways:
 
-  addonComponents:
-    prometheus:
-      enabled: false
