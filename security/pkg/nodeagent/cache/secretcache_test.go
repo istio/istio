@@ -541,7 +541,7 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 
 	fetcher.AddSecret(k8sTestTLSFallbackSecret)
 	for _, c := range cases {
-		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "", false) {
+		if sc.ShouldWaitForGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "", false) {
 			t.Fatal("When fallback secret is enabled, node agent should not wait for gateway secret")
 		}
 		// Verify that fallback secret is returned
@@ -604,9 +604,9 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 				}
 			}
 		}
-		// When secret is deleted, node agent should not wait for ingress gateway secret.
+		// When secret is deleted, node agent should not wait for gateway secret.
 		fetcher.DeleteSecret(c.addSecret)
-		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "", false) {
+		if sc.ShouldWaitForGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "", false) {
 			t.Fatal("When fallback secret is enabled, node agent should not wait for gateway secret")
 		}
 	}
@@ -654,7 +654,7 @@ func createSecretCache() *SecretCache {
 }
 
 // Validate that file mounted certs do not wait for ingress secret.
-func TestShouldWaitForIngressGatewaySecretForFileMountedCerts(t *testing.T) {
+func TestShouldWaitForGatewaySecretForFileMountedCerts(t *testing.T) {
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
@@ -663,8 +663,8 @@ func TestShouldWaitForIngressGatewaySecretForFileMountedCerts(t *testing.T) {
 		EvictionDuration: 0,
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
-	if sc.ShouldWaitForIngressGatewaySecret("", "", "", true) {
-		t.Fatalf("Expected not to wait for ingress gateway secret for file mounted certs, but got true")
+	if sc.ShouldWaitForGatewaySecret("", "", "", true) {
+		t.Fatalf("Expected not to wait for gateway secret for file mounted certs, but got true")
 	}
 }
 

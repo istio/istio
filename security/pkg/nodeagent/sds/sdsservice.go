@@ -326,19 +326,19 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, firstRequestFlag, discReq.VersionInfo,
 				discReq.ErrorDetail)
 
-			// In ingress gateway agent mode, if the first SDS request is received but Ingress gateway secret which is
+			// In gateway agent mode, if the first SDS request is received but gateway secret which is
 			// provisioned as kubernetes secret is not ready, wait for secret before sending SDS response.
 			// If a kubernetes secret was deleted by operator, wait for a new kubernetes secret before sending SDS response.
 			// If workload uses file mounted certs i.e. "FILE_MOUNTED_CERTS" is set to true, workdload loads certificates from
-			// mounted certificate paths and it does not depend on the presence of ingress gateway secret so
+			// mounted certificate paths and it does not depend on the presence of gateway secret so
 			// we should skip waiting for it in that mode.
 			// File mounted certs for gateways is used in scenarios where an existing PKI infrastuctures delivers certificates
 			// to pods/VMs via files.
-			if s.st.ShouldWaitForIngressGatewaySecret(conID, resourceName, token, s.fileMountedCertsOnly) {
-				sdsServiceLog.Warnf("%s waiting for ingress gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
+			if s.st.ShouldWaitForGatewaySecret(conID, resourceName, token, s.fileMountedCertsOnly) {
+				sdsServiceLog.Warnf("%s waiting for gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
 				continue
 			} else {
-				sdsServiceLog.Infof("Skipping waiting for ingress gateway secret")
+				sdsServiceLog.Infof("Skipping waiting for gateway secret")
 			}
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
