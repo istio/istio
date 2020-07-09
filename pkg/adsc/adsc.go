@@ -976,14 +976,13 @@ func (a *ADSC) EndpointsJSON() string {
 	return string(out)
 }
 
-// Watch will start watching resources, starting with LDS. Based on the LDS response
-// it will start watching RDS and CDS.
+// Watch will start watching resources, starting with CDS. Based on the CDS response
+// it will start watching RDS and LDS.
 func (a *ADSC) Watch() {
 	a.watchTime = time.Now()
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node:          a.node(),
-		TypeUrl:       v3.ClusterType,
+		Node:    a.node(),
+		TypeUrl: v3.ClusterType,
 	})
 }
 
