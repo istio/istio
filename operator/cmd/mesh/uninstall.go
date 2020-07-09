@@ -111,8 +111,8 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 
 	// If only revision flag is set, we would prune resources by the revision label.
 	// Otherwise we would merge the revision flag and the filename flag and delete resources by generated manifests.
-	if uiArgs.revision != "" && uiArgs.filename == "" {
-		objectsList, tp, err := h.GetPrunedResourcesList(uiArgs.revision)
+	if uiArgs.filename == "" {
+		objectsList, tp, err := h.GetPrunedResourcesByRevision(uiArgs.revision)
 		if err != nil {
 			return err
 		}
@@ -120,11 +120,10 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 			return fmt.Errorf("failed to do preuninstall check: %v", err)
 		}
 
-		if err := h.PruneControlPlaneByRevision(uiArgs.revision, objectsList); err != nil {
+		if err := h.DeleteControlPlaneByRevision(uiArgs.revision, objectsList); err != nil {
 			return fmt.Errorf("failed to prune control plane resources by revision: %v", err)
 		}
 	}
-	uiArgs.set = append(uiArgs.set, fmt.Sprintf("revision=%s", uiArgs.revision))
 	manifestMap, iops, err := manifest.GenManifests([]string{uiArgs.filename}, applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, restConfig, l)
 	if err != nil {
 		return err
@@ -166,7 +165,7 @@ func preCheckWarnings(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallA
 			" and will not function correctly.. ",
 			uiArgs.revision, strings.Join(pids, " \n"))
 	}
-	if uiArgs.skipConfirmation || uiArgs.force || rootArgs.dryRun {
+	if uiArgs.skipConfirmation || rootArgs.dryRun {
 		l.LogAndPrint(message)
 		return nil
 	}

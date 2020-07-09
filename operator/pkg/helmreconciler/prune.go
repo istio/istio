@@ -81,10 +81,10 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 	return h.runForAllTypes(func(labels map[string]string, objects *unstructured.UnstructuredList) error {
 		var errs util.Errors
 		if all {
-			errs = util.AppendErr(errs, h.pruneUnlistedResources(nil, labels, "", objects, all))
+			errs = util.AppendErr(errs, h.deleteResources(nil, labels, "", objects, all))
 		} else {
 			for cname, manifest := range manifests.Consolidated() {
-				errs = util.AppendErr(errs, h.pruneUnlistedResources(object.AllObjectHashes(manifest), labels, cname, objects, all))
+				errs = util.AppendErr(errs, h.deleteResources(object.AllObjectHashes(manifest), labels, cname, objects, all))
 			}
 		}
 		return errs.ToError()
@@ -110,23 +110,23 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(ns, revision 
 			fmt.Errorf("there are proxies still pointing to the pruned control plane: %s",
 				strings.Join(pids, " "))
 	}
-	uslist, _, err := h.GetPrunedResourcesList(revision)
+	uslist, _, err := h.GetPrunedResourcesByRevision(revision)
 	if err != nil {
 		return errStatus, err
 	}
-	if err := h.PruneControlPlaneByRevision(revision, uslist); err != nil {
+	if err := h.DeleteControlPlaneByRevision(revision, uslist); err != nil {
 		return errStatus, err
 	}
 	return &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_HEALTHY}, nil
 }
 
-// PruneControlPlaneByRevision removed resources that are in the objectsList and match with specific control plane revision.
-func (h *HelmReconciler) PruneControlPlaneByRevision(revision string, objectsList []*unstructured.UnstructuredList) error {
+// DeleteControlPlaneByRevision removed resources that are in the objectsList and match with specific control plane revision.
+func (h *HelmReconciler) DeleteControlPlaneByRevision(revision string, objectsList []*unstructured.UnstructuredList) error {
 	labels := map[string]string{
 		label.IstioRev: revision,
 	}
 	for _, objects := range objectsList {
-		err := h.pruneUnlistedResources(nil, labels, string(name.PilotComponentName), objects, false)
+		err := h.deleteResources(nil, labels, string(name.PilotComponentName), objects, false)
 		if err != nil {
 			return fmt.Errorf("failed to prune resources: %v", err)
 		}
@@ -134,8 +134,8 @@ func (h *HelmReconciler) PruneControlPlaneByRevision(revision string, objectsLis
 	return nil
 }
 
-// GetPrunedResourcesList get the list of resources to be removed when we prune by revision.
-func (h *HelmReconciler) GetPrunedResourcesList(revision string) ([]*unstructured.UnstructuredList, []string, error) {
+// GetPrunedResourcesByRevision get the list of resources to be removed when we prune by revision.
+func (h *HelmReconciler) GetPrunedResourcesByRevision(revision string) ([]*unstructured.UnstructuredList, []string, error) {
 	var resources []string
 	var usList []*unstructured.UnstructuredList
 	labels := map[string]string{
@@ -184,7 +184,7 @@ func (h *HelmReconciler) DeleteControlPlaneByManifests(manifests, revision strin
 		}
 		unstructuredObjects.Items = append(unstructuredObjects.Items, *obju)
 	}
-	if err := h.pruneUnlistedResources(nil, labels, string(name.PilotComponentName), &unstructuredObjects, false); err != nil {
+	if err := h.deleteResources(nil, labels, string(name.PilotComponentName), &unstructuredObjects, false); err != nil {
 		return fmt.Errorf("failed to prune control plane resources: %v", err)
 	}
 	return nil
@@ -228,13 +228,13 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 // DeleteComponent Delete removes all resources associated with componentName.
 func (h *HelmReconciler) DeleteComponent(componentName string) error {
 	return h.runForAllTypes(func(labels map[string]string, objects *unstructured.UnstructuredList) error {
-		return h.pruneUnlistedResources(map[string]bool{}, labels, componentName, objects, false)
+		return h.deleteResources(map[string]bool{}, labels, componentName, objects, false)
 	})
 }
 
-// pruneUnlistedResources prunes any resources from the given component that are not in the excluded map. Resource
+// deleteResources prunes any resources from the given component that are not in the excluded map. Resource
 // labels are used to identify the resources belonging to the component.
-func (h *HelmReconciler) pruneUnlistedResources(excluded map[string]bool, coreLabels map[string]string,
+func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels map[string]string,
 	componentName string, objects *unstructured.UnstructuredList, all bool) error {
 	var errs util.Errors
 	labels := h.addComponentLabels(coreLabels, componentName)
