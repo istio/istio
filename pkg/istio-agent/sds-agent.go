@@ -89,8 +89,6 @@ var (
 	// this may be replaced with ./etc/certs, if a root-cert.pem is found, to
 	// handle secrets mounted from non-citadel CAs.
 	CitadelCACertPath = "./var/run/secrets/istio"
-
-	fileMountedCertsEnv = env.RegisterBoolVar(fileMountedCerts, false, "").Get()
 )
 
 const (
@@ -138,9 +136,6 @@ const (
 	// The type of Elliptical Signature algorithm to use
 	// when generating private keys. Currently only ECDSA is supported.
 	eccSigAlg = "ECC_SIGNATURE_ALGORITHM"
-
-	// Indicates whether proxy uses file mounted certificates.
-	fileMountedCerts = "FILE_MOUNTED_CERTS"
 )
 
 var (
@@ -186,9 +181,6 @@ type Agent struct {
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
-
-	// FileMountedCerts indicates whether the proxy is using file mounted certs.
-	FileMountedCerts bool
 
 	// Expected SAN for the discovery address, for tests.
 	XDSSAN string
@@ -241,6 +233,9 @@ type AgentConfig struct {
 	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
 	// Set for tests to 127.0.0.1:0.
 	LocalXDSAddr string
+
+	// FileMountedCerts indicates whether the proxy is using file mounted certs.
+	FileMountedCerts bool
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -260,13 +255,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig) *Agent {
 	discAddr := proxyConfig.DiscoveryAddress
 
 	a.SDSAddress = "unix:" + LocalSDS
-
-	// If a workload is using file mounted certs, we do not to have to process CA related configuration.
-	if !shouldProvisionCertificates() {
-		log.Info("Workload is using file mounted certificates. Skipping setting CA related configuration")
-		a.FileMountedCerts = true
-		return a
-	}
 
 	_, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
@@ -348,9 +336,9 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	serverOptions.CAEndpoint = sa.CAEndpoint
 	serverOptions.TLSEnabled = sa.RequireCerts
 	serverOptions.ClusterID = sa.cfg.ClusterID
-	serverOptions.FileMountedCerts = sa.FileMountedCerts
+	serverOptions.FileMountedCerts = sa.cfg.FileMountedCerts
 	// If proxy is using file mounted certs, JWT token is not needed.
-	if sa.FileMountedCerts {
+	if sa.cfg.FileMountedCerts {
 		serverOptions.UseLocalJWT = false
 	} else {
 		serverOptions.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
@@ -410,7 +398,7 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, workloadSdsCacheOptions)
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
-	if !shouldProvisionCertificates() {
+	if sa.cfg.FileMountedCerts {
 		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
 		return
 	}
@@ -546,21 +534,18 @@ func newIngressSecretCache(namespace string) (gatewaySecretCache *cache.SecretCa
 	gSecretFetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
-	// If gateway is using file mounted certs, we do not have to setup secret fetcher.
-	if shouldProvisionCertificates() {
-		cs, err := kube.CreateClientset("", "")
+	cs, err := kube.CreateClientset("", "")
 
-		if err != nil {
-			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-			os.Exit(1)
-		}
-		gSecretFetcher.FallbackSecretName = "gateway-fallback"
-
-		gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
-
-		gatewaySecretChan = make(chan struct{})
-		gSecretFetcher.Run(gatewaySecretChan)
+	if err != nil {
+		log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+		os.Exit(1)
 	}
+	gSecretFetcher.FallbackSecretName = "gateway-fallback"
+
+	gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
+
+	gatewaySecretChan = make(chan struct{})
+	gSecretFetcher.Run(gatewaySecretChan)
 	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, gatewaySdsCacheOptions)
 	return gatewaySecretCache
 }
@@ -589,10 +574,4 @@ func applyEnvVars() {
 		workloadSdsCacheOptions.AlwaysValidTokenFlag = true
 	}
 	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
-}
-
-// shouldProvisionCertificates returns true if certs needs to be provisioned for the workload/gateway.
-// Returns flase, when proxy uses file mounted certificates i.e. FILE_MOUNTED_CERTS is true.
-func shouldProvisionCertificates() bool {
-	return !fileMountedCertsEnv
 }

@@ -92,6 +92,13 @@ var (
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 
+	// If set, the certs under ./etc/certs will be used for workload,
+	// with the expectation that an external tool will refresh them.
+	// The SDS agent will watch the files.
+	// This is used when a Secret is mounted, managed by external CA.
+	// Istio will not use CA_ADDR nor attempt to refresh or sign certificates.
+	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "Proxy uses file mounted certificates, external refresh").Get()
+
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
@@ -217,6 +224,7 @@ var (
 				JWTPath:            jwtPath,
 				OutputKeyCertToDir: outputKeyCertToDir,
 				ClusterID:          clusterIDVar.Get(),
+				FileMountedCerts:   fileMountedCertsEnv,
 			})
 
 			// Connection to Istiod secure port
