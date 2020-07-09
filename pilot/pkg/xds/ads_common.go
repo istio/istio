@@ -23,7 +23,6 @@ import (
 // configKindAffectedProxyTypes contains known config types which will affect certain node types.
 var configKindAffectedProxyTypes = map[resource.GroupVersionKind][]model.NodeType{
 	gvk.Gateway: {model.Router},
-	gvk.Sidecar: {model.SidecarProxy},
 
 	gvk.QuotaSpec:        {model.SidecarProxy},
 	gvk.QuotaSpecBinding: {model.SidecarProxy},

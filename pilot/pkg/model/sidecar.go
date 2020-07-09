@@ -37,6 +37,7 @@ var sidecarScopeKnownConfigTypes = map[resource.GroupVersionKind]struct{}{
 	gvk.ServiceEntry:    {},
 	gvk.VirtualService:  {},
 	gvk.DestinationRule: {},
+	gvk.Sidecar:         {},
 }
 
 // SidecarScope is a wrapper over the Sidecar resource with some
@@ -191,6 +192,14 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		}
 	}
 
+	for _, sc := range ps.sidecarsByNamespace[configNamespace] {
+		out.AddConfigDependencies(ConfigKey{
+			Kind:      gvk.Sidecar,
+			Name:      sc.Config.Name,
+			Namespace: sc.Config.Namespace,
+		})
+	}
+
 	if ps.Mesh.OutboundTrafficPolicy != nil {
 		out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
 			Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
@@ -318,6 +327,14 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 				Namespace: dr.Namespace,
 			})
 		}
+	}
+
+	for _, sc := range ps.sidecarsByNamespace[configNamespace] {
+		out.AddConfigDependencies(ConfigKey{
+			Kind:      gvk.Sidecar,
+			Name:      sc.Config.Name,
+			Namespace: sc.Config.Namespace,
+		})
 	}
 
 	if r.OutboundTrafficPolicy == nil {

@@ -31,6 +31,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		svcName     = "svc1.com"
 		drName      = "dr1"
 		vsName      = "vs1"
+		scName      = "sc1"
 		nsName      = "ns1"
 		generalName = "name1"
 
@@ -44,13 +45,18 @@ func TestProxyNeedsPush(t *testing.T) {
 		want    bool
 	}
 
+	proxyCfg := &model.Config{ConfigMeta: model.ConfigMeta{
+		Name:      generalName,
+		Namespace: nsName,
+	}}
+
 	sidecar := &model.Proxy{
 		Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{},
-		SidecarScope: &model.SidecarScope{}}
+		SidecarScope: &model.SidecarScope{Config: proxyCfg}}
 	gateway := &model.Proxy{Type: model.Router}
 
 	sidecarScopeKindNames := map[resource.GroupVersionKind]string{
-		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName}
+		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName, gvk.Sidecar: scName}
 	for kind, name := range sidecarScopeKindNames {
 		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName})
 	}
@@ -84,6 +90,14 @@ func TestProxyNeedsPush(t *testing.T) {
 			{
 				Kind: gvk.QuotaSpec,
 				Name: generalName, Namespace: nsName}: {}}, false},
+		{"sidecar config in same namespace", sidecar, map[model.ConfigKey]struct{}{
+			{
+				Kind: gvk.Sidecar,
+				Name: scName, Namespace: nsName}: {}}, true},
+		{"sidecar config in different namespace", sidecar, map[model.ConfigKey]struct{}{
+			{
+				Kind: gvk.Sidecar,
+				Name: scName, Namespace: "ns2"}: {}}, false},
 		{"invalid config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{
 				Kind: resource.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName}: {}},
