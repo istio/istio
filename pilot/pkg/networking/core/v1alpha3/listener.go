@@ -737,7 +737,7 @@ allChainsLabel:
 		allChains = append(allChains, allChains...)
 		if tlsInspectorEnabled {
 			allChains = append(allChains, istionetworking.FilterChain{})
-			if util.IsTCPMetadataExchangeEnabled(node) {
+			if features.EnableTCPMetadataExchange {
 				filterChainMatchOption = inboundPermissiveFilterChainMatchWithMxcOptions
 			} else {
 				filterChainMatchOption = inboundPermissiveFilterChainMatchOptions
