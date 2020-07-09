@@ -78,7 +78,7 @@ func TestUninstallByRevision(t *testing.T) {
 			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
 
 			retry.UntilSuccessOrFail(t, func() error {
-				for _, gvk := range append(helmreconciler.NamespacedCPResources, helmreconciler.NonNamespacedCPResources...) {
+				for _, gvk := range append(helmreconciler.NamespacedResources, helmreconciler.NonNamespacedCPResources...) {
 					resources := strings.ToLower(gvk.Kind) + "s"
 					gvr := schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: resources}
 					ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
@@ -88,7 +88,7 @@ func TestUninstallByRevision(t *testing.T) {
 						for _, item := range usList.Items {
 							stalelist = append(stalelist, item.GroupVersionKind().String())
 						}
-						return fmt.Errorf("resources expected to be pruned but still exist in the cluster: %s\n",
+						return fmt.Errorf("resources expected to be pruned but still exist in the cluster: %s",
 							strings.Join(stalelist, " "))
 					}
 				}
@@ -145,7 +145,7 @@ spec:
 						for _, item := range usList.Items {
 							stalelist = append(stalelist, item.GroupVersionKind().String())
 						}
-						return fmt.Errorf("resources expected to be pruned but still exist in the cluster: %s\n",
+						return fmt.Errorf("resources expected to be pruned but still exist in the cluster: %s",
 							strings.Join(stalelist, " "))
 					}
 				}

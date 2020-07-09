@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	// NamespacedResources are resource types the operator prunes, ordered by which types should be deleted, first to last.
+	// NamespacedResources orders non cluster scope resources types which should be deleted, first to last
 	NamespacedResources = []schema.GroupVersionKind{
 		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
 		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
@@ -70,19 +70,9 @@ var (
 		// Cannot currently prune CRDs because this will also wipe out user config.
 		// {Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
 	}
+	// NonNamespacedCPResources lists cluster scope shared resources types which should be deleted during uninstall.
 	NonNamespacedCPResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
-	}
-	NamespacedCPResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
-		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
-		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
-		{Group: "", Version: "v1", Kind: name.ServiceStr},
-		{Group: "", Version: "v1", Kind: name.CMStr},
-		{Group: "", Version: "v1", Kind: name.PodStr},
-		{Group: "", Version: "v1", Kind: name.SAStr},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
 	}
 )
 
@@ -101,9 +91,10 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 	})
 }
 
-// PruneControlPlaneByRevisionWrapper is wrapper to remove specific control plane revision and update iop status.
-// It is used for the operator case.
-func (h *HelmReconciler) PruneControlPlaneByRevisionWrapper(ns, revision string) (*v1alpha1.InstallStatus, error) {
+// PruneControlPlaneByRevisionWithController is called to remove specific control plane revision in specific namespace
+// during reconciliation process of controller.
+// It returns the install status and any error encountered.
+func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(ns, revision string) (*v1alpha1.InstallStatus, error) {
 	if ns == "" {
 		ns = istioDefaultNamespace
 	}
@@ -113,7 +104,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWrapper(ns, revision string)
 		return errStatus,
 			fmt.Errorf("failed to check proxy infos: %v", err)
 	}
-	// TODO(richardwxn): better handling of the warning status
+	// TODO(richardwxn): add warning message together with the status
 	if len(pids) != 0 {
 		return errStatus,
 			fmt.Errorf("there are proxies still pointing to the pruned control plane: %s",
@@ -129,7 +120,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWrapper(ns, revision string)
 	return &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_HEALTHY}, nil
 }
 
-// PruneControlPlaneByRevision removed resources of specific control plane revision.
+// PruneControlPlaneByRevision removed resources that are in the objectsList and match with specific control plane revision.
 func (h *HelmReconciler) PruneControlPlaneByRevision(revision string, objectsList []*unstructured.UnstructuredList) error {
 	labels := map[string]string{
 		label.IstioRev: revision,
@@ -151,7 +142,7 @@ func (h *HelmReconciler) GetPrunedResourcesList(revision string) ([]*unstructure
 		label.IstioRev: revision,
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	for _, gvk := range append(NamespacedCPResources, NonNamespacedCPResources...) {
+	for _, gvk := range append(NamespacedResources, NonNamespacedCPResources...) {
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
 		componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
@@ -249,7 +240,8 @@ func (h *HelmReconciler) pruneUnlistedResources(excluded map[string]bool, coreLa
 	labels := h.addComponentLabels(coreLabels, componentName)
 	selector := klabels.Set(labels).AsSelectorPreValidated()
 	for _, o := range objects.Items {
-		oh := object.NewK8sObject(&o, nil, nil).Hash()
+		obj := object.NewK8sObject(&o, nil, nil)
+		oh := obj.Hash()
 		if !all {
 			// Label mismatch. Provided objects don't select against the component, so this likely means the object
 			// is for another component.
@@ -271,7 +263,7 @@ func (h *HelmReconciler) pruneUnlistedResources(excluded map[string]bool, coreLa
 				errs = util.AppendErr(errs, err)
 			} else {
 				// do not return error if resources are not found
-				h.opts.Log.LogAndPrintf(err.Error())
+				h.opts.Log.LogAndPrintf("object: %s is not being deleted: %v", obj.Hash(), err)
 			}
 		}
 		if !all {

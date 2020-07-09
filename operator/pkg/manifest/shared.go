@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	// installerScope is the scope for all commands in the mesh package.
+	// installerScope is the scope for shared manifest package.
 	installerScope = log.RegisterScope("installer", "installer", 0)
 )
 
@@ -207,6 +207,7 @@ func GenIOPSFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string
 	return util.ToYAMLWithJSONPB(finalIOPS), finalIOPS, nil
 }
 
+// ReadYamlProfile gets the overlay yaml file from list of files and return profile value from file overlay and set overlay.
 func ReadYamlProfile(inFilenames []string, setFlags []string, force bool, l clog.Logger) (string, string, error) {
 	profile := name.DefaultProfileName
 	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
