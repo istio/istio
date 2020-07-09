@@ -981,8 +981,9 @@ func (a *ADSC) EndpointsJSON() string {
 func (a *ADSC) Watch() {
 	a.watchTime = time.Now()
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		Node:    a.node(),
-		TypeUrl: v3.ClusterType,
+		ResponseNonce: time.Now().String(),
+		Node:          a.node(),
+		TypeUrl:       v3.ClusterType,
 	})
 }
 
