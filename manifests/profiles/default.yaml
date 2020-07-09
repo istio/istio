@@ -303,7 +303,6 @@ spec:
       mountMtlsCerts: false
     base:
       enableCRDTemplates: false
-      enableValidation: true
       validationURL: ""
     pilot:
       autoscaleEnabled: true
