@@ -242,8 +242,9 @@ func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource 
 		istioNamespace:    istioDefaultNamespace,
 		watchedNamespaces: istioDefaultNamespace,
 		operatorNamespace: operatorDefaultNamespace,
-		hub:               "foo",
-		tag:               "bar",
+		// placeholders, since the fake API server does not actually pull images and create pods.
+		hub: "fake hub",
+		tag: "fake tag",
 	}
 
 	_, mstr, err := renderOperatorManifest(nil, ocArgs)
@@ -267,6 +268,7 @@ func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource 
 // applyWithReconciler applies the given manifest string using the given reconciler.
 func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest string) error {
 	m := name.Manifest{
+		// Name is not important here, only Content will be applied.
 		Name:    name.IstioOperatorComponentName,
 		Content: manifest,
 	}
