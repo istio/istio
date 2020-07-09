@@ -17,17 +17,13 @@ package vm
 import (
 	"context"
 	"fmt"
-	"math"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 	epb "istio.io/istio/pkg/test/echo/proto"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/tmpl"
-
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -35,16 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/util/retry"
 )
-
-type TrafficShiftConfig struct {
-	Name      string
-	Namespace string
-	Host      string
-	Subset0   string
-	Subset1   string
-	Weight0   int32
-	Weight1   int32
-}
 
 // Test wrapper for the VM OS version test. This test will run in pre-submit
 // to avoid building and testing all OS images
@@ -228,80 +214,6 @@ spec:
 						ctx.Errorf("expected status %s but got %s", response.StatusCodeOK, resp.Code)
 					}
 				})
-
-				// now launch another proper k8s pod for the same VM service, such that the VM service is made
-				// of a pod and a VM. Set the subset for this pod to v2 so that we can check traffic shift
-				echoboot.NewBuilderOrFail(t, ctx).
-					With(&vmB, echo.Config{
-						Service:    fmt.Sprintf("vm-%v", i),
-						Namespace:  ns,
-						Ports:      ports,
-						Pilot:      p,
-						DeployAsVM: false,
-						Version:    "v2", // WHY?
-						Subsets: []echo.SubsetConfig{
-							{
-								Version: "v2",
-							},
-						},
-					}).
-					BuildOrFail(t)
-
-				ctx.NewSubTest(fmt.Sprintf("traffic shifts for workload entries %v",
-					vmImages[i])).Run(func(ctx framework.TestContext) {
-
-					vsc := TrafficShiftConfig{
-						"traffic-shifting-rule-wle",
-						ns.Name(),
-						fmt.Sprintf("vm-%v", i),
-						"v1",
-						"v2",
-						50,
-						50,
-					}
-					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
-					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
-					sendTraffic(t, 100, k8sClusterIPService, vmB, []string{"v1", "v2"}, []int32{50, 50}, 10.0)
-				})
 			}
 		})
-}
-
-// TODO: dedup from main traffic shift test
-func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, versions []string, weight []int32, errorThreshold float64) {
-	t.Helper()
-	// Send `batchSize` requests and ensure they are distributed as expected.
-	retry.UntilSuccessOrFail(t, func() error {
-		resp, err := from.Call(echo.CallOptions{
-			Target:   to,
-			PortName: "http",
-			Count:    batchSize,
-		})
-		if err != nil {
-			return fmt.Errorf("error during call: %v", err)
-		}
-		var totalRequests int
-		hitCount := map[string]int{}
-		for _, r := range resp {
-			for _, v := range versions {
-				if r.Version == v {
-					hitCount[v]++
-					totalRequests++
-					break
-				}
-			}
-		}
-
-		for i, v := range versions {
-			percentOfTrafficToVersion := float64(hitCount[v]) * 100.0 / float64(totalRequests)
-			deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToVersion)
-			if errorThreshold-deltaFromExpected < 0 {
-				return fmt.Errorf("unexpected traffic weight for version %v. Expected %d%%, got %g%% (thresold: %g%%)",
-					v, weight[i], percentOfTrafficToVersion, errorThreshold)
-			}
-			t.Logf("Got expected traffic weight for version %v. Expected %d%%, got %g%% (thresold: %g%%)",
-				v, weight[i], percentOfTrafficToVersion, errorThreshold)
-		}
-		return nil
-	}, retry.Delay(time.Second))
 }

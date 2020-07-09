@@ -14,5 +14,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-istio_api=$(go list -m -f "{{.Dir}}" istio.io/api)
+istio_api=$(go list -mod=readonly -m -f "{{.Dir}}" istio.io/api)
 ./generate_word_list.py "${istio_api}/mixer/v1/global_dictionary.yaml" list.gen.go
