@@ -42,3 +42,7 @@ istiocoredns:
 
   cpu:
     targetAverageUtilization: 80
+
+global:
+  podDNSSearchNamespaces:
+  - global
