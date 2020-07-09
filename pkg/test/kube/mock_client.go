@@ -43,7 +43,7 @@ var _ kube.ExtendedClient = MockClient{}
 
 // MockClient for tests that rely on kube.Client.
 type MockClient struct {
-	*kubernetes.Clientset
+	kubernetes.Interface
 	RestClient *rest.RESTClient
 	// Results is a map of podName to the results of the expected test on the pod
 	Results          map[string][]byte
@@ -90,7 +90,7 @@ func (c MockClient) RunAndWait(stop <-chan struct{}) {
 }
 
 func (c MockClient) Kube() kubernetes.Interface {
-	return c.Clientset
+	return c.Interface
 }
 
 func (c MockClient) DynamicClient() dynamic.Interface {
