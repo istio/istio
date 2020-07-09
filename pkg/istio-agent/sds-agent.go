@@ -239,13 +239,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 
 	sa.SDSAddress = "unix:" + LocalSDS
 
-	// If a workload is using file mounted certs, we do not to have to process CA related configuration.
-	if !shouldProvisionCertificates() {
-		log.Info("Workload is using file mounted certificates. Skipping setting CA related configuration")
-		a.FileMountedCerts = true
-		return a
-	}
-
 	_, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
 		log.Fatalf("Invalid discovery address %v %v", discAddr, err)
