@@ -130,29 +130,6 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			},
 		},
 		{
-			name:           "ConstructSdsSecretConfig",
-			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
-			sdsUdsPath:     "/tmp/sdsuds.sock",
-			expected: &auth.SdsSecretConfig{
-				Name: "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: &core.ConfigSource{
-					InitialFetchTimeout: features.InitialFetchTimeout,
-					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-						ApiConfigSource: &core.ApiConfigSource{
-							ApiType: core.ApiConfigSource_GRPC,
-							GrpcServices: []*core.GrpcService{
-								{
-									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
 			name:           "ConstructSdsSecretConfig without serviceAccount",
 			serviceAccount: "",
 			sdsUdsPath:     "/tmp/sdsuds.sock",
@@ -183,7 +160,7 @@ func TestConstructValidationContext(t *testing.T) {
 		expected        *auth.CommonTlsContext_ValidationContext
 	}{
 		{
-			name:            "default_ca",
+			name:            "default CA",
 			rootCAFilePath:  "/root/ca",
 			subjectAltNames: []string{"SystemCACertificates.keychain", "SystemRootCertificates.keychain"},
 			expected: &auth.CommonTlsContext_ValidationContext{
@@ -209,7 +186,7 @@ func TestConstructValidationContext(t *testing.T) {
 			},
 		},
 		{
-			name:           "default_ca no subjectAltNames",
+			name:           "default CA without subjectAltNames",
 			rootCAFilePath: "/root/ca",
 			expected: &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: &auth.CertificateValidationContext{
@@ -237,7 +214,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 		name       string
 		sdsUdsPath string
 		node       *model.Proxy
-		result     *auth.CommonTlsContext
+		expected     *auth.CommonTlsContext
 	}{
 		{
 			name:       "MTLSStrict using SDS",
@@ -247,7 +224,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					SdsEnabled: true,
 				},
 			},
-			result: &auth.CommonTlsContext{
+			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
 						Name: "default",
@@ -304,7 +281,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					TLSServerRootCert:  "servrRootCert",
 				},
 			},
-			result: &auth.CommonTlsContext{
+			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
 						Name: "file-cert:serverCertChain~serverKey",
@@ -356,7 +333,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			result: &auth.CommonTlsContext{
+			expected: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
 					{
 						CertificateChain: &core.DataSource{
@@ -392,7 +369,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					TLSServerRootCert:  "/custom/path/to/root.pem",
 				},
 			},
-			result: &auth.CommonTlsContext{
+			expected: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
 					{
 						CertificateChain: &core.DataSource{
@@ -425,8 +402,8 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
 			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{})
 
-			if !cmp.Equal(tlsContext, test.result, protocmp.Transform()) {
-				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.result))
+			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
+				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
 			}
 		})
 	}
@@ -437,16 +414,16 @@ func TestApplyCustomSDSToCommonTLSContext(t *testing.T) {
 		name       string
 		sdsUdsPath string
 		tlsOpts    *networking.ServerTLSSettings
-		result     *auth.CommonTlsContext
+		expected     *auth.CommonTlsContext
 	}{
 		{
-			name:       "static certificate validation without SubjectAltNames ",
+			name:       "static certificate validation without SubjectAltNames",
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			tlsOpts: &networking.ServerTLSSettings{
 				CredentialName: "spiffe://cluster.local/ns/bar/sa/foo",
 				Mode:           networking.ServerTLSSettings_SIMPLE,
 			},
-			result: &auth.CommonTlsContext{
+			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -480,7 +457,7 @@ func TestApplyCustomSDSToCommonTLSContext(t *testing.T) {
 				Mode:            networking.ServerTLSSettings_PASSTHROUGH,
 				SubjectAltNames: []string{"SystemCACertificates.keychain", "SystemRootCertificates.keychain"},
 			},
-			result: &auth.CommonTlsContext{
+			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -529,7 +506,7 @@ func TestApplyCustomSDSToCommonTLSContext(t *testing.T) {
 				CredentialName: "spiffe://cluster.local/ns/bar/sa/foo",
 				Mode:           networking.ServerTLSSettings_MUTUAL,
 			},
-			result: &auth.CommonTlsContext{
+			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -589,7 +566,7 @@ func TestApplyCustomSDSToCommonTLSContext(t *testing.T) {
 				Mode:            networking.ServerTLSSettings_MUTUAL,
 				SubjectAltNames: []string{"SystemCACertificates.keychain", "SystemRootCertificates.keychain"},
 			},
-			result: &auth.CommonTlsContext{
+			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -650,8 +627,8 @@ func TestApplyCustomSDSToCommonTLSContext(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
 			ApplyCustomSDSToCommonTLSContext(tlsContext, test.tlsOpts, test.sdsUdsPath)
 
-			if !cmp.Equal(tlsContext, test.result, protocmp.Transform()) {
-				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.result))
+			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
+				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
 			}
 		})
 	}
