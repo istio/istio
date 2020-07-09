@@ -32,7 +32,7 @@ var (
 	vaultClientLog = log.RegisterScope("vault", "Vault client debugging", 0)
 )
 
-type vaultClient struct {
+type VaultClient struct {
 	enableTLS   bool
 	tlsRootCert []byte
 
@@ -47,7 +47,7 @@ type vaultClient struct {
 // NewVaultClient create a CA client for the Vault provider 1.
 func NewVaultClient(tls bool, tlsRootCert []byte,
 	vaultAddr, vaultLoginRole, vaultLoginPath, vaultSignCsrPath string) (caClientInterface.Client, error) {
-	c := &vaultClient{
+	c := &VaultClient{
 		enableTLS:        tls,
 		tlsRootCert:      tlsRootCert,
 		vaultAddr:        vaultAddr,
@@ -73,7 +73,7 @@ func NewVaultClient(tls bool, tlsRootCert []byte,
 }
 
 // CSR Sign calls Vault to sign a CSR.
-func (c *vaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, saToken string,
+func (c *VaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, saToken string,
 	certValidTTLInSec int64, withToken bool) ([]string /*PEM-encoded certificate chain*/, error) {
 	token, err := loginVaultK8sAuthMethod(c.client, c.vaultLoginPath, c.vaultLoginRole, saToken)
 	if err != nil {

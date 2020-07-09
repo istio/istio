@@ -40,6 +40,10 @@ import (
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
 
+	//citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
+	//google "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	//vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
+
 	"github.com/google/uuid"
 )
 
@@ -584,10 +588,12 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 func (sc *SecretCache) rotate(updateRootFlag bool) {
 	// Skip secret rotation for kubernetes secrets.
 	if !sc.fetcher.UseCaClient {
+		cacheLog.Infof("rotate09090909090")
+		cacheLog.Infof("%+v", sc.fetcher.UseCaClient)
 		return
 	}
 
-	cacheLog.Debug("Rotation job running")
+	cacheLog.Infof("Rotation job running")
 
 	var secretMap sync.Map
 	wg := sync.WaitGroup{}
@@ -639,11 +645,26 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
 			isTokenExpired := sc.isTokenExpired(&secret)
 			if isTokenExpired {
-				cacheLog.Debugf("%s token expired", logPrefix)
+				cacheLog.Infof("%s token expired", logPrefix)
+
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
-				// requiring the client to send another SDS request.
-				//sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				//return true
+
+				//switch _ := sc.fetcher.CaClient.(type) {
+				//case *citadel.CitadelClient:
+				//	sc.fetcher.CaClient =
+				//case *google.GoogleCAClient:
+				//	// TODO(myidpt): re create the google CA client to do mtls verification
+				//	sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+				//	return true
+				//case *vault.VaultClient:
+				//	// TODO(myidpt): re create the vault CA client to do mtls verification
+				//	sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+				//	return true
+				//default:
+				//	// requiring the client to send another SDS request. no citadel client meet return the client
+				//	sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+				//	return true
+				//}
 			}
 
 			wg.Add(1)
@@ -666,7 +687,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 					cacheLog.Errorf("%s failed to rotate secret: %v", logPrefix, err)
 					return
 				}
-				cacheLog.Infof("kkkkjjkjkjkjkjkjkjkjkkllllloooo\n")
+				cacheLog.Infof("kkkkjjkjkjkjkjkjkjkjkkllllloooo")
 				cacheLog.Infof("%+v", sc.configOptions.OutputKeyCertToDir)
 				cacheLog.Infof("%ggggggggggggg")
 				// Output the key and cert to dir to make sure key and cert are rotated.
@@ -954,6 +975,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
+		cacheLog.Infof("14141414141414")
 		return sc.generateGatewaySecret(token, connKey, t)
 	}
 

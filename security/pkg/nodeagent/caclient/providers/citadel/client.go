@@ -55,7 +55,7 @@ var (
 		"Set to a directory containing provisioned certs, for VMs").Get()
 )
 
-type citadelClient struct {
+type CitadelClient struct {
 	caEndpoint    string
 	enableTLS     bool
 	caTLSRootCert []byte
@@ -65,7 +65,7 @@ type citadelClient struct {
 
 // NewCitadelClient create a CA client for Citadel.
 func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (caClientInterface.Client, error) {
-	c := &citadelClient{
+	c := &CitadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,
 		caTLSRootCert: rootCert,
@@ -100,7 +100,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 }
 
 // CSR Sign calls Citadel to sign a CSR.
-func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
+func (c *CitadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
 	certValidTTLInSec int64, withToken bool) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
@@ -133,7 +133,7 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 	return resp.CertChain, nil
 }
 
-func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
+func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	// Load the TLS root certificate from the specified file.
 	// Create a certificate pool
 	var certPool *x509.CertPool

@@ -339,7 +339,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	applyEnvVars()
 
 	gatewaySdsCacheOptions = workloadSdsCacheOptions
-	gatewaySdsCacheOptions.OutputKeyCertToDir = sa.cfg.OutputKeyCertToDir
+	//gatewaySdsCacheOptions.OutputKeyCertToDir = sa.cfg.OutputKeyCertToDir
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
 	serverOptions.CertsDir = sa.CertsPath
@@ -370,6 +370,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 			// TODO: what is the setting for ingress ?
 			serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
 			gatewaySecretCache = newIngressSecretCache(podNamespace)
+
 		} else {
 			log.Infof("Skipping gateway SDS")
 		}
