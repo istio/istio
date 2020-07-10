@@ -488,10 +488,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	dip := map[string][]*model.ServiceInstance{}
 
 	seWithSelectorByNamespace := map[string][]servicesWithEntry{}
-	s.storeMutex.RLock()
-	servicentries := s.store.ServiceEntries()
-	s.storeMutex.RUnlock()
-	for _, cfg := range servicentries {
+	for _, cfg := range s.store.ServiceEntries() {
 		key := configKey{
 			kind:      serviceEntryConfigType,
 			name:      cfg.Name,
