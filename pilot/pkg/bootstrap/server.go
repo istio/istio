@@ -234,6 +234,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, err
 	}
 
+	if features.EnableAutoRegistration {
+		// TODO maybe aggregate store should allow create so we don't need this hack
+		s.XDSServer.InternalGen.Store = s.ConfigStores[0]
+	}
+
 	s.initJwtPolicy()
 
 	// Options based on the current 'defaults' in istio.

@@ -80,6 +80,9 @@ type Config struct {
 	// If enabled, dns capture will be enabled on the VM (assuming DeployAsVM is true).
 	DNSCaptureOnVM bool
 
+	// If enabled, the VM will be automatically registered. If disabled, a workload entry will be manually created.
+	AutoRegister bool
+
 	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
 	VMImage string
 

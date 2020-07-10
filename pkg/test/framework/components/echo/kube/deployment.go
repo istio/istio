@@ -263,7 +263,10 @@ spec:
 
           # Setup the namespace
           sudo sh -c 'echo ISTIO_NAMESPACE={{ $.Namespace }} >> /var/lib/istio/envoy/sidecar.env'
-
+          sudo sh -c 'echo ISTIO_META_AUTO_REGISTER=true >> /var/lib/istio/envoy/sidecar.env'
+{{- if $.ServiceAccount }}
+          sudo sh -c 'echo SERVICE_ACCOUNT={{$.Service}} >> /var/lib/istio/envoy/sidecar.env'
+{{- end }}
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
 
           # TODO: run with systemctl?
@@ -286,7 +289,7 @@ spec:
         env:
         {{- range $name, $value := $.Environment }}
         - name: {{ $name }}
-          value: "{{ $value }}"
+          value: '{{ $value }}'
         {{- end }}
         readinessProbe:
           httpGet:
@@ -365,6 +368,8 @@ func generateYAMLWithSettings(
 
 	var vmImage, istiodIP, istiodPort string
 	if cfg.DeployAsVM {
+		// For testing, should revert and set in each test
+		cfg.AutoRegister = true
 		ist, err := istio.Get(ctx)
 		if err != nil {
 			return "", "", err
@@ -388,6 +393,12 @@ func generateYAMLWithSettings(
 	if cfg.Namespace != nil {
 		namespace = cfg.Namespace.Name()
 	}
+	if _, f := cfg.VMEnvironment["ISTIO_METAJSON_LABELS"]; !f {
+		if cfg.VMEnvironment == nil {
+			cfg.VMEnvironment = map[string]string{}
+		}
+		cfg.VMEnvironment["ISTIO_METAJSON_LABELS"] = fmt.Sprintf(`{"app":"%s", "version":"%s"}`, cfg.Service, cfg.Version)
+	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,
 		"Tag":                settings.Tag,
@@ -406,9 +417,10 @@ func generateYAMLWithSettings(
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
 		"VM": map[string]interface{}{
-			"Image":      vmImage,
-			"IstiodIP":   istiodIP,
-			"IstiodPort": istiodPort,
+			"Image":        vmImage,
+			"IstiodIP":     istiodIP,
+			"IstiodPort":   istiodPort,
+			"AutoRegister": cfg.AutoRegister,
 		},
 		"Environment": cfg.VMEnvironment,
 		"DNSCapture":  cfg.DNSCaptureOnVM,

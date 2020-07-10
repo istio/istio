@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: environments
+releaseNotes:
+- |
+  **Added** support for automatically registering Virtual Machines as `WorkloadEntry`s upon connection. This
+  is experimental and disabled by default. It can be configured by setting `ENABLE_AUTO_REGISTRATION` as an environment
+  variable in Istiod.

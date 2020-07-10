@@ -446,6 +446,8 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
+	s.InternalGen.RegisterWorkload(proxy)
+
 	if err = s.setProxyState(proxy, s.globalPushContext()); err != nil {
 		return nil, err
 	}

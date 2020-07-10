@@ -16,6 +16,7 @@ package xds
 
 import (
 	"fmt"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -23,10 +24,14 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"k8s.io/apimachinery/pkg/api/errors"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/log"
 )
 
@@ -52,6 +57,7 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
+	Store model.ConfigStore
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
 }
@@ -83,6 +89,7 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 		}
 	}
 
+	sg.unregisterWorkload(con.proxy)
 	// Note that it is quite possible for a 'connect' on a different istiod to happen before a disconnect.
 }
 
@@ -265,4 +272,65 @@ func (sg *InternalGen) debugConfigDump(proxyID string) ([]*any.Any, error) {
 	}
 
 	return dump.Configs, nil
+}
+
+func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy) {
+	if sg.Store == nil || !proxy.Metadata.AutoRegister {
+		return
+	}
+	if len(proxy.IPAddresses) == 0 {
+		adsLog.Errorf("auto registration of %v failed: missing IP addresses", proxy.ID)
+		return
+	}
+	if len(proxy.Metadata.Namespace) == 0 {
+		adsLog.Errorf("auto registration of %v failed: missing namespace", proxy.ID)
+		return
+	}
+	we := &networking.WorkloadEntry{
+		// TODO add remaining fields
+		Address:        proxy.IPAddresses[0],
+		Network:        proxy.Metadata.Network,
+		Locality:       util.LocalityToString(proxy.Locality),
+		ServiceAccount: proxy.Metadata.ServiceAccount,
+	}
+	cfg := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadEntry,
+			Name:             getWorkloadEntryName(we.Address),
+			Namespace:        proxy.Metadata.Namespace,
+			Labels:           proxy.Metadata.Labels,
+		},
+		Spec: we,
+	}
+	if _, err := sg.Store.Create(cfg); err != nil {
+		if errors.IsAlreadyExists(err) {
+			curr := sg.Store.Get(gvk.WorkloadEntry, cfg.Name, cfg.Namespace)
+			if curr != nil {
+				cfg.Meta.ResourceVersion = curr.ResourceVersion
+			}
+			if _, err := sg.Store.Update(cfg); err != nil {
+				adsLog.Errorf("failed to update registered workload %s/%s: %v", cfg.Name, cfg.Namespace, err)
+			}
+		} else {
+			adsLog.Errorf("failed to register workload %s/%s: %v", cfg.Name, cfg.Namespace, err)
+		}
+	} else {
+		adsLog.Infof("registered workload entry %s/%s", cfg.Name, cfg.Namespace)
+	}
+}
+
+func (sg *InternalGen) unregisterWorkload(proxy *model.Proxy) {
+	if sg.Store == nil || !proxy.Metadata.AutoRegister || len(proxy.IPAddresses) == 0 {
+		return
+	}
+	name := getWorkloadEntryName(proxy.IPAddresses[0])
+	if err := sg.Store.Delete(gvk.WorkloadEntry, name, proxy.Metadata.Namespace); err != nil {
+		adsLog.Errorf("failed to deregister workload %s/%s: %v", name, proxy.Metadata.Namespace, err)
+	} else {
+		adsLog.Infof("unregistered workload entry %s/%s", name, proxy.Metadata.Namespace)
+	}
+}
+
+func getWorkloadEntryName(address string) string {
+	return fmt.Sprintf("auto-%s", strings.ReplaceAll(address, ".", "-"))
 }

@@ -101,7 +101,7 @@ func testSetup(ctx resource.Context) (err error) {
 
 	err = ctx.Config().ApplyYAML(ns.Name(), sdBootstrap)
 
-	vmLabelsJSON := "{\\\"service.istio.io/canonical-name\\\":\\\"vm-server\\\",\\\"service.istio.io/canonical-revision\\\":\\\"v1\\\"}"
+	vmLabelsJSON := `{"service.istio.io/canonical-name":"vm-server","service.istio.io/canonical-revision":"v1"}`
 
 	vmEnv = map[string]string{
 		"ISTIO_META_INSECURE_STACKDRIVER_ENDPOINT":               sdInst.Address(),

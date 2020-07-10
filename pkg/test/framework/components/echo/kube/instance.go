@@ -153,14 +153,17 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		}, retry.Timeout(cfg.ReadinessTimeout)); err != nil {
 			return nil, err
 		}
-		serviceAccount := cfg.Service
-		if !cfg.ServiceAccount {
-			serviceAccount = "default"
-		}
+		// TODO remove, this was for debug
+		cfg.AutoRegister = true
+		if !cfg.AutoRegister {
+			serviceAccount := cfg.Service
+			if !cfg.ServiceAccount {
+				serviceAccount = "default"
+			}
 
-		// One workload entry for each VM pod
-		for _, vmPod := range pods.Items {
-			wle := fmt.Sprintf(`
+			// One workload entry for each VM pod
+			for _, vmPod := range pods.Items {
+				wle := fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadEntry
 metadata:
@@ -168,14 +171,14 @@ metadata:
 spec:
   address: %s
   serviceAccount: %s
-  network: %q
-  labels:
+ network: %q labels:
     app: %s
     version: %s
 `, vmPod.Name, vmPod.Status.PodIP, serviceAccount, cfg.Cluster.NetworkName(), cfg.Service, vmPod.Labels["istio.io/test-vm-version"])
-			// Deploy the workload entry.
-			if err = ctx.Config().ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
-				return nil, fmt.Errorf("failed deploying workload entry: %v", err)
+				// Deploy the workload entry.
+				if err = ctx.Config().ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
+					return nil, fmt.Errorf("failed deploying workload entry: %v", err)
+				}
 			}
 		}
 	}

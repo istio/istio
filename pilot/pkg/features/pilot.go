@@ -203,6 +203,14 @@ var (
 			"users to interrogate which envoy has which config from the debug interface.",
 	).Get()
 
+	EnableAutoRegistration = env.RegisterBoolVar(
+		"ENABLE_AUTO_REGISTRATION",
+		true,
+		"If enabled, Istiod will automatically register connected proxies with the service registry. "+
+			"This is especially useful for VM workloads which are not already a part of the Kubernetes service registry. "+
+			"WARNING: this feature is highly experimental, and does not handle authorization, proper lifecycle management, or scalability. For testing only.",
+	).Get()
+
 	DistributionHistoryRetention = env.RegisterDurationVar(
 		"PILOT_DISTRIBUTION_HISTORY_RETENTION",
 		time.Minute*1,

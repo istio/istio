@@ -487,6 +487,9 @@ type NodeMetadata struct {
 	// ProxyXDSViaAgent indicates that xds data is being proxied via the agent
 	ProxyXDSViaAgent string `json:"PROXY_XDS_VIA_AGENT,omitempty"`
 
+	// AutoRegister will enable auto registration of the connected endpoint to the service registry
+	AutoRegister StringBool `json:"AUTO_REGISTER,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`
