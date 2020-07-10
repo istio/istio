@@ -204,7 +204,7 @@ func (t *testAnalyzer) Run(_ func(ctx TestContext)) {
 	t.hasRun = true
 
 	// don't fail tests that would otherwise be skipped
-	if t.skip != "" {
+	if analysis.SkipReason != "" || t.skip != "" {
 		return
 	}
 
