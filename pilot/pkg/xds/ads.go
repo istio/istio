@@ -26,6 +26,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -321,6 +322,92 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			}
 		}
 	}
+}
+
+// StreamSecrets serves SDS discovery requests and SDS push requests
+func (s *DiscoveryServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+	ctx := stream.Context()
+	peerAddr := "0.0.0.0"
+	if peerInfo, ok := peer.FromContext(ctx); ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+
+	ids, err := s.authenticate(ctx)
+	if err != nil {
+		return err
+	}
+
+	// TODO: we want to reuse this code for agent, a setting will
+	// indicate the connection is UDS and unauth will be used.
+	if ids != nil {
+		adsLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
+	} else {
+		return errors.New("Unauthenticated request")
+	}
+
+	// InitContext returns immediately if the context was already initialized.
+	if err = s.globalPushContext().InitContext(s.Env, nil, nil); err != nil {
+		// Error accessing the data - log and close, maybe a different pilot replica
+		// has more luck
+		adsLog.Warnf("Error reading config %v", err)
+		return err
+	}
+
+	con := newConnection(peerAddr, stream)
+
+	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
+	// when the connection is no longer used. Closing the channel can cause subtle race conditions
+	// with push. According to the spec: "It's only necessary to close a channel when it is important
+	// to tell the receiving goroutines that all data have been sent."
+
+	// Reading from a stream is a blocking operation. Each connection needs to read
+	// discovery requests and wait for push commands on config change, so we add a
+	// go routine. If go grpc adds gochannel support for streams this will not be needed.
+	// This also detects close.
+	var receiveError error
+	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
+	go s.receiveThread(con, reqChannel, &receiveError)
+
+	for {
+		// Block until either a request is received or a push is triggered.
+		// We need 2 go routines because 'read' blocks in Recv().
+		//
+		// To avoid 2 routines, we tried to have Recv() in StreamAggregateResource - and the push
+		// on different short-lived go routines started when the push is happening. This would cut in 1/2
+		// the number of long-running go routines, since push is throttled. The main problem is with
+		// closing - the current gRPC library didn't allow closing the stream.
+		select {
+		case req, ok := <-reqChannel:
+			if !ok {
+				// Remote side closed connection or error processing the request.
+				return receiveError
+			}
+			// processRequest is calling pushXXX, accessing common structs with pushConnection.
+			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
+			err := s.processRequest(req, con)
+			if err != nil {
+				return err
+			}
+
+		case pushEv := <-con.pushChannel:
+			// It is called when config changes.
+			// This is not optimized yet - we should detect what changed based on event and only
+			// push resources that need to be pushed.
+
+			// TODO: possible race condition: if a config change happens while the envoy
+			// was getting the initial config, between LDS and RDS, the push will miss the
+			// monitored 'routes'. Same for CDS/EDS interval.
+			// It is very tricky to handle due to the protocol - but the periodic push recovers
+			// from it.
+
+			err := s.pushConnection(con, pushEv)
+			pushEv.done()
+			if err != nil {
+				return nil
+			}
+		}
+	}
+	return nil
 }
 
 // handleTypeURL records the type url received in an XDS response. If this conflicts with a previously sent type,
