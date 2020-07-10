@@ -16,15 +16,16 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
 // vmDeploymentOpts contains the options of a VM deployment resource.
 var (
 	name           string
 	serviceAccount string
-	labels2        map[string]string
+	labelsMap      map[string]string
 	filename       string
 )
 
@@ -36,22 +37,20 @@ func vmRegisterCmd() *cobra.Command {
 		Example: "vm-register --name foo -n bar -l env=prod,vers=2 --serviceAccount sa",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
-				return fmt.Errorf("Requires a service name")
+				return fmt.Errorf("requires a service name")
 			}
 			if namespace == "" {
-				return fmt.Errorf("Requres a service namespace")
+				return fmt.Errorf("requres a service namespace")
 			}
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Registering service %s in namespace %s with labels %s using service account %s\n", name, namespace, labels2, serviceAccount)
-			//labels := convertToMap(labels)
-			//fmt.Println(labels)
+			fmt.Printf("Registering service %s in namespace %s with labels %s using service account %s\n", name, namespace, labelsMap, serviceAccount)
 		},
 	}
 	vmRegisterCmd.PersistentFlags().StringVar(&name, "name", "", "Service name")
 	vmRegisterCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the service")
-	vmRegisterCmd.PersistentFlags().StringToStringVarP(&labels2, "labels", "l", nil, "List of labels to apply for the service; e.g. -l env=prod,vers=2")
+	vmRegisterCmd.PersistentFlags().StringToStringVarP(&labelsMap, "labels", "l", nil, "List of labels to apply for the service; e.g. -l env=prod,vers=2")
 	vmRegisterCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "Service account to link to the service")
 	return vmRegisterCmd
 }
@@ -64,10 +63,10 @@ func vmPackCmd() *cobra.Command {
 		Example: "vm-pack --name foo -n bar -o foo.tar.gz",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
-				return fmt.Errorf("Requires a service name")
+				return fmt.Errorf("requires a service name")
 			}
 			if namespace == "" {
-				return fmt.Errorf("Requres a service namespace")
+				return fmt.Errorf("requres a service namespace")
 			}
 			if filename == "" {
 				filename = fmt.Sprintf("%s-%s", name, namespace)

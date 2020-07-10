@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -52,13 +52,13 @@ func outsideClient() *kubernetes.Clientset {
 }
 
 // Returns a service in the istio-system namespace
-// TODO: deal with nonexistant clusters, only errs when namespace is non existant
+// TODO: deal with nonexistent clusters, only errs when namespace is nonexistent
 func istioService(clientset *kubernetes.Clientset, serviceName string) (*v1.Service, error) {
-	service, err := clientset.CoreV1().Services("istio-system").Get(context.TODO(), serviceName, metav1.GetOptions{})
+	service, err := clientset.CoreV1().Services("istio-system").Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	} else if service.Name == "" {
-		return nil, fmt.Errorf("Service %s does not exist", serviceName)
+		return nil, fmt.Errorf("fervice %s does not exist", serviceName)
 	}
 	return service, nil
 }

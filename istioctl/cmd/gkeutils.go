@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"cloud.google.com/go/container/apiv1"
+	container "cloud.google.com/go/container/apiv1"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
@@ -30,31 +30,31 @@ const defaultTimeout = 5 * time.Second
 // Returns the cluster defined by the project, location, and cluster name
 // Requires container.clusters.get IAM permissions (https://www.googleapis.com/auth/cloud-platform)
 func gkeCluster(project, location, clusterName string) (*containerpb.Cluster, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), defaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
-	error := make(chan error)
+	status := make(chan error)
 	var cluster *containerpb.Cluster
 	go func() {
-		creds, err := google.FindDefaultCredentials(ctx)
+		creds, err := google.FindDefaultCredentials(ctx, container.DefaultAuthScopes()[0])
 		if err != nil {
-			error <- fmt.Errorf("Failed to find default credentials: %v", err)
+			status <- fmt.Errorf("failed to find default credentials: %v", err)
 		}
 		client, err := container.NewClusterManagerClient(ctx, option.WithCredentials(creds))
 		if err != nil {
-			error <- fmt.Errorf("Failed to create cluster manager client: %v", err)
+			status <- fmt.Errorf("failed to create cluster manager client: %v", err)
 		}
 		req := &containerpb.GetClusterRequest{Name: fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, location, clusterName)}
 		cluster, err = client.GetCluster(ctx, req)
 		if err != nil {
-			error <- fmt.Errorf("Failed to retrieve: %v", err)
+			status <- fmt.Errorf("failed to retrieve: %v", err)
 		}
-		error <- nil
+		status <- nil
 	}()
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("Timed out while retrieving the cluster")
-	case ok := <-error:
+		return nil, fmt.Errorf("fimed out while retrieving the cluster")
+	case ok := <-status:
 		return cluster, ok
 	}
 }
