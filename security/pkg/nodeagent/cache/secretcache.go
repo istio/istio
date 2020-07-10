@@ -48,7 +48,6 @@ import (
 )
 
 var (
-
 	cacheLog       = log.RegisterScope("cache", "cache debugging", 0)
 	newFileWatcher = filewatcher.NewWatcher
 	// The total timeout for any credential retrieval process, default value of 10s is used.
@@ -647,7 +646,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				switch sc.fetcher.CaClient.(type) {
 				case *citadel.CitadelClient:
 					citadelClient := sc.fetcher.CaClient.(*citadel.CitadelClient)
-					sc.fetcher.ResetIstiodCaClientForCertRotation(citadelClient.GetCaEndpoint(), citadelClient.GetClusterId())
+					sc.fetcher.ResetIstiodCaClientForCertRotation(citadelClient.GetCaEndpoint(), citadelClient.GetClusterID())
 				case *google.GoogleCAClient:
 					// TODO(myidpt): recreate the google CA client to do mtls verification
 					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)

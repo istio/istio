@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	istioagentutil "istio.io/istio/pkg/istio-agent/istioagentutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -29,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	istioagentutil "istio.io/istio/pkg/istio-agent/istioagentutil"
 
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -507,6 +508,6 @@ func (sf *SecretFetcher) DeleteSecret(obj interface{}) {
 	sf.scrtDeleted(obj)
 }
 
-func (sf *SecretFetcher) ResetIstiodCaClientForCertRotation(caEndpoint, clusterId string) {
-		sf.CaClient,_, _ = istioagentutil.NewIstiodCAClient( "istiod" ,caEndpoint, clusterId, true,true)
+func (sf *SecretFetcher) ResetIstiodCaClientForCertRotation(caEndpoint, clusterID string) {
+	sf.CaClient, _, _ = istioagentutil.NewIstiodCAClient("istiod", caEndpoint, clusterID, true, true)
 }

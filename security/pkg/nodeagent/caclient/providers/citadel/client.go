@@ -47,10 +47,10 @@ var (
 	ProvCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
 
-	// if OUTPUT_CERTS path is set, it will restore the cert from the signed by the CA
+	// OutputKeyCertToDir path is set, it will restore the cert from the signed by the CA
 	OutputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
-				"Must be set for VMs using provisioning certificates.").Get()
+			"Must be set for VMs using provisioning certificates.").Get()
 )
 
 type CitadelClient struct {
@@ -149,16 +149,15 @@ func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error)
 					}
 				}
 				return &certificate, nil
-			} else {
-				if ProvCert != "" {
-					// Load the certificate from disk
-					certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
-					if err != nil {
-						return nil, fmt.Errorf("cannot load key pair: %s", err)
-					}
-				}
-				return &certificate, nil
 			}
+			if ProvCert != "" {
+				// Load the certificate from disk
+				certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
+				if err != nil {
+					return nil, fmt.Errorf("cannot load key pair: %s", err)
+				}
+			}
+			return &certificate, nil
 		},
 	}
 	config.RootCAs = certPool
@@ -182,6 +181,6 @@ func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error)
 func (c *CitadelClient) GetCaEndpoint() string {
 	return c.caEndpoint
 }
-func (c *CitadelClient) GetClusterId() string {
+func (c *CitadelClient) GetClusterID() string {
 	return c.clusterID
 }

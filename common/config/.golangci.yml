@@ -145,7 +145,6 @@ linters-settings:
       - stringXbytes
       - switchTrue
       - typeAssertChain
-      - typeSwitchVar
       - typeUnparen
       - underef
       - unlambda

@@ -522,7 +522,7 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options, isRotate bool) (workl
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert, serverOptions.ClusterID ,isRotate)
+		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert, serverOptions.ClusterID, isRotate)
 		if err == nil {
 			sa.CitadelClient = caClient
 		}
