@@ -27,6 +27,10 @@ spec:
         openAPIV3Schema:
           properties:
             spec:
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+            status:
+              x-kubernetes-preserve-unknown-fields: true
               type: object
           type: object
       served: true
@@ -64,6 +68,10 @@ spec:
         openAPIV3Schema:
           properties:
             spec:
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+            status:
+              x-kubernetes-preserve-unknown-fields: true
               type: object
           type: object
       served: true

@@ -3234,6 +3234,7 @@ spec:
                           value:
                             description: The JSON config of the object being patched.
                             type: object
+                            x-kubernetes-preserve-unknown-fields: true
                         type: object
                     type: object
                   type: array
@@ -3330,6 +3331,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                       tls:
                         description:
@@ -3463,6 +3466,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                       tls:
                         description:
@@ -3678,6 +3683,8 @@ spec:
                         description: The protocol exposed on the port.
                         format: string
                         type: string
+                      targetPort:
+                        type: integer
                     type: object
                   type: array
                 resolution:
@@ -3814,6 +3821,8 @@ spec:
                         description: The protocol exposed on the port.
                         format: string
                         type: string
+                      targetPort:
+                        type: integer
                     type: object
                   type: array
                 resolution:
@@ -3980,6 +3989,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                     type: object
                   type: array
@@ -4048,6 +4059,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                     type: object
                   type: array
@@ -4312,6 +4325,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                     type: object
                   type: array
@@ -4380,6 +4395,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                     type: object
                   type: array

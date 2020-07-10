@@ -251,6 +251,7 @@ spec:
               description:
                 "Specification of the desired state of the istio control plane resource.
                 More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
+              x-kubernetes-preserve-unknown-fields: true
               type: object
             status:
               description:
@@ -258,6 +259,7 @@ spec:
                 0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
                 More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
                 https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
+              x-kubernetes-preserve-unknown-fields: true
               type: object
           type: object
       served: true

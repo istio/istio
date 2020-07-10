@@ -27,6 +27,10 @@ spec:
         openAPIV3Schema:
           properties:
             spec:
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+            status:
+              x-kubernetes-preserve-unknown-fields: true
               type: object
           type: object
       served: true
@@ -3001,6 +3005,7 @@ spec:
                           value:
                             description: The JSON config of the object being patched.
                             type: object
+                            x-kubernetes-preserve-unknown-fields: true
                         type: object
                     type: object
                   type: array
@@ -3096,6 +3101,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                       tls:
                         description:
@@ -3229,6 +3236,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                       tls:
                         description:
@@ -4024,6 +4033,7 @@ spec:
               description:
                 "Specification of the desired state of the istio control plane resource.
                 More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
+              x-kubernetes-preserve-unknown-fields: true
               type: object
             status:
               description:
@@ -4031,6 +4041,7 @@ spec:
                 0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
                 More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
                 https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
+              x-kubernetes-preserve-unknown-fields: true
               type: object
           type: object
       served: true
@@ -4707,6 +4718,8 @@ spec:
                         description: The protocol exposed on the port.
                         format: string
                         type: string
+                      targetPort:
+                        type: integer
                     type: object
                   type: array
                 resolution:
@@ -4843,6 +4856,8 @@ spec:
                         description: The protocol exposed on the port.
                         format: string
                         type: string
+                      targetPort:
+                        type: integer
                     type: object
                   type: array
                 resolution:
@@ -5008,6 +5023,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                     type: object
                   type: array
@@ -5076,6 +5093,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                     type: object
                   type: array
@@ -5340,6 +5359,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                     type: object
                   type: array
@@ -5408,6 +5429,8 @@ spec:
                             description: The protocol exposed on the port.
                             format: string
                             type: string
+                          targetPort:
+                            type: integer
                         type: object
                     type: object
                   type: array
@@ -5593,6 +5616,10 @@ spec:
         openAPIV3Schema:
           properties:
             spec:
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+            status:
+              x-kubernetes-preserve-unknown-fields: true
               type: object
           type: object
       served: true
@@ -11249,10 +11276,6 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e358c80eab... make gen
           - name: istio-envoy
             mountPath: /etc/istio/proxy
           - name: config-volume
@@ -11262,11 +11285,7 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-<<<<<<< HEAD
           - name: gatewaysdsudspath
-=======
-          - name: ingressgatewaysdsudspath
->>>>>>> e358c80eab... make gen
             mountPath: /var/run/ingress_gateway
           - name: podinfo
             mountPath: /etc/istio/pod
@@ -11276,7 +11295,6 @@ spec:
           - name: ingressgateway-ca-certs
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
-<<<<<<< HEAD
       volumes:
       - name: istiod-ca-cert
         configMap:
@@ -11314,103 +11332,6 @@ spec:
           secretName: "istio-ingressgateway-ca-certs"
           optional: true
       affinity:      
-=======
-            - name: istio-envoy
-              mountPath: /etc/istio/proxy
-            - name: config-volume
-              mountPath: /etc/istio/config
-            - mountPath: /var/run/secrets/istio
-              name: istiod-ca-cert
-            - name: istio-token
-              mountPath: /var/run/secrets/tokens
-              readOnly: true
-            - name: ingressgatewaysdsudspath
-              mountPath: /var/run/ingress_gateway
-            - name: podinfo
-              mountPath: /etc/istio/pod
-            - name: ingressgateway-certs
-              mountPath: "/etc/istio/ingressgateway-certs"
-              readOnly: true
-            - name: ingressgateway-ca-certs
-              mountPath: "/etc/istio/ingressgateway-ca-certs"
-              readOnly: true
-      volumes:
-        - name: istiod-ca-cert
-          configMap:
-            name: istio-ca-root-cert
-        - name: podinfo
-          downwardAPI:
-            items:
-              - path: "labels"
-                fieldRef:
-                  fieldPath: metadata.labels
-              - path: "annotations"
-                fieldRef:
-                  fieldPath: metadata.annotations
-        - name: istio-envoy
-          emptyDir: {}
-        - name: ingressgatewaysdsudspath
-          emptyDir: {}
-        - name: istio-token
-          projected:
-            sources:
-              - serviceAccountToken:
-                  path: istio-token
-                  expirationSeconds: 43200
-                  audience: istio-ca
-        - name: config-volume
-          configMap:
-            name: istio
-            optional: true
-        - name: ingressgateway-certs
-          secret:
-            secretName: "istio-ingressgateway-certs"
-            optional: true
-        - name: ingressgateway-ca-certs
-          secret:
-            secretName: "istio-ingressgateway-ca-certs"
-            optional: true
-      affinity:
->>>>>>> 0bd126e6bb... Move CRDs to v1
-=======
-      volumes:
-      - name: istiod-ca-cert
-        configMap:
-          name: istio-ca-root-cert
-      - name: podinfo
-        downwardAPI:
-          items:
-            - path: "labels"
-              fieldRef:
-                fieldPath: metadata.labels
-            - path: "annotations"
-              fieldRef:
-                fieldPath: metadata.annotations
-      - name: istio-envoy
-        emptyDir: {}
-      - name: ingressgatewaysdsudspath
-        emptyDir: {}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: istio-token
-              expirationSeconds: 43200
-              audience: istio-ca
-      - name: config-volume
-        configMap:
-          name: istio
-          optional: true
-      - name: ingressgateway-certs
-        secret:
-          secretName: "istio-ingressgateway-certs"
-          optional: true
-      - name: ingressgateway-ca-certs
-        secret:
-          secretName: "istio-ingressgateway-ca-certs"
-          optional: true
-      affinity:      
->>>>>>> e358c80eab... make gen
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:

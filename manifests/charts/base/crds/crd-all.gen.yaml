@@ -4192,6 +4192,8 @@ spec:
                           description: The name of a subset within the service.
                           format: string
                           type: string
+                        targetPort:
+                          type: integer
                       type: object
                     mode:
                       enum:
