@@ -184,15 +184,15 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 		CaClient:    caClient,
 	}
 
-	workloadSdsCacheOptions := &cache.Options{}
+	workloadSdsCacheOptions := &security.Options{}
 	workloadSdsCacheOptions.TrustDomain = "FakeTrustDomain"
 	workloadSdsCacheOptions.Pkcs8Keys = false
-	workloadSdsCacheOptions.Plugins = NewPlugins([]string{"GoogleTokenExchange"})
+	workloadSdsCacheOptions.TokenExchangers = NewPlugins([]string{"GoogleTokenExchange"})
 	workloadSdsCacheOptions.RotationInterval = 10 * time.Minute
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = 10
-	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, NotifyProxy, *workloadSdsCacheOptions)
+	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, NotifyProxy, workloadSdsCacheOptions)
 
-	server, err := NewServer(arg, workloadSecretCache, nil)
+	server, err := NewServer(&arg, workloadSecretCache, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}

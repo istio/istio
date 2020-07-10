@@ -356,7 +356,7 @@ func createStreamSDSServer(t *testing.T, socket string) (*Server, *mockIngressGa
 	st := &mockIngressGatewaySecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(arg, st, nil)
+	server, err := NewServer(&arg, st, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}
