@@ -41,10 +41,6 @@ import (
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
 
-	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
-	google "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
-	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
-
 	"github.com/google/uuid"
 )
 
@@ -55,8 +51,8 @@ var (
 	totalTimeout = time.Second * 10
 
 	// SupportRotationWithCert is a field controlling the use the cert for rotation
-	// If is set to "true", we will use the old cert to rotate instead of token
-	SupportRotationWithCert = env.RegisterStringVar("CERT_ROTATE", "",
+	// If is set to true, we will use the old cert to rotate instead of token
+	SupportRotationWithCert = env.RegisterBoolVar("SUPPORT_ROTATION_WITH_CERT", false,
 		"If the flag is set to true, use cert, instead of token to rotate.").Get()
 )
 
@@ -642,32 +638,18 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
-			if SupportRotationWithCert == "true" {
-				switch sc.fetcher.CaClient.(type) {
-				case *citadel.CitadelClient:
-					err := sc.fetcher.ResetClientConnectionForCertRotation(true)
-					if err != nil {
-						cacheLog.Errorf("%s Connection Reset fails", logPrefix)
-						// Send the notification to close the stream if reconnection fails, so that client could re-connect with a new token.
-						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-						return true
-					}
-				case *google.GoogleCAClient:
-					// TODO(myidpt): Reset ClientConnection in googleCA cases to do mtls verification
-					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-					return true
-				case *vault.VaultClient:
-					// TODO(myidpt): Reset ClientConnection in Vault cases to do mtls verification
-					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-					return true
-				default:
-					// requiring the client to send another SDS request. no citadel client meet return the client
+			if SupportRotationWithCert {
+				err := sc.fetcher.ResetClientConnectionForCertRotation(true)
+				if err != nil {
+					cacheLog.Errorf("%s Connection Reset fails", logPrefix)
+					// Send the notification to close the stream if reconnection fails, so that client could re-connect with a new token.
 					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 					return true
 				}
 			} else if sc.isTokenExpired(&secret) {
 				cacheLog.Infof("%s token expired", logPrefix)
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
+				// requiring the client to send another SDS request.
 				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 				return true
 			}
@@ -682,7 +664,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				// When cert has expired, we could make it simple by assuming token has already expired.
 				var ns *model.SecretItem
 				var err error
-				if SupportRotationWithCert == "true" {
+				if SupportRotationWithCert {
 					ns, err = sc.generateSecretUsingCaClientWithoutToken(context.Background(), connKey, now)
 				} else {
 					ns, err = sc.generateSecret(context.Background(), secret.Token, connKey, now)

@@ -53,7 +53,7 @@ var (
 			"Must be set for VMs using provisioning certificates.").Get()
 )
 
-type CitadelClient struct {
+type citadelClient struct {
 	caEndpoint    string
 	enableTLS     bool
 	caTLSRootCert []byte
@@ -64,7 +64,7 @@ type CitadelClient struct {
 
 // NewCitadelClient create a CA client for Citadel.
 func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string, isRotate bool) (caClientInterface.Client, error) {
-	c := &CitadelClient{
+	c := &citadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,
 		caTLSRootCert: rootCert,
@@ -81,7 +81,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 }
 
 // CSR Sign calls Citadel to sign a CSR.
-func (c *CitadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
+func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
 	certValidTTLInSec int64, withToken bool) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
@@ -105,14 +105,14 @@ func (c *CitadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 	return resp.CertChain, nil
 }
 
-func (c *CitadelClient) GetCaEndpoint() string {
+func (c *citadelClient) GetCaEndpoint() string {
 	return c.caEndpoint
 }
-func (c *CitadelClient) GetClusterID() string {
+func (c *citadelClient) GetClusterID() string {
 	return c.clusterID
 }
 
-func (c *CitadelClient) Reconnect(isRotate bool) error {
+func (c *citadelClient) Reconnect(isRotate bool) error {
 	err := c.releaseResource()
 	if err != nil {
 		return fmt.Errorf("failed to close connection")
@@ -126,7 +126,7 @@ func (c *CitadelClient) Reconnect(isRotate bool) error {
 	return err
 }
 
-func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error) {
+func (c *citadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error) {
 	// Load the TLS root certificate from the specified file.
 	// Create a certificate pool
 	var certPool *x509.CertPool
@@ -186,12 +186,12 @@ func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error)
 	return grpc.WithTransportCredentials(transportCreds), nil
 }
 
-func (c *CitadelClient) releaseResource() error {
+func (c *citadelClient) releaseResource() error {
 	err := c.conn.Close()
 	return err
 }
 
-func (c *CitadelClient) buildConnection(isRotate bool) (*grpc.ClientConn, error) {
+func (c *citadelClient) buildConnection(isRotate bool) (*grpc.ClientConn, error) {
 	var opts grpc.DialOption
 	var err error
 	if c.enableTLS {
