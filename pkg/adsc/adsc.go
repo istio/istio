@@ -999,8 +999,6 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 		version = ex.VersionInfo
 		nonce = ex.Nonce
 	}
-
-	fmt.Println(version, nonce)
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: nonce,
 		VersionInfo:   version,
