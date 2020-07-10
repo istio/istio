@@ -33,6 +33,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		vsName      = "vs1"
 		scName      = "sc1"
 		nsName      = "ns1"
+		nsRoot      = "rootns"
 		generalName = "name1"
 
 		invalidNameSuffix = "invalid"
@@ -52,7 +53,7 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	sidecar := &model.Proxy{
 		Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{},
-		SidecarScope: &model.SidecarScope{Config: proxyCfg}}
+		SidecarScope: &model.SidecarScope{Config: proxyCfg, RootNamespace: nsRoot}}
 	gateway := &model.Proxy{Type: model.Router}
 
 	sidecarScopeKindNames := map[resource.GroupVersionKind]string{
